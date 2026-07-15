@@ -86,5 +86,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.Pacientes.Remove(paciente);
     }
 
+    // ---- Agenda ----
+
+    public async Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default)
+        => await _db.Agendamentos.AddAsync(agendamento, ct);
+
+    public Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
+        => _db.Agendamentos.Include(a => a.Paciente).FirstOrDefaultAsync(a => a.Id == agendamentoId, ct);
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
+        => await _db.Agendamentos
+            .Include(a => a.Paciente)
+            .Where(a => a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+
+    public async Task RemoverAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
+    {
+        var ag = await _db.Agendamentos.FirstOrDefaultAsync(a => a.Id == agendamentoId, ct);
+        if (ag is not null)
+            _db.Agendamentos.Remove(ag);
+    }
+
     public Task<int> SalvarAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
 }

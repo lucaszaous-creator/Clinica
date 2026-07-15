@@ -10,6 +10,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<Paciente> Pacientes => Set<Paciente>();
     public DbSet<Atendimento> Atendimentos => Set<Atendimento>();
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
+    public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -46,6 +47,20 @@ public class ClinicaDbContext : DbContext
             e.Ignore(c => c.Baixado);
             // Índice para a consulta de pendências (códigos ainda sem baixa).
             e.HasIndex(c => new { c.DataBaixa, c.DataPrevistaFaturamento });
+        });
+
+        b.Entity<Agendamento>(e =>
+        {
+            e.HasKey(a => a.Id);
+            e.Property(a => a.ModalidadePrevista).HasConversion<string>().HasMaxLength(40);
+            e.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(a => a.Origem).HasConversion<string>().HasMaxLength(20);
+            e.Property(a => a.Observacoes).HasMaxLength(500);
+            e.HasOne(a => a.Paciente).WithMany().HasForeignKey(a => a.PacienteId);
+            // Sem cascade a partir do atendimento (relação opcional).
+            e.HasOne(a => a.Atendimento).WithMany().HasForeignKey(a => a.AtendimentoId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(a => a.DataHora);
         });
     }
 }
