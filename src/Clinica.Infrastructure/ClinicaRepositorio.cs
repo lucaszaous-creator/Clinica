@@ -57,6 +57,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default)
         => await _db.Atendimentos.AddAsync(atendimento, ct);
 
+    public Task<Atendimento?> ObterAtendimentoAsync(int atendimentoId, CancellationToken ct = default)
+        => _db.Atendimentos
+            .Include(a => a.Paciente)
+            .Include(a => a.Codigos)
+            .FirstOrDefaultAsync(a => a.Id == atendimentoId, ct);
+
     public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, CancellationToken ct = default)
     {
         var query = _db.Pacientes.AsQueryable();

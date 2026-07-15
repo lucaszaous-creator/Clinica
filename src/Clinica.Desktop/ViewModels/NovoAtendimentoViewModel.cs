@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -7,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 
 namespace Clinica.Desktop.ViewModels;
 
@@ -27,6 +30,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject
     [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private bool _lancado;
+    [ObservableProperty] private string? _numeroAtendimento;
+
+    private int _ultimoAtendimentoId;
 
     public NovoAtendimentoViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
 
@@ -64,6 +70,33 @@ public partial class NovoAtendimentoViewModel : ObservableObject
         foreach (var a in resultado.Avisos)
             Avisos.Add(a);
 
+        _ultimoAtendimentoId = resultado.Atendimento.Id;
+        NumeroAtendimento = resultado.Atendimento.Numero;
         Lancado = true;
+    }
+
+    /// <summary>Gera a capa de faturamento (PDF) do atendimento recém-lançado e abre o arquivo.</summary>
+    [RelayCommand]
+    private async Task GerarCapa()
+    {
+        if (_ultimoAtendimentoId == 0) return;
+
+        byte[] pdf;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var capa = scope.ServiceProvider.GetRequiredService<CapaFaturamentoService>();
+            pdf = await capa.GerarPdfAsync(_ultimoAtendimentoId);
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            FileName = $"Capa-{NumeroAtendimento ?? _ultimoAtendimentoId.ToString()}.pdf",
+            Filter = "PDF (*.pdf)|*.pdf",
+            DefaultExt = ".pdf"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        await File.WriteAllBytesAsync(dialog.FileName, pdf);
+        Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
     }
 }

@@ -23,6 +23,9 @@ public interface IClinicaRepositorio
 
     Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default);
 
+    /// <summary>Atendimento com paciente e códigos carregados (para gerar a capa de faturamento).</summary>
+    Task<Atendimento?> ObterAtendimentoAsync(int atendimentoId, CancellationToken ct = default);
+
     // ---- Busca / ficha do paciente / faturados ----
 
     /// <summary>Busca pacientes por nome ou CPF (termo normalizado). Termo vazio devolve todos.</summary>

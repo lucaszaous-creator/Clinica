@@ -52,6 +52,10 @@ public sealed class AtendimentoService
         await _repo.AdicionarAtendimentoAsync(atendimento, ct);
         await _repo.SalvarAsync(ct);
 
+        // Número/protocolo do atendimento (o Id já existe após salvar) — base do lastro de faturamento.
+        atendimento.Numero = $"{data.Year}-{atendimento.Id:D6}";
+        await _repo.SalvarAsync(ct);
+
         return new ResultadoLancamento(atendimento, resultado.Avisos);
     }
 }
