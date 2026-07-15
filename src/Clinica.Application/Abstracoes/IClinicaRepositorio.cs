@@ -47,6 +47,10 @@ public interface IClinicaRepositorio
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 
     // ---- Agenda ----
+    // ---- Parâmetros dos convênios ----
+    Task<IReadOnlyList<ParametroConvenio>> ParametrosAsync(CancellationToken ct = default);
+    Task SalvarParametroAsync(ParametroConvenio parametro, CancellationToken ct = default);
+
     Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default);
     Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);

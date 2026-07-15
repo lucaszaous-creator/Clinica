@@ -11,11 +11,16 @@ namespace Clinica.Application.Servicos;
 public sealed class PendenciaService
 {
     private readonly IClinicaRepositorio _repo;
+    private readonly ParametrosService? _parametros;
 
     /// <summary>Janela (em dias) para começar a alertar sobre consultas a vencer.</summary>
     public int JanelaAlertaConsultaDias { get; init; } = 5;
 
-    public PendenciaService(IClinicaRepositorio repo) => _repo = repo;
+    public PendenciaService(IClinicaRepositorio repo, ParametrosService? parametros = null)
+    {
+        _repo = repo;
+        _parametros = parametros;
+    }
 
     /// <summary>Códigos pendentes de baixa cuja data prevista já chegou, ordenados do mais atrasado ao menos.</summary>
     public async Task<IReadOnlyList<PendenciaCodigo>> CodigosPendentesAsync(DateOnly referencia, CancellationToken ct = default)
@@ -50,11 +55,12 @@ public sealed class PendenciaService
     public async Task<IReadOnlyList<PendenciaConsulta>> ConsultasAVencerAsync(DateOnly referencia, CancellationToken ct = default)
     {
         var pacientes = await _repo.PacientesComAtendimentosAsync(ct);
+        var snapshot = _parametros is null ? null : await _parametros.ObterAsync(ct);
         var resultado = new List<PendenciaConsulta>();
 
         foreach (var p in pacientes)
         {
-            var validade = ConvenioInfo.ValidadeConsultaDias(p.Convenio);
+            var validade = snapshot?.ValidadeConsultaDias(p.Convenio) ?? ConvenioInfo.ValidadeConsultaDias(p.Convenio);
             if (validade is null || p.Atendimentos.Count == 0)
                 continue;
 
