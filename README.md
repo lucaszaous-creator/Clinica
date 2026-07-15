@@ -38,25 +38,18 @@ guia no sistema do convênio (data, número real da guia, forma de obtenção).
 - Windows + .NET 8 SDK (para o app WPF)
 - **PostgreSQL** (ex.: Neon). O banco é acessado via EF Core + Npgsql.
 
-### Configurar a connection string (o segredo NÃO fica no git)
-O `appsettings.json` versionado tem apenas um **placeholder**. A string real deve ser fornecida por
-**uma** das opções abaixo (prioridade: env var > `appsettings.Development.json`):
+### Configurar o banco no primeiro acesso (sem editar arquivos)
+Na **primeira execução**, o app abre uma **tela de configuração**: cole a connection string do
+PostgreSQL — pode ser a **URI da Neon** (`postgresql://user:senha@host/neondb?sslmode=require`), que o
+sistema converte automaticamente para o formato Npgsql. Clique em **Testar conexão** e depois em
+**Salvar e continuar**.
 
-1. **Arquivo local** `src/Clinica.Desktop/appsettings.Development.json` (já está no `.gitignore`):
-   ```json
-   {
-     "ConnectionStrings": {
-       "Clinica": "Host=SEU_HOST.neon.tech;Database=neondb;Username=USUARIO;Password=SENHA;SSL Mode=Require;Trust Server Certificate=true"
-     }
-   }
-   ```
-2. **Variável de ambiente**:
-   ```bash
-   setx ConnectionStrings__Clinica "Host=...;Database=neondb;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true"
-   ```
+A string é guardada **criptografada** (DPAPI, por usuário do Windows) em
+`%APPDATA%\ClinicaFaturamento\conexao.dat` — **nunca** vai para o git nem para o `.exe`. Se a conexão
+falhar depois, o app oferece reconfigurar.
 
-> A URI da Neon (`postgresql://user:pass@host/db?sslmode=require`) deve ser convertida para o formato
-> de palavras-chave do Npgsql (acima). O `channel_binding` é negociado automaticamente (SCRAM).
+> Alternativa para TI: definir a variável de ambiente `ConnectionStrings__Clinica` (tem prioridade
+> sobre a configuração salva e pula a tela de setup). O `channel_binding` é negociado automaticamente (SCRAM).
 
 ### Banco de dados
 As migrations são aplicadas **automaticamente** ao abrir o app. Para criar/atualizar manualmente
@@ -103,9 +96,8 @@ dotnet publish src\Clinica.Desktop\Clinica.Desktop.csproj -c Release -r win-x64 
 Gera `publish\Clinica.Desktop.exe` — **arquivo único, self-contained** (roda mesmo sem .NET
 instalado no PC da clínica).
 
-> Antes de executar o `.exe`, forneça a connection string real: coloque
-> `appsettings.Development.json` na mesma pasta do `.exe` **ou** defina a variável de ambiente
-> `ConnectionStrings__Clinica`. O `appsettings.json` que acompanha o `.exe` é só um placeholder.
+> Ao abrir o `.exe` pela **primeira vez**, o app pede a connection string na tela de configuração
+> (veja *Configurar o banco no primeiro acesso*). Não é preciso levar nenhum arquivo de segredo junto.
 
 ## Fluxo de uso
 1. **Pacientes** — cadastrar (convênio, se possui app, sexo).
