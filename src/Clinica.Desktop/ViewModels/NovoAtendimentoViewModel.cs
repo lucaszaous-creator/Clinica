@@ -90,7 +90,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject
 
         var dialog = new SaveFileDialog
         {
-            FileName = $"Capa-{NumeroAtendimento ?? _ultimoAtendimentoId.ToString()}.pdf",
+            FileName = $"Capa-INICIAL-{NumeroAtendimento ?? _ultimoAtendimentoId.ToString()}-{Data:yyyy-MM-dd}.pdf",
             Filter = "PDF (*.pdf)|*.pdf",
             DefaultExt = ".pdf"
         };

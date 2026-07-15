@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
@@ -5,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 
 namespace Clinica.Desktop.ViewModels;
 
@@ -51,12 +54,55 @@ public partial class BaixaViewModel : ObservableObject
             "Confirmar baixa", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
         if (confirma != System.Windows.MessageBoxResult.Yes) return;
 
-        using var scope = _scopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
-        await service.DarBaixaAsync(_codigoId, DateOnly.FromDateTime(DataBaixa),
-            NumeroGuia, Environment.UserName, Observacao);
+        var atendimentoId = Codigo?.AtendimentoId ?? 0;
+
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
+            await service.DarBaixaAsync(_codigoId, DateOnly.FromDateTime(DataBaixa),
+                NumeroGuia, Environment.UserName, Observacao);
+        }
+
+        await OferecerCapaConclusaoAsync(atendimentoId);
 
         BaixaConcluida?.Invoke();
+    }
+
+    /// <summary>Se esta baixa concluiu a fatura, oferece gerar a capa de conclusão para imprimir e arquivar.</summary>
+    private async Task OferecerCapaConclusaoAsync(int atendimentoId)
+    {
+        if (atendimentoId == 0) return;
+
+        try
+        {
+            CapaConclusao resultado;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var capa = scope.ServiceProvider.GetRequiredService<CapaFaturamentoService>();
+                resultado = await capa.GerarConclusaoAsync(atendimentoId);
+                if (!resultado.Concluido || resultado.Pdf is null) return;
+            }
+
+            var gerar = System.Windows.MessageBox.Show(
+                "Fatura concluída! Gerar a capa de conclusão para imprimir e arquivar na pasta do dia?",
+                "Fatura concluída", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Information);
+            if (gerar != System.Windows.MessageBoxResult.Yes) return;
+
+            var dialog = new SaveFileDialog
+            {
+                FileName = $"Capa-CONCLUIDA-{resultado.Numero}-{resultado.Data:yyyy-MM-dd}.pdf",
+                Filter = "PDF (*.pdf)|*.pdf",
+                DefaultExt = ".pdf"
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            await File.WriteAllBytesAsync(dialog.FileName, resultado.Pdf);
+            Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
+        }
+        catch
+        {
+            // A geração da capa nunca deve impedir a baixa.
+        }
     }
 
     [RelayCommand]

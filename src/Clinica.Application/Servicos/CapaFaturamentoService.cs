@@ -24,6 +24,13 @@ public sealed class CapaFaturamentoService
 
     public CapaFaturamentoService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <summary>A fatura está concluída quando todos os códigos faturáveis já tiveram baixa.</summary>
+    public static bool EstaConcluido(Atendimento atendimento)
+    {
+        var faturaveis = atendimento.Codigos.Where(c => c.Status != StatusCodigo.NaoAplicavel).ToList();
+        return faturaveis.Count > 0 && faturaveis.All(c => c.Baixado);
+    }
+
     public async Task<byte[]> GerarPdfAsync(int atendimentoId, CancellationToken ct = default)
     {
         var atendimento = await _repo.ObterAtendimentoAsync(atendimentoId, ct)
@@ -31,9 +38,19 @@ public sealed class CapaFaturamentoService
         return GerarPdf(atendimento);
     }
 
+    /// <summary>Gera a capa de conclusão se a fatura estiver concluída (usado ao dar a baixa da última guia).</summary>
+    public async Task<CapaConclusao> GerarConclusaoAsync(int atendimentoId, CancellationToken ct = default)
+    {
+        var atendimento = await _repo.ObterAtendimentoAsync(atendimentoId, ct)
+            ?? throw new InvalidOperationException($"Atendimento {atendimentoId} não encontrado.");
+        var concluido = EstaConcluido(atendimento);
+        return new CapaConclusao(concluido, atendimento.Numero, atendimento.Data, concluido ? GerarPdf(atendimento) : null);
+    }
+
     public byte[] GerarPdf(Atendimento atendimento)
     {
         var paciente = atendimento.Paciente;
+        var concluido = EstaConcluido(atendimento);
 
         return Document.Create(container =>
         {
@@ -46,6 +63,8 @@ public sealed class CapaFaturamentoService
                 page.Header().Column(col =>
                 {
                     col.Item().Text("CAPA DE FATURAMENTO").Bold().FontSize(16).FontColor(Colors.Green.Darken3);
+                    col.Item().Text(concluido ? "FATURA CONCLUÍDA" : "EM ANDAMENTO").Bold().FontSize(11)
+                        .FontColor(concluido ? Colors.Green.Darken2 : Colors.Orange.Darken2);
                     col.Item().Text($"Atendimento nº {atendimento.Numero ?? atendimento.Id.ToString()}")
                         .FontSize(12).Bold();
                     col.Item().PaddingBottom(6).Text($"Data: {atendimento.Data:dd/MM/yyyy}   ·   Emitido em {DateTime.Now:dd/MM/yyyy HH:mm}")
@@ -125,3 +144,6 @@ public sealed class CapaFaturamentoService
         }).GeneratePdf();
     }
 }
+
+/// <summary>Resultado da tentativa de gerar a capa de conclusão após a baixa.</summary>
+public sealed record CapaConclusao(bool Concluido, string? Numero, DateOnly Data, byte[]? Pdf);
