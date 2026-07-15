@@ -41,8 +41,18 @@ public class CodigoFaturamento
     public string? UsuarioBaixa { get; set; }
     public string? ObservacaoBaixa { get; set; }
 
+    // ---------- Glosa (recusa do convênio) ----------
+
+    public StatusGlosa Glosa { get; set; } = StatusGlosa.SemGlosa;
+    public DateOnly? DataGlosa { get; set; }
+    public string? MotivoGlosa { get; set; }
+    public DateOnly? DataReapresentacao { get; set; }
+
     /// <summary>True quando a baixa já foi registrada.</summary>
     public bool Baixado => DataBaixa.HasValue;
+
+    /// <summary>Glosas ativas (glosada ou reapresentada, ainda não recuperadas).</summary>
+    public bool GlosaEmAberto => Glosa is StatusGlosa.Glosada or StatusGlosa.Reapresentada;
 
     /// <summary>
     /// Está pendente quando ainda não teve baixa, é faturável e sua data prevista já chegou (na data de referência).
@@ -79,5 +89,33 @@ public class CodigoFaturamento
         var quando = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
         var motivoTxt = string.IsNullOrWhiteSpace(motivo) ? "" : $" — {motivo}";
         ObservacaoBaixa = $"[Estornado em {quando} por {quem}{motivoTxt}] (guia anterior: {guiaAnterior})";
+    }
+
+    /// <summary>Registra a glosa de uma guia já faturada (baixada).</summary>
+    public void RegistrarGlosa(DateOnly data, string? motivo)
+    {
+        if (!Baixado)
+            throw new InvalidOperationException("Só é possível glosar uma guia já faturada (com baixa).");
+        Glosa = StatusGlosa.Glosada;
+        DataGlosa = data;
+        MotivoGlosa = motivo;
+        DataReapresentacao = null;
+    }
+
+    /// <summary>Marca a guia glosada como reapresentada ao convênio.</summary>
+    public void Reapresentar(DateOnly data)
+    {
+        if (Glosa != StatusGlosa.Glosada)
+            throw new InvalidOperationException("Só é possível reapresentar uma guia glosada.");
+        Glosa = StatusGlosa.Reapresentada;
+        DataReapresentacao = data;
+    }
+
+    /// <summary>Marca a glosa como recuperada (aceita após reapresentação).</summary>
+    public void MarcarGlosaRecuperada()
+    {
+        if (Glosa is StatusGlosa.SemGlosa or StatusGlosa.Recuperada)
+            return;
+        Glosa = StatusGlosa.Recuperada;
     }
 }

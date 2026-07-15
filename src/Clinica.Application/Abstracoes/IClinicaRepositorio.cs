@@ -34,6 +34,9 @@ public interface IClinicaRepositorio
     /// <summary>Guias baixadas cujo atendimento ocorreu no período (tela de Faturados).</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosBaixadosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
+    /// <summary>Guias glosadas. Se somenteEmAberto, traz apenas as ainda não recuperadas.</summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosGlosadosAsync(bool somenteEmAberto, CancellationToken ct = default);
+
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 

@@ -32,6 +32,9 @@
         <DataTemplate DataType="{x:Type vm:AgendaViewModel}">
             <views:AgendaView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:GlosasViewModel}">
+            <views:GlosasView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -61,6 +64,9 @@
                 <Button Content="💳  Faturados" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarFaturadosCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Faturados}" />
+                <Button Content="🚫  Glosas" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarGlosasCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Glosas}" />
                 <Button Content="📊  Relatórios" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarRelatoriosCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Relatorios}" />

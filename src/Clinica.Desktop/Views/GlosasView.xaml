@@ -1,0 +1,47 @@
+<UserControl x:Class="Clinica.Desktop.Views.GlosasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Controle de glosas" Style="{StaticResource H1}" />
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+            <CheckBox Content="Mostrar só glosas em aberto" IsChecked="{Binding SomenteEmAberto}" VerticalAlignment="Center" />
+            <Button Content="↻ Atualizar" Command="{Binding BuscarCommand}" Style="{StaticResource BotaoSecundario}" Margin="16,0,0,0" />
+        </StackPanel>
+
+        <DataGrid Grid.Row="2" ItemsSource="{Binding Glosas}">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
+                <DataGridTextColumn Header="Convênio"
+                                    Binding="{Binding Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
+                <DataGridTextColumn Header="Código"
+                                    Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
+                <DataGridTextColumn Header="Glosada em" Binding="{Binding DataGlosa}" Width="Auto" />
+                <DataGridTextColumn Header="Motivo" Binding="{Binding MotivoGlosa}" Width="1.6*" />
+                <DataGridTextColumn Header="Situação" Binding="{Binding Glosa}" Width="Auto" />
+                <DataGridTemplateColumn Header="Ações" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Reapresentar" Padding="8,3" FontSize="12"
+                                        Command="{Binding DataContext.ReapresentarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Content="Recuperada" Padding="8,3" FontSize="12" Margin="6,0,0,0"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        Command="{Binding DataContext.RecuperarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

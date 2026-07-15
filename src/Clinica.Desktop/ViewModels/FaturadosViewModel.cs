@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Alertas;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -61,6 +63,22 @@ public partial class FaturadosViewModel : ObservableObject
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
         await service.EstornarBaixaAsync(codigo.Id, "estorno pela tela de Faturados", Environment.UserName);
+
+        await Buscar();
+    }
+
+    [RelayCommand]
+    private async Task Glosar(CodigoFaturamento? codigo)
+    {
+        if (codigo is null) return;
+
+        var descricao = $"{codigo.Atendimento?.Paciente?.Nome} — {codigo.Tipo} (guia {codigo.NumeroGuiaReal})";
+        var dialog = new GlosaWindow(descricao) { Owner = Application.Current.MainWindow };
+        if (dialog.ShowDialog() != true) return;
+
+        using var scope = _scopeFactory.CreateScope();
+        var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
+        await glosas.RegistrarAsync(codigo.Id, dialog.DataGlosa, dialog.Motivo);
 
         await Buscar();
     }
