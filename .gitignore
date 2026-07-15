@@ -1,0 +1,19 @@
+## .NET
+bin/
+obj/
+*.user
+.vs/
+
+## Rider / VS Code
+.idea/
+.vscode/
+
+## Build results
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+
+## SQLite (caso usado em testes locais)
+*.db
+*.db-shm
+*.db-wal
