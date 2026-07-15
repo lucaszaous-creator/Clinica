@@ -37,5 +37,11 @@ public interface IClinicaRepositorio
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 
+    // ---- Agenda ----
+    Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default);
+    Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
+    Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
+    Task RemoverAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
+
     Task<int> SalvarAsync(CancellationToken ct = default);
 }

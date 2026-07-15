@@ -29,6 +29,9 @@
         <DataTemplate DataType="{x:Type vm:FichaPacienteViewModel}">
             <views:FichaPacienteView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AgendaViewModel}">
+            <views:AgendaView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -52,6 +55,9 @@
                 <Button Content="🩺  Novo atendimento" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarNovoAtendimentoCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Atendimento}" />
+                <Button Content="📅  Agenda" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarAgendaCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Agenda}" />
                 <Button Content="💳  Faturados" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarFaturadosCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Faturados}" />
