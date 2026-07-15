@@ -80,7 +80,8 @@ public partial class AgendaViewModel : ObservableObject
             return;
         }
 
-        var dataHora = DataNovo.Date.Add(hora.ToTimeSpan());
+        // Hora de parede (sem fuso) para casar com a coluna 'timestamp without time zone'.
+        var dataHora = DateTime.SpecifyKind(DataNovo.Date.Add(hora.ToTimeSpan()), DateTimeKind.Unspecified);
 
         using (var scope = _scopeFactory.CreateScope())
         {

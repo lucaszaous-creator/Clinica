@@ -52,6 +52,8 @@ public class ClinicaDbContext : DbContext
         b.Entity<Agendamento>(e =>
         {
             e.HasKey(a => a.Id);
+            // Hora de parede (sem fuso). Evita o erro do Npgsql com DateTime local/unspecified.
+            e.Property(a => a.DataHora).HasColumnType("timestamp without time zone");
             e.Property(a => a.ModalidadePrevista).HasConversion<string>().HasMaxLength(40);
             e.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(a => a.Origem).HasConversion<string>().HasMaxLength(20);
