@@ -1,0 +1,45 @@
+name: Build EXE (Windows)
+
+# Compila o app WPF num runner Windows e publica o .exe como artefato para download.
+# Roda automaticamente em push na main e sob demanda (workflow_dispatch).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restaurar
+        run: dotnet restore Clinica.sln
+
+      - name: Testes (regras de faturamento)
+        run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
+
+      - name: Publicar .exe (self-contained, arquivo único)
+        run: >
+          dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableWindowsTargeting=true
+          -o publish
+
+      - name: Enviar artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clinica-Faturamento-win-x64
+          path: publish/
+          if-no-files-found: error

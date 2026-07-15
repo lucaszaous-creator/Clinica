@@ -77,6 +77,36 @@ dotnet run --project src/Clinica.Desktop
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 ```
 
+## Gerar o executável (.exe)
+
+O app WPF **só compila no Windows**. Há duas formas de obter o `.exe`:
+
+### Opção A — GitHub Actions (não precisa de máquina Windows)
+Um workflow (`.github/workflows/build-exe.yml`) roda num runner Windows a cada push na `main`
+(ou sob demanda em **Actions → Build EXE (Windows) → Run workflow**). Ele compila, roda os testes
+e publica o `.exe` como **artefato** para download:
+
+1. Abra a aba **Actions** do repositório no GitHub.
+2. Selecione a execução mais recente de *Build EXE (Windows)*.
+3. Baixe o artefato **`Clinica-Faturamento-win-x64`** (contém `Clinica.Desktop.exe`).
+
+### Opção B — Numa máquina Windows com .NET 8 SDK
+Rode o script na raiz do projeto:
+```bat
+publish-exe.bat
+```
+Ou o comando direto:
+```bat
+dotnet publish src\Clinica.Desktop\Clinica.Desktop.csproj -c Release -r win-x64 ^
+  --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+```
+Gera `publish\Clinica.Desktop.exe` — **arquivo único, self-contained** (roda mesmo sem .NET
+instalado no PC da clínica).
+
+> Antes de executar o `.exe`, forneça a connection string real: coloque
+> `appsettings.Development.json` na mesma pasta do `.exe` **ou** defina a variável de ambiente
+> `ConnectionStrings__Clinica`. O `appsettings.json` que acompanha o `.exe` é só um placeholder.
+
 ## Fluxo de uso
 1. **Pacientes** — cadastrar (convênio, se possui app, sexo).
 2. **Novo atendimento** — escolher paciente + modalidade; o sistema gera os códigos e mostra o
