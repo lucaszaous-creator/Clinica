@@ -16,7 +16,7 @@ Solução em camadas (.NET 8):
 |---|---|
 | `Clinica.Domain` | Entidades, enums e o **motor de regras** (uma classe por convênio). |
 | `Clinica.Application` | Serviços: `AtendimentoService`, `PendenciaService`, `FaturamentoService`. |
-| `Clinica.Infrastructure` | EF Core (`ClinicaDbContext`), repositório, migrations (SQL Server). |
+| `Clinica.Infrastructure` | EF Core (`ClinicaDbContext`), repositório, migrations (**PostgreSQL/Npgsql**). |
 | `Clinica.Desktop` | Aplicativo **WPF/MVVM** (recepção). ⚠️ Compila apenas no **Windows**. |
 | `Clinica.Tests` | Testes xUnit validando cada fluxograma. |
 
@@ -36,14 +36,35 @@ guia no sistema do convênio (data, número real da guia, forma de obtenção).
 
 ### Pré-requisitos
 - Windows + .NET 8 SDK (para o app WPF)
-- SQL Server (LocalDB serve para começar). A connection string fica em
-  `src/Clinica.Desktop/appsettings.json`.
+- **PostgreSQL** (ex.: Neon). O banco é acessado via EF Core + Npgsql.
+
+### Configurar a connection string (o segredo NÃO fica no git)
+O `appsettings.json` versionado tem apenas um **placeholder**. A string real deve ser fornecida por
+**uma** das opções abaixo (prioridade: env var > `appsettings.Development.json`):
+
+1. **Arquivo local** `src/Clinica.Desktop/appsettings.Development.json` (já está no `.gitignore`):
+   ```json
+   {
+     "ConnectionStrings": {
+       "Clinica": "Host=SEU_HOST.neon.tech;Database=neondb;Username=USUARIO;Password=SENHA;SSL Mode=Require;Trust Server Certificate=true"
+     }
+   }
+   ```
+2. **Variável de ambiente**:
+   ```bash
+   setx ConnectionStrings__Clinica "Host=...;Database=neondb;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true"
+   ```
+
+> A URI da Neon (`postgresql://user:pass@host/db?sslmode=require`) deve ser convertida para o formato
+> de palavras-chave do Npgsql (acima). O `channel_binding` é negociado automaticamente (SCRAM).
 
 ### Banco de dados
-As migrations são aplicadas automaticamente ao abrir o app. Para criar/atualizar manualmente:
+As migrations são aplicadas **automaticamente** ao abrir o app. Para criar/atualizar manualmente
+(usa a env var `CLINICA_DB`):
 
 ```bash
-dotnet ef database update -p src/Clinica.Infrastructure -s src/Clinica.Infrastructure
+CLINICA_DB="Host=...;Database=neondb;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true" \
+  dotnet ef database update -p src/Clinica.Infrastructure -s src/Clinica.Infrastructure
 ```
 
 ### Executar o app
@@ -62,3 +83,5 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
    que fatura hoje e o que fica pendente para +24h.
 3. **Pendências (dashboard)** — 2º códigos e consultas a renovar, com semáforo e contador. Botão
    **Dar baixa** registra a guia efetivada.
+4. **Relatórios** — por período: **taxa de baixa** (gerados × baixados × pendentes), quebra por
+   convênio e **envelhecimento** das pendências em aberto (0–7 / 8–30 / +30 dias).

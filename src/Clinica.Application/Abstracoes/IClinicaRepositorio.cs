@@ -13,6 +13,9 @@ public interface IClinicaRepositorio
     /// <summary>Todos os códigos ainda em aberto (não baixados e não "não aplicável"), com paciente carregado.</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default);
 
+    /// <summary>Códigos cujo atendimento ocorreu no período [inicio, fim], com paciente carregado (usado nos relatórios).</summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
     /// <summary>Pacientes com seus atendimentos carregados (usado para calcular renovação de consulta).</summary>
     Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default);
 

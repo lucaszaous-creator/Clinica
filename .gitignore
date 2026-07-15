@@ -17,3 +17,8 @@ artifacts/
 *.db
 *.db-shm
 *.db-wal
+
+## Segredos — connection strings reais NUNCA vão para o git
+appsettings.Development.json
+appsettings.*.Local.json
+*.secret.json

@@ -1,5 +1,6 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -15,16 +16,16 @@ namespace Clinica.Infrastructure.Migrations
                 name: "Pacientes",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Nome = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    Documento = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
-                    Telefone = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
-                    Convenio = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    PossuiApp = table.Column<bool>(type: "bit", nullable: false),
-                    Sexo = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Categoria = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Observacoes = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Nome = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    Documento = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    Telefone = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    Convenio = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
+                    PossuiApp = table.Column<bool>(type: "boolean", nullable: false),
+                    Sexo = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Categoria = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Observacoes = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -35,13 +36,13 @@ namespace Clinica.Infrastructure.Migrations
                 name: "Atendimentos",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    PacienteId = table.Column<int>(type: "int", nullable: false),
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    PacienteId = table.Column<int>(type: "integer", nullable: false),
                     Data = table.Column<DateOnly>(type: "date", nullable: false),
-                    Modalidade = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    Categoria = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Observacoes = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    Modalidade = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
+                    Categoria = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Observacoes = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -58,20 +59,20 @@ namespace Clinica.Infrastructure.Migrations
                 name: "Codigos",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    AtendimentoId = table.Column<int>(type: "int", nullable: false),
-                    Tipo = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
-                    Especialidade = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
-                    Ordem = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    AtendimentoId = table.Column<int>(type: "integer", nullable: false),
+                    Tipo = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
+                    Especialidade = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    Ordem = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     DataPrevistaFaturamento = table.Column<DateOnly>(type: "date", nullable: false),
-                    FormaObtencao = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    Descricao = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FormaObtencao = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Descricao = table.Column<string>(type: "text", nullable: true),
                     DataBaixa = table.Column<DateOnly>(type: "date", nullable: true),
-                    NumeroGuiaReal = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
-                    UsuarioBaixa = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true),
-                    ObservacaoBaixa = table.Column<string>(type: "nvarchar(max)", nullable: true)
+                    NumeroGuiaReal = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: true),
+                    UsuarioBaixa = table.Column<string>(type: "character varying(80)", maxLength: 80, nullable: true),
+                    ObservacaoBaixa = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {

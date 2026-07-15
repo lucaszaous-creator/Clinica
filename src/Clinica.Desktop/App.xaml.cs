@@ -18,7 +18,11 @@ public partial class App : Application
         _host = Host.CreateDefaultBuilder()
             .ConfigureAppConfiguration(cfg =>
                 cfg.SetBasePath(Directory.GetCurrentDirectory())
-                   .AddJsonFile("appsettings.json", optional: false))
+                   .AddJsonFile("appsettings.json", optional: false)
+                   // Arquivo local com o segredo real — NÃO versionado (está no .gitignore).
+                   .AddJsonFile("appsettings.Development.json", optional: true)
+                   // Env var ConnectionStrings__Clinica tem prioridade sobre os arquivos.
+                   .AddEnvironmentVariables())
             .ConfigureServices((ctx, services) =>
             {
                 var cs = ctx.Configuration.GetConnectionString("Clinica")!;
@@ -29,6 +33,7 @@ public partial class App : Application
                 services.AddTransient<PacientesViewModel>();
                 services.AddTransient<NovoAtendimentoViewModel>();
                 services.AddTransient<BaixaViewModel>();
+                services.AddTransient<RelatoriosViewModel>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();
