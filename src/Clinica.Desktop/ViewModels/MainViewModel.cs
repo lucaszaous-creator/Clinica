@@ -83,6 +83,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void MostrarTiss()
+    {
+        var vm = _sp.GetRequiredService<TissViewModel>();
+        SecaoAtual = "Tiss";
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
     private void MostrarRelatorios()
     {
         var vm = _sp.GetRequiredService<RelatoriosViewModel>();

@@ -138,6 +138,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<FichaPacienteViewModel>();
                 services.AddTransient<AgendaViewModel>();
                 services.AddTransient<GlosasViewModel>();
+                services.AddTransient<TissViewModel>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();
