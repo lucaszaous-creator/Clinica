@@ -5,6 +5,9 @@ public class Atendimento
 {
     public int Id { get; set; }
 
+    /// <summary>Número/protocolo do atendimento (ex.: 2026-000123) — base do lastro de faturamento.</summary>
+    public string? Numero { get; set; }
+
     public int PacienteId { get; set; }
     public Paciente? Paciente { get; set; }
 

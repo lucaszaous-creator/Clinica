@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddScoped<AgendaService>();
         services.AddScoped<GlosaService>();
         services.AddScoped<TissExportService>();
+        services.AddScoped<CapaFaturamentoService>();
         return services;
     }
 }

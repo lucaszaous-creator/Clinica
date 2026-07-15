@@ -29,6 +29,8 @@ public class ClinicaDbContext : DbContext
         b.Entity<Atendimento>(e =>
         {
             e.HasKey(a => a.Id);
+            e.Property(a => a.Numero).HasMaxLength(30);
+            e.HasIndex(a => a.Numero);
             e.Property(a => a.Modalidade).HasConversion<string>().HasMaxLength(40);
             e.Property(a => a.Categoria).HasConversion<string>().HasMaxLength(20);
             e.HasMany(a => a.Codigos).WithOne(c => c.Atendimento!).HasForeignKey(c => c.AtendimentoId);

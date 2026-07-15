@@ -28,6 +28,16 @@
                 <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
 
                 <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}" Margin="0,14,0,0" />
+
+                <Border Background="#DCFCE7" CornerRadius="8" Padding="12,10" Margin="0,12,0,0"
+                        Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                        <TextBlock Text="{Binding NumeroAtendimento, StringFormat='Atendimento nº {0}'}"
+                                   FontWeight="Bold" Foreground="#166534" />
+                        <Button Content="🧾 Gerar capa de faturamento (PDF)" Command="{Binding GerarCapaCommand}"
+                                Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </Border>
 
