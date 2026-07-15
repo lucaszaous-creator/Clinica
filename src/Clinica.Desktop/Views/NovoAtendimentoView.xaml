@@ -1,0 +1,57 @@
+<UserControl x:Class="Clinica.Desktop.Views.NovoAtendimentoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Margin="24">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="360" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <StackPanel Grid.Column="0" Margin="0,0,24,0">
+            <TextBlock Text="Novo atendimento" FontSize="20" FontWeight="Bold" Margin="0,0,0,12" />
+
+            <TextBlock Text="Paciente" />
+            <ComboBox ItemsSource="{Binding Pacientes}" SelectedItem="{Binding PacienteSelecionado}"
+                      DisplayMemberPath="Nome" Margin="0,2,0,10" />
+
+            <TextBlock Text="Data" />
+            <DatePicker SelectedDate="{Binding Data}" Margin="0,2,0,10" />
+
+            <TextBlock Text="Modalidade" />
+            <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}" Margin="0,2,0,10" />
+
+            <TextBlock Text="Observações" />
+            <TextBox Text="{Binding Observacoes}" Margin="0,2,0,10" AcceptsReturn="True" Height="60" TextWrapping="Wrap" />
+
+            <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}" Padding="12,8" />
+        </StackPanel>
+
+        <StackPanel Grid.Column="1">
+            <TextBlock Text="Códigos gerados" FontSize="20" FontWeight="Bold" Margin="0,0,0,8" />
+            <DataGrid ItemsSource="{Binding CodigosGerados}" AutoGenerateColumns="False" IsReadOnly="True"
+                      CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="260">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Código"
+                                        Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                    <DataGridTextColumn Header="Especialidade" Binding="{Binding Especialidade}" Width="*" />
+                    <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
+                    <DataGridTextColumn Header="Faturar em" Binding="{Binding DataPrevistaFaturamento}" Width="*" />
+                    <DataGridTextColumn Header="Como obter"
+                                        Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <TextBlock Text="Avisos" FontSize="16" FontWeight="Bold" Margin="0,16,0,8" />
+            <ItemsControl ItemsSource="{Binding Avisos}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="#FEF3C7" CornerRadius="6" Padding="10,6" Margin="0,0,0,6">
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Grid>
+</UserControl>
