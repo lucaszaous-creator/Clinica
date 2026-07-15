@@ -1,4 +1,7 @@
 using System.Windows;
+using System.Windows.Threading;
+using Clinica.Application.Servicos;
+using Clinica.Desktop.Alertas;
 using Clinica.Desktop.Configuracao;
 using Clinica.Desktop.ViewModels;
 using Clinica.Infrastructure;
@@ -11,6 +14,8 @@ namespace Clinica.Desktop;
 public partial class App : System.Windows.Application
 {
     private IHost? _host;
+    private DispatcherTimer? _lembreteTimer;
+    private bool _avisoAberto;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -65,8 +70,41 @@ public partial class App : System.Windows.Application
         ShutdownMode = ShutdownMode.OnMainWindowClose; // volta ao comportamento normal
         window.Show();
 
+        // Aviso de baixas pendentes ao abrir + lembrete recorrente (a cada 2h).
+        await MostrarAvisoPendenciasAsync();
+        _lembreteTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
+        _lembreteTimer.Tick += async (_, _) => await MostrarAvisoPendenciasAsync();
+        _lembreteTimer.Start();
+
         // Verifica atualização em segundo plano (não bloqueia o uso).
         _ = UpdateService.VerificarEAtualizarAsync();
+    }
+
+    /// <summary>Mostra a janela de aviso se houver baixas pendentes (usada na abertura e nos lembretes).</summary>
+    private async Task MostrarAvisoPendenciasAsync()
+    {
+        if (_avisoAberto || _host is null) return;
+
+        try
+        {
+            using var scope = _host.Services.CreateScope();
+            var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var lista = await pendencias.CodigosPendentesAsync(hoje);
+            if (lista.Count == 0) return;
+
+            _avisoAberto = true;
+            var aviso = new AvisoPendenciasWindow(lista) { Owner = MainWindow };
+            aviso.ShowDialog();
+        }
+        catch
+        {
+            // Um aviso que falha nunca deve derrubar o app.
+        }
+        finally
+        {
+            _avisoAberto = false;
+        }
     }
 
     /// <summary>Fonte da conexão: env var → configuração salva → tela de primeiro acesso.</summary>
