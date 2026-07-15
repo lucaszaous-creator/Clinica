@@ -48,6 +48,46 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await query.OrderByDescending(c => c.DataGlosa).ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<CodigoFaturamento>> ConsultarCodigosAsync(Clinica.Application.Modelos.FiltroConsultaGuias filtro, CancellationToken ct = default)
+    {
+        var q = _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(filtro.TermoPaciente))
+        {
+            var nome = filtro.TermoPaciente.ToLower();
+            var digitos = Cpf.Normalizar(filtro.TermoPaciente);
+            q = q.Where(c => c.Atendimento!.Paciente!.Nome.ToLower().Contains(nome)
+                             || (digitos.Length > 0 && c.Atendimento!.Paciente!.Documento != null
+                                 && c.Atendimento!.Paciente!.Documento.Contains(digitos)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.NumeroGuia))
+            q = q.Where(c => c.NumeroGuiaReal != null && c.NumeroGuiaReal.Contains(filtro.NumeroGuia));
+
+        if (filtro.Inicio is { } inicio)
+            q = q.Where(c => c.Atendimento!.Data >= inicio);
+        if (filtro.Fim is { } fim)
+            q = q.Where(c => c.Atendimento!.Data <= fim);
+
+        if (filtro.Convenio is { } conv)
+            q = q.Where(c => c.Atendimento!.Paciente!.Convenio == conv);
+
+        q = filtro.Status switch
+        {
+            Clinica.Application.Modelos.FiltroStatusGuia.Aberto =>
+                q.Where(c => c.DataBaixa == null && c.Status != StatusCodigo.NaoAplicavel),
+            Clinica.Application.Modelos.FiltroStatusGuia.Baixado =>
+                q.Where(c => c.DataBaixa != null),
+            Clinica.Application.Modelos.FiltroStatusGuia.Glosado =>
+                q.Where(c => c.Glosa != StatusGlosa.SemGlosa),
+            _ => q
+        };
+
+        return await q.OrderByDescending(c => c.Atendimento!.Data).Take(500).ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default)
         => await _db.Pacientes.Include(p => p.Atendimentos).ToListAsync(ct);
 
