@@ -3,33 +3,37 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Grid Margin="24">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="360" />
+            <ColumnDefinition Width="380" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Column="0" Margin="0,0,24,0">
-            <TextBlock Text="Novo atendimento" FontSize="20" FontWeight="Bold" Margin="0,0,0,12" />
+        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,24,0" VerticalAlignment="Top">
+            <StackPanel>
+                <TextBlock Text="Novo atendimento" Style="{StaticResource H2}" />
 
-            <TextBlock Text="Paciente" />
-            <ComboBox ItemsSource="{Binding Pacientes}" SelectedItem="{Binding PacienteSelecionado}"
-                      DisplayMemberPath="Nome" Margin="0,2,0,10" />
+                <TextBlock Text="Buscar paciente (nome ou CPF)" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}" />
+                <ListBox ItemsSource="{Binding Pacientes}" SelectedItem="{Binding PacienteSelecionado}"
+                         DisplayMemberPath="Nome" Height="130" Margin="0,6,0,4" />
+                <TextBlock Text="{Binding PacienteSelecionado.Nome, StringFormat='Selecionado: {0}'}"
+                           Foreground="#14532D" FontWeight="SemiBold" Margin="0,0,0,8" />
 
-            <TextBlock Text="Data" />
-            <DatePicker SelectedDate="{Binding Data}" Margin="0,2,0,10" />
+                <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding Data}" />
 
-            <TextBlock Text="Modalidade" />
-            <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}" Margin="0,2,0,10" />
+                <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}" />
 
-            <TextBlock Text="Observações" />
-            <TextBox Text="{Binding Observacoes}" Margin="0,2,0,10" AcceptsReturn="True" Height="60" TextWrapping="Wrap" />
+                <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
 
-            <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}" Padding="12,8" />
-        </StackPanel>
+                <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}" Margin="0,14,0,0" />
+            </StackPanel>
+        </Border>
 
         <StackPanel Grid.Column="1">
-            <TextBlock Text="Códigos gerados" FontSize="20" FontWeight="Bold" Margin="0,0,0,8" />
-            <DataGrid ItemsSource="{Binding CodigosGerados}" AutoGenerateColumns="False" IsReadOnly="True"
-                      CanUserAddRows="False" HeadersVisibility="Column" MaxHeight="260">
+            <TextBlock Text="Códigos gerados" Style="{StaticResource H1}" />
+            <DataGrid ItemsSource="{Binding CodigosGerados}" MaxHeight="280">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Código"
                                         Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
@@ -42,7 +46,7 @@
                 </DataGrid.Columns>
             </DataGrid>
 
-            <TextBlock Text="Avisos" FontSize="16" FontWeight="Bold" Margin="0,16,0,8" />
+            <TextBlock Text="Avisos" Style="{StaticResource H2}" />
             <ItemsControl ItemsSource="{Binding Avisos}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>

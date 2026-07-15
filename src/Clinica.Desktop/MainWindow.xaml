@@ -3,8 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Clinica.Desktop.ViewModels"
         xmlns:views="clr-namespace:Clinica.Desktop.Views"
-        Title="Clínica — Faturamento" Height="720" Width="1100"
-        WindowStartupLocation="CenterScreen" FontFamily="Segoe UI">
+        Title="Clínica — Faturamento" Height="740" Width="1180"
+        WindowStartupLocation="CenterScreen" FontFamily="Segoe UI"
+        Background="{StaticResource BrushFundo}">
 
     <Window.Resources>
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
@@ -22,11 +23,17 @@
         <DataTemplate DataType="{x:Type vm:RelatoriosViewModel}">
             <views:RelatoriosView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:FaturadosViewModel}">
+            <views:FaturadosView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:FichaPacienteViewModel}">
+            <views:FichaPacienteView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="230" />
+            <ColumnDefinition Width="240" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -36,18 +43,25 @@
                 <TextBlock Text="CLÍNICA" Foreground="White" FontSize="22" FontWeight="Bold" />
                 <TextBlock Text="Faturamento" Foreground="#A7F3D0" FontSize="13" Margin="0,0,0,24" />
 
-                <Button Content="📋 Pendências" Command="{Binding MostrarDashboardCommand}"
-                        Height="44" Margin="0,4" HorizontalContentAlignment="Left" Padding="12,0" />
-                <Button Content="👤 Pacientes" Command="{Binding MostrarPacientesCommand}"
-                        Height="44" Margin="0,4" HorizontalContentAlignment="Left" Padding="12,0" />
-                <Button Content="🩺 Novo atendimento" Command="{Binding MostrarNovoAtendimentoCommand}"
-                        Height="44" Margin="0,4" HorizontalContentAlignment="Left" Padding="12,0" />
-                <Button Content="📊 Relatórios" Command="{Binding MostrarRelatoriosCommand}"
-                        Height="44" Margin="0,4" HorizontalContentAlignment="Left" Padding="12,0" />
+                <Button Content="📋  Pendências" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarDashboardCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Pendencias}" />
+                <Button Content="👤  Pacientes" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarPacientesCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Pacientes}" />
+                <Button Content="🩺  Novo atendimento" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarNovoAtendimentoCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Atendimento}" />
+                <Button Content="💳  Faturados" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarFaturadosCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Faturados}" />
+                <Button Content="📊  Relatórios" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarRelatoriosCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Relatorios}" />
 
-                <Border Background="#B91C1C" CornerRadius="8" Margin="0,32,0,0" Padding="12,8">
+                <Border Background="#B91C1C" CornerRadius="8" Margin="0,32,0,0" Padding="12,10">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="Pendências: " Foreground="White" FontWeight="Bold" />
+                        <TextBlock Text="🔔 Pendências: " Foreground="White" FontWeight="Bold" />
                         <TextBlock Text="{Binding PendenciasBadge}" Foreground="White" FontWeight="Bold" />
                     </StackPanel>
                 </Border>
@@ -55,6 +69,6 @@
         </Border>
 
         <!-- Conteúdo -->
-        <ContentControl Grid.Column="1" Content="{Binding CurrentViewModel}" Margin="0" />
+        <ContentControl Grid.Column="1" Content="{Binding CurrentViewModel}" />
     </Grid>
 </Window>

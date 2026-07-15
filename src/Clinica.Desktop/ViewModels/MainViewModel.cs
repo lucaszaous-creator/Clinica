@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.ViewModels;
 
-/// <summary>Shell de navegação: troca de telas e mantém o contador de pendências (badge) do topo.</summary>
+/// <summary>Shell de navegação: troca de telas, destaca a seção atual e mantém o contador de pendências.</summary>
 public partial class MainViewModel : ObservableObject
 {
     private readonly IServiceProvider _sp;
@@ -14,6 +14,10 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private int _pendenciasBadge;
+
+    /// <summary>Seção ativa (para destacar o item do menu).</summary>
+    [ObservableProperty]
+    private string _secaoAtual = "Pendencias";
 
     public MainViewModel(IServiceProvider sp)
     {
@@ -27,6 +31,7 @@ public partial class MainViewModel : ObservableObject
         var vm = _sp.GetRequiredService<DashboardViewModel>();
         vm.PendenciasAtualizadas += total => PendenciasBadge = total;
         vm.AbrirBaixaSolicitado += AbrirBaixa;
+        SecaoAtual = "Pendencias";
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -35,14 +40,8 @@ public partial class MainViewModel : ObservableObject
     private void MostrarPacientes()
     {
         var vm = _sp.GetRequiredService<PacientesViewModel>();
-        CurrentViewModel = vm;
-        _ = vm.CarregarAsync();
-    }
-
-    [RelayCommand]
-    private void MostrarRelatorios()
-    {
-        var vm = _sp.GetRequiredService<RelatoriosViewModel>();
+        vm.FichaSolicitada += AbrirFicha;
+        SecaoAtual = "Pacientes";
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -51,6 +50,25 @@ public partial class MainViewModel : ObservableObject
     private void MostrarNovoAtendimento()
     {
         var vm = _sp.GetRequiredService<NovoAtendimentoViewModel>();
+        SecaoAtual = "Atendimento";
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarFaturados()
+    {
+        var vm = _sp.GetRequiredService<FaturadosViewModel>();
+        SecaoAtual = "Faturados";
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarRelatorios()
+    {
+        var vm = _sp.GetRequiredService<RelatoriosViewModel>();
+        SecaoAtual = "Relatorios";
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -62,5 +80,13 @@ public partial class MainViewModel : ObservableObject
         vm.Cancelado += MostrarDashboard;
         CurrentViewModel = vm;
         _ = vm.CarregarAsync(codigoId);
+    }
+
+    private void AbrirFicha(int pacienteId)
+    {
+        var vm = _sp.GetRequiredService<FichaPacienteViewModel>();
+        vm.Voltar += MostrarPacientes;
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync(pacienteId);
     }
 }
