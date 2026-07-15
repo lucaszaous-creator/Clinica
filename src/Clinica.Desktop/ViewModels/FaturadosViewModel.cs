@@ -73,7 +73,7 @@ public partial class FaturadosViewModel : ObservableObject
         if (codigo is null) return;
 
         var descricao = $"{codigo.Atendimento?.Paciente?.Nome} — {codigo.Tipo} (guia {codigo.NumeroGuiaReal})";
-        var dialog = new GlosaWindow(descricao) { Owner = Application.Current.MainWindow };
+        var dialog = new GlosaWindow(descricao) { Owner = System.Windows.Application.Current.MainWindow };
         if (dialog.ShowDialog() != true) return;
 
         using var scope = _scopeFactory.CreateScope();
