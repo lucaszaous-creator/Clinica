@@ -140,6 +140,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<GlosasViewModel>();
                 services.AddTransient<TissViewModel>();
                 services.AddTransient<ConsultaGuiasViewModel>();
+                services.AddTransient<ParametrosViewModel>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();

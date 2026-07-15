@@ -142,6 +142,23 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.Pacientes.Remove(paciente);
     }
 
+    // ---- Parâmetros ----
+
+    public async Task<IReadOnlyList<ParametroConvenio>> ParametrosAsync(CancellationToken ct = default)
+        => await _db.Parametros.ToListAsync(ct);
+
+    public async Task SalvarParametroAsync(ParametroConvenio parametro, CancellationToken ct = default)
+    {
+        var existe = await _db.Parametros.FirstOrDefaultAsync(p => p.Convenio == parametro.Convenio, ct);
+        if (existe is null)
+            await _db.Parametros.AddAsync(parametro, ct);
+        else
+        {
+            existe.ValidadeConsultaDias = parametro.ValidadeConsultaDias;
+            existe.DiasSegundoCodigo = parametro.DiasSegundoCodigo;
+        }
+    }
+
     // ---- Agenda ----
 
     public async Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default)

@@ -16,7 +16,7 @@ public sealed class RegraUnimedPadrao : IRegraConvenio
     {
         var r = new ResultadoFaturamento();
         var hoje = atendimento.Data;
-        var amanha = hoje.AddDays(1);
+        var amanha = hoje.AddDays(contexto.DiasSegundoCodigo);
 
         switch (atendimento.Modalidade)
         {

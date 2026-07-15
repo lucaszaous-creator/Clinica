@@ -17,10 +17,13 @@ public sealed class AtendimentoService
     private readonly IClinicaRepositorio _repo;
     private readonly RegistroRegras _regras;
 
-    public AtendimentoService(IClinicaRepositorio repo, RegistroRegras? regras = null)
+    private readonly ParametrosService? _parametros;
+
+    public AtendimentoService(IClinicaRepositorio repo, RegistroRegras? regras = null, ParametrosService? parametros = null)
     {
         _repo = repo;
         _regras = regras ?? new RegistroRegras();
+        _parametros = parametros;
     }
 
     public async Task<ResultadoLancamento> LancarAsync(
@@ -39,7 +42,8 @@ public sealed class AtendimentoService
         };
 
         var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);
-        var contexto = new ContextoFaturamento { CodigosNoMes = historicoMes };
+        var dias = _parametros is null ? 1 : (await _parametros.ObterAsync(ct)).DiasSegundoCodigo(paciente.Convenio);
+        var contexto = new ContextoFaturamento { CodigosNoMes = historicoMes, DiasSegundoCodigo = dias };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);
 

@@ -11,6 +11,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<Atendimento> Atendimentos => Set<Atendimento>();
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
+    public DbSet<ParametroConvenio> Parametros => Set<ParametroConvenio>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -52,6 +53,12 @@ public class ClinicaDbContext : DbContext
             e.Ignore(c => c.GlosaEmAberto);
             // Índice para a consulta de pendências (códigos ainda sem baixa).
             e.HasIndex(c => new { c.DataBaixa, c.DataPrevistaFaturamento });
+        });
+
+        b.Entity<ParametroConvenio>(e =>
+        {
+            e.HasKey(p => p.Convenio);
+            e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
         });
 
         b.Entity<Agendamento>(e =>
