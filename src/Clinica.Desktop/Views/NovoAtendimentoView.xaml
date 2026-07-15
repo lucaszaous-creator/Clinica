@@ -34,7 +34,7 @@
                     <StackPanel>
                         <TextBlock Text="{Binding NumeroAtendimento, StringFormat='Atendimento nº {0}'}"
                                    FontWeight="Bold" Foreground="#166534" />
-                        <Button Content="🧾 Gerar capa de faturamento (PDF)" Command="{Binding GerarCapaCommand}"
+                        <Button Content="🧾 Gerar capa inicial (PDF)" Command="{Binding GerarCapaCommand}"
                                 Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left" Margin="0,8,0,0" />
                     </StackPanel>
                 </Border>
