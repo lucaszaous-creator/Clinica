@@ -73,3 +73,12 @@ public enum Categoria
     Amarela,  // faz apenas acupuntura; não haverá 2º código
     Vermelha  // Petrobras (código de prioridade vermelho)
 }
+
+/// <summary>Situação da guia quanto a glosa (recusa do convênio).</summary>
+public enum StatusGlosa
+{
+    SemGlosa,      // não glosada
+    Glosada,       // recusada pelo convênio
+    Reapresentada, // reenviada após a glosa
+    Recuperada     // aceita após reapresentação
+}

@@ -44,7 +44,10 @@ public class ClinicaDbContext : DbContext
             e.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.NumeroGuiaReal).HasMaxLength(60);
             e.Property(c => c.UsuarioBaixa).HasMaxLength(80);
+            e.Property(c => c.Glosa).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.MotivoGlosa).HasMaxLength(300);
             e.Ignore(c => c.Baixado);
+            e.Ignore(c => c.GlosaEmAberto);
             // Índice para a consulta de pendências (códigos ainda sem baixa).
             e.HasIndex(c => new { c.DataBaixa, c.DataPrevistaFaturamento });
         });

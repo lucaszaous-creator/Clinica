@@ -38,6 +38,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                         && c.Status != StatusCodigo.NaoAplicavel)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosGlosadosAsync(bool somenteEmAberto, CancellationToken ct = default)
+    {
+        var query = _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Where(c => c.Glosa != StatusGlosa.SemGlosa);
+        if (somenteEmAberto)
+            query = query.Where(c => c.Glosa == StatusGlosa.Glosada || c.Glosa == StatusGlosa.Reapresentada);
+        return await query.OrderByDescending(c => c.DataGlosa).ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default)
         => await _db.Pacientes.Include(p => p.Atendimentos).ToListAsync(ct);
 

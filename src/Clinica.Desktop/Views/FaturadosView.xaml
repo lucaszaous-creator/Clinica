@@ -28,13 +28,20 @@
                 <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
                 <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="*" />
                 <DataGridTextColumn Header="Baixado em" Binding="{Binding DataBaixa}" Width="Auto" />
-                <DataGridTemplateColumn Header="Ação" Width="Auto">
+                <DataGridTextColumn Header="Glosa" Binding="{Binding Glosa}" Width="Auto" />
+                <DataGridTemplateColumn Header="Ações" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Estornar" Padding="8,3" FontSize="12"
-                                    Style="{StaticResource BotaoPerigo}"
-                                    Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                    CommandParameter="{Binding}" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Glosar" Padding="8,3" FontSize="12"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        Command="{Binding DataContext.GlosarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Content="Estornar" Padding="8,3" FontSize="12" Margin="6,0,0,0"
+                                        Style="{StaticResource BotaoPerigo}"
+                                        Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
