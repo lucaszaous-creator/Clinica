@@ -1,0 +1,72 @@
+name: Release (instalador + auto-update)
+
+# Gera o INSTALADOR com Velopack e publica nas GitHub Releases.
+# O app instalado se atualiza sozinho a partir daqui.
+#
+# Como publicar uma nova versão:
+#   - Aba Actions -> "Release (instalador + auto-update)" -> Run workflow -> informe a versão (ex.: 1.0.0)
+#   - OU crie uma tag: git tag v1.0.0 && git push origin v1.0.0
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão (ex.: 1.0.0)'
+        required: true
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Definir versão
+        id: ver
+        shell: pwsh
+        run: |
+          if ("${{ github.event_name }}" -eq "push") {
+            $v = "${{ github.ref_name }}".TrimStart("v")
+          } else {
+            $v = "${{ github.event.inputs.version }}"
+          }
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+          echo "Versão: $v"
+
+      - name: Instalar Velopack CLI (vpk)
+        shell: pwsh
+        run: |
+          dotnet tool install -g vpk --version 1.2.0
+          echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
+
+      - name: Publicar (pasta self-contained)
+        run: dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj -c Release -r win-x64 --self-contained true -o publish
+
+      - name: Empacotar com Velopack
+        run: >
+          vpk pack
+          --packId Clinica.Faturamento
+          --packVersion ${{ steps.ver.outputs.version }}
+          --packDir publish
+          --mainExe Clinica.Desktop.exe
+          --packTitle "Clínica - Faturamento"
+
+      - name: Publicar no GitHub Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          vpk upload github
+          --repoUrl https://github.com/lucaszaous-creator/Clinica
+          --publish
+          --releaseName "Clínica ${{ steps.ver.outputs.version }}"
+          --tag v${{ steps.ver.outputs.version }}
+          --token $env:GITHUB_TOKEN

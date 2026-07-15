@@ -64,6 +64,9 @@ public partial class App : System.Windows.Application
         MainWindow = window;
         ShutdownMode = ShutdownMode.OnMainWindowClose; // volta ao comportamento normal
         window.Show();
+
+        // Verifica atualização em segundo plano (não bloqueia o uso).
+        _ = UpdateService.VerificarEAtualizarAsync();
     }
 
     /// <summary>Fonte da conexão: env var → configuração salva → tela de primeiro acesso.</summary>

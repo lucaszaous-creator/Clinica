@@ -70,9 +70,30 @@ dotnet run --project src/Clinica.Desktop
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 ```
 
-## Gerar o executável (.exe)
+## Instalar o programa (com atualização automática)
 
-O app WPF **só compila no Windows**. Há duas formas de obter o `.exe`:
+**Forma recomendada de distribuir.** O app é empacotado com **Velopack** e publicado nas
+**GitHub Releases**. A secretária instala **uma vez** e o programa passa a se **atualizar sozinho**.
+
+### Publicar uma versão (você/TI)
+- **Actions → "Release (instalador + auto-update)" → Run workflow** e informe a versão (ex.: `1.0.0`);
+- ou via tag: `git tag v1.0.0 && git push origin v1.0.0`.
+
+O workflow gera o instalador e cria a Release. Depois, em **Releases** do repositório, baixe o
+**`Clinica.Faturamento-win-Setup.exe`** e execute na máquina da clínica.
+
+### Atualização automática
+Ao abrir, o app verifica as GitHub Releases; havendo versão nova, baixa em segundo plano e aplica na
+próxima abertura — **sem baixar vários `.exe`**. Basta publicar uma nova versão (número maior).
+
+> No primeiro acesso o app pede a connection string do banco (tela de configuração). A configuração
+> é preservada nas atualizações (fica em `%APPDATA%`, fora da pasta do app).
+
+---
+
+## Gerar o executável portátil (.exe avulso)
+
+Alternativa sem instalação (não recebe auto-update). O app WPF **só compila no Windows**:
 
 ### Opção A — GitHub Actions (não precisa de máquina Windows)
 Um workflow (`.github/workflows/build-exe.yml`) roda num runner Windows a cada push na `main`
