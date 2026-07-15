@@ -60,4 +60,24 @@ public class CodigoFaturamento
         ObservacaoBaixa = observacao;
         Status = StatusCodigo.Baixado;
     }
+
+    /// <summary>
+    /// Estorna a baixa (reabre a pendência) — usado quando a baixa foi feita por engano.
+    /// Limpa os dados de baixa e registra a nota de estorno para auditoria.
+    /// </summary>
+    public void EstornarBaixa(string? motivo, string? usuario)
+    {
+        if (!Baixado) return;
+
+        var guiaAnterior = NumeroGuiaReal;
+        DataBaixa = null;
+        NumeroGuiaReal = null;
+        UsuarioBaixa = null;
+        Status = StatusCodigo.Aberto;
+
+        var quem = string.IsNullOrWhiteSpace(usuario) ? "?" : usuario;
+        var quando = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+        var motivoTxt = string.IsNullOrWhiteSpace(motivo) ? "" : $" — {motivo}";
+        ObservacaoBaixa = $"[Estornado em {quando} por {quem}{motivoTxt}] (guia anterior: {guiaAnterior})";
+    }
 }

@@ -19,4 +19,14 @@ public sealed class FaturamentoService
         codigo.DarBaixa(dataBaixa, numeroGuia, usuario, observacao);
         await _repo.SalvarAsync(ct);
     }
+
+    /// <summary>Estorna a baixa de uma guia (reabre a pendência), quando foi baixada por engano.</summary>
+    public async Task EstornarBaixaAsync(int codigoId, string? motivo, string? usuario, CancellationToken ct = default)
+    {
+        var codigo = await _repo.ObterCodigoAsync(codigoId, ct)
+            ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
+
+        codigo.EstornarBaixa(motivo, usuario);
+        await _repo.SalvarAsync(ct);
+    }
 }

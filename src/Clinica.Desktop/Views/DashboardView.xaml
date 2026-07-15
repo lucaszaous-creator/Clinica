@@ -10,14 +10,24 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,16">
-            <TextBlock Text="Pendências de faturamento" FontSize="24" FontWeight="Bold" />
-            <Button Content="Atualizar" Command="{Binding AtualizarCommand}"
-                    HorizontalAlignment="Right" Padding="16,6" />
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" />
+            <Button Content="↻ Atualizar" Command="{Binding AtualizarCommand}"
+                    HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}" />
         </DockPanel>
 
-        <TextBlock Grid.Row="1" Margin="0,0,0,8" Foreground="#555"
-                   Text="Guias ainda sem baixa cuja data já chegou. Dê baixa assim que faturar." />
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+            <TextBlock Text="Convênio:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox Width="200" ItemsSource="{Binding OpcoesConvenio}" SelectedItem="{Binding FiltroConvenio}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Text="Urgência:" VerticalAlignment="Center" Margin="16,0,6,0" />
+            <ComboBox Width="140" ItemsSource="{Binding OpcoesUrgencia}" SelectedItem="{Binding FiltroUrgencia}" />
+        </StackPanel>
 
         <DataGrid Grid.Row="2" ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"

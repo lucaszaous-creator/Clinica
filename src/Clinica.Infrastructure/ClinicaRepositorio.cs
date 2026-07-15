@@ -47,5 +47,44 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default)
         => await _db.Atendimentos.AddAsync(atendimento, ct);
 
+    public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, CancellationToken ct = default)
+    {
+        var query = _db.Pacientes.AsQueryable();
+        termo = Cpf.Normalizar(termo).Length > 0 ? termo!.Trim() : termo?.Trim();
+
+        if (!string.IsNullOrWhiteSpace(termo))
+        {
+            var nome = termo.ToLower();
+            var digitos = Cpf.Normalizar(termo);
+            query = query.Where(p =>
+                p.Nome.ToLower().Contains(nome)
+                || (digitos.Length > 0 && p.Documento != null && p.Documento.Contains(digitos)));
+        }
+
+        return await query.OrderBy(p => p.Nome).ToListAsync(ct);
+    }
+
+    public Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default)
+        => _db.Pacientes
+            .Include(p => p.Atendimentos).ThenInclude(a => a.Codigos)
+            .FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosBaixadosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Where(c => c.DataBaixa != null && c.DataBaixa >= inicio && c.DataBaixa <= fim)
+            .OrderByDescending(c => c.DataBaixa)
+            .ToListAsync(ct);
+
+    public async Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default)
+        => await _db.Pacientes.AddAsync(paciente, ct);
+
+    public async Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default)
+    {
+        var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
+        if (paciente is not null)
+            _db.Pacientes.Remove(paciente);
+    }
+
     public Task<int> SalvarAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
 }

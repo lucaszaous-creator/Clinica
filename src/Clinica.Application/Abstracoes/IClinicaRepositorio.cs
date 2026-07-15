@@ -23,5 +23,19 @@ public interface IClinicaRepositorio
 
     Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default);
 
+    // ---- Busca / ficha do paciente / faturados ----
+
+    /// <summary>Busca pacientes por nome ou CPF (termo normalizado). Termo vazio devolve todos.</summary>
+    Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, CancellationToken ct = default);
+
+    /// <summary>Paciente com todo o histórico (atendimentos e seus códigos) carregado.</summary>
+    Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default);
+
+    /// <summary>Guias baixadas cujo atendimento ocorreu no período (tela de Faturados).</summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosBaixadosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
+    Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
+
     Task<int> SalvarAsync(CancellationToken ct = default);
 }

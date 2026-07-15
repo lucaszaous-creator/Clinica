@@ -3,7 +3,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:Clinica.Desktop.Converters">
     <Application.Resources>
-        <conv:UrgenciaParaCorConverter x:Key="UrgenciaParaCor" />
-        <conv:EnumDescricaoConverter x:Key="EnumDescricao" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:UrgenciaParaCorConverter x:Key="UrgenciaParaCor" />
+            <conv:EnumDescricaoConverter x:Key="EnumDescricao" />
+            <conv:CpfConverter x:Key="Cpf" />
+            <conv:StatusCodigoConverter x:Key="StatusCodigo" />
+            <conv:SecaoSelecionadaConverter x:Key="SecaoSelecionada" />
+            <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

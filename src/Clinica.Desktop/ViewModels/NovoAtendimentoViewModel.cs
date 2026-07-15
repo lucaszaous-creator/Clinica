@@ -21,6 +21,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject
 
     public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
 
+    [ObservableProperty] private string? _busca;
     [ObservableProperty] private Paciente? _pacienteSelecionado;
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
@@ -29,14 +30,20 @@ public partial class NovoAtendimentoViewModel : ObservableObject
 
     public NovoAtendimentoViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
 
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => BuscarPacientes();
+
+    /// <summary>Busca pacientes por nome ou CPF para o seletor.</summary>
+    [RelayCommand]
+    private async Task BuscarPacientes()
     {
         using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+        var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
         Pacientes.Clear();
-        foreach (var p in await db.Pacientes.OrderBy(p => p.Nome).ToListAsync())
+        foreach (var p in await service.BuscarAsync(Busca))
             Pacientes.Add(p);
     }
+
+    partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
 
     [RelayCommand]
     private async Task Lancar()

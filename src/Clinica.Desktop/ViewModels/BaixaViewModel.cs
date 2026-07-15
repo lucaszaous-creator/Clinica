@@ -46,6 +46,11 @@ public partial class BaixaViewModel : ObservableObject
             return;
         }
 
+        var confirma = System.Windows.MessageBox.Show(
+            $"Confirmar a baixa da guia {NumeroGuia} de {PacienteNome}?",
+            "Confirmar baixa", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
+        if (confirma != System.Windows.MessageBoxResult.Yes) return;
+
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
         await service.DarBaixaAsync(_codigoId, DateOnly.FromDateTime(DataBaixa),
