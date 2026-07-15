@@ -139,6 +139,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<AgendaViewModel>();
                 services.AddTransient<GlosasViewModel>();
                 services.AddTransient<TissViewModel>();
+                services.AddTransient<ConsultaGuiasViewModel>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();

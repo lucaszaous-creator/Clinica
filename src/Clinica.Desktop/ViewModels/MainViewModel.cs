@@ -74,6 +74,15 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void MostrarConsultaGuias()
+    {
+        var vm = _sp.GetRequiredService<ConsultaGuiasViewModel>();
+        SecaoAtual = "ConsultaGuias";
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
     private void MostrarGlosas()
     {
         var vm = _sp.GetRequiredService<GlosasViewModel>();

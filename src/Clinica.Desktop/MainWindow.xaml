@@ -38,6 +38,9 @@
         <DataTemplate DataType="{x:Type vm:TissViewModel}">
             <views:TissView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ConsultaGuiasViewModel}">
+            <views:ConsultaGuiasView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -58,6 +61,9 @@
                 <Button Content="👤  Pacientes" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarPacientesCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Pacientes}" />
+                <Button Content="🔎  Consultar guias" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarConsultaGuiasCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=ConsultaGuias}" />
                 <Button Content="🩺  Novo atendimento" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarNovoAtendimentoCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Atendimento}" />
