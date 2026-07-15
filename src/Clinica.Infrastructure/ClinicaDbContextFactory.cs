@@ -11,8 +11,13 @@ public sealed class ClinicaDbContextFactory : IDesignTimeDbContextFactory<Clinic
 {
     public ClinicaDbContext CreateDbContext(string[] args)
     {
+        // A connection string vem da env var CLINICA_DB (nunca hardcoded/commitada).
+        // Fallback local apenas para gerar migrations offline.
+        var cs = Environment.GetEnvironmentVariable("CLINICA_DB")
+                 ?? "Host=localhost;Database=clinica;Username=postgres;Password=postgres";
+
         var options = new DbContextOptionsBuilder<ClinicaDbContext>()
-            .UseSqlServer("Server=(localdb)\\MSSQLLocalDB;Database=Clinica;Trusted_Connection=True;TrustServerCertificate=True")
+            .UseNpgsql(cs)
             .Options;
         return new ClinicaDbContext(options);
     }

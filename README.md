@@ -16,7 +16,7 @@ Solução em camadas (.NET 8):
 |---|---|
 | `Clinica.Domain` | Entidades, enums e o **motor de regras** (uma classe por convênio). |
 | `Clinica.Application` | Serviços: `AtendimentoService`, `PendenciaService`, `FaturamentoService`. |
-| `Clinica.Infrastructure` | EF Core (`ClinicaDbContext`), repositório, migrations (SQL Server). |
+| `Clinica.Infrastructure` | EF Core (`ClinicaDbContext`), repositório, migrations (**PostgreSQL/Npgsql**). |
 | `Clinica.Desktop` | Aplicativo **WPF/MVVM** (recepção). ⚠️ Compila apenas no **Windows**. |
 | `Clinica.Tests` | Testes xUnit validando cada fluxograma. |
 
@@ -36,14 +36,28 @@ guia no sistema do convênio (data, número real da guia, forma de obtenção).
 
 ### Pré-requisitos
 - Windows + .NET 8 SDK (para o app WPF)
-- SQL Server (LocalDB serve para começar). A connection string fica em
-  `src/Clinica.Desktop/appsettings.json`.
+- **PostgreSQL** (ex.: Neon). O banco é acessado via EF Core + Npgsql.
+
+### Configurar o banco no primeiro acesso (sem editar arquivos)
+Na **primeira execução**, o app abre uma **tela de configuração**: cole a connection string do
+PostgreSQL — pode ser a **URI da Neon** (`postgresql://user:senha@host/neondb?sslmode=require`), que o
+sistema converte automaticamente para o formato Npgsql. Clique em **Testar conexão** e depois em
+**Salvar e continuar**.
+
+A string é guardada **criptografada** (DPAPI, por usuário do Windows) em
+`%APPDATA%\ClinicaFaturamento\conexao.dat` — **nunca** vai para o git nem para o `.exe`. Se a conexão
+falhar depois, o app oferece reconfigurar.
+
+> Alternativa para TI: definir a variável de ambiente `ConnectionStrings__Clinica` (tem prioridade
+> sobre a configuração salva e pula a tela de setup). O `channel_binding` é negociado automaticamente (SCRAM).
 
 ### Banco de dados
-As migrations são aplicadas automaticamente ao abrir o app. Para criar/atualizar manualmente:
+As migrations são aplicadas **automaticamente** ao abrir o app. Para criar/atualizar manualmente
+(usa a env var `CLINICA_DB`):
 
 ```bash
-dotnet ef database update -p src/Clinica.Infrastructure -s src/Clinica.Infrastructure
+CLINICA_DB="Host=...;Database=neondb;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true" \
+  dotnet ef database update -p src/Clinica.Infrastructure -s src/Clinica.Infrastructure
 ```
 
 ### Executar o app
@@ -56,9 +70,40 @@ dotnet run --project src/Clinica.Desktop
 dotnet test tests/Clinica.Tests/Clinica.Tests.csproj
 ```
 
+## Gerar o executável (.exe)
+
+O app WPF **só compila no Windows**. Há duas formas de obter o `.exe`:
+
+### Opção A — GitHub Actions (não precisa de máquina Windows)
+Um workflow (`.github/workflows/build-exe.yml`) roda num runner Windows a cada push na `main`
+(ou sob demanda em **Actions → Build EXE (Windows) → Run workflow**). Ele compila, roda os testes
+e publica o `.exe` como **artefato** para download:
+
+1. Abra a aba **Actions** do repositório no GitHub.
+2. Selecione a execução mais recente de *Build EXE (Windows)*.
+3. Baixe o artefato **`Clinica-Faturamento-win-x64`** (contém `Clinica.Desktop.exe`).
+
+### Opção B — Numa máquina Windows com .NET 8 SDK
+Rode o script na raiz do projeto:
+```bat
+publish-exe.bat
+```
+Ou o comando direto:
+```bat
+dotnet publish src\Clinica.Desktop\Clinica.Desktop.csproj -c Release -r win-x64 ^
+  --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o publish
+```
+Gera `publish\Clinica.Desktop.exe` — **arquivo único, self-contained** (roda mesmo sem .NET
+instalado no PC da clínica).
+
+> Ao abrir o `.exe` pela **primeira vez**, o app pede a connection string na tela de configuração
+> (veja *Configurar o banco no primeiro acesso*). Não é preciso levar nenhum arquivo de segredo junto.
+
 ## Fluxo de uso
 1. **Pacientes** — cadastrar (convênio, se possui app, sexo).
 2. **Novo atendimento** — escolher paciente + modalidade; o sistema gera os códigos e mostra o
    que fatura hoje e o que fica pendente para +24h.
 3. **Pendências (dashboard)** — 2º códigos e consultas a renovar, com semáforo e contador. Botão
    **Dar baixa** registra a guia efetivada.
+4. **Relatórios** — por período: **taxa de baixa** (gerados × baixados × pendentes), quebra por
+   convênio e **envelhecimento** das pendências em aberto (0–7 / 8–30 / +30 dias).

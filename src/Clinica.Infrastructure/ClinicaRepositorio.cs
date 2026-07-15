@@ -31,6 +31,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Where(c => c.DataBaixa == null && c.Status != StatusCodigo.NaoAplicavel)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Where(c => c.Atendimento!.Data >= inicio && c.Atendimento!.Data <= fim
+                        && c.Status != StatusCodigo.NaoAplicavel)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default)
         => await _db.Pacientes.Include(p => p.Atendimentos).ToListAsync(ct);
 

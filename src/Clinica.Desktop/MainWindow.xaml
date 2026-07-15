@@ -19,6 +19,9 @@
         <DataTemplate DataType="{x:Type vm:BaixaViewModel}">
             <views:BaixaView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:RelatoriosViewModel}">
+            <views:RelatoriosView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -38,6 +41,8 @@
                 <Button Content="👤 Pacientes" Command="{Binding MostrarPacientesCommand}"
                         Height="44" Margin="0,4" HorizontalContentAlignment="Left" Padding="12,0" />
                 <Button Content="🩺 Novo atendimento" Command="{Binding MostrarNovoAtendimentoCommand}"
+                        Height="44" Margin="0,4" HorizontalContentAlignment="Left" Padding="12,0" />
+                <Button Content="📊 Relatórios" Command="{Binding MostrarRelatoriosCommand}"
                         Height="44" Margin="0,4" HorizontalContentAlignment="Left" Padding="12,0" />
 
                 <Border Background="#B91C1C" CornerRadius="8" Margin="0,32,0,0" Padding="12,8">
