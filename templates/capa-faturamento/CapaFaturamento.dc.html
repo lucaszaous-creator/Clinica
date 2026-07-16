@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<!-- @template name="Capa de Faturamento" description="Documento A4 imprimível que dá lastro ao faturamento de um paciente/convênio" -->
+<helmet><script src="./ds-base.js"></script><style>body{margin:0;background:#525659}@media print{body{background:#fff}}</style></helmet>
+<x-import component-from-global-scope="doc-page" from="./doc-page.js" size="a4" margin="1.5cm" hint-size="794px,1123px">
+<div style="font-family:'Segoe UI',system-ui,sans-serif;color:#0F172A;font-size:10pt">
+<div style="border-bottom:3px solid #14532D;padding-bottom:10px;display:flex;justify-content:space-between;align-items:flex-end">
+<div>
+<div style="font-size:16pt;font-weight:700;color:#14532D">CAPA DE FATURAMENTO</div>
+<div style="font-size:9pt;color:#64748B">Clínica — Faturamento por convênios</div>
+</div>
+<div style="text-align:right;font-size:9pt;color:#334155">Emitida em {{ dataEmissao }}<br>Competência: {{ competencia }}</div>
+</div>
+<div style="display:flex;gap:24px;margin:14px 0;font-size:10pt">
+<div><span style="color:#64748B">Paciente</span><br><b>{{ paciente }}</b></div>
+<div><span style="color:#64748B">CPF</span><br><b>{{ cpf }}</b></div>
+<div><span style="color:#64748B">Convênio</span><br><b>{{ convenio }}</b></div>
+<div><span style="color:#64748B">Status</span><br><sc-if value="{{ concluida }}" hint-placeholder-val="{{ false }}"><b style="color:#166534">FATURA CONCLUÍDA</b></sc-if><sc-if value="{{ emAndamento }}" hint-placeholder-val="{{ true }}"><b style="color:#B45309">EM ANDAMENTO</b></sc-if></div>
+</div>
+<table style="width:100%;border-collapse:collapse;font-size:9.5pt;margin:6px 0 18px">
+<thead><tr>
+<th style="background:#F1F5F9;border:1px solid #E2E8F0;padding:6px 8px;text-align:left">Data</th>
+<th style="background:#F1F5F9;border:1px solid #E2E8F0;padding:6px 8px;text-align:left">Código / autorização</th>
+<th style="background:#F1F5F9;border:1px solid #E2E8F0;padding:6px 8px;text-align:left">Guia</th>
+<th style="background:#F1F5F9;border:1px solid #E2E8F0;padding:6px 8px;text-align:left">Situação</th>
+</tr></thead>
+<tbody>
+<sc-for list="{{ linhas }}" as="l" hint-placeholder-count="4">
+<tr>
+<td style="border:1px solid #E2E8F0;padding:6px 8px">{{ l.data }}</td>
+<td style="border:1px solid #E2E8F0;padding:6px 8px">{{ l.codigo }}</td>
+<td style="border:1px solid #E2E8F0;padding:6px 8px">{{ l.guia }}</td>
+<td style="border:1px solid #E2E8F0;padding:6px 8px">{{ l.situacao }}</td>
+</tr>
+</sc-for>
+</tbody>
+</table>
+<div style="display:flex;gap:24px;font-size:9.5pt">
+<div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;padding:10px 12px">Total de atendimentos: <b>{{ totalAtendimentos }}</b></div>
+<div style="flex:1;background:#F8FAFC;border:1px solid #E2E8F0;padding:10px 12px">Guias baixadas: <b>{{ totalBaixadas }}</b></div>
+</div>
+<div style="display:flex;gap:60px;margin-top:80px">
+<div style="flex:1;border-top:1px solid #334155;padding-top:6px;text-align:center;font-size:9pt;color:#334155">Responsável pelo faturamento</div>
+<div style="flex:1;border-top:1px solid #334155;padding-top:6px;text-align:center;font-size:9pt;color:#334155">Conferência</div>
+</div>
+<div style="margin-top:30px;font-size:8pt;color:#64748B;text-align:center">Documento gerado pelo sistema Clínica — Faturamento. Confira os códigos junto ao convênio antes do envio.</div>
+</div>
+</x-import>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;794px&quot;,&quot;height&quot;:&quot;1123px&quot;},&quot;paciente&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Maria da Silva&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;cpf&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;123.456.789-00&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;convenio&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Unimed Costa do Sol (Padrão)&quot;,&quot;Unimed Intercâmbio&quot;,&quot;Amil&quot;,&quot;Petrobras&quot;],&quot;default&quot;:&quot;Unimed Intercâmbio&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;competencia&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Julho/2026&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;concluida&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;linhas&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;{data:string;codigo:string;guia:string;situacao:string}[]&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const concluida = p.concluida ?? false;
+    return {
+      paciente: p.paciente ?? 'Maria da Silva',
+      cpf: p.cpf ?? '123.456.789-00',
+      convenio: p.convenio ?? 'Unimed Intercâmbio',
+      competencia: p.competencia ?? 'Julho/2026',
+      dataEmissao: p.dataEmissao ?? new Date().toLocaleDateString('pt-BR'),
+      concluida, emAndamento: !concluida,
+      linhas: p.linhas ?? [
+        {data:'02/07/2026',codigo:'AUT-114532',guia:'88231',situacao:'Baixada'},
+        {data:'05/07/2026',codigo:'AUT-114570 (2º código)',guia:'88240',situacao:'Baixada'},
+        {data:'09/07/2026',codigo:'AUT-114612',guia:'—',situacao:'Pendente'},
+        {data:'12/07/2026',codigo:'AUT-114655',guia:'88255',situacao:'Baixada'},
+      ],
+      totalAtendimentos: (p.linhas ?? [1,2,3,4]).length,
+      totalBaixadas: (p.linhas ? p.linhas.filter(l=>l.situacao==='Baixada') : [1,2,3]).length,
+    };
+  }
+}
+</script>
+</body>
+</html>

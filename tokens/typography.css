@@ -1,0 +1,14 @@
+:root{
+/* Segoe UI é a fonte do sistema (WPF, FontFamily="Segoe UI"). Sem webfont — pilha de sistema. */
+--font-ui:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+--font-mono:Consolas,"SF Mono",Menlo,monospace; /* usado em campos técnicos (connection string) */
+/* Escala (Theme.xaml) */
+--text-h1-size:24px;--text-h1-weight:700;
+--text-h2-size:16px;--text-h2-weight:600;
+--text-body-size:13px;--text-label-weight:600;
+--text-kpi-size:30px;--text-kpi-weight:700;
+--text-small-size:12px;
+}
+body{font-family:var(--font-ui);font-size:var(--text-body-size);color:var(--text-body)}
+a{color:var(--verde-800);text-decoration:none}
+a:hover{color:var(--verde-900);text-decoration:underline}

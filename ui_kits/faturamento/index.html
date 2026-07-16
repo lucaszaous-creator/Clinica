@@ -1,0 +1,53 @@
+<!-- @dsCard group="App Faturamento" viewport="1280x800" name="App de faturamento" subtitle="Shell interativo: Pendências, Pacientes, Novo atendimento, Agenda, Relatórios e modais de impressão" -->
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>Clínica — Faturamento</title>
+<link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>html,body{margin:0;height:100%}#root{height:100%}</style>
+</head><body>
+<div id="root"></div>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel" src="modals.jsx"></script>
+<script type="text/babel">
+const {Sidebar}=window.ClNicaFaturamentoDesignSystem_bd26af;
+const ITEMS=[
+{id:'pend',icon:'clipboard-list',label:'Pendências'},
+{id:'pac',icon:'users',label:'Pacientes'},
+{id:'con',icon:'search',label:'Consultar guias'},
+{id:'nov',icon:'stethoscope',label:'Novo atendimento'},
+{id:'age',icon:'calendar',label:'Agenda'},
+{id:'fat',icon:'credit-card',label:'Faturados'},
+{id:'glo',icon:'ban',label:'Glosas'},
+{id:'tiss',icon:'file-text',label:'Guias TISS'},
+{id:'par',icon:'settings',label:'Parâmetros'},
+{id:'rel',icon:'bar-chart-3',label:'Relatórios'},
+];
+function App(){
+const[tela,setTela]=React.useState('pend');
+const[modal,setModal]=React.useState({tipo:'aviso'});
+const fechar=()=>setModal(null);
+return <div style={{display:'flex',height:'100%',background:'var(--surface-app)'}}>
+<Sidebar items={ITEMS} activeId={tela} onSelect={id=>{setTela(id);if(id==='glo')setModal({tipo:'glosa'});}} badge={window.PEND.length}/>
+<div style={{flex:1,padding:24,overflow:'auto'}}>
+{tela==='pend'?<TelaPendencias onBaixa={r=>setModal({tipo:'baixa',row:r})}/>:null}
+{tela==='pac'?<TelaPacientes/>:null}
+{tela==='con'?<TelaConsultarGuias/>:null}
+{tela==='nov'?<TelaNovoAtendimento onGerar={d=>setModal(d.conv.indexOf('Intercâmbio')>=0?{tipo:'primeiro',dados:d}:{tipo:'primeiro',dados:d})}/>:null}
+{tela==='age'?<TelaAgenda/>:null}
+{tela==='par'?<TelaParametros/>:null}
+{tela==='rel'?<TelaRelatorios onCapa={()=>window.open('../../templates/capa-faturamento/CapaFaturamento.dc.html','_blank')}/>:null}
+{['fat','glo','tiss'].indexOf(tela)>=0?<TelaNaoRecriada nome={ITEMS.find(i=>i.id===tela).label}/>:null}
+</div>
+{modal&&modal.tipo==='aviso'?<ModalAviso pend={window.PEND} onVer={()=>{setTela('pend');fechar();}} onClose={fechar}/>:null}
+{modal&&modal.tipo==='baixa'?<ModalBaixa row={modal.row} onConcluida={r=>setModal({tipo:'fatura',row:r})} onClose={fechar}/>:null}
+{modal&&modal.tipo==='glosa'?<ModalGlosa onClose={fechar}/>:null}
+{modal&&modal.tipo==='primeiro'?<ModalPrimeiroAtendimento dados={modal.dados} onClose={fechar}/>:null}
+{modal&&modal.tipo==='fatura'?<ModalFaturaCompleta row={modal.row} onClose={fechar}/>:null}
+</div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body></html>

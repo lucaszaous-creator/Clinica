@@ -1,0 +1,11 @@
+:root{
+/* Raios (Theme.xaml / views) */
+--radius-card:10px;--radius-control:8px;--radius-chip:6px;
+/* Espaçamento recorrente */
+--space-card-pad:16px;--space-page-pad:24px;--space-btn-pad:8px 14px;--space-input-pad:6px 8px;
+/* Tabela (DataGrid) */
+--table-row-height:34px;--table-header-bg:var(--slate-100);--table-header-pad:8px 10px;--table-cell-pad:8px 10px;
+/* Sidebar */
+--sidebar-width:240px;--sidebar-item-height:44px;
+/* Sem sombras: o sistema é flat — cartões usam borda 1px, nunca box-shadow. */
+}

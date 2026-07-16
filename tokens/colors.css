@@ -1,0 +1,25 @@
+:root{
+/* Marca — verde institucional (Theme.xaml) */
+--verde-900:#14532D; /* CorPrimaria */
+--verde-800:#166534; /* CorPrimariaHover */
+--verde-100:#DCFCE7; /* fundo de sucesso */
+--verde-claro:#A7F3D0; /* texto secundário sobre verde */
+/* Neutros (escala slate usada em todo o app) */
+--slate-900:#0F172A;--slate-700:#334155;--slate-500:#64748B;--slate-200:#E2E8F0;--slate-100:#F1F5F9;--slate-50:#F8FAFC;
+/* Perigo */
+--vermelho-700:#B91C1C;--vermelho-800:#991B1B;--vermelho-100:#FEE2E2;
+/* Aviso */
+--ambar-100:#FEF3C7;
+/* Semáforo de urgência (UrgenciaParaCorConverter) */
+--semaforo-verde:#2E7D32;--semaforo-amarelo:#F9A825;--semaforo-vermelho:#C62828;
+/* Aliases semânticos */
+--brand:var(--verde-900);--brand-hover:var(--verde-800);
+--surface-app:var(--slate-100);--surface-card:#FFFFFF;--surface-row-alt:var(--slate-50);
+--border:var(--slate-200);
+--text-title:var(--slate-900);--text-body:var(--slate-700);--text-muted:var(--slate-500);
+--danger:var(--vermelho-700);--danger-hover:var(--vermelho-800);--danger-text:var(--vermelho-800);--danger-tint:var(--vermelho-100);
+--success-tint:var(--verde-100);--success-text:var(--verde-800);
+--warning-tint:var(--ambar-100);
+--sidebar-bg:var(--verde-900);--sidebar-text:#FFFFFF;--sidebar-subtext:var(--verde-claro);
+--sidebar-item-hover:rgba(255,255,255,.133);--sidebar-item-active:rgba(255,255,255,.2);
+}
