@@ -24,6 +24,7 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
             e.Property(p => p.Sexo).HasConversion<string>().HasMaxLength(20);
             e.Property(p => p.Categoria).HasConversion<string>().HasMaxLength(20);
+            e.Property(p => p.ModalidadePreferida).HasConversion<string>().HasMaxLength(40);
             e.HasMany(p => p.Atendimentos).WithOne(a => a.Paciente!).HasForeignKey(a => a.PacienteId);
         });
 

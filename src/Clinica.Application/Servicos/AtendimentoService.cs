@@ -28,7 +28,7 @@ public sealed class AtendimentoService
 
     public async Task<ResultadoLancamento> LancarAsync(
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
-        CancellationToken ct = default, bool registrarNaAgenda = false)
+        CancellationToken ct = default, bool registrarNaAgenda = false, TipoCodigo? primeiroCodigo = null)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -43,7 +43,12 @@ public sealed class AtendimentoService
 
         var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);
         var dias = _parametros is null ? 1 : (await _parametros.ObterAsync(ct)).DiasSegundoCodigo(paciente.Convenio);
-        var contexto = new ContextoFaturamento { CodigosNoMes = historicoMes, DiasSegundoCodigo = dias };
+        var contexto = new ContextoFaturamento
+        {
+            CodigosNoMes = historicoMes,
+            DiasSegundoCodigo = dias,
+            PrimeiroCodigoPreferido = primeiroCodigo
+        };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);
 

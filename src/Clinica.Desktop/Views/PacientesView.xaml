@@ -29,7 +29,15 @@
 
                 <CheckBox Content="Possui app da Unimed (gera QR Code)" IsChecked="{Binding PossuiApp}" Margin="0,12,0,12" />
 
-                <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Categoria (semáforo)" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}" />
+                <TextBlock Text="Sugerida pelo convênio + app; pode ser ajustada manualmente."
+                           FontSize="11" Foreground="#64748B" Margin="0,3,0,0" TextWrapping="Wrap" />
+
+                <TextBlock Text="Modalidade padrão" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadePreferida}" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                     <Button Content="Salvar" Command="{Binding SalvarCommand}" />
                     <Button Content="Limpar" Style="{StaticResource BotaoSecundario}" Command="{Binding NovoCommand}" Margin="8,0,0,0" />
                 </StackPanel>

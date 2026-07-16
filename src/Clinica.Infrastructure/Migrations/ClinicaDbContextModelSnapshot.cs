@@ -210,6 +210,11 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("ModalidadePreferida")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(200)

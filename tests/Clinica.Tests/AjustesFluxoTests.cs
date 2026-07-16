@@ -81,6 +81,65 @@ public class AjustesFluxoTests : IDisposable
         p.Categoria.Should().Be(Categoria.Amarela);
     }
 
+    // ---------- (6) Ordem escolhida na modalidade dupla ----------
+
+    [Fact]
+    public void Intercambio_AcuComEletro_PreferindoEletroPrimeiro_InverteOrdem()
+    {
+        var p = new Paciente { Nome = "Dupla", Convenio = Convenio.UnimedIntercambio };
+        var a = new Atendimento { Data = new DateOnly(2026, 7, 15), Modalidade = ModalidadeAtendimento.AcupunturaComEletro };
+        var ctx = new ContextoFaturamento { PrimeiroCodigoPreferido = TipoCodigo.Eletroacupuntura };
+
+        var r = new RegraUnimedIntercambio().Gerar(p, a, ctx);
+
+        var primeiro = r.Codigos.Single(c => c.Ordem == OrdemCodigo.Primeiro);
+        var segundo = r.Codigos.Single(c => c.Ordem == OrdemCodigo.Segundo);
+        primeiro.Tipo.Should().Be(TipoCodigo.Eletroacupuntura);
+        primeiro.DataPrevistaFaturamento.Should().Be(a.Data);
+        segundo.Tipo.Should().Be(TipoCodigo.Acupuntura);
+        segundo.DataPrevistaFaturamento.Should().Be(a.Data.AddDays(1));
+    }
+
+    [Fact]
+    public void Intercambio_AcuComEletro_SemPreferencia_MantemAcupunturaPrimeiro()
+    {
+        var p = new Paciente { Nome = "Dupla", Convenio = Convenio.UnimedIntercambio };
+        var a = new Atendimento { Data = new DateOnly(2026, 7, 15), Modalidade = ModalidadeAtendimento.AcupunturaComEletro };
+
+        var r = new RegraUnimedIntercambio().Gerar(p, a, ContextoFaturamento.Vazio);
+
+        r.Codigos.Single(c => c.Ordem == OrdemCodigo.Primeiro).Tipo.Should().Be(TipoCodigo.Acupuntura);
+        r.Codigos.Single(c => c.Ordem == OrdemCodigo.Segundo).Tipo.Should().Be(TipoCodigo.Eletroacupuntura);
+    }
+
+    [Fact]
+    public void PadraoComApp_BsvComAcupuntura_PreferindoAcupunturaPrimeiro_InverteOrdem()
+    {
+        var p = new Paciente { Nome = "Dupla", Convenio = Convenio.UnimedPadrao, PossuiApp = true };
+        var a = new Atendimento { Data = new DateOnly(2026, 7, 15), Modalidade = ModalidadeAtendimento.BsvComAcupuntura };
+        var ctx = new ContextoFaturamento { PrimeiroCodigoPreferido = TipoCodigo.Acupuntura };
+
+        var r = new RegraUnimedPadrao().Gerar(p, a, ctx);
+
+        r.Codigos.Single(c => c.Ordem == OrdemCodigo.Primeiro).Tipo.Should().Be(TipoCodigo.Acupuntura);
+        r.Codigos.Single(c => c.Ordem == OrdemCodigo.Segundo).Tipo.Should().Be(TipoCodigo.Bsv);
+    }
+
+    [Fact]
+    public async Task ModalidadePreferida_PersisteNoCadastro()
+    {
+        var service = new PacienteService(_repo);
+        var p = await service.SalvarNovoAsync(new Paciente
+        {
+            Nome = "Habitual",
+            Convenio = Convenio.Amil,
+            ModalidadePreferida = ModalidadeAtendimento.BsvComAcupuntura
+        });
+
+        var lido = await _db.Pacientes.AsNoTracking().FirstAsync(x => x.Id == p.Id);
+        lido.ModalidadePreferida.Should().Be(ModalidadeAtendimento.BsvComAcupuntura);
+    }
+
     // ---------- (5) Novo atendimento reflete na agenda ----------
 
     [Fact]

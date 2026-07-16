@@ -14,5 +14,12 @@ public sealed class ContextoFaturamento
     /// <summary>Dias entre o 1º e o 2º código (parâmetro do convênio; padrão 1 = 24h).</summary>
     public int DiasSegundoCodigo { get; init; } = 1;
 
+    /// <summary>
+    /// Nas modalidades duplas (acupuntura+eletro / BSV+acupuntura), qual código o convênio libera
+    /// PRIMEIRO (hoje); o outro vira o 2º código (+24h). Null = ordem padrão da regra.
+    /// Só é considerado quando a modalidade realmente gera dois códigos.
+    /// </summary>
+    public TipoCodigo? PrimeiroCodigoPreferido { get; init; }
+
     public static ContextoFaturamento Vazio { get; } = new();
 }

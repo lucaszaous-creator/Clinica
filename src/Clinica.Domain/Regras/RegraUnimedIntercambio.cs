@@ -5,6 +5,8 @@ namespace Clinica.Domain.Regras;
 /// <summary>
 /// Unimed Costa do Sol Intercâmbio. Consulta a cada 22 dias.
 /// O 2º código é sempre obtido diretamente pelo sistema após 24h (não precisa ligar para o paciente). VERDE.
+/// Nas modalidades duplas, a ordem (qual código sai hoje e qual em +24h) pode ser escolhida no
+/// lançamento (contexto.PrimeiroCodigoPreferido); o padrão é acupuntura/BSV primeiro.
 /// </summary>
 public sealed class RegraUnimedIntercambio : IRegraConvenio
 {
@@ -25,21 +27,27 @@ public sealed class RegraUnimedIntercambio : IRegraConvenio
                 break;
 
             case ModalidadeAtendimento.AcupunturaComEletro:
-                r.Codigos.Add(Codigo(TipoCodigo.Acupuntura, OrdemCodigo.Primeiro, hoje, FormaObtencao.NaoAplica));
-                r.Codigos.Add(Codigo(TipoCodigo.Eletroacupuntura, OrdemCodigo.Segundo, amanha, FormaObtencao.Sistema,
-                    "Após 24h: solicitar o 2º código da eletroacupuntura diretamente pelo sistema Unimed (não precisa ligar)."));
+            {
+                var (primeiro, segundo) = OrdemDupla(contexto, TipoCodigo.Acupuntura, TipoCodigo.Eletroacupuntura);
+                r.Codigos.Add(Codigo(primeiro, OrdemCodigo.Primeiro, hoje, FormaObtencao.NaoAplica));
+                r.Codigos.Add(Codigo(segundo, OrdemCodigo.Segundo, amanha, FormaObtencao.Sistema,
+                    $"Após 24h: solicitar o 2º código ({NomeTipo(segundo)}) diretamente pelo sistema Unimed (não precisa ligar)."));
                 r.Categoria = Categoria.Verde;
-                r.Avisos.Add("2º código (eletroacupuntura) previsto para +24h — solicitar pelo sistema.");
+                r.Avisos.Add($"2º código ({NomeTipo(segundo)}) previsto para +24h — solicitar pelo sistema.");
                 break;
+            }
 
             case ModalidadeAtendimento.BsvComAcupuntura:
-                r.Codigos.Add(Codigo(TipoCodigo.Bsv, OrdemCodigo.Primeiro, hoje, FormaObtencao.NaoAplica,
-                    "1º código do dia (BSV). No sistema do convênio, inverter as datas (acupuntura para hoje)."));
-                r.Codigos.Add(Codigo(TipoCodigo.Acupuntura, OrdemCodigo.Segundo, amanha, FormaObtencao.Sistema,
-                    "2º código (acupuntura) em +24h — liberar diretamente no sistema (Intercâmbio, sem avisar o paciente)."));
+            {
+                var (primeiro, segundo) = OrdemDupla(contexto, TipoCodigo.Bsv, TipoCodigo.Acupuntura);
+                r.Codigos.Add(Codigo(primeiro, OrdemCodigo.Primeiro, hoje, FormaObtencao.NaoAplica,
+                    $"1º código do dia ({NomeTipo(primeiro)}). No sistema do convênio, inverter as datas ({NomeTipo(segundo)} para hoje)."));
+                r.Codigos.Add(Codigo(segundo, OrdemCodigo.Segundo, amanha, FormaObtencao.Sistema,
+                    $"2º código ({NomeTipo(segundo)}) em +24h — liberar diretamente no sistema (Intercâmbio, sem avisar o paciente)."));
                 r.Categoria = Categoria.Verde;
                 r.Avisos.Add("2º código previsto para +24h — liberar pelo sistema.");
                 break;
+            }
 
             case ModalidadeAtendimento.BsvApenas:
                 r.Codigos.Add(Codigo(TipoCodigo.Bsv, OrdemCodigo.Primeiro, hoje, FormaObtencao.NaoAplica));
@@ -49,6 +57,20 @@ public sealed class RegraUnimedIntercambio : IRegraConvenio
 
         return r;
     }
+
+    private static (TipoCodigo primeiro, TipoCodigo segundo) OrdemDupla(
+        ContextoFaturamento contexto, TipoCodigo padraoPrimeiro, TipoCodigo padraoSegundo)
+        => contexto.PrimeiroCodigoPreferido == padraoSegundo
+            ? (padraoSegundo, padraoPrimeiro)
+            : (padraoPrimeiro, padraoSegundo);
+
+    private static string NomeTipo(TipoCodigo t) => t switch
+    {
+        TipoCodigo.Acupuntura => "acupuntura",
+        TipoCodigo.Eletroacupuntura => "eletroacupuntura",
+        TipoCodigo.Bsv => "BSV",
+        _ => t.ToString()
+    };
 
     private static CodigoFaturamento Codigo(TipoCodigo tipo, OrdemCodigo ordem, DateOnly data, FormaObtencao forma, string? descricao = null)
         => new()
