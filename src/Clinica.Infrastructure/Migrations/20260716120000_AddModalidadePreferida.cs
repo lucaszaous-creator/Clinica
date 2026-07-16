@@ -1,5 +1,3 @@
-using Clinica.Infrastructure;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -7,8 +5,6 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Clinica.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    [DbContext(typeof(ClinicaDbContext))]
-    [Migration("20260716120000_AddModalidadePreferida")]
     public partial class AddModalidadePreferida : Migration
     {
         /// <inheritdoc />

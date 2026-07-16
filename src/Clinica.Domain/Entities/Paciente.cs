@@ -25,4 +25,6 @@ public class Paciente
     public string? Observacoes { get; set; }
 
     public List<Atendimento> Atendimentos { get; set; } = new();
+
+    public List<Consulta> Consultas { get; set; } = new();
 }

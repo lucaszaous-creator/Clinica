@@ -1,0 +1,57 @@
+<UserControl x:Class="Clinica.Desktop.Views.ConsultasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel Margin="24">
+        <TextBlock Text="Consultas" Style="{StaticResource H1}" DockPanel.Dock="Top" />
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="#334155" Margin="0,0,0,12"
+                   Text="Situação da consulta de cada paciente (validade conforme os Parâmetros do convênio). Renove as vencidas e as que estão a vencer." />
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <Border Background="#FEF3C7" CornerRadius="6" Padding="10,6">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="⏰ Precisam renovar: " FontWeight="Bold" />
+                        <TextBlock Text="{Binding TotalAlerta}" FontWeight="Bold" />
+                    </StackPanel>
+                </Border>
+                <TextBlock Text="{Binding Mensagem}" Foreground="#14532D" VerticalAlignment="Center"
+                           Margin="12,0,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="↻ Atualizar" Command="{Binding RecarregarCommand}"
+                    Style="{StaticResource BotaoSecundario}" />
+        </Grid>
+
+        <DataGrid ItemsSource="{Binding Consultas}" AutoGenerateColumns="False" IsReadOnly="True">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Ellipse Width="14" Height="14" VerticalAlignment="Center"
+                                     Fill="{Binding Urgencia, Converter={StaticResource UrgenciaParaCor}}"
+                                     ToolTip="{Binding Urgencia}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="*" />
+                <DataGridTextColumn Header="Convênio"
+                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
+                <DataGridTextColumn Header="Última emissão" Binding="{Binding UltimaEmissao}" Width="Auto" />
+                <DataGridTextColumn Header="Vencimento" Binding="{Binding Vencimento}" Width="Auto" />
+                <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="Auto" />
+                <DataGridTemplateColumn Header="Ações" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Renovar" Padding="8,3" FontSize="12"
+                                    Command="{Binding DataContext.RenovarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

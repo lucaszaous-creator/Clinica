@@ -137,6 +137,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<FaturadosViewModel>();
                 services.AddTransient<FichaPacienteViewModel>();
                 services.AddTransient<AgendaViewModel>();
+                services.AddTransient<ConsultasViewModel>();
                 services.AddTransient<GlosasViewModel>();
                 services.AddTransient<TissViewModel>();
                 services.AddTransient<ConsultaGuiasViewModel>();
