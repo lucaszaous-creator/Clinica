@@ -10,11 +10,22 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" />
-            <Button Content="↻ Atualizar" Command="{Binding AtualizarCommand}"
-                    HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}" />
-        </DockPanel>
+        <StackPanel Grid.Row="0">
+            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding TemPendencias, Converter={StaticResource BoolParaVisibilidade}}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="🔔" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White" />
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="15" FontWeight="Bold" Foreground="White">
+                        <Run Text="Existem " /><Run Text="{Binding TotalCodigos, Mode=OneWay}" /><Run Text=" guias pendentes de baixa. Dê baixa assim que possível para não perder o faturamento." />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+            <DockPanel Margin="0,0,0,12">
+                <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" />
+                <Button Content="↻ Atualizar" Command="{Binding AtualizarCommand}"
+                        HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}" />
+            </DockPanel>
+        </StackPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
             <TextBlock Text="Convênio:" VerticalAlignment="Center" Margin="0,0,6,0" />

@@ -25,6 +25,10 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private object _filtroUrgencia = "Todos";
     [ObservableProperty] private int _total;
 
+    /// <summary>Total de códigos/guias pendentes de baixa (para a faixa de alerta do topo).</summary>
+    public int TotalCodigos => _todos.Count;
+    public bool TemPendencias => _todos.Count > 0;
+
     public event Action<int>? PendenciasAtualizadas;
     public event Action<int>? AbrirBaixaSolicitado;
 
@@ -64,6 +68,8 @@ public partial class DashboardViewModel : ObservableObject
         foreach (var c in filtrados) Codigos.Add(c);
 
         Total = _todos.Count + Consultas.Count;
+        OnPropertyChanged(nameof(TotalCodigos));
+        OnPropertyChanged(nameof(TemPendencias));
         PendenciasAtualizadas?.Invoke(Total);
     }
 
