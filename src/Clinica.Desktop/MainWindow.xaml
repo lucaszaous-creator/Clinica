@@ -32,6 +32,9 @@
         <DataTemplate DataType="{x:Type vm:AgendaViewModel}">
             <views:AgendaView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ConsultasViewModel}">
+            <views:ConsultasView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:GlosasViewModel}">
             <views:GlosasView />
         </DataTemplate>
@@ -73,6 +76,9 @@
                 <Button Content="📅  Agenda" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarAgendaCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Agenda}" />
+                <Button Content="📄  Consultas" Style="{StaticResource BotaoMenu}"
+                        Command="{Binding MostrarConsultasCommand}"
+                        Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Consultas}" />
                 <Button Content="💳  Faturados" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarFaturadosCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Faturados}" />

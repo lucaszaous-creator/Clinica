@@ -24,17 +24,53 @@ public partial class NovoAtendimentoViewModel : ObservableObject
 
     public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
 
+    /// <summary>Opções de qual código sai primeiro (hoje) numa modalidade dupla. Vazio nas simples.</summary>
+    public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
+
     [ObservableProperty] private string? _busca;
     [ObservableProperty] private Paciente? _pacienteSelecionado;
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
+    [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private bool _lancado;
     [ObservableProperty] private string? _numeroAtendimento;
 
     private int _ultimoAtendimentoId;
 
-    public NovoAtendimentoViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+    /// <summary>Modalidade dupla (gera 1º hoje + 2º em +24h): permite escolher qual código sai primeiro.</summary>
+    public bool ModalidadeDupla =>
+        Modalidade is ModalidadeAtendimento.AcupunturaComEletro or ModalidadeAtendimento.BsvComAcupuntura;
+
+    public NovoAtendimentoViewModel(IServiceScopeFactory scopeFactory)
+    {
+        _scopeFactory = scopeFactory;
+        AtualizarOpcoesPrimeiroCodigo();
+    }
+
+    partial void OnModalidadeChanged(ModalidadeAtendimento value)
+    {
+        AtualizarOpcoesPrimeiroCodigo();
+        OnPropertyChanged(nameof(ModalidadeDupla));
+    }
+
+    /// <summary>Preenche as opções de "qual código primeiro" conforme a modalidade e escolhe o padrão.</summary>
+    private void AtualizarOpcoesPrimeiroCodigo()
+    {
+        OpcoesPrimeiroCodigo.Clear();
+        switch (Modalidade)
+        {
+            case ModalidadeAtendimento.AcupunturaComEletro:
+                OpcoesPrimeiroCodigo.Add(TipoCodigo.Acupuntura);
+                OpcoesPrimeiroCodigo.Add(TipoCodigo.Eletroacupuntura);
+                break;
+            case ModalidadeAtendimento.BsvComAcupuntura:
+                OpcoesPrimeiroCodigo.Add(TipoCodigo.Bsv);
+                OpcoesPrimeiroCodigo.Add(TipoCodigo.Acupuntura);
+                break;
+        }
+        PrimeiroCodigo = OpcoesPrimeiroCodigo.Count > 0 ? OpcoesPrimeiroCodigo[0] : null;
+    }
 
     public Task CarregarAsync() => BuscarPacientes();
 
@@ -51,6 +87,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject
 
     partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
 
+    // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro).
+    partial void OnPacienteSelecionadoChanged(Paciente? value)
+    {
+        if (value is not null)
+            Modalidade = value.ModalidadePreferida;
+    }
+
     [RelayCommand]
     private async Task Lancar()
     {
@@ -63,7 +106,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
         var resultado = await service.LancarAsync(
-            PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes);
+            PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
+            registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
 
         foreach (var c in resultado.Atendimento.Codigos)
             CodigosGerados.Add(c);

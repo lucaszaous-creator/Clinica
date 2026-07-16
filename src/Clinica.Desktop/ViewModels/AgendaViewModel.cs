@@ -37,6 +37,13 @@ public partial class AgendaViewModel : ObservableObject
     partial void OnDiaChanged(DateTime value) => OnPropertyChanged(nameof(TituloDia));
     partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
 
+    // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro).
+    partial void OnPacienteSelecionadoChanged(Paciente? value)
+    {
+        if (value is not null)
+            Modalidade = value.ModalidadePreferida;
+    }
+
     public async Task CarregarAsync()
     {
         await BuscarPacientes();

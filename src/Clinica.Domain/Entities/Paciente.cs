@@ -16,10 +16,15 @@ public class Paciente
     /// <summary>Usado pela Petrobras para a rotação de especialidades (Ginecologia só para mulheres).</summary>
     public Sexo Sexo { get; set; }
 
-    /// <summary>Categoria mais recente registrada na ficha (calculada pelo motor de regras).</summary>
+    /// <summary>Categoria mais recente registrada na ficha (derivada do convênio + app; editável).</summary>
     public Categoria Categoria { get; set; }
+
+    /// <summary>Modalidade de atendimento habitual do paciente. Pré-preenche Novo Atendimento e Agenda.</summary>
+    public ModalidadeAtendimento ModalidadePreferida { get; set; } = ModalidadeAtendimento.AcupunturaComEletro;
 
     public string? Observacoes { get; set; }
 
     public List<Atendimento> Atendimentos { get; set; } = new();
+
+    public List<Consulta> Consultas { get; set; } = new();
 }

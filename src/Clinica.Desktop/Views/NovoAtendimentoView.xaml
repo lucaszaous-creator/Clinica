@@ -24,6 +24,13 @@
                 <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
                 <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}" />
 
+                <StackPanel Visibility="{Binding ModalidadeDupla, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="Qual código o convênio libera primeiro (hoje)?" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding OpcoesPrimeiroCodigo}" SelectedItem="{Binding PrimeiroCodigo}" />
+                    <TextBlock Text="O outro código vira o 2º (previsto para +24h)."
+                               FontSize="11" Foreground="#64748B" Margin="0,3,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+
                 <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
                 <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
 

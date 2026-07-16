@@ -159,6 +159,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         }
     }
 
+    // ---- Consultas ----
+
+    public async Task AdicionarConsultaAsync(Consulta consulta, CancellationToken ct = default)
+        => await _db.Consultas.AddAsync(consulta, ct);
+
+    public async Task<IReadOnlyList<Consulta>> ConsultasDoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => await _db.Consultas
+            .Where(c => c.PacienteId == pacienteId)
+            .OrderByDescending(c => c.DataEmissao)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Paciente>> PacientesComConsultasAsync(CancellationToken ct = default)
+        => await _db.Pacientes.Include(p => p.Consultas).OrderBy(p => p.Nome).ToListAsync(ct);
+
     // ---- Agenda ----
 
     public async Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default)

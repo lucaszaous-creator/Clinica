@@ -12,6 +12,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
     public DbSet<ParametroConvenio> Parametros => Set<ParametroConvenio>();
+    public DbSet<Consulta> Consultas => Set<Consulta>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -24,6 +25,7 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
             e.Property(p => p.Sexo).HasConversion<string>().HasMaxLength(20);
             e.Property(p => p.Categoria).HasConversion<string>().HasMaxLength(20);
+            e.Property(p => p.ModalidadePreferida).HasConversion<string>().HasMaxLength(40);
             e.HasMany(p => p.Atendimentos).WithOne(a => a.Paciente!).HasForeignKey(a => a.PacienteId);
         });
 
@@ -59,6 +61,18 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(p => p.Convenio);
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
+        });
+
+        b.Entity<Consulta>(e =>
+        {
+            e.HasKey(c => c.Id);
+            e.Property(c => c.Convenio).HasConversion<string>().HasMaxLength(40);
+            e.Property(c => c.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.Observacoes).HasMaxLength(500);
+            e.HasOne(c => c.Paciente).WithMany(p => p.Consultas).HasForeignKey(c => c.PacienteId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(c => c.PacienteId);
+            e.HasIndex(c => c.DataVencimento);
         });
 
         b.Entity<Agendamento>(e =>

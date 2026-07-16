@@ -51,6 +51,15 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ParametroConvenio>> ParametrosAsync(CancellationToken ct = default);
     Task SalvarParametroAsync(ParametroConvenio parametro, CancellationToken ct = default);
 
+    // ---- Consultas (renováveis) ----
+    Task AdicionarConsultaAsync(Consulta consulta, CancellationToken ct = default);
+
+    /// <summary>Consultas do paciente, da mais recente para a mais antiga.</summary>
+    Task<IReadOnlyList<Consulta>> ConsultasDoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    /// <summary>Todos os pacientes com suas consultas carregadas (para a aba de Consultas).</summary>
+    Task<IReadOnlyList<Paciente>> PacientesComConsultasAsync(CancellationToken ct = default);
+
     Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default);
     Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
