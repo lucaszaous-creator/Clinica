@@ -28,7 +28,7 @@ public sealed class AtendimentoService
 
     public async Task<ResultadoLancamento> LancarAsync(
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, bool registrarNaAgenda = false)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -59,6 +59,26 @@ public sealed class AtendimentoService
         // Número/protocolo do atendimento (o Id já existe após salvar) — base do lastro de faturamento.
         atendimento.Numero = $"{data.Year}-{atendimento.Id:D6}";
         await _repo.SalvarAsync(ct);
+
+        // Lançamento direto (tela "Novo atendimento"): registra também na agenda do dia, já
+        // como presença realizada e vinculado ao atendimento, para que o paciente apareça
+        // na agenda na data marcada. Quando o atendimento nasce da própria agenda
+        // (AgendaService.ConfirmarPresenca), este registro não é criado (evita duplicidade).
+        if (registrarNaAgenda)
+        {
+            var agendamento = new Agendamento
+            {
+                PacienteId = pacienteId,
+                DataHora = DateTime.SpecifyKind(data.ToDateTime(new TimeOnly(9, 0)), DateTimeKind.Unspecified),
+                ModalidadePrevista = modalidade,
+                Status = StatusAgendamento.Realizado,
+                Origem = OrigemAgendamento.Manual,
+                AtendimentoId = atendimento.Id,
+                Observacoes = observacoes
+            };
+            await _repo.AdicionarAgendamentoAsync(agendamento, ct);
+            await _repo.SalvarAsync(ct);
+        }
 
         return new ResultadoLancamento(atendimento, resultado.Avisos);
     }

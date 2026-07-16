@@ -1,6 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
@@ -17,18 +18,26 @@ public sealed class PacienteService
     public Task<Paciente?> ObterComHistoricoAsync(int pacienteId, CancellationToken ct = default)
         => _repo.ObterPacienteComHistoricoAsync(pacienteId, ct);
 
-    public async Task<Paciente> SalvarNovoAsync(Paciente paciente, CancellationToken ct = default)
+    public async Task<Paciente> SalvarNovoAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
     {
         Validar(paciente);
+        if (!categoriaManual)
+            paciente.Categoria = CategoriaConvenio.Base(paciente.Convenio, paciente.PossuiApp);
         await _repo.AdicionarPacienteAsync(paciente, ct);
         await _repo.SalvarAsync(ct);
         return paciente;
     }
 
-    /// <summary>Salva alterações de um paciente já rastreado pelo mesmo contexto.</summary>
-    public async Task AtualizarAsync(Paciente paciente, CancellationToken ct = default)
+    /// <summary>
+    /// Salva alterações de um paciente já rastreado pelo mesmo contexto.
+    /// Por padrão a categoria é derivada do convênio + app; passe <paramref name="categoriaManual"/>
+    /// = true para preservar uma categoria definida manualmente na ficha.
+    /// </summary>
+    public async Task AtualizarAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
     {
         Validar(paciente);
+        if (!categoriaManual)
+            paciente.Categoria = CategoriaConvenio.Base(paciente.Convenio, paciente.PossuiApp);
         await _repo.SalvarAsync(ct);
     }
 

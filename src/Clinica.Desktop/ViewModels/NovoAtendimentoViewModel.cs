@@ -63,7 +63,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
         var resultado = await service.LancarAsync(
-            PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes);
+            PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
+            registrarNaAgenda: true);
 
         foreach (var c in resultado.Atendimento.Codigos)
             CodigosGerados.Add(c);
