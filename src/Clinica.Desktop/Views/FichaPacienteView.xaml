@@ -45,8 +45,8 @@
                 <DataGridTemplateColumn Header="Ação" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Estornar" Padding="8,3" FontSize="12"
-                                    Style="{StaticResource BotaoPerigo}"
+                            <Button Content="Estornar"
+                                    Style="{StaticResource BotaoAcaoGridPerigo}"
                                     Visibility="{Binding Baixado, Converter={StaticResource BoolParaVisibilidade}}"
                                     Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                     CommandParameter="{Binding}" />

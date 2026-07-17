@@ -198,6 +198,22 @@
         </Setter>
     </Style>
 
+    <!-- Ações compactas dentro de tabelas (evita que a coluna de Ações
+         fique larga demais e "passe da tela") -->
+    <Style x:Key="BotaoAcaoGrid" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style x:Key="BotaoAcaoGridSecundario" TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style x:Key="BotaoAcaoGridPerigo" TargetType="Button" BasedOn="{StaticResource BotaoPerigo}">
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
     <!-- Menu lateral -->
     <Style x:Key="BotaoMenu" TargetType="Button">
         <Setter Property="Foreground" Value="White" />

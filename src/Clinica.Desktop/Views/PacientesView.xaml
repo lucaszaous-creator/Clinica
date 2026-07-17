@@ -75,15 +75,15 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="Ficha" Padding="8,3" FontSize="12"
+                                    <Button Content="Ficha" Style="{StaticResource BotaoAcaoGrid}"
                                             Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}" />
-                                    <Button Content="Editar" Padding="8,3" FontSize="12" Margin="6,0,0,0"
-                                            Style="{StaticResource BotaoSecundario}"
+                                    <Button Content="Editar" Margin="6,0,0,0"
+                                            Style="{StaticResource BotaoAcaoGridSecundario}"
                                             Command="{Binding DataContext.EditarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}" />
-                                    <Button Content="Excluir" Padding="8,3" FontSize="12" Margin="6,0,0,0"
-                                            Style="{StaticResource BotaoPerigo}"
+                                    <Button Content="Excluir" Margin="6,0,0,0"
+                                            Style="{StaticResource BotaoAcaoGridPerigo}"
                                             Command="{Binding DataContext.ExcluirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}" />
                                 </StackPanel>

@@ -4,6 +4,7 @@
         xmlns:vm="clr-namespace:Clinica.Desktop.ViewModels"
         xmlns:views="clr-namespace:Clinica.Desktop.Views"
         Title="Clínica — Faturamento" Height="740" Width="1180"
+        MinHeight="560" MinWidth="900"
         WindowStartupLocation="CenterScreen" FontFamily="Segoe UI"
         Background="{StaticResource BrushFundo}">
 

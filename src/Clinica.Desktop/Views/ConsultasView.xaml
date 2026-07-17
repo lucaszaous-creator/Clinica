@@ -46,7 +46,7 @@
                 <DataGridTemplateColumn Header="Ações" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Renovar" Padding="8,3" FontSize="12"
+                            <Button Content="Renovar" Style="{StaticResource BotaoAcaoGrid}"
                                     Command="{Binding DataContext.RenovarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                     CommandParameter="{Binding}" />
                         </DataTemplate>
