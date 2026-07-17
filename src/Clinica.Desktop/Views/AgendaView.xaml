@@ -34,28 +34,42 @@
             </StackPanel>
         </Border>
 
-        <!-- Agenda do dia -->
-        <DockPanel Grid.Column="1">
-            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                <Button Content="◀" Command="{Binding DiaAnteriorCommand}" Style="{StaticResource BotaoSecundario}" Width="40" />
-                <Button Content="Hoje" Command="{Binding HojeCommand}" Style="{StaticResource BotaoSecundario}" Margin="6,0" />
-                <Button Content="▶" Command="{Binding ProximoDiaCommand}" Style="{StaticResource BotaoSecundario}" Width="40" />
-                <TextBlock Text="{Binding TituloDia}" Style="{StaticResource H2}" Margin="16,0,0,0" VerticalAlignment="Center" />
-            </DockPanel>
+        <!-- Agenda do dia (Card com navegação de dia, como no design) -->
+        <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Stretch">
+        <DockPanel>
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Button Grid.Column="0" Content="‹" Command="{Binding DiaAnteriorCommand}"
+                        Style="{StaticResource BotaoSecundario}" Padding="8,3" FontSize="12" Width="34" />
+                <TextBlock Grid.Column="1" Text="{Binding TituloDia}" FontSize="16" FontWeight="SemiBold"
+                           Foreground="{StaticResource BrushTextoTitulo}" MinWidth="190"
+                           TextAlignment="Center" VerticalAlignment="Center" Margin="10,0" />
+                <Button Grid.Column="2" Content="›" Command="{Binding ProximoDiaCommand}"
+                        Style="{StaticResource BotaoSecundario}" Padding="8,3" FontSize="12" Width="34" />
+                <Button Grid.Column="4" Content="Hoje" Command="{Binding HojeCommand}"
+                        Style="{StaticResource BotaoSecundario}" />
+            </Grid>
 
             <DataGrid ItemsSource="{Binding Agendamentos}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Hora" Binding="{Binding DataHora, StringFormat=HH:mm}" Width="Auto" />
                     <DataGridTextColumn Header="Paciente" Binding="{Binding Paciente.Nome}" Width="*" />
-                    <DataGridTextColumn Header="Modalidade"
+                    <DataGridTextColumn Header="Procedimento"
                                         Binding="{Binding ModalidadePrevista, Converter={StaticResource EnumDescricao}}" Width="1.4*" />
                     <DataGridTextColumn Header="Situação" Binding="{Binding Status}" Width="Auto" />
                     <DataGridTextColumn Header="Obs." Binding="{Binding Observacoes}" Width="1.4*" />
-                    <DataGridTemplateColumn Header="Ações" Width="Auto">
+                    <DataGridTemplateColumn Header="" Width="Auto">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="Presença" Padding="8,3" FontSize="12"
+                                    <Button Content="Iniciar atendimento" Padding="8,3" FontSize="12"
+                                            Style="{StaticResource BotaoSecundario}"
                                             Command="{Binding DataContext.ConfirmarPresencaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}" />
                                     <Button Content="Faltou" Padding="8,3" FontSize="12" Margin="6,0,0,0"
@@ -73,5 +87,6 @@
                 </DataGrid.Columns>
             </DataGrid>
         </DockPanel>
+        </Border>
     </Grid>
 </UserControl>

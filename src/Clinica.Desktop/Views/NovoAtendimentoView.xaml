@@ -49,30 +49,46 @@
         </Border>
 
         <StackPanel Grid.Column="1">
-            <TextBlock Text="Códigos gerados" Style="{StaticResource H1}" />
-            <DataGrid ItemsSource="{Binding CodigosGerados}" MaxHeight="280">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Código"
-                                        Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
-                    <DataGridTextColumn Header="Especialidade" Binding="{Binding Especialidade}" Width="*" />
-                    <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
-                    <DataGridTextColumn Header="Faturar em" Binding="{Binding DataPrevistaFaturamento}" Width="*" />
-                    <DataGridTextColumn Header="Como obter"
-                                        Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
-                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
-                </DataGrid.Columns>
-            </DataGrid>
+            <!-- Regras por convênio (card informativo do design) -->
+            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="Regras por convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTextoCorpo}" FontSize="13" LineHeight="22">
+                        <Run Text="• Unimed Padrão: código no app ou por ligação." /><LineBreak />
+                        <Run Text="• Unimed Intercâmbio: " /><Run Text="2 códigos" FontWeight="Bold" /><Run Text=" — o 2º deve ser obtido em +24h por ligação." /><LineBreak />
+                        <Run Text="• Amil: guia gerada no portal; baixa após atendimento." /><LineBreak />
+                        <Run Text="• Petrobras: exige sexo do paciente no cadastro." />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
 
-            <TextBlock Text="Avisos" Style="{StaticResource H2}" />
-            <ItemsControl ItemsSource="{Binding Avisos}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Background="#FEF3C7" CornerRadius="6" Padding="10,6" Margin="0,0,0,6">
-                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Códigos gerados" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                    <DataGrid ItemsSource="{Binding CodigosGerados}" MaxHeight="280">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Código"
+                                                Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                            <DataGridTextColumn Header="Especialidade" Binding="{Binding Especialidade}" Width="*" />
+                            <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
+                            <DataGridTextColumn Header="Faturar em" Binding="{Binding DataPrevistaFaturamento}" Width="*" />
+                            <DataGridTextColumn Header="Como obter"
+                                                Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <ItemsControl ItemsSource="{Binding Avisos}" Margin="0,10,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,6">
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </Grid>
 </UserControl>

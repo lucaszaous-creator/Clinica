@@ -54,7 +54,8 @@
             </StackPanel>
         </Border>
 
-        <DataGrid Grid.Row="3" ItemsSource="{Binding Resultados}">
+        <Border Grid.Row="3" Style="{StaticResource Card}">
+        <DataGrid ItemsSource="{Binding Resultados}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
                 <DataGridTextColumn Header="Atend. nº" Binding="{Binding Atendimento.Numero}" Width="Auto" />
@@ -65,10 +66,28 @@
                                     Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
                 <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
-                <DataGridTextColumn Header="Situação"
-                                    Binding="{Binding Path=., Converter={StaticResource StatusCodigo}}" Width="1.6*" />
+                <DataGridTemplateColumn Header="Situação" Width="1.6*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <!-- Pílula de status do design: verde-tint quando baixada, âmbar quando pendente. -->
+                            <Border x:Name="PilulaSituacao" Style="{StaticResource Pilula}" VerticalAlignment="Center"
+                                    Background="{StaticResource BrushAvisoTint}">
+                                <TextBlock x:Name="TxtSituacao" FontSize="12" FontWeight="SemiBold"
+                                           Text="{Binding Path=., Converter={StaticResource StatusCodigo}}"
+                                           Foreground="{StaticResource BrushTextoTitulo}" />
+                            </Border>
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding Baixado}" Value="True">
+                                    <Setter TargetName="PilulaSituacao" Property="Background" Value="{StaticResource BrushSucessoTint}" />
+                                    <Setter TargetName="TxtSituacao" Property="Foreground" Value="{StaticResource BrushSucessoTexto}" />
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Glosa" Binding="{Binding Glosa}" Width="Auto" />
             </DataGrid.Columns>
         </DataGrid>
+        </Border>
     </Grid>
 </UserControl>

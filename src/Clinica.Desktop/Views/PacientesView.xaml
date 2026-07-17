@@ -49,15 +49,19 @@
         <DockPanel Grid.Column="1">
             <TextBlock Text="Pacientes" Style="{StaticResource H1}" DockPanel.Dock="Top" />
 
-            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox Grid.Column="0" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
-                         Tag="Buscar por nome ou CPF..." />
-                <Button Grid.Column="1" Content="🔍 Buscar" Command="{Binding BuscarCommand}" Margin="8,0,0,0" />
-            </Grid>
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                <TextBlock Text="Buscar paciente (nome ou CPF)" Style="{StaticResource Rotulo}" Margin="0,0,0,3" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="Digite para buscar…" />
+                    <Button Grid.Column="1" Content="🔄 Atualizar" Command="{Binding BuscarCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                </Grid>
+            </StackPanel>
 
             <DataGrid ItemsSource="{Binding Pacientes}">
                 <DataGrid.Columns>

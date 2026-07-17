@@ -31,9 +31,10 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Grid.Row="2" Text="Histórico de códigos" Style="{StaticResource H2}" />
-
-        <DataGrid Grid.Row="3" ItemsSource="{Binding Codigos}">
+        <Border Grid.Row="3" Style="{StaticResource Card}">
+        <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Histórico de códigos" Style="{StaticResource H2}" Margin="0,0,0,8" />
+        <DataGrid ItemsSource="{Binding Codigos}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
                 <DataGridTextColumn Header="Código"
@@ -54,5 +55,7 @@
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+        </DockPanel>
+        </Border>
     </Grid>
 </UserControl>

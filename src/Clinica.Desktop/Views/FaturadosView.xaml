@@ -18,7 +18,8 @@
             <Button Content="Buscar" Command="{Binding BuscarCommand}" Margin="16,0,0,0" />
         </StackPanel>
 
-        <DataGrid Grid.Row="2" ItemsSource="{Binding Baixados}">
+        <Border Grid.Row="2" Style="{StaticResource Card}">
+        <DataGrid ItemsSource="{Binding Baixados}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
@@ -47,5 +48,6 @@
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+        </Border>
     </Grid>
 </UserControl>

@@ -25,6 +25,7 @@
                     Style="{StaticResource BotaoSecundario}" />
         </Grid>
 
+        <Border Style="{StaticResource Card}">
         <DataGrid ItemsSource="{Binding Consultas}" AutoGenerateColumns="False" IsReadOnly="True">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="Auto">
@@ -53,5 +54,6 @@
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+        </Border>
     </DockPanel>
 </UserControl>

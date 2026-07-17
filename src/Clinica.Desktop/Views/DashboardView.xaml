@@ -40,7 +40,10 @@
             <ComboBox Width="140" ItemsSource="{Binding OpcoesUrgencia}" SelectedItem="{Binding FiltroUrgencia}" />
         </StackPanel>
 
-        <DataGrid Grid.Row="2" ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
+        <Border Grid.Row="2" Style="{StaticResource Card}">
+        <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Guias e códigos pendentes" Style="{StaticResource H2}" Margin="0,0,0,8" />
+        <DataGrid ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                   CanUserAddRows="False" SelectionMode="Single">
             <DataGrid.Columns>
@@ -73,9 +76,13 @@
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+        </DockPanel>
+        </Border>
 
-        <TextBlock Grid.Row="3" Text="Consultas a renovar" FontSize="16" FontWeight="Bold" Margin="0,16,0,8" />
-        <DataGrid Grid.Row="4" ItemsSource="{Binding Consultas}" AutoGenerateColumns="False"
+        <Border Grid.Row="4" Style="{StaticResource Card}" Margin="0,16,0,0">
+        <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Consultas a renovar" Style="{StaticResource H2}" Margin="0,0,0,8" />
+        <DataGrid ItemsSource="{Binding Consultas}" AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" CanUserAddRows="False" MaxHeight="180">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="30">
@@ -93,5 +100,7 @@
                 <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="*" />
             </DataGrid.Columns>
         </DataGrid>
+        </DockPanel>
+        </Border>
     </Grid>
 </UserControl>

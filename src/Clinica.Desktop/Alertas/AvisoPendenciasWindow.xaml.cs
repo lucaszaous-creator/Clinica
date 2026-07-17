@@ -11,12 +11,12 @@ public partial class AvisoPendenciasWindow : Window
     public AvisoPendenciasWindow(IReadOnlyList<PendenciaCodigo> pendencias)
     {
         InitializeComponent();
-        Grade.ItemsSource = pendencias;
+        Lista.ItemsSource = pendencias;
 
         var atrasadas = pendencias.Count(p => p.DiasEmAtraso > 0);
         TxtResumo.Text = atrasadas > 0
-            ? $"{pendencias.Count} guia(s) aguardando baixa — {atrasadas} já atrasada(s)!"
-            : $"{pendencias.Count} guia(s) para faturar hoje.";
+            ? $"Ao abrir o sistema foram encontradas {pendencias.Count} pendências — {atrasadas} já atrasada(s). Dê baixa assim que possível para não perder o faturamento."
+            : $"Ao abrir o sistema foram encontradas {pendencias.Count} pendências para faturar hoje.";
     }
 
     private void Fechar_Click(object sender, RoutedEventArgs e) => Close();

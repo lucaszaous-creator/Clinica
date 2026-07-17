@@ -52,37 +52,43 @@
             </Border>
         </UniformGrid>
 
-        <TextBlock Grid.Row="3" Text="Por convênio" FontSize="16" FontWeight="Bold" Margin="0,0,0,8" />
-
         <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
 
-            <DataGrid Grid.Column="0" ItemsSource="{Binding PorConvenio}" AutoGenerateColumns="False"
-                      IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column" Margin="0,0,12,0">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Convênio"
-                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
-                    <DataGridTextColumn Header="Gerados" Binding="{Binding TotalCodigos}" Width="*" />
-                    <DataGridTextColumn Header="Baixados" Binding="{Binding Baixados}" Width="*" />
-                    <DataGridTextColumn Header="Pendentes" Binding="{Binding Pendentes}" Width="*" />
-                    <DataGridTextColumn Header="% baixa" Binding="{Binding TaxaBaixa}" Width="*" />
-                </DataGrid.Columns>
-            </DataGrid>
+            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0" VerticalAlignment="Top">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Faturamento por convênio (período)"
+                               Style="{StaticResource H2}" Margin="0,0,0,8" />
+                    <DataGrid ItemsSource="{Binding PorConvenio}" AutoGenerateColumns="False"
+                              IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Convênio"
+                                                Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
+                            <DataGridTextColumn Header="Gerados" Binding="{Binding TotalCodigos}" Width="*" />
+                            <DataGridTextColumn Header="Baixados" Binding="{Binding Baixados}" Width="*" />
+                            <DataGridTextColumn Header="Pendentes" Binding="{Binding Pendentes}" Width="*" />
+                            <DataGridTextColumn Header="% baixa" Binding="{Binding TaxaBaixa}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
 
-            <DockPanel Grid.Column="1">
-                <TextBlock DockPanel.Dock="Top" Text="Pendências em aberto (envelhecimento)"
-                           FontWeight="Bold" Margin="0,0,0,8" TextWrapping="Wrap" />
-                <DataGrid ItemsSource="{Binding Envelhecimento}" AutoGenerateColumns="False"
-                          IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Faixa" Binding="{Binding Faixa}" Width="*" />
-                        <DataGridTextColumn Header="Qtde" Binding="{Binding Quantidade}" Width="Auto" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </DockPanel>
+            <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Pendências em aberto (envelhecimento)"
+                               Style="{StaticResource H2}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                    <DataGrid ItemsSource="{Binding Envelhecimento}" AutoGenerateColumns="False"
+                              IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Faixa" Binding="{Binding Faixa}" Width="*" />
+                            <DataGridTextColumn Header="Qtde" Binding="{Binding Quantidade}" Width="Auto" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
         </Grid>
     </Grid>
 </UserControl>
