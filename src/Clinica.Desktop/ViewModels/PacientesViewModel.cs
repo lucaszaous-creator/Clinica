@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Windows;
 using Clinica.Application.Servicos;
@@ -13,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Cadastro, busca (nome/CPF), edição, exclusão de pacientes e acesso à ficha.</summary>
-public partial class PacientesViewModel : ObservableObject
+public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -195,4 +196,8 @@ public partial class PacientesViewModel : ObservableObject
         _carregando = false;
         SugerirCategoria();
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoSalvar => SalvarCommand;
+    public ICommand? AtalhoAtualizar => BuscarCommand;
 }

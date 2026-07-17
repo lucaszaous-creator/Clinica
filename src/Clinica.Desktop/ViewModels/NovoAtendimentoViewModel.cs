@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -14,7 +15,7 @@ using Microsoft.Win32;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Lança um atendimento. O sistema gera automaticamente os códigos (inclusive o 2º código +24h).</summary>
-public partial class NovoAtendimentoViewModel : ObservableObject
+public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -143,4 +144,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject
         await File.WriteAllBytesAsync(dialog.FileName, pdf);
         Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoSalvar => LancarCommand;
+    public ICommand? AtalhoImprimir => GerarCapaCommand;
 }

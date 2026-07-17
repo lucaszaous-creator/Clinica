@@ -1,33 +1,72 @@
 <UserControl x:Class="Clinica.Desktop.Views.DashboardView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+            <DockPanel Margin="0,0,0,14">
+                <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" />
+                <Button Command="{Binding AtualizarCommand}"
+                        HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                        <TextBlock Text="Atualizar" />
+                    </StackPanel>
+                </Button>
+            </DockPanel>
+            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,14"
                     Visibility="{Binding TemPendencias, Converter={StaticResource BoolParaVisibilidade}}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="🔔" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White" />
+                    <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="19"
+                               VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White" />
                     <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="15" FontWeight="Bold" Foreground="White">
                         <Run Text="Existem " /><Run Text="{Binding TotalCodigos, Mode=OneWay}" /><Run Text=" guias pendentes de baixa. Dê baixa assim que possível para não perder o faturamento." />
                     </TextBlock>
                 </StackPanel>
             </Border>
-            <DockPanel Margin="0,0,0,12">
-                <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" />
-                <Button Content="↻ Atualizar" Command="{Binding AtualizarCommand}"
-                        HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}" />
-            </DockPanel>
         </StackPanel>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+        <!-- KPIs do painel -->
+        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,14">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Guias em aberto" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TotalCodigos}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Urgentes (vermelho)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding CodigosUrgentes}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Erro}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Consultas a renovar" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding ConsultasARenovar}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Aviso}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Acento}"
+                    BorderThickness="0">
+                <StackPanel>
+                    <TextBlock Text="Pendências totais" Style="{StaticResource CardKpi.Rotulo}"
+                               Foreground="{StaticResource Brush.Acento.Tint}" />
+                    <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}" Foreground="White" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
             <TextBlock Text="Convênio:" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox Width="200" ItemsSource="{Binding OpcoesConvenio}" SelectedItem="{Binding FiltroConvenio}">
                 <ComboBox.ItemTemplate>
@@ -40,9 +79,23 @@
             <ComboBox Width="140" ItemsSource="{Binding OpcoesUrgencia}" SelectedItem="{Binding FiltroUrgencia}" />
         </StackPanel>
 
-        <Border Grid.Row="2" Style="{StaticResource Card}">
+        <Border Grid.Row="3" Style="{StaticResource Card}">
         <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="Guias e códigos pendentes" Style="{StaticResource H2}" Margin="0,0,0,8" />
+        <Grid>
+        <ctrl:EmptyState Glifo="&#xE930;" Titulo="Nenhuma pendência" Panel.ZIndex="1"
+                         Descricao="Tudo em dia por aqui. Use Atualizar (F5) para recarregar.">
+            <ctrl:EmptyState.Style>
+                <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Codigos.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ctrl:EmptyState.Style>
+        </ctrl:EmptyState>
         <DataGrid ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
                   CanUserAddRows="False" SelectionMode="Single">
@@ -68,7 +121,7 @@
                 <DataGridTemplateColumn Header="" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Dar baixa" Padding="8,2"
+                            <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
                                     Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                     CommandParameter="{Binding}" />
                         </DataTemplate>
@@ -76,6 +129,7 @@
                 </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
+        </Grid>
         </DockPanel>
         </Border>
 

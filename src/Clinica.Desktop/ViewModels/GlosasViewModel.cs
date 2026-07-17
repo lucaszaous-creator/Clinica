@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Windows;
 using Clinica.Application.Servicos;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Controle de glosas: acompanha guias recusadas, reapresenta e marca recuperadas.</summary>
-public partial class GlosasViewModel : ObservableObject
+public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -62,4 +63,7 @@ public partial class GlosasViewModel : ObservableObject
         }
         await Buscar();
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoAtualizar => BuscarCommand;
 }

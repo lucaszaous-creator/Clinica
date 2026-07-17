@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows;
@@ -11,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Agenda do dia: marca horários e, ao confirmar presença, gera o atendimento.</summary>
-public partial class AgendaViewModel : ObservableObject
+public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -144,4 +145,7 @@ public partial class AgendaViewModel : ObservableObject
         }
         await RecarregarDia();
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoAtualizar => HojeCommand;
 }

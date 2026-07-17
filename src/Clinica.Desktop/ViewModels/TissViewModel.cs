@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.IO;
 using System.Windows;
 using Clinica.Application.Modelos;
@@ -14,7 +15,7 @@ using Microsoft.Win32;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Configuração do prestador e exportação do lote de guias no formato TISS (XML).</summary>
-public partial class TissViewModel : ObservableObject
+public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -115,4 +116,8 @@ public partial class TissViewModel : ObservableObject
             Mensagem = $"Lote gerado com {codigos.Count} guia(s): {dialog.FileName}";
         }
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoSalvar => SalvarConfigCommand;
+    public ICommand? AtalhoImprimir => ExportarCommand;
 }

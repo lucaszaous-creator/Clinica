@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Registrar glosa" Height="320" Width="460"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
-        Background="{StaticResource BrushFundo}">
+        Background="{StaticResource Brush.Fundo}">
     <StackPanel Margin="24">
         <TextBlock Text="Registrar glosa da guia" Style="{StaticResource H2}" />
-        <TextBlock x:Name="TxtGuia" Foreground="#64748B" Margin="0,0,0,10" TextWrapping="Wrap" />
+        <TextBlock x:Name="TxtGuia" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,10" TextWrapping="Wrap" />
 
         <TextBlock Text="Data da glosa" Style="{StaticResource Rotulo}" />
         <DatePicker x:Name="DpData" />
@@ -15,8 +15,10 @@
         <TextBox x:Name="TxtMotivo" Height="70" AcceptsReturn="True" TextWrapping="Wrap" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click" Margin="0,0,10,0" />
-            <Button Content="Registrar glosa" Style="{StaticResource BotaoPerigo}" Click="Confirmar_Click" />
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click"
+                    IsCancel="True" Margin="0,0,10,0" />
+            <Button Content="Registrar glosa" Style="{StaticResource BotaoPerigo}" Click="Confirmar_Click"
+                    IsDefault="True" />
         </StackPanel>
     </StackPanel>
 </Window>

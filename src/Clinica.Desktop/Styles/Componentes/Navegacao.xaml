@@ -1,0 +1,130 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ============================================================
+         Navegação — Tabs (sublinhado azul), breadcrumb e paginação.
+         ============================================================ -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- Tabs estilo "underline" -->
+    <Style TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <DockPanel>
+                        <Border DockPanel.Dock="Top" BorderBrush="{StaticResource Brush.Borda}"
+                                BorderThickness="0,0,0,1">
+                            <TabPanel IsItemsHost="True" />
+                        </Border>
+                        <ContentPresenter ContentSource="SelectedContent" Margin="0,16,0,0" />
+                    </DockPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="raiz" Background="Transparent" Padding="4,0">
+                        <Grid>
+                            <ContentPresenter ContentSource="Header" Margin="8,10,8,12"
+                                              VerticalAlignment="Center" />
+                            <Border x:Name="sublinhado" Height="2" VerticalAlignment="Bottom"
+                                    Background="{StaticResource Brush.Acento}" Visibility="Collapsed" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="sublinhado" Property="Visibility" Value="Visible" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Breadcrumb: itens clicáveis + separador (usados pelo shell) -->
+    <Style x:Key="BreadcrumbItem" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Padding" Value="2,0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <TextBlock x:Name="t" Text="{TemplateBinding Content}"
+                               Foreground="{TemplateBinding Foreground}"
+                               FontSize="{TemplateBinding FontSize}" Margin="{TemplateBinding Padding}" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="t" Property="Foreground" Value="{StaticResource Brush.Acento}" />
+                            <Setter TargetName="t" Property="TextDecorations" Value="Underline" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <Style x:Key="BreadcrumbAtual" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style x:Key="BreadcrumbSeparador" TargetType="TextBlock">
+        <Setter Property="Text" Value="&#xE76C;" />
+        <Setter Property="FontFamily" Value="{StaticResource FonteIcones}" />
+        <Setter Property="FontSize" Value="9" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="6,0" />
+    </Style>
+
+    <!-- Paginação: botões de página (uso pleno na fase 2) -->
+    <Style x:Key="BotaoPaginacao" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
+        <Setter Property="MinWidth" Value="32" />
+        <Setter Property="MinHeight" Value="32" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="b" Background="{TemplateBinding Background}"
+                            CornerRadius="{StaticResource Raio.Pequeno}"
+                            BorderThickness="1" BorderBrush="Transparent">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="b" Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.4" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

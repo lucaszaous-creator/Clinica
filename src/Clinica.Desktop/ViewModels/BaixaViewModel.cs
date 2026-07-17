@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Diagnostics;
 using System.IO;
 using Clinica.Application.Servicos;
@@ -12,7 +13,7 @@ using Microsoft.Win32;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Registra a BAIXA de uma guia: data, número real da guia e forma de obtenção. Não trata recebíveis.</summary>
-public partial class BaixaViewModel : ObservableObject
+public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private int _codigoId;
@@ -107,4 +108,7 @@ public partial class BaixaViewModel : ObservableObject
 
     [RelayCommand]
     private void Cancelar() => Cancelado?.Invoke();
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoSalvar => ConfirmarCommand;
 }

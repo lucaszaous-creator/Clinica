@@ -34,12 +34,12 @@
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
-                                <Button Content="Glosar" Padding="8,3" FontSize="12"
-                                        Style="{StaticResource BotaoSecundario}"
+                                <Button Content="Glosar"
+                                        Style="{StaticResource BotaoAcaoGridSecundario}"
                                         Command="{Binding DataContext.GlosarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
-                                <Button Content="Estornar" Padding="8,3" FontSize="12" Margin="6,0,0,0"
-                                        Style="{StaticResource BotaoPerigo}"
+                                <Button Content="Estornar" Margin="6,0,0,0"
+                                        Style="{StaticResource BotaoAcaoGridPerigo}"
                                         Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
                             </StackPanel>

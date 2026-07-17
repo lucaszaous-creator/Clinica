@@ -128,6 +128,10 @@ public partial class App : System.Windows.Application
             {
                 services.AddClinica(connectionString);
 
+                // Snackbar único do shell (instanciado na thread de UI ao resolver o MainViewModel).
+                services.AddSingleton<Controls.SnackbarService>();
+                services.AddSingleton<Controls.ISnackbarService>(sp => sp.GetRequiredService<Controls.SnackbarService>());
+
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<DashboardViewModel>();
                 services.AddTransient<PacientesViewModel>();

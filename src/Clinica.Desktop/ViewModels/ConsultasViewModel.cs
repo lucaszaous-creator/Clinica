@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
@@ -10,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Aba de Consultas: situação da consulta renovável de cada paciente, com alarme e renovação.</summary>
-public partial class ConsultasViewModel : ObservableObject
+public partial class ConsultasViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -67,4 +68,7 @@ public partial class ConsultasViewModel : ObservableObject
 
         await Recarregar();
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoAtualizar => RecarregarCommand;
 }

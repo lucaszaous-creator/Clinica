@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Desktop.Views.ConsultaGuiasView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -9,7 +10,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Consulta de guias" Style="{StaticResource H1}" />
+        <TextBlock Grid.Row="0" Text="Consultar guias" Style="{StaticResource H1}" />
 
         <!-- Filtros -->
         <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
@@ -17,7 +18,9 @@
                 <WrapPanel>
                     <StackPanel Width="220" Margin="0,0,12,8">
                         <TextBlock Text="Paciente (nome ou CPF)" Style="{StaticResource Rotulo}" />
-                        <TextBox Text="{Binding TermoPaciente, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Text="{Binding TermoPaciente, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CampoPesquisa}"
+                                 ctrl:Ajudantes.Placeholder="Nome ou CPF…" />
                     </StackPanel>
                     <StackPanel Width="160" Margin="0,0,12,8">
                         <TextBlock Text="Nº da guia" Style="{StaticResource Rotulo}" />
@@ -47,14 +50,33 @@
                     </StackPanel>
                 </WrapPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <Button Content="🔎 Buscar" Command="{Binding BuscarCommand}" />
+                    <Button Command="{Binding BuscarCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE721;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                            <TextBlock Text="Buscar" />
+                        </StackPanel>
+                    </Button>
                     <Button Content="Limpar" Command="{Binding LimparCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
-                    <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="#64748B" />
+                    <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="{StaticResource Brush.Texto.Secundario}" />
                 </StackPanel>
             </StackPanel>
         </Border>
 
         <Border Grid.Row="3" Style="{StaticResource Card}">
+        <Grid>
+        <ctrl:EmptyState Glifo="&#xE721;" Titulo="Nenhuma guia encontrada" Panel.ZIndex="1"
+                         Descricao="Ajuste os filtros acima e clique em Buscar.">
+            <ctrl:EmptyState.Style>
+                <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Resultados.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ctrl:EmptyState.Style>
+        </ctrl:EmptyState>
         <DataGrid ItemsSource="{Binding Resultados}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
@@ -71,15 +93,15 @@
                         <DataTemplate>
                             <!-- Pílula de status do design: verde-tint quando baixada, âmbar quando pendente. -->
                             <Border x:Name="PilulaSituacao" Style="{StaticResource Pilula}" VerticalAlignment="Center"
-                                    Background="{StaticResource BrushAvisoTint}">
+                                    Background="{StaticResource Brush.Aviso.Suave}">
                                 <TextBlock x:Name="TxtSituacao" FontSize="12" FontWeight="SemiBold"
                                            Text="{Binding Path=., Converter={StaticResource StatusCodigo}}"
-                                           Foreground="{StaticResource BrushTextoTitulo}" />
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
                             </Border>
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding Baixado}" Value="True">
-                                    <Setter TargetName="PilulaSituacao" Property="Background" Value="{StaticResource BrushSucessoTint}" />
-                                    <Setter TargetName="TxtSituacao" Property="Foreground" Value="{StaticResource BrushSucessoTexto}" />
+                                    <Setter TargetName="PilulaSituacao" Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+                                    <Setter TargetName="TxtSituacao" Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
@@ -88,6 +110,7 @@
                 <DataGridTextColumn Header="Glosa" Binding="{Binding Glosa}" Width="Auto" />
             </DataGrid.Columns>
         </DataGrid>
+        </Grid>
         </Border>
     </Grid>
 </UserControl>

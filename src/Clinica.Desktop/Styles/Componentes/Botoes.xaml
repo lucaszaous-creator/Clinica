@@ -1,0 +1,151 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
+
+    <!-- ============================================================
+         Botões — template único para todas as variantes:
+         hover/pressed = véu escuro sobreposto (funciona em qualquer cor),
+         foco = anel azul externo, loading = spinner + clique bloqueado.
+         ============================================================ -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <ControlTemplate x:Key="TemplateBotaoBase" TargetType="Button">
+        <Grid>
+            <Border x:Name="foco" CornerRadius="10" Margin="-3" BorderThickness="2"
+                    BorderBrush="{StaticResource Brush.Foco}" Opacity="0" />
+            <Border x:Name="b" Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="{StaticResource Raio.Medio}">
+                <Grid>
+                    <Border x:Name="veu" Background="#000000" Opacity="0"
+                            CornerRadius="{StaticResource Raio.Medio}" />
+                    <ContentPresenter x:Name="conteudo" Margin="{TemplateBinding Padding}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      RecognizesAccessKey="True" />
+                    <Ellipse x:Name="spinner" Width="14" Height="14" Visibility="Collapsed"
+                             Stroke="{TemplateBinding Foreground}" StrokeThickness="2"
+                             StrokeDashArray="7 4" RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform x:Name="spinnerGiro" />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                </Grid>
+            </Border>
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="veu" Storyboard.TargetProperty="Opacity"
+                                             To="0.08" Duration="{StaticResource Duracao.Rapida}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="veu" Storyboard.TargetProperty="Opacity"
+                                             To="0" Duration="{StaticResource Duracao.Rapida}" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="veu" Property="Opacity" Value="0.14" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+                <Setter TargetName="foco" Property="Opacity" Value="1" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="b" Property="Opacity" Value="0.5" />
+            </Trigger>
+            <Trigger Property="ctrl:Ajudantes.EstaCarregando" Value="True">
+                <Setter TargetName="conteudo" Property="Opacity" Value="0" />
+                <Setter TargetName="spinner" Property="Visibility" Value="Visible" />
+                <Setter Property="IsEnabled" Value="False" />
+                <Trigger.EnterActions>
+                    <BeginStoryboard x:Name="giroStoryboard">
+                        <Storyboard RepeatBehavior="Forever">
+                            <DoubleAnimation Storyboard.TargetName="spinnerGiro"
+                                             Storyboard.TargetProperty="Angle"
+                                             From="0" To="360" Duration="0:0:1" />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <StopStoryboard BeginStoryboardName="giroStoryboard" />
+                </Trigger.ExitActions>
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <!-- Primário (implícito) -->
+    <Style TargetType="Button">
+        <Setter Property="Background" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Invertido}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="{StaticResource Padding.Botao}" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template" Value="{StaticResource TemplateBotaoBase}" />
+    </Style>
+
+    <!-- Secundário (contorno) -->
+    <Style x:Key="BotaoSecundario" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+    </Style>
+
+    <!-- Fantasma (sem fundo; ações discretas e barras de ícone) -->
+    <Style x:Key="BotaoFantasma" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+    </Style>
+
+    <!-- Perigo -->
+    <Style x:Key="BotaoPerigo" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{StaticResource Brush.Erro}" />
+    </Style>
+
+    <!-- Tamanho pequeno (linhas de tabela, barras densas) -->
+    <Style x:Key="BotaoPequeno" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Padding" Value="{StaticResource Padding.BotaoPequeno}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+        <Setter Property="MinHeight" Value="26" />
+    </Style>
+
+    <!-- Botão de ícone (topbar/sidebar: só glifo, quadrado, fantasma) -->
+    <Style x:Key="BotaoIcone" TargetType="Button" BasedOn="{StaticResource BotaoFantasma}">
+        <Setter Property="FontFamily" Value="{StaticResource FonteIcones}" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="Padding" Value="8" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="MinWidth" Value="36" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+    </Style>
+
+    <!-- Compatibilidade: ações compactas dentro de tabelas (nomes preservados) -->
+    <Style x:Key="BotaoAcaoGrid" TargetType="Button" BasedOn="{StaticResource BotaoPequeno}" />
+    <Style x:Key="BotaoAcaoGridSecundario" TargetType="Button" BasedOn="{StaticResource BotaoPequeno}">
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+    </Style>
+    <Style x:Key="BotaoAcaoGridPerigo" TargetType="Button" BasedOn="{StaticResource BotaoPequeno}">
+        <Setter Property="Background" Value="{StaticResource Brush.Erro}" />
+    </Style>
+
+</ResourceDictionary>

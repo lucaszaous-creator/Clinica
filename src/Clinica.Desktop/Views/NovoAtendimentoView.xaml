@@ -16,7 +16,7 @@
                 <ListBox ItemsSource="{Binding Pacientes}" SelectedItem="{Binding PacienteSelecionado}"
                          DisplayMemberPath="Nome" Height="130" Margin="0,6,0,4" />
                 <TextBlock Text="{Binding PacienteSelecionado.Nome, StringFormat='Selecionado: {0}'}"
-                           Foreground="#14532D" FontWeight="SemiBold" Margin="0,0,0,8" />
+                           Foreground="{StaticResource Brush.Sucesso.Forte}" FontWeight="SemiBold" Margin="0,0,0,8" />
 
                 <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
                 <DatePicker SelectedDate="{Binding Data}" />
@@ -28,7 +28,7 @@
                     <TextBlock Text="Qual código o convênio libera primeiro (hoje)?" Style="{StaticResource Rotulo}" />
                     <ComboBox ItemsSource="{Binding OpcoesPrimeiroCodigo}" SelectedItem="{Binding PrimeiroCodigo}" />
                     <TextBlock Text="O outro código vira o 2º (previsto para +24h)."
-                               FontSize="11" Foreground="#64748B" Margin="0,3,0,0" TextWrapping="Wrap" />
+                               FontSize="11" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,3,0,0" TextWrapping="Wrap" />
                 </StackPanel>
 
                 <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
@@ -36,13 +36,18 @@
 
                 <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}" Margin="0,14,0,0" />
 
-                <Border Background="#DCFCE7" CornerRadius="8" Padding="12,10" Margin="0,12,0,0"
+                <Border Background="{StaticResource Brush.Sucesso.Suave}" CornerRadius="8" Padding="12,10" Margin="0,12,0,0"
                         Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}">
                     <StackPanel>
                         <TextBlock Text="{Binding NumeroAtendimento, StringFormat='Atendimento nº {0}'}"
-                                   FontWeight="Bold" Foreground="#166534" />
-                        <Button Content="🧾 Gerar capa inicial (PDF)" Command="{Binding GerarCapaCommand}"
-                                Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                                   FontWeight="Bold" Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                        <Button Command="{Binding GerarCapaCommand}"
+                                Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE749;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                                <TextBlock Text="Gerar capa inicial (PDF)" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -53,7 +58,7 @@
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="Regras por convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTextoCorpo}" FontSize="13" LineHeight="22">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Primario}" FontSize="13" LineHeight="22">
                         <Run Text="• Unimed Padrão: código no app ou por ligação." /><LineBreak />
                         <Run Text="• Unimed Intercâmbio: " /><Run Text="2 códigos" FontWeight="Bold" /><Run Text=" — o 2º deve ser obtido em +24h por ligação." /><LineBreak />
                         <Run Text="• Amil: guia gerada no portal; baixa após atendimento." /><LineBreak />

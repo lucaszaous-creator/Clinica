@@ -5,14 +5,23 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <!-- Ordem importa: tokens → estilos → componentes. -->
+                <ResourceDictionary Source="Styles/Tokens.xaml" />
                 <ResourceDictionary Source="Styles/Theme.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Botoes.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Campos.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Selecao.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Tabelas.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Navegacao.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Feedback.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Sobreposicao.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Cartoes.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <conv:UrgenciaParaCorConverter x:Key="UrgenciaParaCor" />
             <conv:EnumDescricaoConverter x:Key="EnumDescricao" />
             <conv:CpfConverter x:Key="Cpf" />
             <conv:StatusCodigoConverter x:Key="StatusCodigo" />
-            <conv:SecaoSelecionadaConverter x:Key="SecaoSelecionada" />
             <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         </ResourceDictionary>
     </Application.Resources>

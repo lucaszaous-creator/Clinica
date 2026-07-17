@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
@@ -9,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Tela inicial: 2º códigos e consultas pendentes com semáforo, filtros por convênio e urgência.</summary>
-public partial class DashboardViewModel : ObservableObject
+public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly List<PendenciaCodigo> _todos = new();
@@ -28,6 +29,10 @@ public partial class DashboardViewModel : ObservableObject
     /// <summary>Total de códigos/guias pendentes de baixa (para a faixa de alerta do topo).</summary>
     public int TotalCodigos => _todos.Count;
     public bool TemPendencias => _todos.Count > 0;
+
+    // KPIs do painel
+    public int CodigosUrgentes => _todos.Count(p => p.Urgencia == NivelUrgencia.Vermelho);
+    public int ConsultasARenovar => Consultas.Count;
 
     public event Action<int>? PendenciasAtualizadas;
     public event Action<int>? AbrirBaixaSolicitado;
@@ -70,6 +75,8 @@ public partial class DashboardViewModel : ObservableObject
         Total = _todos.Count + Consultas.Count;
         OnPropertyChanged(nameof(TotalCodigos));
         OnPropertyChanged(nameof(TemPendencias));
+        OnPropertyChanged(nameof(CodigosUrgentes));
+        OnPropertyChanged(nameof(ConsultasARenovar));
         PendenciasAtualizadas?.Invoke(Total);
     }
 
@@ -85,4 +92,7 @@ public partial class DashboardViewModel : ObservableObject
 
     [RelayCommand]
     private Task Atualizar() => CarregarAsync();
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoAtualizar => AtualizarCommand;
 }

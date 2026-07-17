@@ -10,7 +10,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Relatórios de faturamento" FontSize="24" FontWeight="Bold" Margin="0,0,0,16" />
+        <TextBlock Grid.Row="0" Text="Relatórios de faturamento" Style="{StaticResource H1}" />
 
         <!-- Filtro de período -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
@@ -23,30 +23,38 @@
 
         <!-- KPIs -->
         <UniformGrid Grid.Row="2" Columns="4" Margin="0,0,0,20">
-            <Border Background="#F1F5F9" CornerRadius="10" Padding="16" Margin="0,0,10,0">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Códigos gerados" Foreground="#555" />
-                    <TextBlock Text="{Binding Resumo.TotalCodigos, FallbackValue=0}" FontSize="30" FontWeight="Bold" />
+                    <TextBlock Text="Códigos gerados" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Resumo.TotalCodigos, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}" />
                 </StackPanel>
             </Border>
-            <Border Background="#DCFCE7" CornerRadius="10" Padding="16" Margin="0,0,10,0">
+            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Sucesso.Suave}"
+                    BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Baixados" Foreground="#166534" />
-                    <TextBlock Text="{Binding Resumo.Baixados, FallbackValue=0}" FontSize="30" FontWeight="Bold" Foreground="#166534" />
+                    <TextBlock Text="Baixados" Style="{StaticResource CardKpi.Rotulo}"
+                               Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                    <TextBlock Text="{Binding Resumo.Baixados, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Sucesso.Forte}" />
                 </StackPanel>
             </Border>
-            <Border Background="#FEE2E2" CornerRadius="10" Padding="16" Margin="0,0,10,0">
+            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Erro.Suave}"
+                    BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="Pendentes" Foreground="#991B1B" />
-                    <TextBlock Text="{Binding Resumo.Pendentes, FallbackValue=0}" FontSize="30" FontWeight="Bold" Foreground="#991B1B" />
+                    <TextBlock Text="Pendentes" Style="{StaticResource CardKpi.Rotulo}"
+                               Foreground="{StaticResource Brush.Erro}" />
+                    <TextBlock Text="{Binding Resumo.Pendentes, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Erro}" />
                 </StackPanel>
             </Border>
-            <Border Background="#14532D" CornerRadius="10" Padding="16">
+            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Acento}" BorderThickness="0">
                 <StackPanel>
-                    <TextBlock Text="Taxa de baixa" Foreground="#A7F3D0" />
+                    <TextBlock Text="Taxa de baixa" Style="{StaticResource CardKpi.Rotulo}"
+                               Foreground="{StaticResource Brush.Acento.Tint}" />
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding Resumo.TaxaBaixa, FallbackValue=0}" FontSize="30" FontWeight="Bold" Foreground="White" />
-                        <TextBlock Text="%" FontSize="20" Foreground="White" VerticalAlignment="Bottom" Margin="2,0,0,4" />
+                        <TextBlock Text="{Binding Resumo.TaxaBaixa, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
+                                   Foreground="White" />
+                        <TextBlock Text="%" FontSize="18" Foreground="White" VerticalAlignment="Bottom" Margin="2,0,0,4" />
                     </StackPanel>
                 </StackPanel>
             </Border>

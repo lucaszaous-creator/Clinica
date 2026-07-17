@@ -1,25 +1,24 @@
 :root{
-/* Marca — verde institucional (Theme.xaml) */
---verde-900:#14532D; /* CorPrimaria */
---verde-800:#166534; /* CorPrimariaHover */
---verde-100:#DCFCE7; /* fundo de sucesso */
---verde-claro:#A7F3D0; /* texto secundário sobre verde */
-/* Neutros (escala slate usada em todo o app) */
---slate-900:#0F172A;--slate-700:#334155;--slate-500:#64748B;--slate-200:#E2E8F0;--slate-100:#F1F5F9;--slate-50:#F8FAFC;
-/* Perigo */
---vermelho-700:#B91C1C;--vermelho-800:#991B1B;--vermelho-100:#FEE2E2;
-/* Aviso */
---ambar-100:#FEF3C7;
+/* Marca — azul (Fluent/Stripe/Linear). Espelha Styles/Tokens.xaml. */
+--azul-50:#EFF6FF;--azul-100:#DBEAFE;--azul-500:#3B82F6;--azul-600:#2563EB;--azul-700:#1D4ED8;--azul-900:#1E3A8A;
+/* Neutros (cinzas frios usados em todo o app) */
+--cinza-50:#F8FAFC;--cinza-100:#F1F5F9;--cinza-200:#E5E7EB;--cinza-300:#D1D5DB;--cinza-500:#6B7280;--cinza-700:#374151;--cinza-900:#111827;
+/* Estados */
+--verde-100:#DCFCE7;--verde-600:#16A34A;--verde-700:#15803D;
+--laranja-100:#FFEDD5;--laranja-600:#EA580C;
+--vermelho-100:#FEE2E2;--vermelho-600:#DC2626;--vermelho-700:#B91C1C;
+--ciano-100:#E0F2FE;--ciano-500:#0EA5E9;
 /* Semáforo de urgência (UrgenciaParaCorConverter) */
 --semaforo-verde:#2E7D32;--semaforo-amarelo:#F9A825;--semaforo-vermelho:#C62828;
-/* Aliases semânticos */
---brand:var(--verde-900);--brand-hover:var(--verde-800);
---surface-app:var(--slate-100);--surface-card:#FFFFFF;--surface-row-alt:var(--slate-50);
---border:var(--slate-200);
---text-title:var(--slate-900);--text-body:var(--slate-700);--text-muted:var(--slate-500);
---danger:var(--vermelho-700);--danger-hover:var(--vermelho-800);--danger-text:var(--vermelho-800);--danger-tint:var(--vermelho-100);
---success-tint:var(--verde-100);--success-text:var(--verde-800);
---warning-tint:var(--ambar-100);
---sidebar-bg:var(--verde-900);--sidebar-text:#FFFFFF;--sidebar-subtext:var(--verde-claro);
---sidebar-item-hover:rgba(255,255,255,.133);--sidebar-item-active:rgba(255,255,255,.2);
+/* Aliases semânticos (Brush.* no XAML) */
+--acento:var(--azul-600);--acento-hover:var(--azul-700);--acento-suave:var(--azul-50);--acento-tint:var(--azul-100);--foco:var(--azul-500);
+--fundo:var(--cinza-50);--superficie:#FFFFFF;--superficie-hover:var(--cinza-100);--linha-alt:var(--cinza-50);
+--borda:var(--cinza-200);--borda-hover:var(--cinza-300);
+--texto-primario:var(--cinza-900);--texto-secundario:var(--cinza-500);--texto-invertido:#FFFFFF;
+--sucesso:var(--verde-600);--sucesso-forte:var(--verde-700);--sucesso-suave:var(--verde-100);
+--aviso:var(--laranja-600);--aviso-suave:var(--laranja-100);
+--erro:var(--vermelho-600);--erro-hover:var(--vermelho-700);--erro-suave:var(--vermelho-100);
+--info:var(--ciano-500);--info-suave:var(--ciano-100);
+--sidebar-bg:#FFFFFF;--sidebar-item-ativo:var(--azul-50);--sidebar-item-hover:var(--cinza-100);
+--sidebar-texto:var(--cinza-700);--sidebar-texto-ativo:var(--azul-600);
 }

@@ -1,11 +1,14 @@
 :root{
-/* Raios (Theme.xaml / views) */
---radius-card:10px;--radius-control:8px;--radius-chip:6px;
-/* Espaçamento recorrente */
---space-card-pad:16px;--space-page-pad:24px;--space-btn-pad:8px 14px;--space-input-pad:6px 8px;
+/* Raios (Styles/Tokens.xaml: Raio.*) */
+--radius-pequeno:4px;--radius-control:8px;--radius-card:12px;--radius-pilula:999px;
+/* Espaçamento em múltiplos de 8 (4 = meia unidade) — Espaco.* */
+--space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-6:24px;--space-8:32px;--space-10:40px;--space-12:48px;--space-16:64px;
+--space-page-pad:24px;--space-card-pad:16px;--space-btn-pad:8px 12px;--space-input-pad:8px 12px;
 /* Tabela (DataGrid) */
---table-row-height:34px;--table-header-bg:var(--slate-100);--table-header-pad:8px 10px;--table-cell-pad:8px 10px;
-/* Sidebar */
---sidebar-width:240px;--sidebar-item-height:44px;
-/* Sem sombras: o sistema é flat — cartões usam borda 1px, nunca box-shadow. */
+--table-row-height:36px;--table-header-height:40px;--table-header-bg:var(--cinza-100);--table-cell-pad:8px 10px;
+/* Shell */
+--sidebar-width:240px;--sidebar-width-recolhida:56px;--sidebar-item-height:40px;--topbar-height:56px;
+/* Movimento: microinterações ≤150ms */
+--duracao-rapida:100ms;--duracao-normal:150ms;
+/* Flat: cartões usam borda 1px; sombra apenas em popups/snackbar. */
 }

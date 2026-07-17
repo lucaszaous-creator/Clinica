@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Desktop.Views.PacientesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="360" />
@@ -32,7 +33,7 @@
                 <TextBlock Text="Categoria (semáforo)" Style="{StaticResource Rotulo}" />
                 <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}" />
                 <TextBlock Text="Sugerida pelo convênio + app; pode ser ajustada manualmente."
-                           FontSize="11" Foreground="#64748B" Margin="0,3,0,0" TextWrapping="Wrap" />
+                           FontSize="11" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,3,0,0" TextWrapping="Wrap" />
 
                 <TextBlock Text="Modalidade padrão" Style="{StaticResource Rotulo}" />
                 <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadePreferida}" />
@@ -41,7 +42,7 @@
                     <Button Content="Salvar" Command="{Binding SalvarCommand}" />
                     <Button Content="Limpar" Style="{StaticResource BotaoSecundario}" Command="{Binding NovoCommand}" Margin="8,0,0,0" />
                 </StackPanel>
-                <TextBlock Text="{Binding Mensagem}" Foreground="#14532D" Margin="0,10,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Sucesso.Forte}" Margin="0,10,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 
@@ -57,9 +58,15 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBox Grid.Column="0" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
-                             Tag="Digite para buscar…" />
-                    <Button Grid.Column="1" Content="🔄 Atualizar" Command="{Binding BuscarCommand}"
-                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                             Style="{StaticResource CampoPesquisa}"
+                             ctrl:Ajudantes.Placeholder="Digite o nome ou CPF para buscar…" />
+                    <Button Grid.Column="1" Command="{Binding BuscarCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                            <TextBlock Text="Atualizar" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
             </StackPanel>
 
@@ -75,15 +82,15 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="Ficha" Padding="8,3" FontSize="12"
+                                    <Button Content="Ficha" Style="{StaticResource BotaoAcaoGrid}"
                                             Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}" />
-                                    <Button Content="Editar" Padding="8,3" FontSize="12" Margin="6,0,0,0"
-                                            Style="{StaticResource BotaoSecundario}"
+                                    <Button Content="Editar" Margin="6,0,0,0"
+                                            Style="{StaticResource BotaoAcaoGridSecundario}"
                                             Command="{Binding DataContext.EditarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}" />
-                                    <Button Content="Excluir" Padding="8,3" FontSize="12" Margin="6,0,0,0"
-                                            Style="{StaticResource BotaoPerigo}"
+                                    <Button Content="Excluir" Margin="6,0,0,0"
+                                            Style="{StaticResource BotaoAcaoGridPerigo}"
                                             Command="{Binding DataContext.ExcluirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}" />
                                 </StackPanel>

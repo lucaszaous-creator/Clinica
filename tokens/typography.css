@@ -1,14 +1,16 @@
 :root{
-/* Segoe UI é a fonte do sistema (WPF, FontFamily="Segoe UI"). Sem webfont — pilha de sistema. */
---font-ui:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
---font-mono:Consolas,"SF Mono",Menlo,monospace; /* usado em campos técnicos (connection string) */
-/* Escala (Theme.xaml) */
+/* Segoe UI é a fonte do sistema (WPF, FontFamily="Segoe UI"); Inter como alternativa web. */
+--font-ui:"Segoe UI",Inter,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+--font-mono:Consolas,"SF Mono",Menlo,monospace; /* campos técnicos (connection string) */
+/* Escala do DS (Styles/Tokens.xaml: Fonte.*) */
 --text-h1-size:24px;--text-h1-weight:700;
---text-h2-size:16px;--text-h2-weight:600;
---text-body-size:13px;--text-label-weight:600;
---text-kpi-size:30px;--text-kpi-weight:700;
+--text-h2-size:20px;--text-h2-weight:600;
+--text-h3-size:18px;--text-h3-weight:600;
+--text-body-size:14px;
+--text-table-size:13px;--text-label-weight:600;
 --text-small-size:12px;
+--text-kpi-size:28px;--text-kpi-weight:700;
 }
-body{font-family:var(--font-ui);font-size:var(--text-body-size);color:var(--text-body)}
-a{color:var(--verde-800);text-decoration:none}
-a:hover{color:var(--verde-900);text-decoration:underline}
+body{font-family:var(--font-ui);font-size:var(--text-body-size);color:var(--texto-primario)}
+a{color:var(--acento);text-decoration:none}
+a:hover{color:var(--acento-hover);text-decoration:underline}
