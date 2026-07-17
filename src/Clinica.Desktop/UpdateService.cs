@@ -35,9 +35,53 @@ public static class UpdateService
     }
 
     /// <summary>
-    /// Verifica e baixa a próxima versão. Retorna o número da versão baixada
-    /// (para avisar o usuário), ou nulo se já está atualizado / portátil / offline.
-    /// A aplicação em si acontece ao fechar o app (WaitExitThenApplyUpdates).
+    /// Atualização na abertura: se houver versão nova, baixa e APLICA imediatamente,
+    /// reiniciando o app já atualizado. Retorna true quando o reinício foi disparado
+    /// (o chamador deve abortar a inicialização). O limite de tempo garante que uma
+    /// rede lenta/offline não trave a abertura — nesse caso o fluxo em segundo plano
+    /// (verificação periódica) assume.
+    /// </summary>
+    public static async Task<bool> AtualizarNaAberturaAsync(TimeSpan limite)
+    {
+        try
+        {
+            var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
+
+            if (!mgr.IsInstalled)
+                return false;
+
+            var baixar = ChecarEBaixarAsync(mgr);
+            var vencedor = await Task.WhenAny(baixar, Task.Delay(limite));
+            if (vencedor != baixar)
+                return false; // demorou demais: abre normalmente; o ciclo de 2h cuida depois
+
+            var novidade = await baixar;
+            if (novidade is null)
+                return false;
+
+            mgr.ApplyUpdatesAndRestart(novidade); // encerra este processo e reabre atualizado
+            return true;
+        }
+        catch
+        {
+            return false; // qualquer falha: abre normalmente na versão atual
+        }
+    }
+
+    private static async Task<UpdateInfo?> ChecarEBaixarAsync(UpdateManager mgr)
+    {
+        var novidade = await mgr.CheckForUpdatesAsync();
+        if (novidade is null)
+            return null;
+
+        await mgr.DownloadUpdatesAsync(novidade);
+        return novidade;
+    }
+
+    /// <summary>
+    /// Verificação em segundo plano (ciclo periódico com o app aberto): baixa a próxima
+    /// versão e retorna o número dela (para avisar o usuário), ou nulo se já está
+    /// atualizado / portátil / offline. A aplicação acontece ao fechar o app.
     /// </summary>
     public static async Task<string?> VerificarEBaixarAsync()
     {
