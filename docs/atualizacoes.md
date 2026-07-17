@@ -4,7 +4,7 @@ O app se atualiza sozinho via **Velopack + GitHub Releases**. Instalado uma úni
 
 ## Como funciona
 
-1. Ao abrir — e a cada 4 horas com o app aberto — o sistema consulta a release mais recente do repositório (`UpdateService`).
+1. Ao abrir — e a cada 2 horas com o app aberto — o sistema consulta a release mais recente do repositório (`UpdateService`).
 2. Havendo versão nova, ela é **baixada em segundo plano** (delta, só o que mudou) sem interromper o uso.
 3. Um aviso aparece no snackbar: *"Atualização X baixada. Feche e reabra o sistema para aplicar."*
 4. Ao fechar o app, o Velopack aplica a atualização; na próxima abertura já está na versão nova.
@@ -38,7 +38,7 @@ O workflow (`.github/workflows/release.yml`) então: roda o publish com a versã
 | Papel | Arquivo |
 |---|---|
 | Cliente de update (checar/baixar/aplicar) | `src/Clinica.Desktop/UpdateService.cs` |
-| Agendamento (abertura + a cada 4h) e aviso ao usuário | `src/Clinica.Desktop/App.xaml.cs` |
+| Agendamento (abertura + a cada 2h) e aviso ao usuário | `src/Clinica.Desktop/App.xaml.cs` |
 | Versão no rodapé da sidebar | `ViewModels/MainViewModel.cs` (`VersaoApp`) + `MainWindow.xaml` |
 | Pipeline de release (instalador + publicação) | `.github/workflows/release.yml` |
 | Build portátil (dev apenas) | `publish-exe.bat`, `.github/workflows/build-exe.yml` |
