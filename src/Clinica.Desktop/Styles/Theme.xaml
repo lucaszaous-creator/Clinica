@@ -2,47 +2,14 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ============================================================
-         Design tokens (espelham ui_kits/faturamento/tokens/*.css).
-         Marca verde, escala slate, perigo/aviso/sucesso e semáforo.
+         Estilos legados em migração para Styles/Componentes/*.
+         Tokens vivem em Tokens.xaml; chaves antigas em Compat.xaml.
          ============================================================ -->
 
-    <!-- Marca -->
-    <Color x:Key="CorPrimaria">#14532D</Color>
-    <Color x:Key="CorPrimariaHover">#166534</Color>
-    <SolidColorBrush x:Key="BrushPrimaria" Color="#14532D" />
-    <SolidColorBrush x:Key="BrushPrimariaHover" Color="#166534" />
-    <SolidColorBrush x:Key="BrushVerde100" Color="#DCFCE7" />
-    <SolidColorBrush x:Key="BrushVerdeClaro" Color="#A7F3D0" />
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Compat.xaml" />
+    </ResourceDictionary.MergedDictionaries>
 
-    <!-- Superfícies / neutros (slate) -->
-    <SolidColorBrush x:Key="BrushFundo" Color="#F1F5F9" />
-    <SolidColorBrush x:Key="BrushCartao" Color="#FFFFFF" />
-    <SolidColorBrush x:Key="BrushLinhaAlt" Color="#F8FAFC" />
-    <SolidColorBrush x:Key="BrushBorda" Color="#E2E8F0" />
-    <SolidColorBrush x:Key="BrushBordaHover" Color="#CBD5E1" />
-    <SolidColorBrush x:Key="BrushTextoTitulo" Color="#0F172A" />
-    <SolidColorBrush x:Key="BrushTextoCorpo" Color="#334155" />
-    <SolidColorBrush x:Key="BrushTextoSuave" Color="#64748B" />
-
-    <!-- Perigo / aviso / sucesso -->
-    <SolidColorBrush x:Key="BrushPerigo" Color="#B91C1C" />
-    <SolidColorBrush x:Key="BrushPerigoHover" Color="#991B1B" />
-    <SolidColorBrush x:Key="BrushPerigoTexto" Color="#991B1B" />
-    <SolidColorBrush x:Key="BrushPerigoTint" Color="#FEE2E2" />
-    <SolidColorBrush x:Key="BrushAvisoTint" Color="#FEF3C7" />
-    <SolidColorBrush x:Key="BrushSucessoTint" Color="#DCFCE7" />
-    <SolidColorBrush x:Key="BrushSucessoTexto" Color="#166534" />
-
-    <!-- Semáforo de urgência -->
-    <SolidColorBrush x:Key="BrushSemaforoVerde" Color="#2E7D32" />
-    <SolidColorBrush x:Key="BrushSemaforoAmarelo" Color="#F9A825" />
-    <SolidColorBrush x:Key="BrushSemaforoVermelho" Color="#C62828" />
-
-    <!-- ============================================================
-         Iconografia — Segoe MDL2 Assets (ícones de linha monocromáticos,
-         equivalentes aos lucide do design; nunca emoji colorido)
-         ============================================================ -->
-    <FontFamily x:Key="FonteIcones">Segoe MDL2 Assets</FontFamily>
     <Style x:Key="Icone" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource FonteIcones}" />
         <Setter Property="FontSize" Value="14" />
@@ -50,32 +17,38 @@
     </Style>
 
     <!-- ============================================================
-         Tipografia
+         Tipografia (escala do DS: 24/20/18/14/13/12)
          ============================================================ -->
     <Style x:Key="H1" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.H1}" />
         <Setter Property="FontWeight" Value="Bold" />
-        <Setter Property="Foreground" Value="{StaticResource BrushTextoTitulo}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
         <Setter Property="Margin" Value="0,0,0,16" />
     </Style>
     <Style x:Key="H2" TargetType="TextBlock">
-        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.H2}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{StaticResource BrushTextoTitulo}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
         <Setter Property="Margin" Value="0,8,0,8" />
     </Style>
-    <Style x:Key="Rotulo" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource BrushTextoCorpo}" />
+    <Style x:Key="H3" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Fonte.H3}" />
         <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="FontSize" Value="13" />
-        <Setter Property="Margin" Value="0,8,0,3" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="Margin" Value="0,8,0,4" />
+    </Style>
+    <Style x:Key="Rotulo" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
+        <Setter Property="Margin" Value="0,8,0,4" />
     </Style>
     <!-- Texto de apoio (dica sob campos) -->
     <Style x:Key="TextoSuave" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{StaticResource BrushTextoSuave}" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
         <Setter Property="TextWrapping" Value="Wrap" />
-        <Setter Property="Margin" Value="0,3,0,0" />
+        <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
     <!-- Observação: não há Style implícito para TextBlock (evita sobrescrever a herança
          de Foreground usada pelas faixas de aviso e pelo menu lateral colorido). -->
