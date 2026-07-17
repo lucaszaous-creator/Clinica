@@ -77,11 +77,11 @@ public partial class App : System.Windows.Application
         _lembreteTimer.Tick += async (_, _) => await MostrarAvisoPendenciasAsync();
         _lembreteTimer.Start();
 
-        // Auto-update: verifica ao abrir e a cada 4h (o app fica aberto o expediente
+        // Auto-update: verifica ao abrir e a cada 2h (o app fica aberto o expediente
         // inteiro; sem a checagem periódica, uma versão nova só chegaria após dois
         // reinícios). Quando baixar, avisa no snackbar — aplica ao fechar o app.
         _ = VerificarAtualizacaoAsync();
-        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(4) };
+        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
         _updateTimer.Tick += async (_, _) => await VerificarAtualizacaoAsync();
         _updateTimer.Start();
     }
