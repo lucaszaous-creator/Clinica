@@ -5,10 +5,18 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Ordem importa: tokens → compatibilidade → estilos. -->
+                <!-- Ordem importa: tokens → compatibilidade → estilos → componentes. -->
                 <ResourceDictionary Source="Styles/Tokens.xaml" />
                 <ResourceDictionary Source="Styles/Compat.xaml" />
                 <ResourceDictionary Source="Styles/Theme.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Botoes.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Campos.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Selecao.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Tabelas.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Navegacao.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Feedback.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Sobreposicao.xaml" />
+                <ResourceDictionary Source="Styles/Componentes/Cartoes.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <conv:UrgenciaParaCorConverter x:Key="UrgenciaParaCor" />

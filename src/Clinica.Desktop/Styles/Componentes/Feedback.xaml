@@ -1,0 +1,181 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
+
+    <!-- ============================================================
+         Feedback — badges, alertas, estado vazio, loading e snackbar.
+         ============================================================ -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- ===== Badges (fundo suave + texto forte, raio pílula) ===== -->
+    <Style x:Key="Badge" TargetType="Border">
+        <Setter Property="CornerRadius" Value="{StaticResource Raio.Pilula}" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+        <Setter Property="TextElement.FontSize" Value="{StaticResource Fonte.Legenda}" />
+        <Setter Property="TextElement.FontWeight" Value="SemiBold" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+    </Style>
+    <Style x:Key="Badge.Sucesso" TargetType="Border" BasedOn="{StaticResource Badge}">
+        <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+    </Style>
+    <Style x:Key="Badge.Aviso" TargetType="Border" BasedOn="{StaticResource Badge}">
+        <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso}" />
+    </Style>
+    <Style x:Key="Badge.Erro" TargetType="Border" BasedOn="{StaticResource Badge}">
+        <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
+    </Style>
+    <Style x:Key="Badge.Info" TargetType="Border" BasedOn="{StaticResource Badge}">
+        <Setter Property="Background" Value="{StaticResource Brush.Info.Suave}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Info}" />
+    </Style>
+    <!-- Contador circular (notificações) -->
+    <Style x:Key="BadgeContador" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Erro}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Raio.Pilula}" />
+        <Setter Property="MinWidth" Value="16" />
+        <Setter Property="Height" Value="16" />
+        <Setter Property="Padding" Value="4,0" />
+        <Setter Property="TextElement.Foreground" Value="White" />
+        <Setter Property="TextElement.FontSize" Value="10" />
+        <Setter Property="TextElement.FontWeight" Value="Bold" />
+    </Style>
+
+    <!-- Pílula legada (compatibilidade; preferir Badge.*) -->
+    <Style x:Key="Pilula" TargetType="Border">
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+    </Style>
+
+    <!-- ===== Faixas de aviso (AlertBanner) ===== -->
+    <Style x:Key="AlertaPerigo" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Erro}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Raio.Medio}" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="TextElement.Foreground" Value="White" />
+    </Style>
+    <Style x:Key="AlertaAviso" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="10,6" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+    </Style>
+    <Style x:Key="AlertaSucesso" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Raio.Medio}" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+    </Style>
+    <Style x:Key="AlertaInfo" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Info.Suave}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Raio.Medio}" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+    </Style>
+
+    <!-- ===== Estado vazio ===== -->
+    <Style TargetType="ctrl:EmptyState">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ctrl:EmptyState">
+                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="24">
+                        <TextBlock Text="{TemplateBinding Glifo}" FontFamily="{StaticResource FonteIcones}"
+                                   FontSize="32" Foreground="{StaticResource Brush.Texto.Secundario}"
+                                   HorizontalAlignment="Center" Margin="0,0,0,12" />
+                        <TextBlock Text="{TemplateBinding Titulo}" FontSize="{StaticResource Fonte.Corpo}"
+                                   FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="{TemplateBinding Descricao}" FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                   HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="340"
+                                   TextAlignment="Center" Margin="0,4,0,0" />
+                        <Button x:Name="acao" Content="{TemplateBinding TextoAcao}"
+                                Command="{TemplateBinding AcaoCommand}"
+                                HorizontalAlignment="Center" Margin="0,16,0,0" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="TextoAcao" Value="">
+                            <Setter TargetName="acao" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== Loading ===== -->
+    <!-- Spinner independente: <Control Style="{StaticResource Spinner}" /> -->
+    <Style x:Key="Spinner" TargetType="Control">
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Control">
+                    <Ellipse Stroke="{StaticResource Brush.Acento}" StrokeThickness="3"
+                             StrokeDashArray="10 5" RenderTransformOrigin="0.5,0.5">
+                        <Ellipse.RenderTransform>
+                            <RotateTransform x:Name="giro" />
+                        </Ellipse.RenderTransform>
+                        <Ellipse.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever">
+                                        <DoubleAnimation Storyboard.TargetName="giro"
+                                                         Storyboard.TargetProperty="Angle"
+                                                         From="0" To="360" Duration="0:0:1" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </Ellipse.Triggers>
+                    </Ellipse>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Skeleton: Border pulsante para placeholders de carregamento -->
+    <Style x:Key="Skeleton" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Borda}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Raio.Pequeno}" />
+        <Setter Property="Height" Value="14" />
+        <Style.Triggers>
+            <EventTrigger RoutedEvent="Loaded">
+                <BeginStoryboard>
+                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                         From="1" To="0.45" Duration="0:0:0.8" />
+                    </Storyboard>
+                </BeginStoryboard>
+            </EventTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ===== Snackbar (host único no MainWindow, bindado ao SnackbarService) ===== -->
+    <Style x:Key="SnackbarBorda" TargetType="Border">
+        <Setter Property="Background" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="CornerRadius" Value="{StaticResource Raio.Medio}" />
+        <Setter Property="Padding" Value="16,12" />
+        <Setter Property="MaxWidth" Value="480" />
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Bottom" />
+        <Setter Property="Margin" Value="24,0,24,24" />
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect Color="#000000" Opacity="0.25" BlurRadius="16" ShadowDepth="4" Direction="270" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
