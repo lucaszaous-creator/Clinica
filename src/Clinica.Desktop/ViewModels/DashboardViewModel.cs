@@ -30,6 +30,10 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     public int TotalCodigos => _todos.Count;
     public bool TemPendencias => _todos.Count > 0;
 
+    // KPIs do painel
+    public int CodigosUrgentes => _todos.Count(p => p.Urgencia == NivelUrgencia.Vermelho);
+    public int ConsultasARenovar => Consultas.Count;
+
     public event Action<int>? PendenciasAtualizadas;
     public event Action<int>? AbrirBaixaSolicitado;
 
@@ -71,6 +75,8 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         Total = _todos.Count + Consultas.Count;
         OnPropertyChanged(nameof(TotalCodigos));
         OnPropertyChanged(nameof(TemPendencias));
+        OnPropertyChanged(nameof(CodigosUrgentes));
+        OnPropertyChanged(nameof(ConsultasARenovar));
         PendenciasAtualizadas?.Invoke(Total);
     }
 

@@ -19,13 +19,13 @@
             <StackPanel>
                 <TextBlock Text="{Binding Paciente.Nome}" FontSize="18" FontWeight="Bold" />
                 <WrapPanel Margin="0,6,0,0">
-                    <TextBlock Text="CPF: " Foreground="#64748B" />
+                    <TextBlock Text="CPF: " Foreground="{StaticResource Brush.Texto.Secundario}" />
                     <TextBlock Text="{Binding CpfFormatado}" Margin="0,0,20,0" />
-                    <TextBlock Text="Convênio: " Foreground="#64748B" />
+                    <TextBlock Text="Convênio: " Foreground="{StaticResource Brush.Texto.Secundario}" />
                     <TextBlock Text="{Binding Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Margin="0,0,20,0" />
-                    <TextBlock Text="Telefone: " Foreground="#64748B" />
+                    <TextBlock Text="Telefone: " Foreground="{StaticResource Brush.Texto.Secundario}" />
                     <TextBlock Text="{Binding Paciente.Telefone}" Margin="0,0,20,0" />
-                    <TextBlock Text="Categoria: " Foreground="#64748B" />
+                    <TextBlock Text="Categoria: " Foreground="{StaticResource Brush.Texto.Secundario}" />
                     <TextBlock Text="{Binding Paciente.Categoria}" />
                 </WrapPanel>
             </StackPanel>

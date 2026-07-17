@@ -30,7 +30,7 @@
                 <TextBox Text="{Binding Observacoes}" Height="48" AcceptsReturn="True" TextWrapping="Wrap" />
 
                 <Button Content="Agendar" Command="{Binding AgendarCommand}" Margin="0,14,0,0" />
-                <TextBlock Text="{Binding Mensagem}" Foreground="#14532D" Margin="0,8,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Sucesso.Forte}" Margin="0,8,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 

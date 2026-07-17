@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel Margin="24">
         <TextBlock Text="Consultas" Style="{StaticResource H1}" DockPanel.Dock="Top" />
-        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="#334155" Margin="0,0,0,12"
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
                    Text="Situação da consulta de cada paciente (validade conforme os Parâmetros do convênio). Renove as vencidas e as que estão a vencer." />
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
@@ -12,14 +12,14 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <Border Background="#FEF3C7" CornerRadius="6" Padding="10,6">
+                <Border Background="{StaticResource Brush.Aviso.Suave}" CornerRadius="6" Padding="10,6">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE823;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
                         <TextBlock Text="Precisam renovar: " FontWeight="Bold" />
                         <TextBlock Text="{Binding TotalAlerta}" FontWeight="Bold" />
                     </StackPanel>
                 </Border>
-                <TextBlock Text="{Binding Mensagem}" Foreground="#14532D" VerticalAlignment="Center"
+                <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Sucesso.Forte}" VerticalAlignment="Center"
                            Margin="12,0,0,0" TextWrapping="Wrap" />
             </StackPanel>
             <Button Grid.Column="1" Command="{Binding RecarregarCommand}"

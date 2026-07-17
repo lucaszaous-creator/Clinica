@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Desktop.Views.ConsultaGuiasView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -17,7 +18,9 @@
                 <WrapPanel>
                     <StackPanel Width="220" Margin="0,0,12,8">
                         <TextBlock Text="Paciente (nome ou CPF)" Style="{StaticResource Rotulo}" />
-                        <TextBox Text="{Binding TermoPaciente, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Text="{Binding TermoPaciente, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CampoPesquisa}"
+                                 ctrl:Ajudantes.Placeholder="Nome ou CPF…" />
                     </StackPanel>
                     <StackPanel Width="160" Margin="0,0,12,8">
                         <TextBlock Text="Nº da guia" Style="{StaticResource Rotulo}" />
@@ -54,12 +57,26 @@
                         </StackPanel>
                     </Button>
                     <Button Content="Limpar" Command="{Binding LimparCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
-                    <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="#64748B" />
+                    <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="{StaticResource Brush.Texto.Secundario}" />
                 </StackPanel>
             </StackPanel>
         </Border>
 
         <Border Grid.Row="3" Style="{StaticResource Card}">
+        <Grid>
+        <ctrl:EmptyState Glifo="&#xE721;" Titulo="Nenhuma guia encontrada" Panel.ZIndex="1"
+                         Descricao="Ajuste os filtros acima e clique em Buscar.">
+            <ctrl:EmptyState.Style>
+                <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Resultados.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ctrl:EmptyState.Style>
+        </ctrl:EmptyState>
         <DataGrid ItemsSource="{Binding Resultados}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
@@ -93,6 +110,7 @@
                 <DataGridTextColumn Header="Glosa" Binding="{Binding Glosa}" Width="Auto" />
             </DataGrid.Columns>
         </DataGrid>
+        </Grid>
         </Border>
     </Grid>
 </UserControl>
