@@ -39,6 +39,17 @@
     <SolidColorBrush x:Key="BrushSemaforoVermelho" Color="#C62828" />
 
     <!-- ============================================================
+         Iconografia — Segoe MDL2 Assets (ícones de linha monocromáticos,
+         equivalentes aos lucide do design; nunca emoji colorido)
+         ============================================================ -->
+    <FontFamily x:Key="FonteIcones">Segoe MDL2 Assets</FontFamily>
+    <Style x:Key="Icone" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource FonteIcones}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- ============================================================
          Tipografia
          ============================================================ -->
     <Style x:Key="H1" TargetType="TextBlock">
@@ -214,7 +225,7 @@
         <Setter Property="FontSize" Value="12" />
     </Style>
 
-    <!-- Menu lateral -->
+    <!-- Menu lateral (ícone de linha via Tag + rótulo, como o MenuItem do design) -->
     <Style x:Key="BotaoMenu" TargetType="Button">
         <Setter Property="Foreground" Value="White" />
         <Setter Property="FontSize" Value="14" />
@@ -227,7 +238,11 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="b" Background="{TemplateBinding Background}" CornerRadius="8" Padding="12,0">
-                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Left" />
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{TemplateBinding Tag}" FontFamily="{StaticResource FonteIcones}"
+                                       FontSize="17" VerticalAlignment="Center" Margin="0,0,10,0" />
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">

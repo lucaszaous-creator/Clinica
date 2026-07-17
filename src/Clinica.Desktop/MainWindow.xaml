@@ -62,43 +62,45 @@
                 <TextBlock Text="CLÍNICA" Foreground="White" FontSize="22" FontWeight="Bold" />
                 <TextBlock Text="Faturamento" Foreground="#A7F3D0" FontSize="13" Margin="0,0,0,24" />
 
-                <Button Content="📋  Pendências" Style="{StaticResource BotaoMenu}"
+                <Button Content="Pendências" Tag="&#xE9D5;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarDashboardCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Pendencias}" />
-                <Button Content="👤  Pacientes" Style="{StaticResource BotaoMenu}"
+                <Button Content="Pacientes" Tag="&#xE716;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarPacientesCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Pacientes}" />
-                <Button Content="🔎  Consultar guias" Style="{StaticResource BotaoMenu}"
+                <Button Content="Consultar guias" Tag="&#xE721;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarConsultaGuiasCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=ConsultaGuias}" />
-                <Button Content="🩺  Novo atendimento" Style="{StaticResource BotaoMenu}"
+                <Button Content="Novo atendimento" Tag="&#xEB51;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarNovoAtendimentoCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Atendimento}" />
-                <Button Content="📅  Agenda" Style="{StaticResource BotaoMenu}"
+                <Button Content="Agenda" Tag="&#xE787;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarAgendaCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Agenda}" />
-                <Button Content="📄  Consultas" Style="{StaticResource BotaoMenu}"
+                <Button Content="Consultas" Tag="&#xE8A5;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarConsultasCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Consultas}" />
-                <Button Content="💳  Faturados" Style="{StaticResource BotaoMenu}"
+                <Button Content="Faturados" Tag="&#xE8C7;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarFaturadosCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Faturados}" />
-                <Button Content="🚫  Glosas" Style="{StaticResource BotaoMenu}"
+                <Button Content="Glosas" Tag="&#xF140;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarGlosasCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Glosas}" />
-                <Button Content="🧾  Guias TISS" Style="{StaticResource BotaoMenu}"
+                <Button Content="Guias TISS" Tag="&#xE7C3;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarTissCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Tiss}" />
-                <Button Content="⚙️  Parâmetros" Style="{StaticResource BotaoMenu}"
+                <Button Content="Parâmetros" Tag="&#xE713;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarParametrosCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Parametros}" />
-                <Button Content="📊  Relatórios" Style="{StaticResource BotaoMenu}"
+                <Button Content="Relatórios" Tag="&#xE9D2;" Style="{StaticResource BotaoMenu}"
                         Command="{Binding MostrarRelatoriosCommand}"
                         Background="{Binding SecaoAtual, Converter={StaticResource SecaoSelecionada}, ConverterParameter=Relatorios}" />
 
                 <Border Background="#B91C1C" CornerRadius="8" Margin="0,32,0,0" Padding="12,10">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="🔔 Pendências: " Foreground="White" FontWeight="Bold" />
+                        <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="15"
+                                   Foreground="White" Margin="0,0,8,0" />
+                        <TextBlock Text="Pendências: " Foreground="White" FontWeight="Bold" />
                         <TextBlock Text="{Binding PendenciasBadge}" Foreground="White" FontWeight="Bold" />
                     </StackPanel>
                 </Border>

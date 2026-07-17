@@ -10,7 +10,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Relatórios de faturamento" FontSize="24" FontWeight="Bold" Margin="0,0,0,16" />
+        <TextBlock Grid.Row="0" Text="Relatórios de faturamento" Style="{StaticResource H1}" />
 
         <!-- Filtro de período -->
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">

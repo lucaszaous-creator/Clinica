@@ -14,15 +14,21 @@
             <StackPanel Grid.Column="0" Orientation="Horizontal">
                 <Border Background="#FEF3C7" CornerRadius="6" Padding="10,6">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="⏰ Precisam renovar: " FontWeight="Bold" />
+                        <TextBlock Text="&#xE823;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                        <TextBlock Text="Precisam renovar: " FontWeight="Bold" />
                         <TextBlock Text="{Binding TotalAlerta}" FontWeight="Bold" />
                     </StackPanel>
                 </Border>
                 <TextBlock Text="{Binding Mensagem}" Foreground="#14532D" VerticalAlignment="Center"
                            Margin="12,0,0,0" TextWrapping="Wrap" />
             </StackPanel>
-            <Button Grid.Column="1" Content="↻ Atualizar" Command="{Binding RecarregarCommand}"
-                    Style="{StaticResource BotaoSecundario}" />
+            <Button Grid.Column="1" Command="{Binding RecarregarCommand}"
+                    Style="{StaticResource BotaoSecundario}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                    <TextBlock Text="Atualizar" />
+                </StackPanel>
+            </Button>
         </Grid>
 
         <Border Style="{StaticResource Card}">

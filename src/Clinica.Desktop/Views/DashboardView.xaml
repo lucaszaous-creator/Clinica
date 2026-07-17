@@ -11,20 +11,26 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+            <DockPanel Margin="0,0,0,14">
+                <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" />
+                <Button Command="{Binding AtualizarCommand}"
+                        HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                        <TextBlock Text="Atualizar" />
+                    </StackPanel>
+                </Button>
+            </DockPanel>
+            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,14"
                     Visibility="{Binding TemPendencias, Converter={StaticResource BoolParaVisibilidade}}">
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="🔔" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White" />
+                    <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="19"
+                               VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White" />
                     <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="15" FontWeight="Bold" Foreground="White">
                         <Run Text="Existem " /><Run Text="{Binding TotalCodigos, Mode=OneWay}" /><Run Text=" guias pendentes de baixa. Dê baixa assim que possível para não perder o faturamento." />
                     </TextBlock>
                 </StackPanel>
             </Border>
-            <DockPanel Margin="0,0,0,12">
-                <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" />
-                <Button Content="↻ Atualizar" Command="{Binding AtualizarCommand}"
-                        HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}" />
-            </DockPanel>
         </StackPanel>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
@@ -68,7 +74,7 @@
                 <DataGridTemplateColumn Header="" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Dar baixa" Padding="8,2"
+                            <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
                                     Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                     CommandParameter="{Binding}" />
                         </DataTemplate>

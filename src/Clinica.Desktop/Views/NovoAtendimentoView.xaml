@@ -41,8 +41,13 @@
                     <StackPanel>
                         <TextBlock Text="{Binding NumeroAtendimento, StringFormat='Atendimento nº {0}'}"
                                    FontWeight="Bold" Foreground="#166534" />
-                        <Button Content="🧾 Gerar capa inicial (PDF)" Command="{Binding GerarCapaCommand}"
-                                Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                        <Button Command="{Binding GerarCapaCommand}"
+                                Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE749;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                                <TextBlock Text="Gerar capa inicial (PDF)" />
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
                 </Border>
             </StackPanel>

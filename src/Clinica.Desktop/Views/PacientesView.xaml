@@ -58,8 +58,13 @@
                     </Grid.ColumnDefinitions>
                     <TextBox Grid.Column="0" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
                              Tag="Digite para buscar…" />
-                    <Button Grid.Column="1" Content="🔄 Atualizar" Command="{Binding BuscarCommand}"
-                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                    <Button Grid.Column="1" Command="{Binding BuscarCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                            <TextBlock Text="Atualizar" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
             </StackPanel>
 

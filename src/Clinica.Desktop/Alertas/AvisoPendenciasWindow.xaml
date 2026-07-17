@@ -14,7 +14,8 @@
 
         <!-- Título do modal (design: ícone + 16 semibold) -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,12">
-            <TextBlock Text="🔔" FontSize="18" Margin="0,0,8,0" VerticalAlignment="Center" />
+            <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="17" Margin="0,0,8,0"
+                       Foreground="{StaticResource BrushTextoTitulo}" VerticalAlignment="Center" />
             <TextBlock Text="Aviso de pendências" FontSize="16" FontWeight="SemiBold"
                        Foreground="{StaticResource BrushTextoTitulo}" VerticalAlignment="Center" />
         </StackPanel>

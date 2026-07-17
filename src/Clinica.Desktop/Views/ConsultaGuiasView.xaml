@@ -9,7 +9,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Consulta de guias" Style="{StaticResource H1}" />
+        <TextBlock Grid.Row="0" Text="Consultar guias" Style="{StaticResource H1}" />
 
         <!-- Filtros -->
         <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,12">
@@ -47,7 +47,12 @@
                     </StackPanel>
                 </WrapPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                    <Button Content="🔎 Buscar" Command="{Binding BuscarCommand}" />
+                    <Button Command="{Binding BuscarCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE721;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                            <TextBlock Text="Buscar" />
+                        </StackPanel>
+                    </Button>
                     <Button Content="Limpar" Command="{Binding LimparCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
                     <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="#64748B" />
                 </StackPanel>
