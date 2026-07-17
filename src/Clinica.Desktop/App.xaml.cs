@@ -15,6 +15,7 @@ public partial class App : System.Windows.Application
 {
     private IHost? _host;
     private DispatcherTimer? _lembreteTimer;
+    private DispatcherTimer? _updateTimer;
     private bool _avisoAberto;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -76,8 +77,26 @@ public partial class App : System.Windows.Application
         _lembreteTimer.Tick += async (_, _) => await MostrarAvisoPendenciasAsync();
         _lembreteTimer.Start();
 
-        // Verifica atualização em segundo plano (não bloqueia o uso).
-        _ = UpdateService.VerificarEAtualizarAsync();
+        // Auto-update: verifica ao abrir e a cada 4h (o app fica aberto o expediente
+        // inteiro; sem a checagem periódica, uma versão nova só chegaria após dois
+        // reinícios). Quando baixar, avisa no snackbar — aplica ao fechar o app.
+        _ = VerificarAtualizacaoAsync();
+        _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(4) };
+        _updateTimer.Tick += async (_, _) => await VerificarAtualizacaoAsync();
+        _updateTimer.Start();
+    }
+
+    /// <summary>Checa/baixa atualização e avisa o usuário quando houver versão nova pronta.</summary>
+    private async Task VerificarAtualizacaoAsync()
+    {
+        if (_host is null) return;
+
+        var versao = await UpdateService.VerificarEBaixarAsync();
+        if (versao is null) return;
+
+        _updateTimer?.Stop(); // já há versão baixada aguardando; não precisa checar de novo
+        var snackbar = _host.Services.GetRequiredService<Controls.ISnackbarService>();
+        snackbar.Info($"Atualização {versao} baixada. Feche e reabra o sistema para aplicar.");
     }
 
     /// <summary>Mostra a janela de aviso se houver baixas pendentes (usada na abertura e nos lembretes).</summary>

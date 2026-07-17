@@ -51,6 +51,11 @@ public partial class MainViewModel : ObservableObject
 
     public SnackbarService Snackbar { get; }
 
+    /// <summary>Versão exibida no rodapé da sidebar: a instalada (Velopack) ou a do assembly com aviso de build portátil.</summary>
+    public string VersaoApp { get; } = UpdateService.VersaoInstalada is { } v
+        ? $"v{v}"
+        : $"v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "?"} (portátil — sem auto-update)";
+
     public MainViewModel(IServiceProvider sp, SnackbarService snackbar)
     {
         _sp = sp;

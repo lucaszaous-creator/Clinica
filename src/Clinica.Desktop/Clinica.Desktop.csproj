@@ -7,6 +7,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <RootNamespace>Clinica.Desktop</RootNamespace>
+    <!-- Sobrescrita no release pelo workflow (-p:Version=x.y.z, mesma da tag). -->
+    <Version>1.0.0</Version>
     <!-- Ponto de entrada customizado (Velopack precisa rodar seus hooks antes da UI). -->
     <StartupObject>Clinica.Desktop.Program</StartupObject>
   </PropertyGroup>

@@ -5,35 +5,68 @@ using Velopack.Sources;
 namespace Clinica.Desktop;
 
 /// <summary>
-/// Atualização automática via GitHub Releases: ao abrir, verifica se há versão nova,
-/// baixa em segundo plano e aplica na próxima abertura (transparente para o usuário).
+/// Atualização automática via GitHub Releases (Velopack): verifica se há versão nova,
+/// baixa em segundo plano e agenda a aplicação para o fechamento do app — na próxima
+/// abertura o sistema já está atualizado, sem baixar exe manualmente.
+/// Só funciona no app INSTALADO pelo Setup.exe das Releases; o exe portátil
+/// (publish-exe.bat / artefato do CI) não se atualiza.
 /// </summary>
 public static class UpdateService
 {
     private const string RepoUrl = "https://github.com/lucaszaous-creator/Clinica";
 
-    public static async Task VerificarEAtualizarAsync()
+    private static bool _atualizacaoAgendada;
+
+    /// <summary>Versão instalada atual (ex.: "1.0.9"), ou nulo no exe portátil/dev.</summary>
+    public static string? VersaoInstalada
     {
+        get
+        {
+            try
+            {
+                var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
+                return mgr.IsInstalled ? mgr.CurrentVersion?.ToString() : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifica e baixa a próxima versão. Retorna o número da versão baixada
+    /// (para avisar o usuário), ou nulo se já está atualizado / portátil / offline.
+    /// A aplicação em si acontece ao fechar o app (WaitExitThenApplyUpdates).
+    /// </summary>
+    public static async Task<string?> VerificarEBaixarAsync()
+    {
+        if (_atualizacaoAgendada)
+            return null; // já há uma versão baixada aguardando o próximo fechamento
+
         try
         {
             var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
 
-            // Só atualiza quando instalado pelo instalador (no .exe portátil/dev não faz nada).
             if (!mgr.IsInstalled)
-                return;
+                return null;
 
             var novidade = await mgr.CheckForUpdatesAsync();
             if (novidade is null)
-                return;
+                return null;
 
             await mgr.DownloadUpdatesAsync(novidade);
 
             // Aplica ao fechar o app; na próxima abertura já estará atualizado.
             mgr.WaitExitThenApplyUpdates(novidade);
+            _atualizacaoAgendada = true;
+
+            return novidade.TargetFullRelease.Version.ToString();
         }
         catch
         {
-            // Qualquer falha (offline, etc.) é silenciosa — nunca deve impedir o uso do sistema.
+            // Falha (offline, GitHub fora etc.) é silenciosa — nunca impede o uso.
+            return null;
         }
     }
 }

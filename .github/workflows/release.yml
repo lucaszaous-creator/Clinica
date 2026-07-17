@@ -49,7 +49,7 @@ jobs:
           echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
       - name: Publicar (pasta self-contained)
-        run: dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj -c Release -r win-x64 --self-contained true -o publish
+        run: dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj -c Release -r win-x64 --self-contained true -p:Version=${{ steps.ver.outputs.version }} -o publish
 
       - name: Empacotar com Velopack
         run: >

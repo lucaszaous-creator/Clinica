@@ -1,8 +1,12 @@
 @echo off
 REM ============================================================
-REM  Gera o executavel do sistema (Windows + .NET 8 SDK).
-REM  Resultado: publish\Clinica.Desktop.exe (arquivo unico,
-REM  self-contained — nao precisa de .NET instalado na maquina).
+REM  Gera o executavel PORTATIL (uso em desenvolvimento/teste).
+REM
+REM  ATENCAO: este exe NAO se atualiza sozinho. Para instalar na
+REM  clinica use o INSTALADOR (Setup.exe) da ultima release em
+REM  https://github.com/lucaszaous-creator/Clinica/releases —
+REM  instalado uma unica vez, o sistema baixa e aplica as novas
+REM  versoes automaticamente. Veja docs/atualizacoes.md.
 REM ============================================================
 
 echo Publicando Clinica.Desktop...
