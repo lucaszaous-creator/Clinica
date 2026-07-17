@@ -186,7 +186,7 @@ public sealed class CapaFaturamentoService
                         var linha = 0;
                         foreach (var c in atendimento.Codigos)
                         {
-                            var fundo = linha++ % 2 == 1 ? FundoSuave : Colors.White;
+                            var fundo = linha++ % 2 == 1 ? FundoSuave : "#FFFFFF";
 
                             IContainer Cell() => table.Cell().Background(fundo)
                                 .BorderBottom(1).BorderColor(Borda)
