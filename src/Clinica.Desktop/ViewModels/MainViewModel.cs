@@ -1,10 +1,15 @@
+using System.Collections.ObjectModel;
+using Clinica.Desktop.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.ViewModels;
 
-/// <summary>Shell de navegação: troca de telas, destaca a seção atual e mantém o contador de pendências.</summary>
+/// <summary>
+/// Shell de navegação: sidebar recolhível agrupada em módulos, breadcrumb,
+/// pesquisa global (command palette de seções), contador de pendências e snackbar.
+/// </summary>
 public partial class MainViewModel : ObservableObject
 {
     private readonly IServiceProvider _sp;
@@ -15,15 +20,139 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _pendenciasBadge;
 
-    /// <summary>Seção ativa (para destacar o item do menu).</summary>
     [ObservableProperty]
-    private string _secaoAtual = "Pendencias";
+    private Secao _secaoAtual = Secao.Pendencias;
 
-    public MainViewModel(IServiceProvider sp)
+    [ObservableProperty]
+    private bool _menuRecolhido;
+
+    [ObservableProperty]
+    private string _breadcrumbModulo = "Painel";
+
+    [ObservableProperty]
+    private string _breadcrumbTela = "Pendências";
+
+    /// <summary>Título curto exibido no breadcrumb quando em tela de detalhe (vazio fora delas).</summary>
+    [ObservableProperty]
+    private string _breadcrumbDetalhe = string.Empty;
+
+    [ObservableProperty]
+    private string _textoPesquisaGlobal = string.Empty;
+
+    [ObservableProperty]
+    private bool _pesquisaAberta;
+
+    public ObservableCollection<ItemMenu> ResultadosPesquisa { get; } = [];
+
+    public IReadOnlyList<GrupoMenu> Grupos { get; }
+
+    private readonly List<ItemMenu> _itens;
+
+    public SnackbarService Snackbar { get; }
+
+    public MainViewModel(IServiceProvider sp, SnackbarService snackbar)
     {
         _sp = sp;
-        MostrarDashboard();
+        Snackbar = snackbar;
+
+        _itens =
+        [
+            new ItemMenu { Secao = Secao.Pendencias, Rotulo = "Pendências", Glifo = "\uE9D5", Grupo = "Painel" },
+            new ItemMenu { Secao = Secao.Agenda, Rotulo = "Agenda", Glifo = "\uE787", Grupo = "Agenda" },
+            new ItemMenu { Secao = Secao.Atendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51", Grupo = "Atendimento" },
+            new ItemMenu { Secao = Secao.Consultas, Rotulo = "Consultas", Glifo = "\uE8A5", Grupo = "Atendimento" },
+            new ItemMenu { Secao = Secao.ConsultaGuias, Rotulo = "Consultar guias", Glifo = "\uE721", Grupo = "Faturamento" },
+            new ItemMenu { Secao = Secao.Faturados, Rotulo = "Faturados", Glifo = "\uE8C7", Grupo = "Faturamento" },
+            new ItemMenu { Secao = Secao.Glosas, Rotulo = "Glosas", Glifo = "\uF140", Grupo = "Faturamento" },
+            new ItemMenu { Secao = Secao.Tiss, Rotulo = "Guias TISS", Glifo = "\uE7C3", Grupo = "Faturamento" },
+            new ItemMenu { Secao = Secao.Pacientes, Rotulo = "Pacientes", Glifo = "\uE716", Grupo = "Cadastros e ajustes" },
+            new ItemMenu { Secao = Secao.Relatorios, Rotulo = "Relatórios", Glifo = "\uE9D2", Grupo = "Cadastros e ajustes" },
+            new ItemMenu { Secao = Secao.Parametros, Rotulo = "Parâmetros", Glifo = "\uE713", Grupo = "Cadastros e ajustes" },
+        ];
+
+        Grupos = _itens.GroupBy(i => i.Grupo)
+                       .Select(g => new GrupoMenu(g.Key, g.ToList()))
+                       .ToList();
+
+        Navegar(Secao.Pendencias);
     }
+
+    [RelayCommand]
+    private void AlternarMenu() => MenuRecolhido = !MenuRecolhido;
+
+    [RelayCommand]
+    private void Navegar(Secao secao)
+    {
+        switch (secao)
+        {
+            case Secao.Pendencias: MostrarDashboard(); break;
+            case Secao.Agenda: MostrarAgenda(); break;
+            case Secao.Atendimento: MostrarNovoAtendimento(); break;
+            case Secao.Consultas: MostrarConsultas(); break;
+            case Secao.ConsultaGuias: MostrarConsultaGuias(); break;
+            case Secao.Faturados: MostrarFaturados(); break;
+            case Secao.Glosas: MostrarGlosas(); break;
+            case Secao.Tiss: MostrarTiss(); break;
+            case Secao.Pacientes: MostrarPacientes(); break;
+            case Secao.Relatorios: MostrarRelatorios(); break;
+            case Secao.Parametros: MostrarParametros(); break;
+        }
+    }
+
+    /// <summary>Atualiza seção ativa, destaque do menu e breadcrumb.</summary>
+    private void DefinirSecao(Secao secao)
+    {
+        SecaoAtual = secao;
+        BreadcrumbDetalhe = string.Empty;
+        foreach (var item in _itens)
+            item.EstaAtivo = item.Secao == secao;
+
+        var ativo = _itens.FirstOrDefault(i => i.Secao == secao);
+        if (ativo is not null)
+        {
+            BreadcrumbModulo = ativo.Grupo;
+            BreadcrumbTela = ativo.Rotulo;
+        }
+    }
+
+    // ===== Pesquisa global (command palette de seções) =====
+
+    partial void OnTextoPesquisaGlobalChanged(string value)
+    {
+        ResultadosPesquisa.Clear();
+        var termo = value.Trim();
+        if (termo.Length == 0)
+        {
+            PesquisaAberta = false;
+            return;
+        }
+
+        foreach (var item in _itens.Where(i =>
+                     i.Rotulo.Contains(termo, StringComparison.CurrentCultureIgnoreCase) ||
+                     i.Grupo.Contains(termo, StringComparison.CurrentCultureIgnoreCase)))
+            ResultadosPesquisa.Add(item);
+
+        PesquisaAberta = ResultadosPesquisa.Count > 0;
+    }
+
+    [RelayCommand]
+    private void NavegarResultado(ItemMenu? item)
+    {
+        item ??= ResultadosPesquisa.FirstOrDefault();
+        if (item is null) return;
+
+        FecharPesquisa();
+        Navegar(item.Secao);
+    }
+
+    [RelayCommand]
+    private void FecharPesquisa()
+    {
+        PesquisaAberta = false;
+        TextoPesquisaGlobal = string.Empty;
+    }
+
+    // ===== Seções =====
 
     [RelayCommand]
     private void MostrarDashboard()
@@ -31,7 +160,7 @@ public partial class MainViewModel : ObservableObject
         var vm = _sp.GetRequiredService<DashboardViewModel>();
         vm.PendenciasAtualizadas += total => PendenciasBadge = total;
         vm.AbrirBaixaSolicitado += AbrirBaixa;
-        SecaoAtual = "Pendencias";
+        DefinirSecao(Secao.Pendencias);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -41,7 +170,7 @@ public partial class MainViewModel : ObservableObject
     {
         var vm = _sp.GetRequiredService<PacientesViewModel>();
         vm.FichaSolicitada += AbrirFicha;
-        SecaoAtual = "Pacientes";
+        DefinirSecao(Secao.Pacientes);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -50,7 +179,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarNovoAtendimento()
     {
         var vm = _sp.GetRequiredService<NovoAtendimentoViewModel>();
-        SecaoAtual = "Atendimento";
+        DefinirSecao(Secao.Atendimento);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -59,7 +188,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarAgenda()
     {
         var vm = _sp.GetRequiredService<AgendaViewModel>();
-        SecaoAtual = "Agenda";
+        DefinirSecao(Secao.Agenda);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -68,7 +197,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarConsultas()
     {
         var vm = _sp.GetRequiredService<ConsultasViewModel>();
-        SecaoAtual = "Consultas";
+        DefinirSecao(Secao.Consultas);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -77,7 +206,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarFaturados()
     {
         var vm = _sp.GetRequiredService<FaturadosViewModel>();
-        SecaoAtual = "Faturados";
+        DefinirSecao(Secao.Faturados);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -86,7 +215,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarConsultaGuias()
     {
         var vm = _sp.GetRequiredService<ConsultaGuiasViewModel>();
-        SecaoAtual = "ConsultaGuias";
+        DefinirSecao(Secao.ConsultaGuias);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -95,7 +224,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarGlosas()
     {
         var vm = _sp.GetRequiredService<GlosasViewModel>();
-        SecaoAtual = "Glosas";
+        DefinirSecao(Secao.Glosas);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -104,7 +233,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarTiss()
     {
         var vm = _sp.GetRequiredService<TissViewModel>();
-        SecaoAtual = "Tiss";
+        DefinirSecao(Secao.Tiss);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -113,7 +242,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarParametros()
     {
         var vm = _sp.GetRequiredService<ParametrosViewModel>();
-        SecaoAtual = "Parametros";
+        DefinirSecao(Secao.Parametros);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -122,7 +251,7 @@ public partial class MainViewModel : ObservableObject
     private void MostrarRelatorios()
     {
         var vm = _sp.GetRequiredService<RelatoriosViewModel>();
-        SecaoAtual = "Relatorios";
+        DefinirSecao(Secao.Relatorios);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
@@ -132,6 +261,7 @@ public partial class MainViewModel : ObservableObject
         var vm = _sp.GetRequiredService<BaixaViewModel>();
         vm.BaixaConcluida += MostrarDashboard;
         vm.Cancelado += MostrarDashboard;
+        BreadcrumbDetalhe = "Dar baixa";
         CurrentViewModel = vm;
         _ = vm.CarregarAsync(codigoId);
     }
@@ -140,6 +270,7 @@ public partial class MainViewModel : ObservableObject
     {
         var vm = _sp.GetRequiredService<FichaPacienteViewModel>();
         vm.Voltar += MostrarPacientes;
+        BreadcrumbDetalhe = "Ficha do paciente";
         CurrentViewModel = vm;
         _ = vm.CarregarAsync(pacienteId);
     }

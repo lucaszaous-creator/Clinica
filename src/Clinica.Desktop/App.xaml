@@ -23,7 +23,6 @@
             <conv:EnumDescricaoConverter x:Key="EnumDescricao" />
             <conv:CpfConverter x:Key="Cpf" />
             <conv:StatusCodigoConverter x:Key="StatusCodigo" />
-            <conv:SecaoSelecionadaConverter x:Key="SecaoSelecionada" />
             <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         </ResourceDictionary>
     </Application.Resources>
