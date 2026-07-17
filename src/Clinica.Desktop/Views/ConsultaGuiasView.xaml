@@ -108,6 +108,16 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Glosa" Binding="{Binding Glosa}" Width="Auto" />
+                <DataGridTemplateColumn Header="Ações" Width="Auto">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Capa" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                    ToolTip="Reimprimir a capa de faturamento deste atendimento"
+                                    Command="{Binding DataContext.CapaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
         </Grid>

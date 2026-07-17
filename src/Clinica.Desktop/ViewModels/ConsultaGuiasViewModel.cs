@@ -72,6 +72,15 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
         await Buscar();
     }
 
+    /// <summary>Reimpressão da capa de faturamento do atendimento desta guia (estado atual).</summary>
+    [RelayCommand]
+    private async Task Capa(CodigoFaturamento? codigo)
+    {
+        if (codigo is null) return;
+        await Configuracao.CapaImpressao.GerarESalvarAsync(
+            _scopeFactory, codigo.AtendimentoId, codigo.Atendimento?.Numero, codigo.Atendimento?.Data ?? default);
+    }
+
     // Atalhos globais do shell (IAtalhosDeTela)
     public ICommand? AtalhoAtualizar => BuscarCommand;
 }
