@@ -201,6 +201,21 @@
                     </StackPanel>
                 </StackPanel>
 
+                <!-- Versão do app (rodapé; oculta quando recolhida) -->
+                <TextBlock DockPanel.Dock="Bottom" Text="{Binding VersaoApp}" Margin="20,0,12,10"
+                           FontSize="11" Foreground="{StaticResource Brush.Texto.Secundario}"
+                           TextWrapping="Wrap" ToolTip="Versão instalada do sistema">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
                 <!-- Badge de pendências (rodapé; oculto quando recolhida) -->
                 <Border DockPanel.Dock="Bottom" Margin="12,8,12,12" CornerRadius="8"
                         Background="{StaticResource Brush.Erro.Suave}" Padding="10,8">
