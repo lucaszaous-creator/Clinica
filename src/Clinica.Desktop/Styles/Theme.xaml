@@ -3,11 +3,11 @@
 
     <!-- ============================================================
          Estilos base (tipografia e iconografia). Tokens em Tokens.xaml;
-         chaves legadas em Compat.xaml; componentes em Componentes/*.
+         componentes em Componentes/*.
          ============================================================ -->
 
     <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="Compat.xaml" />
+        <ResourceDictionary Source="Tokens.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
     <Style x:Key="Icone" TargetType="TextBlock">

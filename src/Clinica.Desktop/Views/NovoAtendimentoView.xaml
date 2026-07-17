@@ -58,7 +58,7 @@
             <Border Style="{StaticResource Card}" Margin="0,0,0,16">
                 <StackPanel>
                     <TextBlock Text="Regras por convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource BrushTextoCorpo}" FontSize="13" LineHeight="22">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Primario}" FontSize="13" LineHeight="22">
                         <Run Text="• Unimed Padrão: código no app ou por ligação." /><LineBreak />
                         <Run Text="• Unimed Intercâmbio: " /><Run Text="2 códigos" FontWeight="Bold" /><Run Text=" — o 2º deve ser obtido em +24h por ligação." /><LineBreak />
                         <Run Text="• Amil: guia gerada no portal; baixa após atendimento." /><LineBreak />

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Registrar glosa" Height="320" Width="460"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
-        Background="{StaticResource BrushFundo}">
+        Background="{StaticResource Brush.Fundo}">
     <StackPanel Margin="24">
         <TextBlock Text="Registrar glosa da guia" Style="{StaticResource H2}" />
         <TextBlock x:Name="TxtGuia" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,10" TextWrapping="Wrap" />

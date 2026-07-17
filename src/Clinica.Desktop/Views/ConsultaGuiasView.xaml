@@ -93,15 +93,15 @@
                         <DataTemplate>
                             <!-- Pílula de status do design: verde-tint quando baixada, âmbar quando pendente. -->
                             <Border x:Name="PilulaSituacao" Style="{StaticResource Pilula}" VerticalAlignment="Center"
-                                    Background="{StaticResource BrushAvisoTint}">
+                                    Background="{StaticResource Brush.Aviso.Suave}">
                                 <TextBlock x:Name="TxtSituacao" FontSize="12" FontWeight="SemiBold"
                                            Text="{Binding Path=., Converter={StaticResource StatusCodigo}}"
-                                           Foreground="{StaticResource BrushTextoTitulo}" />
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
                             </Border>
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding Baixado}" Value="True">
-                                    <Setter TargetName="PilulaSituacao" Property="Background" Value="{StaticResource BrushSucessoTint}" />
-                                    <Setter TargetName="TxtSituacao" Property="Foreground" Value="{StaticResource BrushSucessoTexto}" />
+                                    <Setter TargetName="PilulaSituacao" Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+                                    <Setter TargetName="TxtSituacao" Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>

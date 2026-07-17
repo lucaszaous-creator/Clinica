@@ -5,9 +5,8 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!-- Ordem importa: tokens → compatibilidade → estilos → componentes. -->
+                <!-- Ordem importa: tokens → estilos → componentes. -->
                 <ResourceDictionary Source="Styles/Tokens.xaml" />
-                <ResourceDictionary Source="Styles/Compat.xaml" />
                 <ResourceDictionary Source="Styles/Theme.xaml" />
                 <ResourceDictionary Source="Styles/Componentes/Botoes.xaml" />
                 <ResourceDictionary Source="Styles/Componentes/Campos.xaml" />
