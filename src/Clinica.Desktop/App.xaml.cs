@@ -25,6 +25,12 @@ public partial class App : System.Windows.Application
         // Evita que o app se encerre ao fechar a janela de setup antes da janela principal abrir.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+        // Atualização NA ABERTURA: havendo versão nova, baixa e reinicia já atualizado
+        // (antes mesmo da conexão com o banco). Limite de 30s para nunca travar a
+        // abertura com rede lenta — nesse caso o ciclo periódico assume depois.
+        if (await UpdateService.AtualizarNaAberturaAsync(TimeSpan.FromSeconds(30)))
+            return; // o Velopack encerra este processo e reabre o app atualizado
+
         // Loop: obter conexão (1º acesso ou salva) → conectar/migrar. Se falhar, oferecer reconfigurar.
         while (true)
         {
@@ -77,10 +83,9 @@ public partial class App : System.Windows.Application
         _lembreteTimer.Tick += async (_, _) => await MostrarAvisoPendenciasAsync();
         _lembreteTimer.Start();
 
-        // Auto-update: verifica ao abrir e a cada 2h (o app fica aberto o expediente
-        // inteiro; sem a checagem periódica, uma versão nova só chegaria após dois
-        // reinícios). Quando baixar, avisa no snackbar — aplica ao fechar o app.
-        _ = VerificarAtualizacaoAsync();
+        // Ciclo periódico (2h): pega versões publicadas DURANTE o expediente, com o app
+        // aberto. Baixa em segundo plano, avisa no snackbar e aplica ao fechar — na
+        // próxima abertura o fluxo acima já reabre atualizado.
         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
         _updateTimer.Tick += async (_, _) => await VerificarAtualizacaoAsync();
         _updateTimer.Start();
