@@ -43,8 +43,9 @@
         </ScrollViewer>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
-            <Button Content="Fechar" Style="{StaticResource BotaoSecundario}" Click="Fechar_Click" Margin="0,0,8,0" />
-            <Button Content="Ver painel de pendências" Click="Fechar_Click" />
+            <Button Content="Fechar" Style="{StaticResource BotaoSecundario}" Click="Fechar_Click"
+                    IsCancel="True" Margin="0,0,8,0" />
+            <Button Content="Ver painel de pendências" Click="Fechar_Click" IsDefault="True" />
         </StackPanel>
     </Grid>
 </Window>

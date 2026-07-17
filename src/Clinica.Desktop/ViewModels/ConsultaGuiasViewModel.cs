@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
@@ -10,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Consulta central de guias: localiza qualquer código/guia por filtros combinados.</summary>
-public partial class ConsultaGuiasViewModel : ObservableObject
+public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -70,4 +71,7 @@ public partial class ConsultaGuiasViewModel : ObservableObject
         ConvenioSelecionado = "Todos";
         await Buscar();
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoAtualizar => BuscarCommand;
 }

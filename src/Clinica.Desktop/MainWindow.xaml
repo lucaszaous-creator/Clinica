@@ -10,6 +10,15 @@
         UseLayoutRounding="True" SnapsToDevicePixels="True"
         Background="{StaticResource Brush.Fundo}">
 
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Ctrl" Key="N" Command="{Binding NavegarCommand}"
+                    CommandParameter="{x:Static vm:Secao.Atendimento}" />
+        <KeyBinding Modifiers="Ctrl" Key="S" Command="{Binding AtalhoSalvarCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="P" Command="{Binding AtalhoImprimirCommand}" />
+        <KeyBinding Key="F5" Command="{Binding AtalhoAtualizarCommand}" />
+        <KeyBinding Modifiers="Ctrl" Key="B" Command="{Binding AlternarMenuCommand}" />
+    </Window.InputBindings>
+
     <Window.Resources>
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
             <views:DashboardView />

@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Relatórios: taxa de baixa (métrica-chave), faturamento por convênio e envelhecimento das pendências.</summary>
-public partial class RelatoriosViewModel : ObservableObject
+public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -48,4 +49,7 @@ public partial class RelatoriosViewModel : ObservableObject
         Envelhecimento.Clear();
         foreach (var f in rel.Envelhecimento) Envelhecimento.Add(f);
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoAtualizar => GerarCommand;
 }

@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
@@ -8,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Parâmetros editáveis dos convênios (dias de renovação e dias até o 2º código).</summary>
-public partial class ParametrosViewModel : ObservableObject
+public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -37,4 +38,7 @@ public partial class ParametrosViewModel : ObservableObject
         await parametros.SalvarAsync(Itens.ToList());
         Mensagem = "Parâmetros salvos. Passam a valer nos próximos lançamentos.";
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoSalvar => SalvarCommand;
 }

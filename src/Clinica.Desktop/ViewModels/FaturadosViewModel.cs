@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Windows;
 using Clinica.Application.Servicos;
@@ -13,7 +14,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Guias já baixadas no período, com a opção de ESTORNAR (reabrir a pendência).</summary>
-public partial class FaturadosViewModel : ObservableObject
+public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -82,4 +83,7 @@ public partial class FaturadosViewModel : ObservableObject
 
         await Buscar();
     }
+
+    // Atalhos globais do shell (IAtalhosDeTela)
+    public ICommand? AtalhoAtualizar => BuscarCommand;
 }

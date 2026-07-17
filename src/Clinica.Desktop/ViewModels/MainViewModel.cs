@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Input;
 using Clinica.Desktop.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -79,6 +80,23 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private void AlternarMenu() => MenuRecolhido = !MenuRecolhido;
+
+    // ===== Atalhos globais (roteados para a tela ativa via IAtalhosDeTela) =====
+
+    [RelayCommand]
+    private void AtalhoSalvar() => Executar((CurrentViewModel as IAtalhosDeTela)?.AtalhoSalvar);
+
+    [RelayCommand]
+    private void AtalhoImprimir() => Executar((CurrentViewModel as IAtalhosDeTela)?.AtalhoImprimir);
+
+    [RelayCommand]
+    private void AtalhoAtualizar() => Executar((CurrentViewModel as IAtalhosDeTela)?.AtalhoAtualizar);
+
+    private static void Executar(ICommand? comando)
+    {
+        if (comando?.CanExecute(null) == true)
+            comando.Execute(null);
+    }
 
     [RelayCommand]
     private void Navegar(Secao secao)

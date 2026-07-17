@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 
 namespace Clinica.Desktop;
 
@@ -8,6 +9,18 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Loaded += AjustarParaTela;
+        PreviewKeyDown += AtalhoFocarPesquisa;
+    }
+
+    // Ctrl+F foca a pesquisa global (foco é responsabilidade da View, não do VM).
+    private void AtalhoFocarPesquisa(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            PesquisaGlobal.Focus();
+            PesquisaGlobal.SelectAll();
+            e.Handled = true;
+        }
     }
 
     // Garante que a janela nunca ultrapasse a área útil da tela.
