@@ -39,7 +39,36 @@
                             <TextBlock Text="Registro ANS da operadora" Style="{StaticResource Rotulo}" />
                             <TextBox Text="{Binding RegistroAnsOperadora}" />
                         </StackPanel>
+
+                        <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Nome fantasia (exibido na capa de faturamento)" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding NomeFantasia}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="CNES" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Cnes}" />
+                        </StackPanel>
+                        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2">
+                            <TextBlock Text="Endereço (rua, nº, bairro, cidade/UF, CEP)" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Endereco}" />
+                        </StackPanel>
                     </Grid>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Telefone" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Telefone}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="E-mail" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Email}" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Style="{StaticResource TextoSuave}"
+                               Text="Nome fantasia, CNES, endereço e contatos aparecem no cabeçalho da capa de faturamento (PDF)." />
 
                     <TextBlock Text="Códigos TUSS por procedimento" Style="{StaticResource H2}" />
                     <Grid>

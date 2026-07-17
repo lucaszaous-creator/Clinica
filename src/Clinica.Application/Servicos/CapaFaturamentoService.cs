@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -10,10 +11,24 @@ namespace Clinica.Application.Servicos;
 
 /// <summary>
 /// Gera a "Capa de Faturamento" em PDF de um atendimento — o documento/lastro que inicia o
-/// processo de faturamento (número do atendimento, paciente, convênio, códigos/guias, assinatura).
+/// processo de faturamento. Visual alinhado ao design system do app (azul #2563EB, flat,
+/// cinzas frios), com os dados da clínica (configurados em Guias TISS → Dados do prestador).
 /// </summary>
 public sealed class CapaFaturamentoService
 {
+    // Tokens do design system (Styles/Tokens.xaml / tokens/colors.css)
+    private const string Azul = "#2563EB";
+    private const string AzulEscuro = "#1E3A8A";
+    private const string TextoPrimario = "#111827";
+    private const string TextoSecundario = "#6B7280";
+    private const string Borda = "#E5E7EB";
+    private const string FundoSuave = "#F8FAFC";
+    private const string FundoCabecalhoTabela = "#F1F5F9";
+    private const string VerdeForte = "#15803D";
+    private const string VerdeSuave = "#DCFCE7";
+    private const string LaranjaForte = "#C2410C";
+    private const string LaranjaSuave = "#FFEDD5";
+
     private readonly IClinicaRepositorio _repo;
 
     static CapaFaturamentoService()
@@ -31,26 +46,28 @@ public sealed class CapaFaturamentoService
         return faturaveis.Count > 0 && faturaveis.All(c => c.Baixado);
     }
 
-    public async Task<byte[]> GerarPdfAsync(int atendimentoId, CancellationToken ct = default)
+    public async Task<byte[]> GerarPdfAsync(int atendimentoId, DadosPrestador? prestador = null, CancellationToken ct = default)
     {
         var atendimento = await _repo.ObterAtendimentoAsync(atendimentoId, ct)
             ?? throw new InvalidOperationException($"Atendimento {atendimentoId} não encontrado.");
-        return GerarPdf(atendimento);
+        return GerarPdf(atendimento, prestador);
     }
 
     /// <summary>Gera a capa de conclusão se a fatura estiver concluída (usado ao dar a baixa da última guia).</summary>
-    public async Task<CapaConclusao> GerarConclusaoAsync(int atendimentoId, CancellationToken ct = default)
+    public async Task<CapaConclusao> GerarConclusaoAsync(int atendimentoId, DadosPrestador? prestador = null, CancellationToken ct = default)
     {
         var atendimento = await _repo.ObterAtendimentoAsync(atendimentoId, ct)
             ?? throw new InvalidOperationException($"Atendimento {atendimentoId} não encontrado.");
         var concluido = EstaConcluido(atendimento);
-        return new CapaConclusao(concluido, atendimento.Numero, atendimento.Data, concluido ? GerarPdf(atendimento) : null);
+        return new CapaConclusao(concluido, atendimento.Numero, atendimento.Data,
+            concluido ? GerarPdf(atendimento, prestador) : null);
     }
 
-    public byte[] GerarPdf(Atendimento atendimento)
+    public byte[] GerarPdf(Atendimento atendimento, DadosPrestador? prestador = null)
     {
         var paciente = atendimento.Paciente;
         var concluido = EstaConcluido(atendimento);
+        var nomeClinica = PrimeiroPreenchido(prestador?.NomeFantasia, prestador?.RazaoSocial) ?? "Clínica";
 
         return Document.Create(container =>
         {
@@ -58,90 +75,214 @@ public sealed class CapaFaturamentoService
             {
                 page.Size(PageSizes.A4);
                 page.Margin(1.5f, Unit.Centimetre);
-                page.DefaultTextStyle(t => t.FontSize(10));
+                page.DefaultTextStyle(t => t.FontSize(10).FontColor(TextoPrimario));
 
+                // ===== Cabeçalho: clínica à esquerda, documento à direita =====
                 page.Header().Column(col =>
                 {
-                    col.Item().Text("CAPA DE FATURAMENTO").Bold().FontSize(16).FontColor(Colors.Green.Darken3);
-                    col.Item().Text(concluido ? "FATURA CONCLUÍDA" : "EM ANDAMENTO").Bold().FontSize(11)
-                        .FontColor(concluido ? Colors.Green.Darken2 : Colors.Orange.Darken2);
-                    col.Item().Text($"Atendimento nº {atendimento.Numero ?? atendimento.Id.ToString()}")
-                        .FontSize(12).Bold();
-                    col.Item().PaddingBottom(6).Text($"Data: {atendimento.Data:dd/MM/yyyy}   ·   Emitido em {DateTime.Now:dd/MM/yyyy HH:mm}")
-                        .FontColor(Colors.Grey.Darken1);
-                    col.Item().LineHorizontal(1).LineColor(Colors.Grey.Lighten1);
+                    col.Item().Row(row =>
+                    {
+                        // Bloco da clínica
+                        row.RelativeItem(3).Column(c =>
+                        {
+                            c.Item().Text(nomeClinica).Bold().FontSize(15).FontColor(AzulEscuro);
+
+                            if (!string.IsNullOrWhiteSpace(prestador?.NomeFantasia) &&
+                                !string.IsNullOrWhiteSpace(prestador?.RazaoSocial) &&
+                                prestador!.NomeFantasia != prestador.RazaoSocial)
+                                c.Item().Text(prestador.RazaoSocial!).FontSize(8.5f).FontColor(TextoSecundario);
+
+                            var registro = JuntarComSeparador(
+                                Prefixado("CNPJ ", prestador?.Cnpj),
+                                Prefixado("CNES ", prestador?.Cnes));
+                            if (registro is not null)
+                                c.Item().Text(registro).FontSize(8.5f).FontColor(TextoSecundario);
+
+                            if (!string.IsNullOrWhiteSpace(prestador?.Endereco))
+                                c.Item().Text(prestador!.Endereco!).FontSize(8.5f).FontColor(TextoSecundario);
+
+                            var contato = JuntarComSeparador(prestador?.Telefone, prestador?.Email);
+                            if (contato is not null)
+                                c.Item().Text(contato).FontSize(8.5f).FontColor(TextoSecundario);
+                        });
+
+                        // Bloco do documento
+                        row.RelativeItem(2).AlignRight().Column(c =>
+                        {
+                            c.Item().AlignRight().Text("CAPA DE FATURAMENTO").Bold().FontSize(14).FontColor(Azul);
+
+                            // Pílula de status (tint suave + texto forte, como os badges do app)
+                            c.Item().AlignRight().PaddingTop(4)
+                                .Background(concluido ? VerdeSuave : LaranjaSuave)
+                                .PaddingVertical(3).PaddingHorizontal(10)
+                                .Text(concluido ? "FATURA CONCLUÍDA" : "EM ANDAMENTO")
+                                .Bold().FontSize(9)
+                                .FontColor(concluido ? VerdeForte : LaranjaForte);
+
+                            c.Item().AlignRight().PaddingTop(6)
+                                .Text($"Atendimento nº {atendimento.Numero ?? atendimento.Id.ToString()}")
+                                .Bold().FontSize(11);
+                            c.Item().AlignRight()
+                                .Text($"Atendido em {atendimento.Data:dd/MM/yyyy}  ·  Emitido em {DateTime.Now:dd/MM/yyyy HH:mm}")
+                                .FontSize(8.5f).FontColor(TextoSecundario);
+                        });
+                    });
+
+                    col.Item().PaddingTop(10).LineHorizontal(2).LineColor(Azul);
                 });
 
-                page.Content().PaddingVertical(10).Column(col =>
+                // ===== Conteúdo =====
+                page.Content().PaddingVertical(12).Column(col =>
                 {
-                    col.Spacing(8);
+                    col.Spacing(10);
 
-                    // Dados do paciente
-                    col.Item().Text("Paciente").Bold().FontColor(Colors.Grey.Darken2);
-                    col.Item().Text($"{paciente?.Nome}");
-                    col.Item().Text(t =>
+                    // Painel do paciente (bloco suave, como um Card do app)
+                    col.Item().Background(FundoSuave).Border(1).BorderColor(Borda).Padding(12).Column(c =>
                     {
-                        t.Span("CPF: ").SemiBold();
-                        t.Span(Cpf.Formatar(paciente?.Documento));
-                        t.Span("     Convênio: ").SemiBold();
-                        t.Span(paciente is null ? "" : ConvenioInfo.NomeExibicao(paciente.Convenio));
-                        t.Span("     Categoria: ").SemiBold();
-                        t.Span(atendimento.Categoria.ToString());
+                        c.Item().Text("PACIENTE").Bold().FontSize(8).FontColor(TextoSecundario).LetterSpacing(0.08f);
+                        c.Item().PaddingTop(2).Text(paciente?.Nome ?? "(desconhecido)").Bold().FontSize(12);
+                        c.Item().PaddingTop(4).Row(r =>
+                        {
+                            r.RelativeItem().Text(t =>
+                            {
+                                t.Span("CPF  ").FontSize(8.5f).FontColor(TextoSecundario);
+                                t.Span(Cpf.Formatar(paciente?.Documento)).FontSize(9.5f);
+                            });
+                            r.RelativeItem(2).Text(t =>
+                            {
+                                t.Span("Convênio  ").FontSize(8.5f).FontColor(TextoSecundario);
+                                t.Span(paciente is null ? "—" : ConvenioInfo.NomeExibicao(paciente.Convenio)).FontSize(9.5f);
+                            });
+                            r.RelativeItem().Text(t =>
+                            {
+                                t.Span("Categoria  ").FontSize(8.5f).FontColor(TextoSecundario);
+                                t.Span(atendimento.Categoria.ToString()).FontSize(9.5f);
+                            });
+                        });
                     });
 
                     // Tabela de códigos/guias
-                    col.Item().PaddingTop(6).Text("Códigos / guias").Bold().FontColor(Colors.Grey.Darken2);
+                    col.Item().Text("Códigos / guias").Bold().FontSize(11);
                     col.Item().Table(table =>
                     {
                         table.ColumnsDefinition(c =>
                         {
-                            c.RelativeColumn(3); // código
-                            c.RelativeColumn(2); // ordem
-                            c.RelativeColumn(2); // faturar em
-                            c.RelativeColumn(3); // como obter
-                            c.RelativeColumn(3); // situação
+                            c.RelativeColumn(3);    // código
+                            c.RelativeColumn(1.2f); // ordem
+                            c.RelativeColumn(2);    // faturar em
+                            c.RelativeColumn(3);    // como obter
+                            c.RelativeColumn(3);    // situação
                         });
 
-                        void HeaderCell(string s) => table.Cell().Background(Colors.Grey.Lighten3).Padding(4).Text(s).SemiBold();
-                        HeaderCell("Código"); HeaderCell("Ordem"); HeaderCell("Faturar em"); HeaderCell("Como obter"); HeaderCell("Situação");
+                        void HeaderCell(string s) => table.Cell()
+                            .Background(FundoCabecalhoTabela)
+                            .BorderBottom(1).BorderColor(Borda)
+                            .PaddingVertical(6).PaddingHorizontal(6)
+                            .Text(s).SemiBold().FontSize(9).FontColor(TextoSecundario);
 
+                        HeaderCell("Código"); HeaderCell("Ordem"); HeaderCell("Faturar em");
+                        HeaderCell("Como obter"); HeaderCell("Situação");
+
+                        var linha = 0;
                         foreach (var c in atendimento.Codigos)
                         {
-                            table.Cell().Padding(4).Text(c.Tipo.ToString());
-                            table.Cell().Padding(4).Text(c.Ordem.ToString());
-                            table.Cell().Padding(4).Text(c.DataPrevistaFaturamento.ToString("dd/MM/yyyy"));
-                            table.Cell().Padding(4).Text(c.FormaObtencao.ToString());
-                            table.Cell().Padding(4).Text(c.Baixado ? $"Baixado ({c.NumeroGuiaReal})" : "Aberto");
+                            var fundo = linha++ % 2 == 1 ? FundoSuave : Colors.White;
+
+                            IContainer Cell() => table.Cell().Background(fundo)
+                                .BorderBottom(1).BorderColor(Borda)
+                                .PaddingVertical(6).PaddingHorizontal(6);
+
+                            Cell().Text(RotuloTipo(c.Tipo)).FontSize(9.5f);
+                            Cell().Text(c.Ordem == OrdemCodigo.Primeiro ? "1º" : "2º").FontSize(9.5f);
+                            Cell().Text(c.DataPrevistaFaturamento.ToString("dd/MM/yyyy")).FontSize(9.5f);
+                            Cell().Text(RotuloForma(c.FormaObtencao)).FontSize(9.5f);
+
+                            var situacao = Cell();
+                            if (c.Baixado)
+                                situacao.Text($"Baixado · guia {c.NumeroGuiaReal}").FontSize(9.5f).SemiBold().FontColor(VerdeForte);
+                            else if (c.Status == StatusCodigo.NaoAplicavel)
+                                situacao.Text("Não aplicável").FontSize(9.5f).FontColor(TextoSecundario);
+                            else
+                                situacao.Text("Aberto").FontSize(9.5f).SemiBold().FontColor(LaranjaForte);
                         }
                     });
 
                     if (!string.IsNullOrWhiteSpace(atendimento.Observacoes))
-                        col.Item().PaddingTop(6).Text($"Observações: {atendimento.Observacoes}");
+                        col.Item().Background(FundoSuave).Border(1).BorderColor(Borda).Padding(10).Text(t =>
+                        {
+                            t.Span("Observações  ").Bold().FontSize(8.5f).FontColor(TextoSecundario);
+                            t.Span(atendimento.Observacoes!).FontSize(9.5f);
+                        });
 
                     // Assinaturas / lastro
-                    col.Item().PaddingTop(30).Row(row =>
+                    col.Item().PaddingTop(36).Row(row =>
                     {
                         row.RelativeItem().Column(c =>
                         {
-                            c.Item().LineHorizontal(1);
-                            c.Item().Text("Responsável pelo faturamento").FontSize(9).FontColor(Colors.Grey.Darken1);
+                            c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                            c.Item().PaddingTop(3).AlignCenter().Text("Responsável pelo faturamento")
+                                .FontSize(8.5f).FontColor(TextoSecundario);
                         });
-                        row.ConstantItem(30);
+                        row.ConstantItem(40);
                         row.RelativeItem().Column(c =>
                         {
-                            c.Item().LineHorizontal(1);
-                            c.Item().Text("Conferência").FontSize(9).FontColor(Colors.Grey.Darken1);
+                            c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                            c.Item().PaddingTop(3).AlignCenter().Text("Conferência")
+                                .FontSize(8.5f).FontColor(TextoSecundario);
                         });
                     });
                 });
 
-                page.Footer().AlignCenter().Text(t =>
+                // ===== Rodapé =====
+                page.Footer().Column(col =>
                 {
-                    t.Span("Documento gerado pelo sistema da clínica — lastro de faturamento.")
-                        .FontSize(8).FontColor(Colors.Grey.Medium);
+                    col.Item().LineHorizontal(1).LineColor(Borda);
+                    col.Item().PaddingTop(4).Row(row =>
+                    {
+                        row.RelativeItem().Text($"{nomeClinica} — lastro de faturamento gerado pelo sistema.")
+                            .FontSize(7.5f).FontColor(TextoSecundario);
+                        row.ConstantItem(80).AlignRight().Text(t =>
+                        {
+                            t.DefaultTextStyle(s => s.FontSize(7.5f).FontColor(TextoSecundario));
+                            t.Span("Página ");
+                            t.CurrentPageNumber();
+                            t.Span(" de ");
+                            t.TotalPages();
+                        });
+                    });
                 });
             });
         }).GeneratePdf();
+    }
+
+    // ===== Rótulos amigáveis (mesma linguagem do EnumDescricaoConverter do app) =====
+
+    private static string RotuloTipo(TipoCodigo t) => t switch
+    {
+        TipoCodigo.ConsultaEspecialidade => "Consulta de especialidade",
+        TipoCodigo.Bsv => "BSV",
+        _ => t.ToString()
+    };
+
+    private static string RotuloForma(FormaObtencao f) => f switch
+    {
+        FormaObtencao.NaoAplica => "—",
+        FormaObtencao.App => "Pelo app (QR Code)",
+        FormaObtencao.Sistema => "Pelo sistema",
+        FormaObtencao.Ligacao => "Ligar para o paciente",
+        _ => f.ToString()
+    };
+
+    private static string? PrimeiroPreenchido(params string?[] valores)
+        => valores.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+    private static string? Prefixado(string prefixo, string? valor)
+        => string.IsNullOrWhiteSpace(valor) ? null : prefixo + valor;
+
+    private static string? JuntarComSeparador(params string?[] partes)
+    {
+        var preenchidas = partes.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+        return preenchidas.Count == 0 ? null : string.Join("  ·  ", preenchidas);
     }
 }
 

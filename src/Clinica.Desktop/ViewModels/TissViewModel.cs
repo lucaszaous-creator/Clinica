@@ -24,6 +24,13 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _cnpj;
     [ObservableProperty] private string? _razaoSocial;
     [ObservableProperty] private string? _registroAnsOperadora;
+
+    // Dados da clínica exibidos na capa de faturamento
+    [ObservableProperty] private string? _nomeFantasia;
+    [ObservableProperty] private string? _cnes;
+    [ObservableProperty] private string? _endereco;
+    [ObservableProperty] private string? _telefone;
+    [ObservableProperty] private string? _email;
     [ObservableProperty] private string? _tussAcupuntura;
     [ObservableProperty] private string? _tussEletro;
     [ObservableProperty] private string? _tussBsv;
@@ -50,6 +57,11 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         Cnpj = d.Cnpj;
         RazaoSocial = d.RazaoSocial;
         RegistroAnsOperadora = d.RegistroAnsOperadora;
+        NomeFantasia = d.NomeFantasia;
+        Cnes = d.Cnes;
+        Endereco = d.Endereco;
+        Telefone = d.Telefone;
+        Email = d.Email;
         TussAcupuntura = d.CodigoTuss(TipoCodigo.Acupuntura);
         TussEletro = d.CodigoTuss(TipoCodigo.Eletroacupuntura);
         TussBsv = d.CodigoTuss(TipoCodigo.Bsv);
@@ -64,6 +76,11 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         Cnpj = Cnpj,
         RazaoSocial = RazaoSocial,
         RegistroAnsOperadora = RegistroAnsOperadora,
+        NomeFantasia = NomeFantasia,
+        Cnes = Cnes,
+        Endereco = Endereco,
+        Telefone = Telefone,
+        Email = Email,
         CodigosTuss = new()
         {
             [TipoCodigo.Acupuntura] = TussAcupuntura ?? string.Empty,

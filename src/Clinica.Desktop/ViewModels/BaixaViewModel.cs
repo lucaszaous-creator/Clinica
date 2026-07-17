@@ -80,7 +80,7 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
             {
                 var capa = scope.ServiceProvider.GetRequiredService<CapaFaturamentoService>();
-                resultado = await capa.GerarConclusaoAsync(atendimentoId);
+                resultado = await capa.GerarConclusaoAsync(atendimentoId, Configuracao.PrestadorStore.Carregar());
                 if (!resultado.Concluido || resultado.Pdf is null) return;
             }
 
