@@ -23,6 +23,7 @@ public sealed class RegistroRegras
         new RegraUnimedPadrao(),
         new RegraUnimedIntercambio(),
         new RegraAmil(),
-        new RegraPetrobras()
+        new RegraPetrobras(),
+        new RegraGenerica()
     };
 }

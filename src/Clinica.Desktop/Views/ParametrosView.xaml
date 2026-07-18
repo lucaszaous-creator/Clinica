@@ -27,7 +27,8 @@
                                 <Button Content="+ Novo convênio" Command="{Binding NovoConvenioCommand}"
                                         Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Right" />
                             </Grid>
-                            <DataGrid ItemsSource="{Binding Catalogo}" IsReadOnly="False" CanUserAddRows="False"
+                            <DataGrid ItemsSource="{Binding Catalogo}" SelectedItem="{Binding ConvenioSelecionado}"
+                                      IsReadOnly="False" CanUserAddRows="False"
                                       AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
                                     <DataGridCheckBoxColumn Header="Ativo" Binding="{Binding Ativo, UpdateSourceTrigger=PropertyChanged}" Width="Auto" />
@@ -38,6 +39,59 @@
                                 </DataGrid.Columns>
                             </DataGrid>
                         </DockPanel>
+                    </Border>
+
+                    <!-- Configuração de faturamento do convênio selecionado (aplica-se aos 'Personalizado') -->
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,0,12"
+                            DataContext="{Binding ConvenioSelecionado}"
+                            Visibility="{Binding DataContext.TemConvenioSelecionado, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolParaVisibilidade}}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource H2}" Margin="0,0,0,4">
+                                <Run Text="Faturamento de " /><Run Text="{Binding Nome, Mode=OneWay}" FontWeight="Bold" />
+                            </TextBlock>
+                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
+                                       Text="Estes ajustes valem quando o convênio 'fatura como' Personalizado. Para os 4 embutidos, as regras são fixas." />
+
+                            <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,4" />
+                            <CheckBox Content="Gera 2º código (+dias) nas modalidades duplas" IsChecked="{Binding TemSegundoCodigo}" Margin="0,4" />
+                            <CheckBox Content="2º código só é possível se o paciente tiver app" IsChecked="{Binding SegundoCodigoDependeApp}" Margin="0,4" />
+                            <CheckBox Content="Fatura BSV" IsChecked="{Binding FaturaBsv}" Margin="0,4" />
+                            <CheckBox Content="Exige inverter as datas no sistema (BSV)" IsChecked="{Binding InverteDatasBsv}" Margin="0,4" />
+
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Como obter o 2º código" Style="{StaticResource Rotulo}" />
+                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.FormasObtencao}" SelectedItem="{Binding FormaSegundoCodigo}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,6,0">
+                                    <TextBlock Text="Dias até o 2º código" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding DiasSegundoCodigo}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                    <TextBlock Text="Validade da consulta (dias, vazio = sem)" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding ValidadeConsultaDias}" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Categoria (com app)" Style="{StaticResource Rotulo}" />
+                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaComApp}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                    <TextBlock Text="Categoria (sem app)" Style="{StaticResource Rotulo}" />
+                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaSemApp}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
                     </Border>
 
                     <!-- Parâmetros numéricos por família -->

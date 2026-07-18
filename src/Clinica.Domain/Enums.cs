@@ -6,7 +6,8 @@ public enum Convenio
     UnimedPadrao,        // Unimed Costa do Sol (Padrão)
     UnimedIntercambio,   // Unimed Costa do Sol Intercâmbio
     Amil,
-    Petrobras
+    Petrobras,
+    Personalizado        // Regra configurável pela clínica (RegraGenerica), para convênios novos
 }
 
 public enum Sexo

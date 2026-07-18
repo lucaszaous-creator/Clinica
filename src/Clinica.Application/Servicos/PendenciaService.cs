@@ -1,5 +1,6 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
@@ -66,7 +67,9 @@ public sealed class PendenciaService
 
         foreach (var p in pacientes)
         {
-            var validade = snapshot?.ValidadeConsultaDias(p.Convenio) ?? ConvenioInfo.ValidadeConsultaDias(p.Convenio);
+            var validade = p.Convenio == Convenio.Personalizado
+                ? CatalogoConvenios.ValidadeConsultaDias(p.ConvenioCodigo)
+                : (snapshot?.ValidadeConsultaDias(p.Convenio) ?? ConvenioInfo.ValidadeConsultaDias(p.Convenio));
             if (validade is null || p.Atendimentos.Count == 0)
                 continue;
 

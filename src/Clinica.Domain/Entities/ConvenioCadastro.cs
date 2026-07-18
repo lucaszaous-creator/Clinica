@@ -19,4 +19,32 @@ public class ConvenioCadastro
 
     /// <summary>Disponível para novos cadastros. Inativo some das listas; o histórico é preservado.</summary>
     public bool Ativo { get; set; } = true;
+
+    // ---- Configuração da regra GENÉRICA (usada apenas quando Familia == Personalizado) ----
+
+    public bool FazEletro { get; set; }
+    public bool TemSegundoCodigo { get; set; }
+    public FormaObtencao FormaSegundoCodigo { get; set; } = FormaObtencao.Sistema;
+    public bool SegundoCodigoDependeApp { get; set; }
+    public int DiasSegundoCodigo { get; set; } = 1;
+    public bool FaturaBsv { get; set; } = true;
+    public bool InverteDatasBsv { get; set; }
+    public int? ValidadeConsultaDias { get; set; }
+    public Categoria CategoriaComApp { get; set; } = Categoria.Verde;
+    public Categoria CategoriaSemApp { get; set; } = Categoria.Amarela;
+
+    /// <summary>Extrai a configuração da regra genérica desta entrada do catálogo.</summary>
+    public Clinica.Domain.Regras.ConfiguracaoRegraGenerica ParaConfig() => new()
+    {
+        FazEletro = FazEletro,
+        TemSegundoCodigo = TemSegundoCodigo,
+        FormaSegundoCodigo = FormaSegundoCodigo,
+        SegundoCodigoDependeApp = SegundoCodigoDependeApp,
+        DiasSegundoCodigo = DiasSegundoCodigo,
+        FaturaBsv = FaturaBsv,
+        InverteDatasBsv = InverteDatasBsv,
+        ValidadeConsultaDias = ValidadeConsultaDias,
+        CategoriaComApp = CategoriaComApp,
+        CategoriaSemApp = CategoriaSemApp
+    };
 }

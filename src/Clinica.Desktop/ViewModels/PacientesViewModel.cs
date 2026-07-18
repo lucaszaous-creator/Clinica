@@ -29,8 +29,13 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 
     /// <summary>Categoria-base efetiva do catálogo (fallback para o padrão do código até carregar).</summary>
     private ParametrosSnapshot? _snapshot;
-    private Categoria CategoriaBase(Convenio c, bool app)
-        => _snapshot?.CategoriaBase(c, app) ?? CategoriaConvenio.Base(c, app);
+    private Categoria CategoriaBase(bool app)
+    {
+        // Personalizado: categoria vem da config do próprio convênio (por código).
+        if (_convenio == Convenio.Personalizado && CatalogoConvenios.Config(ConvenioCodigo) is { } cfg)
+            return app ? cfg.CategoriaComApp : cfg.CategoriaSemApp;
+        return _snapshot?.CategoriaBase(_convenio, app) ?? CategoriaConvenio.Base(_convenio, app);
+    }
 
     [ObservableProperty] private string? _busca;
 
@@ -81,7 +86,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     {
         _sugerindo = true;
         _categoriaManual = false;
-        Categoria = CategoriaBase(_convenio, PossuiApp);
+        Categoria = CategoriaBase(PossuiApp);
         _sugerindo = false;
     }
 
@@ -201,7 +206,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         ModalidadePreferida = p.ModalidadePreferida;
         Categoria = p.Categoria;
         // Preserva um override manual (categoria diferente da base do convênio + app).
-        _categoriaManual = p.Categoria != CategoriaBase(p.Convenio, p.PossuiApp);
+        _categoriaManual = p.Categoria != CategoriaBase(p.PossuiApp);
         _carregando = false;
         Mensagem = null;
     }

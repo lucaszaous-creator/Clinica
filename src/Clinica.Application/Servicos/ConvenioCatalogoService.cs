@@ -42,7 +42,9 @@ public sealed class ConvenioCatalogoService
     public async Task RecarregarCacheAsync(CancellationToken ct = default)
     {
         var lista = await ListarAsync(ct);
-        CatalogoConvenios.Atualizar(lista.Select(c => new EntradaConvenio(c.Codigo, c.Nome, c.Familia, c.Ativo)));
+        CatalogoConvenios.Atualizar(lista.Select(c => new EntradaConvenio(
+            c.Codigo, c.Nome, c.Familia, c.Ativo,
+            c.Familia == Convenio.Personalizado ? c.ParaConfig() : null)));
     }
 
     public async Task SalvarAsync(IEnumerable<ConvenioCadastro> convenios, CancellationToken ct = default)
