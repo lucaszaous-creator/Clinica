@@ -1,5 +1,6 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
