@@ -292,7 +292,7 @@
                         <Button Style="{StaticResource BotaoIcone}" Content="&#xE713;"
                                 Command="{Binding NavegarCommand}"
                                 CommandParameter="{x:Static vm:Secao.Parametros}"
-                                ToolTip="Parâmetros" AutomationProperties.Name="Parâmetros"
+                                ToolTip="Configurações" AutomationProperties.Name="Configurações"
                                 Margin="4,0,0,0" />
                         <TextBlock Text="&#xE77B;" FontFamily="{StaticResource FonteIcones}" FontSize="16"
                                    Foreground="{StaticResource Brush.Texto.Secundario}"

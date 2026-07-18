@@ -1,4 +1,7 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -68,6 +71,42 @@ public sealed class ParametrosService
     public async Task SalvarJanelaAlertaConsultaAsync(int dias, CancellationToken ct = default)
     {
         await _repo.SalvarConfiguracaoAsync(ChaveJanelaAlertaConsulta, Math.Max(0, dias).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    // ---- Dados do prestador (clínica) — GLOBAIS, usados na capa e no TISS ----
+
+    public const string ChavePrestador = "DadosPrestador";
+
+    private static readonly JsonSerializerOptions OpcoesJson = new()
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    /// <summary>Já existe configuração do prestador salva no banco?</summary>
+    public async Task<bool> PrestadorConfiguradoAsync(CancellationToken ct = default)
+        => await _repo.ObterConfiguracaoAsync(ChavePrestador, ct) is not null;
+
+    /// <summary>Dados do prestador salvos no banco (vazios se nunca configurados).</summary>
+    public async Task<DadosPrestador> ObterPrestadorAsync(CancellationToken ct = default)
+    {
+        var json = await _repo.ObterConfiguracaoAsync(ChavePrestador, ct);
+        if (string.IsNullOrWhiteSpace(json))
+            return new DadosPrestador();
+
+        try
+        {
+            return JsonSerializer.Deserialize<DadosPrestador>(json, OpcoesJson) ?? new DadosPrestador();
+        }
+        catch
+        {
+            return new DadosPrestador(); // configuração corrompida não impede o uso
+        }
+    }
+
+    public async Task SalvarPrestadorAsync(DadosPrestador dados, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChavePrestador, JsonSerializer.Serialize(dados, OpcoesJson), ct);
         await _repo.SalvarAsync(ct);
     }
 }

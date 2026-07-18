@@ -21,7 +21,8 @@ public static class CapaImpressao
         using (var scope = scopeFactory.CreateScope())
         {
             var capa = scope.ServiceProvider.GetRequiredService<CapaFaturamentoService>();
-            pdf = await capa.GerarPdfAsync(atendimentoId, PrestadorStore.Carregar());
+            var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+            pdf = await capa.GerarPdfAsync(atendimentoId, prestador);
         }
 
         var dialog = new SaveFileDialog

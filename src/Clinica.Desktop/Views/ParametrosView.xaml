@@ -4,39 +4,163 @@
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Parâmetros dos convênios" Style="{StaticResource H1}" />
-        <TextBlock Grid.Row="1" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
-                   Text="Ajuste os números das regras sem recompilar. 'Validade da consulta' é a renovação (ex.: 22/30 dias). 'Dias até o 2º código' é o intervalo do 2º código (padrão 1 = 24h). Deixe a validade vazia para convênios sem consulta renovável." />
+        <TextBlock Grid.Row="0" Text="Configurações" Style="{StaticResource H1}" />
 
-        <Border Grid.Row="2" Style="{StaticResource Card}" VerticalAlignment="Top">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="Regras por convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                <DataGrid ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
-                          AutoGenerateColumns="False" HeadersVisibility="Column">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Convênio" IsReadOnly="True"
-                                            Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
-                        <DataGridTextColumn Header="Validade da consulta (dias)"
-                                            Binding="{Binding ValidadeConsultaDias}" Width="*" />
-                        <DataGridTextColumn Header="Dias até o 2º código"
-                                            Binding="{Binding DiasSegundoCodigo}" Width="*" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </DockPanel>
-        </Border>
+        <TabControl Grid.Row="1">
+            <!-- ===== Convênios ===== -->
+            <TabItem Header="Convênios">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
+                               Text="Ajuste os números das regras sem recompilar. 'Validade da consulta' é a renovação (ex.: 22/30 dias). 'Dias até o 2º código' é o intervalo do 2º código (padrão 1 = 24h). Deixe a validade vazia para convênios sem consulta renovável." />
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
-            <TextBlock Text="Alertar consultas a vencer com" VerticalAlignment="Center" Margin="0,0,6,0"
-                       Foreground="{StaticResource Brush.Texto.Primario}" />
-            <TextBox Text="{Binding JanelaAlertaConsultaDias}" Width="52" TextAlignment="Center" />
-            <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="6,0,16,0"
-                       Foreground="{StaticResource Brush.Texto.Primario}" />
-            <Button Content="Salvar parâmetros" Command="{Binding SalvarCommand}" />
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Regras por convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                            <DataGrid ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
+                                      AutoGenerateColumns="False" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Convênio" IsReadOnly="True"
+                                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
+                                    <DataGridTextColumn Header="Validade da consulta (dias)"
+                                                        Binding="{Binding ValidadeConsultaDias}" Width="*" />
+                                    <DataGridTextColumn Header="Dias até o 2º código"
+                                                        Binding="{Binding DiasSegundoCodigo}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Alertar consultas a vencer com" VerticalAlignment="Center" Margin="0,0,6,0"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                        <TextBox Text="{Binding JanelaAlertaConsultaDias}" Width="52" TextAlignment="Center" />
+                        <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="6,0,0,0"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                    </StackPanel>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ===== Clínica / prestador ===== -->
+            <TabItem Header="Clínica / prestador">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
+                               Text="Identificação da clínica impressa na capa de faturamento e usada no lote TISS. Vale para todas as máquinas." />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="Razão social" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding RazaoSocial}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Nome fantasia (exibido na capa)" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding NomeFantasia}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="CNPJ" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding Cnpj}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="CNES" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding Cnes}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
+                                    <TextBlock Text="Endereço (rua, nº, bairro, cidade/UF, CEP)" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding Endereco}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="Telefone" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding Telefone}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="E-mail" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding Email}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="4" Grid.Column="0" Margin="0,0,8,0">
+                                    <TextBlock Text="Código do prestador na operadora" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding CodigoNaOperadora}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="4" Grid.Column="1" Margin="8,0,0,0">
+                                    <TextBlock Text="Registro ANS da operadora" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding RegistroAnsOperadora}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- ===== Códigos TUSS ===== -->
+            <TabItem Header="Códigos TUSS">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="860" HorizontalAlignment="Left">
+                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
+                               Text="Código TUSS de cada procedimento, usado no lote TISS. Pode variar conforme a operadora." />
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Acupuntura" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding TussAcupuntura}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,6,0">
+                                    <TextBlock Text="Eletroacupuntura" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding TussEletro}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                    <TextBlock Text="BSV" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding TussBsv}" />
+                                </StackPanel>
+                            </Grid>
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Consulta" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding TussConsulta}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,6,0">
+                                    <TextBlock Text="Consulta especialidade" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding TussEspecialidade}" />
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,14,0,0" VerticalAlignment="Center">
+            <Button Content="Salvar configurações" Command="{Binding SalvarCommand}" />
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
                        Foreground="{StaticResource Brush.Sucesso.Forte}" />
         </StackPanel>
