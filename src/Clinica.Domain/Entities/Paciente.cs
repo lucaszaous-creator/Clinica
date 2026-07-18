@@ -8,7 +8,11 @@ public class Paciente
     public string? Documento { get; set; }
     public string? Telefone { get; set; }
 
+    /// <summary>Família de regra do convênio (define como faturar). Mantida para o motor de regras.</summary>
     public Convenio Convenio { get; set; }
+
+    /// <summary>Código do convênio no catálogo (identifica a variante/nome). Null = convênio embutido = Convenio.ToString().</summary>
+    public string? ConvenioCodigo { get; set; }
 
     /// <summary>Unimed Padrão: indica se o paciente possui o app e consegue gerar QR Code (2º código).</summary>
     public bool PossuiApp { get; set; }

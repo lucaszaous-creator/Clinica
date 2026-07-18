@@ -13,6 +13,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
     public DbSet<ParametroConvenio> Parametros => Set<ParametroConvenio>();
     public DbSet<ConfiguracaoGlobal> Configuracoes => Set<ConfiguracaoGlobal>();
+    public DbSet<ConvenioCadastro> Convenios => Set<ConvenioCadastro>();
     public DbSet<Consulta> Consultas => Set<Consulta>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -24,6 +25,7 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Documento).HasMaxLength(30);
             e.Property(p => p.Telefone).HasMaxLength(30);
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
+            e.Property(p => p.ConvenioCodigo).HasMaxLength(40);
             e.Property(p => p.Sexo).HasConversion<string>().HasMaxLength(20);
             e.Property(p => p.Categoria).HasConversion<string>().HasMaxLength(20);
             e.Property(p => p.ModalidadePreferida).HasConversion<string>().HasMaxLength(40);
@@ -72,6 +74,14 @@ public class ClinicaDbContext : DbContext
             e.HasKey(c => c.Chave);
             e.Property(c => c.Chave).HasMaxLength(60);
             // Sem limite: guarda também estruturas serializadas (ex.: dados do prestador em JSON).
+        });
+
+        b.Entity<ConvenioCadastro>(e =>
+        {
+            e.HasKey(c => c.Codigo);
+            e.Property(c => c.Codigo).HasMaxLength(40);
+            e.Property(c => c.Nome).HasMaxLength(80);
+            e.Property(c => c.Familia).HasConversion<string>().HasMaxLength(40);
         });
 
         b.Entity<Consulta>(e =>

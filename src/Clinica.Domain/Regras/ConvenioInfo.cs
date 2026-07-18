@@ -13,7 +13,8 @@ public static class ConvenioInfo
         _ => null
     };
 
-    public static string NomeExibicao(Convenio convenio) => convenio switch
+    /// <summary>Nome padrão (embutido no código). O nome EXIBIDO pode ser sobreposto pelo catálogo.</summary>
+    public static string NomeExibicaoPadrao(Convenio convenio) => convenio switch
     {
         Convenio.UnimedPadrao => "Unimed Costa do Sol (Padrão)",
         Convenio.UnimedIntercambio => "Unimed Costa do Sol Intercâmbio",
@@ -21,4 +22,7 @@ public static class ConvenioInfo
         Convenio.Petrobras => "Petrobras",
         _ => convenio.ToString()
     };
+
+    /// <summary>Nome exibido do convênio (reflete rename salvo no catálogo, com fallback no padrão).</summary>
+    public static string NomeExibicao(Convenio convenio) => CatalogoConvenios.Nome(convenio);
 }

@@ -21,6 +21,9 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 
     public ObservableCollection<ParametroConvenio> Itens { get; } = new();
 
+    /// <summary>Catálogo de convênios (embutidos + variantes) — nome, família e ativo.</summary>
+    public ObservableCollection<ConvenioCadastro> Catalogo { get; } = new();
+
     [ObservableProperty] private string? _mensagem;
 
     /// <summary>Dias antes do vencimento em que a consulta entra em alerta.</summary>
@@ -55,6 +58,11 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         Itens.Clear();
         foreach (var p in snap.Todos.OrderBy(p => p.Convenio))
             Itens.Add(p);
+
+        var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
+        Catalogo.Clear();
+        foreach (var c in await catalogo.ListarAsync())
+            Catalogo.Add(c);
 
         JanelaAlertaConsultaDias = await parametros.ObterJanelaAlertaConsultaAsync();
 
@@ -96,15 +104,28 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         }
     };
 
+    /// <summary>Adiciona uma nova variante de convênio (reutiliza a regra de uma família existente).</summary>
+    [RelayCommand]
+    private void NovoConvenio()
+        => Catalogo.Add(new ConvenioCadastro
+        {
+            Codigo = "CV" + Guid.NewGuid().ToString("N")[..8],
+            Nome = "Novo convênio",
+            Familia = Convenio.UnimedPadrao,
+            Ativo = true
+        });
+
     [RelayCommand]
     private async Task Salvar()
     {
         using var scope = _scopeFactory.CreateScope();
         var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+        var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
 
         await parametros.SalvarAsync(Itens.ToList());
         await parametros.SalvarJanelaAlertaConsultaAsync(JanelaAlertaConsultaDias);
         await parametros.SalvarPrestadorAsync(MontarPrestador());
+        await catalogo.SalvarAsync(Catalogo.ToList());
 
         Mensagem = "Configurações salvas. Valem imediatamente em todas as máquinas.";
     }

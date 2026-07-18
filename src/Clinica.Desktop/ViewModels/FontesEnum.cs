@@ -9,4 +9,7 @@ namespace Clinica.Desktop.ViewModels;
 public static class FontesEnum
 {
     public static Array Categorias { get; } = Enum.GetValues(typeof(Categoria));
+
+    /// <summary>Famílias de regra de faturamento (os convênios embutidos).</summary>
+    public static Array Familias { get; } = Enum.GetValues(typeof(Convenio));
 }
