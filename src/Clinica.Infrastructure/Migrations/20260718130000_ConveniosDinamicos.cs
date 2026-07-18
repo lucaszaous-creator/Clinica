@@ -32,9 +32,13 @@ namespace Clinica.Infrastructure.Migrations
                 });
 
             // Semeia os quatro convênios embutidos (código = família).
+            // Tipos explícitos: estas migrações são escritas à mão e não têm um
+            // BuildTargetModel (arquivo .Designer.cs), então o EF não consegue
+            // inferir os tipos das colunas pelo modelo ao aplicar o InsertData.
             migrationBuilder.InsertData(
                 table: "Convenios",
                 columns: new[] { "Codigo", "Nome", "Familia", "Ativo" },
+                columnTypes: new[] { "character varying(40)", "character varying(80)", "character varying(40)", "boolean" },
                 values: new object[,]
                 {
                     { "UnimedPadrao", "Unimed Costa do Sol (Padrão)", "UnimedPadrao", true },
