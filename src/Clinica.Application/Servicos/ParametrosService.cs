@@ -8,6 +8,9 @@ using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
+/// <summary>Nome e código de um convênio disponível (para listas/combos de cadastro).</summary>
+public sealed record ConvenioOpcao(Convenio Convenio, string Nome);
+
 /// <summary>Valores efetivos dos parâmetros (defaults do código sobrepostos pela configuração salva).</summary>
 public sealed class ParametrosSnapshot
 {
@@ -19,6 +22,33 @@ public sealed class ParametrosSnapshot
 
     public int DiasSegundoCodigo(Convenio c)
         => _map.TryGetValue(c, out var p) ? p.DiasSegundoCodigo : 1;
+
+    /// <summary>Nome exibido do convênio (custom salvo, ou o padrão do código).</summary>
+    public string NomeExibicao(Convenio c)
+        => _map.TryGetValue(c, out var p) && !string.IsNullOrWhiteSpace(p.Nome)
+            ? p.Nome!
+            : ConvenioInfo.NomeExibicao(c);
+
+    /// <summary>Categoria-base do paciente (custom salva por app, ou o padrão do código).</summary>
+    public Categoria CategoriaBase(Convenio c, bool possuiApp)
+    {
+        if (_map.TryGetValue(c, out var p))
+        {
+            var custom = possuiApp ? p.CategoriaComApp : p.CategoriaSemApp;
+            if (custom is { } cat) return cat;
+        }
+        return CategoriaConvenio.Base(c, possuiApp);
+    }
+
+    public bool Ativo(Convenio c) => !_map.TryGetValue(c, out var p) || p.Ativo;
+
+    /// <summary>Convênios ativos, com o nome exibido, em ordem alfabética (para combos de cadastro).</summary>
+    public IReadOnlyList<ConvenioOpcao> ConveniosAtivos =>
+        Enum.GetValues<Convenio>()
+            .Where(Ativo)
+            .Select(c => new ConvenioOpcao(c, NomeExibicao(c)))
+            .OrderBy(o => o.Nome)
+            .ToList();
 
     public IReadOnlyCollection<ParametroConvenio> Todos => (IReadOnlyCollection<ParametroConvenio>)_map.Values;
 }
@@ -39,15 +69,28 @@ public sealed class ParametrosService
         foreach (var c in Enum.GetValues<Convenio>())
         {
             map[c] = salvos.TryGetValue(c, out var s)
-                ? s
+                ? PreencherDefaults(s)
                 : new ParametroConvenio
                 {
                     Convenio = c,
+                    Nome = ConvenioInfo.NomeExibicao(c),
+                    Ativo = true,
                     ValidadeConsultaDias = ConvenioInfo.ValidadeConsultaDias(c),
-                    DiasSegundoCodigo = 1
+                    DiasSegundoCodigo = 1,
+                    CategoriaComApp = CategoriaConvenio.Base(c, true),
+                    CategoriaSemApp = CategoriaConvenio.Base(c, false)
                 };
         }
         return new ParametrosSnapshot(map);
+    }
+
+    /// <summary>Completa campos nulos de uma linha salva com os padrões do código (para exibição/edição).</summary>
+    private static ParametroConvenio PreencherDefaults(ParametroConvenio p)
+    {
+        p.Nome ??= ConvenioInfo.NomeExibicao(p.Convenio);
+        p.CategoriaComApp ??= CategoriaConvenio.Base(p.Convenio, true);
+        p.CategoriaSemApp ??= CategoriaConvenio.Base(p.Convenio, false);
+        return p;
     }
 
     public async Task SalvarAsync(IEnumerable<ParametroConvenio> parametros, CancellationToken ct = default)

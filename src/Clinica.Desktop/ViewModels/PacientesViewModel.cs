@@ -21,10 +21,16 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 
     public ObservableCollection<Paciente> Pacientes { get; } = new();
 
-    public Array Convenios => Enum.GetValues(typeof(Convenio));
+    /// <summary>Convênios ATIVOS (com nome custom) — carregados do catálogo.</summary>
+    public ObservableCollection<ConvenioOpcao> Convenios { get; } = new();
     public Array Sexos => Enum.GetValues(typeof(Sexo));
     public Array Categorias => Enum.GetValues(typeof(Categoria));
     public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
+
+    /// <summary>Categoria-base efetiva do catálogo (fallback para o padrão do código até carregar).</summary>
+    private ParametrosSnapshot? _snapshot;
+    private Categoria CategoriaBase(Convenio c, bool app)
+        => _snapshot?.CategoriaBase(c, app) ?? CategoriaConvenio.Base(c, app);
 
     [ObservableProperty] private string? _busca;
 
@@ -68,11 +74,21 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     {
         _sugerindo = true;
         _categoriaManual = false;
-        Categoria = CategoriaConvenio.Base(Convenio, PossuiApp);
+        Categoria = CategoriaBase(Convenio, PossuiApp);
         _sugerindo = false;
     }
 
-    public Task CarregarAsync() => Buscar();
+    public async Task CarregarAsync()
+    {
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            _snapshot = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterAsync();
+            Convenios.Clear();
+            foreach (var op in _snapshot.ConveniosAtivos)
+                Convenios.Add(op);
+        }
+        await Buscar();
+    }
 
     [RelayCommand]
     private async Task Buscar()
@@ -176,7 +192,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         ModalidadePreferida = p.ModalidadePreferida;
         Categoria = p.Categoria;
         // Preserva um override manual (categoria diferente da base do convênio + app).
-        _categoriaManual = p.Categoria != CategoriaConvenio.Base(p.Convenio, p.PossuiApp);
+        _categoriaManual = p.Categoria != CategoriaBase(p.Convenio, p.PossuiApp);
         _carregando = false;
         Mensagem = null;
     }

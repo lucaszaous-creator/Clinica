@@ -304,8 +304,23 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("CategoriaComApp")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CategoriaSemApp")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<int>("DiasSegundoCodigo")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Nome")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
 
                     b.Property<int?>("ValidadeConsultaDias")
                         .HasColumnType("integer");

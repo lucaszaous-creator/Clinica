@@ -154,8 +154,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             await _db.Parametros.AddAsync(parametro, ct);
         else
         {
+            existe.Nome = parametro.Nome;
+            existe.Ativo = parametro.Ativo;
             existe.ValidadeConsultaDias = parametro.ValidadeConsultaDias;
             existe.DiasSegundoCodigo = parametro.DiasSegundoCodigo;
+            existe.CategoriaComApp = parametro.CategoriaComApp;
+            existe.CategoriaSemApp = parametro.CategoriaSemApp;
         }
     }
 

@@ -23,7 +23,8 @@
                 <TextBox Text="{Binding Telefone}" />
 
                 <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
-                <ComboBox ItemsSource="{Binding Convenios}" SelectedItem="{Binding Convenio}" />
+                <ComboBox ItemsSource="{Binding Convenios}" SelectedValue="{Binding Convenio}"
+                          SelectedValuePath="Convenio" DisplayMemberPath="Nome" />
 
                 <TextBlock Text="Sexo (usado pela Petrobras)" Style="{StaticResource Rotulo}" />
                 <ComboBox ItemsSource="{Binding Sexos}" SelectedItem="{Binding Sexo}" />

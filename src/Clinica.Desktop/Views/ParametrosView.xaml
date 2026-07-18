@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Desktop.Views.ParametrosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Clinica.Desktop.ViewModels">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -24,12 +25,18 @@
                             <DataGrid ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
                                       AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Convênio" IsReadOnly="True"
-                                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
+                                    <DataGridCheckBoxColumn Header="Ativo" Binding="{Binding Ativo, UpdateSourceTrigger=PropertyChanged}" Width="Auto" />
+                                    <DataGridTextColumn Header="Nome exibido" Binding="{Binding Nome}" Width="2*" />
                                     <DataGridTextColumn Header="Validade da consulta (dias)"
                                                         Binding="{Binding ValidadeConsultaDias}" Width="*" />
                                     <DataGridTextColumn Header="Dias até o 2º código"
                                                         Binding="{Binding DiasSegundoCodigo}" Width="*" />
+                                    <DataGridComboBoxColumn Header="Categoria (com app)"
+                                                            SelectedItemBinding="{Binding CategoriaComApp}"
+                                                            ItemsSource="{x:Static vm:FontesEnum.Categorias}" Width="*" />
+                                    <DataGridComboBoxColumn Header="Categoria (sem app)"
+                                                            SelectedItemBinding="{Binding CategoriaSemApp}"
+                                                            ItemsSource="{x:Static vm:FontesEnum.Categorias}" Width="*" />
                                 </DataGrid.Columns>
                             </DataGrid>
                         </DockPanel>
