@@ -86,13 +86,13 @@ public class ServicosIntegracaoTests : IDisposable
     public async Task ConsultaAVencer_ApareceNoDashboard()
     {
         var pacienteId = await CriarPacienteAsync(Convenio.UnimedIntercambio);
-        var service = new AtendimentoService(_repo);
+        var consultaService = new ConsultaService(_repo);
         var pendencias = new PendenciaService(_repo);
 
-        var diaAtendimento = new DateOnly(2026, 7, 1);
-        await service.LancarAsync(pacienteId, diaAtendimento, ModalidadeAtendimento.AcupunturaSimples);
+        // Emite a consulta em 01/07: Unimed Intercâmbio vale 22 dias → vence em 23/07.
+        await consultaService.RenovarAsync(pacienteId, new DateOnly(2026, 7, 1));
 
-        // Consulta Unimed vale 22 dias → vence em 23/07. Verificando em 20/07 (dentro da janela de 5 dias).
+        // Verificando em 20/07 (dentro da janela de 5 dias), a consulta a vencer aparece.
         var consultas = await pendencias.ConsultasAVencerAsync(new DateOnly(2026, 7, 20));
         consultas.Should().ContainSingle(c => c.PacienteId == pacienteId)
             .Which.DataVencimento.Should().Be(new DateOnly(2026, 7, 23));

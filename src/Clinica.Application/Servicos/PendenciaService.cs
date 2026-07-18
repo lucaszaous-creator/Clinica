@@ -1,6 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Domain;
+using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
@@ -58,7 +59,11 @@ public sealed class PendenciaService
     /// <summary>Consultas a renovar (vencidas ou a vencer dentro da janela de alerta).</summary>
     public async Task<IReadOnlyList<PendenciaConsulta>> ConsultasAVencerAsync(DateOnly referencia, CancellationToken ct = default)
     {
-        var pacientes = await _repo.PacientesComAtendimentosAsync(ct);
+        // Fonte de verdade: as consultas emitidas (entidade Consulta), a mesma usada na
+        // aba Consultas. Antes este método estimava o vencimento pelo último atendimento
+        // de faturamento, o que divergia da consulta real (e sumia quando não havia
+        // atendimento), deixando consultas a vencer de fora das pendências.
+        var pacientes = await _repo.PacientesComConsultasAsync(ct);
         var snapshot = _parametros is null ? null : await _parametros.ObterAsync(ct);
         var janela = _parametros is null
             ? JanelaAlertaConsultaDias
@@ -70,21 +75,24 @@ public sealed class PendenciaService
             var validade = p.Convenio == Convenio.Personalizado
                 ? CatalogoConvenios.ValidadeConsultaDias(p.ConvenioCodigo)
                 : (snapshot?.ValidadeConsultaDias(p.Convenio) ?? ConvenioInfo.ValidadeConsultaDias(p.Convenio));
-            if (validade is null || p.Atendimentos.Count == 0)
-                continue;
+            if (validade is null)
+                continue; // convênio não usa consulta renovável
 
-            var ultimo = p.Atendimentos.Max(a => a.Data);
-            var vencimento = ultimo.AddDays(validade.Value);
-            var diasParaVencer = vencimento.DayNumber - referencia.DayNumber;
+            // Consulta vigente = a mais recente que não foi substituída (não Renovada).
+            var vigente = p.Consultas
+                .Where(c => c.Status != StatusConsulta.Renovada)
+                .OrderByDescending(c => c.DataEmissao)
+                .FirstOrDefault();
+            if (vigente is null)
+                continue; // ainda não emitiu nenhuma consulta
 
+            var diasParaVencer = vigente.DiasParaVencer(referencia);
             if (diasParaVencer > janela)
                 continue; // ainda longe do vencimento
 
-            var urgencia = diasParaVencer < 0 ? NivelUrgencia.Vermelho
-                : diasParaVencer == 0 ? NivelUrgencia.Amarelo
-                : NivelUrgencia.Amarelo;
+            var urgencia = vigente.EstaVencida(referencia) ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo;
 
-            resultado.Add(new PendenciaConsulta(p.Id, p.Nome, p.Convenio, vencimento, diasParaVencer, urgencia));
+            resultado.Add(new PendenciaConsulta(p.Id, p.Nome, p.Convenio, vigente.DataVencimento, diasParaVencer, urgencia));
         }
 
         return resultado.OrderBy(c => c.DiasParaVencer).ToList();
