@@ -16,6 +16,7 @@ namespace Clinica.Desktop.ViewModels;
 public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
     private int _codigoId;
 
     [ObservableProperty] private CodigoFaturamento? _codigo;
@@ -28,7 +29,11 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
     public event Action? BaixaConcluida;
     public event Action? Cancelado;
 
-    public BaixaViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+    public BaixaViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
+    {
+        _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
+    }
 
     public async Task CarregarAsync(int codigoId)
     {
@@ -50,10 +55,8 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
-        var confirma = System.Windows.MessageBox.Show(
-            $"Confirmar a baixa da guia {NumeroGuia} de {PacienteNome}?",
-            "Confirmar baixa", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Question);
-        if (confirma != System.Windows.MessageBoxResult.Yes) return;
+        if (!_dialogo.Confirmar("Confirmar baixa",
+            $"Confirmar a baixa da guia {NumeroGuia} de {PacienteNome}?")) return;
 
         var atendimentoId = Codigo?.AtendimentoId ?? 0;
 
@@ -84,10 +87,8 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
                 if (!resultado.Concluido || resultado.Pdf is null) return;
             }
 
-            var gerar = System.Windows.MessageBox.Show(
-                "Fatura concluída! Gerar a capa de conclusão para imprimir e arquivar na pasta do dia?",
-                "Fatura concluída", System.Windows.MessageBoxButton.YesNo, System.Windows.MessageBoxImage.Information);
-            if (gerar != System.Windows.MessageBoxResult.Yes) return;
+            if (!_dialogo.Confirmar("Fatura concluída",
+                "Fatura concluída! Gerar a capa de conclusão para imprimir e arquivar na pasta do dia?")) return;
 
             var dialog = new SaveFileDialog
             {

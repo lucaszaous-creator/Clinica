@@ -18,6 +18,7 @@ namespace Clinica.Desktop.ViewModels;
 public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
 
     // Config do prestador
     [ObservableProperty] private string? _codigoNaOperadora;
@@ -42,9 +43,10 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private DateTime _fim;
     [ObservableProperty] private string? _mensagem;
 
-    public TissViewModel(IServiceScopeFactory scopeFactory)
+    public TissViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
         _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
         var hoje = DateTime.Today;
         _inicio = new DateTime(hoje.Year, hoje.Month, 1);
         _fim = _inicio.AddMonths(1).AddDays(-1);
@@ -118,8 +120,21 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
+        // Pré-validação: operadoras rejeitam lotes com dados obrigatórios em branco.
+        var dados = MontarDados();
+        var pendencias = tiss.ValidarPrestador(dados, codigos.Select(c => c.Tipo));
+        if (pendencias.Count > 0 &&
+            !_dialogo.ConfirmarPerigo("Dados incompletos para o TISS",
+                "O lote será gerado com pendências que a operadora pode rejeitar:\n\n• " +
+                string.Join("\n• ", pendencias) +
+                "\n\nCorrija em 'Dados do prestador' ou exporte mesmo assim.\n\nExportar mesmo assim?"))
+        {
+            Mensagem = "Exportação cancelada — complete os dados do prestador acima.";
+            return;
+        }
+
         var numeroLote = $"LOTE-{DateTime.Now:yyyyMMddHHmm}";
-        var xml = tiss.GerarLoteXml(codigos, MontarDados(), numeroLote);
+        var xml = tiss.GerarLoteXml(codigos, dados, numeroLote);
 
         var dialog = new SaveFileDialog
         {

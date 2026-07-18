@@ -13,13 +13,18 @@ namespace Clinica.Desktop.ViewModels;
 public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
 
     public ObservableCollection<CodigoFaturamento> Glosas { get; } = new();
 
     /// <summary>Quando true, mostra só as glosas ainda não recuperadas.</summary>
     [ObservableProperty] private bool _somenteEmAberto = true;
 
-    public GlosasViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+    public GlosasViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
+    {
+        _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
+    }
 
     public Task CarregarAsync() => Buscar();
 
@@ -51,10 +56,8 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
     private async Task Recuperar(CodigoFaturamento? codigo)
     {
         if (codigo is null) return;
-        var confirma = MessageBox.Show(
-            "Marcar esta glosa como recuperada (aceita pelo convênio)?",
-            "Confirmar", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (confirma != MessageBoxResult.Yes) return;
+        if (!_dialogo.Confirmar("Confirmar",
+            "Marcar esta glosa como recuperada (aceita pelo convênio)?")) return;
 
         using (var scope = _scopeFactory.CreateScope())
         {

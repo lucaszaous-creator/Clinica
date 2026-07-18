@@ -19,6 +19,13 @@
             <TextBlock Text="Até:" VerticalAlignment="Center" Margin="16,0,6,0" />
             <DatePicker SelectedDate="{Binding Fim}" Width="140" />
             <Button Content="Gerar" Command="{Binding GerarCommand}" Padding="20,6" Margin="16,0,0,0" />
+            <Button Style="{StaticResource BotaoSecundario}" Command="{Binding ExportarCsvCommand}"
+                    ToolTip="Exportar as tabelas deste relatório em CSV (abre no Excel)" Margin="8,0,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE74E;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                    <TextBlock Text="Exportar CSV" />
+                </StackPanel>
+            </Button>
         </StackPanel>
 
         <!-- KPIs -->

@@ -14,7 +14,7 @@ public sealed class PendenciaService
     private readonly ParametrosService? _parametros;
 
     /// <summary>Janela (em dias) para começar a alertar sobre consultas a vencer.</summary>
-    public int JanelaAlertaConsultaDias { get; init; } = 5;
+    public int JanelaAlertaConsultaDias { get; set; } = 5;
 
     public PendenciaService(IClinicaRepositorio repo, ParametrosService? parametros = null)
     {

@@ -13,6 +13,7 @@ namespace Clinica.Desktop.ViewModels;
 public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
     private readonly List<PendenciaCodigo> _todos = new();
 
     public ObservableCollection<PendenciaCodigo> Codigos { get; } = new();
@@ -37,9 +38,10 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     public event Action<int>? PendenciasAtualizadas;
     public event Action<int>? AbrirBaixaSolicitado;
 
-    public DashboardViewModel(IServiceScopeFactory scopeFactory)
+    public DashboardViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
         _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
         var ops = new List<object> { "Todos" };
         ops.AddRange(Enum.GetValues<Convenio>().Cast<object>());
         OpcoesConvenio = ops;
@@ -49,6 +51,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         using var scope = _scopeFactory.CreateScope();
         var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
+        pendencias.JanelaAlertaConsultaDias = Configuracao.PreferenciasStore.Carregar().JanelaAlertaConsultaDias;
         var hoje = DateOnly.FromDateTime(DateTime.Today);
 
         _todos.Clear();
@@ -88,6 +91,64 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         if (codigo is not null)
             AbrirBaixaSolicitado?.Invoke(codigo.CodigoId);
+    }
+
+    /// <summary>Baixa em lote das linhas selecionadas (Ctrl/Shift + clique na tabela).</summary>
+    [RelayCommand]
+    private async Task DarBaixaEmLote(System.Collections.IList? selecionados)
+    {
+        var itens = selecionados?.OfType<PendenciaCodigo>().ToList() ?? new List<PendenciaCodigo>();
+        if (itens.Count == 0)
+        {
+            _dialogo.Aviso("Baixa em lote",
+                "Selecione uma ou mais linhas da tabela (Ctrl+clique ou Shift+clique) antes de usar a baixa em lote.");
+            return;
+        }
+
+        var janela = new Alertas.BaixaLoteWindow(itens)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        var feitas = 0;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
+            foreach (var linha in janela.Linhas.Where(l => !string.IsNullOrWhiteSpace(l.NumeroGuia)))
+            {
+                await faturamento.DarBaixaAsync(linha.CodigoId, janela.DataBaixa,
+                    linha.NumeroGuia!.Trim(), Environment.UserName, "baixa em lote");
+                feitas++;
+            }
+        }
+
+        if (feitas == 0)
+            _dialogo.Aviso("Baixa em lote", "Nenhuma linha tinha número de guia — nada foi baixado.");
+
+        await CarregarAsync();
+    }
+
+    /// <summary>Renova a consulta direto do card "Consultas a renovar" do painel.</summary>
+    [RelayCommand]
+    private async Task Renovar(PendenciaConsulta? item)
+    {
+        if (item is null) return;
+        if (!_dialogo.Confirmar("Renovar consulta",
+                $"Gerar/renovar a consulta de {item.PacienteNome} para hoje?")) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<ConsultaService>();
+            await service.RenovarAsync(item.PacienteId, DateOnly.FromDateTime(DateTime.Today));
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Renovar consulta", ex.Message);
+        }
+
+        await CarregarAsync();
     }
 
     [RelayCommand]

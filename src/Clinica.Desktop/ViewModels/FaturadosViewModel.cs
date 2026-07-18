@@ -17,15 +17,17 @@ namespace Clinica.Desktop.ViewModels;
 public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
 
     public ObservableCollection<CodigoFaturamento> Baixados { get; } = new();
 
     [ObservableProperty] private DateTime _inicio;
     [ObservableProperty] private DateTime _fim;
 
-    public FaturadosViewModel(IServiceScopeFactory scopeFactory)
+    public FaturadosViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
         _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
         var hoje = DateTime.Today;
         _inicio = new DateTime(hoje.Year, hoje.Month, 1);
         _fim = _inicio.AddMonths(1).AddDays(-1);
@@ -55,11 +57,9 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
     {
         if (codigo is null) return;
 
-        var confirma = MessageBox.Show(
+        if (!_dialogo.Confirmar("Confirmar estorno",
             $"Estornar a baixa desta guia de {codigo.Atendimento?.Paciente?.Nome}?\n\n" +
-            "A pendência voltará a aparecer no painel para ser faturada novamente.",
-            "Confirmar estorno", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (confirma != MessageBoxResult.Yes) return;
+            "A pendência voltará a aparecer no painel para ser faturada novamente.")) return;
 
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();

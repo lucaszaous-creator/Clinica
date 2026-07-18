@@ -113,6 +113,7 @@ public partial class App : System.Windows.Application
         {
             using var scope = _host.Services.CreateScope();
             var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
+            pendencias.JanelaAlertaConsultaDias = Configuracao.PreferenciasStore.Carregar().JanelaAlertaConsultaDias;
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var lista = await pendencias.CodigosPendentesAsync(hoje);
             if (lista.Count == 0) return;
@@ -155,6 +156,7 @@ public partial class App : System.Windows.Application
                 // Snackbar único do shell (instanciado na thread de UI ao resolver o MainViewModel).
                 services.AddSingleton<Controls.SnackbarService>();
                 services.AddSingleton<Controls.ISnackbarService>(sp => sp.GetRequiredService<Controls.SnackbarService>());
+                services.AddSingleton<Controls.IDialogoService, Controls.DialogoService>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<DashboardViewModel>();
