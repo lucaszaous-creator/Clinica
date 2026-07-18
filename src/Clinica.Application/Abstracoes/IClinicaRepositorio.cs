@@ -55,6 +55,10 @@ public interface IClinicaRepositorio
     Task<string?> ObterConfiguracaoAsync(string chave, CancellationToken ct = default);
     Task SalvarConfiguracaoAsync(string chave, string valor, CancellationToken ct = default);
 
+    /// <summary>Catálogo de convênios (todos, ativos e inativos).</summary>
+    Task<IReadOnlyList<ConvenioCadastro>> ConveniosAsync(CancellationToken ct = default);
+    Task SalvarConvenioAsync(ConvenioCadastro convenio, CancellationToken ct = default);
+
     // ---- Consultas (renováveis) ----
     Task AdicionarConsultaAsync(Consulta consulta, CancellationToken ct = default);
 

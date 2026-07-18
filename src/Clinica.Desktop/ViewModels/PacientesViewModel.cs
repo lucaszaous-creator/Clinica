@@ -21,8 +21,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 
     public ObservableCollection<Paciente> Pacientes { get; } = new();
 
-    /// <summary>Convênios ATIVOS (com nome custom) — carregados do catálogo.</summary>
-    public ObservableCollection<ConvenioOpcao> Convenios { get; } = new();
+    /// <summary>Convênios ATIVOS do catálogo (código + nome + família).</summary>
+    public ObservableCollection<EntradaConvenio> Convenios { get; } = new();
     public Array Sexos => Enum.GetValues(typeof(Sexo));
     public Array Categorias => Enum.GetValues(typeof(Categoria));
     public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
@@ -39,7 +39,10 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string _nome = string.Empty;
     [ObservableProperty] private string? _documento;
     [ObservableProperty] private string? _telefone;
-    [ObservableProperty] private Convenio _convenio = Convenio.UnimedIntercambio;
+    /// <summary>Código do convênio selecionado (do catálogo). A família é derivada dele.</summary>
+    [ObservableProperty] private string? _convenioCodigo = Convenio.UnimedIntercambio.ToString();
+    /// <summary>Família de regra do convênio selecionado (derivada do código).</summary>
+    private Convenio _convenio = Convenio.UnimedIntercambio;
     [ObservableProperty] private bool _possuiApp;
     [ObservableProperty] private Sexo _sexo = Sexo.Feminino;
     [ObservableProperty] private Categoria _categoria = CategoriaConvenio.Base(Convenio.UnimedIntercambio, false);
@@ -65,7 +68,11 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     partial void OnEditandoIdChanged(int? value) => OnPropertyChanged(nameof(TituloFormulario));
 
     // Categoria acompanha convênio + app, a menos que o usuário a defina manualmente.
-    partial void OnConvenioChanged(Convenio value) { if (!_carregando) SugerirCategoria(); }
+    partial void OnConvenioCodigoChanged(string? value)
+    {
+        _convenio = CatalogoConvenios.Familia(value);
+        if (!_carregando) SugerirCategoria();
+    }
     partial void OnPossuiAppChanged(bool value) { if (!_carregando) SugerirCategoria(); }
     partial void OnCategoriaChanged(Categoria value) { if (!_carregando && !_sugerindo) _categoriaManual = true; }
 
@@ -74,7 +81,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     {
         _sugerindo = true;
         _categoriaManual = false;
-        Categoria = CategoriaBase(Convenio, PossuiApp);
+        Categoria = CategoriaBase(_convenio, PossuiApp);
         _sugerindo = false;
     }
 
@@ -83,10 +90,10 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         using (var scope = _scopeFactory.CreateScope())
         {
             _snapshot = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterAsync();
-            Convenios.Clear();
-            foreach (var op in _snapshot.ConveniosAtivos)
-                Convenios.Add(op);
         }
+        Convenios.Clear();
+        foreach (var op in CatalogoConvenios.Ativos)
+            Convenios.Add(op);
         await Buscar();
     }
 
@@ -170,7 +177,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         // telefone gravado já formatado para exibição.
         p.Documento = string.IsNullOrWhiteSpace(Documento) ? null : Cpf.Normalizar(Documento);
         p.Telefone = string.IsNullOrWhiteSpace(Telefone) ? null : Domain.Telefone.Formatar(Telefone);
-        p.Convenio = Convenio;
+        p.ConvenioCodigo = ConvenioCodigo;
+        p.Convenio = _convenio; // família derivada do código selecionado
         p.PossuiApp = PossuiApp;
         p.Sexo = Sexo;
         p.Categoria = Categoria;
@@ -186,7 +194,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         Nome = p.Nome;
         Documento = Cpf.Formatar(p.Documento);
         Telefone = p.Telefone;
-        Convenio = p.Convenio;
+        ConvenioCodigo = p.ConvenioCodigo ?? p.Convenio.ToString();
+        _convenio = p.Convenio;
         PossuiApp = p.PossuiApp;
         Sexo = p.Sexo;
         ModalidadePreferida = p.ModalidadePreferida;
@@ -228,7 +237,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         Documento = null;
         Telefone = null;
         PossuiApp = false;
-        Convenio = Convenio.UnimedIntercambio;
+        ConvenioCodigo = Convenio.UnimedIntercambio.ToString();
+        _convenio = Convenio.UnimedIntercambio;
         Sexo = Sexo.Feminino;
         ModalidadePreferida = ModalidadeAtendimento.AcupunturaComEletro;
         _carregando = false;

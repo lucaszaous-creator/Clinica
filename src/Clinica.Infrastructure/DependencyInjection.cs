@@ -25,6 +25,7 @@ public static class DependencyInjection
         services.AddScoped<TissExportService>();
         services.AddScoped<CapaFaturamentoService>();
         services.AddScoped<ParametrosService>();
+        services.AddScoped<ConvenioCatalogoService>();
         return services;
     }
 }

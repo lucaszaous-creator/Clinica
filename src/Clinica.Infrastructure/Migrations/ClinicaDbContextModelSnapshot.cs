@@ -249,6 +249,10 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<string>("ConvenioCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<string>("Documento")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
@@ -296,6 +300,30 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasKey("Chave");
 
                     b.ToTable("Configuracoes");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ConvenioCadastro", b =>
+                {
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Familia")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.HasKey("Codigo");
+
+                    b.ToTable("Convenios");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ParametroConvenio", b =>

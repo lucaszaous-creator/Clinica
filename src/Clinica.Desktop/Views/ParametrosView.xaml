@@ -17,16 +17,38 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
                     <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
-                               Text="Ajuste os números das regras sem recompilar. 'Validade da consulta' é a renovação (ex.: 22/30 dias). 'Dias até o 2º código' é o intervalo do 2º código (padrão 1 = 24h). Deixe a validade vazia para convênios sem consulta renovável." />
+                               Text="Gerencie os convênios atendidos e ajuste os números das regras. 'Novo convênio' cria uma variante que reutiliza a REGRA de faturamento de uma família existente (ex.: um plano que fatura como a Unimed Padrão), com nome próprio." />
 
-                    <Border Style="{StaticResource Card}" VerticalAlignment="Top">
+                    <!-- Catálogo de convênios (nome, família, ativo) -->
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,0,12">
                         <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="Regras por convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                            <DataGrid ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBlock Text="Convênios atendidos" Style="{StaticResource H2}" Margin="0" />
+                                <Button Content="+ Novo convênio" Command="{Binding NovoConvenioCommand}"
+                                        Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <DataGrid ItemsSource="{Binding Catalogo}" IsReadOnly="False" CanUserAddRows="False"
                                       AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
                                     <DataGridCheckBoxColumn Header="Ativo" Binding="{Binding Ativo, UpdateSourceTrigger=PropertyChanged}" Width="Auto" />
-                                    <DataGridTextColumn Header="Nome exibido" Binding="{Binding Nome}" Width="2*" />
+                                    <DataGridTextColumn Header="Nome" Binding="{Binding Nome}" Width="2*" />
+                                    <DataGridComboBoxColumn Header="Fatura como (família)"
+                                                            SelectedItemBinding="{Binding Familia}"
+                                                            ItemsSource="{x:Static vm:FontesEnum.Familias}" Width="*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Parâmetros numéricos por família -->
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Regras por família de convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                            <DataGrid ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
+                                      AutoGenerateColumns="False" HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Família" IsReadOnly="True"
+                                                        Binding="{Binding Convenio}" Width="2*" />
                                     <DataGridTextColumn Header="Validade da consulta (dias)"
                                                         Binding="{Binding ValidadeConsultaDias}" Width="*" />
                                     <DataGridTextColumn Header="Dias até o 2º código"

@@ -163,6 +163,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         }
     }
 
+    public async Task<IReadOnlyList<ConvenioCadastro>> ConveniosAsync(CancellationToken ct = default)
+        => await _db.Convenios.AsNoTracking().ToListAsync(ct);
+
+    public async Task SalvarConvenioAsync(ConvenioCadastro convenio, CancellationToken ct = default)
+    {
+        var existe = await _db.Convenios.FirstOrDefaultAsync(c => c.Codigo == convenio.Codigo, ct);
+        if (existe is null)
+            await _db.Convenios.AddAsync(convenio, ct);
+        else
+        {
+            existe.Nome = convenio.Nome;
+            existe.Familia = convenio.Familia;
+            existe.Ativo = convenio.Ativo;
+        }
+    }
+
     public async Task<string?> ObterConfiguracaoAsync(string chave, CancellationToken ct = default)
         => (await _db.Configuracoes.AsNoTracking().FirstOrDefaultAsync(c => c.Chave == chave, ct))?.Valor;
 

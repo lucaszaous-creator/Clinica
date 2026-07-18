@@ -151,7 +151,7 @@ public sealed class CapaFaturamentoService
                             r.RelativeItem(2).Text(t =>
                             {
                                 t.Span("Convênio  ").FontSize(8.5f).FontColor(TextoSecundario);
-                                t.Span(paciente is null ? "—" : ConvenioInfo.NomeExibicao(paciente.Convenio)).FontSize(9.5f);
+                                t.Span(paciente is null ? "—" : CatalogoConvenios.Nome(paciente.ConvenioCodigo ?? paciente.Convenio.ToString())).FontSize(9.5f);
                             });
                             r.RelativeItem().Text(t =>
                             {
