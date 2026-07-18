@@ -17,6 +17,7 @@ namespace Clinica.Desktop.ViewModels;
 public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
 
     public ObservableCollection<Paciente> Pacientes { get; } = new();
 
@@ -49,7 +50,11 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Pede ao shell para abrir a ficha de um paciente.</summary>
     public event Action<int>? FichaSolicitada;
 
-    public PacientesViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+    public PacientesViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
+    {
+        _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
+    }
 
     partial void OnEditandoIdChanged(int? value) => OnPropertyChanged(nameof(TituloFormulario));
 
@@ -99,6 +104,23 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
             var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
             var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
 
+            // Impede dois cadastros com o mesmo CPF (compara normalizado, pois dados
+            // antigos podem ter sido gravados com máscara).
+            if (!string.IsNullOrWhiteSpace(Documento))
+            {
+                var cpfNovo = Cpf.Normalizar(Documento);
+                var duplicado = (await db.Pacientes.AsNoTracking()
+                        .Where(x => x.Documento != null && x.Id != (EditandoId ?? 0))
+                        .Select(x => new { x.Nome, x.Documento })
+                        .ToListAsync())
+                    .FirstOrDefault(x => Cpf.Normalizar(x.Documento) == cpfNovo);
+                if (duplicado is not null)
+                {
+                    Mensagem = $"Já existe um paciente com este CPF: {duplicado.Nome}.";
+                    return;
+                }
+            }
+
             if (EditandoId is int id)
             {
                 var p = await db.Pacientes.FirstOrDefaultAsync(x => x.Id == id);
@@ -128,8 +150,10 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     private void Aplicar(Paciente p)
     {
         p.Nome = Nome.Trim();
-        p.Documento = Documento;
-        p.Telefone = Telefone;
+        // CPF só com dígitos (busca e comparação de duplicidade ficam estáveis);
+        // telefone gravado já formatado para exibição.
+        p.Documento = string.IsNullOrWhiteSpace(Documento) ? null : Cpf.Normalizar(Documento);
+        p.Telefone = string.IsNullOrWhiteSpace(Telefone) ? null : Domain.Telefone.Formatar(Telefone);
         p.Convenio = Convenio;
         p.PossuiApp = PossuiApp;
         p.Sexo = Sexo;
@@ -164,10 +188,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     private async Task Excluir(Paciente? p)
     {
         if (p is null) return;
-        var confirma = MessageBox.Show(
-            $"Excluir o paciente \"{p.Nome}\"?\nTodos os atendimentos e códigos dele também serão removidos.",
-            "Confirmar exclusão", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-        if (confirma != MessageBoxResult.Yes) return;
+        if (!_dialogo.ConfirmarPerigo("Confirmar exclusão",
+            $"Excluir o paciente \"{p.Nome}\"?\nTodos os atendimentos e códigos dele também serão removidos.")) return;
 
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<PacienteService>();

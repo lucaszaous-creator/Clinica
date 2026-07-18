@@ -30,7 +30,12 @@
             </DockPanel>
         </Border>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0">
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
+            <TextBlock Text="Alertar consultas a vencer com" VerticalAlignment="Center" Margin="0,0,6,0"
+                       Foreground="{StaticResource Brush.Texto.Primario}" />
+            <TextBox Text="{Binding JanelaAlertaConsultaDias}" Width="52" TextAlignment="Center" />
+            <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="6,0,16,0"
+                       Foreground="{StaticResource Brush.Texto.Primario}" />
             <Button Content="Salvar parâmetros" Command="{Binding SalvarCommand}" />
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
                        Foreground="{StaticResource Brush.Sucesso.Forte}" />

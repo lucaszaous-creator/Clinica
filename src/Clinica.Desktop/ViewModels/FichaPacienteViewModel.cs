@@ -13,6 +13,7 @@ namespace Clinica.Desktop.ViewModels;
 public partial class FichaPacienteViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
     private int _pacienteId;
 
     [ObservableProperty] private Paciente? _paciente;
@@ -22,7 +23,11 @@ public partial class FichaPacienteViewModel : ObservableObject
 
     public event Action? Voltar;
 
-    public FichaPacienteViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+    public FichaPacienteViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
+    {
+        _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
+    }
 
     public async Task CarregarAsync(int pacienteId)
     {
@@ -47,10 +52,8 @@ public partial class FichaPacienteViewModel : ObservableObject
     {
         if (codigo is null || !codigo.Baixado) return;
 
-        var confirma = MessageBox.Show(
-            "Estornar a baixa desta guia? A pendência voltará a aparecer no painel.",
-            "Confirmar estorno", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (confirma != MessageBoxResult.Yes) return;
+        if (!_dialogo.Confirmar("Confirmar estorno",
+            "Estornar a baixa desta guia? A pendência voltará a aparecer no painel.")) return;
 
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();

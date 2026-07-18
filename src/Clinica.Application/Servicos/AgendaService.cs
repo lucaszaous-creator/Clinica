@@ -40,6 +40,22 @@ public sealed class AgendaService
     public Task<IReadOnlyList<Agendamento>> DoDiaAsync(DateOnly dia, CancellationToken ct = default)
         => _repo.AgendamentosNoPeriodoAsync(dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct);
 
+    /// <summary>Agendamentos de um intervalo de dias (visão de semana).</summary>
+    public Task<IReadOnlyList<Agendamento>> NoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => _repo.AgendamentosNoPeriodoAsync(inicio.ToDateTime(TimeOnly.MinValue), fim.ToDateTime(TimeOnly.MaxValue), ct);
+
+    /// <summary>
+    /// Agendamento ativo (não cancelado/faltou) que já ocupa exatamente este horário,
+    /// ou nulo se o horário está livre — usado para alertar choque de horário.
+    /// </summary>
+    public async Task<Agendamento?> ConflitoAsync(DateTime dataHora, CancellationToken ct = default)
+    {
+        var doDia = await DoDiaAsync(DateOnly.FromDateTime(dataHora), ct);
+        return doDia.FirstOrDefault(a =>
+            a.DataHora == dataHora &&
+            a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado);
+    }
+
     /// <summary>
     /// Confirma a presença: gera o atendimento com os códigos e, havendo 2º código,
     /// cria um retorno sugerido na data prevista (para não esquecer de obtê-lo).

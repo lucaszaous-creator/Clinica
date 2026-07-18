@@ -1,5 +1,6 @@
 using System.Xml.Linq;
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -12,6 +13,30 @@ namespace Clinica.Application.Servicos;
 public sealed class TissExportService
 {
     private static readonly XNamespace Ans = "http://www.ans.gov.br/padroes/tiss/schemas";
+
+    /// <summary>
+    /// Pré-validação do lote: lista os dados obrigatórios do prestador que estão
+    /// faltando para as guias do lote (registro ANS, código na operadora, CNPJ e os
+    /// códigos TUSS dos tipos de procedimento realmente usados). Vazio = pronto.
+    /// Operadoras rejeitam lotes com esses campos em branco — melhor avisar antes.
+    /// </summary>
+    public IReadOnlyList<string> ValidarPrestador(DadosPrestador prestador, IEnumerable<TipoCodigo> tiposUsados)
+    {
+        var pendencias = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(prestador.RegistroAnsOperadora))
+            pendencias.Add("Registro ANS da operadora não informado.");
+        if (string.IsNullOrWhiteSpace(prestador.CodigoNaOperadora))
+            pendencias.Add("Código do prestador na operadora não informado.");
+        if (string.IsNullOrWhiteSpace(prestador.Cnpj))
+            pendencias.Add("CNPJ do prestador não informado.");
+
+        foreach (var tipo in tiposUsados.Distinct().OrderBy(t => t))
+            if (string.IsNullOrWhiteSpace(prestador.CodigoTuss(tipo)))
+                pendencias.Add($"Código TUSS de {tipo} não configurado (há guias desse tipo no lote).");
+
+        return pendencias;
+    }
 
     public string GerarLoteXml(IReadOnlyList<CodigoFaturamento> codigos, DadosPrestador prestador, string numeroLote)
     {

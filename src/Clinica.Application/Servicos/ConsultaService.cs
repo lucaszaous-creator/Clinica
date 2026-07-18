@@ -16,7 +16,7 @@ public sealed class ConsultaService
     private readonly ParametrosService? _parametros;
 
     /// <summary>Dias antes do vencimento em que a consulta já entra em alerta (padrão 5).</summary>
-    public int JanelaAlertaDias { get; init; } = 5;
+    public int JanelaAlertaDias { get; set; } = 5;
 
     public ConsultaService(IClinicaRepositorio repo, ParametrosService? parametros = null)
     {

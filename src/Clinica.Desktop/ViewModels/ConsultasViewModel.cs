@@ -14,13 +14,18 @@ namespace Clinica.Desktop.ViewModels;
 public partial class ConsultasViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
 
     public ObservableCollection<StatusConsultaPaciente> Consultas { get; } = new();
 
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private int _totalAlerta;
 
-    public ConsultasViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+    public ConsultasViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
+    {
+        _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
+    }
 
     public Task CarregarAsync() => Recarregar();
 
@@ -29,6 +34,7 @@ public partial class ConsultasViewModel : ObservableObject, IAtalhosDeTela
     {
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<ConsultaService>();
+        service.JanelaAlertaDias = Configuracao.PreferenciasStore.Carregar().JanelaAlertaConsultaDias;
         var hoje = DateOnly.FromDateTime(DateTime.Today);
 
         Consultas.Clear();
@@ -49,10 +55,8 @@ public partial class ConsultasViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
-        var confirma = MessageBox.Show(
-            $"Gerar/renovar a consulta de {item.PacienteNome} para hoje?",
-            "Renovar consulta", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (confirma != MessageBoxResult.Yes) return;
+        if (!_dialogo.Confirmar("Renovar consulta",
+            $"Gerar/renovar a consulta de {item.PacienteNome} para hoje?")) return;
 
         try
         {

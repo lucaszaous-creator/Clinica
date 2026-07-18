@@ -15,12 +15,16 @@ namespace Clinica.Desktop.ViewModels;
 public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly Controls.IDialogoService _dialogo;
 
     public ObservableCollection<Agendamento> Agendamentos { get; } = new();
     public ObservableCollection<Paciente> Pacientes { get; } = new();
     public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
+
+    /// <summary>false = visão de dia; true = visão de semana (segunda a domingo do dia atual).</summary>
+    [ObservableProperty] private bool _modoSemana;
 
     // Formulário de novo agendamento
     [ObservableProperty] private string? _busca;
@@ -31,11 +35,28 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
 
-    public string TituloDia => Dia.ToString("dddd, dd/MM/yyyy", new CultureInfo("pt-BR"));
+    private static readonly CultureInfo PtBr = new("pt-BR");
 
-    public AgendaViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+    /// <summary>Segunda-feira da semana do dia selecionado.</summary>
+    private DateTime InicioSemana => Dia.AddDays(-(((int)Dia.DayOfWeek + 6) % 7));
+
+    public string TituloDia => ModoSemana
+        ? $"Semana de {InicioSemana:dd/MM} a {InicioSemana.AddDays(6):dd/MM/yyyy}"
+        : Dia.ToString("dddd, dd/MM/yyyy", PtBr);
+
+    public AgendaViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
+    {
+        _scopeFactory = scopeFactory;
+        _dialogo = dialogo;
+    }
 
     partial void OnDiaChanged(DateTime value) => OnPropertyChanged(nameof(TituloDia));
+
+    partial void OnModoSemanaChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TituloDia));
+        _ = RecarregarDia();
+    }
     partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
 
     // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro).
@@ -55,8 +76,12 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     {
         using var scope = _scopeFactory.CreateScope();
         var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+        var lista = ModoSemana
+            ? await agenda.NoPeriodoAsync(DateOnly.FromDateTime(InicioSemana), DateOnly.FromDateTime(InicioSemana.AddDays(6)))
+            : await agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
+
         Agendamentos.Clear();
-        foreach (var a in await agenda.DoDiaAsync(DateOnly.FromDateTime(Dia)))
+        foreach (var a in lista)
             Agendamentos.Add(a);
     }
 
@@ -70,8 +95,8 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             Pacientes.Add(p);
     }
 
-    [RelayCommand] private async Task DiaAnterior() { Dia = Dia.AddDays(-1); await RecarregarDia(); }
-    [RelayCommand] private async Task ProximoDia() { Dia = Dia.AddDays(1); await RecarregarDia(); }
+    [RelayCommand] private async Task DiaAnterior() { Dia = Dia.AddDays(ModoSemana ? -7 : -1); await RecarregarDia(); }
+    [RelayCommand] private async Task ProximoDia() { Dia = Dia.AddDays(ModoSemana ? 7 : 1); await RecarregarDia(); }
     [RelayCommand] private async Task Hoje() { Dia = DateTime.Today; await RecarregarDia(); }
 
     [RelayCommand]
@@ -94,6 +119,15 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+
+            // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
+            var conflito = await agenda.ConflitoAsync(dataHora);
+            if (conflito is not null &&
+                !_dialogo.Confirmar("Horário ocupado",
+                    $"{conflito.Paciente?.Nome} já está agendado em {dataHora:dd/MM} às {dataHora:HH:mm}.\n" +
+                    "Agendar mesmo assim (encaixe)?"))
+                return;
+
             await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes);
         }
 
@@ -107,10 +141,8 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     private async Task ConfirmarPresenca(Agendamento? ag)
     {
         if (ag is null) return;
-        var confirma = MessageBox.Show(
-            $"Confirmar presença de {ag.Paciente?.Nome} e gerar o atendimento (códigos de faturamento)?",
-            "Confirmar presença", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (confirma != MessageBoxResult.Yes) return;
+        if (!_dialogo.Confirmar("Confirmar presença",
+            $"Confirmar presença de {ag.Paciente?.Nome} e gerar o atendimento (códigos de faturamento)?")) return;
 
         using (var scope = _scopeFactory.CreateScope())
         {

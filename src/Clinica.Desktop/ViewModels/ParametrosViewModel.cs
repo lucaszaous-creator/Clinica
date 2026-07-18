@@ -17,6 +17,9 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 
     [ObservableProperty] private string? _mensagem;
 
+    /// <summary>Dias antes do vencimento em que a consulta entra em alerta (preferência local).</summary>
+    [ObservableProperty] private int _janelaAlertaConsultaDias = 5;
+
     public ParametrosViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
 
     public async Task CarregarAsync()
@@ -28,6 +31,8 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         Itens.Clear();
         foreach (var p in snap.Todos.OrderBy(p => p.Convenio))
             Itens.Add(p);
+
+        JanelaAlertaConsultaDias = Configuracao.PreferenciasStore.Carregar().JanelaAlertaConsultaDias;
     }
 
     [RelayCommand]
@@ -36,6 +41,11 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         using var scope = _scopeFactory.CreateScope();
         var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
         await parametros.SalvarAsync(Itens.ToList());
+
+        var prefs = Configuracao.PreferenciasStore.Carregar();
+        prefs.JanelaAlertaConsultaDias = Math.Max(0, JanelaAlertaConsultaDias);
+        Configuracao.PreferenciasStore.Salvar(prefs);
+
         Mensagem = "Parâmetros salvos. Passam a valer nos próximos lançamentos.";
     }
 

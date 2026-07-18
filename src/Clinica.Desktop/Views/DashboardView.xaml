@@ -66,7 +66,12 @@
             </Border>
         </UniformGrid>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,10" VerticalAlignment="Center">
+        <Grid Grid.Row="2" Margin="0,0,0,10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
             <TextBlock Text="Convênio:" VerticalAlignment="Center" Margin="0,0,6,0" />
             <ComboBox Width="200" ItemsSource="{Binding OpcoesConvenio}" SelectedItem="{Binding FiltroConvenio}">
                 <ComboBox.ItemTemplate>
@@ -78,6 +83,16 @@
             <TextBlock Text="Urgência:" VerticalAlignment="Center" Margin="16,0,6,0" />
             <ComboBox Width="140" ItemsSource="{Binding OpcoesUrgencia}" SelectedItem="{Binding FiltroUrgencia}" />
         </StackPanel>
+        <Button Grid.Column="1" Style="{StaticResource BotaoSecundario}"
+                ToolTip="Dar baixa em várias guias de uma vez (selecione as linhas com Ctrl/Shift + clique)"
+                Command="{Binding DarBaixaEmLoteCommand}"
+                CommandParameter="{Binding SelectedItems, ElementName=GridPendencias}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="&#xE9D5;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                <TextBlock Text="Baixa em lote" />
+            </StackPanel>
+        </Button>
+        </Grid>
 
         <Border Grid.Row="3" Style="{StaticResource Card}">
         <DockPanel>
@@ -96,9 +111,9 @@
                 </Style>
             </ctrl:EmptyState.Style>
         </ctrl:EmptyState>
-        <DataGrid ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
+        <DataGrid x:Name="GridPendencias" ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                  CanUserAddRows="False" SelectionMode="Single">
+                  CanUserAddRows="False" SelectionMode="Extended">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="30">
                     <DataGridTemplateColumn.CellTemplate>
@@ -152,6 +167,16 @@
                                     Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.4*" />
                 <DataGridTextColumn Header="Vence em" Binding="{Binding DataVencimento}" Width="*" />
                 <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="*" />
+                <DataGridTemplateColumn Header="" Width="110">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Renovar" Style="{StaticResource BotaoAcaoGrid}"
+                                    ToolTip="Gerar/renovar a consulta deste paciente para hoje"
+                                    Command="{Binding DataContext.RenovarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
             </DataGrid.Columns>
         </DataGrid>
         </DockPanel>
