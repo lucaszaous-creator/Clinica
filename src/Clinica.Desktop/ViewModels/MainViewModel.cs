@@ -73,7 +73,7 @@ public partial class MainViewModel : ObservableObject
             new ItemMenu { Secao = Secao.Tiss, Rotulo = "Guias TISS", Glifo = "\uE7C3", Grupo = "Faturamento" },
             new ItemMenu { Secao = Secao.Pacientes, Rotulo = "Pacientes", Glifo = "\uE716", Grupo = "Cadastros e ajustes" },
             new ItemMenu { Secao = Secao.Relatorios, Rotulo = "Relatórios", Glifo = "\uE9D2", Grupo = "Cadastros e ajustes" },
-            new ItemMenu { Secao = Secao.Parametros, Rotulo = "Parâmetros", Glifo = "\uE713", Grupo = "Cadastros e ajustes" },
+            new ItemMenu { Secao = Secao.Parametros, Rotulo = "Configurações", Glifo = "\uE713", Grupo = "Cadastros e ajustes" },
         ];
 
         Grupos = _itens.GroupBy(i => i.Grupo)

@@ -68,7 +68,7 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(c => c.Chave);
             e.Property(c => c.Chave).HasMaxLength(60);
-            e.Property(c => c.Valor).HasMaxLength(400);
+            // Sem limite: guarda também estruturas serializadas (ex.: dados do prestador em JSON).
         });
 
         b.Entity<Consulta>(e =>

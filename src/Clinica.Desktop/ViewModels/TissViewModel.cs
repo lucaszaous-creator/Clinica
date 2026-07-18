@@ -1,10 +1,6 @@
 using System.Windows.Input;
 using System.IO;
-using System.Windows;
-using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
-using Clinica.Desktop.Configuracao;
-using Clinica.Domain;
 using Clinica.Infrastructure;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,31 +10,15 @@ using Microsoft.Win32;
 
 namespace Clinica.Desktop.ViewModels;
 
-/// <summary>Configuração do prestador e exportação do lote de guias no formato TISS (XML).</summary>
+/// <summary>
+/// Exportação do lote de guias no formato TISS (XML). Os dados do prestador e os
+/// códigos TUSS são configurações globais (tela Configurações).
+/// </summary>
 public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
 
-    // Config do prestador
-    [ObservableProperty] private string? _codigoNaOperadora;
-    [ObservableProperty] private string? _cnpj;
-    [ObservableProperty] private string? _razaoSocial;
-    [ObservableProperty] private string? _registroAnsOperadora;
-
-    // Dados da clínica exibidos na capa de faturamento
-    [ObservableProperty] private string? _nomeFantasia;
-    [ObservableProperty] private string? _cnes;
-    [ObservableProperty] private string? _endereco;
-    [ObservableProperty] private string? _telefone;
-    [ObservableProperty] private string? _email;
-    [ObservableProperty] private string? _tussAcupuntura;
-    [ObservableProperty] private string? _tussEletro;
-    [ObservableProperty] private string? _tussBsv;
-    [ObservableProperty] private string? _tussConsulta;
-    [ObservableProperty] private string? _tussEspecialidade;
-
-    // Exportação
     [ObservableProperty] private DateTime _inicio;
     [ObservableProperty] private DateTime _fim;
     [ObservableProperty] private string? _mensagem;
@@ -52,53 +32,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         _fim = _inicio.AddMonths(1).AddDays(-1);
     }
 
-    public Task CarregarAsync()
-    {
-        var d = PrestadorStore.Carregar();
-        CodigoNaOperadora = d.CodigoNaOperadora;
-        Cnpj = d.Cnpj;
-        RazaoSocial = d.RazaoSocial;
-        RegistroAnsOperadora = d.RegistroAnsOperadora;
-        NomeFantasia = d.NomeFantasia;
-        Cnes = d.Cnes;
-        Endereco = d.Endereco;
-        Telefone = d.Telefone;
-        Email = d.Email;
-        TussAcupuntura = d.CodigoTuss(TipoCodigo.Acupuntura);
-        TussEletro = d.CodigoTuss(TipoCodigo.Eletroacupuntura);
-        TussBsv = d.CodigoTuss(TipoCodigo.Bsv);
-        TussConsulta = d.CodigoTuss(TipoCodigo.Consulta);
-        TussEspecialidade = d.CodigoTuss(TipoCodigo.ConsultaEspecialidade);
-        return Task.CompletedTask;
-    }
-
-    private DadosPrestador MontarDados() => new()
-    {
-        CodigoNaOperadora = CodigoNaOperadora,
-        Cnpj = Cnpj,
-        RazaoSocial = RazaoSocial,
-        RegistroAnsOperadora = RegistroAnsOperadora,
-        NomeFantasia = NomeFantasia,
-        Cnes = Cnes,
-        Endereco = Endereco,
-        Telefone = Telefone,
-        Email = Email,
-        CodigosTuss = new()
-        {
-            [TipoCodigo.Acupuntura] = TussAcupuntura ?? string.Empty,
-            [TipoCodigo.Eletroacupuntura] = TussEletro ?? string.Empty,
-            [TipoCodigo.Bsv] = TussBsv ?? string.Empty,
-            [TipoCodigo.Consulta] = TussConsulta ?? string.Empty,
-            [TipoCodigo.ConsultaEspecialidade] = TussEspecialidade ?? string.Empty
-        }
-    };
-
-    [RelayCommand]
-    private void SalvarConfig()
-    {
-        PrestadorStore.Salvar(MontarDados());
-        Mensagem = "Configuração do prestador salva.";
-    }
+    public Task CarregarAsync() => Task.CompletedTask;
 
     [RelayCommand]
     private async Task Exportar()
@@ -106,6 +40,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
         var tiss = scope.ServiceProvider.GetRequiredService<TissExportService>();
+        var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
 
         var inicio = DateOnly.FromDateTime(Inicio);
         var fim = DateOnly.FromDateTime(Fim);
@@ -121,15 +56,15 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         }
 
         // Pré-validação: operadoras rejeitam lotes com dados obrigatórios em branco.
-        var dados = MontarDados();
+        var dados = await parametros.ObterPrestadorAsync();
         var pendencias = tiss.ValidarPrestador(dados, codigos.Select(c => c.Tipo));
         if (pendencias.Count > 0 &&
             !_dialogo.ConfirmarPerigo("Dados incompletos para o TISS",
                 "O lote será gerado com pendências que a operadora pode rejeitar:\n\n• " +
                 string.Join("\n• ", pendencias) +
-                "\n\nCorrija em 'Dados do prestador' ou exporte mesmo assim.\n\nExportar mesmo assim?"))
+                "\n\nCorrija na tela Configurações (Clínica/prestador e Códigos TUSS) ou exporte mesmo assim.\n\nExportar mesmo assim?"))
         {
-            Mensagem = "Exportação cancelada — complete os dados do prestador acima.";
+            Mensagem = "Exportação cancelada — complete as Configurações.";
             return;
         }
 
@@ -150,6 +85,5 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)
-    public ICommand? AtalhoSalvar => SalvarConfigCommand;
     public ICommand? AtalhoImprimir => ExportarCommand;
 }

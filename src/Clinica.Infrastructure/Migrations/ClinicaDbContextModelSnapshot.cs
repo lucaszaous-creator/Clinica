@@ -291,8 +291,7 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<string>("Valor")
                         .IsRequired()
-                        .HasMaxLength(400)
-                        .HasColumnType("character varying(400)");
+                        .HasColumnType("text");
 
                     b.HasKey("Chave");
 

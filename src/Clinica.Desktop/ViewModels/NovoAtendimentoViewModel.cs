@@ -130,7 +130,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         using (var scope = _scopeFactory.CreateScope())
         {
             var capa = scope.ServiceProvider.GetRequiredService<CapaFaturamentoService>();
-            pdf = await capa.GerarPdfAsync(_ultimoAtendimentoId, Configuracao.PrestadorStore.Carregar());
+            var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+            pdf = await capa.GerarPdfAsync(_ultimoAtendimentoId, prestador);
         }
 
         var dialog = new SaveFileDialog

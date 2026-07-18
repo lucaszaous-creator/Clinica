@@ -48,6 +48,18 @@ public partial class App : System.Windows.Application
                 {
                     var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
                     await db.Database.MigrateAsync();
+
+                    // Migração única: dados do prestador que viviam em JSON local
+                    // (%APPDATA%) passam a ser configuração GLOBAL no banco.
+                    var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+                    if (!await parametros.PrestadorConfiguradoAsync())
+                    {
+                        var local = PrestadorStore.Carregar();
+                        if (!string.IsNullOrWhiteSpace(local.RazaoSocial) ||
+                            !string.IsNullOrWhiteSpace(local.Cnpj) ||
+                            local.CodigosTuss.Count > 0)
+                            await parametros.SalvarPrestadorAsync(local);
+                    }
                 }
                 break; // sucesso
             }

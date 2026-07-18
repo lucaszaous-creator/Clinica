@@ -5,7 +5,11 @@ using Clinica.Application.Modelos;
 
 namespace Clinica.Desktop.Configuracao;
 
-/// <summary>Guarda os dados do prestador (para o TISS) num arquivo JSON local em %APPDATA%.</summary>
+/// <summary>
+/// LEGADO: arquivo JSON local em %APPDATA% usado antes da configuração global no banco.
+/// Mantido apenas para a importação única na abertura (App.OnStartup); a fonte da
+/// verdade agora é ParametrosService.ObterPrestadorAsync (tabela Configuracoes).
+/// </summary>
 public static class PrestadorStore
 {
     private static string Pasta => Path.Combine(
