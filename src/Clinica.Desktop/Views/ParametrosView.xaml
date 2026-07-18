@@ -140,10 +140,12 @@
                             <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
                                        Text="Configuração global (vale em todas as máquinas). As consultas dentro desta janela antes do vencimento passam a aparecer em alerta." />
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Avisar com" VerticalAlignment="Center" Margin="0,0,6,0"
+                                <TextBlock Text="Avisar com" VerticalAlignment="Center" Margin="0,0,8,0"
                                            Foreground="{StaticResource Brush.Texto.Primario}" />
-                                <TextBox Text="{Binding JanelaAlertaConsultaDias}" Width="52" TextAlignment="Center" />
-                                <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="6,0,0,0"
+                                <TextBox Text="{Binding JanelaAlertaConsultaDias}"
+                                         MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
+                                         VerticalContentAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="8,0,0,0"
                                            Foreground="{StaticResource Brush.Texto.Primario}" />
                             </StackPanel>
                         </StackPanel>
