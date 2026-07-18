@@ -53,4 +53,21 @@ public sealed class ParametrosService
             await _repo.SalvarParametroAsync(p, ct);
         await _repo.SalvarAsync(ct);
     }
+
+    // ---- Configurações globais (valem para todas as máquinas) ----
+
+    public const string ChaveJanelaAlertaConsulta = "JanelaAlertaConsultaDias";
+    public const int JanelaAlertaConsultaPadrao = 5;
+
+    /// <summary>Dias de antecedência do alerta de consultas a vencer (global, salvo no banco).</summary>
+    public async Task<int> ObterJanelaAlertaConsultaAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveJanelaAlertaConsulta, ct), out var dias) && dias >= 0
+            ? dias
+            : JanelaAlertaConsultaPadrao;
+
+    public async Task SalvarJanelaAlertaConsultaAsync(int dias, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveJanelaAlertaConsulta, Math.Max(0, dias).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
 }

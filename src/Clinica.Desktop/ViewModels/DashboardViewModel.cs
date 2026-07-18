@@ -51,7 +51,6 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         using var scope = _scopeFactory.CreateScope();
         var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
-        pendencias.JanelaAlertaConsultaDias = Configuracao.PreferenciasStore.Carregar().JanelaAlertaConsultaDias;
         var hoje = DateOnly.FromDateTime(DateTime.Today);
 
         _todos.Clear();

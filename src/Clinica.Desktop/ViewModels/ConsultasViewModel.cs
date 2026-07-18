@@ -34,7 +34,6 @@ public partial class ConsultasViewModel : ObservableObject, IAtalhosDeTela
     {
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<ConsultaService>();
-        service.JanelaAlertaDias = Configuracao.PreferenciasStore.Carregar().JanelaAlertaConsultaDias;
         var hoje = DateOnly.FromDateTime(DateTime.Today);
 
         Consultas.Clear();

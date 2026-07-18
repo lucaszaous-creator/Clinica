@@ -51,6 +51,10 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ParametroConvenio>> ParametrosAsync(CancellationToken ct = default);
     Task SalvarParametroAsync(ParametroConvenio parametro, CancellationToken ct = default);
 
+    /// <summary>Valor da configuração global (chave/valor no banco), ou nulo se nunca salva.</summary>
+    Task<string?> ObterConfiguracaoAsync(string chave, CancellationToken ct = default);
+    Task SalvarConfiguracaoAsync(string chave, string valor, CancellationToken ct = default);
+
     // ---- Consultas (renováveis) ----
     Task AdicionarConsultaAsync(Consulta consulta, CancellationToken ct = default);
 

@@ -17,7 +17,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 
     [ObservableProperty] private string? _mensagem;
 
-    /// <summary>Dias antes do vencimento em que a consulta entra em alerta (preferência local).</summary>
+    /// <summary>Dias antes do vencimento em que a consulta entra em alerta (configuração GLOBAL, salva no banco).</summary>
     [ObservableProperty] private int _janelaAlertaConsultaDias = 5;
 
     public ParametrosViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
@@ -32,7 +32,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         foreach (var p in snap.Todos.OrderBy(p => p.Convenio))
             Itens.Add(p);
 
-        JanelaAlertaConsultaDias = Configuracao.PreferenciasStore.Carregar().JanelaAlertaConsultaDias;
+        JanelaAlertaConsultaDias = await parametros.ObterJanelaAlertaConsultaAsync();
     }
 
     [RelayCommand]
@@ -41,12 +41,9 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         using var scope = _scopeFactory.CreateScope();
         var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
         await parametros.SalvarAsync(Itens.ToList());
+        await parametros.SalvarJanelaAlertaConsultaAsync(JanelaAlertaConsultaDias);
 
-        var prefs = Configuracao.PreferenciasStore.Carregar();
-        prefs.JanelaAlertaConsultaDias = Math.Max(0, JanelaAlertaConsultaDias);
-        Configuracao.PreferenciasStore.Salvar(prefs);
-
-        Mensagem = "Parâmetros salvos. Passam a valer nos próximos lançamentos.";
+        Mensagem = "Parâmetros salvos. Passam a valer em todas as máquinas.";
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)

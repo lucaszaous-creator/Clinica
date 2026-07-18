@@ -13,7 +13,10 @@ public sealed class PendenciaService
     private readonly IClinicaRepositorio _repo;
     private readonly ParametrosService? _parametros;
 
-    /// <summary>Janela (em dias) para começar a alertar sobre consultas a vencer.</summary>
+    /// <summary>
+    /// Janela (em dias) para alertar consultas a vencer quando não há ParametrosService
+    /// (testes); com ele, vale a configuração GLOBAL salva no banco.
+    /// </summary>
     public int JanelaAlertaConsultaDias { get; set; } = 5;
 
     public PendenciaService(IClinicaRepositorio repo, ParametrosService? parametros = null)
@@ -56,6 +59,9 @@ public sealed class PendenciaService
     {
         var pacientes = await _repo.PacientesComAtendimentosAsync(ct);
         var snapshot = _parametros is null ? null : await _parametros.ObterAsync(ct);
+        var janela = _parametros is null
+            ? JanelaAlertaConsultaDias
+            : await _parametros.ObterJanelaAlertaConsultaAsync(ct);
         var resultado = new List<PendenciaConsulta>();
 
         foreach (var p in pacientes)
@@ -68,7 +74,7 @@ public sealed class PendenciaService
             var vencimento = ultimo.AddDays(validade.Value);
             var diasParaVencer = vencimento.DayNumber - referencia.DayNumber;
 
-            if (diasParaVencer > JanelaAlertaConsultaDias)
+            if (diasParaVencer > janela)
                 continue; // ainda longe do vencimento
 
             var urgencia = diasParaVencer < 0 ? NivelUrgencia.Vermelho

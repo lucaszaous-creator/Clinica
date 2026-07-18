@@ -283,6 +283,22 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("Pacientes");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.ConfiguracaoGlobal", b =>
+                {
+                    b.Property<string>("Chave")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Valor")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.HasKey("Chave");
+
+                    b.ToTable("Configuracoes");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.ParametroConvenio", b =>
                 {
                     b.Property<string>("Convenio")
