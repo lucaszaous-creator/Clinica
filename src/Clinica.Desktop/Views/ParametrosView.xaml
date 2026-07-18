@@ -47,12 +47,27 @@
                             Visibility="{Binding DataContext.TemConvenioSelecionado, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolParaVisibilidade}}">
                         <StackPanel>
                             <TextBlock Style="{StaticResource H2}" Margin="0,0,0,4">
-                                <Run Text="Faturamento de " /><Run Text="{Binding Nome, Mode=OneWay}" FontWeight="Bold" />
+                                <Run Text="Faturamento de " /><Run Text="{Binding Text, ElementName=NomeConvenioBox}" FontWeight="Bold" />
                             </TextBlock>
                             <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
                                        Text="Estes ajustes valem quando o convênio 'fatura como' Personalizado. Para os 4 embutidos, as regras são fixas." />
 
-                            <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,4" />
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Nome do convênio" Style="{StaticResource Rotulo}" />
+                                    <TextBox x:Name="NomeConvenioBox" Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                    <TextBlock Text="Fatura como (família)" Style="{StaticResource Rotulo}" />
+                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.Familias}" SelectedItem="{Binding Familia}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,8,0,4" />
                             <CheckBox Content="Gera 2º código (+dias) nas modalidades duplas" IsChecked="{Binding TemSegundoCodigo}" Margin="0,4" />
                             <CheckBox Content="2º código só é possível se o paciente tiver app" IsChecked="{Binding SegundoCodigoDependeApp}" Margin="0,4" />
                             <CheckBox Content="Fatura BSV" IsChecked="{Binding FaturaBsv}" Margin="0,4" />
@@ -118,13 +133,21 @@
                         </DockPanel>
                     </Border>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="Alertar consultas a vencer com" VerticalAlignment="Center" Margin="0,0,6,0"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" />
-                        <TextBox Text="{Binding JanelaAlertaConsultaDias}" Width="52" TextAlignment="Center" />
-                        <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="6,0,0,0"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" />
-                    </StackPanel>
+                    <!-- Alerta de consultas a vencer (configuração global, vale em todas as máquinas) -->
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Alerta de consultas a vencer" Style="{StaticResource H2}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
+                                       Text="Configuração global (vale em todas as máquinas). As consultas dentro desta janela antes do vencimento passam a aparecer em alerta." />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Avisar com" VerticalAlignment="Center" Margin="0,0,6,0"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                <TextBox Text="{Binding JanelaAlertaConsultaDias}" Width="52" TextAlignment="Center" />
+                                <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="6,0,0,0"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
