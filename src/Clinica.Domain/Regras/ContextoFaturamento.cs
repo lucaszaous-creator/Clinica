@@ -21,5 +21,8 @@ public sealed class ContextoFaturamento
     /// </summary>
     public TipoCodigo? PrimeiroCodigoPreferido { get; init; }
 
+    /// <summary>Config da regra genérica (família "Personalizado"); nulo para os convênios embutidos.</summary>
+    public ConfiguracaoRegraGenerica? Generica { get; init; }
+
     public static ContextoFaturamento Vazio { get; } = new();
 }

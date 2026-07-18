@@ -311,15 +311,51 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<bool>("Ativo")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("CategoriaComApp")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("CategoriaSemApp")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("DiasSegundoCodigo")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Familia")
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<bool>("FaturaBsv")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("FazEletro")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("FormaSegundoCodigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("InverteDatasBsv")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("SegundoCodigoDependeApp")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("TemSegundoCodigo")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("ValidadeConsultaDias")
+                        .HasColumnType("integer");
 
                     b.HasKey("Codigo");
 

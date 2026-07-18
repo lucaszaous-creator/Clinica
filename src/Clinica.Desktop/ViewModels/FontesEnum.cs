@@ -10,6 +10,12 @@ public static class FontesEnum
 {
     public static Array Categorias { get; } = Enum.GetValues(typeof(Categoria));
 
-    /// <summary>Famílias de regra de faturamento (os convênios embutidos).</summary>
+    /// <summary>Famílias de regra de faturamento (os convênios embutidos + Personalizado).</summary>
     public static Array Familias { get; } = Enum.GetValues(typeof(Convenio));
+
+    /// <summary>Formas de obtenção do 2º código (para a regra personalizada).</summary>
+    public static Array FormasObtencao { get; } = new[]
+    {
+        FormaObtencao.Sistema, FormaObtencao.App, FormaObtencao.Ligacao
+    };
 }

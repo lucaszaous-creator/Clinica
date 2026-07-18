@@ -24,10 +24,20 @@ public sealed class ConsultaService
         _parametros = parametros;
     }
 
-    private async Task<int?> ValidadeAsync(Convenio convenio, CancellationToken ct)
-        => _parametros is null
-            ? ConvenioInfo.ValidadeConsultaDias(convenio)
-            : (await _parametros.ObterAsync(ct)).ValidadeConsultaDias(convenio);
+    private async Task<int?> ValidadeAsync(Convenio familia, string? codigo, CancellationToken ct)
+    {
+        if (familia == Convenio.Personalizado)
+            return CatalogoConvenios.ValidadeConsultaDias(codigo);
+        return _parametros is null
+            ? ConvenioInfo.ValidadeConsultaDias(familia)
+            : (await _parametros.ObterAsync(ct)).ValidadeConsultaDias(familia);
+    }
+
+    /// <summary>Validade efetiva do convênio de um paciente (personalizado usa o catálogo).</summary>
+    private static int? ValidadeEfetiva(Convenio familia, string? codigo, ParametrosSnapshot? snapshot)
+        => familia == Convenio.Personalizado
+            ? CatalogoConvenios.ValidadeConsultaDias(codigo)
+            : (snapshot?.ValidadeConsultaDias(familia) ?? ConvenioInfo.ValidadeConsultaDias(familia));
 
     /// <summary>
     /// Registra/renova a consulta do paciente: encerra a consulta ativa anterior (Renovada) e cria
@@ -38,7 +48,7 @@ public sealed class ConsultaService
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
 
-        var validade = await ValidadeAsync(paciente.Convenio, ct);
+        var validade = await ValidadeAsync(paciente.Convenio, paciente.ConvenioCodigo, ct);
         if (validade is null)
             throw new InvalidOperationException(
                 $"O convênio {ConvenioInfo.NomeExibicao(paciente.Convenio)} não usa consulta renovável.");
@@ -74,7 +84,7 @@ public sealed class ConsultaService
 
         foreach (var p in pacientes)
         {
-            var validade = snapshot?.ValidadeConsultaDias(p.Convenio) ?? ConvenioInfo.ValidadeConsultaDias(p.Convenio);
+            var validade = ValidadeEfetiva(p.Convenio, p.ConvenioCodigo, snapshot);
             var usaConsulta = validade is not null;
 
             // A consulta vigente é a mais recente que não foi substituída (não Renovada).

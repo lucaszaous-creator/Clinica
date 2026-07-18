@@ -1,7 +1,8 @@
 namespace Clinica.Domain.Regras;
 
 /// <summary>Uma entrada do catálogo de convênios (dado de referência carregado do banco).</summary>
-public sealed record EntradaConvenio(string Codigo, string Nome, Convenio Familia, bool Ativo);
+public sealed record EntradaConvenio(string Codigo, string Nome, Convenio Familia, bool Ativo,
+    ConfiguracaoRegraGenerica? Config = null);
 
 /// <summary>
 /// Cache em memória do catálogo de convênios, para servir NOME e FAMÍLIA de forma
@@ -40,6 +41,18 @@ public static class CatalogoConvenios
 
     /// <summary>Nome de um convênio embutido (pela família), refletindo rename salvo no catálogo.</summary>
     public static string Nome(Convenio familia) => Nome(familia.ToString());
+
+    /// <summary>Config da regra genérica de um convênio personalizado (nulo se não for personalizado).</summary>
+    public static ConfiguracaoRegraGenerica? Config(string? codigo) => Buscar(codigo)?.Config;
+
+    /// <summary>Validade da consulta pelo código: config do personalizado, ou o padrão da família.</summary>
+    public static int? ValidadeConsultaDias(string? codigo)
+    {
+        var e = Buscar(codigo);
+        if (e?.Familia == Convenio.Personalizado)
+            return e.Config?.ValidadeConsultaDias;
+        return ConvenioInfo.ValidadeConsultaDias(Familia(codigo));
+    }
 
     /// <summary>Convênios ativos (código + nome), ordenados por nome — para os combos de cadastro.</summary>
     public static IReadOnlyList<EntradaConvenio> Ativos

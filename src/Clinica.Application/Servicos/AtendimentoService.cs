@@ -42,12 +42,20 @@ public sealed class AtendimentoService
         };
 
         var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);
-        var dias = _parametros is null ? 1 : (await _parametros.ObterAsync(ct)).DiasSegundoCodigo(paciente.Convenio);
+
+        // Convênio personalizado: a config (inclusive dias do 2º código) vem do catálogo.
+        var generica = paciente.Convenio == Convenio.Personalizado
+            ? CatalogoConvenios.Config(paciente.ConvenioCodigo)
+            : null;
+        var dias = generica?.DiasSegundoCodigo
+            ?? (_parametros is null ? 1 : (await _parametros.ObterAsync(ct)).DiasSegundoCodigo(paciente.Convenio));
+
         var contexto = new ContextoFaturamento
         {
             CodigosNoMes = historicoMes,
             DiasSegundoCodigo = dias,
-            PrimeiroCodigoPreferido = primeiroCodigo
+            PrimeiroCodigoPreferido = primeiroCodigo,
+            Generica = generica
         };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);

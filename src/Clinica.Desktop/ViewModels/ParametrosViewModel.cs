@@ -24,6 +24,13 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Catálogo de convênios (embutidos + variantes) — nome, família e ativo.</summary>
     public ObservableCollection<ConvenioCadastro> Catalogo { get; } = new();
 
+    /// <summary>Convênio selecionado no catálogo (para editar a configuração de faturamento).</summary>
+    [ObservableProperty] private ConvenioCadastro? _convenioSelecionado;
+    [ObservableProperty] private bool _temConvenioSelecionado;
+
+    partial void OnConvenioSelecionadoChanged(ConvenioCadastro? value)
+        => TemConvenioSelecionado = value is not null;
+
     [ObservableProperty] private string? _mensagem;
 
     /// <summary>Dias antes do vencimento em que a consulta entra em alerta.</summary>
@@ -107,13 +114,17 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Adiciona uma nova variante de convênio (reutiliza a regra de uma família existente).</summary>
     [RelayCommand]
     private void NovoConvenio()
-        => Catalogo.Add(new ConvenioCadastro
+    {
+        var novo = new ConvenioCadastro
         {
             Codigo = "CV" + Guid.NewGuid().ToString("N")[..8],
             Nome = "Novo convênio",
-            Familia = Convenio.UnimedPadrao,
+            Familia = Convenio.Personalizado, // configurável pela clínica; troque para uma família embutida se preferir
             Ativo = true
-        });
+        };
+        Catalogo.Add(novo);
+        ConvenioSelecionado = novo; // já abre o painel de configuração
+    }
 
     [RelayCommand]
     private async Task Salvar()
