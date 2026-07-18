@@ -12,6 +12,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
     public DbSet<ParametroConvenio> Parametros => Set<ParametroConvenio>();
+    public DbSet<ConfiguracaoGlobal> Configuracoes => Set<ConfiguracaoGlobal>();
     public DbSet<Consulta> Consultas => Set<Consulta>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -61,6 +62,13 @@ public class ClinicaDbContext : DbContext
         {
             e.HasKey(p => p.Convenio);
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
+        });
+
+        b.Entity<ConfiguracaoGlobal>(e =>
+        {
+            e.HasKey(c => c.Chave);
+            e.Property(c => c.Chave).HasMaxLength(60);
+            e.Property(c => c.Valor).HasMaxLength(400);
         });
 
         b.Entity<Consulta>(e =>

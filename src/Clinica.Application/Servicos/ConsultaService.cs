@@ -67,6 +67,9 @@ public sealed class ConsultaService
     {
         var pacientes = await _repo.PacientesComConsultasAsync(ct);
         var snapshot = _parametros is null ? null : await _parametros.ObterAsync(ct);
+        var janela = _parametros is null
+            ? JanelaAlertaDias
+            : await _parametros.ObterJanelaAlertaConsultaAsync(ct);
         var lista = new List<StatusConsultaPaciente>();
 
         foreach (var p in pacientes)
@@ -97,9 +100,9 @@ public sealed class ConsultaService
 
             var dias = vigente.DiasParaVencer(referencia);
             var vencida = vigente.EstaVencida(referencia);
-            var precisaRenovar = dias <= JanelaAlertaDias; // vencida ou a vencer dentro da janela
+            var precisaRenovar = dias <= janela; // vencida ou a vencer dentro da janela
             var urgencia = vencida ? NivelUrgencia.Vermelho
-                : dias <= JanelaAlertaDias ? NivelUrgencia.Amarelo
+                : dias <= janela ? NivelUrgencia.Amarelo
                 : NivelUrgencia.Verde;
 
             lista.Add(new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, true,

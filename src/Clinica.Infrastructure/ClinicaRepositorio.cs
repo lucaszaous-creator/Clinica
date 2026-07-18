@@ -159,6 +159,18 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         }
     }
 
+    public async Task<string?> ObterConfiguracaoAsync(string chave, CancellationToken ct = default)
+        => (await _db.Configuracoes.AsNoTracking().FirstOrDefaultAsync(c => c.Chave == chave, ct))?.Valor;
+
+    public async Task SalvarConfiguracaoAsync(string chave, string valor, CancellationToken ct = default)
+    {
+        var existe = await _db.Configuracoes.FirstOrDefaultAsync(c => c.Chave == chave, ct);
+        if (existe is null)
+            await _db.Configuracoes.AddAsync(new ConfiguracaoGlobal { Chave = chave, Valor = valor }, ct);
+        else
+            existe.Valor = valor;
+    }
+
     // ---- Consultas ----
 
     public async Task AdicionarConsultaAsync(Consulta consulta, CancellationToken ct = default)
