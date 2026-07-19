@@ -86,11 +86,11 @@
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="8,0,8,0">
                                     <TextBlock Text="Dias até o 2º código" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding DiasSegundoCodigo}" />
+                                    <TextBox Text="{Binding DiasSegundoCodigo}" ctrl:Ajudantes.SomenteNumeros="True" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Margin="8,0,0,0">
                                     <TextBlock Text="Validade da consulta (dias, vazio = sem)" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding ValidadeConsultaDias}" />
+                                    <TextBox Text="{Binding ValidadeConsultaDias}" ctrl:Ajudantes.SomenteNumeros="True" />
                                 </StackPanel>
                             </Grid>
                             <Grid Margin="0,8,0,0">
@@ -144,6 +144,7 @@
                                 <TextBlock Text="Avisar com" VerticalAlignment="Center" Margin="0,0,8,0"
                                            Foreground="{StaticResource Brush.Texto.Primario}" />
                                 <TextBox Text="{Binding JanelaAlertaConsultaDias}"
+                                         ctrl:Ajudantes.SomenteNumeros="True"
                                          MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
                                          VerticalContentAlignment="Center" VerticalAlignment="Center" />
                                 <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="8,0,0,0"

@@ -86,7 +86,17 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
             sb.AppendLine($"{f.Faixa};{f.Quantidade}");
 
         // BOM garante acentos corretos ao abrir direto no Excel.
-        await File.WriteAllTextAsync(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
+        try
+        {
+            await File.WriteAllTextAsync(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
+        }
+        catch (IOException)
+        {
+            // Arquivo aberto no Excel ou sem permissão na pasta: avisa em vez de estourar.
+            System.Windows.MessageBox.Show(
+                "Não foi possível gravar o arquivo. Feche-o no Excel ou escolha outra pasta.",
+                "Exportação", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+        }
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)

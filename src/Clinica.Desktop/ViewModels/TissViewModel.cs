@@ -22,6 +22,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private DateTime _inicio;
     [ObservableProperty] private DateTime _fim;
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _ocupado;
 
     public TissViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
@@ -36,6 +37,24 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 
     [RelayCommand]
     private async Task Exportar()
+    {
+        if (Ocupado) return;
+        Ocupado = true;
+        try
+        {
+            await ExportarInterno();
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível gerar o lote: {ex.Message}";
+        }
+        finally
+        {
+            Ocupado = false;
+        }
+    }
+
+    private async Task ExportarInterno()
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();

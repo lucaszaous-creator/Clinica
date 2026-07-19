@@ -25,6 +25,7 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _numeroGuia;
     [ObservableProperty] private string? _observacao;
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _ocupado;
 
     public event Action? BaixaConcluida;
     public event Action? Cancelado;
@@ -60,11 +61,26 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
 
         var atendimentoId = Codigo?.AtendimentoId ?? 0;
 
-        using (var scope = _scopeFactory.CreateScope())
+        // Guarda contra duplo clique: baixa duplicada corrompe o histórico da guia.
+        if (Ocupado) return;
+        Ocupado = true;
+        try
         {
-            var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
-            await service.DarBaixaAsync(_codigoId, DateOnly.FromDateTime(DataBaixa),
-                NumeroGuia, Environment.UserName, Observacao);
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
+                await service.DarBaixaAsync(_codigoId, DateOnly.FromDateTime(DataBaixa),
+                    NumeroGuia, Environment.UserName, Observacao);
+            }
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível registrar a baixa: {ex.Message}";
+            return;
+        }
+        finally
+        {
+            Ocupado = false;
         }
 
         await OferecerCapaConclusaoAsync(atendimentoId);

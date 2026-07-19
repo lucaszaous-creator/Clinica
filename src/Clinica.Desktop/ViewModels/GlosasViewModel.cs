@@ -20,6 +20,8 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Quando true, mostra só as glosas ainda não recuperadas.</summary>
     [ObservableProperty] private bool _somenteEmAberto = true;
 
+    [ObservableProperty] private string? _mensagem;
+
     public GlosasViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
         _scopeFactory = scopeFactory;
@@ -44,12 +46,19 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
     private async Task Reapresentar(CodigoFaturamento? codigo)
     {
         if (codigo is null) return;
-        using (var scope = _scopeFactory.CreateScope())
+        try
         {
-            var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-            await glosas.ReapresentarAsync(codigo.Id, DateOnly.FromDateTime(DateTime.Today));
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
+                await glosas.ReapresentarAsync(codigo.Id, DateOnly.FromDateTime(DateTime.Today));
+            }
+            await Buscar();
         }
-        await Buscar();
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível reapresentar: {ex.Message}";
+        }
     }
 
     [RelayCommand]
@@ -59,12 +68,19 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
         if (!_dialogo.Confirmar("Confirmar",
             "Marcar esta glosa como recuperada (aceita pelo convênio)?")) return;
 
-        using (var scope = _scopeFactory.CreateScope())
+        try
         {
-            var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-            await glosas.MarcarRecuperadaAsync(codigo.Id);
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
+                await glosas.MarcarRecuperadaAsync(codigo.Id);
+            }
+            await Buscar();
         }
-        await Buscar();
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível marcar como recuperada: {ex.Message}";
+        }
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)

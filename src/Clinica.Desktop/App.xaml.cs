@@ -28,6 +28,7 @@ public partial class App : System.Windows.Application
         DispatcherUnhandledException += (_, args) =>
         {
             args.Handled = true;
+            LogErros.Registrar("Exceção não tratada (UI)", args.Exception);
             var snackbar = _host?.Services.GetService<Controls.ISnackbarService>();
             if (snackbar is not null)
                 snackbar.Erro($"Ocorreu um erro inesperado: {args.Exception.Message}");
@@ -35,7 +36,11 @@ public partial class App : System.Windows.Application
                 MessageBox.Show($"Ocorreu um erro inesperado:\n\n{args.Exception.Message}",
                     "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
         };
-        TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            LogErros.Registrar("Task não observada", args.Exception);
+            args.SetObserved();
+        };
 
         // Evita que o app se encerre ao fechar a janela de setup antes da janela principal abrir.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -83,6 +88,7 @@ public partial class App : System.Windows.Application
             }
             catch (Exception ex)
             {
+                LogErros.Registrar("Falha ao conectar/migrar o banco na abertura", ex);
                 _host?.Dispose();
                 _host = null;
 
@@ -126,12 +132,20 @@ public partial class App : System.Windows.Application
     {
         if (_host is null) return;
 
-        var versao = await UpdateService.VerificarEBaixarAsync();
-        if (versao is null) return;
+        try
+        {
+            var versao = await UpdateService.VerificarEBaixarAsync();
+            if (versao is null) return;
 
-        _updateTimer?.Stop(); // já há versão baixada aguardando; não precisa checar de novo
-        var snackbar = _host.Services.GetRequiredService<Controls.ISnackbarService>();
-        snackbar.Info($"Atualização {versao} baixada. Feche e reabra o sistema para aplicar.");
+            _updateTimer?.Stop(); // já há versão baixada aguardando; não precisa checar de novo
+            var snackbar = _host.Services.GetRequiredService<Controls.ISnackbarService>();
+            snackbar.Info($"Atualização {versao} baixada. Feche e reabra o sistema para aplicar.");
+        }
+        catch (Exception ex)
+        {
+            // Falha de rede na checagem periódica não pode derrubar o app; tenta no próximo ciclo.
+            LogErros.Registrar("Checagem periódica de atualização", ex);
+        }
     }
 
     /// <summary>Mostra a janela de aviso se houver baixas pendentes (usada na abertura e nos lembretes).</summary>
@@ -151,9 +165,10 @@ public partial class App : System.Windows.Application
             var aviso = new AvisoPendenciasWindow(lista) { Owner = MainWindow };
             aviso.ShowDialog();
         }
-        catch
+        catch (Exception ex)
         {
             // Um aviso que falha nunca deve derrubar o app.
+            LogErros.Registrar("Aviso de baixas pendentes", ex);
         }
         finally
         {

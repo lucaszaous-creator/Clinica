@@ -36,6 +36,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private bool _lancado;
     [ObservableProperty] private string? _numeroAtendimento;
+    [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _ocupado;
 
     private int _ultimoAtendimentoId;
 
@@ -99,25 +101,43 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     private async Task Lancar()
     {
         if (PacienteSelecionado is null)
+        {
+            Mensagem = "Selecione o paciente.";
             return;
+        }
 
-        CodigosGerados.Clear();
-        Avisos.Clear();
+        // Guarda contra duplo clique: dois lançamentos gerariam códigos duplicados.
+        if (Ocupado) return;
+        Ocupado = true;
+        try
+        {
+            CodigosGerados.Clear();
+            Avisos.Clear();
+            Mensagem = null;
 
-        using var scope = _scopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
-        var resultado = await service.LancarAsync(
-            PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
-            registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
+            var resultado = await service.LancarAsync(
+                PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
+                registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
 
-        foreach (var c in resultado.Atendimento.Codigos)
-            CodigosGerados.Add(c);
-        foreach (var a in resultado.Avisos)
-            Avisos.Add(a);
+            foreach (var c in resultado.Atendimento.Codigos)
+                CodigosGerados.Add(c);
+            foreach (var a in resultado.Avisos)
+                Avisos.Add(a);
 
-        _ultimoAtendimentoId = resultado.Atendimento.Id;
-        NumeroAtendimento = resultado.Atendimento.Numero;
-        Lancado = true;
+            _ultimoAtendimentoId = resultado.Atendimento.Id;
+            NumeroAtendimento = resultado.Atendimento.Numero;
+            Lancado = true;
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível lançar o atendimento: {ex.Message}";
+        }
+        finally
+        {
+            Ocupado = false;
+        }
     }
 
     /// <summary>Gera a capa de faturamento (PDF) do atendimento recém-lançado e abre o arquivo.</summary>
@@ -127,11 +147,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         if (_ultimoAtendimentoId == 0) return;
 
         byte[] pdf;
-        using (var scope = _scopeFactory.CreateScope())
+        try
         {
+            using var scope = _scopeFactory.CreateScope();
             var capa = scope.ServiceProvider.GetRequiredService<CapaFaturamentoService>();
             var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
             pdf = await capa.GerarPdfAsync(_ultimoAtendimentoId, prestador);
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível gerar a capa: {ex.Message}";
+            return;
         }
 
         var dialog = new SaveFileDialog

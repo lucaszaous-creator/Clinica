@@ -53,6 +53,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private Categoria _categoria = CategoriaConvenio.Base(Convenio.UnimedIntercambio, false);
     [ObservableProperty] private ModalidadeAtendimento _modalidadePreferida = ModalidadeAtendimento.AcupunturaComEletro;
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _ocupado;
 
     // Controle da auto-sugestão de categoria (plano + app) x override manual.
     private bool _categoriaManual;
@@ -126,6 +127,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
+        if (Ocupado) return;
+        Ocupado = true;
         try
         {
             using var scope = _scopeFactory.CreateScope();
@@ -169,6 +172,10 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         {
             Mensagem = ex.Message;
             return;
+        }
+        finally
+        {
+            Ocupado = false;
         }
 
         Limpar();

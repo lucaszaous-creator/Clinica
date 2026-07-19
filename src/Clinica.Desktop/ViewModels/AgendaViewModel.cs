@@ -34,6 +34,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _ocupado;
 
     private static readonly CultureInfo PtBr = new("pt-BR");
 
@@ -116,25 +117,38 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         // Hora de parede (sem fuso) para casar com a coluna 'timestamp without time zone'.
         var dataHora = DateTime.SpecifyKind(DataNovo.Date.Add(hora.ToTimeSpan()), DateTimeKind.Unspecified);
 
-        using (var scope = _scopeFactory.CreateScope())
+        if (Ocupado) return;
+        Ocupado = true;
+        try
         {
-            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
 
-            // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
-            var conflito = await agenda.ConflitoAsync(dataHora);
-            if (conflito is not null &&
-                !_dialogo.Confirmar("Horário ocupado",
-                    $"{conflito.Paciente?.Nome} já está agendado em {dataHora:dd/MM} às {dataHora:HH:mm}.\n" +
-                    "Agendar mesmo assim (encaixe)?"))
-                return;
+                // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
+                var conflito = await agenda.ConflitoAsync(dataHora);
+                if (conflito is not null &&
+                    !_dialogo.Confirmar("Horário ocupado",
+                        $"{conflito.Paciente?.Nome} já está agendado em {dataHora:dd/MM} às {dataHora:HH:mm}.\n" +
+                        "Agendar mesmo assim (encaixe)?"))
+                    return;
 
-            await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes);
+                await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes);
+            }
+
+            Mensagem = "Agendamento criado.";
+            Observacoes = null;
+            Dia = DataNovo; // pula para o dia agendado
+            await RecarregarDia();
         }
-
-        Mensagem = "Agendamento criado.";
-        Observacoes = null;
-        Dia = DataNovo; // pula para o dia agendado
-        await RecarregarDia();
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível agendar: {ex.Message}";
+        }
+        finally
+        {
+            Ocupado = false;
+        }
     }
 
     [RelayCommand]
@@ -144,14 +158,27 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         if (!_dialogo.Confirmar("Confirmar presença",
             $"Confirmar presença de {ag.Paciente?.Nome} e gerar o atendimento (códigos de faturamento)?")) return;
 
-        using (var scope = _scopeFactory.CreateScope())
+        if (Ocupado) return;
+        Ocupado = true;
+        try
         {
-            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
-            Mensagem = $"Atendimento gerado com {resultado.Atendimento.Codigos.Count} código(s).";
-        }
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+                var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
+                Mensagem = $"Atendimento gerado com {resultado.Atendimento.Codigos.Count} código(s).";
+            }
 
-        await RecarregarDia();
+            await RecarregarDia();
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível confirmar a presença: {ex.Message}";
+        }
+        finally
+        {
+            Ocupado = false;
+        }
     }
 
     [RelayCommand]

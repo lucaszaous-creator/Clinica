@@ -79,6 +79,10 @@
     <SolidColorBrush x:Key="Brush.Sidebar.Texto" Color="{StaticResource Cor.Cinza.700}" />
     <SolidColorBrush x:Key="Brush.Sidebar.TextoAtivo" Color="{StaticResource Cor.Azul.600}" />
 
+    <!-- Snackbar (fundo escuro exige tons claros dos estados) -->
+    <SolidColorBrush x:Key="Brush.Snackbar.Sucesso" Color="#4ADE80" />
+    <SolidColorBrush x:Key="Brush.Snackbar.Erro" Color="#F87171" />
+
     <!-- Semáforo de urgência (mantido do domínio) -->
     <SolidColorBrush x:Key="Brush.Semaforo.Verde" Color="#2E7D32" />
     <SolidColorBrush x:Key="Brush.Semaforo.Amarelo" Color="#F9A825" />
