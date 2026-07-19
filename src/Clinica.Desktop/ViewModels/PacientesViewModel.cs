@@ -39,6 +39,9 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 
     [ObservableProperty] private string? _busca;
 
+    // Pesquisa instantânea (padrão CampoPesquisa do design system).
+    partial void OnBuscaChanged(string? value) => _ = Buscar();
+
     // Formulário
     [ObservableProperty] private int? _editandoId;
     [ObservableProperty] private string _nome = string.Empty;
@@ -52,7 +55,9 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private Sexo _sexo = Sexo.Feminino;
     [ObservableProperty] private Categoria _categoria = CategoriaConvenio.Base(Convenio.UnimedIntercambio, false);
     [ObservableProperty] private ModalidadeAtendimento _modalidadePreferida = ModalidadeAtendimento.AcupunturaComEletro;
+    [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _ocupado;
 
     // Controle da auto-sugestão de categoria (plano + app) x override manual.
@@ -119,11 +124,13 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         if (string.IsNullOrWhiteSpace(Nome))
         {
             Mensagem = "Informe o nome do paciente.";
+            MensagemEhErro = true;
             return;
         }
         if (!string.IsNullOrWhiteSpace(Documento) && !Cpf.Valido(Documento))
         {
             Mensagem = "CPF inválido. Verifique os dígitos.";
+            MensagemEhErro = true;
             return;
         }
 
@@ -148,6 +155,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
                 if (duplicado is not null)
                 {
                     Mensagem = $"Já existe um paciente com este CPF: {duplicado.Nome}.";
+                    MensagemEhErro = true;
                     return;
                 }
             }
@@ -155,10 +163,11 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
             if (EditandoId is int id)
             {
                 var p = await db.Pacientes.FirstOrDefaultAsync(x => x.Id == id);
-                if (p is null) { Mensagem = "Paciente não encontrado."; return; }
+                if (p is null) { Mensagem = "Paciente não encontrado."; MensagemEhErro = true; return; }
                 Aplicar(p);
                 await service.AtualizarAsync(p, _categoriaManual);
                 Mensagem = "Paciente atualizado.";
+                MensagemEhErro = false;
             }
             else
             {
@@ -166,11 +175,13 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
                 Aplicar(p);
                 await service.SalvarNovoAsync(p, _categoriaManual);
                 Mensagem = "Paciente salvo.";
+                MensagemEhErro = false;
             }
         }
         catch (Exception ex)
         {
             Mensagem = ex.Message;
+            MensagemEhErro = true;
             return;
         }
         finally
@@ -195,6 +206,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         p.Sexo = Sexo;
         p.Categoria = Categoria;
         p.ModalidadePreferida = ModalidadePreferida;
+        p.Observacoes = string.IsNullOrWhiteSpace(Observacoes) ? null : Observacoes.Trim();
     }
 
     [RelayCommand]
@@ -211,6 +223,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         PossuiApp = p.PossuiApp;
         Sexo = p.Sexo;
         ModalidadePreferida = p.ModalidadePreferida;
+        Observacoes = p.Observacoes;
         Categoria = p.Categoria;
         // Preserva um override manual (categoria diferente da base do convênio + app).
         _categoriaManual = p.Categoria != CategoriaBase(p.PossuiApp);
@@ -253,6 +266,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         _convenio = Convenio.UnimedIntercambio;
         Sexo = Sexo.Feminino;
         ModalidadePreferida = ModalidadeAtendimento.AcupunturaComEletro;
+        Observacoes = null;
+        Mensagem = null;
         _carregando = false;
         SugerirCategoria();
     }

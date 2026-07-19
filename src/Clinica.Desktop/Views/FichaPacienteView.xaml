@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Desktop.Views.FichaPacienteView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -14,48 +15,153 @@
             <TextBlock Text="Ficha do paciente" Style="{StaticResource H1}" Margin="16,0,0,0" VerticalAlignment="Center" />
         </DockPanel>
 
-        <!-- Dados -->
+        <!-- ===== Cabeçalho do paciente ===== -->
         <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,16">
             <StackPanel>
-                <TextBlock Text="{Binding Paciente.Nome}" FontSize="18" FontWeight="Bold" />
-                <WrapPanel Margin="0,6,0,0">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding WhatsappCommand}" VerticalAlignment="Top"
+                            ToolTip="Abrir conversa no WhatsApp com o paciente"
+                            AutomationProperties.Name="Abrir conversa no WhatsApp">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8BD;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                            <TextBlock Text="WhatsApp" />
+                        </StackPanel>
+                    </Button>
+
+                    <StackPanel>
+                        <TextBlock Text="{Binding Paciente.Nome}" Style="{StaticResource H2}" Margin="0" />
+
+                        <!-- Badges: convênio, categoria (semáforo) e app -->
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <Border Style="{StaticResource Badge.Info}">
+                                <TextBlock Text="{Binding NomeConvenio}" />
+                            </Border>
+                            <Border Style="{StaticResource Badge}" Margin="8,0,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
+                                             Fill="{Binding Paciente.Categoria, Converter={StaticResource CategoriaParaCor}}" />
+                                    <TextBlock Text="{Binding Paciente.Categoria}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Margin="8,0,0,0"
+                                    Visibility="{Binding Paciente.PossuiApp, Converter={StaticResource BoolParaVisibilidade}}"
+                                    Style="{StaticResource Badge.Sucesso}">
+                                <TextBlock Text="Tem app da Unimed" />
+                            </Border>
+                            <Border Style="{StaticResource Badge}" Margin="8,0,0,0">
+                                <TextBlock Text="{Binding Paciente.ModalidadePreferida, Converter={StaticResource EnumDescricao}}" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </DockPanel>
+
+                <WrapPanel Margin="0,10,0,0">
                     <TextBlock Text="CPF: " Foreground="{StaticResource Brush.Texto.Secundario}" />
                     <TextBlock Text="{Binding CpfFormatado}" Margin="0,0,20,0" />
-                    <TextBlock Text="Convênio: " Foreground="{StaticResource Brush.Texto.Secundario}" />
-                    <TextBlock Text="{Binding Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Margin="0,0,20,0" />
                     <TextBlock Text="Telefone: " Foreground="{StaticResource Brush.Texto.Secundario}" />
                     <TextBlock Text="{Binding Paciente.Telefone}" Margin="0,0,20,0" />
-                    <TextBlock Text="Categoria: " Foreground="{StaticResource Brush.Texto.Secundario}" />
-                    <TextBlock Text="{Binding Paciente.Categoria}" />
                 </WrapPanel>
+
+                <TextBlock Text="{Binding Paciente.Observacoes}" TextWrapping="Wrap" Margin="0,6,0,0"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" FontStyle="Italic">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Paciente.Observacoes}" Value="{x:Null}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Paciente.Observacoes}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Erro}"
+                           TextWrapping="Wrap" Margin="0,6,0,0" />
             </StackPanel>
         </Border>
 
+        <!-- ===== Indicadores ===== -->
+        <UniformGrid Grid.Row="2" Columns="4" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Sessões realizadas" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TotalSessoes}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Sucesso.Suave}"
+                    BorderThickness="0" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Guias baixadas" Style="{StaticResource CardKpi.Rotulo}"
+                               Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                    <TextBlock Text="{Binding TotalBaixados}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Erro.Suave}"
+                    BorderThickness="0" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Pendentes hoje" Style="{StaticResource CardKpi.Rotulo}"
+                               Foreground="{StaticResource Brush.Erro}" />
+                    <TextBlock Text="{Binding TotalPendentes}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Erro}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="Última sessão" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding UltimaSessao}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- ===== Histórico ===== -->
         <Border Grid.Row="3" Style="{StaticResource Card}">
-        <DockPanel>
-        <TextBlock DockPanel.Dock="Top" Text="Histórico de códigos" Style="{StaticResource H2}" Margin="0,0,0,8" />
-        <DataGrid ItemsSource="{Binding Codigos}">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
-                <DataGridTextColumn Header="Código"
-                                    Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
-                <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
-                <DataGridTextColumn Header="Situação"
-                                    Binding="{Binding Path=., Converter={StaticResource StatusCodigo}}" Width="2*" />
-                <DataGridTemplateColumn Header="Ação" Width="Auto">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <Button Content="Estornar"
-                                    Style="{StaticResource BotaoAcaoGridPerigo}"
-                                    Visibility="{Binding Baixado, Converter={StaticResource BoolParaVisibilidade}}"
-                                    Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                    CommandParameter="{Binding}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
-        </DockPanel>
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Histórico de códigos" Style="{StaticResource H2}" Margin="0,0,0,8" />
+                <Grid>
+                    <ctrl:EmptyState Glifo="&#xE8C7;" Titulo="Sem histórico ainda" Panel.ZIndex="1"
+                                     Descricao="Os códigos de faturamento aparecem aqui após o primeiro atendimento.">
+                        <ctrl:EmptyState.Style>
+                            <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Codigos.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ctrl:EmptyState.Style>
+                    </ctrl:EmptyState>
+
+                    <DataGrid ItemsSource="{Binding Codigos}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
+                            <DataGridTextColumn Header="Código"
+                                                Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                            <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
+                            <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
+                            <DataGridTextColumn Header="Baixado em" Binding="{Binding DataBaixa}" Width="Auto" />
+                            <DataGridTextColumn Header="Situação"
+                                                Binding="{Binding Path=., Converter={StaticResource StatusCodigo}}" Width="2*" />
+                            <DataGridTemplateColumn Header="Ação" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Estornar"
+                                                Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                Visibility="{Binding Baixado, Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </DockPanel>
         </Border>
     </Grid>
 </UserControl>
