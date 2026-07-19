@@ -22,6 +22,21 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
+        // Rede/banco podem falhar no meio de um comando assíncrono (Wi-Fi caiu, Neon
+        // hibernou). Sem este handler, qualquer exceção não tratada fecha o app com
+        // perda do que estava na tela; com ele, avisamos e o app continua de pé.
+        DispatcherUnhandledException += (_, args) =>
+        {
+            args.Handled = true;
+            var snackbar = _host?.Services.GetService<Controls.ISnackbarService>();
+            if (snackbar is not null)
+                snackbar.Erro($"Ocorreu um erro inesperado: {args.Exception.Message}");
+            else
+                MessageBox.Show($"Ocorreu um erro inesperado:\n\n{args.Exception.Message}",
+                    "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+        };
+        TaskScheduler.UnobservedTaskException += (_, args) => args.SetObserved();
+
         // Evita que o app se encerre ao fechar a janela de setup antes da janela principal abrir.
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
