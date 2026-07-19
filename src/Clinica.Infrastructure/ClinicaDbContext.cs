@@ -24,6 +24,7 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Nome).IsRequired().HasMaxLength(200);
             e.Property(p => p.Documento).HasMaxLength(30);
             e.Property(p => p.Telefone).HasMaxLength(30);
+            e.Property(p => p.Carteirinha).HasMaxLength(40);
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
             e.Property(p => p.ConvenioCodigo).HasMaxLength(40);
             e.Property(p => p.Sexo).HasConversion<string>().HasMaxLength(20);

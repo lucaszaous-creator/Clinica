@@ -22,6 +22,12 @@ public partial class FichaPacienteViewModel : ObservableObject
     [ObservableProperty] private string? _nomeConvenio;
     [ObservableProperty] private string? _mensagem;
 
+    /// <summary>Ex.: "14/03/1962 (64 anos)"; "—" quando não informado.</summary>
+    [ObservableProperty] private string _nascimentoTexto = "—";
+    [ObservableProperty] private string _carteirinhaTexto = "—";
+    [ObservableProperty] private bool _carteirinhaVencida;
+    [ObservableProperty] private string? _validadeCarteirinhaTexto;
+
     // Indicadores da ficha
     [ObservableProperty] private int _totalSessoes;
     [ObservableProperty] private int _totalBaixados;
@@ -34,6 +40,9 @@ public partial class FichaPacienteViewModel : ObservableObject
     public ObservableCollection<CodigoFaturamento> Codigos { get; } = new();
 
     public event Action? Voltar;
+
+    /// <summary>Pede ao shell para abrir o cadastro já em modo de edição deste paciente.</summary>
+    public event Action<int>? EditarSolicitado;
 
     public FichaPacienteViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
@@ -60,6 +69,24 @@ public partial class FichaPacienteViewModel : ObservableObject
             NomeConvenio = Domain.Regras.ConvenioInfo.NomeExibicao(Paciente.Convenio);
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+            if (Paciente.DataNascimento is { } nasc)
+            {
+                var idade = hoje.Year - nasc.Year;
+                if (new DateOnly(hoje.Year, nasc.Month, Math.Min(nasc.Day, DateTime.DaysInMonth(hoje.Year, nasc.Month))) > hoje)
+                    idade--;
+                NascimentoTexto = $"{nasc:dd/MM/yyyy} ({idade} anos)";
+            }
+            else
+            {
+                NascimentoTexto = "—";
+            }
+
+            CarteirinhaTexto = string.IsNullOrWhiteSpace(Paciente.Carteirinha) ? "—" : Paciente.Carteirinha;
+            CarteirinhaVencida = Paciente.ValidadeCarteirinha is { } val && val < hoje;
+            ValidadeCarteirinhaTexto = Paciente.ValidadeCarteirinha is { } v2
+                ? (CarteirinhaVencida ? $"Carteirinha VENCIDA em {v2:dd/MM/yyyy}" : $"Carteirinha válida até {v2:dd/MM/yyyy}")
+                : null;
             TotalSessoes = Paciente.Atendimentos.Count;
             TotalBaixados = Codigos.Count(c => c.Baixado);
             TotalPendentes = Codigos.Count(c => c.EstaPendente(hoje));
@@ -128,4 +155,10 @@ public partial class FichaPacienteViewModel : ObservableObject
 
     [RelayCommand]
     private void FecharFicha() => Voltar?.Invoke();
+
+    [RelayCommand]
+    private void EditarCadastro()
+    {
+        if (_pacienteId != 0) EditarSolicitado?.Invoke(_pacienteId);
+    }
 }

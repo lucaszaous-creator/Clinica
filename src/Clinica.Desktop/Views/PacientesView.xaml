@@ -36,6 +36,26 @@
                         </StackPanel>
                     </Grid>
 
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Data de nascimento" Style="{StaticResource Rotulo}" />
+                            <DatePicker SelectedDate="{Binding DataNascimento}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Nº da carteirinha" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Carteirinha}"
+                                     ctrl:Ajudantes.Placeholder="Como está impresso no cartão" MaxLength="40" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Validade da carteirinha" Style="{StaticResource Rotulo}" />
+                    <DatePicker SelectedDate="{Binding ValidadeCarteirinha}"
+                                ToolTip="Carteirinha vencida = guia recusada; a ficha avisa quando vencer" />
+
                     <!-- Convênio e regras de faturamento -->
                     <Grid>
                         <Grid.ColumnDefinitions>

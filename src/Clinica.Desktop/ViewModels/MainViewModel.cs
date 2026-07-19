@@ -335,8 +335,19 @@ public partial class MainViewModel : ObservableObject
     {
         var vm = _sp.GetRequiredService<FichaPacienteViewModel>();
         vm.Voltar += MostrarPacientes;
+        vm.EditarSolicitado += AbrirEdicaoPaciente;
         BreadcrumbDetalhe = "Ficha do paciente";
         CurrentViewModel = vm;
         _ = vm.CarregarAsync(pacienteId);
+    }
+
+    /// <summary>Abre a tela de Pacientes já com o cadastro em edição (botão Editar da ficha).</summary>
+    private void AbrirEdicaoPaciente(int pacienteId)
+    {
+        var vm = _sp.GetRequiredService<PacientesViewModel>();
+        vm.FichaSolicitada += AbrirFicha;
+        DefinirSecao(Secao.Pacientes);
+        CurrentViewModel = vm;
+        _ = vm.CarregarEEditarAsync(pacienteId);
     }
 }

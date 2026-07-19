@@ -90,11 +90,16 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 
     partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
 
-    // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro).
+    // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro)
+    // e avisa carteirinha vencida ANTES de gerar uma guia que o convênio vai recusar.
     partial void OnPacienteSelecionadoChanged(Paciente? value)
     {
-        if (value is not null)
-            Modalidade = value.ModalidadePreferida;
+        if (value is null) return;
+
+        Modalidade = value.ModalidadePreferida;
+        Mensagem = value.ValidadeCarteirinha is { } val && val < DateOnly.FromDateTime(DateTime.Today)
+            ? $"Atenção: a carteirinha de {value.Nome} venceu em {val:dd/MM/yyyy} — o convênio pode recusar a guia."
+            : null;
     }
 
     [RelayCommand]
