@@ -83,12 +83,12 @@
                 <DataGridTextColumn Header="Atend. nº" Binding="{Binding Atendimento.Numero}" Width="Auto" />
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
+                                    Binding="{Binding Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Código"
                                     Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
                 <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
-                <DataGridTemplateColumn Header="Situação" Width="1.6*">
+                <DataGridTemplateColumn Header="Situação" Width="1.2*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <!-- Pílula de status do design: verde-tint quando baixada, âmbar quando pendente. -->

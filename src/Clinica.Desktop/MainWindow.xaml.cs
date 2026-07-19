@@ -5,11 +5,32 @@ namespace Clinica.Desktop;
 
 public partial class MainWindow : Window
 {
+    // Histerese do auto-recolhimento da sidebar: recolhe abaixo de 1180px e só
+    // reexpande acima de 1320px, para não "piscar" perto do limiar.
+    private const double LarguraRecolherMenu = 1180;
+    private const double LarguraExpandirMenu = 1320;
+
     public MainWindow()
     {
         InitializeComponent();
         Loaded += AjustarParaTela;
         PreviewKeyDown += AtalhoFocarPesquisa;
+        SizeChanged += AjustarMenuPelaLargura;
+    }
+
+    // Em janelas estreitas as últimas colunas das tabelas (Ações) ficavam cortadas
+    // na borda direita até o usuário recolher o menu na mão. Agora a sidebar
+    // recolhe/expande sozinha conforme a largura; Ctrl+B continua funcionando
+    // normalmente entre os limiares.
+    private void AjustarMenuPelaLargura(object sender, SizeChangedEventArgs e)
+    {
+        if (!e.WidthChanged || DataContext is not ViewModels.MainViewModel vm)
+            return;
+
+        if (e.NewSize.Width < LarguraRecolherMenu && !vm.MenuRecolhido)
+            vm.MenuRecolhido = true;
+        else if (e.NewSize.Width >= LarguraExpandirMenu && vm.MenuRecolhido)
+            vm.MenuRecolhido = false;
     }
 
     // Ctrl+F foca a pesquisa global (foco é responsabilidade da View, não do VM).
@@ -47,5 +68,9 @@ public partial class MainWindow : Window
         // Recentraliza dentro da área útil.
         Left = SystemParameters.WorkArea.Left + (larguraDisponivel - Width) / 2;
         Top = SystemParameters.WorkArea.Top + (alturaDisponivel - Height) / 2;
+
+        // Estado inicial da sidebar conforme a largura (SizeChanged pode não disparar de novo).
+        if (DataContext is ViewModels.MainViewModel vm && Width < LarguraRecolherMenu)
+            vm.MenuRecolhido = true;
     }
 }

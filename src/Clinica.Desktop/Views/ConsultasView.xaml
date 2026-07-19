@@ -45,7 +45,7 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
+                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Última emissão" Binding="{Binding UltimaEmissao}" Width="Auto" />
                 <DataGridTextColumn Header="Vencimento" Binding="{Binding Vencimento}" Width="Auto" />
                 <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="Auto" />

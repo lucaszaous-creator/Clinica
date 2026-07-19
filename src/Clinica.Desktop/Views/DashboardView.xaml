@@ -129,14 +129,14 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.4*" />
+                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
                 <DataGridTextColumn Header="Código"
                                     Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
                 <DataGridTextColumn Header="Prevista" Binding="{Binding DataPrevista}" Width="0.9*" />
                 <DataGridTextColumn Header="Atraso (dias)" Binding="{Binding DiasEmAtraso}" Width="0.9*" />
                 <DataGridTextColumn Header="Como obter"
-                                    Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.4*" />
+                                    Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
                 <DataGridTemplateColumn Header="" Width="110">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
@@ -171,7 +171,7 @@
                 <DataGridTextColumn Header="Convênio"
                                     Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
                 <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuia}" Width="Auto" />
-                <DataGridTextColumn Header="Motivo" Binding="{Binding MotivoResumo}" Width="1.4*" />
+                <DataGridTextColumn Header="Motivo" Binding="{Binding MotivoResumo}" Width="1.2*" />
                 <DataGridTextColumn Header="Prazo até" Binding="{Binding DataLimiteRecurso}" Width="Auto" />
                 <DataGridTextColumn Header="Dias restantes" Binding="{Binding DiasParaFimPrazo}" Width="Auto" />
                 <DataGridTemplateColumn Header="" Width="140">
@@ -240,7 +240,7 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.4*" />
+                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
                 <DataGridTextColumn Header="Vence em" Binding="{Binding DataVencimento}" Width="*" />
                 <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="*" />
                 <DataGridTemplateColumn Header="" Width="110">
