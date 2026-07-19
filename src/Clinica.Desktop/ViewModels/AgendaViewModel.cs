@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
 using Clinica.Application.Servicos;
@@ -67,10 +68,24 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             Modalidade = value.ModalidadePreferida;
     }
 
+    /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
+    private string? _nomeClinica;
+
     public async Task CarregarAsync()
     {
         await BuscarPacientes();
         await RecarregarDia();
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+            _nomeClinica = string.IsNullOrWhiteSpace(prestador.NomeFantasia) ? prestador.RazaoSocial : prestador.NomeFantasia;
+        }
+        catch
+        {
+            // Sem nome da clínica a mensagem sai sem assinatura; não impede a agenda.
+        }
     }
 
     private async Task RecarregarDia()
@@ -203,6 +218,43 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             await agenda.MarcarFaltaAsync(ag.Id);
         }
         await RecarregarDia();
+    }
+
+    /// <summary>
+    /// Abre o WhatsApp (wa.me) com a mensagem de confirmação pronta para o paciente.
+    /// Falta de paciente é sessão não faturada — confirmar na véspera é rotina da recepção.
+    /// </summary>
+    [RelayCommand]
+    private void Whatsapp(Agendamento? ag)
+    {
+        if (ag?.Paciente is null) return;
+
+        var fone = Telefone.Normalizar(ag.Paciente.Telefone);
+        if (fone.Length is < 10 or > 13)
+        {
+            Mensagem = $"{ag.Paciente.Nome}: telefone ausente ou inválido no cadastro (edite em Pacientes).";
+            return;
+        }
+        if (fone.Length is 10 or 11)
+            fone = "55" + fone; // wa.me exige DDI
+
+        var primeiroNome = ag.Paciente.Nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ag.Paciente.Nome;
+        var quando = ag.DataHora.Date == DateTime.Today.AddDays(1) ? "amanhã" : ag.DataHora.ToString("dd/MM", PtBr);
+        var texto = $"Olá, {primeiroNome}! Estamos confirmando sua sessão {quando} às {ag.DataHora:HH:mm}." +
+                    " Se tiver algum imprevisto, é só responder por aqui." +
+                    (string.IsNullOrWhiteSpace(_nomeClinica) ? string.Empty : $" — {_nomeClinica}");
+
+        try
+        {
+            Process.Start(new ProcessStartInfo($"https://wa.me/{fone}?text={Uri.EscapeDataString(texto)}")
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível abrir o WhatsApp: {ex.Message}";
+        }
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)

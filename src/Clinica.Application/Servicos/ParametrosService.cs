@@ -117,6 +117,21 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Numeração sequencial de lote TISS (o padrão exige sequência, não timestamp) ----
+
+    public const string ChaveProximoLoteTiss = "TissProximoNumeroLote";
+
+    /// <summary>Próximo número de lote TISS (sequência global, começa em 1). Não consome o número.</summary>
+    public async Task<int> ObterProximoNumeroLoteTissAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveProximoLoteTiss, ct), out var n) && n >= 1 ? n : 1;
+
+    /// <summary>Confirma que o número de lote foi usado (grava numeroUsado+1 como próximo).</summary>
+    public async Task ConfirmarNumeroLoteTissAsync(int numeroUsado, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveProximoLoteTiss, (numeroUsado + 1).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Dados do prestador (clínica) — GLOBAIS, usados na capa e no TISS ----
 
     public const string ChavePrestador = "DadosPrestador";

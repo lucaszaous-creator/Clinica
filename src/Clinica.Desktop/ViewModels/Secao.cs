@@ -28,6 +28,9 @@ public sealed partial class ItemMenu : ObservableObject
     /// <summary>Nome do módulo (cabeçalho de grupo na sidebar e 1º nível do breadcrumb).</summary>
     public required string Grupo { get; init; }
 
+    /// <summary>Quando preenchido, o item é um resultado de pesquisa de PACIENTE (abre a ficha).</summary>
+    public int? PacienteId { get; init; }
+
     [ObservableProperty]
     private bool _estaAtivo;
 }

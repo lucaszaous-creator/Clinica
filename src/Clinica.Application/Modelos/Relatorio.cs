@@ -22,6 +22,16 @@ public sealed record FaixaEnvelhecimento(
     string Faixa,
     int Quantidade);
 
+/// <summary>Resumo de um mês no comparativo mensal (evolução da taxa de baixa).</summary>
+public sealed record ResumoMensal(
+    int Ano,
+    int Mes,
+    string Rotulo,        // ex.: "mar/2026"
+    int TotalCodigos,
+    int Baixados,
+    int Pendentes,
+    double TaxaBaixa);
+
 /// <summary>Relatório completo exibido na tela.</summary>
 public sealed record RelatorioFaturamento(
     DateOnly Inicio,

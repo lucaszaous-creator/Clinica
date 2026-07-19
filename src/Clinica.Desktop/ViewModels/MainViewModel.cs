@@ -138,7 +138,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    // ===== Pesquisa global (command palette de seções) =====
+    // ===== Pesquisa global (seções + pacientes por nome/CPF) =====
 
     partial void OnTextoPesquisaGlobalChanged(string value)
     {
@@ -156,6 +156,40 @@ public partial class MainViewModel : ObservableObject
             ResultadosPesquisa.Add(item);
 
         PesquisaAberta = ResultadosPesquisa.Count > 0;
+
+        // Pacientes entram de forma assíncrona (banco); 2+ letras para não varrer tudo.
+        if (termo.Length >= 2)
+            _ = PesquisarPacientesAsync(termo);
+    }
+
+    private async Task PesquisarPacientesAsync(string termo)
+    {
+        try
+        {
+            using var scope = _sp.CreateScope();
+            var pacientes = await scope.ServiceProvider
+                .GetRequiredService<Clinica.Application.Servicos.PacienteService>()
+                .BuscarAsync(termo);
+
+            // O usuário pode ter continuado digitando enquanto o banco respondia.
+            if (TextoPesquisaGlobal.Trim() != termo) return;
+
+            foreach (var p in pacientes.Take(6))
+                ResultadosPesquisa.Add(new ItemMenu
+                {
+                    Secao = Secao.Pacientes,
+                    Rotulo = p.Nome,
+                    Glifo = "\uE77B", // pessoa
+                    Grupo = "Paciente",
+                    PacienteId = p.Id
+                });
+
+            PesquisaAberta = ResultadosPesquisa.Count > 0;
+        }
+        catch
+        {
+            // Banco fora do ar não pode quebrar a digitação na pesquisa.
+        }
     }
 
     [RelayCommand]
@@ -165,6 +199,14 @@ public partial class MainViewModel : ObservableObject
         if (item is null) return;
 
         FecharPesquisa();
+
+        if (item.PacienteId is int pacienteId)
+        {
+            DefinirSecao(Secao.Pacientes);
+            AbrirFicha(pacienteId);
+            return;
+        }
+
         Navegar(item.Secao);
     }
 

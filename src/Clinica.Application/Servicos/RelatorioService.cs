@@ -46,6 +46,29 @@ public sealed class RelatorioService
         return new ResumoFaturamento(total, baixados, pendentes, taxa);
     }
 
+    /// <summary>
+    /// Comparativo mensal: taxa de baixa dos últimos <paramref name="meses"/> meses
+    /// (terminando no mês de <paramref name="referencia"/>), do mais antigo ao mais recente.
+    /// </summary>
+    public async Task<IReadOnlyList<ResumoMensal>> ComparativoMensalAsync(
+        DateOnly referencia, int meses = 6, CancellationToken ct = default)
+    {
+        var lista = new List<ResumoMensal>();
+        var mesRef = new DateOnly(referencia.Year, referencia.Month, 1);
+
+        for (var i = meses - 1; i >= 0; i--)
+        {
+            var inicio = mesRef.AddMonths(-i);
+            var fim = inicio.AddMonths(1).AddDays(-1);
+            var r = Resumir(await _repo.CodigosNoPeriodoAsync(inicio, fim, ct));
+            lista.Add(new ResumoMensal(inicio.Year, inicio.Month,
+                inicio.ToDateTime(TimeOnly.MinValue).ToString("MMM/yyyy", new System.Globalization.CultureInfo("pt-BR")),
+                r.TotalCodigos, r.Baixados, r.Pendentes, r.TaxaBaixa));
+        }
+
+        return lista;
+    }
+
     /// <summary>Agrupa as pendências em aberto por faixa de atraso.</summary>
     private async Task<IReadOnlyList<FaixaEnvelhecimento>> EnvelhecimentoAsync(DateOnly referencia, CancellationToken ct)
     {

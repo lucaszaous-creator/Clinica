@@ -53,4 +53,4 @@ Compostos: `Margem.Pagina`=24, `Padding.Card`=16, `Padding.Campo`=12,8, `Padding
 
 ## Iconografia
 
-`FonteIcones` = "Segoe Fluent Icons, Segoe MDL2 Assets" (nativas do Windows; nunca emoji). Estilo `Icone` para TextBlocks de glifo. Glifos em uso: pesquisa `E721`, refresh `E72C`, sino `EA8F`, adicionar `E710`, chevrons `E70D/E70E/E76B/E76C`, hambúrguer `E700`, impressora `E749`, check `E73E`, erro `E783`, info `E946`, salvar/exportar `E74E`.
+`FonteIcones` = "Segoe Fluent Icons, Segoe MDL2 Assets" (nativas do Windows; nunca emoji). Estilo `Icone` para TextBlocks de glifo. Glifos em uso: pesquisa `E721`, refresh `E72C`, sino `EA8F`, adicionar `E710`, chevrons `E70D/E70E/E76B/E76C`, hambúrguer `E700`, impressora `E749`, check `E73E`, erro `E783`, info `E946`, salvar/exportar `E74E`, mensagem/WhatsApp `E8BD`, pessoa `E77B`.

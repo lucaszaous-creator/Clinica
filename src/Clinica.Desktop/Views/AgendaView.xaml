@@ -84,6 +84,13 @@
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
+                                    <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="0,0,6,0"
+                                            ToolTip="Enviar confirmação por WhatsApp"
+                                            AutomationProperties.Name="Enviar confirmação por WhatsApp"
+                                            Command="{Binding DataContext.WhatsappCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}">
+                                        <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource FonteIcones}" FontSize="13" />
+                                    </Button>
                                     <Button Content="Iniciar atendimento"
                                             Style="{StaticResource BotaoAcaoGridSecundario}"
                                             Command="{Binding DataContext.ConfirmarPresencaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"

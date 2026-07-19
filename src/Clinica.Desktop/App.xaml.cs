@@ -113,6 +113,9 @@ public partial class App : System.Windows.Application
         ShutdownMode = ShutdownMode.OnMainWindowClose; // volta ao comportamento normal
         window.Show();
 
+        // Backup local diário em segundo plano (plano B se o banco na nuvem sumir).
+        _ = BackupLocal.ExecutarSeNecessarioAsync(_host.Services);
+
         // Aviso de baixas pendentes ao abrir + lembrete recorrente (a cada 2h).
         await MostrarAvisoPendenciasAsync();
         _lembreteTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
