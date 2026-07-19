@@ -39,11 +39,17 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 
     [ObservableProperty] private string? _busca;
 
+    // Pesquisa instantânea (padrão CampoPesquisa do design system).
+    partial void OnBuscaChanged(string? value) => _ = Buscar();
+
     // Formulário
     [ObservableProperty] private int? _editandoId;
     [ObservableProperty] private string _nome = string.Empty;
     [ObservableProperty] private string? _documento;
     [ObservableProperty] private string? _telefone;
+    [ObservableProperty] private DateTime? _dataNascimento;
+    [ObservableProperty] private string? _carteirinha;
+    [ObservableProperty] private DateTime? _validadeCarteirinha;
     /// <summary>Código do convênio selecionado (do catálogo). A família é derivada dele.</summary>
     [ObservableProperty] private string? _convenioCodigo = Convenio.UnimedIntercambio.ToString();
     /// <summary>Família de regra do convênio selecionado (derivada do código).</summary>
@@ -52,7 +58,10 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private Sexo _sexo = Sexo.Feminino;
     [ObservableProperty] private Categoria _categoria = CategoriaConvenio.Base(Convenio.UnimedIntercambio, false);
     [ObservableProperty] private ModalidadeAtendimento _modalidadePreferida = ModalidadeAtendimento.AcupunturaComEletro;
+    [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _mensagemEhErro;
+    [ObservableProperty] private bool _ocupado;
 
     // Controle da auto-sugestão de categoria (plano + app) x override manual.
     private bool _categoriaManual;
@@ -118,14 +127,18 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         if (string.IsNullOrWhiteSpace(Nome))
         {
             Mensagem = "Informe o nome do paciente.";
+            MensagemEhErro = true;
             return;
         }
         if (!string.IsNullOrWhiteSpace(Documento) && !Cpf.Valido(Documento))
         {
             Mensagem = "CPF inválido. Verifique os dígitos.";
+            MensagemEhErro = true;
             return;
         }
 
+        if (Ocupado) return;
+        Ocupado = true;
         try
         {
             using var scope = _scopeFactory.CreateScope();
@@ -145,6 +158,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
                 if (duplicado is not null)
                 {
                     Mensagem = $"Já existe um paciente com este CPF: {duplicado.Nome}.";
+                    MensagemEhErro = true;
                     return;
                 }
             }
@@ -152,10 +166,11 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
             if (EditandoId is int id)
             {
                 var p = await db.Pacientes.FirstOrDefaultAsync(x => x.Id == id);
-                if (p is null) { Mensagem = "Paciente não encontrado."; return; }
+                if (p is null) { Mensagem = "Paciente não encontrado."; MensagemEhErro = true; return; }
                 Aplicar(p);
                 await service.AtualizarAsync(p, _categoriaManual);
                 Mensagem = "Paciente atualizado.";
+                MensagemEhErro = false;
             }
             else
             {
@@ -163,12 +178,18 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
                 Aplicar(p);
                 await service.SalvarNovoAsync(p, _categoriaManual);
                 Mensagem = "Paciente salvo.";
+                MensagemEhErro = false;
             }
         }
         catch (Exception ex)
         {
             Mensagem = ex.Message;
+            MensagemEhErro = true;
             return;
+        }
+        finally
+        {
+            Ocupado = false;
         }
 
         Limpar();
@@ -182,12 +203,16 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         // telefone gravado já formatado para exibição.
         p.Documento = string.IsNullOrWhiteSpace(Documento) ? null : Cpf.Normalizar(Documento);
         p.Telefone = string.IsNullOrWhiteSpace(Telefone) ? null : Domain.Telefone.Formatar(Telefone);
+        p.DataNascimento = DataNascimento is { } nasc ? DateOnly.FromDateTime(nasc) : null;
+        p.Carteirinha = string.IsNullOrWhiteSpace(Carteirinha) ? null : Carteirinha.Trim();
+        p.ValidadeCarteirinha = ValidadeCarteirinha is { } val ? DateOnly.FromDateTime(val) : null;
         p.ConvenioCodigo = ConvenioCodigo;
         p.Convenio = _convenio; // família derivada do código selecionado
         p.PossuiApp = PossuiApp;
         p.Sexo = Sexo;
         p.Categoria = Categoria;
         p.ModalidadePreferida = ModalidadePreferida;
+        p.Observacoes = string.IsNullOrWhiteSpace(Observacoes) ? null : Observacoes.Trim();
     }
 
     [RelayCommand]
@@ -199,11 +224,15 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         Nome = p.Nome;
         Documento = Cpf.Formatar(p.Documento);
         Telefone = p.Telefone;
+        DataNascimento = p.DataNascimento?.ToDateTime(TimeOnly.MinValue);
+        Carteirinha = p.Carteirinha;
+        ValidadeCarteirinha = p.ValidadeCarteirinha?.ToDateTime(TimeOnly.MinValue);
         ConvenioCodigo = p.ConvenioCodigo ?? p.Convenio.ToString();
         _convenio = p.Convenio;
         PossuiApp = p.PossuiApp;
         Sexo = p.Sexo;
         ModalidadePreferida = p.ModalidadePreferida;
+        Observacoes = p.Observacoes;
         Categoria = p.Categoria;
         // Preserva um override manual (categoria diferente da base do convênio + app).
         _categoriaManual = p.Categoria != CategoriaBase(p.PossuiApp);
@@ -241,13 +270,26 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         Nome = string.Empty;
         Documento = null;
         Telefone = null;
+        DataNascimento = null;
+        Carteirinha = null;
+        ValidadeCarteirinha = null;
         PossuiApp = false;
         ConvenioCodigo = Convenio.UnimedIntercambio.ToString();
         _convenio = Convenio.UnimedIntercambio;
         Sexo = Sexo.Feminino;
         ModalidadePreferida = ModalidadeAtendimento.AcupunturaComEletro;
+        Observacoes = null;
+        Mensagem = null;
         _carregando = false;
         SugerirCategoria();
+    }
+
+    /// <summary>Carrega a tela já com um paciente em edição (usado pelo botão Editar da ficha).</summary>
+    public async Task CarregarEEditarAsync(int pacienteId)
+    {
+        await CarregarAsync();
+        var p = Pacientes.FirstOrDefault(x => x.Id == pacienteId);
+        if (p is not null) Editar(p);
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)

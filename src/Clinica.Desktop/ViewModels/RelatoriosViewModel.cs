@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using Clinica.Application.Modelos;
@@ -23,6 +24,10 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
 
     public ObservableCollection<FaturamentoPorConvenio> PorConvenio { get; } = new();
     public ObservableCollection<FaixaEnvelhecimento> Envelhecimento { get; } = new();
+    public ObservableCollection<ResumoMensal> Comparativo { get; } = new();
+
+    [ObservableProperty] private bool _gerandoFechamento;
+    [ObservableProperty] private string? _mensagem;
 
     public RelatoriosViewModel(IServiceScopeFactory scopeFactory)
     {
@@ -52,6 +57,52 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
 
         Envelhecimento.Clear();
         foreach (var f in rel.Envelhecimento) Envelhecimento.Add(f);
+
+        Comparativo.Clear();
+        foreach (var m in await service.ComparativoMensalAsync(DateOnly.FromDateTime(Fim)))
+            Comparativo.Add(m);
+    }
+
+    /// <summary>
+    /// Fechamento do período (semana ou mês, conforme as datas do filtro): PDF com o
+    /// checklist da faturista — pendências vencidas nominais, glosas em aberto, taxas.
+    /// </summary>
+    [RelayCommand]
+    private async Task GerarFechamento()
+    {
+        if (GerandoFechamento) return;
+        GerandoFechamento = true;
+        try
+        {
+            byte[] pdf;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var fechamento = scope.ServiceProvider.GetRequiredService<FechamentoPdfService>();
+                var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                pdf = await fechamento.GerarAsync(
+                    DateOnly.FromDateTime(Inicio), DateOnly.FromDateTime(Fim), prestador);
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                FileName = $"Fechamento-{Inicio:yyyy-MM-dd}-a-{Fim:yyyy-MM-dd}.pdf",
+                Filter = "PDF (*.pdf)|*.pdf",
+                DefaultExt = ".pdf"
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            await File.WriteAllBytesAsync(dialog.FileName, pdf);
+            Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
+            Mensagem = null;
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível gerar o fechamento: {ex.Message}";
+        }
+        finally
+        {
+            GerandoFechamento = false;
+        }
     }
 
     /// <summary>Exporta o relatório atual em CSV (compatível com Excel pt-BR: ';' e BOM UTF-8).</summary>
@@ -80,13 +131,28 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
         foreach (var c in PorConvenio)
             sb.AppendLine($"{ConvenioInfo.NomeExibicao(c.Convenio)};{c.TotalCodigos};{c.Baixados};{c.Pendentes};{c.TaxaBaixa:0.#}");
         sb.AppendLine();
+        sb.AppendLine("Evolução mensal (últimos 6 meses)");
+        sb.AppendLine("Mês;Gerados;Baixados;Pendentes;Taxa de baixa (%)");
+        foreach (var m in Comparativo)
+            sb.AppendLine($"{m.Rotulo};{m.TotalCodigos};{m.Baixados};{m.Pendentes};{m.TaxaBaixa:0.#}");
+        sb.AppendLine();
         sb.AppendLine("Pendências em aberto (envelhecimento)");
         sb.AppendLine("Faixa;Quantidade");
         foreach (var f in Envelhecimento)
             sb.AppendLine($"{f.Faixa};{f.Quantidade}");
 
         // BOM garante acentos corretos ao abrir direto no Excel.
-        await File.WriteAllTextAsync(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
+        try
+        {
+            await File.WriteAllTextAsync(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
+        }
+        catch (IOException)
+        {
+            // Arquivo aberto no Excel ou sem permissão na pasta: avisa em vez de estourar.
+            System.Windows.MessageBox.Show(
+                "Não foi possível gravar o arquivo. Feche-o no Excel ou escolha outra pasta.",
+                "Exportação", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+        }
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)

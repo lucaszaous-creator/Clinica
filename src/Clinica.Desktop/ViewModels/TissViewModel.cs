@@ -22,6 +22,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private DateTime _inicio;
     [ObservableProperty] private DateTime _fim;
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _ocupado;
 
     public TissViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
@@ -36,6 +37,24 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 
     [RelayCommand]
     private async Task Exportar()
+    {
+        if (Ocupado) return;
+        Ocupado = true;
+        try
+        {
+            await ExportarInterno();
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível gerar o lote: {ex.Message}";
+        }
+        finally
+        {
+            Ocupado = false;
+        }
+    }
+
+    private async Task ExportarInterno()
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
@@ -68,19 +87,47 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
-        var numeroLote = $"LOTE-{DateTime.Now:yyyyMMddHHmm}";
-        var xml = tiss.GerarLoteXml(codigos, dados, numeroLote);
+        // Número de lote SEQUENCIAL (exigência do padrão TISS; timestamp não serve).
+        var numeroLote = await parametros.ObterProximoNumeroLoteTissAsync();
+        var xml = tiss.GerarLoteXml(codigos, dados, numeroLote.ToString());
 
         var dialog = new SaveFileDialog
         {
-            FileName = $"{numeroLote}.xml",
+            FileName = $"TISS-Lote-{numeroLote:000000}-{Fim:yyyy-MM}.xml",
             Filter = "Arquivo TISS (*.xml)|*.xml",
             DefaultExt = ".xml"
         };
         if (dialog.ShowDialog() == true)
         {
             await File.WriteAllTextAsync(dialog.FileName, xml);
-            Mensagem = $"Lote gerado com {codigos.Count} guia(s): {dialog.FileName}";
+
+            // Arquiva uma cópia do lote (histórico auditável do que foi enviado à operadora)
+            // e só então consome o número da sequência.
+            var copia = ArquivarCopiaLote(xml, numeroLote);
+            await parametros.ConfirmarNumeroLoteTissAsync(numeroLote);
+
+            Mensagem = $"Lote nº {numeroLote} gerado com {codigos.Count} guia(s): {dialog.FileName}" +
+                       (copia is null ? string.Empty : $" (cópia arquivada em {copia})");
+        }
+    }
+
+    /// <summary>Guarda uma cópia de cada lote exportado em %APPDATA%\ClinicaFaturamento\tiss.</summary>
+    private static string? ArquivarCopiaLote(string xml, int numeroLote)
+    {
+        try
+        {
+            var pasta = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "ClinicaFaturamento", "tiss");
+            Directory.CreateDirectory(pasta);
+            var arquivo = Path.Combine(pasta, $"TISS-Lote-{numeroLote:000000}-{DateTime.Now:yyyy-MM-dd-HHmm}.xml");
+            File.WriteAllText(arquivo, xml);
+            return arquivo;
+        }
+        catch (Exception ex)
+        {
+            Configuracao.LogErros.Registrar("Arquivar cópia do lote TISS", ex);
+            return null; // cópia é conveniência; a exportação principal já foi salva
         }
     }
 

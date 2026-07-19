@@ -303,7 +303,7 @@
                     <!-- Pesquisa global -->
                     <Grid VerticalAlignment="Center" Margin="8,0" HorizontalAlignment="Left" MaxWidth="360">
                         <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisa}"
-                                 ctrl:Ajudantes.Placeholder="Pesquisar seção…  (Ctrl+F)"
+                                 ctrl:Ajudantes.Placeholder="Pesquisar seção ou paciente…  (Ctrl+F)"
                                  Text="{Binding TextoPesquisaGlobal, UpdateSourceTrigger=PropertyChanged}"
                                  MinWidth="280">
                             <TextBox.InputBindings>
@@ -403,11 +403,11 @@
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding Snackbar.Tipo}" Value="Sucesso">
                                     <Setter Property="Text" Value="&#xE73E;" />
-                                    <Setter Property="Foreground" Value="#4ADE80" />
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Snackbar.Sucesso}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Snackbar.Tipo}" Value="Erro">
                                     <Setter Property="Text" Value="&#xE783;" />
-                                    <Setter Property="Foreground" Value="#F87171" />
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Snackbar.Erro}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>

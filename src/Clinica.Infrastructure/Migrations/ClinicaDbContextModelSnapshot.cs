@@ -239,6 +239,10 @@ namespace Clinica.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("Carteirinha")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<string>("Categoria")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -252,6 +256,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("ConvenioCodigo")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
+
+                    b.Property<DateOnly?>("DataNascimento")
+                        .HasColumnType("date");
 
                     b.Property<string>("Documento")
                         .HasMaxLength(30)
@@ -281,6 +288,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("Telefone")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<DateOnly?>("ValidadeCarteirinha")
+                        .HasColumnType("date");
 
                     b.HasKey("Id");
 

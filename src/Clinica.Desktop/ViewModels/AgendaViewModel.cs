@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
 using Clinica.Application.Servicos;
@@ -34,6 +35,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _ocupado;
 
     private static readonly CultureInfo PtBr = new("pt-BR");
 
@@ -66,10 +68,24 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             Modalidade = value.ModalidadePreferida;
     }
 
+    /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
+    private string? _nomeClinica;
+
     public async Task CarregarAsync()
     {
         await BuscarPacientes();
         await RecarregarDia();
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+            _nomeClinica = string.IsNullOrWhiteSpace(prestador.NomeFantasia) ? prestador.RazaoSocial : prestador.NomeFantasia;
+        }
+        catch
+        {
+            // Sem nome da clínica a mensagem sai sem assinatura; não impede a agenda.
+        }
     }
 
     private async Task RecarregarDia()
@@ -116,25 +132,38 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         // Hora de parede (sem fuso) para casar com a coluna 'timestamp without time zone'.
         var dataHora = DateTime.SpecifyKind(DataNovo.Date.Add(hora.ToTimeSpan()), DateTimeKind.Unspecified);
 
-        using (var scope = _scopeFactory.CreateScope())
+        if (Ocupado) return;
+        Ocupado = true;
+        try
         {
-            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
 
-            // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
-            var conflito = await agenda.ConflitoAsync(dataHora);
-            if (conflito is not null &&
-                !_dialogo.Confirmar("Horário ocupado",
-                    $"{conflito.Paciente?.Nome} já está agendado em {dataHora:dd/MM} às {dataHora:HH:mm}.\n" +
-                    "Agendar mesmo assim (encaixe)?"))
-                return;
+                // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
+                var conflito = await agenda.ConflitoAsync(dataHora);
+                if (conflito is not null &&
+                    !_dialogo.Confirmar("Horário ocupado",
+                        $"{conflito.Paciente?.Nome} já está agendado em {dataHora:dd/MM} às {dataHora:HH:mm}.\n" +
+                        "Agendar mesmo assim (encaixe)?"))
+                    return;
 
-            await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes);
+                await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes);
+            }
+
+            Mensagem = "Agendamento criado.";
+            Observacoes = null;
+            Dia = DataNovo; // pula para o dia agendado
+            await RecarregarDia();
         }
-
-        Mensagem = "Agendamento criado.";
-        Observacoes = null;
-        Dia = DataNovo; // pula para o dia agendado
-        await RecarregarDia();
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível agendar: {ex.Message}";
+        }
+        finally
+        {
+            Ocupado = false;
+        }
     }
 
     [RelayCommand]
@@ -144,14 +173,27 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         if (!_dialogo.Confirmar("Confirmar presença",
             $"Confirmar presença de {ag.Paciente?.Nome} e gerar o atendimento (códigos de faturamento)?")) return;
 
-        using (var scope = _scopeFactory.CreateScope())
+        if (Ocupado) return;
+        Ocupado = true;
+        try
         {
-            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
-            Mensagem = $"Atendimento gerado com {resultado.Atendimento.Codigos.Count} código(s).";
-        }
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+                var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
+                Mensagem = $"Atendimento gerado com {resultado.Atendimento.Codigos.Count} código(s).";
+            }
 
-        await RecarregarDia();
+            await RecarregarDia();
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível confirmar a presença: {ex.Message}";
+        }
+        finally
+        {
+            Ocupado = false;
+        }
     }
 
     [RelayCommand]
@@ -176,6 +218,43 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             await agenda.MarcarFaltaAsync(ag.Id);
         }
         await RecarregarDia();
+    }
+
+    /// <summary>
+    /// Abre o WhatsApp (wa.me) com a mensagem de confirmação pronta para o paciente.
+    /// Falta de paciente é sessão não faturada — confirmar na véspera é rotina da recepção.
+    /// </summary>
+    [RelayCommand]
+    private void Whatsapp(Agendamento? ag)
+    {
+        if (ag?.Paciente is null) return;
+
+        var fone = Telefone.Normalizar(ag.Paciente.Telefone);
+        if (fone.Length is < 10 or > 13)
+        {
+            Mensagem = $"{ag.Paciente.Nome}: telefone ausente ou inválido no cadastro (edite em Pacientes).";
+            return;
+        }
+        if (fone.Length is 10 or 11)
+            fone = "55" + fone; // wa.me exige DDI
+
+        var primeiroNome = ag.Paciente.Nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ag.Paciente.Nome;
+        var quando = ag.DataHora.Date == DateTime.Today.AddDays(1) ? "amanhã" : ag.DataHora.ToString("dd/MM", PtBr);
+        var texto = $"Olá, {primeiroNome}! Estamos confirmando sua sessão {quando} às {ag.DataHora:HH:mm}." +
+                    " Se tiver algum imprevisto, é só responder por aqui." +
+                    (string.IsNullOrWhiteSpace(_nomeClinica) ? string.Empty : $" — {_nomeClinica}");
+
+        try
+        {
+            Process.Start(new ProcessStartInfo($"https://wa.me/{fone}?text={Uri.EscapeDataString(texto)}")
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível abrir o WhatsApp: {ex.Message}";
+        }
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)

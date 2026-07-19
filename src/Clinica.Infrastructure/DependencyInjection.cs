@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<GlosaService>();
         services.AddScoped<TissExportService>();
         services.AddScoped<CapaFaturamentoService>();
+        services.AddScoped<FechamentoPdfService>();
         services.AddScoped<ParametrosService>();
         services.AddScoped<ConvenioCatalogoService>();
         return services;

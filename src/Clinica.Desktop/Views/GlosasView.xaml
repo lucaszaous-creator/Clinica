@@ -18,6 +18,8 @@
                     <TextBlock Text="Atualizar" />
                 </StackPanel>
             </Button>
+            <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
+                       Foreground="{StaticResource Brush.Erro}" />
         </StackPanel>
 
         <Border Grid.Row="2" Style="{StaticResource Card}">

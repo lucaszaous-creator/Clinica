@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
@@ -18,10 +19,30 @@ public partial class FichaPacienteViewModel : ObservableObject
 
     [ObservableProperty] private Paciente? _paciente;
     [ObservableProperty] private string _cpfFormatado = string.Empty;
+    [ObservableProperty] private string? _nomeConvenio;
+    [ObservableProperty] private string? _mensagem;
+
+    /// <summary>Ex.: "14/03/1962 (64 anos)"; "—" quando não informado.</summary>
+    [ObservableProperty] private string _nascimentoTexto = "—";
+    [ObservableProperty] private string _carteirinhaTexto = "—";
+    [ObservableProperty] private bool _carteirinhaVencida;
+    [ObservableProperty] private string? _validadeCarteirinhaTexto;
+
+    // Indicadores da ficha
+    [ObservableProperty] private int _totalSessoes;
+    [ObservableProperty] private int _totalBaixados;
+    [ObservableProperty] private int _totalPendentes;
+    [ObservableProperty] private string _ultimaSessao = "—";
+
+    /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
+    private string? _nomeClinica;
 
     public ObservableCollection<CodigoFaturamento> Codigos { get; } = new();
 
     public event Action? Voltar;
+
+    /// <summary>Pede ao shell para abrir o cadastro já em modo de edição deste paciente.</summary>
+    public event Action<int>? EditarSolicitado;
 
     public FichaPacienteViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
@@ -44,6 +65,76 @@ public partial class FichaPacienteViewModel : ObservableObject
                 .SelectMany(a => a.Codigos)
                 .OrderByDescending(c => c.DataPrevistaFaturamento);
             foreach (var c in todos) Codigos.Add(c);
+
+            NomeConvenio = Domain.Regras.ConvenioInfo.NomeExibicao(Paciente.Convenio);
+
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+            if (Paciente.DataNascimento is { } nasc)
+            {
+                var idade = hoje.Year - nasc.Year;
+                if (new DateOnly(hoje.Year, nasc.Month, Math.Min(nasc.Day, DateTime.DaysInMonth(hoje.Year, nasc.Month))) > hoje)
+                    idade--;
+                NascimentoTexto = $"{nasc:dd/MM/yyyy} ({idade} anos)";
+            }
+            else
+            {
+                NascimentoTexto = "—";
+            }
+
+            CarteirinhaTexto = string.IsNullOrWhiteSpace(Paciente.Carteirinha) ? "—" : Paciente.Carteirinha;
+            CarteirinhaVencida = Paciente.ValidadeCarteirinha is { } val && val < hoje;
+            ValidadeCarteirinhaTexto = Paciente.ValidadeCarteirinha is { } v2
+                ? (CarteirinhaVencida ? $"Carteirinha VENCIDA em {v2:dd/MM/yyyy}" : $"Carteirinha válida até {v2:dd/MM/yyyy}")
+                : null;
+            TotalSessoes = Paciente.Atendimentos.Count;
+            TotalBaixados = Codigos.Count(c => c.Baixado);
+            TotalPendentes = Codigos.Count(c => c.EstaPendente(hoje));
+            UltimaSessao = Paciente.Atendimentos.Count > 0
+                ? Paciente.Atendimentos.Max(a => a.Data).ToString("dd/MM/yyyy")
+                : "—";
+        }
+
+        try
+        {
+            var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+            _nomeClinica = string.IsNullOrWhiteSpace(prestador.NomeFantasia) ? prestador.RazaoSocial : prestador.NomeFantasia;
+        }
+        catch
+        {
+            // Sem assinatura na mensagem; não impede a ficha.
+        }
+    }
+
+    /// <summary>Abre a conversa de WhatsApp (wa.me) com o paciente.</summary>
+    [RelayCommand]
+    private void Whatsapp()
+    {
+        if (Paciente is null) return;
+
+        var fone = Domain.Telefone.Normalizar(Paciente.Telefone);
+        if (fone.Length is < 10 or > 13)
+        {
+            Mensagem = "Telefone ausente ou inválido no cadastro (edite em Pacientes).";
+            return;
+        }
+        if (fone.Length is 10 or 11)
+            fone = "55" + fone; // wa.me exige DDI
+
+        var primeiroNome = Paciente.Nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? Paciente.Nome;
+        var texto = $"Olá, {primeiroNome}!" +
+                    (string.IsNullOrWhiteSpace(_nomeClinica) ? string.Empty : $" Aqui é da {_nomeClinica}.");
+
+        try
+        {
+            Process.Start(new ProcessStartInfo($"https://wa.me/{fone}?text={Uri.EscapeDataString(texto)}")
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível abrir o WhatsApp: {ex.Message}";
         }
     }
 
@@ -64,4 +155,10 @@ public partial class FichaPacienteViewModel : ObservableObject
 
     [RelayCommand]
     private void FecharFicha() => Voltar?.Invoke();
+
+    [RelayCommand]
+    private void EditarCadastro()
+    {
+        if (_pacienteId != 0) EditarSolicitado?.Invoke(_pacienteId);
+    }
 }

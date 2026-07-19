@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Desktop.Views.RelatoriosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -26,6 +27,17 @@
                     <TextBlock Text="Exportar CSV" />
                 </StackPanel>
             </Button>
+            <Button Style="{StaticResource BotaoSecundario}" Command="{Binding GerarFechamentoCommand}"
+                    ctrl:Ajudantes.EstaCarregando="{Binding GerandoFechamento}"
+                    ToolTip="PDF de fechamento do período: pendências vencidas nominais, glosas em aberto e evolução mensal"
+                    Margin="8,0,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE749;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                    <TextBlock Text="Fechamento (PDF)" />
+                </StackPanel>
+            </Button>
+            <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
+                       Foreground="{StaticResource Brush.Erro}" />
         </StackPanel>
 
         <!-- KPIs -->
@@ -91,19 +103,37 @@
                 </DockPanel>
             </Border>
 
-            <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Top">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Pendências em aberto (envelhecimento)"
-                               Style="{StaticResource H2}" Margin="0,0,0,8" TextWrapping="Wrap" />
-                    <DataGrid ItemsSource="{Binding Envelhecimento}" AutoGenerateColumns="False"
-                              IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Faixa" Binding="{Binding Faixa}" Width="*" />
-                            <DataGridTextColumn Header="Qtde" Binding="{Binding Quantidade}" Width="Auto" />
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </DockPanel>
-            </Border>
+            <StackPanel Grid.Column="1">
+                <Border Style="{StaticResource Card}" VerticalAlignment="Top">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Pendências em aberto (envelhecimento)"
+                                   Style="{StaticResource H2}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                        <DataGrid ItemsSource="{Binding Envelhecimento}" AutoGenerateColumns="False"
+                                  IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Faixa" Binding="{Binding Faixa}" Width="*" />
+                                <DataGridTextColumn Header="Qtde" Binding="{Binding Quantidade}" Width="Auto" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,16,0,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Evolução mensal (últimos 6 meses)"
+                                   Style="{StaticResource H2}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                        <DataGrid ItemsSource="{Binding Comparativo}" AutoGenerateColumns="False"
+                                  IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Mês" Binding="{Binding Rotulo}" Width="*" />
+                                <DataGridTextColumn Header="Gerados" Binding="{Binding TotalCodigos}" Width="Auto" />
+                                <DataGridTextColumn Header="Baixados" Binding="{Binding Baixados}" Width="Auto" />
+                                <DataGridTextColumn Header="% baixa" Binding="{Binding TaxaBaixa}" Width="Auto" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
         </Grid>
     </Grid>
 </UserControl>

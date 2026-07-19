@@ -1,15 +1,19 @@
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Text;
 using System.Windows;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Alertas;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Infrastructure;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Win32;
 
 namespace Clinica.Desktop.ViewModels;
 
@@ -23,6 +27,7 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 
     [ObservableProperty] private DateTime _inicio;
     [ObservableProperty] private DateTime _fim;
+    [ObservableProperty] private string? _mensagem;
 
     public FaturadosViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
@@ -93,6 +98,49 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
             _scopeFactory, codigo.AtendimentoId, codigo.Atendimento?.Numero, codigo.Atendimento?.Data ?? default);
     }
 
+    /// <summary>Exporta as guias do período em CSV (Excel pt-BR: ';' e BOM UTF-8) para conferência com o convênio.</summary>
+    [RelayCommand]
+    private async Task ExportarCsv()
+    {
+        if (Baixados.Count == 0)
+        {
+            Mensagem = "Nada a exportar — busque um período com guias baixadas.";
+            return;
+        }
+
+        var dialog = new SaveFileDialog
+        {
+            FileName = $"Faturados-{Inicio:yyyy-MM-dd}-a-{Fim:yyyy-MM-dd}.csv",
+            Filter = "CSV (*.csv)|*.csv",
+            DefaultExt = ".csv"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Paciente;Convênio;Código;Ordem;Nº guia;Baixado em;Glosa");
+            foreach (var c in Baixados)
+                sb.AppendLine(string.Join(';',
+                    c.Atendimento?.Paciente?.Nome,
+                    ConvenioInfo.NomeExibicao(c.Atendimento?.Paciente?.Convenio ?? default),
+                    c.Tipo,
+                    c.Ordem,
+                    c.NumeroGuiaReal,
+                    c.DataBaixa?.ToString("dd/MM/yyyy"),
+                    c.Glosa));
+
+            // BOM garante acentos corretos ao abrir direto no Excel.
+            await File.WriteAllTextAsync(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
+            Mensagem = $"Exportado: {Baixados.Count} guia(s) em {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível exportar: {ex.Message}";
+        }
+    }
+
     // Atalhos globais do shell (IAtalhosDeTela)
     public ICommand? AtalhoAtualizar => BuscarCommand;
+    public ICommand? AtalhoImprimir => ExportarCsvCommand;
 }

@@ -4,6 +4,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Desktop.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,8 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         => TemConvenioSelecionado = value is not null;
 
     [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _mensagemEhErro;
+    [ObservableProperty] private bool _salvando;
 
     /// <summary>Dias antes do vencimento em que a consulta entra em alerta.</summary>
     [ObservableProperty] private int _janelaAlertaConsultaDias = 5;
@@ -54,7 +57,13 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _tussConsulta;
     [ObservableProperty] private string? _tussEspecialidade;
 
-    public ParametrosViewModel(IServiceScopeFactory scopeFactory) => _scopeFactory = scopeFactory;
+    private readonly ISnackbarService _snackbar;
+
+    public ParametrosViewModel(IServiceScopeFactory scopeFactory, ISnackbarService snackbar)
+    {
+        _scopeFactory = scopeFactory;
+        _snackbar = snackbar;
+    }
 
     public async Task CarregarAsync()
     {
@@ -129,16 +138,41 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand]
     private async Task Salvar()
     {
-        using var scope = _scopeFactory.CreateScope();
-        var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
-        var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
+        if (Salvando) return;
 
-        await parametros.SalvarAsync(Itens.ToList());
-        await parametros.SalvarJanelaAlertaConsultaAsync(JanelaAlertaConsultaDias);
-        await parametros.SalvarPrestadorAsync(MontarPrestador());
-        await catalogo.SalvarAsync(Catalogo.ToList());
+        if (JanelaAlertaConsultaDias < 0)
+        {
+            Mensagem = "A antecedência do alerta de consultas não pode ser negativa.";
+            MensagemEhErro = true;
+            return;
+        }
 
-        Mensagem = "Configurações salvas. Valem imediatamente em todas as máquinas.";
+        Salvando = true;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+            var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
+
+            await parametros.SalvarAsync(Itens.ToList());
+            await parametros.SalvarJanelaAlertaConsultaAsync(JanelaAlertaConsultaDias);
+            await parametros.SalvarPrestadorAsync(MontarPrestador());
+            await catalogo.SalvarAsync(Catalogo.ToList());
+
+            Mensagem = "Configurações salvas. Valem imediatamente em todas as máquinas.";
+            MensagemEhErro = false;
+            _snackbar.Sucesso("Configurações salvas.");
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível salvar: {ex.Message}";
+            MensagemEhErro = true;
+            _snackbar.Erro("Erro ao salvar as configurações. Nada foi perdido na tela.");
+        }
+        finally
+        {
+            Salvando = false;
+        }
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)

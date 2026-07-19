@@ -23,6 +23,7 @@ Fonte da verdade: `src/Clinica.Desktop/Styles/Tokens.xaml` (espelhado em `tokens
 | `Brush.Erro` / `.Hover` / `.Suave` | `--erro*` | `#DC2626` / `#B91C1C` / `#FEE2E2` | Erros, ações destrutivas |
 | `Brush.Info` / `.Suave` | `--info*` | `#0EA5E9` / `#E0F2FE` | Informação |
 | `Brush.Sidebar.*` | `--sidebar-*` | — | Fundo/hover/ativo/texto da sidebar |
+| `Brush.Snackbar.Sucesso` / `.Erro` | — | `#4ADE80` / `#F87171` | Ícones de estado sobre o fundo escuro do snackbar |
 
 Semáforo de urgência do domínio (`UrgenciaParaCorConverter`): verde `#2E7D32`, amarelo `#F9A825`, vermelho `#C62828` — não usar fora do semáforo.
 
@@ -52,4 +53,4 @@ Compostos: `Margem.Pagina`=24, `Padding.Card`=16, `Padding.Campo`=12,8, `Padding
 
 ## Iconografia
 
-`FonteIcones` = "Segoe Fluent Icons, Segoe MDL2 Assets" (nativas do Windows; nunca emoji). Estilo `Icone` para TextBlocks de glifo. Glifos em uso: pesquisa `E721`, refresh `E72C`, sino `EA8F`, adicionar `E710`, chevrons `E70D/E70E/E76B/E76C`, hambúrguer `E700`, impressora `E749`, check `E73E`, erro `E783`, info `E946`.
+`FonteIcones` = "Segoe Fluent Icons, Segoe MDL2 Assets" (nativas do Windows; nunca emoji). Estilo `Icone` para TextBlocks de glifo. Glifos em uso: pesquisa `E721`, refresh `E72C`, sino `EA8F`, adicionar `E710`, chevrons `E70D/E70E/E76B/E76C`, hambúrguer `E700`, impressora `E749`, check `E73E`, erro `E783`, info `E946`, salvar/exportar `E74E`, mensagem/WhatsApp `E8BD`, pessoa `E77B`.

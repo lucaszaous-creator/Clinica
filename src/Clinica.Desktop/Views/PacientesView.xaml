@@ -4,102 +4,203 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="360" />
+            <ColumnDefinition Width="380" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Formulário -->
-        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,24,0" VerticalAlignment="Top">
-            <StackPanel>
-                <TextBlock Text="{Binding TituloFormulario}" Style="{StaticResource H2}" />
+        <!-- ===== Formulário (cadastro/edição) ===== -->
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,24,0">
+            <Border Style="{StaticResource Card}" VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Text="{Binding TituloFormulario}" Style="{StaticResource H2}" />
 
-                <TextBlock Text="Nome" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" />
+                    <!-- Identificação -->
+                    <TextBlock Text="Nome completo" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}"
+                             ctrl:Ajudantes.Placeholder="Ex.: Maria da Silva" />
 
-                <TextBlock Text="CPF" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Documento, UpdateSourceTrigger=PropertyChanged}" />
-
-                <TextBlock Text="Telefone" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Telefone}" />
-
-                <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
-                <ComboBox ItemsSource="{Binding Convenios}" SelectedValue="{Binding ConvenioCodigo}"
-                          SelectedValuePath="Codigo" DisplayMemberPath="Nome" />
-
-                <TextBlock Text="Sexo (usado pela Petrobras)" Style="{StaticResource Rotulo}" />
-                <ComboBox ItemsSource="{Binding Sexos}" SelectedItem="{Binding Sexo}" />
-
-                <CheckBox Content="Possui app da Unimed (gera QR Code)" IsChecked="{Binding PossuiApp}" Margin="0,12,0,12" />
-
-                <TextBlock Text="Categoria (semáforo)" Style="{StaticResource Rotulo}" />
-                <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}" />
-                <TextBlock Text="Sugerida pelo convênio + app; pode ser ajustada manualmente."
-                           FontSize="11" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,3,0,0" TextWrapping="Wrap" />
-
-                <TextBlock Text="Modalidade padrão" Style="{StaticResource Rotulo}" />
-                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadePreferida}" />
-
-                <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                    <Button Content="Salvar" Command="{Binding SalvarCommand}" />
-                    <Button Content="Limpar" Style="{StaticResource BotaoSecundario}" Command="{Binding NovoCommand}" Margin="8,0,0,0" />
-                </StackPanel>
-                <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Sucesso.Forte}" Margin="0,10,0,0" TextWrapping="Wrap" />
-            </StackPanel>
-        </Border>
-
-        <!-- Lista -->
-        <DockPanel Grid.Column="1">
-            <TextBlock Text="Pacientes" Style="{StaticResource H1}" DockPanel.Dock="Top" />
-
-            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
-                <TextBlock Text="Buscar paciente (nome ou CPF)" Style="{StaticResource Rotulo}" Margin="0,0,0,3" />
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBox Grid.Column="0" Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
-                             Style="{StaticResource CampoPesquisa}"
-                             ctrl:Ajudantes.Placeholder="Digite o nome ou CPF para buscar…" />
-                    <Button Grid.Column="1" Command="{Binding BuscarCommand}"
-                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
-                            <TextBlock Text="Atualizar" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="CPF" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Documento, UpdateSourceTrigger=PropertyChanged}"
+                                     ctrl:Ajudantes.Placeholder="000.000.000-00" MaxLength="14" />
                         </StackPanel>
-                    </Button>
-                </Grid>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Telefone (WhatsApp)" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Telefone}"
+                                     ctrl:Ajudantes.Placeholder="(22) 99999-9999" MaxLength="16" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Data de nascimento" Style="{StaticResource Rotulo}" />
+                            <DatePicker SelectedDate="{Binding DataNascimento}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Nº da carteirinha" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Carteirinha}"
+                                     ctrl:Ajudantes.Placeholder="Como está impresso no cartão" MaxLength="40" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Validade da carteirinha" Style="{StaticResource Rotulo}" />
+                    <DatePicker SelectedDate="{Binding ValidadeCarteirinha}"
+                                ToolTip="Carteirinha vencida = guia recusada; a ficha avisa quando vencer" />
+
+                    <!-- Convênio e regras de faturamento -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*" />
+                            <ColumnDefinition Width="2*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                            <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding Convenios}" SelectedValue="{Binding ConvenioCodigo}"
+                                      SelectedValuePath="Codigo" DisplayMemberPath="Nome" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                            <TextBlock Text="Sexo" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding Sexos}" SelectedItem="{Binding Sexo}"
+                                      ToolTip="Usado pela Petrobras na rotação de especialidades" />
+                        </StackPanel>
+                    </Grid>
+
+                    <CheckBox Content="Possui app da Unimed (gera QR Code do 2º código)"
+                              IsChecked="{Binding PossuiApp}" Style="{StaticResource Switch}" Margin="0,12,0,4" />
+
+                    <TextBlock Text="Categoria (semáforo)" Style="{StaticResource Rotulo}" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Ellipse Grid.Column="0" Width="10" Height="10" VerticalAlignment="Center" Margin="0,0,8,0"
+                                 Fill="{Binding Categoria, Converter={StaticResource CategoriaParaCor}}" />
+                        <ComboBox Grid.Column="1" ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}" />
+                    </Grid>
+                    <TextBlock Text="Sugerida automaticamente pelo convênio + app; ajuste só em exceções."
+                               Style="{StaticResource TextoSuave}" Margin="0,3,0,0" TextWrapping="Wrap" />
+
+                    <TextBlock Text="Modalidade habitual" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadePreferida}"
+                              ToolTip="Pré-preenche a Agenda e o Novo atendimento" />
+
+                    <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"
+                             MinHeight="56" MaxHeight="120" VerticalScrollBarVisibility="Auto"
+                             ctrl:Ajudantes.Placeholder="Ex.: prefere horários de manhã; carteirinha vence em agosto…" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                        <Button Content="Salvar" Command="{Binding SalvarCommand}"
+                                ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
+                        <Button Content="Limpar" Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding NovoCommand}" Margin="8,0,0,0"
+                                ToolTip="Descartar a edição e voltar ao cadastro em branco" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding Mensagem}" Margin="0,10,0,0" TextWrapping="Wrap">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <!-- ===== Lista ===== -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Pacientes" Style="{StaticResource H1}" />
+                <Border Style="{StaticResource Badge}" VerticalAlignment="Center" Margin="12,4,0,0">
+                    <TextBlock>
+                        <Run Text="{Binding Pacientes.Count, Mode=OneWay}" /><Run Text=" cadastrado(s)" />
+                    </TextBlock>
+                </Border>
             </StackPanel>
 
-            <DataGrid ItemsSource="{Binding Pacientes}">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="Nome" Binding="{Binding Nome}" Width="*" />
-                    <DataGridTextColumn Header="CPF" Binding="{Binding Documento, Converter={StaticResource Cpf}}" Width="Auto" />
-                    <DataGridTextColumn Header="Convênio"
-                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
-                    <DataGridTextColumn Header="Telefone" Binding="{Binding Telefone}" Width="Auto" />
-                    <DataGridTextColumn Header="Categoria" Binding="{Binding Categoria}" Width="Auto" />
-                    <DataGridTemplateColumn Header="Ações" Width="Auto">
-                        <DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal">
-                                    <Button Content="Ficha" Style="{StaticResource BotaoAcaoGrid}"
-                                            Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                            CommandParameter="{Binding}" />
-                                    <Button Content="Editar" Margin="6,0,0,0"
-                                            Style="{StaticResource BotaoAcaoGridSecundario}"
-                                            Command="{Binding DataContext.EditarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                            CommandParameter="{Binding}" />
-                                    <Button Content="Excluir" Margin="6,0,0,0"
-                                            Style="{StaticResource BotaoAcaoGridPerigo}"
-                                            Command="{Binding DataContext.ExcluirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                            CommandParameter="{Binding}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </DataGridTemplateColumn.CellTemplate>
-                    </DataGridTemplateColumn>
-                </DataGrid.Columns>
-            </DataGrid>
-        </DockPanel>
+            <TextBox Grid.Row="1" Margin="0,8,0,10"
+                     Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                     Style="{StaticResource CampoPesquisa}"
+                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF — a lista filtra enquanto você digita…" />
+
+            <Grid Grid.Row="2">
+                <ctrl:EmptyState Glifo="&#xE716;" Titulo="Nenhum paciente encontrado" Panel.ZIndex="1"
+                                 Descricao="Ajuste a busca ou cadastre um novo paciente no formulário ao lado.">
+                    <ctrl:EmptyState.Style>
+                        <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Pacientes.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ctrl:EmptyState.Style>
+                </ctrl:EmptyState>
+
+                <DataGrid ItemsSource="{Binding Pacientes}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Nome" Binding="{Binding Nome}" Width="*" />
+                        <DataGridTextColumn Header="CPF" Binding="{Binding Documento, Converter={StaticResource Cpf}}" Width="Auto" />
+                        <DataGridTextColumn Header="Convênio"
+                                            Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
+                        <DataGridTextColumn Header="Telefone" Binding="{Binding Telefone}" Width="Auto" />
+                        <DataGridTemplateColumn Header="Categoria" Width="Auto" SortMemberPath="Categoria">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
+                                                 Fill="{Binding Categoria, Converter={StaticResource CategoriaParaCor}}" />
+                                        <TextBlock Text="{Binding Categoria}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Ações" Width="Auto">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Ficha" Style="{StaticResource BotaoAcaoGrid}"
+                                                ToolTip="Histórico completo de atendimentos e guias"
+                                                Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="Editar" Margin="6,0,0,0"
+                                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                Command="{Binding DataContext.EditarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="Excluir" Margin="6,0,0,0"
+                                                Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                Command="{Binding DataContext.ExcluirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Grid>
     </Grid>
 </UserControl>

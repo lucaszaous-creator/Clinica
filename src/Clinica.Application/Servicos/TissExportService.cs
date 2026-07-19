@@ -89,7 +89,9 @@ public sealed class TissExportService
             new XElement(Ans + "dataAtendimento", primeiro.Atendimento?.Data.ToString("yyyy-MM-dd") ?? string.Empty),
             new XElement(Ans + "dadosBeneficiario",
                 new XElement(Ans + "nomeBeneficiario", paciente?.Nome ?? string.Empty),
-                new XElement(Ans + "numeroCarteira", paciente?.Documento ?? string.Empty)),
+                // Carteirinha do convênio quando cadastrada; CPF como último recurso.
+                new XElement(Ans + "numeroCarteira",
+                    !string.IsNullOrWhiteSpace(paciente?.Carteirinha) ? paciente!.Carteirinha! : paciente?.Documento ?? string.Empty)),
             new XElement(Ans + "procedimentosExecutados", procedimentos));
     }
 }

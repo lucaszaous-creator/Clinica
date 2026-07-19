@@ -8,6 +8,14 @@ public class Paciente
     public string? Documento { get; set; }
     public string? Telefone { get; set; }
 
+    public DateOnly? DataNascimento { get; set; }
+
+    /// <summary>Número da carteirinha do convênio (vai na guia).</summary>
+    public string? Carteirinha { get; set; }
+
+    /// <summary>Validade da carteirinha — vencida = guia recusada na hora.</summary>
+    public DateOnly? ValidadeCarteirinha { get; set; }
+
     /// <summary>Família de regra do convênio (define como faturar). Mantida para o motor de regras.</summary>
     public Convenio Convenio { get; set; }
 

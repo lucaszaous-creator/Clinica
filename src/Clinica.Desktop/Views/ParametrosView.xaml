@@ -1,7 +1,8 @@
 <UserControl x:Class="Clinica.Desktop.Views.ParametrosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:Clinica.Desktop.ViewModels">
+             xmlns:vm="clr-namespace:Clinica.Desktop.ViewModels"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -27,8 +28,8 @@
                                 <Button Content="+ Novo convênio" Command="{Binding NovoConvenioCommand}"
                                         Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Right" />
                             </Grid>
-                            <DataGrid ItemsSource="{Binding Catalogo}" SelectedItem="{Binding ConvenioSelecionado}"
-                                      IsReadOnly="False" CanUserAddRows="False"
+                            <DataGrid x:Name="GridCatalogo" ItemsSource="{Binding Catalogo}" SelectedItem="{Binding ConvenioSelecionado}"
+                                      IsReadOnly="False" CanUserAddRows="False" MaxHeight="320"
                                       AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
                                     <DataGridCheckBoxColumn Header="Ativo" Binding="{Binding Ativo, UpdateSourceTrigger=PropertyChanged}" Width="Auto" />
@@ -57,11 +58,11 @@
                                     <ColumnDefinition Width="2*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Nome do convênio" Style="{StaticResource Rotulo}" />
                                     <TextBox x:Name="NomeConvenioBox" Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                     <TextBlock Text="Fatura como (família)" Style="{StaticResource Rotulo}" />
                                     <ComboBox ItemsSource="{x:Static vm:FontesEnum.Familias}" SelectedItem="{Binding Familia}" />
                                 </StackPanel>
@@ -79,17 +80,17 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Como obter o 2º código" Style="{StaticResource Rotulo}" />
                                     <ComboBox ItemsSource="{x:Static vm:FontesEnum.FormasObtencao}" SelectedItem="{Binding FormaSegundoCodigo}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="6,0,6,0">
+                                <StackPanel Grid.Column="1" Margin="8,0,8,0">
                                     <TextBlock Text="Dias até o 2º código" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding DiasSegundoCodigo}" />
+                                    <TextBox Text="{Binding DiasSegundoCodigo}" ctrl:Ajudantes.SomenteNumeros="True" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                <StackPanel Grid.Column="2" Margin="8,0,0,0">
                                     <TextBlock Text="Validade da consulta (dias, vazio = sem)" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding ValidadeConsultaDias}" />
+                                    <TextBox Text="{Binding ValidadeConsultaDias}" ctrl:Ajudantes.SomenteNumeros="True" />
                                 </StackPanel>
                             </Grid>
                             <Grid Margin="0,8,0,0">
@@ -97,11 +98,11 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Categoria (com app)" Style="{StaticResource Rotulo}" />
                                     <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaComApp}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                     <TextBlock Text="Categoria (sem app)" Style="{StaticResource Rotulo}" />
                                     <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaSemApp}" />
                                 </StackPanel>
@@ -113,8 +114,8 @@
                     <Border Style="{StaticResource Card}" VerticalAlignment="Top">
                         <DockPanel>
                             <TextBlock DockPanel.Dock="Top" Text="Regras por família de convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                            <DataGrid ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
-                                      AutoGenerateColumns="False" HeadersVisibility="Column">
+                            <DataGrid x:Name="GridFamilias" ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
+                                      MaxHeight="320" AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Família" IsReadOnly="True"
                                                         Binding="{Binding Convenio}" Width="2*" />
@@ -143,6 +144,7 @@
                                 <TextBlock Text="Avisar com" VerticalAlignment="Center" Margin="0,0,8,0"
                                            Foreground="{StaticResource Brush.Texto.Primario}" />
                                 <TextBox Text="{Binding JanelaAlertaConsultaDias}"
+                                         ctrl:Ajudantes.SomenteNumeros="True"
                                          MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
                                          VerticalContentAlignment="Center" VerticalAlignment="Center" />
                                 <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="8,0,0,0"
@@ -232,30 +234,30 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Acupuntura" Style="{StaticResource Rotulo}" />
                                     <TextBox Text="{Binding TussAcupuntura}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="6,0,6,0">
+                                <StackPanel Grid.Column="1" Margin="8,0,8,0">
                                     <TextBlock Text="Eletroacupuntura" Style="{StaticResource Rotulo}" />
                                     <TextBox Text="{Binding TussEletro}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="2" Margin="6,0,0,0">
+                                <StackPanel Grid.Column="2" Margin="8,0,0,0">
                                     <TextBlock Text="BSV" Style="{StaticResource Rotulo}" />
                                     <TextBox Text="{Binding TussBsv}" />
                                 </StackPanel>
                             </Grid>
-                            <Grid Margin="0,6,0,0">
+                            <Grid Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Consulta" Style="{StaticResource Rotulo}" />
                                     <TextBox Text="{Binding TussConsulta}" />
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="6,0,6,0">
+                                <StackPanel Grid.Column="1" Margin="8,0,8,0">
                                     <TextBlock Text="Consulta especialidade" Style="{StaticResource Rotulo}" />
                                     <TextBox Text="{Binding TussEspecialidade}" />
                                 </StackPanel>
@@ -267,10 +269,23 @@
             </TabItem>
         </TabControl>
 
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,14,0,0" VerticalAlignment="Center">
-            <Button Content="Salvar configurações" Command="{Binding SalvarCommand}" />
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,0" VerticalAlignment="Center">
+            <Button Content="Salvar configurações" Command="{Binding SalvarCommand}"
+                    Click="Salvar_Click"
+                    ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
-                       Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                       TextWrapping="Wrap" MaxWidth="640">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
         </StackPanel>
     </Grid>
 </UserControl>

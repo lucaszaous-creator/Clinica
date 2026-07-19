@@ -16,6 +16,15 @@
             <TextBlock Text="Até:" VerticalAlignment="Center" Margin="16,0,6,0" />
             <DatePicker SelectedDate="{Binding Fim}" Width="140" />
             <Button Content="Buscar" Command="{Binding BuscarCommand}" Margin="16,0,0,0" />
+            <Button Command="{Binding ExportarCsvCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0"
+                    ToolTip="Exportar as guias do período em CSV (abre no Excel)">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE74E;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                    <TextBlock Text="Exportar CSV" />
+                </StackPanel>
+            </Button>
+            <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
+                       Foreground="{StaticResource Brush.Texto.Secundario}" />
         </StackPanel>
 
         <Border Grid.Row="2" Style="{StaticResource Card}">
