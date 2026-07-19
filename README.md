@@ -32,6 +32,25 @@ Solução em camadas (.NET 8):
 Não há nenhum campo de dinheiro/pagamento. **Baixa** = registro de que a secretária efetivou a
 guia no sistema do convênio (data, número real da guia, forma de obtenção).
 
+## Ciclo TISS completo (lote → envio → retorno → glosa → recurso)
+
+Além das pendências de baixa, o sistema fecha o ciclo junto à operadora:
+
+- **Lotes TISS** (tela Guias TISS): o XML (padrão **TISS 4.01**, guia de consulta e SP/SADT,
+  epílogo com hash) sai como um **lote registrado** — número sequencial, guias incluídas,
+  data de geração. Guia exportada não entra de novo em outro lote (fim do reenvio duplicado).
+- **Envio**: o lote é marcado como enviado com a data e o **protocolo da operadora**.
+- **Retorno (demonstrativo de análise)**: registro guia a guia do que a operadora aceitou e
+  glosou, com **motivo padronizado da tabela ANS**.
+- **Glosas com prazo de recurso**: cada glosa ganha uma **data-limite de recurso**
+  (prazo configurável, padrão 30 dias) vigiada no dashboard com o mesmo semáforo do 2º código.
+  A tela de Glosas gera o **XML de recurso de glosa** e a de Faturados imprime a
+  **guia no leiaute ANS (PDF)** para operadoras que exigem papel.
+- **Carteirinhas**: o dashboard alerta carteirinhas vencidas/vencendo em 30 dias
+  (carteirinha vencida = guia recusada na origem).
+- **Relatórios**: além da taxa de baixa, **taxa de glosa por convênio** e
+  **tempo médio atendimento → baixa**.
+
 ## Como rodar
 
 ### Pré-requisitos

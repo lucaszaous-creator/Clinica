@@ -23,17 +23,21 @@ public partial class MainWindow : Window
         }
     }
 
-    // Garante que a janela nunca ultrapasse a área útil da tela.
-    // Em telas menores que a largura padrão (1180) a janela era maior
+    // Garante que a janela RESTAURADA nunca ultrapasse a área útil da tela.
+    // Em telas menores que a largura padrão (1280) a janela era maior
     // que o monitor e a última coluna das tabelas (Ações) ficava
     // "passando da tela". Aqui limitamos o tamanho e recentralizamos.
+    //
+    // IMPORTANTE: não fixar MaxWidth/MaxHeight — com eles definidos, ao MAXIMIZAR
+    // a janela o WPF a mantinha menor que o quadro maximizado do Windows e o
+    // restante da tela aparecia como faixas/margens PRETAS.
     private void AjustarParaTela(object sender, RoutedEventArgs e)
     {
+        if (WindowState != WindowState.Normal)
+            return; // maximizada: o Windows cuida do tamanho
+
         var larguraDisponivel = SystemParameters.WorkArea.Width;
         var alturaDisponivel = SystemParameters.WorkArea.Height;
-
-        MaxWidth = larguraDisponivel;
-        MaxHeight = alturaDisponivel;
 
         if (Width > larguraDisponivel)
             Width = larguraDisponivel;

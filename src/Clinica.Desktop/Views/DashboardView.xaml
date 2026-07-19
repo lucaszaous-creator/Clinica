@@ -2,12 +2,16 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
+    <!-- Rolagem vertical: em telas baixas (notebooks) nada fica cortado/inacessível. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -113,7 +117,7 @@
         </ctrl:EmptyState>
         <DataGrid x:Name="GridPendencias" ItemsSource="{Binding Codigos}" AutoGenerateColumns="False"
                   IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
-                  CanUserAddRows="False" SelectionMode="Extended">
+                  CanUserAddRows="False" SelectionMode="Extended" MaxHeight="380" MinHeight="120">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="30">
                     <DataGridTemplateColumn.CellTemplate>
@@ -148,7 +152,79 @@
         </DockPanel>
         </Border>
 
-        <Border Grid.Row="4" Style="{StaticResource Card}" Margin="0,16,0,0">
+        <Border Grid.Row="4" Style="{StaticResource Card}" Margin="0,16,0,0"
+                Visibility="{Binding TemRecursos, Converter={StaticResource BoolParaVisibilidade}}">
+        <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Glosas — prazo de recurso correndo" Style="{StaticResource H2}" Margin="0,0,0,8" />
+        <DataGrid ItemsSource="{Binding Recursos}" AutoGenerateColumns="False"
+                  IsReadOnly="True" HeadersVisibility="Column" CanUserAddRows="False" MaxHeight="180">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="30">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Ellipse Width="16" Height="16"
+                                     Fill="{Binding Urgencia, Converter={StaticResource UrgenciaParaCor}}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="*" />
+                <DataGridTextColumn Header="Convênio"
+                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
+                <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuia}" Width="Auto" />
+                <DataGridTextColumn Header="Motivo" Binding="{Binding MotivoResumo}" Width="1.4*" />
+                <DataGridTextColumn Header="Prazo até" Binding="{Binding DataLimiteRecurso}" Width="Auto" />
+                <DataGridTextColumn Header="Dias restantes" Binding="{Binding DiasParaFimPrazo}" Width="Auto" />
+                <DataGridTemplateColumn Header="" Width="140">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Abrir glosas" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                    ToolTip="Ir para o Controle de glosas para reapresentar/recorrer"
+                                    Command="{Binding DataContext.AbrirGlosasCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        </DockPanel>
+        </Border>
+
+        <Border Grid.Row="5" Style="{StaticResource Card}" Margin="0,16,0,0"
+                Visibility="{Binding TemCarteirinhas, Converter={StaticResource BoolParaVisibilidade}}">
+        <DockPanel>
+        <TextBlock DockPanel.Dock="Top" Text="Carteirinhas vencidas ou vencendo (30 dias)" Style="{StaticResource H2}" Margin="0,0,0,8" />
+        <DataGrid ItemsSource="{Binding Carteirinhas}" AutoGenerateColumns="False"
+                  IsReadOnly="True" HeadersVisibility="Column" CanUserAddRows="False" MaxHeight="180">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="30">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Ellipse Width="16" Height="16"
+                                     Fill="{Binding Urgencia, Converter={StaticResource UrgenciaParaCor}}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="*" />
+                <DataGridTextColumn Header="Convênio"
+                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
+                <DataGridTextColumn Header="Carteirinha" Binding="{Binding Carteirinha}" Width="*" />
+                <DataGridTextColumn Header="Validade" Binding="{Binding Validade}" Width="Auto" />
+                <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="Auto" />
+                <DataGridTemplateColumn Header="" Width="130">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Content="Abrir ficha" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                    ToolTip="Abrir a ficha do paciente para atualizar a carteirinha"
+                                    Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                    CommandParameter="{Binding}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        </DockPanel>
+        </Border>
+
+        <Border Grid.Row="6" Style="{StaticResource Card}" Margin="0,16,0,0">
         <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="Consultas a renovar" Style="{StaticResource H2}" Margin="0,0,0,8" />
         <DataGrid ItemsSource="{Binding Consultas}" AutoGenerateColumns="False"
@@ -182,4 +258,5 @@
         </DockPanel>
         </Border>
     </Grid>
+    </ScrollViewer>
 </UserControl>

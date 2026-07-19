@@ -79,14 +79,50 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
         if (codigo is null) return;
 
         var descricao = $"{codigo.Atendimento?.Paciente?.Nome} — {codigo.Tipo} (guia {codigo.NumeroGuiaReal})";
-        var dialog = new GlosaWindow(descricao) { Owner = System.Windows.Application.Current.MainWindow };
+        int prazo;
+        using (var scopePrazo = _scopeFactory.CreateScope())
+            prazo = await scopePrazo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrazoRecursoGlosaAsync();
+
+        var dialog = new GlosaWindow(descricao, prazo) { Owner = System.Windows.Application.Current.MainWindow };
         if (dialog.ShowDialog() != true) return;
 
         using var scope = _scopeFactory.CreateScope();
         var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-        await glosas.RegistrarAsync(codigo.Id, dialog.DataGlosa, dialog.Motivo);
+        await glosas.RegistrarAsync(codigo.Id, dialog.DataGlosa, dialog.Motivo, dialog.MotivoCodigo);
 
         await Buscar();
+    }
+
+    /// <summary>Guia TISS impressa (PDF, leiaute ANS) do atendimento desta guia.</summary>
+    [RelayCommand]
+    private async Task GuiaPdf(CodigoFaturamento? codigo)
+    {
+        if (codigo is null) return;
+        try
+        {
+            byte[] pdf;
+            using (var scope = _scopeFactory.CreateScope())
+            {
+                var guia = scope.ServiceProvider.GetRequiredService<GuiaTissPdfService>();
+                var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                pdf = await guia.GerarPdfAsync(codigo.AtendimentoId, prestador);
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                FileName = $"Guia-TISS-{codigo.Atendimento?.Numero ?? codigo.AtendimentoId.ToString()}-{codigo.Atendimento?.Data:yyyy-MM-dd}.pdf",
+                Filter = "PDF (*.pdf)|*.pdf",
+                DefaultExt = ".pdf"
+            };
+            if (dialog.ShowDialog() != true) return;
+
+            await File.WriteAllBytesAsync(dialog.FileName, pdf);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível gerar a guia: {ex.Message}";
+        }
     }
 
     /// <summary>Reimpressão da capa de faturamento do atendimento desta guia (estado atual).</summary>

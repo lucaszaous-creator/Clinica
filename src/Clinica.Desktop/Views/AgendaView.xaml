@@ -8,8 +8,9 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Novo agendamento -->
-        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,24,0" VerticalAlignment="Top">
+        <!-- Novo agendamento (com rolagem própria: o botão "Agendar" nunca fica fora da tela) -->
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Border Style="{StaticResource Card}" Margin="0,0,24,0" VerticalAlignment="Top">
             <StackPanel>
                 <TextBlock Text="Novo agendamento" Style="{StaticResource H2}" />
 
@@ -35,6 +36,7 @@
                 <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Sucesso.Forte}" Margin="0,8,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
+        </ScrollViewer>
 
         <!-- Agenda do dia (Card com navegação de dia, como no design) -->
         <Border Grid.Column="1" Style="{StaticResource Card}" VerticalAlignment="Stretch">

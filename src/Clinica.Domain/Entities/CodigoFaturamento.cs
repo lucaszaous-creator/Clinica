@@ -41,11 +41,24 @@ public class CodigoFaturamento
     public string? UsuarioBaixa { get; set; }
     public string? ObservacaoBaixa { get; set; }
 
+    // ---------- Lote TISS (exportação à operadora) ----------
+
+    /// <summary>Lote TISS em que a guia foi exportada. Nulo = ainda não entrou em lote.</summary>
+    public int? LoteTissId { get; set; }
+    public LoteTiss? Lote { get; set; }
+
     // ---------- Glosa (recusa do convênio) ----------
 
     public StatusGlosa Glosa { get; set; } = StatusGlosa.SemGlosa;
     public DateOnly? DataGlosa { get; set; }
     public string? MotivoGlosa { get; set; }
+
+    /// <summary>Código do motivo na tabela de glosas da ANS (padroniza o registro).</summary>
+    public string? MotivoGlosaCodigo { get; set; }
+
+    /// <summary>Data-limite para recorrer da glosa junto à operadora (prazo contratual, padrão 30 dias).</summary>
+    public DateOnly? DataLimiteRecurso { get; set; }
+
     public DateOnly? DataReapresentacao { get; set; }
 
     /// <summary>True quando a baixa já foi registrada.</summary>
@@ -92,15 +105,21 @@ public class CodigoFaturamento
     }
 
     /// <summary>Registra a glosa de uma guia já faturada (baixada).</summary>
-    public void RegistrarGlosa(DateOnly data, string? motivo)
+    public void RegistrarGlosa(DateOnly data, string? motivo, string? motivoCodigo = null, int prazoRecursoDias = 30)
     {
         if (!Baixado)
             throw new InvalidOperationException("Só é possível glosar uma guia já faturada (com baixa).");
         Glosa = StatusGlosa.Glosada;
         DataGlosa = data;
         MotivoGlosa = motivo;
+        MotivoGlosaCodigo = motivoCodigo;
+        DataLimiteRecurso = data.AddDays(prazoRecursoDias);
         DataReapresentacao = null;
     }
+
+    /// <summary>Dias restantes do prazo de recurso (negativo = prazo estourado). Nulo quando não há glosa em aberto.</summary>
+    public int? DiasParaFimRecurso(DateOnly referencia)
+        => GlosaEmAberto && DataLimiteRecurso is { } limite ? limite.DayNumber - referencia.DayNumber : null;
 
     /// <summary>Marca a guia glosada como reapresentada ao convênio.</summary>
     public void Reapresentar(DateOnly data)

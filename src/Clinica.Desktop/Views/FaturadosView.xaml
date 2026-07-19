@@ -48,6 +48,11 @@
                                         ToolTip="Reimprimir a capa de faturamento deste atendimento"
                                         Command="{Binding DataContext.CapaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
+                                <Button Content="Guia TISS" Margin="6,0,0,0"
+                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        ToolTip="Imprimir a guia deste atendimento no leiaute padrão ANS (PDF)"
+                                        Command="{Binding DataContext.GuiaPdfCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
                                 <Button Content="Glosar" Margin="6,0,0,0"
                                         Style="{StaticResource BotaoAcaoGridSecundario}"
                                         Command="{Binding DataContext.GlosarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"

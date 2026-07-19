@@ -117,6 +117,23 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Prazo de recurso de glosa (dias corridos a partir da glosa; contratual) ----
+
+    public const string ChavePrazoRecursoGlosa = "PrazoRecursoGlosaDias";
+    public const int PrazoRecursoGlosaPadrao = 30;
+
+    /// <summary>Dias para recorrer de uma glosa (global, salvo no banco; padrão 30).</summary>
+    public async Task<int> ObterPrazoRecursoGlosaAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChavePrazoRecursoGlosa, ct), out var dias) && dias >= 1
+            ? dias
+            : PrazoRecursoGlosaPadrao;
+
+    public async Task SalvarPrazoRecursoGlosaAsync(int dias, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChavePrazoRecursoGlosa, Math.Max(1, dias).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Numeração sequencial de lote TISS (o padrão exige sequência, não timestamp) ----
 
     public const string ChaveProximoLoteTiss = "TissProximoNumeroLote";

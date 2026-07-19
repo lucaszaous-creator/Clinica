@@ -32,3 +32,26 @@ public sealed record PendenciaConsulta(
     DateOnly DataVencimento,
     int DiasParaVencer,
     NivelUrgencia Urgencia);
+
+/// <summary>Uma glosa em aberto com prazo de recurso correndo (perder o prazo = perder a guia de vez).</summary>
+public sealed record PendenciaRecursoGlosa(
+    int CodigoId,
+    string PacienteNome,
+    Convenio Convenio,
+    TipoCodigo Tipo,
+    string? NumeroGuia,
+    DateOnly? DataGlosa,
+    string MotivoResumo,
+    DateOnly DataLimiteRecurso,
+    int DiasParaFimPrazo,
+    NivelUrgencia Urgencia);
+
+/// <summary>Carteirinha vencida ou a vencer (carteirinha vencida = guia recusada na origem).</summary>
+public sealed record PendenciaCarteirinha(
+    int PacienteId,
+    string PacienteNome,
+    Convenio Convenio,
+    string? Carteirinha,
+    DateOnly Validade,
+    int DiasParaVencer,
+    NivelUrgencia Urgencia);

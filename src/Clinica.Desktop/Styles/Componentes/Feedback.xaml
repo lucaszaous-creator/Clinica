@@ -171,11 +171,6 @@
         <Setter Property="HorizontalAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Bottom" />
         <Setter Property="Margin" Value="24,0,24,24" />
-        <Setter Property="Effect">
-            <Setter.Value>
-                <DropShadowEffect Color="#000000" Opacity="0.25" BlurRadius="16" ShadowDepth="4" Direction="270" />
-            </Setter.Value>
-        </Setter>
     </Style>
 
 </ResourceDictionary>

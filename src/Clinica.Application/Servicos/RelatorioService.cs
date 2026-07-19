@@ -26,7 +26,8 @@ public sealed class RelatorioService
             .Select(g =>
             {
                 var r = Resumir(g);
-                return new FaturamentoPorConvenio(g.Key, r.TotalCodigos, r.Baixados, r.Pendentes, r.TaxaBaixa);
+                return new FaturamentoPorConvenio(g.Key, r.TotalCodigos, r.Baixados, r.Pendentes, r.TaxaBaixa,
+                    r.Glosadas, r.TaxaGlosa, r.TempoMedioBaixaDias);
             })
             .OrderBy(c => c.Convenio)
             .ToList();
@@ -43,7 +44,19 @@ public sealed class RelatorioService
         var baixados = lista.Count(c => c.Baixado);
         var pendentes = total - baixados;
         var taxa = total == 0 ? 0 : Math.Round(baixados * 100.0 / total, 1);
-        return new ResumoFaturamento(total, baixados, pendentes, taxa);
+
+        // Taxa de glosa: % das guias baixadas que sofreram glosa (mesmo que depois recuperada).
+        var glosadas = lista.Count(c => c.Glosa != StatusGlosa.SemGlosa);
+        var taxaGlosa = baixados == 0 ? 0 : Math.Round(glosadas * 100.0 / baixados, 1);
+
+        // Tempo médio atendimento → baixa (dias corridos), só das guias com baixa e atendimento carregado.
+        var tempos = lista
+            .Where(c => c.DataBaixa is not null && c.Atendimento is not null)
+            .Select(c => (double)(c.DataBaixa!.Value.DayNumber - c.Atendimento!.Data.DayNumber))
+            .ToList();
+        double? tempoMedio = tempos.Count == 0 ? null : Math.Round(tempos.Average(), 1);
+
+        return new ResumoFaturamento(total, baixados, pendentes, taxa, glosadas, taxaGlosa, tempoMedio);
     }
 
     /// <summary>

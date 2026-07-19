@@ -98,11 +98,78 @@ public sealed class PendenciaService
         return resultado.OrderBy(c => c.DiasParaVencer).ToList();
     }
 
-    /// <summary>Total de pendências para o badge/contador do topo.</summary>
+    /// <summary>Janela (em dias) do alerta de carteirinhas a vencer.</summary>
+    public const int JanelaAlertaCarteirinhaDias = 30;
+
+    /// <summary>
+    /// Glosas em aberto com prazo de recurso correndo, das mais urgentes para as demais.
+    /// Amarelo = restam até 7 dias; vermelho = 3 dias ou menos (ou prazo estourado).
+    /// </summary>
+    public async Task<IReadOnlyList<PendenciaRecursoGlosa>> GlosasARecorrerAsync(DateOnly referencia, CancellationToken ct = default)
+    {
+        var glosadas = await _repo.CodigosGlosadosAsync(somenteEmAberto: true, ct);
+
+        return glosadas
+            .Where(c => c.DataLimiteRecurso is not null)
+            .Select(c =>
+            {
+                var dias = c.DiasParaFimRecurso(referencia) ?? 0;
+                var paciente = c.Atendimento?.Paciente;
+                var motivo = !string.IsNullOrWhiteSpace(c.MotivoGlosaCodigo)
+                    ? Domain.Regras.MotivosGlosa.Descricao(c.MotivoGlosaCodigo)
+                    : c.MotivoGlosa ?? string.Empty;
+                return new PendenciaRecursoGlosa(
+                    CodigoId: c.Id,
+                    PacienteNome: paciente?.Nome ?? "(desconhecido)",
+                    Convenio: paciente?.Convenio ?? default,
+                    Tipo: c.Tipo,
+                    NumeroGuia: c.NumeroGuiaReal,
+                    DataGlosa: c.DataGlosa,
+                    MotivoResumo: motivo,
+                    DataLimiteRecurso: c.DataLimiteRecurso!.Value,
+                    DiasParaFimPrazo: dias,
+                    Urgencia: dias <= 3 ? NivelUrgencia.Vermelho
+                            : dias <= 7 ? NivelUrgencia.Amarelo
+                            : NivelUrgencia.Verde);
+            })
+            .OrderBy(p => p.DiasParaFimPrazo)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Carteirinhas vencidas ou vencendo em até 30 dias (carteirinha vencida = guia
+    /// recusada na hora pela operadora — o equivalente local da checagem de elegibilidade).
+    /// </summary>
+    public async Task<IReadOnlyList<PendenciaCarteirinha>> CarteirinhasAVencerAsync(DateOnly referencia, CancellationToken ct = default)
+    {
+        var pacientes = await _repo.BuscarPacientesAsync(null, ct);
+
+        return pacientes
+            .Where(p => p.ValidadeCarteirinha is not null)
+            .Select(p =>
+            {
+                var dias = p.ValidadeCarteirinha!.Value.DayNumber - referencia.DayNumber;
+                return (Paciente: p, Dias: dias);
+            })
+            .Where(x => x.Dias <= JanelaAlertaCarteirinhaDias)
+            .Select(x => new PendenciaCarteirinha(
+                x.Paciente.Id,
+                x.Paciente.Nome,
+                x.Paciente.Convenio,
+                x.Paciente.Carteirinha,
+                x.Paciente.ValidadeCarteirinha!.Value,
+                x.Dias,
+                x.Dias < 0 ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo))
+            .OrderBy(p => p.DiasParaVencer)
+            .ToList();
+    }
+
+    /// <summary>Total de pendências para o badge/contador do topo (inclui glosas com prazo de recurso).</summary>
     public async Task<int> TotalPendenciasAsync(DateOnly referencia, CancellationToken ct = default)
     {
         var codigos = await CodigosPendentesAsync(referencia, ct);
         var consultas = await ConsultasAVencerAsync(referencia, ct);
-        return codigos.Count + consultas.Count;
+        var recursos = await GlosasARecorrerAsync(referencia, ct);
+        return codigos.Count + consultas.Count + recursos.Count(r => r.Urgencia != NivelUrgencia.Verde);
     }
 }

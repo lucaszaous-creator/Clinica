@@ -174,10 +174,6 @@
                                     CornerRadius="{StaticResource Raio.Medio}"
                                     MinWidth="{Binding ActualWidth, ElementName=MainBorder}"
                                     MaxHeight="{TemplateBinding MaxDropDownHeight}" Margin="0,4,8,8" Padding="4">
-                                <Border.Effect>
-                                    <DropShadowEffect Color="#000000" Opacity="0.10" BlurRadius="12"
-                                                      ShadowDepth="2" Direction="270" />
-                                </Border.Effect>
                                 <ScrollViewer>
                                     <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
                                 </ScrollViewer>

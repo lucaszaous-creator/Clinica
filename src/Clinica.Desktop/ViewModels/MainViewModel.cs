@@ -225,6 +225,8 @@ public partial class MainViewModel : ObservableObject
         var vm = _sp.GetRequiredService<DashboardViewModel>();
         vm.PendenciasAtualizadas += total => PendenciasBadge = total;
         vm.AbrirBaixaSolicitado += AbrirBaixa;
+        vm.FichaSolicitada += AbrirFicha;
+        vm.AbrirGlosasSolicitado += MostrarGlosas;
         DefinirSecao(Secao.Pendencias);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
