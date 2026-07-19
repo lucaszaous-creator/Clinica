@@ -39,6 +39,9 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Dias antes do vencimento em que a consulta entra em alerta.</summary>
     [ObservableProperty] private int _janelaAlertaConsultaDias = 5;
 
+    /// <summary>Dias para recorrer de uma glosa (data-limite calculada no registro da glosa).</summary>
+    [ObservableProperty] private int _prazoRecursoGlosaDias = 30;
+
     // Dados da clínica/prestador (capa de faturamento + lote TISS)
     [ObservableProperty] private string? _razaoSocial;
     [ObservableProperty] private string? _nomeFantasia;
@@ -81,6 +84,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             Catalogo.Add(c);
 
         JanelaAlertaConsultaDias = await parametros.ObterJanelaAlertaConsultaAsync();
+        PrazoRecursoGlosaDias = await parametros.ObterPrazoRecursoGlosaAsync();
 
         var d = await parametros.ObterPrestadorAsync();
         RazaoSocial = d.RazaoSocial;
@@ -156,6 +160,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 
             await parametros.SalvarAsync(Itens.ToList());
             await parametros.SalvarJanelaAlertaConsultaAsync(JanelaAlertaConsultaDias);
+            await parametros.SalvarPrazoRecursoGlosaAsync(PrazoRecursoGlosaDias);
             await parametros.SalvarPrestadorAsync(MontarPrestador());
             await catalogo.SalvarAsync(Catalogo.ToList());
 

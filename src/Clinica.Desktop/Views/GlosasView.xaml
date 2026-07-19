@@ -18,6 +18,13 @@
                     <TextBlock Text="Atualizar" />
                 </StackPanel>
             </Button>
+            <Button Command="{Binding GerarRecursoXmlCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0"
+                    ToolTip="Gerar o XML de recurso de glosa (padrão TISS) com as glosas em aberto da lista">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE8A7;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                    <TextBlock Text="Recurso de glosa (.xml)" />
+                </StackPanel>
+            </Button>
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
                        Foreground="{StaticResource Brush.Erro}" />
         </StackPanel>
@@ -25,15 +32,26 @@
         <Border Grid.Row="2" Style="{StaticResource Card}">
         <DataGrid ItemsSource="{Binding Glosas}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
+                <DataGridTemplateColumn Header="" Width="30">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Ellipse Width="16" Height="16"
+                                     Fill="{Binding Urgencia, Converter={StaticResource UrgenciaParaCor}}"
+                                     ToolTip="Urgência do prazo de recurso" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Paciente" Binding="{Binding Codigo.Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
+                                    Binding="{Binding Codigo.Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="1.1*" />
                 <DataGridTextColumn Header="Código"
-                                    Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
-                <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
-                <DataGridTextColumn Header="Glosada em" Binding="{Binding DataGlosa}" Width="Auto" />
-                <DataGridTextColumn Header="Motivo" Binding="{Binding MotivoGlosa}" Width="1.6*" />
-                <DataGridTextColumn Header="Situação" Binding="{Binding Glosa}" Width="Auto" />
+                                    Binding="{Binding Codigo.Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                <DataGridTextColumn Header="Nº guia" Binding="{Binding Codigo.NumeroGuiaReal}" Width="Auto" />
+                <DataGridTextColumn Header="Glosada em" Binding="{Binding Codigo.DataGlosa}" Width="Auto" />
+                <DataGridTextColumn Header="Motivo (ANS)" Binding="{Binding MotivoAns}" Width="1.4*" />
+                <DataGridTextColumn Header="Complemento" Binding="{Binding Codigo.MotivoGlosa}" Width="1.2*" />
+                <DataGridTextColumn Header="Prazo recurso" Binding="{Binding PrazoRotulo}" Width="Auto" />
+                <DataGridTextColumn Header="Situação" Binding="{Binding Codigo.Glosa}" Width="Auto" />
                 <DataGridTemplateColumn Header="Ações" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

@@ -123,13 +123,13 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
         var sb = new StringBuilder();
         sb.AppendLine($"Relatório de faturamento;{Inicio:dd/MM/yyyy} a {Fim:dd/MM/yyyy}");
         sb.AppendLine();
-        sb.AppendLine("Resumo;Códigos gerados;Baixados;Pendentes;Taxa de baixa (%)");
-        sb.AppendLine($";{Resumo?.TotalCodigos};{Resumo?.Baixados};{Resumo?.Pendentes};{Resumo?.TaxaBaixa:0.#}");
+        sb.AppendLine("Resumo;Códigos gerados;Baixados;Pendentes;Taxa de baixa (%);Glosadas;Taxa de glosa (%);Tempo médio de baixa (dias)");
+        sb.AppendLine($";{Resumo?.TotalCodigos};{Resumo?.Baixados};{Resumo?.Pendentes};{Resumo?.TaxaBaixa:0.#};{Resumo?.Glosadas};{Resumo?.TaxaGlosa:0.#};{Resumo?.TempoMedioBaixaDias:0.#}");
         sb.AppendLine();
         sb.AppendLine("Faturamento por convênio");
-        sb.AppendLine("Convênio;Gerados;Baixados;Pendentes;Taxa de baixa (%)");
+        sb.AppendLine("Convênio;Gerados;Baixados;Pendentes;Taxa de baixa (%);Glosadas;Taxa de glosa (%);Tempo médio de baixa (dias)");
         foreach (var c in PorConvenio)
-            sb.AppendLine($"{ConvenioInfo.NomeExibicao(c.Convenio)};{c.TotalCodigos};{c.Baixados};{c.Pendentes};{c.TaxaBaixa:0.#}");
+            sb.AppendLine($"{ConvenioInfo.NomeExibicao(c.Convenio)};{c.TotalCodigos};{c.Baixados};{c.Pendentes};{c.TaxaBaixa:0.#};{c.Glosadas};{c.TaxaGlosa:0.#};{c.TempoMedioBaixaDias:0.#}");
         sb.AppendLine();
         sb.AppendLine("Evolução mensal (últimos 6 meses)");
         sb.AppendLine("Mês;Gerados;Baixados;Pendentes;Taxa de baixa (%)");

@@ -10,16 +10,25 @@ namespace Clinica.Application.Servicos;
 public sealed class GlosaService
 {
     private readonly IClinicaRepositorio _repo;
+    private readonly ParametrosService? _parametros;
 
-    public GlosaService(IClinicaRepositorio repo) => _repo = repo;
+    public GlosaService(IClinicaRepositorio repo, ParametrosService? parametros = null)
+    {
+        _repo = repo;
+        _parametros = parametros;
+    }
 
     public Task<IReadOnlyList<CodigoFaturamento>> ListarAsync(bool somenteEmAberto, CancellationToken ct = default)
         => _repo.CodigosGlosadosAsync(somenteEmAberto, ct);
 
-    public async Task RegistrarAsync(int codigoId, DateOnly dataGlosa, string? motivo, CancellationToken ct = default)
+    public async Task RegistrarAsync(int codigoId, DateOnly dataGlosa, string? motivo,
+        string? motivoCodigo = null, CancellationToken ct = default)
     {
         var codigo = await Obter(codigoId, ct);
-        codigo.RegistrarGlosa(dataGlosa, motivo);
+        var prazo = _parametros is null
+            ? ParametrosService.PrazoRecursoGlosaPadrao
+            : await _parametros.ObterPrazoRecursoGlosaAsync(ct);
+        codigo.RegistrarGlosa(dataGlosa, motivo, motivoCodigo, prazo);
         await _repo.SalvarAsync(ct);
     }
 

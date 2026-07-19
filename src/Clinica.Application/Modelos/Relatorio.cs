@@ -7,7 +7,10 @@ public sealed record ResumoFaturamento(
     int TotalCodigos,
     int Baixados,
     int Pendentes,
-    double TaxaBaixa); // 0..100
+    double TaxaBaixa,               // 0..100
+    int Glosadas = 0,               // guias baixadas que sofreram glosa (qualquer situação)
+    double TaxaGlosa = 0,           // % das baixadas que foram glosadas
+    double? TempoMedioBaixaDias = null); // média atendimento → baixa (nulo sem baixas)
 
 /// <summary>Quebra do faturamento por convênio no período.</summary>
 public sealed record FaturamentoPorConvenio(
@@ -15,7 +18,10 @@ public sealed record FaturamentoPorConvenio(
     int TotalCodigos,
     int Baixados,
     int Pendentes,
-    double TaxaBaixa);
+    double TaxaBaixa,
+    int Glosadas = 0,
+    double TaxaGlosa = 0,
+    double? TempoMedioBaixaDias = null);
 
 /// <summary>Envelhecimento das pendências em aberto (por faixa de atraso).</summary>
 public sealed record FaixaEnvelhecimento(

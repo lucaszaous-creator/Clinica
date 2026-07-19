@@ -88,6 +88,30 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await q.OrderByDescending(c => c.Atendimento!.Data).Take(500).ToListAsync(ct);
     }
 
+    // ---- Lotes TISS ----
+
+    public async Task AdicionarLoteAsync(LoteTiss lote, CancellationToken ct = default)
+        => await _db.LotesTiss.AddAsync(lote, ct);
+
+    public async Task<IReadOnlyList<LoteTiss>> LotesTissAsync(CancellationToken ct = default)
+        => await _db.LotesTiss
+            .Include(l => l.Codigos).ThenInclude(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .OrderByDescending(l => l.Numero)
+            .ToListAsync(ct);
+
+    public Task<LoteTiss?> ObterLoteTissAsync(int loteId, CancellationToken ct = default)
+        => _db.LotesTiss
+            .Include(l => l.Codigos).ThenInclude(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .FirstOrDefaultAsync(l => l.Id == loteId, ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosBaixadosSemLoteAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Where(c => c.DataBaixa != null && c.LoteTissId == null
+                        && c.Atendimento!.Data >= inicio && c.Atendimento!.Data <= fim)
+            .OrderBy(c => c.Atendimento!.Data)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default)
         => await _db.Pacientes.Include(p => p.Atendimentos).ToListAsync(ct);
 

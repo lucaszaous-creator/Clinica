@@ -40,6 +40,19 @@ public interface IClinicaRepositorio
     /// <summary>Guias glosadas. Se somenteEmAberto, traz apenas as ainda não recuperadas.</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosGlosadosAsync(bool somenteEmAberto, CancellationToken ct = default);
 
+    // ---- Lotes TISS ----
+
+    Task AdicionarLoteAsync(LoteTiss lote, CancellationToken ct = default);
+
+    /// <summary>Todos os lotes TISS, do mais recente ao mais antigo, com as guias carregadas.</summary>
+    Task<IReadOnlyList<LoteTiss>> LotesTissAsync(CancellationToken ct = default);
+
+    /// <summary>Lote com guias, atendimentos e pacientes carregados.</summary>
+    Task<LoteTiss?> ObterLoteTissAsync(int loteId, CancellationToken ct = default);
+
+    /// <summary>Guias baixadas do período (data do atendimento) que ainda não entraram em nenhum lote.</summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosBaixadosSemLoteAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
     /// <summary>Consulta central de guias com filtros combinados (paciente, nº guia, período, status, convênio).</summary>
     Task<IReadOnlyList<CodigoFaturamento>> ConsultarCodigosAsync(Modelos.FiltroConsultaGuias filtro, CancellationToken ct = default);
 

@@ -8,7 +8,9 @@
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,24,0" VerticalAlignment="Top">
+        <!-- Rolagem própria do formulário: em telas baixas o botão "Lançar" continua acessível. -->
+        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <Border Style="{StaticResource Card}" Margin="0,0,24,0" VerticalAlignment="Top">
             <StackPanel>
                 <TextBlock Text="Novo atendimento" Style="{StaticResource H2}" />
 
@@ -56,6 +58,7 @@
                 </Border>
             </StackPanel>
         </Border>
+        </ScrollViewer>
 
         <StackPanel Grid.Column="1">
             <!-- Regras por convênio (card informativo do design) -->

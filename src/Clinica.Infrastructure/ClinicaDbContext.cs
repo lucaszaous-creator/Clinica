@@ -15,6 +15,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ConfiguracaoGlobal> Configuracoes => Set<ConfiguracaoGlobal>();
     public DbSet<ConvenioCadastro> Convenios => Set<ConvenioCadastro>();
     public DbSet<Consulta> Consultas => Set<Consulta>();
+    public DbSet<LoteTiss> LotesTiss => Set<LoteTiss>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -55,10 +56,25 @@ public class ClinicaDbContext : DbContext
             e.Property(c => c.UsuarioBaixa).HasMaxLength(80);
             e.Property(c => c.Glosa).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.MotivoGlosa).HasMaxLength(300);
+            e.Property(c => c.MotivoGlosaCodigo).HasMaxLength(10);
             e.Ignore(c => c.Baixado);
             e.Ignore(c => c.GlosaEmAberto);
             // Índice para a consulta de pendências (códigos ainda sem baixa).
             e.HasIndex(c => new { c.DataBaixa, c.DataPrevistaFaturamento });
+            // Apagar um lote não apaga as guias — elas voltam a ficar "sem lote".
+            e.HasOne(c => c.Lote).WithMany(l => l.Codigos).HasForeignKey(c => c.LoteTissId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(c => c.LoteTissId);
+        });
+
+        b.Entity<LoteTiss>(e =>
+        {
+            e.HasKey(l => l.Id);
+            e.Property(l => l.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(l => l.RegistroAnsOperadora).HasMaxLength(20);
+            e.Property(l => l.ProtocoloOperadora).HasMaxLength(60);
+            e.Property(l => l.ObservacaoRetorno).HasMaxLength(500);
+            e.HasIndex(l => l.Numero).IsUnique();
         });
 
         b.Entity<ParametroConvenio>(e =>

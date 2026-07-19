@@ -317,10 +317,6 @@
                                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                                     CornerRadius="8" Margin="0,4,8,8" Padding="4"
                                     MinWidth="{Binding ActualWidth, ElementName=PesquisaGlobal}">
-                                <Border.Effect>
-                                    <DropShadowEffect Color="#000000" Opacity="0.10" BlurRadius="12"
-                                                      ShadowDepth="2" Direction="270" />
-                                </Border.Effect>
                                 <ItemsControl ItemsSource="{Binding ResultadosPesquisa}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:ItemMenu}">

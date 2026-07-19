@@ -41,7 +41,7 @@
         </StackPanel>
 
         <!-- KPIs -->
-        <UniformGrid Grid.Row="2" Columns="4" Margin="0,0,0,20">
+        <UniformGrid Grid.Row="2" Columns="6" Margin="0,0,0,20">
             <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Códigos gerados" Style="{StaticResource CardKpi.Rotulo}" />
@@ -66,7 +66,7 @@
                                Foreground="{StaticResource Brush.Erro}" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Acento}" BorderThickness="0">
+            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Acento}" BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Taxa de baixa" Style="{StaticResource CardKpi.Rotulo}"
                                Foreground="{StaticResource Brush.Acento.Tint}" />
@@ -74,6 +74,30 @@
                         <TextBlock Text="{Binding Resumo.TaxaBaixa, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
                                    Foreground="White" />
                         <TextBlock Text="%" FontSize="18" Foreground="White" VerticalAlignment="Bottom" Margin="2,0,0,4" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Aviso.Suave}"
+                    BorderThickness="0" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Taxa de glosa" Style="{StaticResource CardKpi.Rotulo}"
+                               Foreground="{StaticResource Brush.Aviso}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Resumo.TaxaGlosa, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}"
+                                   Foreground="{StaticResource Brush.Aviso}" />
+                        <TextBlock Text="%" FontSize="18" Foreground="{StaticResource Brush.Aviso}"
+                                   VerticalAlignment="Bottom" Margin="2,0,0,4" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="Tempo médio de baixa" Style="{StaticResource CardKpi.Rotulo}" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Resumo.TempoMedioBaixaDias, FallbackValue='—', TargetNullValue='—'}"
+                                   Style="{StaticResource CardKpi.Valor}" />
+                        <TextBlock Text="dias" FontSize="14" Foreground="{StaticResource Brush.Texto.Secundario}"
+                                   VerticalAlignment="Bottom" Margin="4,0,0,6" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -98,6 +122,9 @@
                             <DataGridTextColumn Header="Baixados" Binding="{Binding Baixados}" Width="*" />
                             <DataGridTextColumn Header="Pendentes" Binding="{Binding Pendentes}" Width="*" />
                             <DataGridTextColumn Header="% baixa" Binding="{Binding TaxaBaixa}" Width="*" />
+                            <DataGridTextColumn Header="Glosadas" Binding="{Binding Glosadas}" Width="*" />
+                            <DataGridTextColumn Header="% glosa" Binding="{Binding TaxaGlosa}" Width="*" />
+                            <DataGridTextColumn Header="Baixa média (d)" Binding="{Binding TempoMedioBaixaDias, TargetNullValue='—'}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>

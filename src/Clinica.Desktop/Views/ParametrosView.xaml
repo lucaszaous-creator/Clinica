@@ -152,6 +152,24 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
+
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Prazo de recurso de glosa" Style="{StaticResource H2}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
+                                       Text="Configuração global. Ao registrar uma glosa, o sistema calcula a data-limite do recurso com este prazo e acompanha no painel de pendências." />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Recorrer em até" VerticalAlignment="Center" Margin="0,0,8,0"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                <TextBox Text="{Binding PrazoRecursoGlosaDias}"
+                                         ctrl:Ajudantes.SomenteNumeros="True"
+                                         MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
+                                         VerticalContentAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Text="dias após a glosa" VerticalAlignment="Center" Margin="8,0,0,0"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>

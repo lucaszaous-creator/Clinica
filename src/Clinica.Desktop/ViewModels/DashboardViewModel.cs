@@ -18,6 +18,8 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
     public ObservableCollection<PendenciaCodigo> Codigos { get; } = new();
     public ObservableCollection<PendenciaConsulta> Consultas { get; } = new();
+    public ObservableCollection<PendenciaRecursoGlosa> Recursos { get; } = new();
+    public ObservableCollection<PendenciaCarteirinha> Carteirinhas { get; } = new();
 
     public IReadOnlyList<object> OpcoesConvenio { get; }
     public IReadOnlyList<object> OpcoesUrgencia { get; } =
@@ -35,8 +37,14 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     public int CodigosUrgentes => _todos.Count(p => p.Urgencia == NivelUrgencia.Vermelho);
     public int ConsultasARenovar => Consultas.Count;
 
+    /// <summary>Glosas com prazo de recurso correndo e carteirinhas a vencer (seções aparecem só quando há itens).</summary>
+    public bool TemRecursos => Recursos.Count > 0;
+    public bool TemCarteirinhas => Carteirinhas.Count > 0;
+
     public event Action<int>? PendenciasAtualizadas;
     public event Action<int>? AbrirBaixaSolicitado;
+    public event Action<int>? FichaSolicitada;
+    public event Action? AbrirGlosasSolicitado;
 
     public DashboardViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
@@ -60,6 +68,14 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         foreach (var c in await pendencias.ConsultasAVencerAsync(hoje))
             Consultas.Add(c);
 
+        Recursos.Clear();
+        foreach (var r in await pendencias.GlosasARecorrerAsync(hoje))
+            Recursos.Add(r);
+
+        Carteirinhas.Clear();
+        foreach (var c in await pendencias.CarteirinhasAVencerAsync(hoje))
+            Carteirinhas.Add(c);
+
         AplicarFiltro();
     }
 
@@ -74,11 +90,15 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         Codigos.Clear();
         foreach (var c in filtrados) Codigos.Add(c);
 
-        Total = _todos.Count + Consultas.Count;
+        // Mesmo critério do badge (PendenciaService.TotalPendenciasAsync): recursos contam
+        // quando o prazo está apertado (amarelo/vermelho).
+        Total = _todos.Count + Consultas.Count + Recursos.Count(r => r.Urgencia != NivelUrgencia.Verde);
         OnPropertyChanged(nameof(TotalCodigos));
         OnPropertyChanged(nameof(TemPendencias));
         OnPropertyChanged(nameof(CodigosUrgentes));
         OnPropertyChanged(nameof(ConsultasARenovar));
+        OnPropertyChanged(nameof(TemRecursos));
+        OnPropertyChanged(nameof(TemCarteirinhas));
         PendenciasAtualizadas?.Invoke(Total);
     }
 
@@ -149,6 +169,18 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
         await CarregarAsync();
     }
+
+    /// <summary>Abre a ficha do paciente (usado no card de carteirinhas a vencer).</summary>
+    [RelayCommand]
+    private void AbrirFicha(PendenciaCarteirinha? item)
+    {
+        if (item is not null)
+            FichaSolicitada?.Invoke(item.PacienteId);
+    }
+
+    /// <summary>Vai para o Controle de glosas (usado no card de prazos de recurso).</summary>
+    [RelayCommand]
+    private void AbrirGlosas() => AbrirGlosasSolicitado?.Invoke();
 
     [RelayCommand]
     private Task Atualizar() => CarregarAsync();
