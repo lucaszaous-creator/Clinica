@@ -16,6 +16,7 @@ public sealed class FiltroConsultaGuias
 {
     public string? TermoPaciente { get; set; }   // nome ou CPF
     public string? NumeroGuia { get; set; }
+    public string? TermoObservacao { get; set; } // texto da observação da pendência
     public DateOnly? Inicio { get; set; }         // data do atendimento
     public DateOnly? Fim { get; set; }
     public FiltroStatusGuia Status { get; set; } = FiltroStatusGuia.Todos;

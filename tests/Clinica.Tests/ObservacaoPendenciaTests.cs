@@ -98,6 +98,22 @@ public class ObservacaoPendenciaTests : IDisposable
     }
 
     [Fact]
+    public async Task ConsultaCentral_FiltraPelaObservacao()
+    {
+        var comObs = await CriarCodigoAsync();
+        var semObs = await CriarCodigoAsync();
+        await _faturamento.RegistrarObservacaoPendenciaAsync(comObs.Id, "Portal da Unimed fora do ar", "maria");
+
+        var achados = await _repo.ConsultarCodigosAsync(new Clinica.Application.Modelos.FiltroConsultaGuias
+        {
+            TermoObservacao = "portal"
+        });
+
+        achados.Should().Contain(c => c.Id == comObs.Id);
+        achados.Should().NotContain(c => c.Id == semObs.Id);
+    }
+
+    [Fact]
     public async Task Observacao_NaoDaBaixa_GuiaContinuaPendente()
     {
         var codigo = await CriarCodigoAsync();

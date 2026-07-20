@@ -26,6 +26,12 @@
                         <TextBlock Text="Nº da guia" Style="{StaticResource Rotulo}" />
                         <TextBox Text="{Binding NumeroGuia, UpdateSourceTrigger=PropertyChanged}" />
                     </StackPanel>
+                    <StackPanel Width="220" Margin="0,0,12,8">
+                        <TextBlock Text="Observação da pendência" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding TermoObservacao, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CampoPesquisa}"
+                                 ctrl:Ajudantes.Placeholder="Ex.: portal fora do ar…" />
+                    </StackPanel>
                     <StackPanel Width="140" Margin="0,0,12,8">
                         <TextBlock Text="De (atendimento)" Style="{StaticResource Rotulo}" />
                         <DatePicker SelectedDate="{Binding Inicio}" />
@@ -108,6 +114,14 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Glosa" Binding="{Binding Glosa}" Width="Auto" />
+                <DataGridTemplateColumn Header="Observação" Width="1.2*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ObservacaoPendencia}" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" ToolTip="{Binding ObservacaoPendencia}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
                 <DataGridTemplateColumn Header="Ações" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>

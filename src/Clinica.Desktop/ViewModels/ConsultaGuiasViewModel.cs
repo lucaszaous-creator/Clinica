@@ -22,6 +22,7 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
 
     [ObservableProperty] private string? _termoPaciente;
     [ObservableProperty] private string? _numeroGuia;
+    [ObservableProperty] private string? _termoObservacao;
     [ObservableProperty] private DateTime? _inicio;
     [ObservableProperty] private DateTime? _fim;
     [ObservableProperty] private FiltroStatusGuia _statusSelecionado = FiltroStatusGuia.Todos;
@@ -45,6 +46,7 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
         {
             TermoPaciente = TermoPaciente,
             NumeroGuia = NumeroGuia,
+            TermoObservacao = TermoObservacao,
             Inicio = Inicio is { } i ? DateOnly.FromDateTime(i) : null,
             Fim = Fim is { } f ? DateOnly.FromDateTime(f) : null,
             Status = StatusSelecionado,
@@ -65,6 +67,7 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
     {
         TermoPaciente = null;
         NumeroGuia = null;
+        TermoObservacao = null;
         Inicio = null;
         Fim = null;
         StatusSelecionado = FiltroStatusGuia.Todos;

@@ -66,6 +66,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (!string.IsNullOrWhiteSpace(filtro.NumeroGuia))
             q = q.Where(c => c.NumeroGuiaReal != null && c.NumeroGuiaReal.Contains(filtro.NumeroGuia));
 
+        if (!string.IsNullOrWhiteSpace(filtro.TermoObservacao))
+        {
+            var obs = filtro.TermoObservacao.ToLower();
+            q = q.Where(c => c.ObservacaoPendencia != null && c.ObservacaoPendencia.ToLower().Contains(obs));
+        }
+
         if (filtro.Inicio is { } inicio)
             q = q.Where(c => c.Atendimento!.Data >= inicio);
         if (filtro.Fim is { } fim)
