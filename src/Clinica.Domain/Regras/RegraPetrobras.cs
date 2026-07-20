@@ -18,6 +18,13 @@ public sealed class RegraPetrobras : IRegraConvenio
         var r = new ResultadoFaturamento { Categoria = Categoria.Vermelha };
         var hoje = atendimento.Data;
 
+        // Consulta avulsa: código único com a especialidade informada; não participa da rotação mensal.
+        if (atendimento.Modalidade == ModalidadeAtendimento.Consulta)
+        {
+            RegraConsultaAvulsa.Aplicar(r, atendimento, Categoria.Vermelha);
+            return r;
+        }
+
         var fazBsv = atendimento.Modalidade is ModalidadeAtendimento.BsvApenas or ModalidadeAtendimento.BsvComAcupuntura;
         var fazAcupuntura = atendimento.Modalidade is ModalidadeAtendimento.AcupunturaSimples
             or ModalidadeAtendimento.AcupunturaComEletro or ModalidadeAtendimento.BsvComAcupuntura;

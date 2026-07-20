@@ -136,7 +136,9 @@ public sealed class GuiaTissPdfService
                         Cel(atendimento.Data.ToString("dd/MM/yyyy"));
                         Cel("22");
                         Cel(prestador.CodigoTuss(c.Tipo));
-                        Cel(c.Especialidade is { } esp ? $"{Rotulos.Tipo(c.Tipo)} — {esp}" : Rotulos.Tipo(c.Tipo));
+                        Cel(c.Especialidade is { } esp
+                            ? $"{Rotulos.Tipo(c.Tipo)} — {EspecialidadeInfo.NomeExibicao(esp)}"
+                            : Rotulos.Tipo(c.Tipo));
                         Cel("1");
                     }
                 });

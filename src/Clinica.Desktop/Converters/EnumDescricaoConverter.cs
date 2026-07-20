@@ -25,6 +25,16 @@ public sealed class EnumDescricaoConverter : IValueConverter
             TipoCodigo.Eletroacupuntura => "Eletroacupuntura",
             _ => t.ToString()
         },
+        ModalidadeAtendimento m => m switch
+        {
+            ModalidadeAtendimento.AcupunturaSimples => "Acupuntura (apenas)",
+            ModalidadeAtendimento.AcupunturaComEletro => "Acupuntura + eletroacupuntura",
+            ModalidadeAtendimento.BsvComAcupuntura => "BSV + acupuntura",
+            ModalidadeAtendimento.BsvApenas => "BSV (apenas)",
+            ModalidadeAtendimento.Consulta => "Consulta",
+            _ => m.ToString()
+        },
+        Especialidade e => EspecialidadeInfo.NomeExibicao(e),
         null => string.Empty,
         _ => value.ToString() ?? string.Empty
     };

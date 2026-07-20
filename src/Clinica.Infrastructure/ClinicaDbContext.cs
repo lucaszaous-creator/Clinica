@@ -41,6 +41,7 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.Numero).HasMaxLength(30);
             e.HasIndex(a => a.Numero);
             e.Property(a => a.Modalidade).HasConversion<string>().HasMaxLength(40);
+            e.Property(a => a.EspecialidadeConsulta).HasConversion<string>().HasMaxLength(30);
             e.Property(a => a.Categoria).HasConversion<string>().HasMaxLength(20);
             e.HasMany(a => a.Codigos).WithOne(c => c.Atendimento!).HasForeignKey(c => c.AtendimentoId);
         });
@@ -126,6 +127,7 @@ public class ClinicaDbContext : DbContext
             // Hora de parede (sem fuso). Evita o erro do Npgsql com DateTime local/unspecified.
             e.Property(a => a.DataHora).HasColumnType("timestamp without time zone");
             e.Property(a => a.ModalidadePrevista).HasConversion<string>().HasMaxLength(40);
+            e.Property(a => a.EspecialidadeConsulta).HasConversion<string>().HasMaxLength(30);
             e.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(a => a.Origem).HasConversion<string>().HasMaxLength(20);
             e.Property(a => a.Observacoes).HasMaxLength(500);

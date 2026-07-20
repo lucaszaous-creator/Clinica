@@ -24,6 +24,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<string> Avisos { get; } = new();
 
     public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
+    public Array Especialidades => Enum.GetValues(typeof(Especialidade));
 
     /// <summary>Opções de qual código sai primeiro (hoje) numa modalidade dupla. Vazio nas simples.</summary>
     public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
@@ -32,6 +33,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private Paciente? _pacienteSelecionado;
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
+    [ObservableProperty] private Especialidade? _especialidadeConsulta;
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private bool _lancado;
@@ -45,6 +47,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public bool ModalidadeDupla =>
         Modalidade is ModalidadeAtendimento.AcupunturaComEletro or ModalidadeAtendimento.BsvComAcupuntura;
 
+    /// <summary>Consulta avulsa: pede a especialidade (discriminada nos relatórios).</summary>
+    public bool ModalidadeConsulta => Modalidade == ModalidadeAtendimento.Consulta;
+
     public NovoAtendimentoViewModel(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
@@ -54,7 +59,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     partial void OnModalidadeChanged(ModalidadeAtendimento value)
     {
         AtualizarOpcoesPrimeiroCodigo();
+        if (value != ModalidadeAtendimento.Consulta)
+            EspecialidadeConsulta = null;
         OnPropertyChanged(nameof(ModalidadeDupla));
+        OnPropertyChanged(nameof(ModalidadeConsulta));
     }
 
     /// <summary>Preenche as opções de "qual código primeiro" conforme a modalidade e escolhe o padrão.</summary>
@@ -110,6 +118,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             Mensagem = "Selecione o paciente.";
             return;
         }
+        if (ModalidadeConsulta && EspecialidadeConsulta is null)
+        {
+            Mensagem = "Informe a especialidade da consulta.";
+            return;
+        }
 
         // Guarda contra duplo clique: dois lançamentos gerariam códigos duplicados.
         if (Ocupado) return;
@@ -124,7 +137,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             var service = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
             var resultado = await service.LancarAsync(
                 PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
-                registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
+                registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
+                especialidadeConsulta: ModalidadeConsulta ? EspecialidadeConsulta : null);
 
             foreach (var c in resultado.Atendimento.Codigos)
                 CodigosGerados.Add(c);

@@ -72,6 +72,10 @@ public sealed class RegraUnimedPadrao : IRegraConvenio
                 r.Codigos.Add(Codigo(TipoCodigo.Bsv, OrdemCodigo.Primeiro, hoje, FormaObtencao.NaoAplica));
                 r.Categoria = Categoria.Amarela;
                 break;
+
+            case ModalidadeAtendimento.Consulta:
+                RegraConsultaAvulsa.Aplicar(r, atendimento, Categoria.Amarela);
+                break;
         }
 
         return r;

@@ -25,6 +25,7 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<FaturamentoPorConvenio> PorConvenio { get; } = new();
     public ObservableCollection<FaixaEnvelhecimento> Envelhecimento { get; } = new();
     public ObservableCollection<ResumoMensal> Comparativo { get; } = new();
+    public ObservableCollection<ConsultasPorEspecialidade> ConsultasEspecialidades { get; } = new();
 
     [ObservableProperty] private bool _gerandoFechamento;
     [ObservableProperty] private string? _mensagem;
@@ -57,6 +58,9 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
 
         Envelhecimento.Clear();
         foreach (var f in rel.Envelhecimento) Envelhecimento.Add(f);
+
+        ConsultasEspecialidades.Clear();
+        foreach (var c in rel.ConsultasEspecialidades) ConsultasEspecialidades.Add(c);
 
         Comparativo.Clear();
         foreach (var m in await service.ComparativoMensalAsync(DateOnly.FromDateTime(Fim)))
@@ -130,6 +134,14 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
         sb.AppendLine("Convênio;Gerados;Baixados;Pendentes;Taxa de baixa (%);Glosadas;Taxa de glosa (%);Tempo médio de baixa (dias)");
         foreach (var c in PorConvenio)
             sb.AppendLine($"{ConvenioInfo.NomeExibicao(c.Convenio)};{c.TotalCodigos};{c.Baixados};{c.Pendentes};{c.TaxaBaixa:0.#};{c.Glosadas};{c.TaxaGlosa:0.#};{c.TempoMedioBaixaDias:0.#}");
+        if (ConsultasEspecialidades.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Consultas por especialidade");
+            sb.AppendLine("Especialidade;Consultas;Baixadas");
+            foreach (var c in ConsultasEspecialidades)
+                sb.AppendLine($"{c.Especialidade};{c.Quantidade};{c.Baixadas}");
+        }
         sb.AppendLine();
         sb.AppendLine("Evolução mensal (últimos 6 meses)");
         sb.AppendLine("Mês;Gerados;Baixados;Pendentes;Taxa de baixa (%)");

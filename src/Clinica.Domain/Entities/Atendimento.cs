@@ -15,6 +15,9 @@ public class Atendimento
 
     public ModalidadeAtendimento Modalidade { get; set; }
 
+    /// <summary>Especialidade da consulta quando a modalidade é Consulta (discrimina para os relatórios).</summary>
+    public Especialidade? EspecialidadeConsulta { get; set; }
+
     /// <summary>Categoria definida pela regra no momento do atendimento.</summary>
     public Categoria Categoria { get; set; }
 

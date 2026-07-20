@@ -31,6 +31,9 @@ public class Agendamento
 
     public ModalidadeAtendimento ModalidadePrevista { get; set; }
 
+    /// <summary>Especialidade prevista quando a modalidade é Consulta (levada ao atendimento na confirmação).</summary>
+    public Especialidade? EspecialidadeConsulta { get; set; }
+
     public StatusAgendamento Status { get; set; } = StatusAgendamento.Agendado;
 
     public OrigemAgendamento Origem { get; set; } = OrigemAgendamento.Manual;

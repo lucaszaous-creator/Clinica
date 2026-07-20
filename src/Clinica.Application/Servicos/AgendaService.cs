@@ -21,13 +21,15 @@ public sealed class AgendaService
 
     public async Task<Agendamento> AgendarAsync(
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? observacoes,
-        OrigemAgendamento origem = OrigemAgendamento.Manual, CancellationToken ct = default)
+        OrigemAgendamento origem = OrigemAgendamento.Manual, CancellationToken ct = default,
+        Especialidade? especialidadeConsulta = null)
     {
         var ag = new Agendamento
         {
             PacienteId = pacienteId,
             DataHora = dataHora,
             ModalidadePrevista = modalidade,
+            EspecialidadeConsulta = modalidade == ModalidadeAtendimento.Consulta ? especialidadeConsulta : null,
             Observacoes = observacoes,
             Origem = origem,
             Status = StatusAgendamento.Agendado
@@ -69,7 +71,8 @@ public sealed class AgendaService
             throw new InvalidOperationException("Este agendamento já teve a presença confirmada.");
 
         var resultado = await _atendimentos.LancarAsync(
-            ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista, ag.Observacoes, ct);
+            ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista, ag.Observacoes, ct,
+            especialidadeConsulta: ag.EspecialidadeConsulta);
 
         ag.Status = StatusAgendamento.Realizado;
         ag.AtendimentoId = resultado.Atendimento.Id;

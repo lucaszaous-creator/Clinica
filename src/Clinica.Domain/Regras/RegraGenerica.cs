@@ -64,6 +64,10 @@ public sealed class RegraGenerica : IRegraConvenio
                 else
                     r.Avisos.Add("Este convênio não fatura BSV — nada foi faturado neste atendimento.");
                 break;
+
+            case ModalidadeAtendimento.Consulta:
+                RegraConsultaAvulsa.Aplicar(r, atendimento, Categoria.Amarela);
+                break;
         }
 
         return r;

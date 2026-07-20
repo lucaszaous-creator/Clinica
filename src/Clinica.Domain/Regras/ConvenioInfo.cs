@@ -9,7 +9,7 @@ public static class ConvenioInfo
         Convenio.UnimedPadrao => 22,
         Convenio.UnimedIntercambio => 22,
         Convenio.Amil => 30,
-        Convenio.Petrobras => null, // acupuntura é faturada como consultas de especialidade; não há consulta renovável
+        Convenio.Petrobras => 30,
         _ => null
     };
 

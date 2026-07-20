@@ -18,17 +18,21 @@ public sealed class AtendimentoService
     private readonly RegistroRegras _regras;
 
     private readonly ParametrosService? _parametros;
+    private readonly ConsultaService? _consultas;
 
-    public AtendimentoService(IClinicaRepositorio repo, RegistroRegras? regras = null, ParametrosService? parametros = null)
+    public AtendimentoService(IClinicaRepositorio repo, RegistroRegras? regras = null,
+        ParametrosService? parametros = null, ConsultaService? consultas = null)
     {
         _repo = repo;
         _regras = regras ?? new RegistroRegras();
         _parametros = parametros;
+        _consultas = consultas;
     }
 
     public async Task<ResultadoLancamento> LancarAsync(
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
-        CancellationToken ct = default, bool registrarNaAgenda = false, TipoCodigo? primeiroCodigo = null)
+        CancellationToken ct = default, bool registrarNaAgenda = false, TipoCodigo? primeiroCodigo = null,
+        Especialidade? especialidadeConsulta = null)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -38,6 +42,7 @@ public sealed class AtendimentoService
             PacienteId = pacienteId,
             Data = data,
             Modalidade = modalidade,
+            EspecialidadeConsulta = modalidade == ModalidadeAtendimento.Consulta ? especialidadeConsulta : null,
             Observacoes = observacoes
         };
 
@@ -72,6 +77,28 @@ public sealed class AtendimentoService
         // Número/protocolo do atendimento (o Id já existe após salvar) — base do lastro de faturamento.
         atendimento.Numero = $"{data.Year}-{atendimento.Id:D6}";
         await _repo.SalvarAsync(ct);
+
+        // Consulta avulsa também reinicia o ciclo de renovação do plano (Unimed 22 dias,
+        // Amil/Petrobras 30): registra a renovação no controle de Consultas, que vigia o vencimento.
+        if (modalidade == ModalidadeAtendimento.Consulta && _consultas is not null)
+        {
+            var validade = paciente.Convenio == Convenio.Personalizado
+                ? CatalogoConvenios.ValidadeConsultaDias(paciente.ConvenioCodigo)
+                : _parametros is null
+                    ? ConvenioInfo.ValidadeConsultaDias(paciente.Convenio)
+                    : (await _parametros.ObterAsync(ct)).ValidadeConsultaDias(paciente.Convenio);
+
+            if (validade is not null)
+            {
+                var rotulo = especialidadeConsulta is { } esp
+                    ? $"Consulta de {EspecialidadeInfo.NomeExibicao(esp)}"
+                    : "Consulta";
+                var consulta = await _consultas.RenovarAsync(
+                    pacienteId, data, $"{rotulo} — atendimento {atendimento.Numero}.", ct);
+                resultado.Avisos.Add(
+                    $"Renovação registrada: a consulta vale {consulta.ValidadeDias} dias e vence em {consulta.DataVencimento:dd/MM/yyyy}.");
+            }
+        }
 
         // Lançamento direto (tela "Novo atendimento"): registra também na agenda do dia, já
         // como presença realizada e vinculado ao atendimento, para que o paciente apareça

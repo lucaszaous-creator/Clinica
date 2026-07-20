@@ -66,6 +66,53 @@ public class ServicosIntegracaoTests : IDisposable
     }
 
     [Fact]
+    public async Task ConsultaAvulsa_LancamentoGuardaEspecialidade_ERenovaCicloDoPlano()
+    {
+        var pacienteId = await CriarPacienteAsync(Convenio.UnimedPadrao); // consulta renova a cada 22 dias
+        var consultas = new ConsultaService(_repo);
+        var atendimentoService = new AtendimentoService(_repo, consultas: consultas);
+
+        var dia = new DateOnly(2026, 7, 15);
+        var resultado = await atendimentoService.LancarAsync(
+            pacienteId, dia, ModalidadeAtendimento.Consulta, especialidadeConsulta: Especialidade.Geriatria);
+
+        resultado.Atendimento.EspecialidadeConsulta.Should().Be(Especialidade.Geriatria);
+        resultado.Atendimento.Codigos.Should().ContainSingle()
+            .Which.Especialidade.Should().Be(Especialidade.Geriatria);
+        resultado.Avisos.Should().Contain(a => a.Contains("Renovação registrada"));
+
+        // A consulta avulsa reinicia o ciclo de renovação vigiado na aba Consultas.
+        var vigente = (await _repo.ConsultasDoPacienteAsync(pacienteId))
+            .Single(c => c.Status == StatusConsulta.Ativa);
+        vigente.ValidadeDias.Should().Be(22);
+        vigente.DataVencimento.Should().Be(dia.AddDays(22));
+    }
+
+    [Fact]
+    public async Task ConsultaAvulsa_RelatorioContaConsultasPorEspecialidade()
+    {
+        var pacienteId = await CriarPacienteAsync(Convenio.Amil);
+        var atendimentoService = new AtendimentoService(_repo);
+        var dia = new DateOnly(2026, 7, 10);
+
+        await atendimentoService.LancarAsync(pacienteId, dia, ModalidadeAtendimento.Consulta,
+            especialidadeConsulta: Especialidade.Geriatria);
+        await atendimentoService.LancarAsync(pacienteId, dia.AddDays(1), ModalidadeAtendimento.Consulta,
+            especialidadeConsulta: Especialidade.Geriatria);
+        await atendimentoService.LancarAsync(pacienteId, dia.AddDays(2), ModalidadeAtendimento.Consulta,
+            especialidadeConsulta: Especialidade.Endocrinologia);
+        // Sessão comum não entra na contagem de consultas.
+        await atendimentoService.LancarAsync(pacienteId, dia.AddDays(3), ModalidadeAtendimento.AcupunturaSimples);
+
+        var relatorio = await new RelatorioService(_repo)
+            .GerarAsync(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 31), new DateOnly(2026, 7, 31));
+
+        relatorio.ConsultasEspecialidades.Should().HaveCount(2);
+        relatorio.ConsultasEspecialidades.Single(c => c.Especialidade == "Geriatria").Quantidade.Should().Be(2);
+        relatorio.ConsultasEspecialidades.Single(c => c.Especialidade == "Endocrinologia").Quantidade.Should().Be(1);
+    }
+
+    [Fact]
     public async Task Petrobras_TresAtendimentosMulher_RotacionamEspecialidades_ViaServico()
     {
         var pacienteId = await CriarPacienteAsync(Convenio.Petrobras, sexo: Sexo.Feminino);

@@ -23,6 +23,12 @@ public sealed record FaturamentoPorConvenio(
     double TaxaGlosa = 0,
     double? TempoMedioBaixaDias = null);
 
+/// <summary>Quantas consultas de cada especialidade a clínica fez no período.</summary>
+public sealed record ConsultasPorEspecialidade(
+    string Especialidade,
+    int Quantidade,
+    int Baixadas);
+
 /// <summary>Envelhecimento das pendências em aberto (por faixa de atraso).</summary>
 public sealed record FaixaEnvelhecimento(
     string Faixa,
@@ -44,4 +50,5 @@ public sealed record RelatorioFaturamento(
     DateOnly Fim,
     ResumoFaturamento Resumo,
     IReadOnlyList<FaturamentoPorConvenio> PorConvenio,
-    IReadOnlyList<FaixaEnvelhecimento> Envelhecimento);
+    IReadOnlyList<FaixaEnvelhecimento> Envelhecimento,
+    IReadOnlyList<ConsultasPorEspecialidade> ConsultasEspecialidades);

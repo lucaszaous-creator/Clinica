@@ -22,7 +22,8 @@ public enum ModalidadeAtendimento
     AcupunturaSimples,   // apenas acupuntura
     AcupunturaComEletro, // acupuntura + eletroacupuntura (gera 2º código quando o convênio permite)
     BsvComAcupuntura,    // Bloqueio Simpático Venoso + acupuntura no mesmo dia
-    BsvApenas            // apenas BSV
+    BsvApenas,           // apenas BSV
+    Consulta             // consulta médica avulsa (a especialidade é informada no lançamento)
 }
 
 /// <summary>Natureza de cada código/guia faturável.</summary>
@@ -35,12 +36,18 @@ public enum TipoCodigo
     ConsultaEspecialidade // usado pela Petrobras (acupuntura faturada como consulta de especialidade)
 }
 
-/// <summary>Especialidades usadas pela Petrobras para faturar acupuntura.</summary>
+/// <summary>
+/// Especialidades de consulta atendidas pela clínica. Usadas na consulta avulsa (discriminam a
+/// especialidade para os relatórios) e na rotação da Petrobras (acupuntura faturada como consulta).
+/// </summary>
 public enum Especialidade
 {
     Psiquiatria,
     Geriatria,
-    Ginecologia
+    Ginecologia,
+    Acupuntura,
+    ClinicaDaDor,
+    Endocrinologia
 }
 
 /// <summary>Ordem do código no dia. O 2º código é o historicamente esquecido.</summary>

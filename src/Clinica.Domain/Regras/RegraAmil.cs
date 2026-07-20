@@ -35,6 +35,10 @@ public sealed class RegraAmil : IRegraConvenio
             case ModalidadeAtendimento.BsvApenas:
                 r.Codigos.Add(Codigo(TipoCodigo.Bsv, hoje));
                 break;
+
+            case ModalidadeAtendimento.Consulta:
+                RegraConsultaAvulsa.Aplicar(r, atendimento, Categoria.Amarela);
+                break;
         }
 
         return r;

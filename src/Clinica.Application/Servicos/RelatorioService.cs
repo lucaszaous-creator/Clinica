@@ -34,7 +34,19 @@ public sealed class RelatorioService
 
         var envelhecimento = await EnvelhecimentoAsync(referencia, ct);
 
-        return new RelatorioFaturamento(inicio, fim, resumo, porConvenio, envelhecimento);
+        // Consultas avulsas por especialidade — responde "quantas consultas de cada especialidade fizemos".
+        var consultasEspecialidades = codigos
+            .Where(c => c.Tipo == TipoCodigo.Consulta && c.Status != StatusCodigo.NaoAplicavel)
+            .GroupBy(c => c.Especialidade)
+            .Select(g => new ConsultasPorEspecialidade(
+                g.Key is { } esp ? EspecialidadeInfo.NomeExibicao(esp) : "Sem especialidade",
+                g.Count(),
+                g.Count(c => c.Baixado)))
+            .OrderByDescending(c => c.Quantidade)
+            .ThenBy(c => c.Especialidade)
+            .ToList();
+
+        return new RelatorioFaturamento(inicio, fim, resumo, porConvenio, envelhecimento, consultasEspecialidades);
     }
 
     private static ResumoFaturamento Resumir(IEnumerable<CodigoFaturamento> codigos)

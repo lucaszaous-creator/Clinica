@@ -9,7 +9,7 @@ public enum StatusConsulta
 }
 
 /// <summary>
-/// Consulta autorizada do paciente (cobre laudos, receitas e dúvidas — 22 dias Unimed / 30 dias Amil).
+/// Consulta autorizada do paciente (cobre laudos, receitas e dúvidas — 22 dias Unimed / 30 dias Amil e Petrobras).
 /// Renovável: ao vencer, é preciso gerar uma nova. A validade vem dos Parâmetros do convênio.
 /// FATURAMENTO apenas — não há valor/recebível.
 /// </summary>

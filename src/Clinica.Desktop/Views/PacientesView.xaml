@@ -92,7 +92,13 @@
 
                     <TextBlock Text="Modalidade habitual" Style="{StaticResource Rotulo}" />
                     <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadePreferida}"
-                              ToolTip="Pré-preenche a Agenda e o Novo atendimento" />
+                              ToolTip="Pré-preenche a Agenda e o Novo atendimento">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
 
                     <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
                     <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"

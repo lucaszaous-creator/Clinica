@@ -15,7 +15,10 @@ public class CodigoFaturamento
 
     public TipoCodigo Tipo { get; set; }
 
-    /// <summary>Preenchido apenas para Petrobras (acupuntura faturada como consulta de especialidade).</summary>
+    /// <summary>
+    /// Especialidade da consulta: preenchida na consulta avulsa (informada no lançamento) e na
+    /// Petrobras (acupuntura faturada como consulta de especialidade, pela rotação).
+    /// </summary>
     public Especialidade? Especialidade { get; set; }
 
     public OrdemCodigo Ordem { get; set; }

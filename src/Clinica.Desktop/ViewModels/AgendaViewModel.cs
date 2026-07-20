@@ -21,6 +21,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<Agendamento> Agendamentos { get; } = new();
     public ObservableCollection<Paciente> Pacientes { get; } = new();
     public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
+    public Array Especialidades => Enum.GetValues(typeof(Especialidade));
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
 
@@ -33,9 +34,20 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private DateTime _dataNovo = DateTime.Today;
     [ObservableProperty] private string _hora = "09:00";
     [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
+    [ObservableProperty] private Especialidade? _especialidadeConsulta;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _ocupado;
+
+    /// <summary>Consulta avulsa: pede a especialidade (levada ao atendimento na confirmação).</summary>
+    public bool ModalidadeConsulta => Modalidade == ModalidadeAtendimento.Consulta;
+
+    partial void OnModalidadeChanged(ModalidadeAtendimento value)
+    {
+        if (value != ModalidadeAtendimento.Consulta)
+            EspecialidadeConsulta = null;
+        OnPropertyChanged(nameof(ModalidadeConsulta));
+    }
 
     private static readonly CultureInfo PtBr = new("pt-BR");
 
@@ -128,6 +140,11 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             Mensagem = "Hora inválida (use HH:mm, ex.: 14:30).";
             return;
         }
+        if (ModalidadeConsulta && EspecialidadeConsulta is null)
+        {
+            Mensagem = "Informe a especialidade da consulta.";
+            return;
+        }
 
         // Hora de parede (sem fuso) para casar com a coluna 'timestamp without time zone'.
         var dataHora = DateTime.SpecifyKind(DataNovo.Date.Add(hora.ToTimeSpan()), DateTimeKind.Unspecified);
@@ -148,7 +165,8 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
                         "Agendar mesmo assim (encaixe)?"))
                     return;
 
-                await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes);
+                await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes,
+                    especialidadeConsulta: ModalidadeConsulta ? EspecialidadeConsulta : null);
             }
 
             Mensagem = "Agendamento criado.";

@@ -2,6 +2,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -29,13 +30,21 @@ public class ConsultaServiceTests : IDisposable
         _consultas = new ConsultaService(_repo); // sem Parâmetros → usa validades padrão do ConvenioInfo
     }
 
-    private async Task<int> CriarPacienteAsync(Convenio convenio)
+    private async Task<int> CriarPacienteAsync(Convenio convenio, string? convenioCodigo = null)
     {
-        var p = new Paciente { Nome = "Paciente", Convenio = convenio, Sexo = Sexo.Feminino };
+        var p = new Paciente { Nome = "Paciente", Convenio = convenio, ConvenioCodigo = convenioCodigo, Sexo = Sexo.Feminino };
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
         return p.Id;
     }
+
+    /// <summary>Registra no catálogo um convênio personalizado SEM consulta renovável.</summary>
+    private static void RegistrarPersonalizadoSemConsulta(string codigo)
+        => CatalogoConvenios.Atualizar(new[]
+        {
+            new EntradaConvenio(codigo, "Convênio Sem Consulta", Convenio.Personalizado, Ativo: true,
+                new ConfiguracaoRegraGenerica { ValidadeConsultaDias = null })
+        });
 
     [Fact]
     public async Task Renovar_CriaConsultaAtivaComVencimentoPelaValidade()
@@ -64,9 +73,23 @@ public class ConsultaServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Renovar_Petrobras_Usa30Dias()
+    {
+        var id = await CriarPacienteAsync(Convenio.Petrobras); // consulta renova a cada 30 dias
+        var emissao = new DateOnly(2026, 7, 1);
+
+        var c = await _consultas.RenovarAsync(id, emissao);
+
+        c.ValidadeDias.Should().Be(30);
+        c.DataVencimento.Should().Be(emissao.AddDays(30));
+    }
+
+    [Fact]
     public async Task Renovar_ConvenioSemConsulta_Lanca()
     {
-        var id = await CriarPacienteAsync(Convenio.Petrobras); // não usa consulta renovável
+        // Personalizado sem validade configurada no catálogo → não usa consulta renovável.
+        RegistrarPersonalizadoSemConsulta("CVSEMCONS");
+        var id = await CriarPacienteAsync(Convenio.Personalizado, "CVSEMCONS");
         var acao = () => _consultas.RenovarAsync(id, new DateOnly(2026, 7, 1));
         await acao.Should().ThrowAsync<InvalidOperationException>();
     }
@@ -89,7 +112,8 @@ public class ConsultaServiceTests : IDisposable
     [Fact]
     public async Task Listar_ConvenioSemConsulta_NaoAlerta()
     {
-        var id = await CriarPacienteAsync(Convenio.Petrobras);
+        RegistrarPersonalizadoSemConsulta("CVSEMCONS");
+        var id = await CriarPacienteAsync(Convenio.Personalizado, "CVSEMCONS");
 
         var item = (await _consultas.ListarAsync(new DateOnly(2026, 7, 16))).Single(s => s.PacienteId == id);
 
@@ -112,6 +136,7 @@ public class ConsultaServiceTests : IDisposable
 
     public void Dispose()
     {
+        CatalogoConvenios.Atualizar(Array.Empty<EntradaConvenio>()); // não vaza o catálogo para outros testes
         _db.Dispose();
         _conn.Dispose();
     }

@@ -162,6 +162,68 @@ public class RegrasFaturamentoTests
         r.Categoria.Should().Be(Categoria.Vermelha);
         r.Codigos.Should().NotContain(c => c.Tipo == TipoCodigo.Eletroacupuntura);
     }
+
+    // ---------- Consulta avulsa (todas as regras) ----------
+
+    [Theory]
+    [InlineData(Convenio.UnimedPadrao)]
+    [InlineData(Convenio.UnimedIntercambio)]
+    [InlineData(Convenio.Amil)]
+    public void ConsultaAvulsa_GeraCodigoUnicoComEspecialidade_FaturavelHoje(Convenio convenio)
+    {
+        var (p, a) = Cenario(convenio, ModalidadeAtendimento.Consulta);
+        a.EspecialidadeConsulta = Especialidade.Endocrinologia;
+
+        var r = new RegistroRegras().Para(convenio).Gerar(p, a, ContextoFaturamento.Vazio);
+
+        r.Categoria.Should().Be(Categoria.Amarela);
+        var consulta = r.Codigos.Should().ContainSingle().Subject;
+        consulta.Tipo.Should().Be(TipoCodigo.Consulta);
+        consulta.Especialidade.Should().Be(Especialidade.Endocrinologia);
+        consulta.Ordem.Should().Be(OrdemCodigo.Primeiro);
+        consulta.DataPrevistaFaturamento.Should().Be(Hoje); // faturável no dia, sem 2º código
+    }
+
+    [Fact]
+    public void ConsultaAvulsa_Petrobras_MantemVermelhaENaoEntraNaRotacao()
+    {
+        var (p, a) = Cenario(Convenio.Petrobras, ModalidadeAtendimento.Consulta, sexo: Sexo.Feminino);
+        a.EspecialidadeConsulta = Especialidade.ClinicaDaDor;
+
+        var r = new RegraPetrobras().Gerar(p, a, ContextoFaturamento.Vazio);
+
+        r.Categoria.Should().Be(Categoria.Vermelha);
+        var consulta = r.Codigos.Should().ContainSingle().Subject;
+        consulta.Tipo.Should().Be(TipoCodigo.Consulta); // não é ConsultaEspecialidade da rotação
+        consulta.Especialidade.Should().Be(Especialidade.ClinicaDaDor);
+    }
+
+    [Fact]
+    public void ConsultaAvulsa_SemEspecialidade_GeraAvisoParaPreencher()
+    {
+        var (p, a) = Cenario(Convenio.Amil, ModalidadeAtendimento.Consulta);
+
+        var r = new RegraAmil().Gerar(p, a, ContextoFaturamento.Vazio);
+
+        r.Codigos.Should().ContainSingle().Which.Especialidade.Should().BeNull();
+        r.Avisos.Should().ContainSingle(av => av.Contains("Especialidade"));
+    }
+
+    [Fact]
+    public void ConsultaAvulsa_ConvenioPersonalizado_TambemGeraConsulta()
+    {
+        var (p, a) = Cenario(Convenio.Personalizado, ModalidadeAtendimento.Consulta);
+        a.EspecialidadeConsulta = Especialidade.Geriatria;
+
+        var r = new RegraGenerica().Gerar(p, a, new ContextoFaturamento
+        {
+            Generica = new ConfiguracaoRegraGenerica()
+        });
+
+        var consulta = r.Codigos.Should().ContainSingle().Subject;
+        consulta.Tipo.Should().Be(TipoCodigo.Consulta);
+        consulta.Especialidade.Should().Be(Especialidade.Geriatria);
+    }
 }
 
 /// <summary>Valida o comportamento de pendência/baixa da entidade central.</summary>
