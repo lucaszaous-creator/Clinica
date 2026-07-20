@@ -16,6 +16,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ConvenioCadastro> Convenios => Set<ConvenioCadastro>();
     public DbSet<Consulta> Consultas => Set<Consulta>();
     public DbSet<LoteTiss> LotesTiss => Set<LoteTiss>();
+    public DbSet<EventoAuditoria> Auditoria => Set<EventoAuditoria>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -131,5 +132,31 @@ public class ClinicaDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(a => a.DataHora);
         });
+
+        b.Entity<EventoAuditoria>(e =>
+        {
+            e.HasKey(x => x.Id);
+            // Hora de parede (sem fuso), como na Agenda — evita o erro do Npgsql com DateTime local.
+            e.Property(x => x.DataHora).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Operador).IsRequired().HasMaxLength(80);
+            e.Property(x => x.Acao).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Detalhe).HasMaxLength(500);
+            e.HasIndex(x => x.DataHora);
+            e.HasIndex(x => x.CodigoId);
+        });
+
+        // Controle de concorrência otimista via coluna de sistema xmin do PostgreSQL:
+        // duas máquinas editando o mesmo registro não se sobrescrevem em silêncio — a
+        // segunda gravação falha e o repositório traduz num aviso para atualizar a tela.
+        // Só no Npgsql (os testes rodam em SQLite, que não tem xmin).
+        if (Database.IsNpgsql())
+        {
+            b.Entity<Paciente>().Property<uint>("xmin").IsRowVersion();
+            b.Entity<Atendimento>().Property<uint>("xmin").IsRowVersion();
+            b.Entity<CodigoFaturamento>().Property<uint>("xmin").IsRowVersion();
+            b.Entity<LoteTiss>().Property<uint>("xmin").IsRowVersion();
+            b.Entity<Consulta>().Property<uint>("xmin").IsRowVersion();
+            b.Entity<Agendamento>().Property<uint>("xmin").IsRowVersion();
+        }
     }
 }

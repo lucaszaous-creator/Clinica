@@ -29,7 +29,8 @@ public sealed class LoteTissService
     /// Cria o lote com as guias baixadas do período que ainda não foram exportadas,
     /// consumindo o próximo número da sequência TISS. Nulo se não houver guia nova.
     /// </summary>
-    public async Task<LoteTiss?> CriarAsync(DateOnly inicio, DateOnly fim, string? registroAnsOperadora, CancellationToken ct = default)
+    public async Task<LoteTiss?> CriarAsync(DateOnly inicio, DateOnly fim, string? registroAnsOperadora,
+        string? operador = null, CancellationToken ct = default)
     {
         var codigos = await _repo.CodigosBaixadosSemLoteAsync(inicio, fim, ct);
         if (codigos.Count == 0)
@@ -46,6 +47,7 @@ public sealed class LoteTissService
             lote.Codigos.Add(c);
 
         await _repo.AdicionarLoteAsync(lote, ct);
+        await Auditar(operador, "LoteCriado", $"Lote nº {numero} com {codigos.Count} guia(s), período {inicio:dd/MM} a {fim:dd/MM/yyyy}", ct);
         await _repo.SalvarAsync(ct);
         await _parametros.ConfirmarNumeroLoteTissAsync(numero, ct);
         return lote;
@@ -61,10 +63,14 @@ public sealed class LoteTissService
            ?? throw new InvalidOperationException($"Lote {loteId} não encontrado.");
 
     /// <summary>Marca o lote como entregue à operadora, guardando o protocolo devolvido.</summary>
-    public async Task MarcarEnviadoAsync(int loteId, DateOnly data, string? protocolo, CancellationToken ct = default)
+    public async Task MarcarEnviadoAsync(int loteId, DateOnly data, string? protocolo,
+        string? operador = null, CancellationToken ct = default)
     {
         var lote = await ObterAsync(loteId, ct);
         lote.MarcarEnviado(data, protocolo);
+        await Auditar(operador, "LoteEnviado",
+            $"Lote nº {lote.Numero} enviado em {data:dd/MM/yyyy}" +
+            (string.IsNullOrWhiteSpace(protocolo) ? "" : $", protocolo {protocolo}"), ct, lote.Id);
         await _repo.SalvarAsync(ct);
     }
 
@@ -73,19 +79,33 @@ public sealed class LoteTissService
     /// glosa (com motivo da tabela ANS e prazo de recurso); as demais são consideradas aceitas.
     /// </summary>
     public async Task RegistrarRetornoAsync(int loteId, DateOnly dataRetorno,
-        IReadOnlyList<RetornoGuiaDecisao> decisoes, string? observacao, CancellationToken ct = default)
+        IReadOnlyList<RetornoGuiaDecisao> decisoes, string? observacao,
+        string? operador = null, CancellationToken ct = default)
     {
         var lote = await ObterAsync(loteId, ct);
         var prazo = await _parametros.ObterPrazoRecursoGlosaAsync(ct);
 
+        var glosadas = 0;
         foreach (var d in decisoes.Where(d => d.Glosada))
         {
             var codigo = lote.Codigos.FirstOrDefault(c => c.Id == d.CodigoId)
                 ?? throw new InvalidOperationException($"A guia {d.CodigoId} não pertence ao lote {lote.Numero}.");
             codigo.RegistrarGlosa(dataRetorno, d.MotivoTexto, d.MotivoCodigo, prazo);
+            glosadas++;
         }
 
         lote.RegistrarRetorno(dataRetorno, observacao);
+        await Auditar(operador, "LoteRetorno",
+            $"Retorno do lote nº {lote.Numero} em {dataRetorno:dd/MM/yyyy}: {glosadas} glosada(s) de {lote.Codigos.Count}", ct, lote.Id);
         await _repo.SalvarAsync(ct);
     }
+
+    private Task Auditar(string? operador, string acao, string detalhe, CancellationToken ct, int? loteId = null)
+        => _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = acao,
+            Detalhe = detalhe,
+            LoteTissId = loteId
+        }, ct);
 }

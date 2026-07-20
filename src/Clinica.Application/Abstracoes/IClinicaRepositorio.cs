@@ -86,5 +86,13 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
     Task RemoverAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
 
+    // ---- Auditoria ----
+
+    /// <summary>Acrescenta um evento à trilha de auditoria (persistido junto com o SalvarAsync da ação).</summary>
+    Task RegistrarAuditoriaAsync(EventoAuditoria evento, CancellationToken ct = default);
+
+    /// <summary>Eventos de auditoria, do mais recente ao mais antigo (limitado).</summary>
+    Task<IReadOnlyList<EventoAuditoria>> EventosAuditoriaAsync(int limite = 200, CancellationToken ct = default);
+
     Task<int> SalvarAsync(CancellationToken ct = default);
 }

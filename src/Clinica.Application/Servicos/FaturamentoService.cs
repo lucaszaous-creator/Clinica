@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
 
@@ -17,6 +18,15 @@ public sealed class FaturamentoService
             ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
 
         codigo.DarBaixa(dataBaixa, numeroGuia, usuario, observacao);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(usuario) ? "?" : usuario,
+            Acao = "BaixaGuia",
+            Detalhe = $"Baixa em {dataBaixa:dd/MM/yyyy}" +
+                      (string.IsNullOrWhiteSpace(numeroGuia) ? "" : $", guia {numeroGuia}"),
+            CodigoId = codigo.Id,
+            PacienteId = codigo.Atendimento?.PacienteId
+        }, ct);
         await _repo.SalvarAsync(ct);
     }
 
@@ -26,7 +36,17 @@ public sealed class FaturamentoService
         var codigo = await _repo.ObterCodigoAsync(codigoId, ct)
             ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
 
+        var guiaAnterior = codigo.NumeroGuiaReal;
         codigo.EstornarBaixa(motivo, usuario);
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(usuario) ? "?" : usuario,
+            Acao = "EstornoBaixa",
+            Detalhe = (string.IsNullOrWhiteSpace(motivo) ? "Estorno" : motivo) +
+                      (string.IsNullOrWhiteSpace(guiaAnterior) ? "" : $" (guia anterior: {guiaAnterior})"),
+            CodigoId = codigo.Id,
+            PacienteId = codigo.Atendimento?.PacienteId
+        }, ct);
         await _repo.SalvarAsync(ct);
     }
 }

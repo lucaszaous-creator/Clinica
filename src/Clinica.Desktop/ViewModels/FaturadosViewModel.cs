@@ -88,7 +88,7 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 
         using var scope = _scopeFactory.CreateScope();
         var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-        await glosas.RegistrarAsync(codigo.Id, dialog.DataGlosa, dialog.Motivo, dialog.MotivoCodigo);
+        await glosas.RegistrarAsync(codigo.Id, dialog.DataGlosa, dialog.Motivo, dialog.MotivoCodigo, Environment.UserName);
 
         await Buscar();
     }

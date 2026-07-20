@@ -51,6 +51,22 @@ Além das pendências de baixa, o sistema fecha o ciclo junto à operadora:
 - **Relatórios**: além da taxa de baixa, **taxa de glosa por convênio** e
   **tempo médio atendimento → baixa**.
 
+## Robustez operacional
+
+- **Trilha de auditoria**: toda baixa, estorno, glosa e ação de lote grava um evento
+  (quem, o quê, quando) na tabela `Auditoria` — só-escrita, nunca editada pelo app.
+- **Concorrência entre máquinas**: registros protegidos por token otimista (`xmin` do
+  PostgreSQL). Se dois computadores editarem a mesma guia ao mesmo tempo, o segundo
+  recebe um aviso para atualizar a tela — nada é sobrescrito em silêncio.
+- **Validação do XML TISS**: além da pré-validação do prestador, o XML gerado passa por
+  validação estrutural (campos obrigatórios, guias, hash do epílogo). Havendo o XSD
+  oficial da ANS em `%APPDATA%\ClinicaFaturamento\tiss\schemas`, valida também contra o schema.
+- **Backup antes de migration**: quando uma atualização traz mudança de banco, um backup
+  local (SQL cru, independente do modelo) é gravado antes de migrar.
+- **Modo contingência**: as pendências do dia são espelhadas localmente a cada
+  sincronização; se a internet ou o banco caírem, o app mostra a última lista salva
+  (somente leitura) em vez de deixar a secretária às cegas.
+
 ## Como rodar
 
 ### Pré-requisitos

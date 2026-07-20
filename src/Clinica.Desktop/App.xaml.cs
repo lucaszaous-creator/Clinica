@@ -67,6 +67,14 @@ public partial class App : System.Windows.Application
                 using (var scope = _host.Services.CreateScope())
                 {
                     var db = scope.ServiceProvider.GetRequiredService<ClinicaDbContext>();
+
+                    // Migration pendente num banco que já tem dados: backup local ANTES de
+                    // migrar. Se a migration falhar no meio, os dados estão na máquina.
+                    var pendentes = await db.Database.GetPendingMigrationsAsync();
+                    var aplicadas = await db.Database.GetAppliedMigrationsAsync();
+                    if (pendentes.Any() && aplicadas.Any())
+                        await BackupLocal.ExecutarPreMigracaoAsync(db);
+
                     await db.Database.MigrateAsync();
 
                     // Carrega o catálogo de convênios no cache em memória (nomes/famílias).
@@ -102,6 +110,9 @@ public partial class App : System.Windows.Application
                     continue;
                 }
 
+                // Modo contingência: sem banco (internet caiu / Neon fora do ar), mostra as
+                // últimas pendências sincronizadas — a secretária ainda sabe o que faturar hoje.
+                MostrarPendenciasOffline();
                 Shutdown();
                 return;
             }
@@ -162,6 +173,10 @@ public partial class App : System.Windows.Application
             var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var lista = await pendencias.CodigosPendentesAsync(hoje);
+
+            // Espelho local para o modo contingência (banco/internet fora do ar).
+            Configuracao.PendenciasSnapshot.Salvar(lista);
+
             if (lista.Count == 0) return;
 
             _avisoAberto = true;
@@ -176,6 +191,31 @@ public partial class App : System.Windows.Application
         finally
         {
             _avisoAberto = false;
+        }
+    }
+
+    /// <summary>
+    /// Sem conexão com o banco: mostra as últimas pendências salvas localmente (somente
+    /// leitura), para o dia de trabalho não ficar às cegas. Nunca lança.
+    /// </summary>
+    private void MostrarPendenciasOffline()
+    {
+        try
+        {
+            var snapshot = Configuracao.PendenciasSnapshot.Carregar();
+            if (snapshot is null || snapshot.Pendencias.Count == 0) return;
+
+            MessageBox.Show(
+                $"Sem conexão com o banco. Exibindo as pendências da última sincronização " +
+                $"({snapshot.GeradoEm:dd/MM/yyyy HH:mm}), somente leitura — as baixas devem ser " +
+                "registradas quando a conexão voltar.",
+                "Modo contingência", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            new AvisoPendenciasWindow(snapshot.Pendencias).ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            LogErros.Registrar("Pendências em modo contingência", ex);
         }
     }
 

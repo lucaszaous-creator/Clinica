@@ -64,6 +64,61 @@ public static class BackupLocal
         }
     }
 
+    /// <summary>
+    /// Backup ANTES de aplicar migrations pendentes — se a migration falhar no meio,
+    /// os dados de ontem estão na máquina. Lê as tabelas via SQL cru (SELECT *), e não
+    /// pelo modelo do EF: o modelo novo pode esperar colunas que só existirão DEPOIS
+    /// da migration, e o backup precisa funcionar justamente com o schema antigo.
+    /// Nunca lança (uma falha aqui não pode impedir o app de abrir).
+    /// </summary>
+    public static async Task ExecutarPreMigracaoAsync(ClinicaDbContext db)
+    {
+        try
+        {
+            Directory.CreateDirectory(Pasta);
+            var arquivo = Path.Combine(Pasta, $"backup-pre-migracao-{DateTime.Now:yyyy-MM-dd-HHmmss}.json");
+
+            var conexao = db.Database.GetDbConnection();
+            if (conexao.State != System.Data.ConnectionState.Open)
+                await conexao.OpenAsync();
+
+            var tabelas = new List<string>();
+            using (var cmd = conexao.CreateCommand())
+            {
+                cmd.CommandText = "SELECT table_name FROM information_schema.tables " +
+                                  "WHERE table_schema = 'public' AND table_type = 'BASE TABLE'";
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                    tabelas.Add(reader.GetString(0));
+            }
+
+            var dump = new Dictionary<string, List<Dictionary<string, object?>>>();
+            foreach (var tabela in tabelas)
+            {
+                var linhas = new List<Dictionary<string, object?>>();
+                using var cmd = conexao.CreateCommand();
+                cmd.CommandText = $"SELECT * FROM \"{tabela.Replace("\"", "\"\"")}\"";
+                using var reader = await cmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    var linha = new Dictionary<string, object?>();
+                    for (var i = 0; i < reader.FieldCount; i++)
+                        linha[reader.GetName(i)] = reader.IsDBNull(i) ? null : reader.GetValue(i)?.ToString();
+                    linhas.Add(linha);
+                }
+                dump[tabela] = linhas;
+            }
+
+            var temp = arquivo + ".tmp";
+            await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(new { GeradoEm = DateTime.Now, Tabelas = dump }, Opcoes));
+            File.Move(temp, arquivo, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            LogErros.Registrar("Backup pré-migration", ex);
+        }
+    }
+
     private static void LimparAntigos()
     {
         var arquivos = Directory.GetFiles(Pasta, "backup-*.json")

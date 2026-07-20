@@ -251,5 +251,30 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.Agendamentos.Remove(ag);
     }
 
-    public Task<int> SalvarAsync(CancellationToken ct = default) => _db.SaveChangesAsync(ct);
+    // ---- Auditoria ----
+
+    public async Task RegistrarAuditoriaAsync(EventoAuditoria evento, CancellationToken ct = default)
+        => await _db.Auditoria.AddAsync(evento, ct);
+
+    public async Task<IReadOnlyList<EventoAuditoria>> EventosAuditoriaAsync(int limite = 200, CancellationToken ct = default)
+        => await _db.Auditoria.AsNoTracking()
+            .OrderByDescending(e => e.DataHora).ThenByDescending(e => e.Id)
+            .Take(limite)
+            .ToListAsync(ct);
+
+    public async Task<int> SalvarAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            // Duas máquinas editaram o mesmo registro ao mesmo tempo (token xmin do Postgres).
+            // Sem isto, a última gravação sobrescreveria a outra em silêncio.
+            throw new InvalidOperationException(
+                "Outro computador alterou este registro enquanto você editava. " +
+                "Atualize a tela (F5) para ver a versão mais recente e repita a operação.", ex);
+        }
+    }
 }

@@ -135,7 +135,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         };
         if (dialog.ShowDialog() != true) return;
 
-        var lote = await lotes.CriarAsync(inicio, fim, dados.RegistroAnsOperadora);
+        var lote = await lotes.CriarAsync(inicio, fim, dados.RegistroAnsOperadora, Environment.UserName);
         if (lote is null) return; // corrida improvável: outra máquina exportou no meio-tempo
 
         var xml = tiss.GerarLoteXml(lote.Codigos, dados, lote.Numero.ToString());
@@ -144,8 +144,16 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         // Arquiva uma cópia do lote (histórico auditável do que foi enviado à operadora).
         var copia = ArquivarCopiaLote(xml, lote.Numero);
 
+        // Validação estrutural (e XSD, se o schema da ANS estiver na máquina): melhor
+        // descobrir agora do que na rejeição da operadora dias depois.
+        var problemas = ValidarXmlGerado(xml);
         Mensagem = $"Lote nº {lote.Numero} gerado com {lote.Codigos.Count} guia(s): {dialog.FileName}" +
                    (copia is null ? string.Empty : $" (cópia arquivada em {copia})");
+        if (problemas.Count > 0)
+            _dialogo.Aviso("Validação do XML TISS",
+                $"O lote nº {lote.Numero} foi gerado e salvo, mas a validação encontrou problemas que a operadora pode recusar:\n\n• " +
+                string.Join("\n• ", problemas.Take(12)) +
+                "\n\nCorrija os cadastros/Configurações e use \"Baixar XML\" para regenerar o arquivo antes de enviar.");
         await CarregarAsync();
     }
 
@@ -173,7 +181,10 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             };
             if (dialog.ShowDialog() != true) return;
             await File.WriteAllTextAsync(dialog.FileName, xml);
-            Mensagem = $"XML do lote nº {lote.Numero} salvo em {dialog.FileName}";
+            var problemas = ValidarXmlGerado(xml);
+            Mensagem = $"XML do lote nº {lote.Numero} salvo em {dialog.FileName}" +
+                       (problemas.Count == 0 ? string.Empty
+                        : $" — atenção: {problemas.Count} problema(s) de validação: {string.Join("; ", problemas.Take(3))}");
         }
         catch (Exception ex)
         {
@@ -196,7 +207,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         {
             using var scope = _scopeFactory.CreateScope();
             var lotes = scope.ServiceProvider.GetRequiredService<LoteTissService>();
-            await lotes.MarcarEnviadoAsync(linha.Id, janela.DataEnvio, janela.Protocolo);
+            await lotes.MarcarEnviadoAsync(linha.Id, janela.DataEnvio, janela.Protocolo, Environment.UserName);
             await CarregarAsync();
         }
         catch (Exception ex)
@@ -225,7 +236,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
             {
                 var lotes = scope.ServiceProvider.GetRequiredService<LoteTissService>();
-                await lotes.RegistrarRetornoAsync(linha.Id, janela.DataRetorno, janela.Decisoes, janela.Observacao);
+                await lotes.RegistrarRetornoAsync(linha.Id, janela.DataRetorno, janela.Decisoes, janela.Observacao, Environment.UserName);
             }
 
             var glosadas = janela.Decisoes.Count(d => d.Glosada);
@@ -238,6 +249,32 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         {
             Mensagem = $"Não foi possível registrar o retorno: {ex.Message}";
         }
+    }
+
+    /// <summary>
+    /// Valida o XML gerado: sempre a validação estrutural; e contra o XSD oficial da ANS
+    /// quando houver um .xsd em %APPDATA%\ClinicaFaturamento\tiss\schemas (baixado do portal da ANS).
+    /// </summary>
+    private static IReadOnlyList<string> ValidarXmlGerado(string xml)
+    {
+        var problemas = new List<string>(TissValidador.Validar(xml));
+        try
+        {
+            var pastaSchemas = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "ClinicaFaturamento", "tiss", "schemas");
+            if (Directory.Exists(pastaSchemas))
+            {
+                var xsd = Directory.GetFiles(pastaSchemas, "*.xsd").OrderBy(f => f).FirstOrDefault();
+                if (xsd is not null)
+                    problemas.AddRange(TissValidador.ValidarComXsd(xml, xsd));
+            }
+        }
+        catch (Exception ex)
+        {
+            Configuracao.LogErros.Registrar("Validação XSD do lote TISS", ex);
+        }
+        return problemas;
     }
 
     /// <summary>Guarda uma cópia de cada lote exportado em %APPDATA%\ClinicaFaturamento\tiss.</summary>

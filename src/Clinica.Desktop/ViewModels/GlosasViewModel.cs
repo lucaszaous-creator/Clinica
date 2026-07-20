@@ -85,7 +85,7 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
             {
                 var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-                await glosas.ReapresentarAsync(linha.Codigo.Id, DateOnly.FromDateTime(DateTime.Today));
+                await glosas.ReapresentarAsync(linha.Codigo.Id, DateOnly.FromDateTime(DateTime.Today), Environment.UserName);
             }
             await Buscar();
         }
@@ -107,7 +107,7 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
             {
                 var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-                await glosas.MarcarRecuperadaAsync(linha.Codigo.Id);
+                await glosas.MarcarRecuperadaAsync(linha.Codigo.Id, Environment.UserName);
             }
             await Buscar();
         }
