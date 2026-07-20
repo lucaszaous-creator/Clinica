@@ -22,7 +22,15 @@ public sealed record PendenciaCodigo(
     FormaObtencao FormaObtencao,
     int DiasEmAtraso,
     NivelUrgencia Urgencia,
-    string? Descricao);
+    string? Descricao,
+    /// <summary>Anotação do responsável sobre por que a guia ainda não foi baixada (nula = sem anotação).</summary>
+    string? ObservacaoPendencia = null,
+    /// <summary>Quando a observação foi anotada/atualizada.</summary>
+    DateTime? ObservacaoPendenciaEm = null)
+{
+    /// <summary>True quando há uma observação registrada (para destacar a linha na tela).</summary>
+    public bool TemObservacao => !string.IsNullOrWhiteSpace(ObservacaoPendencia);
+}
 
 /// <summary>Uma consulta a renovar (cobre laudos, receitas e dúvidas — 22 dias Unimed / 30 dias Amil).</summary>
 public sealed record PendenciaConsulta(

@@ -175,6 +175,9 @@ instalado no PC da clínica).
 2. **Novo atendimento** — escolher paciente + modalidade; o sistema gera os códigos e mostra o
    que fatura hoje e o que fica pendente para +24h.
 3. **Pendências (dashboard)** — 2º códigos e consultas a renovar, com semáforo e contador. Botão
-   **Dar baixa** registra a guia efetivada.
+   **Dar baixa** registra a guia efetivada. Quando a guia **não pôde ser baixada na hora**, o botão
+   **Anotar** guarda o motivo (ex.: "portal fora do ar", "aguardando o paciente enviar o QR Code"):
+   a observação fica visível na coluna **Observação** da pendência e reaparece na tela de baixa —
+   ao reabrir o caso depois, dá para saber na hora por que ele continua em aberto.
 4. **Relatórios** — por período: **taxa de baixa** (gerados × baixados × pendentes), quebra por
    convênio e **envelhecimento** das pendências em aberto (0–7 / 8–30 / +30 dias).

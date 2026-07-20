@@ -112,6 +112,35 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
             AbrirBaixaSolicitado?.Invoke(codigo.CodigoId);
     }
 
+    /// <summary>
+    /// Anota por que a guia ainda não foi baixada (portal fora do ar, aguardando o
+    /// paciente etc.). A observação fica na pendência para consulta futura.
+    /// </summary>
+    [RelayCommand]
+    private async Task Anotar(PendenciaCodigo? codigo)
+    {
+        if (codigo is null) return;
+
+        var janela = new Alertas.ObservacaoPendenciaWindow(codigo)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
+            await faturamento.RegistrarObservacaoPendenciaAsync(codigo.CodigoId, janela.Observacao, Environment.UserName);
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Observação da pendência", ex.Message);
+        }
+
+        await CarregarAsync();
+    }
+
     /// <summary>Baixa em lote das linhas selecionadas (Ctrl/Shift + clique na tabela).</summary>
     [RelayCommand]
     private async Task DarBaixaEmLote(System.Collections.IList? selecionados)

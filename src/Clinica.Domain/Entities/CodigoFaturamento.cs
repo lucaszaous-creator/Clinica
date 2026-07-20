@@ -41,6 +41,19 @@ public class CodigoFaturamento
     public string? UsuarioBaixa { get; set; }
     public string? ObservacaoBaixa { get; set; }
 
+    // ---------- Observação da pendência (por que ainda não foi baixada) ----------
+
+    /// <summary>
+    /// Anotação do responsável quando a guia NÃO pôde ser baixada na hora (ex.: "portal
+    /// da Unimed fora do ar", "aguardando o paciente enviar o QR Code"). Fica visível na
+    /// pendência para, no futuro, saber por que o caso continua em aberto. Independe da
+    /// baixa — é sobre o que está impedindo a baixa.
+    /// </summary>
+    public string? ObservacaoPendencia { get; set; }
+
+    /// <summary>Quando a observação da pendência foi anotada/atualizada (para exibir "há N dias").</summary>
+    public DateTime? ObservacaoPendenciaEm { get; set; }
+
     // ---------- Lote TISS (exportação à operadora) ----------
 
     /// <summary>Lote TISS em que a guia foi exportada. Nulo = ainda não entrou em lote.</summary>
@@ -82,6 +95,17 @@ public class CodigoFaturamento
         UsuarioBaixa = usuario;
         ObservacaoBaixa = observacao;
         Status = StatusCodigo.Baixado;
+    }
+
+    /// <summary>
+    /// Registra (ou limpa) a observação sobre por que a guia ainda não foi baixada.
+    /// Texto vazio limpa a anotação. Carimba a data para a pendência mostrar desde quando.
+    /// </summary>
+    public void RegistrarObservacaoPendencia(string? observacao)
+    {
+        var texto = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim();
+        ObservacaoPendencia = texto;
+        ObservacaoPendenciaEm = texto is null ? null : DateTime.Now;
     }
 
     /// <summary>

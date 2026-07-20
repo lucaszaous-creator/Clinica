@@ -1,0 +1,24 @@
+<Window x:Class="Clinica.Desktop.Alertas.ObservacaoPendenciaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Observação da pendência" Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Fundo}">
+    <StackPanel Margin="24">
+        <TextBlock x:Name="TxtTitulo" Text="Observação da pendência" Style="{StaticResource H2}" />
+        <TextBlock Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,10" TextWrapping="Wrap"
+                   Text="Se a guia não pôde ser baixada agora, registre o motivo (ex.: portal fora do ar, aguardando o paciente enviar o QR Code). Fica visível na pendência para consultar depois." />
+
+        <TextBlock Text="O que aconteceu?" Style="{StaticResource Rotulo}" />
+        <TextBox x:Name="TxtObservacao" AcceptsReturn="True" TextWrapping="Wrap"
+                 MinHeight="90" MaxLength="500" VerticalScrollBarVisibility="Auto" />
+        <TextBlock x:Name="TxtInfo" Foreground="{StaticResource Brush.Texto.Secundario}"
+                   Margin="0,6,0,0" FontSize="12" Visibility="Collapsed" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click"
+                    IsCancel="True" Margin="0,0,10,0" />
+            <Button Content="Salvar observação" Click="Confirmar_Click" IsDefault="True" />
+        </StackPanel>
+    </StackPanel>
+</Window>

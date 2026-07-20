@@ -27,6 +27,11 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _ocupado;
 
+    /// <summary>Observação registrada enquanto a guia estava pendente (por que não deu para baixar antes).</summary>
+    [ObservableProperty] private string? _observacaoPendencia;
+    public bool TemObservacaoPendencia => !string.IsNullOrWhiteSpace(ObservacaoPendencia);
+    partial void OnObservacaoPendenciaChanged(string? value) => OnPropertyChanged(nameof(TemObservacaoPendencia));
+
     public event Action? BaixaConcluida;
     public event Action? Cancelado;
 
@@ -45,6 +50,9 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
             .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
             .FirstOrDefaultAsync(c => c.Id == codigoId);
         PacienteNome = Codigo?.Atendimento?.Paciente?.Nome ?? string.Empty;
+        ObservacaoPendencia = Codigo?.ObservacaoPendencia is { } obs && Codigo.ObservacaoPendenciaEm is { } quando
+            ? $"{obs}  (anotado em {quando:dd/MM/yyyy HH:mm})"
+            : Codigo?.ObservacaoPendencia;
     }
 
     [RelayCommand]

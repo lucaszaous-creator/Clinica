@@ -137,12 +137,29 @@
                 <DataGridTextColumn Header="Atraso (dias)" Binding="{Binding DiasEmAtraso}" Width="0.9*" />
                 <DataGridTextColumn Header="Como obter"
                                     Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
-                <DataGridTemplateColumn Header="" Width="110">
+                <DataGridTemplateColumn Header="Observação" Width="1.4*">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
-                                    Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                    CommandParameter="{Binding}" />
+                            <TextBlock Text="{Binding ObservacaoPendencia}" TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       ToolTip="{Binding ObservacaoPendencia}"
+                                       ToolTipService.ShowOnDisabled="True" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="" Width="200">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
+                                        Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
+                                        Content="{Binding TemObservacao, Converter={StaticResource ObservacaoParaRotulo}}"
+                                        ToolTip="Anotar por que ainda não foi baixada"
+                                        Command="{Binding DataContext.AnotarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

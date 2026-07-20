@@ -20,6 +20,14 @@
                 </StackPanel>
             </Border>
 
+            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10"
+                    Visibility="{Binding TemObservacaoPendencia, Converter={StaticResource BoolParaVisibilidade}}">
+                <StackPanel>
+                    <TextBlock Text="Por que estava pendente" FontWeight="Bold" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding ObservacaoPendencia}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
             <TextBlock Text="Número da guia gerada (sistema do convênio)" Style="{StaticResource Rotulo}" />
             <TextBox Text="{Binding NumeroGuia, UpdateSourceTrigger=PropertyChanged}" />
 

@@ -49,7 +49,9 @@ public sealed class PendenciaService
                     FormaObtencao: c.FormaObtencao,
                     DiasEmAtraso: atraso,
                     Urgencia: atraso <= 0 ? NivelUrgencia.Amarelo : NivelUrgencia.Vermelho,
-                    Descricao: c.Descricao);
+                    Descricao: c.Descricao,
+                    ObservacaoPendencia: c.ObservacaoPendencia,
+                    ObservacaoPendenciaEm: c.ObservacaoPendenciaEm);
             })
             .OrderByDescending(p => p.DiasEmAtraso)
             .ThenBy(p => p.PacienteNome)
