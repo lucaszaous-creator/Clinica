@@ -67,6 +67,21 @@ Além das pendências de baixa, o sistema fecha o ciclo junto à operadora:
   sincronização; se a internet ou o banco caírem, o app mostra a última lista salva
   (somente leitura) em vez de deixar a secretária às cegas.
 
+## Inteligência de glosa (diferencial de mercado)
+
+Os sistemas de mercado mostram a taxa de glosa **depois** do prejuízo. Aqui a estatística
+vira **prevenção** e a digitação do retorno vira **conferência**:
+
+- **Radar de glosas** (na exportação do lote): cruza as guias candidatas com o histórico
+  da própria clínica e avisa, **antes do envio**, o que provavelmente voltará glosado —
+  carteirinha vencida (glosa na origem), guias em duplicidade e padrões (convênio + tipo
+  de procedimento) com taxa histórica alta, apontando o **motivo mais comum**. É o momento
+  em que ainda dá para corrigir a guia.
+- **Importador do demonstrativo**: ao registrar o retorno de um lote, o XML de análise
+  enviado pela operadora é lido e **pré-preenche as decisões guia a guia** (aceita/glosada,
+  motivo ANS). A secretária apenas revisa e confirma. Guias fora do lote e guias sem retorno
+  no arquivo são sinalizadas.
+
 ## Como rodar
 
 ### Pré-requisitos

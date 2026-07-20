@@ -76,6 +76,10 @@ Camadas clássicas, todas em `src/`:
   `ClinicaRepositorio.SalvarAsync` traduz `DbUpdateConcurrencyException` em mensagem amigável.
 - XML TISS gerado passa por `TissValidador.Validar` (estrutura + hash do epílogo); XSD oficial
   é opcional (pasta `%APPDATA%\ClinicaFaturamento\tiss\schemas`).
+- `PrevencaoGlosaService` (radar de glosas) roda na exportação do lote: carteirinha vencida,
+  duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
+  demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real
+  da guia); a leitura é tolerante ao nome local dos elementos (varia entre operadoras).
 
 ### Convenções
 

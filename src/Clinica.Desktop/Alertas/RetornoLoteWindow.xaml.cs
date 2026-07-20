@@ -58,6 +58,28 @@ public partial class RetornoLoteWindow : Window
         GridGuias.ItemsSource = Linhas;
     }
 
+    /// <summary>
+    /// Pré-preenche as linhas com as decisões lidas do demonstrativo XML da operadora —
+    /// a digitação manual vira conferência. A secretária revisa e confirma normalmente.
+    /// </summary>
+    public void AplicarImportacao(Clinica.Application.Servicos.ResultadoImportacaoRetorno resultado)
+    {
+        if (resultado.DataDemonstrativo is { } data)
+            DpData.SelectedDate = data.ToDateTime(System.TimeOnly.MinValue);
+
+        foreach (var decisao in resultado.Decisoes)
+        {
+            var linha = Linhas.FirstOrDefault(l => l.CodigoId == decisao.CodigoId);
+            if (linha is null) continue;
+
+            linha.Glosada = decisao.Glosada;
+            linha.Motivo = decisao.MotivoCodigo is null
+                ? null
+                : MotivosGlosa.Todos.FirstOrDefault(m => m.Codigo == decisao.MotivoCodigo);
+            linha.Complemento = decisao.MotivoTexto;
+        }
+    }
+
     private void Confirmar_Click(object sender, RoutedEventArgs e)
     {
         DataRetorno = DateOnly.FromDateTime(DpData.SelectedDate ?? DateTime.Today);

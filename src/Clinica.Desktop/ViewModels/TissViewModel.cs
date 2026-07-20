@@ -112,6 +112,20 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
+        // Radar de glosas: cruza as candidatas com o histórico da clínica e avisa o que
+        // provavelmente voltará glosado — agora, enquanto ainda dá para corrigir a guia.
+        var radar = scope.ServiceProvider.GetRequiredService<PrevencaoGlosaService>();
+        var alertas = await radar.AnalisarAsync(candidatas, DateOnly.FromDateTime(DateTime.Today));
+        if (alertas.Count > 0 &&
+            !_dialogo.ConfirmarPerigo("Radar de glosas",
+                "Risco de glosa detectado neste lote:\n\n• " +
+                string.Join("\n\n• ", alertas.Take(8)) +
+                "\n\nExportar mesmo assim?"))
+        {
+            Mensagem = "Exportação cancelada pelo radar de glosas — corrija as guias apontadas.";
+            return;
+        }
+
         // Pré-validação: operadoras rejeitam lotes com dados obrigatórios em branco.
         var dados = await parametros.ObterPrestadorAsync();
         var pendencias = tiss.ValidarPrestador(dados, candidatas.Select(c => c.Tipo));
@@ -231,6 +245,31 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
+
+            // Demonstrativo em XML? Lê o arquivo da operadora e pré-preenche as decisões
+            // guia a guia — digitar o retorno vira apenas conferir e confirmar.
+            if (_dialogo.Confirmar("Importar demonstrativo",
+                    $"A operadora enviou o demonstrativo de análise do lote nº {linha.Numero} em XML?\n\n" +
+                    "Sim: escolha o arquivo e o retorno é preenchido automaticamente (você revisa antes de confirmar).\n" +
+                    "Não: preencha guia a guia como sempre."))
+            {
+                var abrir = new OpenFileDialog { Filter = "Demonstrativo TISS (*.xml)|*.xml|Todos os arquivos (*.*)|*.*" };
+                if (abrir.ShowDialog() == true)
+                {
+                    var resultado = TissRetornoImport.Ler(await File.ReadAllTextAsync(abrir.FileName), lote.Codigos.ToList());
+                    janela.AplicarImportacao(resultado);
+
+                    if (resultado.GuiasForaDoLote.Count > 0 || resultado.GuiasSemRetorno.Count > 0)
+                        _dialogo.Aviso("Importação com ressalvas",
+                            (resultado.GuiasForaDoLote.Count > 0
+                                ? $"Guias no XML que NÃO são deste lote: {string.Join(", ", resultado.GuiasForaDoLote.Take(10))}. Confira se o arquivo é do lote certo.\n\n"
+                                : string.Empty) +
+                            (resultado.GuiasSemRetorno.Count > 0
+                                ? $"Guias do lote sem retorno no XML: {string.Join(", ", resultado.GuiasSemRetorno.Take(10))}. Elas ficam como aceitas — ajuste manualmente se necessário."
+                                : string.Empty));
+                }
+            }
+
             if (janela.ShowDialog() != true) return;
 
             using (var scope = _scopeFactory.CreateScope())
