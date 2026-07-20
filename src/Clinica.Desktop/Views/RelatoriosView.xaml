@@ -144,8 +144,7 @@
                                 <DataGridTextColumn Header="Baixadas" Binding="{Binding Baixadas}" Width="*" />
                             </DataGrid.Columns>
                         </DataGrid>
-                        <TextBlock Text="Nenhuma consulta avulsa lançada no período."
-                                   Style="{StaticResource TextoSuave}" Margin="0,6,0,0">
+                        <TextBlock Text="Nenhuma consulta avulsa lançada no período." Margin="0,6,0,0">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
                                     <Setter Property="Visibility" Value="Collapsed" />
