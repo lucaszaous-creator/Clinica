@@ -29,6 +29,11 @@
     <ProjectReference Include="..\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- Marca (logo SemDor): empacotada como Resource para uso via pack URI na UI. -->
+  <ItemGroup>
+    <Resource Include="Assets\Marca\*.png" />
+  </ItemGroup>
+
   <!-- App.xaml deixa de gerar o Main automático (usamos Program.Main). -->
   <ItemGroup>
     <ApplicationDefinition Remove="App.xaml" />

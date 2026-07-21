@@ -4,7 +4,7 @@
         xmlns:vm="clr-namespace:Clinica.Desktop.ViewModels"
         xmlns:views="clr-namespace:Clinica.Desktop.Views"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
-        Title="Clínica — Faturamento" Height="740" Width="1280"
+        Title="Clínica SemDor — Faturamento" Height="740" Width="1280"
         MinHeight="560" MinWidth="960"
         WindowStartupLocation="CenterScreen" FontFamily="Segoe UI"
         UseLayoutRounding="True" SnapsToDevicePixels="True"
@@ -177,29 +177,40 @@
                 </Style>
             </Border.Style>
             <DockPanel>
-                <!-- Logo -->
-                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="12,16,12,8">
-                    <Border Width="32" Height="32" CornerRadius="8"
-                            Background="{StaticResource Brush.Acento}">
-                        <TextBlock Text="&#xEB51;" FontFamily="{StaticResource FonteIcones}" FontSize="16"
-                                   Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
-                        <StackPanel.Style>
-                            <Style TargetType="StackPanel">
+                <!-- Logo da marca (Clínica SemDor) -->
+                <Grid DockPanel.Dock="Top" Margin="14,16,12,10" HorizontalAlignment="Left">
+                    <!-- Expandida: logo completa (símbolo + wordmark) -->
+                    <Image Source="/Assets/Marca/logo-cor.png" Height="32" HorizontalAlignment="Left"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           SnapsToDevicePixels="True"
+                           ToolTip="Clínica SemDor">
+                        <Image.Style>
+                            <Style TargetType="Image">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
                                         <Setter Property="Visibility" Value="Collapsed" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
-                        </StackPanel.Style>
-                        <TextBlock Text="Clínica" FontSize="15" FontWeight="Bold"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" />
-                        <TextBlock Text="Faturamento" FontSize="11"
-                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
-                    </StackPanel>
-                </StackPanel>
+                        </Image.Style>
+                    </Image>
+                    <!-- Recolhida: só o símbolo -->
+                    <Image Source="/Assets/Marca/simbolo-cor.png" Height="30" HorizontalAlignment="Left"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           SnapsToDevicePixels="True"
+                           ToolTip="Clínica SemDor">
+                        <Image.Style>
+                            <Style TargetType="Image">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Image.Style>
+                    </Image>
+                </Grid>
 
                 <!-- Versão do app (rodapé; oculta quando recolhida) -->
                 <TextBlock DockPanel.Dock="Bottom" Text="{Binding VersaoApp}" Margin="20,0,12,10"

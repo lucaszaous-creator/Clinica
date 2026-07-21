@@ -5,18 +5,24 @@
     <!-- ============================================================
          TOKENS DO DESIGN SYSTEM
          Fonte da verdade visual (espelhada em tokens/*.css e
-         docs/design-system/tokens.md). Fluent/Stripe/Linear:
-         azul #2563EB, neutros frios, flat, raios discretos.
+         docs/design-system/tokens.md). Identidade Clínica SemDor:
+         azul-royal da marca (#123A9E, símbolo #07329A), acentos em
+         azul claro/médio (gota da logo), neutros frios, flat.
          ============================================================ -->
 
     <!-- ============ Cores primitivas ============ -->
-    <!-- Azul (marca/acento) -->
-    <Color x:Key="Cor.Azul.50">#EFF6FF</Color>
-    <Color x:Key="Cor.Azul.100">#DBEAFE</Color>
-    <Color x:Key="Cor.Azul.500">#3B82F6</Color>
-    <Color x:Key="Cor.Azul.600">#2563EB</Color>
-    <Color x:Key="Cor.Azul.700">#1D4ED8</Color>
-    <Color x:Key="Cor.Azul.900">#1E3A8A</Color>
+    <!-- Azul SemDor (marca/acento) — escala ancorada no azul-royal da logo -->
+    <Color x:Key="Cor.Azul.50">#EEF3FC</Color>
+    <Color x:Key="Cor.Azul.100">#D8E3F7</Color>
+    <Color x:Key="Cor.Azul.500">#3F62C9</Color>
+    <Color x:Key="Cor.Azul.600">#123A9E</Color>
+    <Color x:Key="Cor.Azul.700">#0A2E86</Color>
+    <Color x:Key="Cor.Azul.900">#071F5C</Color>
+
+    <!-- Acentos claros da marca (a "gota" azul-claro e o azul-médio do símbolo) -->
+    <Color x:Key="Cor.Marca.Claro">#B0D3F3</Color>
+    <Color x:Key="Cor.Marca.Medio">#5E87D9</Color>
+    <Color x:Key="Cor.Marca.Navy">#07329A</Color>
 
     <!-- Cinzas (neutros) -->
     <Color x:Key="Cor.Cinza.50">#F8FAFC</Color>
@@ -46,6 +52,11 @@
     <SolidColorBrush x:Key="Brush.Acento.Suave" Color="{StaticResource Cor.Azul.50}" />
     <SolidColorBrush x:Key="Brush.Acento.Tint" Color="{StaticResource Cor.Azul.100}" />
     <SolidColorBrush x:Key="Brush.Foco" Color="{StaticResource Cor.Azul.500}" />
+
+    <!-- Acentos da marca SemDor (símbolo/decorativo) -->
+    <SolidColorBrush x:Key="Brush.Marca.Navy" Color="{StaticResource Cor.Marca.Navy}" />
+    <SolidColorBrush x:Key="Brush.Marca.Medio" Color="{StaticResource Cor.Marca.Medio}" />
+    <SolidColorBrush x:Key="Brush.Marca.Claro" Color="{StaticResource Cor.Marca.Claro}" />
 
     <!-- Superfícies -->
     <SolidColorBrush x:Key="Brush.Fundo" Color="{StaticResource Cor.Cinza.50}" />

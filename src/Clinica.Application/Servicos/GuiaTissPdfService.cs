@@ -16,7 +16,7 @@ namespace Clinica.Application.Servicos;
 public sealed class GuiaTissPdfService
 {
     // Tons neutros do formulário oficial + azul do design system nos títulos.
-    private const string Azul = "#2563EB";
+    private const string Azul = MarcaSemDor.Azul;   // azul-royal da marca SemDor
     private const string TextoPrimario = "#111827";
     private const string TextoSecundario = "#6B7280";
     private const string Borda = "#9CA3AF";
@@ -53,6 +53,9 @@ public sealed class GuiaTissPdfService
 
             page.Header().Row(row =>
             {
+                if (MarcaSemDor.Simbolo is { } simbolo)
+                    row.ConstantItem(26).PaddingRight(8).AlignTop().Image(simbolo);
+
                 row.RelativeItem().Column(col =>
                 {
                     col.Item().Text(titulo).FontSize(12).Bold().FontColor(Azul);

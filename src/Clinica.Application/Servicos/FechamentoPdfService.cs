@@ -15,8 +15,8 @@ namespace Clinica.Application.Servicos;
 /// </summary>
 public sealed class FechamentoPdfService
 {
-    private const string Azul = "#2563EB";
-    private const string AzulEscuro = "#1E3A8A";
+    private const string Azul = MarcaSemDor.Azul;         // azul-royal da marca SemDor
+    private const string AzulEscuro = MarcaSemDor.Navy;   // navy do símbolo
     private const string TextoPrimario = "#111827";
     private const string TextoSecundario = "#6B7280";
     private const string Borda = "#E5E7EB";
@@ -70,6 +70,9 @@ public sealed class FechamentoPdfService
 
                 page.Header().Column(col =>
                 {
+                    if (MarcaSemDor.Logo is { } logo)
+                        col.Item().PaddingBottom(8).Width(130).Image(logo);
+
                     col.Item().Row(row =>
                     {
                         row.RelativeItem().Column(c =>

@@ -8,6 +8,11 @@
     <PackageReference Include="QuestPDF" Version="2026.7.1" />
   </ItemGroup>
 
+  <!-- Marca (logo SemDor): embarcada para desenhar no cabeçalho dos PDFs (capa, guia, fechamento). -->
+  <ItemGroup>
+    <EmbeddedResource Include="Recursos\Marca\*.png" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
