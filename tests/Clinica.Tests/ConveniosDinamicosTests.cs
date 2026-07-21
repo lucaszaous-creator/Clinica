@@ -87,6 +87,97 @@ public class ConveniosDinamicosTests : IDisposable
         new RegistroRegras().Para(familia).Convenio.Should().Be(Convenio.Amil);
     }
 
+    [Fact]
+    public async Task Editar_PersisteNomeFamiliaEConfiguracaoDaRegra()
+    {
+        await _catalogo.SalvarAsync(new[]
+        {
+            new ConvenioCadastro { Codigo = "CVEDIT", Nome = "Plano Novo", Familia = Convenio.Personalizado, Ativo = true }
+        });
+
+        // Edição: mesmo código, todos os campos alterados (inclusive a config da regra genérica).
+        await _catalogo.SalvarAsync(new[]
+        {
+            new ConvenioCadastro
+            {
+                Codigo = "CVEDIT",
+                Nome = "Plano Editado",
+                Familia = Convenio.Personalizado,
+                Ativo = true,
+                FazEletro = true,
+                TemSegundoCodigo = true,
+                FormaSegundoCodigo = FormaObtencao.Ligacao,
+                DiasSegundoCodigo = 3,
+                ValidadeConsultaDias = 90,
+                CategoriaSemApp = Categoria.Vermelha
+            }
+        });
+
+        var salvo = (await _catalogo.ListarAsync()).Single(c => c.Codigo == "CVEDIT");
+        salvo.Nome.Should().Be("Plano Editado");
+        salvo.FazEletro.Should().BeTrue();
+        salvo.TemSegundoCodigo.Should().BeTrue();
+        salvo.FormaSegundoCodigo.Should().Be(FormaObtencao.Ligacao);
+        salvo.DiasSegundoCodigo.Should().Be(3);
+        salvo.ValidadeConsultaDias.Should().Be(90);
+        salvo.CategoriaSemApp.Should().Be(Categoria.Vermelha);
+
+        // O cache (que alimenta a RegraGenerica) reflete a edição imediatamente.
+        CatalogoConvenios.Nome("CVEDIT").Should().Be("Plano Editado");
+        CatalogoConvenios.Config("CVEDIT")!.DiasSegundoCodigo.Should().Be(3);
+        CatalogoConvenios.ValidadeConsultaDias("CVEDIT").Should().Be(90);
+    }
+
+    [Fact]
+    public async Task Excluir_VarianteSemUso_RemoveDoBancoEDoCache()
+    {
+        await _catalogo.SalvarAsync(new[]
+        {
+            new ConvenioCadastro { Codigo = "CVDEL", Nome = "Plano Descartável", Familia = Convenio.Amil, Ativo = true }
+        });
+
+        var (ok, _) = await _catalogo.ExcluirAsync("CVDEL");
+
+        ok.Should().BeTrue();
+        (await _catalogo.ListarAsync()).Should().NotContain(c => c.Codigo == "CVDEL");
+        CatalogoConvenios.Ativos.Should().NotContain(e => e.Codigo == "CVDEL");
+    }
+
+    [Fact]
+    public async Task Excluir_ConvenioComPaciente_EhRecusado()
+    {
+        await _catalogo.SalvarAsync(new[]
+        {
+            new ConvenioCadastro { Codigo = "CVUSO", Nome = "Plano Em Uso", Familia = Convenio.Amil, Ativo = true }
+        });
+        _db.Pacientes.Add(new Paciente { Nome = "Maria", Convenio = Convenio.Amil, ConvenioCodigo = "CVUSO" });
+        await _db.SaveChangesAsync();
+
+        var (ok, mensagem) = await _catalogo.ExcluirAsync("CVUSO");
+
+        ok.Should().BeFalse();
+        mensagem.Should().Contain("Plano Em Uso");
+        (await _catalogo.ListarAsync()).Should().Contain(c => c.Codigo == "CVUSO");
+    }
+
+    [Fact]
+    public async Task Excluir_Embutido_EhRecusado()
+    {
+        var (ok, mensagem) = await _catalogo.ExcluirAsync(nameof(Convenio.Amil));
+
+        ok.Should().BeFalse();
+        mensagem.Should().Contain("embutido");
+        (await _catalogo.ListarAsync()).Should().Contain(c => c.Codigo == nameof(Convenio.Amil));
+    }
+
+    [Fact]
+    public async Task Excluir_ConvenioNuncaSalvo_EhTolerado()
+    {
+        // Fluxo da tela: item criado em 'Novo convênio' e removido antes de salvar.
+        var (ok, _) = await _catalogo.ExcluirAsync("CVNUNCA");
+        ok.Should().BeTrue();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

@@ -72,6 +72,12 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ConvenioCadastro>> ConveniosAsync(CancellationToken ct = default);
     Task SalvarConvenioAsync(ConvenioCadastro convenio, CancellationToken ct = default);
 
+    /// <summary>Exclui um convênio do catálogo. Não valida uso — chame <see cref="ConvenioEmUsoAsync"/> antes.</summary>
+    Task ExcluirConvenioAsync(string codigo, CancellationToken ct = default);
+
+    /// <summary>Há algum paciente cadastrado com este código de convênio?</summary>
+    Task<bool> ConvenioEmUsoAsync(string codigo, CancellationToken ct = default);
+
     // ---- Consultas (renováveis) ----
     Task AdicionarConsultaAsync(Consulta consulta, CancellationToken ct = default);
 

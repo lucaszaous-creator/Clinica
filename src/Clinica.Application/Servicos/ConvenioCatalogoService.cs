@@ -58,4 +58,30 @@ public sealed class ConvenioCatalogoService
         await _repo.SalvarAsync(ct);
         await RecarregarCacheAsync(ct);
     }
+
+    /// <summary>Convênio embutido: o código coincide com uma família e a entrada não pode ser excluída.</summary>
+    public static bool EhEmbutido(string codigo) => Enum.TryParse<Convenio>(codigo, ignoreCase: false, out _);
+
+    /// <summary>
+    /// Exclui uma variante do catálogo. Recusa embutidos e convênios com paciente cadastrado —
+    /// nesses casos o caminho é desativar (o histórico é preservado).
+    /// </summary>
+    public async Task<(bool Ok, string Mensagem)> ExcluirAsync(string codigo, CancellationToken ct = default)
+    {
+        if (EhEmbutido(codigo))
+            return (false, "Convênios embutidos não podem ser excluídos. Desative-o para ocultá-lo dos cadastros.");
+
+        var salvo = (await _repo.ConveniosAsync(ct))
+            .FirstOrDefault(c => string.Equals(c.Codigo, codigo, StringComparison.OrdinalIgnoreCase));
+        if (salvo is null)
+            return (true, "Convênio removido."); // nunca chegou a ser salvo — nada a excluir no banco
+
+        if (await _repo.ConvenioEmUsoAsync(salvo.Codigo, ct))
+            return (false, $"Há pacientes cadastrados em \"{salvo.Nome}\". Desative o convênio em vez de excluir — o histórico é preservado.");
+
+        await _repo.ExcluirConvenioAsync(salvo.Codigo, ct);
+        await _repo.SalvarAsync(ct);
+        await RecarregarCacheAsync(ct);
+        return (true, $"Convênio \"{salvo.Nome}\" excluído.");
+    }
 }

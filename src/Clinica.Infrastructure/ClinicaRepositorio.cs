@@ -206,8 +206,28 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             existe.Nome = convenio.Nome;
             existe.Familia = convenio.Familia;
             existe.Ativo = convenio.Ativo;
+            existe.FazEletro = convenio.FazEletro;
+            existe.TemSegundoCodigo = convenio.TemSegundoCodigo;
+            existe.FormaSegundoCodigo = convenio.FormaSegundoCodigo;
+            existe.SegundoCodigoDependeApp = convenio.SegundoCodigoDependeApp;
+            existe.DiasSegundoCodigo = convenio.DiasSegundoCodigo;
+            existe.FaturaBsv = convenio.FaturaBsv;
+            existe.InverteDatasBsv = convenio.InverteDatasBsv;
+            existe.ValidadeConsultaDias = convenio.ValidadeConsultaDias;
+            existe.CategoriaComApp = convenio.CategoriaComApp;
+            existe.CategoriaSemApp = convenio.CategoriaSemApp;
         }
     }
+
+    public async Task ExcluirConvenioAsync(string codigo, CancellationToken ct = default)
+    {
+        var existe = await _db.Convenios.FirstOrDefaultAsync(c => c.Codigo == codigo, ct);
+        if (existe is not null)
+            _db.Convenios.Remove(existe);
+    }
+
+    public async Task<bool> ConvenioEmUsoAsync(string codigo, CancellationToken ct = default)
+        => await _db.Pacientes.AnyAsync(p => p.ConvenioCodigo == codigo, ct);
 
     public async Task<string?> ObterConfiguracaoAsync(string chave, CancellationToken ct = default)
         => (await _db.Configuracoes.AsNoTracking().FirstOrDefaultAsync(c => c.Chave == chave, ct))?.Valor;

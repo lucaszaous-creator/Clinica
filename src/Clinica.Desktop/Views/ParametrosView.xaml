@@ -18,7 +18,7 @@
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
                     <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
-                               Text="Gerencie os convênios atendidos e ajuste os números das regras. 'Novo convênio' cria uma variante que reutiliza a REGRA de faturamento de uma família existente (ex.: um plano que fatura como a Unimed Padrão), com nome próprio." />
+                               Text="Gerencie os convênios atendidos e ajuste os números das regras. 'Novo convênio' cria uma variante que reutiliza a REGRA de faturamento de uma família existente (ex.: um plano que fatura como a Unimed Padrão), com nome próprio. Selecione um convênio na lista para editá-lo — lembre de clicar em 'Salvar configurações' ao terminar." />
 
                     <!-- Catálogo de convênios (nome, família, ativo) -->
                     <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,0,12">
@@ -33,10 +33,17 @@
                                       AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
                                     <DataGridCheckBoxColumn Header="Ativo" Binding="{Binding Ativo, UpdateSourceTrigger=PropertyChanged}" Width="Auto" />
-                                    <DataGridTextColumn Header="Nome" Binding="{Binding Nome}" Width="2*" />
-                                    <DataGridComboBoxColumn Header="Fatura como (família)"
-                                                            SelectedItemBinding="{Binding Familia}"
-                                                            ItemsSource="{x:Static vm:FontesEnum.Familias}" Width="*" />
+                                    <DataGridTextColumn Header="Nome" Binding="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" Width="2*" />
+                                    <!-- Template em vez de ComboBoxColumn para travar a família dos embutidos (a regra deles vive no código) -->
+                                    <DataGridTemplateColumn Header="Fatura como (família)" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <ComboBox ItemsSource="{x:Static vm:FontesEnum.Familias}"
+                                                          SelectedItem="{Binding Familia, UpdateSourceTrigger=PropertyChanged}"
+                                                          IsEnabled="{Binding FamiliaEditavel}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
                                 </DataGrid.Columns>
                             </DataGrid>
                         </DockPanel>
@@ -47,11 +54,31 @@
                             DataContext="{Binding ConvenioSelecionado}"
                             Visibility="{Binding DataContext.TemConvenioSelecionado, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolParaVisibilidade}}">
                         <StackPanel>
-                            <TextBlock Style="{StaticResource H2}" Margin="0,0,0,4">
-                                <Run Text="Faturamento de " /><Run Text="{Binding Text, ElementName=NomeConvenioBox}" FontWeight="Bold" />
+                            <Grid Margin="0,0,0,4">
+                                <TextBlock Style="{StaticResource H2}" Margin="0" VerticalAlignment="Center">
+                                    <Run Text="Faturamento de " /><Run Text="{Binding Nome, Mode=OneWay}" FontWeight="Bold" />
+                                </TextBlock>
+                                <Button Content="Excluir convênio" Style="{StaticResource BotaoPerigo}"
+                                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                                        Command="{Binding DataContext.RemoverConvenioCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        Visibility="{Binding PodeExcluir, Converter={StaticResource BoolParaVisibilidade}}" />
+                            </Grid>
+                            <TextBlock Margin="0,0,0,10" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                        <Setter Property="Text" Value="Convênio que fatura pela regra fixa da família escolhida. Troque a família para 'Personalizado' se quiser configurar a regra manualmente." />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding EhEmbutido}" Value="True">
+                                                <Setter Property="Text" Value="Convênio embutido: a regra de faturamento é fixa no sistema. Você pode renomeá-lo ou desativá-lo, mas não trocar a família nem excluí-lo." />
+                                            </DataTrigger>
+                                            <!-- Depois do embutido de propósito: o 'Personalizado' embutido também mostra os ajustes -->
+                                            <DataTrigger Binding="{Binding EhPersonalizado}" Value="True">
+                                                <Setter Property="Text" Value="Convênio personalizado: os ajustes abaixo definem como o faturamento é gerado." />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
                             </TextBlock>
-                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
-                                       Text="Estes ajustes valem quando o convênio 'fatura como' Personalizado. Para os 4 embutidos, as regras são fixas." />
 
                             <Grid Margin="0,0,0,4">
                                 <Grid.ColumnDefinitions>
@@ -60,53 +87,57 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Margin="0,0,8,0">
                                     <TextBlock Text="Nome do convênio" Style="{StaticResource Rotulo}" />
-                                    <TextBox x:Name="NomeConvenioBox" Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" />
+                                    <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                     <TextBlock Text="Fatura como (família)" Style="{StaticResource Rotulo}" />
-                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.Familias}" SelectedItem="{Binding Familia}" />
+                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.Familias}" SelectedItem="{Binding Familia}"
+                                              IsEnabled="{Binding FamiliaEditavel}" />
                                 </StackPanel>
                             </Grid>
 
-                            <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,8,0,4" />
-                            <CheckBox Content="Gera 2º código (+dias) nas modalidades duplas" IsChecked="{Binding TemSegundoCodigo}" Margin="0,4" />
-                            <CheckBox Content="2º código só é possível se o paciente tiver app" IsChecked="{Binding SegundoCodigoDependeApp}" Margin="0,4" />
-                            <CheckBox Content="Fatura BSV" IsChecked="{Binding FaturaBsv}" Margin="0,4" />
-                            <CheckBox Content="Exige inverter as datas no sistema (BSV)" IsChecked="{Binding InverteDatasBsv}" Margin="0,4" />
+                            <!-- Ajustes da regra genérica — só fazem sentido quando a família é Personalizado -->
+                            <StackPanel Visibility="{Binding EhPersonalizado, Converter={StaticResource BoolParaVisibilidade}}">
+                                <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,8,0,4" />
+                                <CheckBox Content="Gera 2º código (+dias) nas modalidades duplas" IsChecked="{Binding TemSegundoCodigo}" Margin="0,4" />
+                                <CheckBox Content="2º código só é possível se o paciente tiver app" IsChecked="{Binding SegundoCodigoDependeApp}" Margin="0,4" />
+                                <CheckBox Content="Fatura BSV" IsChecked="{Binding FaturaBsv}" Margin="0,4" />
+                                <CheckBox Content="Exige inverter as datas no sistema (BSV)" IsChecked="{Binding InverteDatasBsv}" Margin="0,4" />
 
-                            <Grid Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                    <TextBlock Text="Como obter o 2º código" Style="{StaticResource Rotulo}" />
-                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.FormasObtencao}" SelectedItem="{Binding FormaSegundoCodigo}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="8,0,8,0">
-                                    <TextBlock Text="Dias até o 2º código" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding DiasSegundoCodigo}" ctrl:Ajudantes.SomenteNumeros="True" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2" Margin="8,0,0,0">
-                                    <TextBlock Text="Validade da consulta (dias, vazio = sem)" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding ValidadeConsultaDias}" ctrl:Ajudantes.SomenteNumeros="True" />
-                                </StackPanel>
-                            </Grid>
-                            <Grid Margin="0,8,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                    <TextBlock Text="Categoria (com app)" Style="{StaticResource Rotulo}" />
-                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaComApp}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                    <TextBlock Text="Categoria (sem app)" Style="{StaticResource Rotulo}" />
-                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaSemApp}" />
-                                </StackPanel>
-                            </Grid>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Como obter o 2º código" Style="{StaticResource Rotulo}" />
+                                        <ComboBox ItemsSource="{x:Static vm:FontesEnum.FormasObtencao}" SelectedItem="{Binding FormaSegundoCodigo}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,8,0">
+                                        <TextBlock Text="Dias até o 2º código" Style="{StaticResource Rotulo}" />
+                                        <TextBox Text="{Binding DiasSegundoCodigo}" ctrl:Ajudantes.SomenteNumeros="True" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Margin="8,0,0,0">
+                                        <TextBlock Text="Validade da consulta (dias, vazio = sem)" Style="{StaticResource Rotulo}" />
+                                        <TextBox Text="{Binding ValidadeConsultaDias, TargetNullValue=''}" ctrl:Ajudantes.SomenteNumeros="True" />
+                                    </StackPanel>
+                                </Grid>
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                        <TextBlock Text="Categoria (com app)" Style="{StaticResource Rotulo}" />
+                                        <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaComApp}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                                        <TextBlock Text="Categoria (sem app)" Style="{StaticResource Rotulo}" />
+                                        <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaSemApp}" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

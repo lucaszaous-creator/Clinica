@@ -23,13 +23,13 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<ParametroConvenio> Itens { get; } = new();
 
     /// <summary>Catálogo de convênios (embutidos + variantes) — nome, família e ativo.</summary>
-    public ObservableCollection<ConvenioCadastro> Catalogo { get; } = new();
+    public ObservableCollection<ConvenioEdicao> Catalogo { get; } = new();
 
-    /// <summary>Convênio selecionado no catálogo (para editar a configuração de faturamento).</summary>
-    [ObservableProperty] private ConvenioCadastro? _convenioSelecionado;
+    /// <summary>Convênio selecionado no catálogo (para editar nome, família e configuração de faturamento).</summary>
+    [ObservableProperty] private ConvenioEdicao? _convenioSelecionado;
     [ObservableProperty] private bool _temConvenioSelecionado;
 
-    partial void OnConvenioSelecionadoChanged(ConvenioCadastro? value)
+    partial void OnConvenioSelecionadoChanged(ConvenioEdicao? value)
         => TemConvenioSelecionado = value is not null;
 
     [ObservableProperty] private string? _mensagem;
@@ -61,11 +61,13 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _tussEspecialidade;
 
     private readonly ISnackbarService _snackbar;
+    private readonly IDialogoService _dialogo;
 
-    public ParametrosViewModel(IServiceScopeFactory scopeFactory, ISnackbarService snackbar)
+    public ParametrosViewModel(IServiceScopeFactory scopeFactory, ISnackbarService snackbar, IDialogoService dialogo)
     {
         _scopeFactory = scopeFactory;
         _snackbar = snackbar;
+        _dialogo = dialogo;
     }
 
     public async Task CarregarAsync()
@@ -81,7 +83,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
         Catalogo.Clear();
         foreach (var c in await catalogo.ListarAsync())
-            Catalogo.Add(c);
+            Catalogo.Add(new ConvenioEdicao(c));
 
         JanelaAlertaConsultaDias = await parametros.ObterJanelaAlertaConsultaAsync();
         PrazoRecursoGlosaDias = await parametros.ObterPrazoRecursoGlosaAsync();
@@ -128,15 +130,51 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand]
     private void NovoConvenio()
     {
-        var novo = new ConvenioCadastro
+        // Nome único para não esbarrar na validação de duplicados ao criar vários seguidos.
+        var nome = "Novo convênio";
+        for (var n = 2; Catalogo.Any(c => string.Equals(c.Nome, nome, StringComparison.OrdinalIgnoreCase)); n++)
+            nome = $"Novo convênio {n}";
+
+        var novo = new ConvenioEdicao(new ConvenioCadastro
         {
             Codigo = "CV" + Guid.NewGuid().ToString("N")[..8],
-            Nome = "Novo convênio",
+            Nome = nome,
             Familia = Convenio.Personalizado, // configurável pela clínica; troque para uma família embutida se preferir
             Ativo = true
-        };
+        });
         Catalogo.Add(novo);
         ConvenioSelecionado = novo; // já abre o painel de configuração
+    }
+
+    /// <summary>Exclui a variante selecionada (embutidos e convênios com pacientes são recusados pelo serviço).</summary>
+    [RelayCommand]
+    private async Task RemoverConvenio()
+    {
+        if (ConvenioSelecionado is not { PodeExcluir: true } alvo) return;
+        if (!_dialogo.ConfirmarPerigo("Excluir convênio",
+                $"Excluir o convênio \"{alvo.Nome}\"?\n\nSe houver pacientes cadastrados nele, a exclusão será recusada — nesse caso, desative-o."))
+            return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
+            var (ok, mensagem) = await catalogo.ExcluirAsync(alvo.Codigo);
+            if (ok)
+            {
+                Catalogo.Remove(alvo);
+                ConvenioSelecionado = null;
+                _snackbar.Sucesso(mensagem);
+            }
+            else
+            {
+                _dialogo.Aviso("Não foi possível excluir", mensagem);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Erro($"Erro ao excluir o convênio: {ex.Message}");
+        }
     }
 
     [RelayCommand]
@@ -147,6 +185,18 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         if (JanelaAlertaConsultaDias < 0)
         {
             Mensagem = "A antecedência do alerta de consultas não pode ser negativa.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        var duplicados = Catalogo
+            .GroupBy(c => c.Nome.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        if (duplicados.Count > 0)
+        {
+            Mensagem = $"Há convênios com o mesmo nome: {string.Join(", ", duplicados)}. Dê nomes diferentes para não confundir os cadastros.";
             MensagemEhErro = true;
             return;
         }
@@ -162,7 +212,7 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             await parametros.SalvarJanelaAlertaConsultaAsync(JanelaAlertaConsultaDias);
             await parametros.SalvarPrazoRecursoGlosaAsync(PrazoRecursoGlosaDias);
             await parametros.SalvarPrestadorAsync(MontarPrestador());
-            await catalogo.SalvarAsync(Catalogo.ToList());
+            await catalogo.SalvarAsync(Catalogo.Select(c => c.ParaCadastro()).ToList());
 
             Mensagem = "Configurações salvas. Valem imediatamente em todas as máquinas.";
             MensagemEhErro = false;
