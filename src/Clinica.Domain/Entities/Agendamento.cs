@@ -31,8 +31,14 @@ public class Agendamento
 
     public ModalidadeAtendimento ModalidadePrevista { get; set; }
 
+    /// <summary>Código da modalidade no catálogo (identifica a variante/nome). Null = embutida.</summary>
+    public string? ModalidadeCodigo { get; set; }
+
     /// <summary>Especialidade prevista quando a modalidade é Consulta (levada ao atendimento na confirmação).</summary>
     public Especialidade? EspecialidadeConsulta { get; set; }
+
+    /// <summary>Código da especialidade no catálogo. Null = embutida.</summary>
+    public string? EspecialidadeConsultaCodigo { get; set; }
 
     public StatusAgendamento Status { get; set; } = StatusAgendamento.Agendado;
 

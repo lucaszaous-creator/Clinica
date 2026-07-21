@@ -54,6 +54,7 @@ public sealed class RegraPetrobras : IRegraConvenio
                 {
                     Tipo = TipoCodigo.ConsultaEspecialidade,
                     Especialidade = especialidade,
+                    EspecialidadeCodigo = especialidade.ToString(),
                     Ordem = OrdemCodigo.Primeiro,
                     DataPrevistaFaturamento = hoje,
                     FormaObtencao = FormaObtencao.NaoAplica,

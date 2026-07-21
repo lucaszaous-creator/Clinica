@@ -11,21 +11,25 @@ public static class RegraConsultaAvulsa
 {
     public static void Aplicar(ResultadoFaturamento r, Atendimento atendimento, Categoria categoria)
     {
+        var codigoEspecialidade = atendimento.EspecialidadeConsultaCodigo
+            ?? atendimento.EspecialidadeConsulta?.ToString();
+
         r.Categoria = categoria;
         r.Codigos.Add(new CodigoFaturamento
         {
             Tipo = TipoCodigo.Consulta,
             Especialidade = atendimento.EspecialidadeConsulta,
+            EspecialidadeCodigo = codigoEspecialidade,
             Ordem = OrdemCodigo.Primeiro,
             DataPrevistaFaturamento = atendimento.Data,
             FormaObtencao = FormaObtencao.NaoAplica,
             Status = StatusCodigo.Aberto,
-            Descricao = atendimento.EspecialidadeConsulta is { } esp
-                ? $"Consulta de {EspecialidadeInfo.NomeExibicao(esp)}."
+            Descricao = codigoEspecialidade is not null
+                ? $"Consulta de {CatalogoEspecialidades.Nome(codigoEspecialidade)}."
                 : "Consulta (especialidade não informada)."
         });
 
-        if (atendimento.EspecialidadeConsulta is null)
+        if (codigoEspecialidade is null)
             r.Avisos.Add("Especialidade da consulta não informada — informe para constar no relatório por especialidade.");
     }
 }

@@ -11,14 +11,14 @@ namespace Clinica.Application.Servicos;
 
 /// <summary>
 /// Gera a "Capa de Faturamento" em PDF de um atendimento — o documento/lastro que inicia o
-/// processo de faturamento. Visual alinhado ao design system do app (azul #2563EB, flat,
-/// cinzas frios), com os dados da clínica (configurados em Guias TISS → Dados do prestador).
+/// processo de faturamento. Visual alinhado à identidade Clínica SemDor (azul-royal da marca,
+/// logo no cabeçalho), com os dados da clínica (configurados em Guias TISS → Dados do prestador).
 /// </summary>
 public sealed class CapaFaturamentoService
 {
-    // Tokens do design system (Styles/Tokens.xaml / tokens/colors.css)
-    private const string Azul = "#2563EB";
-    private const string AzulEscuro = "#1E3A8A";
+    // Cores da marca SemDor + neutros do design system
+    private const string Azul = MarcaSemDor.Azul;         // #123A9E
+    private const string AzulEscuro = MarcaSemDor.Navy;   // #07329A
     private const string TextoPrimario = "#111827";
     private const string TextoSecundario = "#6B7280";
     private const string Borda = "#E5E7EB";
@@ -77,9 +77,12 @@ public sealed class CapaFaturamentoService
                 page.Margin(1.5f, Unit.Centimetre);
                 page.DefaultTextStyle(t => t.FontSize(10).FontColor(TextoPrimario));
 
-                // ===== Cabeçalho: clínica à esquerda, documento à direita =====
+                // ===== Cabeçalho: logo da marca, depois clínica à esquerda e documento à direita =====
                 page.Header().Column(col =>
                 {
+                    if (MarcaSemDor.Logo is { } logo)
+                        col.Item().PaddingBottom(8).Width(130).Image(logo);
+
                     col.Item().Row(row =>
                     {
                         // Bloco da clínica

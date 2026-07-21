@@ -11,6 +11,8 @@
     <Version>1.0.0</Version>
     <!-- Ponto de entrada customizado (Velopack precisa rodar seus hooks antes da UI). -->
     <StartupObject>Clinica.Desktop.Program</StartupObject>
+    <!-- Ícone da marca SemDor no .exe (barra de tarefas, alt-tab, instalador Velopack). -->
+    <ApplicationIcon>Assets\Marca\icone.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,6 +29,11 @@
     <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
     <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
     <ProjectReference Include="..\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- Marca (logo SemDor): empacotada como Resource para uso via pack URI na UI. -->
+  <ItemGroup>
+    <Resource Include="Assets\Marca\*.png" />
   </ItemGroup>
 
   <!-- App.xaml deixa de gerar o Main automático (usamos Program.Main). -->

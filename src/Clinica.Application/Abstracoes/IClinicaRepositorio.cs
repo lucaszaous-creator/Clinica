@@ -72,6 +72,28 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ConvenioCadastro>> ConveniosAsync(CancellationToken ct = default);
     Task SalvarConvenioAsync(ConvenioCadastro convenio, CancellationToken ct = default);
 
+    /// <summary>Exclui um convênio do catálogo. Não valida uso — chame <see cref="ConvenioEmUsoAsync"/> antes.</summary>
+    Task ExcluirConvenioAsync(string codigo, CancellationToken ct = default);
+
+    /// <summary>Há algum paciente cadastrado com este código de convênio?</summary>
+    Task<bool> ConvenioEmUsoAsync(string codigo, CancellationToken ct = default);
+
+    /// <summary>Catálogo de modalidades (todas, ativas e inativas).</summary>
+    Task<IReadOnlyList<ModalidadeCadastro>> ModalidadesAsync(CancellationToken ct = default);
+    Task SalvarModalidadeAsync(ModalidadeCadastro modalidade, CancellationToken ct = default);
+    Task ExcluirModalidadeAsync(string codigo, CancellationToken ct = default);
+
+    /// <summary>Há paciente, atendimento ou agendamento usando este código de modalidade?</summary>
+    Task<bool> ModalidadeEmUsoAsync(string codigo, CancellationToken ct = default);
+
+    /// <summary>Catálogo de especialidades (todas, ativas e inativas).</summary>
+    Task<IReadOnlyList<EspecialidadeCadastro>> EspecialidadesAsync(CancellationToken ct = default);
+    Task SalvarEspecialidadeAsync(EspecialidadeCadastro especialidade, CancellationToken ct = default);
+    Task ExcluirEspecialidadeAsync(string codigo, CancellationToken ct = default);
+
+    /// <summary>Há atendimento, código ou agendamento usando este código de especialidade?</summary>
+    Task<bool> EspecialidadeEmUsoAsync(string codigo, CancellationToken ct = default);
+
     // ---- Consultas (renováveis) ----
     Task AdicionarConsultaAsync(Consulta consulta, CancellationToken ct = default);
 

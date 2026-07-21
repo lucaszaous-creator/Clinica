@@ -2,10 +2,13 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Configuração inicial — Banco de dados" Height="440" Width="620"
+        Icon="/Assets/Marca/icone.png"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize" FontFamily="Segoe UI">
     <Border Padding="28">
         <StackPanel>
-            <TextBlock Text="Configuração do banco de dados" FontSize="22" FontWeight="Bold" Foreground="{StaticResource Brush.Sucesso.Forte}" />
+            <Image Source="/Assets/Marca/logo-cor.png" Height="40" HorizontalAlignment="Left" Margin="0,0,0,18"
+                   RenderOptions.BitmapScalingMode="HighQuality" ToolTip="Clínica SemDor" />
+            <TextBlock Text="Configuração do banco de dados" FontSize="22" FontWeight="Bold" Foreground="{StaticResource Brush.Texto.Primario}" />
             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" Foreground="#555"
                        Text="Cole a connection string do PostgreSQL. Você pode colar a URI da Neon (postgresql://...) — o sistema converte automaticamente. Os dados ficam salvos com segurança apenas neste computador." />
 

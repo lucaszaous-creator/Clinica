@@ -40,6 +40,14 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("EspecialidadeConsultaCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ModalidadeCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<string>("ModalidadePrevista")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -99,8 +107,16 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<string>("EspecialidadeConsultaCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<string>("Modalidade")
                         .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ModalidadeCodigo")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
@@ -161,6 +177,10 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("Especialidade")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<string>("EspecialidadeCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.Property<string>("FormaObtencao")
                         .IsRequired()
@@ -357,6 +377,25 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("Convenios");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.EspecialidadeCadastro", b =>
+                {
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.HasKey("Codigo");
+
+                    b.ToTable("Especialidades");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.EventoAuditoria", b =>
                 {
                     b.Property<int>("Id")
@@ -451,6 +490,30 @@ namespace Clinica.Infrastructure.Migrations
                     b.ToTable("LotesTiss");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.ModalidadeCadastro", b =>
+                {
+                    b.Property<string>("Codigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Base")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.HasKey("Codigo");
+
+                    b.ToTable("Modalidades");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.Paciente", b =>
                 {
                     b.Property<int>("Id")
@@ -486,6 +549,10 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<string>("ModalidadePreferida")
                         .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ModalidadePreferidaCodigo")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
