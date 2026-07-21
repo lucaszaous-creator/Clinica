@@ -41,7 +41,9 @@ public sealed record PendenciaConsulta(
     Convenio Convenio,
     DateOnly DataVencimento,
     int DiasParaVencer,
-    NivelUrgencia Urgencia);
+    NivelUrgencia Urgencia,
+    /// <summary>Telefone do paciente (para abrir o WhatsApp direto da pendência). Nulo = sem contato no cadastro.</summary>
+    string? PacienteTelefone = null);
 
 /// <summary>Uma glosa em aberto com prazo de recurso correndo (perder o prazo = perder a guia de vez).</summary>
 public sealed record PendenciaRecursoGlosa(
@@ -64,4 +66,6 @@ public sealed record PendenciaCarteirinha(
     string? Carteirinha,
     DateOnly Validade,
     int DiasParaVencer,
-    NivelUrgencia Urgencia);
+    NivelUrgencia Urgencia,
+    /// <summary>Telefone do paciente (para abrir o WhatsApp direto da pendência). Nulo = sem contato no cadastro.</summary>
+    string? PacienteTelefone = null);

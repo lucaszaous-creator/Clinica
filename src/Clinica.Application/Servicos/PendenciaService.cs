@@ -95,7 +95,7 @@ public sealed class PendenciaService
 
             var urgencia = vigente.EstaVencida(referencia) ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo;
 
-            resultado.Add(new PendenciaConsulta(p.Id, p.Nome, p.Convenio, vigente.DataVencimento, diasParaVencer, urgencia));
+            resultado.Add(new PendenciaConsulta(p.Id, p.Nome, p.Convenio, vigente.DataVencimento, diasParaVencer, urgencia, p.Telefone));
         }
 
         return resultado.OrderBy(c => c.DiasParaVencer).ToList();
@@ -162,7 +162,8 @@ public sealed class PendenciaService
                 x.Paciente.Carteirinha,
                 x.Paciente.ValidadeCarteirinha!.Value,
                 x.Dias,
-                x.Dias < 0 ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo))
+                x.Dias < 0 ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo,
+                x.Paciente.Telefone))
             .OrderBy(p => p.DiasParaVencer)
             .ToList();
     }
