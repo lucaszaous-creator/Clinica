@@ -58,7 +58,7 @@ jobs:
           --packVersion ${{ steps.ver.outputs.version }}
           --packDir publish
           --mainExe Clinica.Desktop.exe
-          --packTitle "Clínica - Faturamento"
+          --packTitle "Clínica SemDor"
 
       - name: Publicar no GitHub Releases
         env:
@@ -67,6 +67,6 @@ jobs:
           vpk upload github
           --repoUrl https://github.com/lucaszaous-creator/Clinica
           --publish
-          --releaseName "Clínica ${{ steps.ver.outputs.version }}"
+          --releaseName "Clínica SemDor ${{ steps.ver.outputs.version }}"
           --tag v${{ steps.ver.outputs.version }}
           --token $env:GITHUB_TOKEN
