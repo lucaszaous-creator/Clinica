@@ -50,6 +50,7 @@ public sealed class PendenciaService
                     DiasEmAtraso: atraso,
                     Urgencia: atraso <= 0 ? NivelUrgencia.Amarelo : NivelUrgencia.Vermelho,
                     Descricao: c.Descricao,
+                    PacienteTelefone: paciente?.Telefone,
                     ObservacaoPendencia: c.ObservacaoPendencia,
                     ObservacaoPendenciaEm: c.ObservacaoPendenciaEm);
             })
