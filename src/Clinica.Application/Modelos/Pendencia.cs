@@ -23,6 +23,8 @@ public sealed record PendenciaCodigo(
     int DiasEmAtraso,
     NivelUrgencia Urgencia,
     string? Descricao,
+    /// <summary>Telefone do paciente (para abrir o WhatsApp direto da pendência). Nulo = sem contato no cadastro.</summary>
+    string? PacienteTelefone = null,
     /// <summary>Anotação do responsável sobre por que a guia ainda não foi baixada (nula = sem anotação).</summary>
     string? ObservacaoPendencia = null,
     /// <summary>Quando a observação foi anotada/atualizada.</summary>

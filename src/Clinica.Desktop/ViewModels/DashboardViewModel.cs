@@ -1,5 +1,7 @@
 using System.Windows.Input;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Globalization;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
@@ -15,6 +17,11 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
     private readonly List<PendenciaCodigo> _todos = new();
+
+    private static readonly CultureInfo PtBr = new("pt-BR");
+
+    /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
+    private string? _nomeClinica;
 
     public ObservableCollection<PendenciaCodigo> Codigos { get; } = new();
     public ObservableCollection<PendenciaConsulta> Consultas { get; } = new();
@@ -75,6 +82,16 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         Carteirinhas.Clear();
         foreach (var c in await pendencias.CarteirinhasAVencerAsync(hoje))
             Carteirinhas.Add(c);
+
+        if (_nomeClinica is null)
+        {
+            try
+            {
+                var d = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
+                _nomeClinica = string.IsNullOrWhiteSpace(d.NomeFantasia) ? d.RazaoSocial : d.NomeFantasia;
+            }
+            catch { /* sem nome a mensagem sai sem assinatura; não impede o painel */ }
+        }
 
         AplicarFiltro();
     }
@@ -139,6 +156,50 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         }
 
         await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Abre o WhatsApp (wa.me) com uma mensagem pronta para o paciente quando a secretária
+    /// não consegue contato por ligação para obter a 1ª/2ª guia. Um clique leva direto à conversa.
+    /// </summary>
+    [RelayCommand]
+    private void Whatsapp(PendenciaCodigo? pendencia)
+    {
+        if (pendencia is null) return;
+
+        var fone = Telefone.Normalizar(pendencia.PacienteTelefone);
+        if (fone.Length is < 10 or > 13)
+        {
+            _dialogo.Aviso("WhatsApp",
+                $"{pendencia.PacienteNome}: telefone ausente ou inválido no cadastro (edite em Pacientes).");
+            return;
+        }
+        if (fone.Length is 10 or 11)
+            fone = "55" + fone; // wa.me exige DDI
+
+        var primeiroNome = pendencia.PacienteNome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
+                           ?? pendencia.PacienteNome;
+        var ordinal = pendencia.Ordem == OrdemCodigo.Segundo ? "2ª" : "1ª";
+        var assinatura = string.IsNullOrWhiteSpace(_nomeClinica) ? string.Empty : $" — {_nomeClinica}";
+        var texto = $"Olá, {primeiroNome}! Tentamos falar com você por telefone e não conseguimos. " +
+                    $"Precisamos de um retorno rápido para concluir a autorização da {ordinal} guia do seu convênio, " +
+                    $"referente ao atendimento de {pendencia.DataPrevista.ToString("dd/MM", PtBr)}. " +
+                    "Quando puder, é só responder por aqui, por favor.";
+        if (pendencia.FormaObtencao == FormaObtencao.App)
+            texto += " Se o seu plano gera o código pelo aplicativo, pode nos enviar o QR Code por aqui mesmo.";
+        texto += assinatura;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo($"https://wa.me/{fone}?text={Uri.EscapeDataString(texto)}")
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("WhatsApp", $"Não foi possível abrir o WhatsApp: {ex.Message}");
+        }
     }
 
     /// <summary>Baixa em lote das linhas selecionadas (Ctrl/Shift + clique na tabela).</summary>

@@ -151,13 +151,20 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="" Width="200">
+                <DataGridTemplateColumn Header="" Width="240">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
                                 <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
                                         Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
+                                <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
+                                        ToolTip="Chamar o paciente no WhatsApp para obter a guia"
+                                        AutomationProperties.Name="Chamar o paciente no WhatsApp"
+                                        Command="{Binding DataContext.WhatsappCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource FonteIcones}" FontSize="13" />
+                                </Button>
                                 <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
                                         Content="{Binding TemObservacao, Converter={StaticResource ObservacaoParaRotulo}}"
                                         ToolTip="Anotar por que ainda não foi baixada"
