@@ -5,6 +5,7 @@
         xmlns:views="clr-namespace:Clinica.Desktop.Views"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
         Title="Clínica SemDor — Faturamento" Height="740" Width="1280"
+        Icon="/Assets/Marca/icone.png"
         MinHeight="560" MinWidth="960"
         WindowStartupLocation="CenterScreen" FontFamily="Segoe UI"
         UseLayoutRounding="True" SnapsToDevicePixels="True"

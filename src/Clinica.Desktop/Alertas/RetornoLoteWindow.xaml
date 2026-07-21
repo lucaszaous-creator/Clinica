@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:alertas="clr-namespace:Clinica.Desktop.Alertas"
         Title="Registrar retorno do lote" Height="560" Width="860"
+        Icon="/Assets/Marca/icone.png"
         MinHeight="420" MinWidth="700"
         WindowStartupLocation="CenterOwner" FontFamily="Segoe UI"
         Background="{StaticResource Brush.Fundo}">

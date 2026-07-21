@@ -17,7 +17,11 @@
 
         <StackPanel Grid.Row="0">
             <DockPanel Margin="0,0,0,14">
-                <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" />
+                <StackPanel Orientation="Horizontal">
+                    <Image Source="/Assets/Marca/simbolo-cor.png" Height="26" VerticalAlignment="Center" Margin="0,0,10,0"
+                           RenderOptions.BitmapScalingMode="HighQuality" ToolTip="Clínica SemDor" />
+                    <TextBlock Text="Pendências de faturamento" Style="{StaticResource H1}" Margin="0" VerticalAlignment="Center" />
+                </StackPanel>
                 <Button Command="{Binding AtualizarCommand}"
                         HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}">
                     <StackPanel Orientation="Horizontal">

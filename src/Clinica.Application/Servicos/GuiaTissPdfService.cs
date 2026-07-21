@@ -53,8 +53,8 @@ public sealed class GuiaTissPdfService
 
             page.Header().Row(row =>
             {
-                if (MarcaSemDor.Simbolo is { } simbolo)
-                    row.ConstantItem(26).PaddingRight(8).AlignTop().Image(simbolo);
+                if (MarcaSemDor.Logo is { } logo)
+                    row.ConstantItem(96).PaddingRight(12).AlignMiddle().Image(logo);
 
                 row.RelativeItem().Column(col =>
                 {
