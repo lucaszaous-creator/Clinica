@@ -25,6 +25,12 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Catálogo de convênios (embutidos + variantes) — nome, família e ativo.</summary>
     public ObservableCollection<ConvenioEdicao> Catalogo { get; } = new();
 
+    /// <summary>Catálogo de modalidades de atendimento (embutidas + variantes).</summary>
+    public ObservableCollection<ModalidadeEdicao> Modalidades { get; } = new();
+
+    /// <summary>Catálogo de especialidades de consulta (embutidas + adicionadas).</summary>
+    public ObservableCollection<EspecialidadeEdicao> Especialidades { get; } = new();
+
     /// <summary>Convênio selecionado no catálogo (para editar nome, família e configuração de faturamento).</summary>
     [ObservableProperty] private ConvenioEdicao? _convenioSelecionado;
     [ObservableProperty] private bool _temConvenioSelecionado;
@@ -84,6 +90,16 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         Catalogo.Clear();
         foreach (var c in await catalogo.ListarAsync())
             Catalogo.Add(new ConvenioEdicao(c));
+
+        var modalidades = scope.ServiceProvider.GetRequiredService<ModalidadeCatalogoService>();
+        Modalidades.Clear();
+        foreach (var m in await modalidades.ListarAsync())
+            Modalidades.Add(new ModalidadeEdicao(m));
+
+        var especialidades = scope.ServiceProvider.GetRequiredService<EspecialidadeCatalogoService>();
+        Especialidades.Clear();
+        foreach (var e in await especialidades.ListarAsync())
+            Especialidades.Add(new EspecialidadeEdicao(e));
 
         JanelaAlertaConsultaDias = await parametros.ObterJanelaAlertaConsultaAsync();
         PrazoRecursoGlosaDias = await parametros.ObterPrazoRecursoGlosaAsync();
@@ -177,6 +193,118 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         }
     }
 
+    // ---- Modalidades ----
+
+    /// <summary>Adiciona uma nova modalidade (variante que reutiliza o comportamento de uma base existente).</summary>
+    [RelayCommand]
+    private void NovaModalidade()
+    {
+        var nome = NomeUnico("Nova modalidade", Modalidades.Select(m => m.Nome));
+        Modalidades.Add(new ModalidadeEdicao(new ModalidadeCadastro
+        {
+            Codigo = "MD" + Guid.NewGuid().ToString("N")[..8],
+            Nome = nome,
+            Base = ModalidadeAtendimento.AcupunturaSimples,
+            Ativo = true
+        }));
+    }
+
+    /// <summary>Exclui a modalidade (embutidas e modalidades em uso são recusadas pelo serviço).</summary>
+    [RelayCommand]
+    private async Task RemoverModalidade(ModalidadeEdicao? alvo)
+    {
+        if (alvo is not { PodeExcluir: true }) return;
+        if (!_dialogo.ConfirmarPerigo("Excluir modalidade",
+                $"Excluir a modalidade \"{alvo.Nome}\"?\n\nSe houver registros usando-a, a exclusão será recusada — nesse caso, desative-a."))
+            return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<ModalidadeCatalogoService>();
+            var (ok, mensagem) = await servico.ExcluirAsync(alvo.Codigo);
+            if (ok)
+            {
+                Modalidades.Remove(alvo);
+                _snackbar.Sucesso(mensagem);
+            }
+            else
+            {
+                _dialogo.Aviso("Não foi possível excluir", mensagem);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Erro($"Erro ao excluir a modalidade: {ex.Message}");
+        }
+    }
+
+    // ---- Especialidades ----
+
+    /// <summary>Adiciona uma nova especialidade de consulta.</summary>
+    [RelayCommand]
+    private void NovaEspecialidade()
+    {
+        var nome = NomeUnico("Nova especialidade", Especialidades.Select(e => e.Nome));
+        Especialidades.Add(new EspecialidadeEdicao(new EspecialidadeCadastro
+        {
+            Codigo = "ES" + Guid.NewGuid().ToString("N")[..8],
+            Nome = nome,
+            Ativo = true
+        }));
+    }
+
+    /// <summary>Exclui a especialidade (embutidas e especialidades em uso são recusadas pelo serviço).</summary>
+    [RelayCommand]
+    private async Task RemoverEspecialidade(EspecialidadeEdicao? alvo)
+    {
+        if (alvo is not { PodeExcluir: true }) return;
+        if (!_dialogo.ConfirmarPerigo("Excluir especialidade",
+                $"Excluir a especialidade \"{alvo.Nome}\"?\n\nSe houver registros usando-a, a exclusão será recusada — nesse caso, desative-a."))
+            return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<EspecialidadeCatalogoService>();
+            var (ok, mensagem) = await servico.ExcluirAsync(alvo.Codigo);
+            if (ok)
+            {
+                Especialidades.Remove(alvo);
+                _snackbar.Sucesso(mensagem);
+            }
+            else
+            {
+                _dialogo.Aviso("Não foi possível excluir", mensagem);
+            }
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Erro($"Erro ao excluir a especialidade: {ex.Message}");
+        }
+    }
+
+    /// <summary>Gera um nome único ("Base", "Base 2", …) dado os nomes já usados na coleção.</summary>
+    private static string NomeUnico(string baseNome, IEnumerable<string> existentes)
+    {
+        var usados = existentes.ToList();
+        var nome = baseNome;
+        for (var n = 2; usados.Any(x => string.Equals(x, nome, StringComparison.OrdinalIgnoreCase)); n++)
+            nome = $"{baseNome} {n}";
+        return nome;
+    }
+
+    /// <summary>Lista (em texto) os nomes repetidos numa coleção, ou null se não houver duplicados.</summary>
+    private static string? NomesDuplicados(IEnumerable<string> nomes)
+    {
+        var dup = nomes
+            .GroupBy(n => (n ?? string.Empty).Trim(), StringComparer.OrdinalIgnoreCase)
+            .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
+            .Select(g => g.Key)
+            .ToList();
+        return dup.Count > 0 ? string.Join(", ", dup) : null;
+    }
+
     [RelayCommand]
     private async Task Salvar()
     {
@@ -189,14 +317,21 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
-        var duplicados = Catalogo
-            .GroupBy(c => c.Nome.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Where(g => !string.IsNullOrWhiteSpace(g.Key) && g.Count() > 1)
-            .Select(g => g.Key)
-            .ToList();
-        if (duplicados.Count > 0)
+        if (NomesDuplicados(Catalogo.Select(c => c.Nome)) is { } dupConv)
         {
-            Mensagem = $"Há convênios com o mesmo nome: {string.Join(", ", duplicados)}. Dê nomes diferentes para não confundir os cadastros.";
+            Mensagem = $"Há convênios com o mesmo nome: {dupConv}. Dê nomes diferentes para não confundir os cadastros.";
+            MensagemEhErro = true;
+            return;
+        }
+        if (NomesDuplicados(Modalidades.Select(m => m.Nome)) is { } dupMod)
+        {
+            Mensagem = $"Há modalidades com o mesmo nome: {dupMod}. Dê nomes diferentes para não confundir os lançamentos.";
+            MensagemEhErro = true;
+            return;
+        }
+        if (NomesDuplicados(Especialidades.Select(e => e.Nome)) is { } dupEsp)
+        {
+            Mensagem = $"Há especialidades com o mesmo nome: {dupEsp}. Dê nomes diferentes para não confundir os lançamentos.";
             MensagemEhErro = true;
             return;
         }
@@ -213,6 +348,11 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             await parametros.SalvarPrazoRecursoGlosaAsync(PrazoRecursoGlosaDias);
             await parametros.SalvarPrestadorAsync(MontarPrestador());
             await catalogo.SalvarAsync(Catalogo.Select(c => c.ParaCadastro()).ToList());
+
+            var modalidades = scope.ServiceProvider.GetRequiredService<ModalidadeCatalogoService>();
+            var especialidades = scope.ServiceProvider.GetRequiredService<EspecialidadeCatalogoService>();
+            await modalidades.SalvarAsync(Modalidades.Select(m => m.ParaCadastro()).ToList());
+            await especialidades.SalvarAsync(Especialidades.Select(e => e.ParaCadastro()).ToList());
 
             Mensagem = "Configurações salvas. Valem imediatamente em todas as máquinas.";
             MensagemEhErro = false;

@@ -24,6 +24,8 @@
             <conv:StatusCodigoConverter x:Key="StatusCodigo" />
             <conv:CategoriaParaCorConverter x:Key="CategoriaParaCor" />
             <conv:ObservacaoParaRotuloConverter x:Key="ObservacaoParaRotulo" />
+            <conv:CodigoModalidadeConverter x:Key="CodigoModalidade" />
+            <conv:CodigoEspecialidadeConverter x:Key="CodigoEspecialidade" />
             <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         </ResourceDictionary>
     </Application.Resources>

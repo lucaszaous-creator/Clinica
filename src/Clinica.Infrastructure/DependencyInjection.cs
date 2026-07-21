@@ -30,6 +30,8 @@ public static class DependencyInjection
         services.AddScoped<FechamentoPdfService>();
         services.AddScoped<ParametrosService>();
         services.AddScoped<ConvenioCatalogoService>();
+        services.AddScoped<ModalidadeCatalogoService>();
+        services.AddScoped<EspecialidadeCatalogoService>();
         return services;
     }
 }

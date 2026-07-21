@@ -34,6 +34,9 @@ public class Paciente
     /// <summary>Modalidade de atendimento habitual do paciente. Pré-preenche Novo Atendimento e Agenda.</summary>
     public ModalidadeAtendimento ModalidadePreferida { get; set; } = ModalidadeAtendimento.AcupunturaComEletro;
 
+    /// <summary>Código da modalidade preferida no catálogo (identifica a variante/nome). Null = embutida.</summary>
+    public string? ModalidadePreferidaCodigo { get; set; }
+
     public string? Observacoes { get; set; }
 
     public List<Atendimento> Atendimentos { get; set; } = new();

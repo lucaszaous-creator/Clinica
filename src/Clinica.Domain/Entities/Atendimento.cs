@@ -15,8 +15,14 @@ public class Atendimento
 
     public ModalidadeAtendimento Modalidade { get; set; }
 
+    /// <summary>Código da modalidade no catálogo (identifica a variante/nome). Null = embutida = Modalidade.ToString().</summary>
+    public string? ModalidadeCodigo { get; set; }
+
     /// <summary>Especialidade da consulta quando a modalidade é Consulta (discrimina para os relatórios).</summary>
     public Especialidade? EspecialidadeConsulta { get; set; }
+
+    /// <summary>Código da especialidade no catálogo. Null = embutida = EspecialidadeConsulta.ToString().</summary>
+    public string? EspecialidadeConsultaCodigo { get; set; }
 
     /// <summary>Categoria definida pela regra no momento do atendimento.</summary>
     public Categoria Categoria { get; set; }

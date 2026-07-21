@@ -32,17 +32,32 @@ public sealed class AtendimentoService
     public async Task<ResultadoLancamento> LancarAsync(
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
         CancellationToken ct = default, bool registrarNaAgenda = false, TipoCodigo? primeiroCodigo = null,
-        Especialidade? especialidadeConsulta = null)
+        Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
+        string? especialidadeConsultaCodigo = null)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
+
+        // Variante do catálogo: a base (comportamento no motor de regras) vem do código.
+        // Sem código, usa o enum recebido (chamadas legadas e modalidades embutidas).
+        if (modalidadeCodigo is not null)
+            modalidade = CatalogoModalidades.Base(modalidadeCodigo);
+
+        var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
+        var especialidadeEnum = ehConsulta
+            ? especialidadeConsulta ?? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo)
+            : null;
 
         var atendimento = new Atendimento
         {
             PacienteId = pacienteId,
             Data = data,
             Modalidade = modalidade,
-            EspecialidadeConsulta = modalidade == ModalidadeAtendimento.Consulta ? especialidadeConsulta : null,
+            ModalidadeCodigo = modalidadeCodigo ?? modalidade.ToString(),
+            EspecialidadeConsulta = especialidadeEnum,
+            EspecialidadeConsultaCodigo = ehConsulta
+                ? especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString()
+                : null,
             Observacoes = observacoes
         };
 
@@ -90,8 +105,8 @@ public sealed class AtendimentoService
 
             if (validade is not null)
             {
-                var rotulo = especialidadeConsulta is { } esp
-                    ? $"Consulta de {EspecialidadeInfo.NomeExibicao(esp)}"
+                var rotulo = atendimento.EspecialidadeConsultaCodigo is { } espCod
+                    ? $"Consulta de {CatalogoEspecialidades.Nome(espCod)}"
                     : "Consulta";
                 var consulta = await _consultas.RenovarAsync(
                     pacienteId, data, $"{rotulo} — atendimento {atendimento.Numero}.", ct);
@@ -111,6 +126,9 @@ public sealed class AtendimentoService
                 PacienteId = pacienteId,
                 DataHora = DateTime.SpecifyKind(data.ToDateTime(new TimeOnly(9, 0)), DateTimeKind.Unspecified),
                 ModalidadePrevista = modalidade,
+                ModalidadeCodigo = atendimento.ModalidadeCodigo,
+                EspecialidadeConsulta = atendimento.EspecialidadeConsulta,
+                EspecialidadeConsultaCodigo = atendimento.EspecialidadeConsultaCodigo,
                 Status = StatusAgendamento.Realizado,
                 Origem = OrigemAgendamento.Manual,
                 AtendimentoId = atendimento.Id,

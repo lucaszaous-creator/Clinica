@@ -5,6 +5,7 @@ using System.IO;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Infrastructure;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -23,8 +24,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<CodigoFaturamento> CodigosGerados { get; } = new();
     public ObservableCollection<string> Avisos { get; } = new();
 
-    public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
-    public Array Especialidades => Enum.GetValues(typeof(Especialidade));
+    /// <summary>Modalidades ativas do catálogo (embutidas + variantes criadas pela clínica).</summary>
+    public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
+
+    /// <summary>Especialidades ativas do catálogo (para a consulta avulsa).</summary>
+    public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = new();
 
     /// <summary>Opções de qual código sai primeiro (hoje) numa modalidade dupla. Vazio nas simples.</summary>
     public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
@@ -32,8 +36,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _busca;
     [ObservableProperty] private Paciente? _pacienteSelecionado;
     [ObservableProperty] private DateTime _data = DateTime.Today;
-    [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
-    [ObservableProperty] private Especialidade? _especialidadeConsulta;
+    [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
+    [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private bool _lancado;
@@ -42,6 +46,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private bool _ocupado;
 
     private int _ultimoAtendimentoId;
+
+    /// <summary>Comportamento (base) da modalidade selecionada — o que o motor de regras usa.</summary>
+    private ModalidadeAtendimento Modalidade =>
+        ModalidadeSelecionada?.Base ?? ModalidadeAtendimento.AcupunturaComEletro;
 
     /// <summary>Modalidade dupla (gera 1º hoje + 2º em +24h): permite escolher qual código sai primeiro.</summary>
     public bool ModalidadeDupla =>
@@ -56,11 +64,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         AtualizarOpcoesPrimeiroCodigo();
     }
 
-    partial void OnModalidadeChanged(ModalidadeAtendimento value)
+    partial void OnModalidadeSelecionadaChanged(EntradaModalidade? value)
     {
         AtualizarOpcoesPrimeiroCodigo();
-        if (value != ModalidadeAtendimento.Consulta)
-            EspecialidadeConsulta = null;
+        if (Modalidade != ModalidadeAtendimento.Consulta)
+            EspecialidadeSelecionada = null;
         OnPropertyChanged(nameof(ModalidadeDupla));
         OnPropertyChanged(nameof(ModalidadeConsulta));
     }
@@ -83,7 +91,29 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         PrimeiroCodigo = OpcoesPrimeiroCodigo.Count > 0 ? OpcoesPrimeiroCodigo[0] : null;
     }
 
-    public Task CarregarAsync() => BuscarPacientes();
+    public async Task CarregarAsync()
+    {
+        CarregarCatalogos();
+        await BuscarPacientes();
+    }
+
+    /// <summary>Recarrega as opções de modalidade/especialidade do cache (reflete o que foi salvo em Configurações).</summary>
+    private void CarregarCatalogos()
+    {
+        var modalidadeAtual = ModalidadeSelecionada?.Codigo;
+        Modalidades.Clear();
+        foreach (var m in CatalogoModalidades.Ativas)
+            Modalidades.Add(m);
+        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == modalidadeAtual)
+            ?? Modalidades.FirstOrDefault(m => m.Base == ModalidadeAtendimento.AcupunturaComEletro)
+            ?? Modalidades.FirstOrDefault();
+
+        var especialidadeAtual = EspecialidadeSelecionada?.Codigo;
+        Especialidades.Clear();
+        foreach (var e in CatalogoEspecialidades.Ativas)
+            Especialidades.Add(e);
+        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual);
+    }
 
     /// <summary>Busca pacientes por nome ou CPF para o seletor.</summary>
     [RelayCommand]
@@ -104,7 +134,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     {
         if (value is null) return;
 
-        Modalidade = value.ModalidadePreferida;
+        // Pré-seleciona a modalidade habitual do paciente: primeiro pelo código salvo, senão pela base.
+        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == value.ModalidadePreferidaCodigo)
+            ?? Modalidades.FirstOrDefault(m => m.Base == value.ModalidadePreferida)
+            ?? ModalidadeSelecionada;
         Mensagem = value.ValidadeCarteirinha is { } val && val < DateOnly.FromDateTime(DateTime.Today)
             ? $"Atenção: a carteirinha de {value.Nome} venceu em {val:dd/MM/yyyy} — o convênio pode recusar a guia."
             : null;
@@ -118,7 +151,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             Mensagem = "Selecione o paciente.";
             return;
         }
-        if (ModalidadeConsulta && EspecialidadeConsulta is null)
+        if (ModalidadeSelecionada is null)
+        {
+            Mensagem = "Selecione a modalidade.";
+            return;
+        }
+        if (ModalidadeConsulta && EspecialidadeSelecionada is null)
         {
             Mensagem = "Informe a especialidade da consulta.";
             return;
@@ -138,7 +176,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             var resultado = await service.LancarAsync(
                 PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
                 registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
-                especialidadeConsulta: ModalidadeConsulta ? EspecialidadeConsulta : null);
+                modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
 
             foreach (var c in resultado.Atendimento.Codigos)
                 CodigosGerados.Add(c);

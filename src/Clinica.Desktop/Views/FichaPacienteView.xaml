@@ -60,7 +60,7 @@
                                 <TextBlock Text="Tem app da Unimed" />
                             </Border>
                             <Border Style="{StaticResource Badge}" Margin="8,0,0,0">
-                                <TextBlock Text="{Binding Paciente.ModalidadePreferida, Converter={StaticResource EnumDescricao}}" />
+                                <TextBlock Text="{Binding Paciente.ModalidadePreferidaCodigo, Converter={StaticResource CodigoModalidade}}" />
                             </Border>
                         </StackPanel>
                     </StackPanel>

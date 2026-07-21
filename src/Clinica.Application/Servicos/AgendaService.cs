@@ -1,6 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
@@ -22,14 +23,26 @@ public sealed class AgendaService
     public async Task<Agendamento> AgendarAsync(
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? observacoes,
         OrigemAgendamento origem = OrigemAgendamento.Manual, CancellationToken ct = default,
-        Especialidade? especialidadeConsulta = null)
+        Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
+        string? especialidadeConsultaCodigo = null)
     {
+        // Variante do catálogo: a base (comportamento) vem do código. Sem código, usa o enum.
+        if (modalidadeCodigo is not null)
+            modalidade = CatalogoModalidades.Base(modalidadeCodigo);
+
+        var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
         var ag = new Agendamento
         {
             PacienteId = pacienteId,
             DataHora = dataHora,
             ModalidadePrevista = modalidade,
-            EspecialidadeConsulta = modalidade == ModalidadeAtendimento.Consulta ? especialidadeConsulta : null,
+            ModalidadeCodigo = modalidadeCodigo ?? modalidade.ToString(),
+            EspecialidadeConsulta = ehConsulta
+                ? especialidadeConsulta ?? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo)
+                : null,
+            EspecialidadeConsultaCodigo = ehConsulta
+                ? especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString()
+                : null,
             Observacoes = observacoes,
             Origem = origem,
             Status = StatusAgendamento.Agendado
@@ -72,7 +85,9 @@ public sealed class AgendaService
 
         var resultado = await _atendimentos.LancarAsync(
             ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista, ag.Observacoes, ct,
-            especialidadeConsulta: ag.EspecialidadeConsulta);
+            especialidadeConsulta: ag.EspecialidadeConsulta,
+            modalidadeCodigo: ag.ModalidadeCodigo,
+            especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo);
 
         ag.Status = StatusAgendamento.Realizado;
         ag.AtendimentoId = resultado.Atendimento.Id;
@@ -87,6 +102,7 @@ public sealed class AgendaService
                 PacienteId = ag.PacienteId,
                 DataHora = segundo.DataPrevistaFaturamento.ToDateTime(new TimeOnly(9, 0)),
                 ModalidadePrevista = ag.ModalidadePrevista,
+                ModalidadeCodigo = ag.ModalidadeCodigo,
                 Origem = OrigemAgendamento.RetornoSugerido,
                 Status = StatusAgendamento.Agendado,
                 Observacoes = "Retorno para obter o 2º código (eletroacupuntura/acupuntura)."

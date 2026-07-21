@@ -26,23 +26,13 @@
                 <TextBox Text="{Binding Hora}" />
 
                 <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
-                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadeSelecionada}"
+                          DisplayMemberPath="Nome" />
 
                 <StackPanel Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
                     <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeConsulta}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeSelecionada}"
+                              DisplayMemberPath="Nome" />
                 </StackPanel>
 
                 <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
@@ -96,7 +86,7 @@
                     <DataGridTextColumn Header="Hora" Binding="{Binding DataHora, StringFormat=HH:mm}" Width="Auto" />
                     <DataGridTextColumn Header="Paciente" Binding="{Binding Paciente.Nome}" Width="*" />
                     <DataGridTextColumn Header="Procedimento"
-                                        Binding="{Binding ModalidadePrevista, Converter={StaticResource EnumDescricao}}" Width="1.4*" />
+                                        Binding="{Binding ModalidadeCodigo, Converter={StaticResource CodigoModalidade}}" Width="1.4*" />
                     <DataGridTextColumn Header="Situação" Binding="{Binding Status}" Width="Auto" />
                     <DataGridTextColumn Header="Obs." Binding="{Binding Observacoes}" Width="1.4*" />
                     <DataGridTemplateColumn Header="" Width="Auto">

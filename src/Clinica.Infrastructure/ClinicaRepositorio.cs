@@ -229,6 +229,61 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<bool> ConvenioEmUsoAsync(string codigo, CancellationToken ct = default)
         => await _db.Pacientes.AnyAsync(p => p.ConvenioCodigo == codigo, ct);
 
+    public async Task<IReadOnlyList<ModalidadeCadastro>> ModalidadesAsync(CancellationToken ct = default)
+        => await _db.Modalidades.AsNoTracking().ToListAsync(ct);
+
+    public async Task SalvarModalidadeAsync(ModalidadeCadastro modalidade, CancellationToken ct = default)
+    {
+        var existe = await _db.Modalidades.FirstOrDefaultAsync(m => m.Codigo == modalidade.Codigo, ct);
+        if (existe is null)
+            await _db.Modalidades.AddAsync(modalidade, ct);
+        else
+        {
+            existe.Nome = modalidade.Nome;
+            existe.Base = modalidade.Base;
+            existe.Ativo = modalidade.Ativo;
+        }
+    }
+
+    public async Task ExcluirModalidadeAsync(string codigo, CancellationToken ct = default)
+    {
+        var existe = await _db.Modalidades.FirstOrDefaultAsync(m => m.Codigo == codigo, ct);
+        if (existe is not null)
+            _db.Modalidades.Remove(existe);
+    }
+
+    public async Task<bool> ModalidadeEmUsoAsync(string codigo, CancellationToken ct = default)
+        => await _db.Pacientes.AnyAsync(p => p.ModalidadePreferidaCodigo == codigo, ct)
+           || await _db.Atendimentos.AnyAsync(a => a.ModalidadeCodigo == codigo, ct)
+           || await _db.Agendamentos.AnyAsync(a => a.ModalidadeCodigo == codigo, ct);
+
+    public async Task<IReadOnlyList<EspecialidadeCadastro>> EspecialidadesAsync(CancellationToken ct = default)
+        => await _db.Especialidades.AsNoTracking().ToListAsync(ct);
+
+    public async Task SalvarEspecialidadeAsync(EspecialidadeCadastro especialidade, CancellationToken ct = default)
+    {
+        var existe = await _db.Especialidades.FirstOrDefaultAsync(e => e.Codigo == especialidade.Codigo, ct);
+        if (existe is null)
+            await _db.Especialidades.AddAsync(especialidade, ct);
+        else
+        {
+            existe.Nome = especialidade.Nome;
+            existe.Ativo = especialidade.Ativo;
+        }
+    }
+
+    public async Task ExcluirEspecialidadeAsync(string codigo, CancellationToken ct = default)
+    {
+        var existe = await _db.Especialidades.FirstOrDefaultAsync(e => e.Codigo == codigo, ct);
+        if (existe is not null)
+            _db.Especialidades.Remove(existe);
+    }
+
+    public async Task<bool> EspecialidadeEmUsoAsync(string codigo, CancellationToken ct = default)
+        => await _db.Atendimentos.AnyAsync(a => a.EspecialidadeConsultaCodigo == codigo, ct)
+           || await _db.Codigos.AnyAsync(c => c.EspecialidadeCodigo == codigo, ct)
+           || await _db.Agendamentos.AnyAsync(a => a.EspecialidadeConsultaCodigo == codigo, ct);
+
     public async Task<string?> ObterConfiguracaoAsync(string chave, CancellationToken ct = default)
         => (await _db.Configuracoes.AsNoTracking().FirstOrDefaultAsync(c => c.Chave == chave, ct))?.Valor;
 

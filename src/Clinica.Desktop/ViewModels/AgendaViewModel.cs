@@ -6,6 +6,7 @@ using System.Windows;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,8 +21,12 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
 
     public ObservableCollection<Agendamento> Agendamentos { get; } = new();
     public ObservableCollection<Paciente> Pacientes { get; } = new();
-    public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
-    public Array Especialidades => Enum.GetValues(typeof(Especialidade));
+
+    /// <summary>Modalidades ativas do catálogo (embutidas + variantes criadas pela clínica).</summary>
+    public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
+
+    /// <summary>Especialidades ativas do catálogo (para a consulta avulsa).</summary>
+    public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = new();
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
 
@@ -33,19 +38,23 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private Paciente? _pacienteSelecionado;
     [ObservableProperty] private DateTime _dataNovo = DateTime.Today;
     [ObservableProperty] private string _hora = "09:00";
-    [ObservableProperty] private ModalidadeAtendimento _modalidade = ModalidadeAtendimento.AcupunturaComEletro;
-    [ObservableProperty] private Especialidade? _especialidadeConsulta;
+    [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
+    [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _ocupado;
 
+    /// <summary>Comportamento (base) da modalidade selecionada.</summary>
+    private ModalidadeAtendimento Modalidade =>
+        ModalidadeSelecionada?.Base ?? ModalidadeAtendimento.AcupunturaComEletro;
+
     /// <summary>Consulta avulsa: pede a especialidade (levada ao atendimento na confirmação).</summary>
     public bool ModalidadeConsulta => Modalidade == ModalidadeAtendimento.Consulta;
 
-    partial void OnModalidadeChanged(ModalidadeAtendimento value)
+    partial void OnModalidadeSelecionadaChanged(EntradaModalidade? value)
     {
-        if (value != ModalidadeAtendimento.Consulta)
-            EspecialidadeConsulta = null;
+        if (Modalidade != ModalidadeAtendimento.Consulta)
+            EspecialidadeSelecionada = null;
         OnPropertyChanged(nameof(ModalidadeConsulta));
     }
 
@@ -77,7 +86,9 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     partial void OnPacienteSelecionadoChanged(Paciente? value)
     {
         if (value is not null)
-            Modalidade = value.ModalidadePreferida;
+            ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == value.ModalidadePreferidaCodigo)
+                ?? Modalidades.FirstOrDefault(m => m.Base == value.ModalidadePreferida)
+                ?? ModalidadeSelecionada;
     }
 
     /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
@@ -85,6 +96,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
 
     public async Task CarregarAsync()
     {
+        CarregarCatalogos();
         await BuscarPacientes();
         await RecarregarDia();
 
@@ -98,6 +110,24 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         {
             // Sem nome da clínica a mensagem sai sem assinatura; não impede a agenda.
         }
+    }
+
+    /// <summary>Recarrega as opções de modalidade/especialidade do cache (reflete o que foi salvo em Configurações).</summary>
+    private void CarregarCatalogos()
+    {
+        var modalidadeAtual = ModalidadeSelecionada?.Codigo;
+        Modalidades.Clear();
+        foreach (var m in CatalogoModalidades.Ativas)
+            Modalidades.Add(m);
+        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == modalidadeAtual)
+            ?? Modalidades.FirstOrDefault(m => m.Base == ModalidadeAtendimento.AcupunturaComEletro)
+            ?? Modalidades.FirstOrDefault();
+
+        var especialidadeAtual = EspecialidadeSelecionada?.Codigo;
+        Especialidades.Clear();
+        foreach (var e in CatalogoEspecialidades.Ativas)
+            Especialidades.Add(e);
+        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual);
     }
 
     private async Task RecarregarDia()
@@ -140,7 +170,12 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             Mensagem = "Hora inválida (use HH:mm, ex.: 14:30).";
             return;
         }
-        if (ModalidadeConsulta && EspecialidadeConsulta is null)
+        if (ModalidadeSelecionada is null)
+        {
+            Mensagem = "Selecione a modalidade.";
+            return;
+        }
+        if (ModalidadeConsulta && EspecialidadeSelecionada is null)
         {
             Mensagem = "Informe a especialidade da consulta.";
             return;
@@ -166,7 +201,8 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
                     return;
 
                 await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes,
-                    especialidadeConsulta: ModalidadeConsulta ? EspecialidadeConsulta : null);
+                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
             }
 
             Mensagem = "Agendamento criado.";

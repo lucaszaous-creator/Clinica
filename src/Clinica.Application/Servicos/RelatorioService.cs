@@ -2,6 +2,7 @@ using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
@@ -35,11 +36,12 @@ public sealed class RelatorioService
         var envelhecimento = await EnvelhecimentoAsync(referencia, ct);
 
         // Consultas avulsas por especialidade — responde "quantas consultas de cada especialidade fizemos".
+        // Agrupa pelo código (abrange especialidades criadas pela clínica) e resolve o nome pelo catálogo.
         var consultasEspecialidades = codigos
             .Where(c => c.Tipo == TipoCodigo.Consulta && c.Status != StatusCodigo.NaoAplicavel)
-            .GroupBy(c => c.Especialidade)
+            .GroupBy(c => c.EspecialidadeCodigo ?? c.Especialidade?.ToString())
             .Select(g => new ConsultasPorEspecialidade(
-                g.Key is { } esp ? EspecialidadeInfo.NomeExibicao(esp) : "Sem especialidade",
+                g.Key is { } cod ? CatalogoEspecialidades.Nome(cod) : "Sem especialidade",
                 g.Count(),
                 g.Count(c => c.Baixado)))
             .OrderByDescending(c => c.Quantidade)

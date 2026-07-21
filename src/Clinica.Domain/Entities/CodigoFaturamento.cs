@@ -21,6 +21,9 @@ public class CodigoFaturamento
     /// </summary>
     public Especialidade? Especialidade { get; set; }
 
+    /// <summary>Código da especialidade no catálogo (permite especialidades criadas pela clínica). Null = embutida.</summary>
+    public string? EspecialidadeCodigo { get; set; }
+
     public OrdemCodigo Ordem { get; set; }
 
     /// <summary>Data a partir da qual a guia pode/deve ser faturada. Para o 2º código = data do atendimento + 24h.</summary>

@@ -25,7 +25,9 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<EntradaConvenio> Convenios { get; } = new();
     public Array Sexos => Enum.GetValues(typeof(Sexo));
     public Array Categorias => Enum.GetValues(typeof(Categoria));
-    public Array Modalidades => Enum.GetValues(typeof(ModalidadeAtendimento));
+
+    /// <summary>Modalidades ATIVAS do catálogo (código + nome + base).</summary>
+    public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
 
     /// <summary>Categoria-base efetiva do catálogo (fallback para o padrão do código até carregar).</summary>
     private ParametrosSnapshot? _snapshot;
@@ -57,7 +59,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private bool _possuiApp;
     [ObservableProperty] private Sexo _sexo = Sexo.Feminino;
     [ObservableProperty] private Categoria _categoria = CategoriaConvenio.Base(Convenio.UnimedIntercambio, false);
-    [ObservableProperty] private ModalidadeAtendimento _modalidadePreferida = ModalidadeAtendimento.AcupunturaComEletro;
+    /// <summary>Código da modalidade preferida (do catálogo). A base é derivada dele.</summary>
+    [ObservableProperty] private string? _modalidadePreferidaCodigo = ModalidadeAtendimento.AcupunturaComEletro.ToString();
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -108,6 +111,9 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         Convenios.Clear();
         foreach (var op in CatalogoConvenios.Ativos)
             Convenios.Add(op);
+        Modalidades.Clear();
+        foreach (var m in CatalogoModalidades.Ativas)
+            Modalidades.Add(m);
         await Buscar();
     }
 
@@ -211,7 +217,8 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         p.PossuiApp = PossuiApp;
         p.Sexo = Sexo;
         p.Categoria = Categoria;
-        p.ModalidadePreferida = ModalidadePreferida;
+        p.ModalidadePreferidaCodigo = ModalidadePreferidaCodigo;
+        p.ModalidadePreferida = CatalogoModalidades.Base(ModalidadePreferidaCodigo); // base derivada do código
         p.Observacoes = string.IsNullOrWhiteSpace(Observacoes) ? null : Observacoes.Trim();
     }
 
@@ -231,7 +238,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         _convenio = p.Convenio;
         PossuiApp = p.PossuiApp;
         Sexo = p.Sexo;
-        ModalidadePreferida = p.ModalidadePreferida;
+        ModalidadePreferidaCodigo = p.ModalidadePreferidaCodigo ?? p.ModalidadePreferida.ToString();
         Observacoes = p.Observacoes;
         Categoria = p.Categoria;
         // Preserva um override manual (categoria diferente da base do convênio + app).
@@ -277,7 +284,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         ConvenioCodigo = Convenio.UnimedIntercambio.ToString();
         _convenio = Convenio.UnimedIntercambio;
         Sexo = Sexo.Feminino;
-        ModalidadePreferida = ModalidadeAtendimento.AcupunturaComEletro;
+        ModalidadePreferidaCodigo = ModalidadeAtendimento.AcupunturaComEletro.ToString();
         Observacoes = null;
         Mensagem = null;
         _carregando = false;

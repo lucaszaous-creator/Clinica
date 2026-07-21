@@ -77,8 +77,10 @@ public partial class App : System.Windows.Application
 
                     await db.Database.MigrateAsync();
 
-                    // Carrega o catálogo de convênios no cache em memória (nomes/famílias).
+                    // Carrega os catálogos no cache em memória (nomes/famílias/bases).
                     await scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>().RecarregarCacheAsync();
+                    await scope.ServiceProvider.GetRequiredService<ModalidadeCatalogoService>().RecarregarCacheAsync();
+                    await scope.ServiceProvider.GetRequiredService<EspecialidadeCatalogoService>().RecarregarCacheAsync();
 
                     // Migração única: dados do prestador que viviam em JSON local
                     // (%APPDATA%) passam a ser configuração GLOBAL no banco.

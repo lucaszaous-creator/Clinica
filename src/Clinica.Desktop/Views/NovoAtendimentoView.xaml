@@ -25,23 +25,13 @@
                 <DatePicker SelectedDate="{Binding Data}" />
 
                 <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
-                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadeSelecionada}"
+                          DisplayMemberPath="Nome" />
 
                 <StackPanel Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
                     <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeConsulta}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeSelecionada}"
+                              DisplayMemberPath="Nome" />
                     <TextBlock Text="Fica registrada na guia e nos relatórios (quantas consultas de cada especialidade)."
                                FontSize="11" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,3,0,0" TextWrapping="Wrap" />
                 </StackPanel>
@@ -101,7 +91,7 @@
                             <DataGridTextColumn Header="Código"
                                                 Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                             <DataGridTextColumn Header="Especialidade"
-                                                Binding="{Binding Especialidade, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                                Binding="{Binding EspecialidadeCodigo, Converter={StaticResource CodigoEspecialidade}}" Width="*" />
                             <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
                             <DataGridTextColumn Header="Faturar em" Binding="{Binding DataPrevistaFaturamento}" Width="*" />
                             <DataGridTextColumn Header="Como obter"
