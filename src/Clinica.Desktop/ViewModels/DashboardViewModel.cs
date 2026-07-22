@@ -167,27 +167,71 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         if (pendencia is null) return;
 
-        var fone = Telefone.Normalizar(pendencia.PacienteTelefone);
-        if (fone.Length is < 10 or > 13)
-        {
-            _dialogo.Aviso("WhatsApp",
-                $"{pendencia.PacienteNome}: telefone ausente ou inválido no cadastro (edite em Pacientes).");
-            return;
-        }
-        if (fone.Length is 10 or 11)
-            fone = "55" + fone; // wa.me exige DDI
-
-        var primeiroNome = pendencia.PacienteNome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
-                           ?? pendencia.PacienteNome;
+        var primeiroNome = PrimeiroNome(pendencia.PacienteNome);
         var ordinal = pendencia.Ordem == OrdemCodigo.Segundo ? "2ª" : "1ª";
-        var assinatura = string.IsNullOrWhiteSpace(_nomeClinica) ? string.Empty : $" — {_nomeClinica}";
         var texto = $"Olá, {primeiroNome}! Tentamos falar com você por telefone e não conseguimos. " +
                     $"Precisamos de um retorno rápido para concluir a autorização da {ordinal} guia do seu convênio, " +
                     $"referente ao atendimento de {pendencia.DataPrevista.ToString("dd/MM", PtBr)}. " +
                     "Quando puder, é só responder por aqui, por favor.";
         if (pendencia.FormaObtencao == FormaObtencao.App)
             texto += " Se o seu plano gera o código pelo aplicativo, pode nos enviar o QR Code por aqui mesmo.";
-        texto += assinatura;
+
+        AbrirWhatsapp(pendencia.PacienteTelefone, pendencia.PacienteNome, texto);
+    }
+
+    /// <summary>WhatsApp para o paciente cuja consulta está a vencer (agendar a renovação).</summary>
+    [RelayCommand]
+    private void WhatsappConsulta(PendenciaConsulta? item)
+    {
+        if (item is null) return;
+
+        var primeiroNome = PrimeiroNome(item.PacienteNome);
+        var prazo = item.DiasParaVencer <= 0 ? "está vencendo" : $"vence em {item.DiasParaVencer} dia(s)";
+        var texto = $"Olá, {primeiroNome}! Aqui é da clínica. A validade da sua consulta {prazo} " +
+                    $"(até {item.DataVencimento.ToString("dd/MM", PtBr)}). " +
+                    "Para não interromper o seu tratamento, vamos agendar o seu retorno? Responda por aqui, por favor.";
+
+        AbrirWhatsapp(item.PacienteTelefone, item.PacienteNome, texto);
+    }
+
+    /// <summary>WhatsApp para o paciente com carteirinha vencida/a vencer (pedir a atualização).</summary>
+    [RelayCommand]
+    private void WhatsappCarteirinha(PendenciaCarteirinha? item)
+    {
+        if (item is null) return;
+
+        var primeiroNome = PrimeiroNome(item.PacienteNome);
+        var situacao = item.DiasParaVencer < 0
+            ? $"está vencida desde {item.Validade.ToString("dd/MM/yyyy", PtBr)}"
+            : $"vence em {item.DiasParaVencer} dia(s) ({item.Validade.ToString("dd/MM/yyyy", PtBr)})";
+        var texto = $"Olá, {primeiroNome}! Aqui é da clínica. A sua carteirinha do convênio {situacao}. " +
+                    "Para o convênio não recusar as suas guias, poderia nos enviar por aqui uma foto da carteirinha " +
+                    "atualizada? Obrigado!";
+
+        AbrirWhatsapp(item.PacienteTelefone, item.PacienteNome, texto);
+    }
+
+    /// <summary>Primeiro nome do paciente (para saudação).</summary>
+    private static string PrimeiroNome(string nome)
+        => nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nome;
+
+    /// <summary>
+    /// Normaliza o telefone (+DDI), assina com o nome da clínica e abre o wa.me na conversa.
+    /// Telefone ausente/inválido é avisado com orientação para editar em Pacientes.
+    /// </summary>
+    private void AbrirWhatsapp(string? telefone, string pacienteNome, string corpo)
+    {
+        var fone = Telefone.Normalizar(telefone);
+        if (fone.Length is < 10 or > 13)
+        {
+            _dialogo.Aviso("WhatsApp",
+                $"{pacienteNome}: telefone ausente ou inválido no cadastro (edite em Pacientes).");
+            return;
+        }
+        if (fone.Length is 10 or 11)
+            fone = "55" + fone; // wa.me exige DDI
+
+        var texto = corpo + (string.IsNullOrWhiteSpace(_nomeClinica) ? string.Empty : $" — {_nomeClinica}");
 
         try
         {

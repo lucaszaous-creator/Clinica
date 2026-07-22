@@ -43,6 +43,14 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private bool _lancado;
     [ObservableProperty] private string? _numeroAtendimento;
     [ObservableProperty] private string? _mensagem;
+
+    /// <summary>Aviso de guias pendentes do paciente selecionado (para a secretária cobrar na hora). Nulo = sem pendências.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemAvisoPendencias))]
+    private string? _avisoPendencias;
+
+    /// <summary>Há aviso de pendências a exibir?</summary>
+    public bool TemAvisoPendencias => !string.IsNullOrWhiteSpace(AvisoPendencias);
     [ObservableProperty] private bool _ocupado;
 
     private int _ultimoAtendimentoId;
@@ -132,6 +140,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     // e avisa carteirinha vencida ANTES de gerar uma guia que o convênio vai recusar.
     partial void OnPacienteSelecionadoChanged(Paciente? value)
     {
+        AvisoPendencias = null;
         if (value is null) return;
 
         // Pré-seleciona a modalidade habitual do paciente: primeiro pelo código salvo, senão pela base.
@@ -141,7 +150,51 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         Mensagem = value.ValidadeCarteirinha is { } val && val < DateOnly.FromDateTime(DateTime.Today)
             ? $"Atenção: a carteirinha de {value.Nome} venceu em {val:dd/MM/yyyy} — o convênio pode recusar a guia."
             : null;
+
+        _ = VerificarPendenciasAsync(value.Id);
     }
+
+    /// <summary>
+    /// Avisa se o paciente selecionado tem guias pendentes de baixa de atendimentos anteriores —
+    /// oportunidade de a secretária cobrar a guia em aberto no mesmo instante do novo atendimento.
+    /// </summary>
+    private async Task VerificarPendenciasAsync(int pacienteId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
+            var lista = await pendencias.PendenciasDoPacienteAsync(pacienteId, DateOnly.FromDateTime(DateTime.Today));
+
+            // A seleção pode ter mudado enquanto a consulta rodava.
+            if (PacienteSelecionado?.Id != pacienteId) return;
+            if (lista.Count == 0) { AvisoPendencias = null; return; }
+
+            var itens = string.Join("; ", lista.Take(3).Select(p =>
+            {
+                var ordinal = p.Ordem == OrdemCodigo.Segundo ? "2ª" : "1ª";
+                return $"{ordinal} guia de {RotuloTipo(p.Tipo)} de {p.DataPrevista:dd/MM}";
+            }));
+            if (lista.Count > 3) itens += $"; +{lista.Count - 3}";
+
+            AvisoPendencias = $"Este paciente tem {lista.Count} guia(s) pendente(s) de baixa — cobre a guia agora! ({itens}.)";
+        }
+        catch
+        {
+            // Aviso é auxiliar: uma falha aqui nunca pode impedir o lançamento do atendimento.
+            AvisoPendencias = null;
+        }
+    }
+
+    private static string RotuloTipo(TipoCodigo t) => t switch
+    {
+        TipoCodigo.ConsultaEspecialidade => "consulta de especialidade",
+        TipoCodigo.Eletroacupuntura => "eletroacupuntura",
+        TipoCodigo.Bsv => "BSV",
+        TipoCodigo.Acupuntura => "acupuntura",
+        TipoCodigo.Consulta => "consulta",
+        _ => t.ToString()
+    };
 
     [RelayCommand]
     private async Task Lancar()

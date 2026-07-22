@@ -95,6 +95,27 @@ public class PendenciasFaturamentoTests : IDisposable
         lista[1].Urgencia.Should().Be(NivelUrgencia.Amarelo);
     }
 
+    [Fact]
+    public async Task PendenciasDoPaciente_FiltraSomenteOPacienteInformado()
+    {
+        var hoje = new DateOnly(2026, 7, 19);
+        var ana = new Paciente { Nome = "Ana", Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };
+        var bruno = new Paciente { Nome = "Bruno", Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Masculino };
+        _db.Pacientes.AddRange(ana, bruno);
+        await _db.SaveChangesAsync();
+
+        var svc = new AtendimentoService(_repo);
+        // Atendimentos no passado → a guia já é faturável (pendente) na data de referência.
+        await svc.LancarAsync(ana.Id, hoje.AddDays(-2), ModalidadeAtendimento.AcupunturaSimples);
+        await svc.LancarAsync(bruno.Id, hoje.AddDays(-2), ModalidadeAtendimento.AcupunturaSimples);
+
+        var daAna = await _pendencias.PendenciasDoPacienteAsync(ana.Id, hoje);
+
+        daAna.Should().NotBeEmpty();
+        daAna.Should().OnlyContain(p => p.PacienteId == ana.Id);
+        (await _pendencias.PendenciasDoPacienteAsync(-1, hoje)).Should().BeEmpty();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

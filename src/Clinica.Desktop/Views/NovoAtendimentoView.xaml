@@ -21,6 +21,17 @@
                 <TextBlock Text="{Binding PacienteSelecionado.Nome, StringFormat='Selecionado: {0}'}"
                            Foreground="{StaticResource Brush.Sucesso.Forte}" FontWeight="SemiBold" Margin="0,0,0,8" />
 
+                <!-- Aviso: paciente com guia pendente de baixa — cobrar na hora -->
+                <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,8"
+                        Visibility="{Binding TemAvisoPendencias, Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="17"
+                                   VerticalAlignment="Top" Margin="0,1,10,0" Foreground="{StaticResource Brush.Aviso}" />
+                        <TextBlock Text="{Binding AvisoPendencias}" TextWrapping="Wrap" VerticalAlignment="Center"
+                                   FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}" />
+                    </StackPanel>
+                </Border>
+
                 <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
                 <DatePicker SelectedDate="{Binding Data}" />
 

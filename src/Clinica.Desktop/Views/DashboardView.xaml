@@ -237,13 +237,22 @@
                 <DataGridTextColumn Header="Carteirinha" Binding="{Binding Carteirinha}" Width="*" />
                 <DataGridTextColumn Header="Validade" Binding="{Binding Validade}" Width="Auto" />
                 <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="Auto" />
-                <DataGridTemplateColumn Header="" Width="130">
+                <DataGridTemplateColumn Header="" Width="170">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Abrir ficha" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                    ToolTip="Abrir a ficha do paciente para atualizar a carteirinha"
-                                    Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                    CommandParameter="{Binding}" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Abrir ficha" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        ToolTip="Abrir a ficha do paciente para atualizar a carteirinha"
+                                        Command="{Binding DataContext.AbrirFichaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
+                                        ToolTip="Chamar o paciente no WhatsApp para atualizar a carteirinha"
+                                        AutomationProperties.Name="Chamar o paciente no WhatsApp"
+                                        Command="{Binding DataContext.WhatsappCarteirinhaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource FonteIcones}" FontSize="13" />
+                                </Button>
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -271,13 +280,22 @@
                                     Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
                 <DataGridTextColumn Header="Vence em" Binding="{Binding DataVencimento}" Width="*" />
                 <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="*" />
-                <DataGridTemplateColumn Header="" Width="110">
+                <DataGridTemplateColumn Header="" Width="150">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Renovar" Style="{StaticResource BotaoAcaoGrid}"
-                                    ToolTip="Gerar/renovar a consulta deste paciente para hoje"
-                                    Command="{Binding DataContext.RenovarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                    CommandParameter="{Binding}" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Renovar" Style="{StaticResource BotaoAcaoGrid}"
+                                        ToolTip="Gerar/renovar a consulta deste paciente para hoje"
+                                        Command="{Binding DataContext.RenovarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
+                                        ToolTip="Chamar o paciente no WhatsApp para agendar a renovação"
+                                        AutomationProperties.Name="Chamar o paciente no WhatsApp"
+                                        Command="{Binding DataContext.WhatsappConsultaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}">
+                                    <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource FonteIcones}" FontSize="13" />
+                                </Button>
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
