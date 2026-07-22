@@ -59,6 +59,17 @@ public sealed class PendenciaService
             .ToList();
     }
 
+    /// <summary>
+    /// Guias pendentes de baixa de UM paciente específico — usado para avisar a secretária ao
+    /// iniciar um novo atendimento, para que ela cobre a guia em aberto na hora.
+    /// </summary>
+    public async Task<IReadOnlyList<PendenciaCodigo>> PendenciasDoPacienteAsync(
+        int pacienteId, DateOnly referencia, CancellationToken ct = default)
+    {
+        var todas = await CodigosPendentesAsync(referencia, ct);
+        return todas.Where(p => p.PacienteId == pacienteId).ToList();
+    }
+
     /// <summary>Consultas a renovar (vencidas ou a vencer dentro da janela de alerta).</summary>
     public async Task<IReadOnlyList<PendenciaConsulta>> ConsultasAVencerAsync(DateOnly referencia, CancellationToken ct = default)
     {
