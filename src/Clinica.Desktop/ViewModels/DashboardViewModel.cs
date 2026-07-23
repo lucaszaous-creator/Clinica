@@ -30,7 +30,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
     public IReadOnlyList<object> OpcoesConvenio { get; }
     public IReadOnlyList<object> OpcoesUrgencia { get; } =
-        new object[] { "Todos", NivelUrgencia.Vermelho, NivelUrgencia.Amarelo, NivelUrgencia.Verde };
+        new object[] { "Todos", NivelUrgencia.Vermelho, NivelUrgencia.Amarelo, NivelUrgencia.Verde, NivelUrgencia.Cinza };
 
     [ObservableProperty] private object _filtroConvenio = "Todos";
     [ObservableProperty] private object _filtroUrgencia = "Todos";
@@ -42,13 +42,16 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Texto do banner da rodada (quanto está vencida / o que precisa decidir).</summary>
     [ObservableProperty] private string _rodadaBanner = string.Empty;
 
-    /// <summary>Total de códigos/guias pendentes de baixa (para a faixa de alerta do topo).</summary>
-    public int TotalCodigos => _todos.Count;
-    public bool TemPendencias => _todos.Count > 0;
+    /// <summary>Guias pendentes de baixa ATIVAS (exclui as não conformidades em cinza).</summary>
+    public int TotalCodigos => _todos.Count(p => !p.EhNaoConformidade);
+    public bool TemPendencias => _todos.Any(p => !p.EhNaoConformidade);
 
     // KPIs do painel
     public int CodigosUrgentes => _todos.Count(p => p.Urgencia == NivelUrgencia.Vermelho);
     public int ConsultasARenovar => Consultas.Count;
+
+    /// <summary>Não conformidades paradas (em cinza), aguardando o paciente voltar ou serem resolvidas.</summary>
+    public int NaoConformidadesTotal => _todos.Count(p => p.EhNaoConformidade);
 
     /// <summary>Glosas com prazo de recurso correndo e carteirinhas a vencer (seções aparecem só quando há itens).</summary>
     public bool TemRecursos => Recursos.Count > 0;
@@ -76,6 +79,8 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
         _todos.Clear();
         _todos.AddRange(await pendencias.CodigosPendentesAsync(hoje));
+        // Não conformidades entram no fim da lista, em cinza (paradas até voltar/serem resolvidas).
+        _todos.AddRange(await pendencias.NaoConformidadesComoPendenciaAsync(hoje));
 
         Consultas.Clear();
         foreach (var c in await pendencias.ConsultasAVencerAsync(hoje))
@@ -136,11 +141,12 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         foreach (var c in filtrados) Codigos.Add(c);
 
         // Mesmo critério do badge (PendenciaService.TotalPendenciasAsync): recursos contam
-        // quando o prazo está apertado (amarelo/vermelho).
-        Total = _todos.Count + Consultas.Count + Recursos.Count(r => r.Urgencia != NivelUrgencia.Verde);
+        // quando o prazo está apertado (amarelo/vermelho). Não conformidades (cinza) ficam de fora.
+        Total = TotalCodigos + Consultas.Count + Recursos.Count(r => r.Urgencia != NivelUrgencia.Verde);
         OnPropertyChanged(nameof(TotalCodigos));
         OnPropertyChanged(nameof(TemPendencias));
         OnPropertyChanged(nameof(CodigosUrgentes));
+        OnPropertyChanged(nameof(NaoConformidadesTotal));
         OnPropertyChanged(nameof(ConsultasARenovar));
         OnPropertyChanged(nameof(TemRecursos));
         OnPropertyChanged(nameof(TemCarteirinhas));
@@ -155,6 +161,31 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         if (codigo is not null)
             AbrirBaixaSolicitado?.Invoke(codigo.CodigoId);
+    }
+
+    /// <summary>
+    /// Reabre uma não conformidade (linha cinza): a guia volta a ser pendência ativa (vermelha) e
+    /// pode ser baixada. Usado quando aparece uma solução sem o paciente ter voltado.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReabrirNaoConformidade(PendenciaCodigo? codigo)
+    {
+        if (codigo is null) return;
+        if (!_dialogo.Confirmar("Reabrir não conformidade",
+                $"Reabrir a guia de {codigo.PacienteNome}? Ela volta a ser pendência ativa.")) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.ReabrirNaoConformidadeAsync(codigo.CodigoId, Environment.UserName);
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Reabrir não conformidade", ex.Message);
+        }
+
+        await CarregarAsync();
     }
 
     /// <summary>

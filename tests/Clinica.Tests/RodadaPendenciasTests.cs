@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -68,6 +69,41 @@ public class RodadaPendenciasTests : IDisposable
         var evento = (await _repo.EventosAuditoriaAsync()).Single(e => e.Acao == "NaoConformidade");
         evento.Operador.Should().Be("maria");
         evento.CodigoId.Should().Be(codigo.Id);
+    }
+
+    [Fact]
+    public async Task NaoConformidade_ApareceComoPendenciaCinza()
+    {
+        var codigo = await CriarSegundoCodigoAsync();
+        await _rodada.MarcarNaoConformidadeAsync(codigo.Id, "aguardando o paciente", "maria");
+
+        var cinzas = await _pendencias.NaoConformidadesComoPendenciaAsync(Ref);
+
+        var linha = cinzas.Single(p => p.CodigoId == codigo.Id);
+        linha.Urgencia.Should().Be(NivelUrgencia.Cinza);
+        linha.EhNaoConformidade.Should().BeTrue();
+        linha.ObservacaoPendencia.Should().Be("aguardando o paciente");
+        // Não aparece entre as pendências ativas (fica só na lista cinza).
+        (await _pendencias.CodigosPendentesAsync(Ref)).Should().NotContain(p => p.CodigoId == codigo.Id);
+    }
+
+    [Fact]
+    public async Task PacienteVolta_ReabreNaoConformidadeEAvisa()
+    {
+        var codigo = await CriarSegundoCodigoAsync();
+        var pacienteId = (await _repo.ObterCodigoAsync(codigo.Id))!.Atendimento!.PacienteId;
+        await _rodada.MarcarNaoConformidadeAsync(codigo.Id, "aguardando o paciente", "maria");
+
+        // Paciente volta: um novo atendimento reabre a não conformidade e avisa a secretária.
+        var resultado = await new AtendimentoService(_repo).LancarAsync(
+            pacienteId, new DateOnly(2026, 7, 25), ModalidadeAtendimento.AcupunturaComEletro);
+
+        var salvo = await _repo.ObterCodigoAsync(codigo.Id);
+        salvo!.Status.Should().Be(StatusCodigo.Aberto);
+        salvo.EstaPendente(new DateOnly(2026, 7, 26)).Should().BeTrue();
+        resultado.Avisos.Should().Contain(a => a.Contains("não conformidade"));
+        (await _repo.EventosAuditoriaAsync())
+            .Should().Contain(e => e.Acao == "NaoConformidadeReaberta" && e.Operador == "sistema");
     }
 
     [Fact]

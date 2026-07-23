@@ -13,6 +13,7 @@ public sealed class UrgenciaParaCorConverter : IValueConverter
         NivelUrgencia.Verde => new SolidColorBrush(Color.FromRgb(0x2E, 0x7D, 0x32)),
         NivelUrgencia.Amarelo => new SolidColorBrush(Color.FromRgb(0xF9, 0xA8, 0x25)),
         NivelUrgencia.Vermelho => new SolidColorBrush(Color.FromRgb(0xC6, 0x28, 0x28)),
+        NivelUrgencia.Cinza => new SolidColorBrush(Color.FromRgb(0x9E, 0x9E, 0x9E)),
         _ => Brushes.Gray
     };
 

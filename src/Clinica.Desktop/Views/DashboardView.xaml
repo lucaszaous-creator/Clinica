@@ -61,7 +61,7 @@
         </StackPanel>
 
         <!-- KPIs do painel -->
-        <UniformGrid Grid.Row="1" Columns="4" Margin="0,0,0,14">
+        <UniformGrid Grid.Row="1" Columns="5" Margin="0,0,0,14">
             <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Guias em aberto" Style="{StaticResource CardKpi.Rotulo}" />
@@ -80,6 +80,13 @@
                     <TextBlock Text="Consultas a renovar" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding ConsultasARenovar}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Aviso}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="Não conformidades" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding NaoConformidadesTotal}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="#9E9E9E" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Acento}"
@@ -172,23 +179,52 @@
                 <DataGridTemplateColumn Header="" Width="240">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <StackPanel Orientation="Horizontal">
-                                <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
-                                        Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        CommandParameter="{Binding}" />
-                                <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
-                                        ToolTip="Chamar o paciente no WhatsApp para obter a guia"
-                                        AutomationProperties.Name="Chamar o paciente no WhatsApp"
-                                        Command="{Binding DataContext.WhatsappCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                            <Grid>
+                                <!-- Ações da pendência ativa (ocultas quando a linha é não conformidade) -->
+                                <StackPanel Orientation="Horizontal">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding EhNaoConformidade}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
+                                            Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
+                                            ToolTip="Chamar o paciente no WhatsApp para obter a guia"
+                                            AutomationProperties.Name="Chamar o paciente no WhatsApp"
+                                            Command="{Binding DataContext.WhatsappCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}">
+                                        <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource FonteIcones}" FontSize="13" />
+                                    </Button>
+                                    <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
+                                            Content="{Binding TemObservacao, Converter={StaticResource ObservacaoParaRotulo}}"
+                                            ToolTip="Anotar por que ainda não foi baixada"
+                                            Command="{Binding DataContext.AnotarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
+                                <!-- Ação da não conformidade (visível só nas linhas cinza) -->
+                                <Button Content="Reabrir"
+                                        HorizontalAlignment="Left"
+                                        ToolTip="Reabrir a não conformidade: volta a ser pendência ativa"
+                                        Command="{Binding DataContext.ReabrirNaoConformidadeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}">
-                                    <TextBlock Text="&#xE8BD;" FontFamily="{StaticResource FonteIcones}" FontSize="13" />
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGridSecundario}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding EhNaoConformidade}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
                                 </Button>
-                                <Button Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
-                                        Content="{Binding TemObservacao, Converter={StaticResource ObservacaoParaRotulo}}"
-                                        ToolTip="Anotar por que ainda não foi baixada"
-                                        Command="{Binding DataContext.AnotarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                        CommandParameter="{Binding}" />
-                            </StackPanel>
+                            </Grid>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

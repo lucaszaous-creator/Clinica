@@ -164,20 +164,30 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         {
             using var scope = _scopeFactory.CreateScope();
             var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
-            var lista = await pendencias.PendenciasDoPacienteAsync(pacienteId, DateOnly.FromDateTime(DateTime.Today));
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var lista = await pendencias.PendenciasDoPacienteAsync(pacienteId, hoje);
+            var ncs = await pendencias.NaoConformidadesDoPacienteAsync(pacienteId, hoje);
 
             // A seleção pode ter mudado enquanto a consulta rodava.
             if (PacienteSelecionado?.Id != pacienteId) return;
-            if (lista.Count == 0) { AvisoPendencias = null; return; }
+            if (lista.Count == 0 && ncs.Count == 0) { AvisoPendencias = null; return; }
 
-            var itens = string.Join("; ", lista.Take(3).Select(p =>
+            var partes = new List<string>();
+            if (lista.Count > 0)
             {
-                var ordinal = p.Ordem == OrdemCodigo.Segundo ? "2ª" : "1ª";
-                return $"{ordinal} guia de {RotuloTipo(p.Tipo)} de {p.DataPrevista:dd/MM}";
-            }));
-            if (lista.Count > 3) itens += $"; +{lista.Count - 3}";
+                var itens = string.Join("; ", lista.Take(3).Select(p =>
+                {
+                    var ordinal = p.Ordem == OrdemCodigo.Segundo ? "2ª" : "1ª";
+                    return $"{ordinal} guia de {RotuloTipo(p.Tipo)} de {p.DataPrevista:dd/MM}";
+                }));
+                if (lista.Count > 3) itens += $"; +{lista.Count - 3}";
+                partes.Add($"{lista.Count} guia(s) pendente(s) de baixa — cobre a guia agora! ({itens}.)");
+            }
+            // Não conformidade: o paciente voltou, então ela será reaberta ao lançar o atendimento.
+            if (ncs.Count > 0)
+                partes.Add($"{ncs.Count} não conformidade(s) — serão reabertas ao lançar (o paciente voltou); cobre a(s) guia(s).");
 
-            AvisoPendencias = $"Este paciente tem {lista.Count} guia(s) pendente(s) de baixa — cobre a guia agora! ({itens}.)";
+            AvisoPendencias = "Este paciente tem " + string.Join(" ", partes);
         }
         catch
         {

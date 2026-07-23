@@ -93,6 +93,29 @@ public sealed class AtendimentoService
         atendimento.Numero = $"{data.Year}-{atendimento.Id:D6}";
         await _repo.SalvarAsync(ct);
 
+        // Paciente voltou: as não conformidades dele voltam a ser pendência (o motivo de estarem
+        // paradas — "aguardando o paciente" — deixou de valer). Avisa a secretária para cobrar agora.
+        var naoConformidades = await _repo.CodigosEmNaoConformidadeDoPacienteAsync(pacienteId, ct);
+        if (naoConformidades.Count > 0)
+        {
+            foreach (var nc in naoConformidades)
+            {
+                nc.ReabrirNaoConformidade();
+                await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+                {
+                    Operador = "sistema",
+                    Acao = "NaoConformidadeReaberta",
+                    Detalhe = $"Reaberta automaticamente: paciente retornou (atendimento {atendimento.Numero})",
+                    CodigoId = nc.Id,
+                    PacienteId = pacienteId
+                }, ct);
+            }
+            await _repo.SalvarAsync(ct);
+            resultado.Avisos.Add(
+                $"Atenção: {naoConformidades.Count} não conformidade(s) deste paciente foi(ram) reaberta(s) — " +
+                "o paciente voltou, cobre a(s) guia(s) agora.");
+        }
+
         // Consulta avulsa também reinicia o ciclo de renovação do plano (Unimed 22 dias,
         // Amil/Petrobras 30): registra a renovação no controle de Consultas, que vigia o vencimento.
         if (modalidade == ModalidadeAtendimento.Consulta && _consultas is not null)
