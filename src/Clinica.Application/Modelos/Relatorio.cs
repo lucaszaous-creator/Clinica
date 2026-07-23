@@ -10,7 +10,8 @@ public sealed record ResumoFaturamento(
     double TaxaBaixa,               // 0..100
     int Glosadas = 0,               // guias baixadas que sofreram glosa (qualquer situação)
     double TaxaGlosa = 0,           // % das baixadas que foram glosadas
-    double? TempoMedioBaixaDias = null); // média atendimento → baixa (nulo sem baixas)
+    double? TempoMedioBaixaDias = null, // média atendimento → baixa (nulo sem baixas)
+    int NaoConformidades = 0);      // guias justificadas como não conformidade numa rodada
 
 /// <summary>Quebra do faturamento por convênio no período.</summary>
 public sealed record FaturamentoPorConvenio(
@@ -21,7 +22,8 @@ public sealed record FaturamentoPorConvenio(
     double TaxaBaixa,
     int Glosadas = 0,
     double TaxaGlosa = 0,
-    double? TempoMedioBaixaDias = null);
+    double? TempoMedioBaixaDias = null,
+    int NaoConformidades = 0);
 
 /// <summary>Quantas consultas de cada especialidade a clínica fez no período.</summary>
 public sealed record ConsultasPorEspecialidade(
@@ -51,4 +53,5 @@ public sealed record RelatorioFaturamento(
     ResumoFaturamento Resumo,
     IReadOnlyList<FaturamentoPorConvenio> PorConvenio,
     IReadOnlyList<FaixaEnvelhecimento> Envelhecimento,
-    IReadOnlyList<ConsultasPorEspecialidade> ConsultasEspecialidades);
+    IReadOnlyList<ConsultasPorEspecialidade> ConsultasEspecialidades,
+    IReadOnlyList<NaoConformidadeItem> NaoConformidades);

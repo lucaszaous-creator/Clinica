@@ -17,6 +17,7 @@ public partial class App : System.Windows.Application
     private DispatcherTimer? _lembreteTimer;
     private DispatcherTimer? _updateTimer;
     private bool _avisoAberto;
+    private bool _rodadaAberta;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -129,10 +130,18 @@ public partial class App : System.Windows.Application
         // Backup local diário em segundo plano (plano B se o banco na nuvem sumir).
         _ = BackupLocal.ExecutarSeNecessarioAsync(_host.Services);
 
+        // Rodada de pendências vencida (aviso bloqueante) antes do aviso comum: se a rodada zerar
+        // as pendências, o aviso a seguir já não tem o que mostrar.
+        await MostrarRodadaSeVencidaAsync();
+
         // Aviso de baixas pendentes ao abrir + lembrete recorrente (a cada 2h).
         await MostrarAvisoPendenciasAsync();
         _lembreteTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
-        _lembreteTimer.Tick += async (_, _) => await MostrarAvisoPendenciasAsync();
+        _lembreteTimer.Tick += async (_, _) =>
+        {
+            await MostrarRodadaSeVencidaAsync();
+            await MostrarAvisoPendenciasAsync();
+        };
         _lembreteTimer.Start();
 
         // Ciclo periódico (2h): pega versões publicadas DURANTE o expediente, com o app
@@ -193,6 +202,42 @@ public partial class App : System.Windows.Application
         finally
         {
             _avisoAberto = false;
+        }
+    }
+
+    /// <summary>
+    /// Se a rodada de pendências venceu e há guias sem decisão, abre a janela BLOQUEANTE de "rodar as
+    /// pendências": a secretária precisa dar baixa ou justificar (não conformidade) antes de seguir.
+    /// Ancora o ciclo no 1º uso para não bloquear logo na primeira abertura. Nunca derruba o app.
+    /// </summary>
+    private async Task MostrarRodadaSeVencidaAsync()
+    {
+        if (_rodadaAberta || _host is null) return;
+
+        try
+        {
+            var scopeFactory = _host.Services.GetRequiredService<IServiceScopeFactory>();
+            bool exigeDecisao;
+            using (var scope = scopeFactory.CreateScope())
+            {
+                var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                await rodada.GarantirAncoraAsync(hoje); // ancora no 1º uso (não bloqueia de cara)
+                exigeDecisao = (await rodada.ObterStatusAsync(hoje)).ExigeDecisao;
+            }
+            if (!exigeDecisao) return;
+
+            _rodadaAberta = true;
+            await Alertas.RodadaPendenciasFluxo.ExecutarAsync(scopeFactory, MainWindow, bloqueante: true);
+        }
+        catch (Exception ex)
+        {
+            // Uma falha na rodada nunca deve impedir o uso do sistema.
+            LogErros.Registrar("Rodada de pendências (abertura)", ex);
+        }
+        finally
+        {
+            _rodadaAberta = false;
         }
     }
 

@@ -71,7 +71,8 @@ public enum StatusCodigo
 {
     Aberto,        // gerado, aguardando baixa
     Baixado,       // secretária registrou que a guia foi efetivada
-    NaoAplicavel   // documentado que não pôde ser faturado (ex.: sem app, sem especialidade disponível)
+    NaoAplicavel,  // documentado que não pôde ser faturado (ex.: sem app, sem especialidade disponível)
+    NaoConformidade // pendência não resolvida numa rodada e justificada; silenciada até ser reaberta
 }
 
 /// <summary>Categoria/semáforo do paciente conforme os fluxogramas.</summary>

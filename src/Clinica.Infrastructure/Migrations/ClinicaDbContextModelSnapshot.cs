@@ -203,6 +203,13 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");
 
+                    b.Property<DateTime?>("NaoConformidadeEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("NaoConformidadeJustificativa")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("NumeroGuiaReal")
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");

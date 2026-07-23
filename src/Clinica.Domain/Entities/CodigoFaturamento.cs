@@ -60,6 +60,18 @@ public class CodigoFaturamento
     /// <summary>Quando a observação da pendência foi anotada/atualizada (para exibir "há N dias").</summary>
     public DateTime? ObservacaoPendenciaEm { get; set; }
 
+    // ---------- Não conformidade (fechamento de ciclo — "rodar as pendências") ----------
+
+    /// <summary>
+    /// Justificativa registrada quando, ao rodar as pendências, a guia não pôde ser baixada dentro do
+    /// prazo do ciclo. Marcar como não conformidade SILENCIA a pendência (sai do painel e dos avisos)
+    /// e deixa o motivo documentado no relatório. Só volta a ser pendência se for reaberta manualmente.
+    /// </summary>
+    public string? NaoConformidadeJustificativa { get; set; }
+
+    /// <summary>Quando a guia foi marcada como não conformidade (para exibir no relatório).</summary>
+    public DateTime? NaoConformidadeEm { get; set; }
+
     // ---------- Lote TISS (exportação à operadora) ----------
 
     /// <summary>Lote TISS em que a guia foi exportada. Nulo = ainda não entrou em lote.</summary>
@@ -86,12 +98,16 @@ public class CodigoFaturamento
     /// <summary>Glosas ativas (glosada ou reapresentada, ainda não recuperadas).</summary>
     public bool GlosaEmAberto => Glosa is StatusGlosa.Glosada or StatusGlosa.Reapresentada;
 
+    /// <summary>Guia dispensada da pendência por ter sido justificada como não conformidade numa rodada.</summary>
+    public bool EmNaoConformidade => Status == StatusCodigo.NaoConformidade;
+
     /// <summary>
     /// Está pendente quando ainda não teve baixa, é faturável e sua data prevista já chegou (na data de referência).
-    /// Códigos NaoAplicavel nunca são pendência (foram documentados como não faturáveis).
+    /// Códigos NaoAplicavel (não faturáveis) e NaoConformidade (justificados na rodada) nunca são pendência.
     /// </summary>
     public bool EstaPendente(DateOnly referencia) =>
-        !Baixado && Status != StatusCodigo.NaoAplicavel && DataPrevistaFaturamento <= referencia;
+        !Baixado && Status != StatusCodigo.NaoAplicavel && Status != StatusCodigo.NaoConformidade
+        && DataPrevistaFaturamento <= referencia;
 
     /// <summary>Aplica a baixa (registro de faturamento).</summary>
     public void DarBaixa(DateOnly data, string? numeroGuia, string? usuario, string? observacao)
@@ -112,6 +128,34 @@ public class CodigoFaturamento
         var texto = string.IsNullOrWhiteSpace(observacao) ? null : observacao.Trim();
         ObservacaoPendencia = texto;
         ObservacaoPendenciaEm = texto is null ? null : DateTime.Now;
+    }
+
+    /// <summary>
+    /// Marca a guia como não conformidade ao rodar as pendências: registra a justificativa e SILENCIA
+    /// a pendência (deixa de aparecer no painel e nos avisos). Só é possível numa guia ainda em aberto.
+    /// </summary>
+    public void MarcarNaoConformidade(string justificativa)
+    {
+        if (Baixado)
+            throw new InvalidOperationException("Uma guia já baixada não pode virar não conformidade.");
+        if (string.IsNullOrWhiteSpace(justificativa))
+            throw new InvalidOperationException("A não conformidade exige uma justificativa.");
+
+        Status = StatusCodigo.NaoConformidade;
+        NaoConformidadeJustificativa = justificativa.Trim();
+        NaoConformidadeEm = DateTime.Now;
+    }
+
+    /// <summary>
+    /// Reabre uma não conformidade (quando aparece solução): a guia volta a ser pendência e pode ser
+    /// baixada. Limpa os dados da não conformidade — a trilha de auditoria guarda o histórico.
+    /// </summary>
+    public void ReabrirNaoConformidade()
+    {
+        if (Status != StatusCodigo.NaoConformidade) return;
+        Status = StatusCodigo.Aberto;
+        NaoConformidadeJustificativa = null;
+        NaoConformidadeEm = null;
     }
 
     /// <summary>

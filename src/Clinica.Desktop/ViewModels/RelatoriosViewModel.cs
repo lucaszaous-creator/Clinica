@@ -26,6 +26,10 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<FaixaEnvelhecimento> Envelhecimento { get; } = new();
     public ObservableCollection<ResumoMensal> Comparativo { get; } = new();
     public ObservableCollection<ConsultasPorEspecialidade> ConsultasEspecialidades { get; } = new();
+    public ObservableCollection<NaoConformidadeItem> NaoConformidades { get; } = new();
+
+    /// <summary>Há não conformidades no período (para exibir a seção só quando houver).</summary>
+    public bool TemNaoConformidades => NaoConformidades.Count > 0;
 
     [ObservableProperty] private bool _gerandoFechamento;
     [ObservableProperty] private string? _mensagem;
@@ -61,6 +65,10 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
 
         ConsultasEspecialidades.Clear();
         foreach (var c in rel.ConsultasEspecialidades) ConsultasEspecialidades.Add(c);
+
+        NaoConformidades.Clear();
+        foreach (var n in rel.NaoConformidades) NaoConformidades.Add(n);
+        OnPropertyChanged(nameof(TemNaoConformidades));
 
         Comparativo.Clear();
         foreach (var m in await service.ComparativoMensalAsync(DateOnly.FromDateTime(Fim)))
@@ -127,13 +135,13 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
         var sb = new StringBuilder();
         sb.AppendLine($"Relatório de faturamento;{Inicio:dd/MM/yyyy} a {Fim:dd/MM/yyyy}");
         sb.AppendLine();
-        sb.AppendLine("Resumo;Códigos gerados;Baixados;Pendentes;Taxa de baixa (%);Glosadas;Taxa de glosa (%);Tempo médio de baixa (dias)");
-        sb.AppendLine($";{Resumo?.TotalCodigos};{Resumo?.Baixados};{Resumo?.Pendentes};{Resumo?.TaxaBaixa:0.#};{Resumo?.Glosadas};{Resumo?.TaxaGlosa:0.#};{Resumo?.TempoMedioBaixaDias:0.#}");
+        sb.AppendLine("Resumo;Códigos gerados;Baixados;Pendentes;Não conformidades;Taxa de baixa (%);Glosadas;Taxa de glosa (%);Tempo médio de baixa (dias)");
+        sb.AppendLine($";{Resumo?.TotalCodigos};{Resumo?.Baixados};{Resumo?.Pendentes};{Resumo?.NaoConformidades};{Resumo?.TaxaBaixa:0.#};{Resumo?.Glosadas};{Resumo?.TaxaGlosa:0.#};{Resumo?.TempoMedioBaixaDias:0.#}");
         sb.AppendLine();
         sb.AppendLine("Faturamento por convênio");
-        sb.AppendLine("Convênio;Gerados;Baixados;Pendentes;Taxa de baixa (%);Glosadas;Taxa de glosa (%);Tempo médio de baixa (dias)");
+        sb.AppendLine("Convênio;Gerados;Baixados;Pendentes;Não conformidades;Taxa de baixa (%);Glosadas;Taxa de glosa (%);Tempo médio de baixa (dias)");
         foreach (var c in PorConvenio)
-            sb.AppendLine($"{ConvenioInfo.NomeExibicao(c.Convenio)};{c.TotalCodigos};{c.Baixados};{c.Pendentes};{c.TaxaBaixa:0.#};{c.Glosadas};{c.TaxaGlosa:0.#};{c.TempoMedioBaixaDias:0.#}");
+            sb.AppendLine($"{ConvenioInfo.NomeExibicao(c.Convenio)};{c.TotalCodigos};{c.Baixados};{c.Pendentes};{c.NaoConformidades};{c.TaxaBaixa:0.#};{c.Glosadas};{c.TaxaGlosa:0.#};{c.TempoMedioBaixaDias:0.#}");
         if (ConsultasEspecialidades.Count > 0)
         {
             sb.AppendLine();
@@ -152,6 +160,14 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
         sb.AppendLine("Faixa;Quantidade");
         foreach (var f in Envelhecimento)
             sb.AppendLine($"{f.Faixa};{f.Quantidade}");
+        if (NaoConformidades.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine("Não conformidades (guias justificadas na rodada)");
+            sb.AppendLine("Paciente;Convênio;Tipo;Data prevista;Justificativa;Registrada em");
+            foreach (var n in NaoConformidades)
+                sb.AppendLine($"{n.PacienteNome};{ConvenioInfo.NomeExibicao(n.Convenio)};{n.Tipo};{n.DataPrevista:dd/MM/yyyy};{n.Justificativa?.Replace(';', ',')};{n.Em:dd/MM/yyyy HH:mm}");
+        }
 
         // BOM garante acentos corretos ao abrir direto no Excel.
         try

@@ -36,6 +36,12 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private object _filtroUrgencia = "Todos";
     [ObservableProperty] private int _total;
 
+    /// <summary>A rodada de pendências venceu (mostra o banner do fechamento de ciclo).</summary>
+    [ObservableProperty] private bool _rodadaVencida;
+
+    /// <summary>Texto do banner da rodada (quanto está vencida / o que precisa decidir).</summary>
+    [ObservableProperty] private string _rodadaBanner = string.Empty;
+
     /// <summary>Total de códigos/guias pendentes de baixa (para a faixa de alerta do topo).</summary>
     public int TotalCodigos => _todos.Count;
     public bool TemPendencias => _todos.Count > 0;
@@ -82,6 +88,28 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         Carteirinhas.Clear();
         foreach (var c in await pendencias.CarteirinhasAVencerAsync(hoje))
             Carteirinhas.Add(c);
+
+        // Situação da rodada de pendências ("rodar as pendências") para o banner do fechamento de ciclo.
+        try
+        {
+            var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.GarantirAncoraAsync(hoje); // ancora o ciclo no 1º uso
+            var status = await rodada.ObterStatusAsync(hoje);
+            RodadaVencida = status.Vencida;
+            RodadaBanner = status.Vencida
+                ? (status.DiasEmAtraso > 0
+                    ? $"A rodada de pendências venceu há {status.DiasEmAtraso} dia(s). "
+                    : "A rodada de pendências vence hoje. ") +
+                  (status.TemGuiasParaDecisao
+                    ? $"Rode agora: {status.GuiasParaDecisao} guia(s) aguardam decisão (baixa ou não conformidade)."
+                    : "Rode agora para fechar o ciclo.")
+                : string.Empty;
+        }
+        catch
+        {
+            // O banner da rodada nunca deve derrubar o carregamento do painel.
+            RodadaVencida = false;
+        }
 
         if (_nomeClinica is null)
         {
@@ -315,6 +343,26 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Vai para o Controle de glosas (usado no card de prazos de recurso).</summary>
     [RelayCommand]
     private void AbrirGlosas() => AbrirGlosasSolicitado?.Invoke();
+
+    /// <summary>
+    /// Roda as pendências (fechamento de ciclo): abre a janela de decisão para dar baixa ou registrar
+    /// não conformidade em cada guia pendente e conclui a rodada. Disparado pelo botão do banner.
+    /// </summary>
+    [RelayCommand]
+    private async Task RodarPendencias()
+    {
+        try
+        {
+            var concluida = await Alertas.RodadaPendenciasFluxo.ExecutarAsync(
+                _scopeFactory, System.Windows.Application.Current.MainWindow, bloqueante: false);
+            if (concluida)
+                await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Rodar pendências", ex.Message);
+        }
+    }
 
     [RelayCommand]
     private Task Atualizar() => CarregarAsync();

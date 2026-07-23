@@ -40,6 +40,24 @@
                     </TextBlock>
                 </StackPanel>
             </Border>
+
+            <!-- Banner da rodada de pendências (fechamento de ciclo periódico) -->
+            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,14"
+                    Visibility="{Binding RodadaVencida, Converter={StaticResource BoolParaVisibilidade}}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="&#xE823;" Style="{StaticResource Icone}" FontSize="19"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <Button DockPanel.Dock="Right" Command="{Binding RodarPendenciasCommand}"
+                            VerticalAlignment="Center" Margin="10,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE895;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                            <TextBlock Text="Rodar pendências" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold"
+                               Text="{Binding RodadaBanner}" />
+                </DockPanel>
+            </Border>
         </StackPanel>
 
         <!-- KPIs do painel -->
