@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Configuracao;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.Alertas;
@@ -42,14 +43,32 @@ internal static class RodadaPendenciasFluxo
         if (janela.ShowDialog() != true)
             return false;
 
+        // Aplica linha a linha, mas UMA falha (nº de guia inválido, concorrência etc.) não pode abortar
+        // as demais nem passar despercebida: registra a falha e segue; ao fim, resume o que não aplicou.
+        var falhas = new List<string>();
         foreach (var l in janela.Linhas)
         {
-            if (!string.IsNullOrWhiteSpace(l.NumeroGuia))
-                await faturamento.DarBaixaAsync(l.CodigoId, janela.DataBaixa, l.NumeroGuia!.Trim(),
-                    Environment.UserName, "baixa na rodada de pendências");
-            else if (!string.IsNullOrWhiteSpace(l.Justificativa))
-                await rodada.MarcarNaoConformidadeAsync(l.CodigoId, l.Justificativa!.Trim(), Environment.UserName);
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(l.NumeroGuia))
+                    await faturamento.DarBaixaAsync(l.CodigoId, janela.DataBaixa, l.NumeroGuia!.Trim(),
+                        Environment.UserName, "baixa na rodada de pendências");
+                else if (!string.IsNullOrWhiteSpace(l.Justificativa))
+                    await rodada.MarcarNaoConformidadeAsync(l.CodigoId, l.Justificativa!.Trim(), Environment.UserName);
+            }
+            catch (Exception ex)
+            {
+                LogErros.Registrar($"Rodada de pendências — falha ao aplicar guia {l.CodigoId}", ex);
+                falhas.Add($"• {l.Descricao}: {ex.Message}");
+            }
         }
+
+        if (falhas.Count > 0)
+            MessageBox.Show(
+                $"{falhas.Count} guia(s) não puderam ser aplicadas e continuam pendentes:\n\n" +
+                string.Join("\n", falhas) +
+                "\n\nO restante foi processado. Reveja essas guias no painel.",
+                "Rodar pendências", MessageBoxButton.OK, MessageBoxImage.Warning);
 
         return true;
     }

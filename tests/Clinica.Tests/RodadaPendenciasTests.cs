@@ -198,6 +198,49 @@ public class RodadaPendenciasTests : IDisposable
     }
 
     [Fact]
+    public async Task Carencia_BacklogAnteriorAAtivacao_ContaDaAtivacao()
+    {
+        // Guia antiga (atendimento 2026-07-10) e a rodada por atendimento só foi ativada em 2026-08-01.
+        var codigo = await CriarSegundoCodigoAsync();
+        var salvo = await _repo.ObterCodigoAsync(codigo.Id);
+        var ativacao = new DateOnly(2026, 8, 1);
+
+        // Sem carência (null), já venceria há muito.
+        salvo!.PrazoDecisaoVencido(new DateOnly(2026, 7, 25), 10).Should().BeTrue();
+
+        // Com carência, o prazo conta a partir da ativação: 2026-08-01 + 10 = 2026-08-11.
+        salvo.PrazoDecisaoVencido(new DateOnly(2026, 8, 10), 10, ativacao).Should().BeFalse(); // 9 dias da ativação
+        salvo.PrazoDecisaoVencido(new DateOnly(2026, 8, 11), 10, ativacao).Should().BeTrue();  // 10 dias da ativação
+
+        // Ativação anterior ao atendimento não muda nada: conta do atendimento normalmente.
+        salvo.PrazoDecisaoVencido(new DateOnly(2026, 7, 19), 10, new DateOnly(2026, 7, 1)).Should().BeFalse();
+        salvo.PrazoDecisaoVencido(new DateOnly(2026, 7, 20), 10, new DateOnly(2026, 7, 1)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GarantirInicio_AncoraUmaVezENaoSobrescreve()
+    {
+        await _rodada.GarantirInicioAsync(new DateOnly(2026, 7, 20));
+        (await _parametros.ObterInicioRodadaPorAtendimentoAsync()).Should().Be(new DateOnly(2026, 7, 20));
+
+        await _rodada.GarantirInicioAsync(new DateOnly(2026, 8, 1)); // não sobrescreve a âncora existente
+        (await _parametros.ObterInicioRodadaPorAtendimentoAsync()).Should().Be(new DateOnly(2026, 7, 20));
+    }
+
+    [Fact]
+    public async Task Status_ComCarencia_NaoBloqueiaBacklogNaPrimeiraAbertura()
+    {
+        await CriarSegundoCodigoAsync(); // atendimento 2026-07-10 (backlog)
+        await _rodada.GarantirInicioAsync(new DateOnly(2026, 8, 1)); // ativação bem depois
+
+        // No dia da ativação, o backlog NÃO deve exigir decisão (carência de 10 dias).
+        (await _rodada.ObterStatusAsync(new DateOnly(2026, 8, 1))).ExigeDecisao.Should().BeFalse();
+
+        // Passada a carência (ativação + 10), aí sim exige decisão.
+        (await _rodada.ObterStatusAsync(new DateOnly(2026, 8, 11))).ExigeDecisao.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task NaoConformidadesAsync_ListaOBacklogJustificado()
     {
         var codigo = await CriarSegundoCodigoAsync();
