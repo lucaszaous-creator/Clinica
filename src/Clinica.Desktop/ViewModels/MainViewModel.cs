@@ -104,57 +104,40 @@ public partial class MainViewModel : ObservableObject
             comando.Execute(null);
     }
 
-    /// <summary>Mostra o botão "Atualizar" no rodapé (só na instalação com auto-update; portátil/dev não).</summary>
-    public bool SuportaAutoUpdate { get; } = UpdateService.SuportaAutoUpdate;
-
-    /// <summary>True enquanto uma verificação manual de atualização está em andamento (desabilita o botão).</summary>
+    /// <summary>
+    /// True quando o sistema detectou (em segundo plano) uma versão nova já baixada e pronta — é o que
+    /// faz o botão "Atualizar" aparecer no rodapé. Enquanto false, não há nada a atualizar e o botão some.
+    /// </summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(AtualizarAgoraCommand))]
-    private bool _atualizando;
+    private bool _atualizacaoDisponivel;
 
-    private bool PodeAtualizar => !Atualizando;
+    /// <summary>Número da versão nova disponível (para o rótulo do botão), quando houver.</summary>
+    [ObservableProperty]
+    private string _versaoDisponivel = string.Empty;
 
     /// <summary>
-    /// Botão "Atualizar agora": verifica e baixa a versão nova sob demanda. Havendo novidade, pergunta
-    /// se o usuário quer reiniciar na hora (aplica já) ou aplicar ao fechar. Cobre o caso em que a
-    /// atualização automática da abertura não pegou.
+    /// Sinaliza que há uma atualização baixada e pronta (chamado pela verificação em segundo plano).
+    /// Faz o botão "Atualizar" aparecer. Idempotente.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(PodeAtualizar))]
-    private async Task AtualizarAgora()
+    public void SinalizarAtualizacaoDisponivel(string versao)
     {
-        Atualizando = true;
-        try
-        {
-            Snackbar.Info("Verificando atualizações…");
-            var resultado = await UpdateService.ProcurarEBaixarAsync();
-            switch (resultado.Situacao)
-            {
-                case UpdateService.SituacaoAtualizacao.SemSuporte:
-                    Snackbar.Info("Atualização automática indisponível nesta instalação (versão portátil).");
-                    break;
-                case UpdateService.SituacaoAtualizacao.JaAtualizado:
-                    Snackbar.Info("Você já está na versão mais recente.");
-                    break;
-                case UpdateService.SituacaoAtualizacao.Falha:
-                    Snackbar.Erro("Não foi possível verificar atualizações agora. Verifique a conexão e tente de novo.");
-                    break;
-                case UpdateService.SituacaoAtualizacao.Pronta:
-                    var dialogo = _sp.GetRequiredService<Controls.IDialogoService>();
-                    if (dialogo.Confirmar("Atualizar sistema",
-                            $"A versão {resultado.Versao} foi baixada. Reiniciar agora para aplicar?"))
-                        UpdateService.AplicarEReiniciar(); // encerra e reabre já atualizado
-                    else
-                    {
-                        UpdateService.AplicarAoFechar();
-                        Snackbar.Info($"Atualização {resultado.Versao} pronta. Será aplicada quando você fechar o sistema.");
-                    }
-                    break;
-            }
-        }
-        finally
-        {
-            Atualizando = false;
-        }
+        VersaoDisponivel = versao;
+        AtualizacaoDisponivel = true;
+    }
+
+    /// <summary>
+    /// Botão "Atualizar": aplica NA HORA a versão nova já baixada e reinicia o app atualizado. Só
+    /// aparece quando há atualização pronta (<see cref="AtualizacaoDisponivel"/>); se o usuário não
+    /// clicar, a mesma versão é aplicada ao fechar o sistema.
+    /// </summary>
+    [RelayCommand]
+    private void AtualizarAgora()
+    {
+        var dialogo = _sp.GetRequiredService<Controls.IDialogoService>();
+        if (dialogo.Confirmar("Atualizar sistema",
+                $"A versão {VersaoDisponivel} está pronta. Reiniciar agora para aplicar? " +
+                "(Se preferir, ela é aplicada automaticamente quando você fechar o sistema.)"))
+            UpdateService.AplicarEReiniciar(); // encerra e reabre já atualizado
     }
 
     [RelayCommand]
