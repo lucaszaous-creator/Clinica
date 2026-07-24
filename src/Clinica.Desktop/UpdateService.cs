@@ -17,6 +17,21 @@ public static class UpdateService
 
     private static bool _atualizacaoAgendada;
 
+    // Atualização baixada e pronta (pelo botão "Atualizar agora"), aguardando a decisão do usuário
+    // de reiniciar na hora ou aplicar ao fechar. Guardados para reusar o mesmo download nas duas vias.
+    private static UpdateManager? _mgrPreparado;
+    private static UpdateInfo? _updatePreparado;
+
+    /// <summary>True quando a instalação suporta auto-update (app instalado pelo Setup.exe, não portátil).</summary>
+    public static bool SuportaAutoUpdate
+    {
+        get
+        {
+            try { return new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false)).IsInstalled; }
+            catch { return false; }
+        }
+    }
+
     /// <summary>Versão instalada atual (ex.: "1.0.9"), ou nulo no exe portátil/dev.</summary>
     public static string? VersaoInstalada
     {
@@ -111,6 +126,67 @@ public static class UpdateService
         {
             // Falha (offline, GitHub fora etc.) é silenciosa — nunca impede o uso.
             return null;
+        }
+    }
+
+    /// <summary>Situação de uma verificação manual de atualização (botão "Atualizar agora").</summary>
+    public enum SituacaoAtualizacao
+    {
+        /// <summary>Instalação portátil/dev: não há auto-update.</summary>
+        SemSuporte,
+        /// <summary>Já está na versão mais recente.</summary>
+        JaAtualizado,
+        /// <summary>Há versão nova, já baixada e pronta para aplicar.</summary>
+        Pronta,
+        /// <summary>Falha ao verificar/baixar (offline, GitHub fora etc.).</summary>
+        Falha
+    }
+
+    /// <summary>Resultado da verificação manual: situação e, quando pronta, a versão baixada.</summary>
+    public readonly record struct AtualizacaoManual(SituacaoAtualizacao Situacao, string? Versao);
+
+    /// <summary>
+    /// Verificação manual (botão "Atualizar agora"): checa e BAIXA a versão nova, deixando-a pronta
+    /// para aplicar. Não reinicia sozinha — quem chama decide entre <see cref="AplicarEReiniciar"/>
+    /// (na hora) ou <see cref="AplicarAoFechar"/>. Nunca lança.
+    /// </summary>
+    public static async Task<AtualizacaoManual> ProcurarEBaixarAsync()
+    {
+        try
+        {
+            var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
+            if (!mgr.IsInstalled)
+                return new AtualizacaoManual(SituacaoAtualizacao.SemSuporte, null);
+
+            var novidade = await mgr.CheckForUpdatesAsync();
+            if (novidade is null)
+                return new AtualizacaoManual(SituacaoAtualizacao.JaAtualizado, null);
+
+            await mgr.DownloadUpdatesAsync(novidade);
+            _mgrPreparado = mgr;
+            _updatePreparado = novidade;
+            return new AtualizacaoManual(SituacaoAtualizacao.Pronta, novidade.TargetFullRelease.Version.ToString());
+        }
+        catch
+        {
+            return new AtualizacaoManual(SituacaoAtualizacao.Falha, null);
+        }
+    }
+
+    /// <summary>Aplica a atualização já baixada e reinicia o app na hora. Só após <see cref="ProcurarEBaixarAsync"/>.</summary>
+    public static void AplicarEReiniciar()
+    {
+        if (_mgrPreparado is { } mgr && _updatePreparado is { } up)
+            mgr.ApplyUpdatesAndRestart(up); // encerra este processo e reabre atualizado
+    }
+
+    /// <summary>Agenda a atualização já baixada para o fechamento do app (aplica na próxima abertura).</summary>
+    public static void AplicarAoFechar()
+    {
+        if (_mgrPreparado is { } mgr && _updatePreparado is { } up)
+        {
+            mgr.WaitExitThenApplyUpdates(up);
+            _atualizacaoAgendada = true; // evita que o ciclo periódico baixe de novo
         }
     }
 }

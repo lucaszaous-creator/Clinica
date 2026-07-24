@@ -6,7 +6,8 @@ O app se atualiza sozinho via **Velopack + GitHub Releases**. Instalado uma úni
 
 1. **Na abertura**: o sistema consulta a release mais recente e, havendo versão nova, **baixa e aplica na hora** — o app reinicia sozinho já atualizado. Limite de 30s: com rede lenta/offline ele abre normalmente na versão atual e deixa para o ciclo periódico.
 2. **Com o app aberto** (a cada 2 horas): versões publicadas durante o expediente são baixadas em segundo plano (delta, só o que mudou), com aviso no snackbar — *"Atualização X baixada. Feche e reabra o sistema para aplicar."* Ao fechar, o Velopack aplica; a próxima abertura já entra atualizada.
-3. A versão em uso aparece no rodapé da sidebar (ex.: `v1.0.9`).
+3. **Botão "Atualizar sistema"** (rodapé da sidebar): força a verificação sob demanda, para quando a atualização automática da abertura não pegou. Se houver versão nova, baixa e pergunta se quer **reiniciar agora** (aplica na hora) ou **aplicar ao fechar**; se já estiver na última, avisa no snackbar. O botão só aparece na instalação com auto-update (some no exe portátil).
+4. A versão em uso aparece no rodapé da sidebar (ex.: `v1.0.9`).
 
 Falhas de rede/GitHub são silenciosas: o sistema continua funcionando na versão atual e tenta de novo no próximo ciclo.
 
