@@ -75,7 +75,9 @@ Camadas clássicas, todas em `src/`:
   (`CodigoFaturamento.PrazoDecisaoVencido`). Passado o prazo sem baixa, o painel alarda (banner) e a
   abertura do app abre uma janela BLOQUEANTE com as guias vencidas: cada uma exige decisão — baixa ou
   **não conformidade** (`StatusCodigo.NaoConformidade` + justificativa) — e o sistema fica travado até
-  a resolução. O usuário também pode marcar NC proativamente (sem esperar o prazo) pelo botão **NC** na
+  a resolução. Há uma **carência de 1ª execução** (`ParametrosService.InicioRodadaPorAtendimento`,
+  ancorada por `GarantirInicioAsync`): guias de atendimentos anteriores à ativação da versão só passam
+  a contar o prazo a partir da ativação, para o backlog acumulado não bloquear tudo de uma vez. O usuário também pode marcar NC proativamente (sem esperar o prazo) pelo botão **NC** na
   linha da pendência no painel (`NaoConformidadeWindow`). A não conformidade sai das
   pendências ativas (`EstaPendente`/`CodigosEmAbertoAsync` a ignoram) e vai para a aba própria **NC**
   (`NaoConformidadesViewModel` / `Secao.NaoConformidades`), que lista todas via

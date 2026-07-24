@@ -44,14 +44,16 @@ public sealed class PendenciaService
     /// Guias pendentes cujo PRAZO DE DECISÃO venceu: já se passaram <paramref name="prazoDias"/> dias
     /// (padrão 10) desde o atendimento e a guia continua sem baixa. São as que o sistema EXIGE decidir
     /// (baixa ou não conformidade) e que bloqueiam o uso até a resolução.
+    /// <paramref name="ativacao"/> aplica a carência do backlog anterior à 1ª execução (ver
+    /// <see cref="CodigoFaturamento.PrazoDecisaoVencido"/>).
     /// </summary>
     public async Task<IReadOnlyList<PendenciaCodigo>> CodigosVencidosParaDecisaoAsync(
-        DateOnly referencia, int prazoDias, CancellationToken ct = default)
+        DateOnly referencia, int prazoDias, DateOnly? ativacao = null, CancellationToken ct = default)
     {
         var abertos = await _repo.CodigosEmAbertoAsync(ct);
 
         return abertos
-            .Where(c => c.PrazoDecisaoVencido(referencia, prazoDias))
+            .Where(c => c.PrazoDecisaoVencido(referencia, prazoDias, ativacao))
             .Select(c => MapearPendencia(c, referencia))
             .OrderByDescending(p => p.DiasEmAtraso)
             .ThenBy(p => p.PacienteNome)

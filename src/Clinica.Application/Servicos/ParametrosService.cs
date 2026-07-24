@@ -154,6 +154,25 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    public const string ChaveInicioRodadaPorAtendimento = "InicioRodadaPorAtendimento";
+
+    /// <summary>
+    /// Data em que a rodada por atendimento passou a valer (definida na 1ª execução desta versão).
+    /// Serve para dar carência ao backlog anterior — guias de atendimentos mais antigos só começam a
+    /// contar o prazo a partir daqui, evitando um bloqueio em massa logo na primeira abertura.
+    /// Null = ainda não ancorada.
+    /// </summary>
+    public async Task<DateOnly?> ObterInicioRodadaPorAtendimentoAsync(CancellationToken ct = default)
+        => DateOnly.TryParse(await _repo.ObterConfiguracaoAsync(ChaveInicioRodadaPorAtendimento, ct), out var d)
+            ? d
+            : null;
+
+    public async Task SalvarInicioRodadaPorAtendimentoAsync(DateOnly data, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveInicioRodadaPorAtendimento, data.ToString("yyyy-MM-dd"), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     public const string ChaveRodadaAplicaConsultas = "RodadaAplicaConsultas";
     public const string ChaveRodadaAplicaCarteirinhas = "RodadaAplicaCarteirinhas";
 

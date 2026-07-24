@@ -93,6 +93,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         try
         {
             var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.GarantirInicioAsync(hoje); // ancora a carência do backlog no 1º uso
             var status = await rodada.ObterStatusAsync(hoje);
             RodadaVencida = status.ExigeDecisao;
             RodadaBanner = status.ExigeDecisao

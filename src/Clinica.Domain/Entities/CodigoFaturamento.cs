@@ -114,11 +114,19 @@ public class CodigoFaturamento
     /// <paramref name="prazoDias"/> dias (padrão 10) desde o ATENDIMENTO do paciente. A partir daí o
     /// sistema EXIGE uma decisão — baixa ou não conformidade — e bloqueia o uso até que ela seja tomada.
     /// Sem o atendimento carregado, conta a partir da data prevista de faturamento.
+    ///
+    /// <paramref name="ativacao"/> é a data em que a rodada por atendimento passou a valer (1ª execução
+    /// nesta versão). Guias de atendimentos ANTERIORES a ela contam o prazo a partir da ativação, não do
+    /// atendimento — assim o backlog acumulado ganha um período de carência e não bloqueia tudo de uma
+    /// vez logo na primeira abertura. Null (testes/legado) = conta puramente pelo atendimento.
     /// </summary>
-    public bool PrazoDecisaoVencido(DateOnly referencia, int prazoDias)
+    public bool PrazoDecisaoVencido(DateOnly referencia, int prazoDias, DateOnly? ativacao = null)
     {
         if (!EstaPendente(referencia)) return false;
         var origem = Atendimento?.Data ?? DataPrevistaFaturamento;
+        // Backlog anterior à ativação: o prazo só começa a contar a partir da ativação (carência).
+        if (ativacao is { } inicio && origem < inicio)
+            origem = inicio;
         return referencia.DayNumber - origem.DayNumber >= prazoDias;
     }
 

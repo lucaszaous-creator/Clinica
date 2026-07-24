@@ -231,6 +231,7 @@ public partial class App : System.Windows.Application
             {
                 var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
                 var hoje = DateOnly.FromDateTime(DateTime.Today);
+                await rodada.GarantirInicioAsync(hoje); // carência do backlog no 1º uso (não bloqueia de cara)
                 exigeDecisao = (await rodada.ObterStatusAsync(hoje)).ExigeDecisao;
             }
             if (!exigeDecisao) return;
