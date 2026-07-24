@@ -294,6 +294,7 @@ public partial class App : System.Windows.Application
 
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<DashboardViewModel>();
+                services.AddTransient<NaoConformidadesViewModel>();
                 services.AddTransient<PacientesViewModel>();
                 services.AddTransient<NovoAtendimentoViewModel>();
                 services.AddTransient<BaixaViewModel>();

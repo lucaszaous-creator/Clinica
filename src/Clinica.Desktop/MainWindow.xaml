@@ -24,6 +24,9 @@
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
             <views:DashboardView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:NaoConformidadesViewModel}">
+            <views:NaoConformidadesView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:PacientesViewModel}">
             <views:PacientesView />
         </DataTemplate>

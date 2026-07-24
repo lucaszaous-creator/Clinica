@@ -6,6 +6,7 @@ namespace Clinica.Desktop.ViewModels;
 public enum Secao
 {
     Pendencias,
+    NaoConformidades,
     Agenda,
     Atendimento,
     Consultas,

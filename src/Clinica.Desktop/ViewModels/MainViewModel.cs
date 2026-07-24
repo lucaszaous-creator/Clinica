@@ -64,6 +64,7 @@ public partial class MainViewModel : ObservableObject
         _itens =
         [
             new ItemMenu { Secao = Secao.Pendencias, Rotulo = "Pendências", Glifo = "\uE9D5", Grupo = "Painel" },
+            new ItemMenu { Secao = Secao.NaoConformidades, Rotulo = "NC", Glifo = "", Grupo = "Painel" },
             new ItemMenu { Secao = Secao.Agenda, Rotulo = "Agenda", Glifo = "\uE787", Grupo = "Agenda" },
             new ItemMenu { Secao = Secao.Atendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51", Grupo = "Atendimento" },
             new ItemMenu { Secao = Secao.Consultas, Rotulo = "Consultas", Glifo = "\uE8A5", Grupo = "Atendimento" },
@@ -109,6 +110,7 @@ public partial class MainViewModel : ObservableObject
         switch (secao)
         {
             case Secao.Pendencias: MostrarDashboard(); break;
+            case Secao.NaoConformidades: MostrarNaoConformidades(); break;
             case Secao.Agenda: MostrarAgenda(); break;
             case Secao.Atendimento: MostrarNovoAtendimento(); break;
             case Secao.Consultas: MostrarConsultas(); break;
@@ -292,6 +294,15 @@ public partial class MainViewModel : ObservableObject
     {
         var vm = _sp.GetRequiredService<GlosasViewModel>();
         DefinirSecao(Secao.Glosas);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarNaoConformidades()
+    {
+        var vm = _sp.GetRequiredService<NaoConformidadesViewModel>();
+        DefinirSecao(Secao.NaoConformidades);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }
