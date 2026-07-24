@@ -134,12 +134,15 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
-    // ---- Rodada de pendências ("rodar as pendências" — fechamento de ciclo periódico) ----
+    // ---- Rodada de pendências ("rodar as pendências" — prazo de decisão por atendimento) ----
 
     public const string ChaveIntervaloRodadaPendencias = "IntervaloRodadaPendenciasDias";
     public const int IntervaloRodadaPendenciasPadrao = 10;
 
-    /// <summary>De quantos em quantos dias as pendências devem ser rodadas (global; padrão 10).</summary>
+    /// <summary>
+    /// Prazo (em dias, desde o atendimento) para exigir decisão em cada guia pendente (padrão 10).
+    /// Ao vencer sem baixa, a guia entra no bloqueio da rodada.
+    /// </summary>
     public async Task<int> ObterIntervaloRodadaPendenciasAsync(CancellationToken ct = default)
         => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveIntervaloRodadaPendencias, ct), out var dias) && dias >= 1
             ? dias
@@ -148,20 +151,6 @@ public sealed class ParametrosService
     public async Task SalvarIntervaloRodadaPendenciasAsync(int dias, CancellationToken ct = default)
     {
         await _repo.SalvarConfiguracaoAsync(ChaveIntervaloRodadaPendencias, Math.Max(1, dias).ToString(), ct);
-        await _repo.SalvarAsync(ct);
-    }
-
-    public const string ChaveDataUltimaRodadaPendencias = "DataUltimaRodadaPendencias";
-
-    /// <summary>Data da última rodada concluída (null = nunca rodou; a âncora é definida no 1º uso).</summary>
-    public async Task<DateOnly?> ObterDataUltimaRodadaPendenciasAsync(CancellationToken ct = default)
-        => DateOnly.TryParse(await _repo.ObterConfiguracaoAsync(ChaveDataUltimaRodadaPendencias, ct), out var d)
-            ? d
-            : null;
-
-    public async Task SalvarDataUltimaRodadaPendenciasAsync(DateOnly data, CancellationToken ct = default)
-    {
-        await _repo.SalvarConfiguracaoAsync(ChaveDataUltimaRodadaPendencias, data.ToString("yyyy-MM-dd"), ct);
         await _repo.SalvarAsync(ct);
     }
 

@@ -9,9 +9,9 @@ using Clinica.Domain;
 namespace Clinica.Desktop.Alertas;
 
 /// <summary>
-/// Janela de "rodar as pendências": lista as guias pendentes para uma decisão explícita — dar baixa
-/// (informando o nº da guia) ou registrar como NÃO CONFORMIDADE (com justificativa). Quando a rodada
-/// está vencida abre em modo BLOQUEANTE: só fecha depois que toda guia tiver uma decisão.
+/// Janela de "rodar as pendências": lista guias para uma decisão explícita — dar baixa (informando o
+/// nº da guia) ou registrar como NÃO CONFORMIDADE (com justificativa). No modo BLOQUEANTE traz as
+/// guias cujo prazo desde o atendimento venceu e só fecha depois que toda guia tiver uma decisão.
 /// </summary>
 public partial class RodadaPendenciasWindow : Window
 {
@@ -58,8 +58,8 @@ public partial class RodadaPendenciasWindow : Window
             : string.Empty;
 
         TxtResumo.Text = bloqueante
-            ? $"A rodada de pendências venceu (a cada {status.IntervaloDias} dias)." +
-              $" Decida todas as {Linhas.Count} guia(s) abaixo para continuar — dê baixa ou justifique como não conformidade." + lembrete
+            ? $"Estas {Linhas.Count} guia(s) passaram de {status.PrazoDias} dias desde o atendimento sem resolução." +
+              " Decida cada uma para continuar — dê baixa ou justifique como não conformidade." + lembrete
             : $"{Linhas.Count} guia(s) pendente(s). Dê baixa no que puder e justifique o restante como não conformidade." + lembrete;
 
         if (bloqueante)

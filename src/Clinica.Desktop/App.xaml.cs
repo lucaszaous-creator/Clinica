@@ -145,14 +145,18 @@ public partial class App : System.Windows.Application
         _lembreteTimer.Start();
 
         // Ciclo periódico (2h): pega versões publicadas DURANTE o expediente, com o app
-        // aberto. Baixa em segundo plano, avisa no snackbar e aplica ao fechar — na
-        // próxima abertura o fluxo acima já reabre atualizado.
+        // aberto. Baixa em segundo plano, faz aparecer o botão "Atualizar" e aplica ao
+        // fechar — na próxima abertura o fluxo acima já reabre atualizado.
         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
         _updateTimer.Tick += async (_, _) => await VerificarAtualizacaoAsync();
         _updateTimer.Start();
+
+        // Checagem inicial: se a atualização da abertura não pegou (rede lenta) ou já há
+        // uma versão pronta, o botão "Atualizar" aparece logo, sem esperar o 1º ciclo de 2h.
+        await VerificarAtualizacaoAsync();
     }
 
-    /// <summary>Checa/baixa atualização e avisa o usuário quando houver versão nova pronta.</summary>
+    /// <summary>Checa/baixa atualização e, havendo versão nova pronta, mostra o botão "Atualizar" e avisa.</summary>
     private async Task VerificarAtualizacaoAsync()
     {
         if (_host is null) return;
@@ -163,8 +167,13 @@ public partial class App : System.Windows.Application
             if (versao is null) return;
 
             _updateTimer?.Stop(); // já há versão baixada aguardando; não precisa checar de novo
+
+            // Faz o botão "Atualizar" aparecer no rodapé da sidebar (aplica na hora ao clicar).
+            _host.Services.GetRequiredService<MainViewModel>().SinalizarAtualizacaoDisponivel(versao);
+
             var snackbar = _host.Services.GetRequiredService<Controls.ISnackbarService>();
-            snackbar.Info($"Atualização {versao} baixada. Feche e reabra o sistema para aplicar.");
+            snackbar.Info($"Atualização {versao} disponível. Clique em \"Atualizar\" na barra lateral " +
+                          "ou feche e reabra o sistema para aplicar.");
         }
         catch (Exception ex)
         {
@@ -206,9 +215,9 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>
-    /// Se a rodada de pendências venceu e há guias sem decisão, abre a janela BLOQUEANTE de "rodar as
-    /// pendências": a secretária precisa dar baixa ou justificar (não conformidade) antes de seguir.
-    /// Ancora o ciclo no 1º uso para não bloquear logo na primeira abertura. Nunca derruba o app.
+    /// Se há guias cujo prazo desde o atendimento venceu (padrão 10 dias) sem baixa, abre a janela
+    /// BLOQUEANTE de "rodar as pendências": a secretária precisa dar baixa ou justificar (não
+    /// conformidade) cada uma antes de seguir. Nunca derruba o app.
     /// </summary>
     private async Task MostrarRodadaSeVencidaAsync()
     {
@@ -222,7 +231,6 @@ public partial class App : System.Windows.Application
             {
                 var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
                 var hoje = DateOnly.FromDateTime(DateTime.Today);
-                await rodada.GarantirAncoraAsync(hoje); // ancora no 1º uso (não bloqueia de cara)
                 exigeDecisao = (await rodada.ObterStatusAsync(hoje)).ExigeDecisao;
             }
             if (!exigeDecisao) return;

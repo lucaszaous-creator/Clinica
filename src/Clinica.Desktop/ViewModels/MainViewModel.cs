@@ -104,6 +104,42 @@ public partial class MainViewModel : ObservableObject
             comando.Execute(null);
     }
 
+    /// <summary>
+    /// True quando o sistema detectou (em segundo plano) uma versão nova já baixada e pronta — é o que
+    /// faz o botão "Atualizar" aparecer no rodapé. Enquanto false, não há nada a atualizar e o botão some.
+    /// </summary>
+    [ObservableProperty]
+    private bool _atualizacaoDisponivel;
+
+    /// <summary>Número da versão nova disponível (para o rótulo do botão), quando houver.</summary>
+    [ObservableProperty]
+    private string _versaoDisponivel = string.Empty;
+
+    /// <summary>
+    /// Sinaliza que há uma atualização baixada e pronta (chamado pela verificação em segundo plano).
+    /// Faz o botão "Atualizar" aparecer. Idempotente.
+    /// </summary>
+    public void SinalizarAtualizacaoDisponivel(string versao)
+    {
+        VersaoDisponivel = versao;
+        AtualizacaoDisponivel = true;
+    }
+
+    /// <summary>
+    /// Botão "Atualizar": aplica NA HORA a versão nova já baixada e reinicia o app atualizado. Só
+    /// aparece quando há atualização pronta (<see cref="AtualizacaoDisponivel"/>); se o usuário não
+    /// clicar, a mesma versão é aplicada ao fechar o sistema.
+    /// </summary>
+    [RelayCommand]
+    private void AtualizarAgora()
+    {
+        var dialogo = _sp.GetRequiredService<Controls.IDialogoService>();
+        if (dialogo.Confirmar("Atualizar sistema",
+                $"A versão {VersaoDisponivel} está pronta. Reiniciar agora para aplicar? " +
+                "(Se preferir, ela é aplicada automaticamente quando você fechar o sistema.)"))
+            UpdateService.AplicarEReiniciar(); // encerra e reabre já atualizado
+    }
+
     [RelayCommand]
     private void Navegar(Secao secao)
     {

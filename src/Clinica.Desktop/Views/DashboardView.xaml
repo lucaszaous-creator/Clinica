@@ -169,7 +169,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="" Width="240">
+                <DataGridTemplateColumn Header="" Width="300">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
@@ -187,6 +187,11 @@
                                         Content="{Binding TemObservacao, Converter={StaticResource ObservacaoParaRotulo}}"
                                         ToolTip="Anotar por que ainda não foi baixada"
                                         Command="{Binding DataContext.AnotarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Content="NC" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
+                                        ToolTip="Marcar como não conformidade (sem esperar o prazo da rodada)"
+                                        AutomationProperties.Name="Marcar como não conformidade"
+                                        Command="{Binding DataContext.NaoConformidadeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
                             </StackPanel>
                         </DataTemplate>

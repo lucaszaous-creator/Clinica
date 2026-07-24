@@ -17,6 +17,11 @@ public static class UpdateService
 
     private static bool _atualizacaoAgendada;
 
+    // Atualização já baixada em segundo plano e agendada para o fechamento (WaitExitThenApplyUpdates).
+    // Guardadas para que o botão "Atualizar" possa aplicá-la NA HORA (ApplyUpdatesAndRestart).
+    private static UpdateManager? _mgrPreparado;
+    private static UpdateInfo? _updatePreparado;
+
     /// <summary>Versão instalada atual (ex.: "1.0.9"), ou nulo no exe portátil/dev.</summary>
     public static string? VersaoInstalada
     {
@@ -105,12 +110,34 @@ public static class UpdateService
             mgr.WaitExitThenApplyUpdates(novidade);
             _atualizacaoAgendada = true;
 
+            // Guarda o download pronto para o botão "Atualizar" poder aplicar na hora, se o usuário quiser.
+            _mgrPreparado = mgr;
+            _updatePreparado = novidade;
+
             return novidade.TargetFullRelease.Version.ToString();
         }
         catch
         {
             // Falha (offline, GitHub fora etc.) é silenciosa — nunca impede o uso.
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Aplica NA HORA a atualização já baixada em segundo plano (por <see cref="VerificarEBaixarAsync"/>)
+    /// e reinicia o app já atualizado. Usado pelo botão "Atualizar"; se ninguém chamar, o mesmo download
+    /// é aplicado ao fechar o app (já agendado). Nunca lança.
+    /// </summary>
+    public static void AplicarEReiniciar()
+    {
+        try
+        {
+            if (_mgrPreparado is { } mgr && _updatePreparado is { } up)
+                mgr.ApplyUpdatesAndRestart(up); // encerra este processo e reabre atualizado
+        }
+        catch
+        {
+            // Se a aplicação imediata falhar, a versão segue agendada para o fechamento.
         }
     }
 }

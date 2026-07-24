@@ -93,16 +93,11 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         try
         {
             var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
-            await rodada.GarantirAncoraAsync(hoje); // ancora o ciclo no 1º uso
             var status = await rodada.ObterStatusAsync(hoje);
-            RodadaVencida = status.Vencida;
-            RodadaBanner = status.Vencida
-                ? (status.DiasEmAtraso > 0
-                    ? $"A rodada de pendências venceu há {status.DiasEmAtraso} dia(s). "
-                    : "A rodada de pendências vence hoje. ") +
-                  (status.TemGuiasParaDecisao
-                    ? $"Rode agora: {status.GuiasParaDecisao} guia(s) aguardam decisão (baixa ou não conformidade)."
-                    : "Rode agora para fechar o ciclo.")
+            RodadaVencida = status.ExigeDecisao;
+            RodadaBanner = status.ExigeDecisao
+                ? $"{status.GuiasParaDecisao} guia(s) passaram de {status.PrazoDias} dias desde o atendimento " +
+                  "sem resolução. Rode agora: cada uma exige baixa ou não conformidade."
                 : string.Empty;
         }
         catch
@@ -181,6 +176,41 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         catch (Exception ex)
         {
             _dialogo.Aviso("Observação da pendência", ex.Message);
+        }
+
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Marca a guia como NÃO CONFORMIDADE por decisão do usuário, sem esperar o prazo da rodada
+    /// vencer. Pede confirmação e justificativa; a guia sai das pendências ativas e vai para a aba NC
+    /// (reabre se o paciente voltar ou pela aba NC). Atende o "marcar NC antes dos 10 dias".
+    /// </summary>
+    [RelayCommand]
+    private async Task NaoConformidade(PendenciaCodigo? codigo)
+    {
+        if (codigo is null) return;
+
+        if (!_dialogo.Confirmar("Não conformidade",
+                $"Marcar a guia de {codigo.PacienteNome} como não conformidade? " +
+                "Ela sai das pendências ativas do painel e vai para a aba NC."))
+            return;
+
+        var janela = new Alertas.NaoConformidadeWindow(codigo)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.MarcarNaoConformidadeAsync(codigo.CodigoId, janela.Justificativa, Environment.UserName);
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Não conformidade", ex.Message);
         }
 
         await CarregarAsync();
