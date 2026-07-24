@@ -159,6 +159,27 @@
                     </StackPanel>
                 </DockPanel>
             </Border>
+
+            <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,16,0,0"
+                    Visibility="{Binding TemNaoConformidades, Converter={StaticResource BoolParaVisibilidade}}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Não conformidades (guias justificadas na rodada)"
+                               Style="{StaticResource H2}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                    <DataGrid ItemsSource="{Binding NaoConformidades}" AutoGenerateColumns="False"
+                              IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="1.5*" />
+                            <DataGridTextColumn Header="Convênio"
+                                                Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                            <DataGridTextColumn Header="Tipo"
+                                                Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                            <DataGridTextColumn Header="Prevista" Binding="{Binding DataPrevista, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                            <DataGridTextColumn Header="Justificativa" Binding="{Binding Justificativa}" Width="2*" />
+                            <DataGridTextColumn Header="Registrada" Binding="{Binding Em, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
             </StackPanel>
 
             <StackPanel Grid.Column="1">

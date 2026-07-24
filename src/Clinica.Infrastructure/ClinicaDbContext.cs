@@ -65,6 +65,8 @@ public class ClinicaDbContext : DbContext
             e.Property(c => c.ObservacaoPendencia).HasMaxLength(500);
             // Hora de parede (sem fuso), como na Agenda/Auditoria — evita o erro do Npgsql com DateTime local.
             e.Property(c => c.ObservacaoPendenciaEm).HasColumnType("timestamp without time zone");
+            e.Property(c => c.NaoConformidadeJustificativa).HasMaxLength(500);
+            e.Property(c => c.NaoConformidadeEm).HasColumnType("timestamp without time zone");
             e.Property(c => c.Glosa).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.MotivoGlosa).HasMaxLength(300);
             e.Property(c => c.MotivoGlosaCodigo).HasMaxLength(10);

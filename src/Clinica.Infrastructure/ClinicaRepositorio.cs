@@ -28,7 +28,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default)
         => await _db.Codigos
             .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
-            .Where(c => c.DataBaixa == null && c.Status != StatusCodigo.NaoAplicavel)
+            .Where(c => c.DataBaixa == null && c.Status != StatusCodigo.NaoAplicavel
+                        && c.Status != StatusCodigo.NaoConformidade)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeAsync(CancellationToken ct = default)
+        => await _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Where(c => c.Status == StatusCodigo.NaoConformidade)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeDoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => await _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Where(c => c.Status == StatusCodigo.NaoConformidade && c.Atendimento!.PacienteId == pacienteId)
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<CodigoFaturamento>> CodigosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)

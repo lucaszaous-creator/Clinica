@@ -30,19 +30,28 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
     public IReadOnlyList<object> OpcoesConvenio { get; }
     public IReadOnlyList<object> OpcoesUrgencia { get; } =
-        new object[] { "Todos", NivelUrgencia.Vermelho, NivelUrgencia.Amarelo, NivelUrgencia.Verde };
+        new object[] { "Todos", NivelUrgencia.Vermelho, NivelUrgencia.Amarelo, NivelUrgencia.Verde, NivelUrgencia.Cinza };
 
     [ObservableProperty] private object _filtroConvenio = "Todos";
     [ObservableProperty] private object _filtroUrgencia = "Todos";
     [ObservableProperty] private int _total;
 
-    /// <summary>Total de códigos/guias pendentes de baixa (para a faixa de alerta do topo).</summary>
-    public int TotalCodigos => _todos.Count;
-    public bool TemPendencias => _todos.Count > 0;
+    /// <summary>A rodada de pendências venceu (mostra o banner do fechamento de ciclo).</summary>
+    [ObservableProperty] private bool _rodadaVencida;
+
+    /// <summary>Texto do banner da rodada (quanto está vencida / o que precisa decidir).</summary>
+    [ObservableProperty] private string _rodadaBanner = string.Empty;
+
+    /// <summary>Guias pendentes de baixa ATIVAS (exclui as não conformidades em cinza).</summary>
+    public int TotalCodigos => _todos.Count(p => !p.EhNaoConformidade);
+    public bool TemPendencias => _todos.Any(p => !p.EhNaoConformidade);
 
     // KPIs do painel
     public int CodigosUrgentes => _todos.Count(p => p.Urgencia == NivelUrgencia.Vermelho);
     public int ConsultasARenovar => Consultas.Count;
+
+    /// <summary>Não conformidades paradas (em cinza), aguardando o paciente voltar ou serem resolvidas.</summary>
+    public int NaoConformidadesTotal => _todos.Count(p => p.EhNaoConformidade);
 
     /// <summary>Glosas com prazo de recurso correndo e carteirinhas a vencer (seções aparecem só quando há itens).</summary>
     public bool TemRecursos => Recursos.Count > 0;
@@ -70,6 +79,8 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
         _todos.Clear();
         _todos.AddRange(await pendencias.CodigosPendentesAsync(hoje));
+        // Não conformidades entram no fim da lista, em cinza (paradas até voltar/serem resolvidas).
+        _todos.AddRange(await pendencias.NaoConformidadesComoPendenciaAsync(hoje));
 
         Consultas.Clear();
         foreach (var c in await pendencias.ConsultasAVencerAsync(hoje))
@@ -82,6 +93,28 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         Carteirinhas.Clear();
         foreach (var c in await pendencias.CarteirinhasAVencerAsync(hoje))
             Carteirinhas.Add(c);
+
+        // Situação da rodada de pendências ("rodar as pendências") para o banner do fechamento de ciclo.
+        try
+        {
+            var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.GarantirAncoraAsync(hoje); // ancora o ciclo no 1º uso
+            var status = await rodada.ObterStatusAsync(hoje);
+            RodadaVencida = status.Vencida;
+            RodadaBanner = status.Vencida
+                ? (status.DiasEmAtraso > 0
+                    ? $"A rodada de pendências venceu há {status.DiasEmAtraso} dia(s). "
+                    : "A rodada de pendências vence hoje. ") +
+                  (status.TemGuiasParaDecisao
+                    ? $"Rode agora: {status.GuiasParaDecisao} guia(s) aguardam decisão (baixa ou não conformidade)."
+                    : "Rode agora para fechar o ciclo.")
+                : string.Empty;
+        }
+        catch
+        {
+            // O banner da rodada nunca deve derrubar o carregamento do painel.
+            RodadaVencida = false;
+        }
 
         if (_nomeClinica is null)
         {
@@ -108,11 +141,12 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         foreach (var c in filtrados) Codigos.Add(c);
 
         // Mesmo critério do badge (PendenciaService.TotalPendenciasAsync): recursos contam
-        // quando o prazo está apertado (amarelo/vermelho).
-        Total = _todos.Count + Consultas.Count + Recursos.Count(r => r.Urgencia != NivelUrgencia.Verde);
+        // quando o prazo está apertado (amarelo/vermelho). Não conformidades (cinza) ficam de fora.
+        Total = TotalCodigos + Consultas.Count + Recursos.Count(r => r.Urgencia != NivelUrgencia.Verde);
         OnPropertyChanged(nameof(TotalCodigos));
         OnPropertyChanged(nameof(TemPendencias));
         OnPropertyChanged(nameof(CodigosUrgentes));
+        OnPropertyChanged(nameof(NaoConformidadesTotal));
         OnPropertyChanged(nameof(ConsultasARenovar));
         OnPropertyChanged(nameof(TemRecursos));
         OnPropertyChanged(nameof(TemCarteirinhas));
@@ -127,6 +161,31 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         if (codigo is not null)
             AbrirBaixaSolicitado?.Invoke(codigo.CodigoId);
+    }
+
+    /// <summary>
+    /// Reabre uma não conformidade (linha cinza): a guia volta a ser pendência ativa (vermelha) e
+    /// pode ser baixada. Usado quando aparece uma solução sem o paciente ter voltado.
+    /// </summary>
+    [RelayCommand]
+    private async Task ReabrirNaoConformidade(PendenciaCodigo? codigo)
+    {
+        if (codigo is null) return;
+        if (!_dialogo.Confirmar("Reabrir não conformidade",
+                $"Reabrir a guia de {codigo.PacienteNome}? Ela volta a ser pendência ativa.")) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.ReabrirNaoConformidadeAsync(codigo.CodigoId, Environment.UserName);
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Reabrir não conformidade", ex.Message);
+        }
+
+        await CarregarAsync();
     }
 
     /// <summary>
@@ -315,6 +374,26 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Vai para o Controle de glosas (usado no card de prazos de recurso).</summary>
     [RelayCommand]
     private void AbrirGlosas() => AbrirGlosasSolicitado?.Invoke();
+
+    /// <summary>
+    /// Roda as pendências (fechamento de ciclo): abre a janela de decisão para dar baixa ou registrar
+    /// não conformidade em cada guia pendente e conclui a rodada. Disparado pelo botão do banner.
+    /// </summary>
+    [RelayCommand]
+    private async Task RodarPendencias()
+    {
+        try
+        {
+            var concluida = await Alertas.RodadaPendenciasFluxo.ExecutarAsync(
+                _scopeFactory, System.Windows.Application.Current.MainWindow, bloqueante: false);
+            if (concluida)
+                await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Rodar pendências", ex.Message);
+        }
+    }
 
     [RelayCommand]
     private Task Atualizar() => CarregarAsync();

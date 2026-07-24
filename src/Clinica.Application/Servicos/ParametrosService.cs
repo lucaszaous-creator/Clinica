@@ -134,6 +134,57 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Rodada de pendências ("rodar as pendências" — fechamento de ciclo periódico) ----
+
+    public const string ChaveIntervaloRodadaPendencias = "IntervaloRodadaPendenciasDias";
+    public const int IntervaloRodadaPendenciasPadrao = 10;
+
+    /// <summary>De quantos em quantos dias as pendências devem ser rodadas (global; padrão 10).</summary>
+    public async Task<int> ObterIntervaloRodadaPendenciasAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveIntervaloRodadaPendencias, ct), out var dias) && dias >= 1
+            ? dias
+            : IntervaloRodadaPendenciasPadrao;
+
+    public async Task SalvarIntervaloRodadaPendenciasAsync(int dias, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveIntervaloRodadaPendencias, Math.Max(1, dias).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    public const string ChaveDataUltimaRodadaPendencias = "DataUltimaRodadaPendencias";
+
+    /// <summary>Data da última rodada concluída (null = nunca rodou; a âncora é definida no 1º uso).</summary>
+    public async Task<DateOnly?> ObterDataUltimaRodadaPendenciasAsync(CancellationToken ct = default)
+        => DateOnly.TryParse(await _repo.ObterConfiguracaoAsync(ChaveDataUltimaRodadaPendencias, ct), out var d)
+            ? d
+            : null;
+
+    public async Task SalvarDataUltimaRodadaPendenciasAsync(DateOnly data, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveDataUltimaRodadaPendencias, data.ToString("yyyy-MM-dd"), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    public const string ChaveRodadaAplicaConsultas = "RodadaAplicaConsultas";
+    public const string ChaveRodadaAplicaCarteirinhas = "RodadaAplicaCarteirinhas";
+
+    /// <summary>A rodada também cobra consultas a renovar? (padrão: não — começa só pelas guias).</summary>
+    public async Task<bool> ObterRodadaAplicaConsultasAsync(CancellationToken ct = default)
+        => string.Equals(await _repo.ObterConfiguracaoAsync(ChaveRodadaAplicaConsultas, ct), "true",
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A rodada também cobra carteirinhas a vencer? (padrão: não — começa só pelas guias).</summary>
+    public async Task<bool> ObterRodadaAplicaCarteirinhasAsync(CancellationToken ct = default)
+        => string.Equals(await _repo.ObterConfiguracaoAsync(ChaveRodadaAplicaCarteirinhas, ct), "true",
+            StringComparison.OrdinalIgnoreCase);
+
+    public async Task SalvarRodadaAplicaAsync(bool consultas, bool carteirinhas, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveRodadaAplicaConsultas, consultas ? "true" : "false", ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveRodadaAplicaCarteirinhas, carteirinhas ? "true" : "false", ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Numeração sequencial de lote TISS (o padrão exige sequência, não timestamp) ----
 
     public const string ChaveProximoLoteTiss = "TissProximoNumeroLote";

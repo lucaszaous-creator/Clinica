@@ -70,6 +70,47 @@ public sealed class PendenciaService
         return todas.Where(p => p.PacienteId == pacienteId).ToList();
     }
 
+    /// <summary>
+    /// Não conformidades como linhas de pendência CINZA para o painel: ficam paradas (documentadas)
+    /// até o paciente voltar (reabertas) ou serem resolvidas. Não contam como urgência.
+    /// </summary>
+    public async Task<IReadOnlyList<PendenciaCodigo>> NaoConformidadesComoPendenciaAsync(
+        DateOnly referencia, CancellationToken ct = default)
+    {
+        var ncs = await _repo.CodigosEmNaoConformidadeAsync(ct);
+        return ncs
+            .Select(c =>
+            {
+                var paciente = c.Atendimento?.Paciente;
+                return new PendenciaCodigo(
+                    CodigoId: c.Id,
+                    PacienteId: paciente?.Id ?? 0,
+                    PacienteNome: paciente?.Nome ?? "(desconhecido)",
+                    Convenio: paciente?.Convenio ?? default,
+                    Tipo: c.Tipo,
+                    Ordem: c.Ordem,
+                    DataPrevista: c.DataPrevistaFaturamento,
+                    FormaObtencao: c.FormaObtencao,
+                    DiasEmAtraso: referencia.DayNumber - c.DataPrevistaFaturamento.DayNumber,
+                    Urgencia: NivelUrgencia.Cinza,
+                    Descricao: c.Descricao,
+                    PacienteTelefone: paciente?.Telefone,
+                    ObservacaoPendencia: c.NaoConformidadeJustificativa,
+                    ObservacaoPendenciaEm: c.NaoConformidadeEm,
+                    EhNaoConformidade: true);
+            })
+            .OrderBy(p => p.PacienteNome)
+            .ToList();
+    }
+
+    /// <summary>Não conformidades de UM paciente (para avisar quando ele volta, no novo atendimento).</summary>
+    public async Task<IReadOnlyList<PendenciaCodigo>> NaoConformidadesDoPacienteAsync(
+        int pacienteId, DateOnly referencia, CancellationToken ct = default)
+    {
+        var todas = await NaoConformidadesComoPendenciaAsync(referencia, ct);
+        return todas.Where(p => p.PacienteId == pacienteId).ToList();
+    }
+
     /// <summary>Consultas a renovar (vencidas ou a vencer dentro da janela de alerta).</summary>
     public async Task<IReadOnlyList<PendenciaConsulta>> ConsultasAVencerAsync(DateOnly referencia, CancellationToken ct = default)
     {

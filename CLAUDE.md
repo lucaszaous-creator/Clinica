@@ -70,6 +70,16 @@ Camadas clássicas, todas em `src/`:
   prevista +24h e a inversão de datas do BSV são requisitos do convênio, não bugs.
 - Guia exportada num lote TISS não pode entrar em outro lote; glosa ganha data-limite de recurso
   (prazo configurável, padrão 30 dias) vigiada no dashboard.
+- **Rodar as pendências** (`RodadaPendenciasService`): fechamento de ciclo periódico (intervalo global
+  configurável, padrão 10 dias) à moda do fechamento de diárias hoteleiro. Ao vencer, o painel alarda
+  (banner) e a abertura do app abre uma janela BLOQUEANTE: cada guia pendente exige decisão — baixa ou
+  **não conformidade** (`StatusCodigo.NaoConformidade` + justificativa). A não conformidade sai das
+  pendências ativas (`EstaPendente`/`CodigosEmAbertoAsync` a ignoram) e aparece no painel como linha
+  **cinza** (`NivelUrgencia.Cinza`, via `PendenciaService.NaoConformidadesComoPendenciaAsync`) e no
+  relatório. Ela reativa (volta a pendência) de duas formas: manualmente (botão Reabrir) ou
+  automaticamente quando o **paciente volta** — `AtendimentoService.LancarAsync` reabre as NCs do
+  paciente e avisa a secretária para cobrar a guia na hora. Toggles em Configurações estendem a rodada
+  a consultas/carteirinhas.
 - Ações que alteram faturamento (baixa, estorno, glosa, lote) devem gravar um `EventoAuditoria`
   via `IClinicaRepositorio.RegistrarAuditoriaAsync` no MESMO SaveChanges da ação (atômico).
 - Concorrência otimista via `xmin` (só no Npgsql — testes rodam em SQLite e ficam de fora);

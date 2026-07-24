@@ -201,6 +201,30 @@
                             </StackPanel>
                         </StackPanel>
                     </Border>
+
+                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Rodar as pendências" Style="{StaticResource H2}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
+                                       Text="Fechamento de ciclo (como rodar as diárias): ao vencer o prazo, o sistema cobra uma decisão em cada guia pendente — dar baixa ou justificar como não conformidade (que sai do painel e vai para o relatório)." />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="Rodar a cada" VerticalAlignment="Center" Margin="0,0,8,0"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                <TextBox Text="{Binding IntervaloRodadaPendenciasDias}"
+                                         ctrl:Ajudantes.SomenteNumeros="True"
+                                         MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
+                                         VerticalContentAlignment="Center" VerticalAlignment="Center" />
+                                <TextBlock Text="dias" VerticalAlignment="Center" Margin="8,0,0,0"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                            </StackPanel>
+                            <TextBlock Text="Além das guias, cobrar também na rodada:" Margin="0,12,0,6"
+                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                            <CheckBox Content="Consultas a renovar" IsChecked="{Binding RodadaAplicaConsultas}"
+                                      Foreground="{StaticResource Brush.Texto.Primario}" Margin="0,0,0,4" />
+                            <CheckBox Content="Carteirinhas a vencer" IsChecked="{Binding RodadaAplicaCarteirinhas}"
+                                      Foreground="{StaticResource Brush.Texto.Primario}" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
