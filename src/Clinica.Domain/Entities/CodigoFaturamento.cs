@@ -109,6 +109,19 @@ public class CodigoFaturamento
         !Baixado && Status != StatusCodigo.NaoAplicavel && Status != StatusCodigo.NaoConformidade
         && DataPrevistaFaturamento <= referencia;
 
+    /// <summary>
+    /// O prazo de decisão da rodada venceu: a guia continua pendente e já se passaram
+    /// <paramref name="prazoDias"/> dias (padrão 10) desde o ATENDIMENTO do paciente. A partir daí o
+    /// sistema EXIGE uma decisão — baixa ou não conformidade — e bloqueia o uso até que ela seja tomada.
+    /// Sem o atendimento carregado, conta a partir da data prevista de faturamento.
+    /// </summary>
+    public bool PrazoDecisaoVencido(DateOnly referencia, int prazoDias)
+    {
+        if (!EstaPendente(referencia)) return false;
+        var origem = Atendimento?.Data ?? DataPrevistaFaturamento;
+        return referencia.DayNumber - origem.DayNumber >= prazoDias;
+    }
+
     /// <summary>Aplica a baixa (registro de faturamento).</summary>
     public void DarBaixa(DateOnly data, string? numeroGuia, string? usuario, string? observacao)
     {

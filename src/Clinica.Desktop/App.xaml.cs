@@ -206,9 +206,9 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>
-    /// Se a rodada de pendências venceu e há guias sem decisão, abre a janela BLOQUEANTE de "rodar as
-    /// pendências": a secretária precisa dar baixa ou justificar (não conformidade) antes de seguir.
-    /// Ancora o ciclo no 1º uso para não bloquear logo na primeira abertura. Nunca derruba o app.
+    /// Se há guias cujo prazo desde o atendimento venceu (padrão 10 dias) sem baixa, abre a janela
+    /// BLOQUEANTE de "rodar as pendências": a secretária precisa dar baixa ou justificar (não
+    /// conformidade) cada uma antes de seguir. Nunca derruba o app.
     /// </summary>
     private async Task MostrarRodadaSeVencidaAsync()
     {
@@ -222,7 +222,6 @@ public partial class App : System.Windows.Application
             {
                 var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
                 var hoje = DateOnly.FromDateTime(DateTime.Today);
-                await rodada.GarantirAncoraAsync(hoje); // ancora no 1º uso (não bloqueia de cara)
                 exigeDecisao = (await rodada.ObterStatusAsync(hoje)).ExigeDecisao;
             }
             if (!exigeDecisao) return;

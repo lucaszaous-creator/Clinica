@@ -70,10 +70,12 @@ Camadas clássicas, todas em `src/`:
   prevista +24h e a inversão de datas do BSV são requisitos do convênio, não bugs.
 - Guia exportada num lote TISS não pode entrar em outro lote; glosa ganha data-limite de recurso
   (prazo configurável, padrão 30 dias) vigiada no dashboard.
-- **Rodar as pendências** (`RodadaPendenciasService`): fechamento de ciclo periódico (intervalo global
-  configurável, padrão 10 dias) à moda do fechamento de diárias hoteleiro. Ao vencer, o painel alarda
-  (banner) e a abertura do app abre uma janela BLOQUEANTE: cada guia pendente exige decisão — baixa ou
-  **não conformidade** (`StatusCodigo.NaoConformidade` + justificativa). A não conformidade sai das
+- **Rodar as pendências** (`RodadaPendenciasService`): o prazo de decisão é contado **por atendimento** —
+  cada guia pendente vence N dias (configurável, padrão 10) depois do **atendimento do paciente**
+  (`CodigoFaturamento.PrazoDecisaoVencido`). Passado o prazo sem baixa, o painel alarda (banner) e a
+  abertura do app abre uma janela BLOQUEANTE com as guias vencidas: cada uma exige decisão — baixa ou
+  **não conformidade** (`StatusCodigo.NaoConformidade` + justificativa) — e o sistema fica travado até
+  a resolução. A não conformidade sai das
   pendências ativas (`EstaPendente`/`CodigosEmAbertoAsync` a ignoram) e vai para a aba própria **NC**
   (`NaoConformidadesViewModel` / `Secao.NaoConformidades`), que lista todas via
   `RodadaPendenciasService.NaoConformidadesAsync`, permite ler a justificativa e reabrir; também entra
