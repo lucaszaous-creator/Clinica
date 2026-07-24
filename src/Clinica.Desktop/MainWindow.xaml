@@ -233,7 +233,7 @@
 
                 <!-- Atualizar agora (rodapé): força a verificação/instalação quando o auto-update da
                      abertura não pegou. Oculto quando recolhido ou em instalação portátil (sem update). -->
-                <Button DockPanel.Dock="Bottom" Style="{StaticResource BotaoSecundario}"
+                <Button DockPanel.Dock="Bottom"
                         Margin="12,0,12,8" Padding="10,6" FontSize="12"
                         Command="{Binding AtualizarAgoraCommand}"
                         Content="Atualizar sistema"
