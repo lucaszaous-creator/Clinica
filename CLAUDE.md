@@ -74,10 +74,11 @@ Camadas clássicas, todas em `src/`:
   configurável, padrão 10 dias) à moda do fechamento de diárias hoteleiro. Ao vencer, o painel alarda
   (banner) e a abertura do app abre uma janela BLOQUEANTE: cada guia pendente exige decisão — baixa ou
   **não conformidade** (`StatusCodigo.NaoConformidade` + justificativa). A não conformidade sai das
-  pendências ativas (`EstaPendente`/`CodigosEmAbertoAsync` a ignoram) e aparece no painel como linha
-  **cinza** (`NivelUrgencia.Cinza`, via `PendenciaService.NaoConformidadesComoPendenciaAsync`) e no
-  relatório. Ela reativa (volta a pendência) de duas formas: manualmente (botão Reabrir) ou
-  automaticamente quando o **paciente volta** — `AtendimentoService.LancarAsync` reabre as NCs do
+  pendências ativas (`EstaPendente`/`CodigosEmAbertoAsync` a ignoram) e vai para a aba própria **NC**
+  (`NaoConformidadesViewModel` / `Secao.NaoConformidades`), que lista todas via
+  `RodadaPendenciasService.NaoConformidadesAsync`, permite ler a justificativa e reabrir; também entra
+  no relatório. Ela reativa (volta a pendência) de duas formas: manualmente (botão Reabrir na aba NC)
+  ou automaticamente quando o **paciente volta** — `AtendimentoService.LancarAsync` reabre as NCs do
   paciente e avisa a secretária para cobrar a guia na hora. Toggles em Configurações estendem a rodada
   a consultas/carteirinhas.
 - Ações que alteram faturamento (baixa, estorno, glosa, lote) devem gravar um `EventoAuditoria`

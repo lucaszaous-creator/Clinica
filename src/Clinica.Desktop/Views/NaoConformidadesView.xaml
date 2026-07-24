@@ -1,0 +1,86 @@
+<UserControl x:Class="Clinica.Desktop.Views.NaoConformidadesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,6">
+            <TextBlock Text="Não conformidades (NC)" Style="{StaticResource H1}" Margin="0" VerticalAlignment="Center" />
+            <Button Command="{Binding AtualizarCommand}"
+                    HorizontalAlignment="Right" Style="{StaticResource BotaoSecundario}">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                    <TextBlock Text="Atualizar" />
+                </StackPanel>
+            </Button>
+        </DockPanel>
+
+        <TextBlock Grid.Row="1" Style="{StaticResource TextoSuave}" Margin="0,0,0,14" TextWrapping="Wrap"
+                   Text="Guias que, ao rodar as pendências, não puderam ser baixadas e foram justificadas. Elas saem da aba Pendências e ficam aqui, documentadas. Reabra quando aparecer uma solução — a guia volta a ser pendência ativa." />
+
+        <Border Grid.Row="2" Style="{StaticResource Card}">
+        <Grid>
+            <ctrl:EmptyState Glifo="&#xE930;" Titulo="Nenhuma não conformidade" Panel.ZIndex="1"
+                             Descricao="Nada justificado como não conformidade até agora.">
+                <ctrl:EmptyState.Style>
+                    <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding TemItens}" Value="False">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ctrl:EmptyState.Style>
+            </ctrl:EmptyState>
+
+            <DataGrid ItemsSource="{Binding Itens}" AutoGenerateColumns="False"
+                      IsReadOnly="True" HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                      CanUserAddRows="False" MinHeight="120">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="1.4*" />
+                    <DataGridTextColumn Header="Convênio"
+                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                    <DataGridTextColumn Header="Código"
+                                        Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                    <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
+                    <DataGridTextColumn Header="Prevista" Binding="{Binding DataPrevista, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                    <DataGridTextColumn Header="Registrada" Binding="{Binding Em, StringFormat=dd/MM/yyyy HH:mm}" Width="Auto" />
+                    <DataGridTemplateColumn Header="Justificativa" Width="2*">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Justificativa}" TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" ToolTip="{Binding Justificativa}"
+                                           ToolTipService.ShowOnDisabled="True" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Header="" Width="220">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <Button Content="Ver justificativa" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                            ToolTip="Ler a justificativa completa"
+                                            Command="{Binding DataContext.VerJustificativaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Content="Reabrir" Style="{StaticResource BotaoAcaoGrid}" Margin="6,0,0,0"
+                                            ToolTip="Reabrir: a guia volta a ser pendência ativa"
+                                            Command="{Binding DataContext.ReabrirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Grid>
+        </Border>
+    </Grid>
+    </ScrollViewer>
+</UserControl>
