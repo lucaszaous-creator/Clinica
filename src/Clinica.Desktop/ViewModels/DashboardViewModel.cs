@@ -182,6 +182,41 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     }
 
     /// <summary>
+    /// Marca a guia como NÃO CONFORMIDADE por decisão do usuário, sem esperar o prazo da rodada
+    /// vencer. Pede confirmação e justificativa; a guia sai das pendências ativas e vai para a aba NC
+    /// (reabre se o paciente voltar ou pela aba NC). Atende o "marcar NC antes dos 10 dias".
+    /// </summary>
+    [RelayCommand]
+    private async Task NaoConformidade(PendenciaCodigo? codigo)
+    {
+        if (codigo is null) return;
+
+        if (!_dialogo.Confirmar("Não conformidade",
+                $"Marcar a guia de {codigo.PacienteNome} como não conformidade? " +
+                "Ela sai das pendências ativas do painel e vai para a aba NC."))
+            return;
+
+        var janela = new Alertas.NaoConformidadeWindow(codigo)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.MarcarNaoConformidadeAsync(codigo.CodigoId, janela.Justificativa, Environment.UserName);
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Não conformidade", ex.Message);
+        }
+
+        await CarregarAsync();
+    }
+
+    /// <summary>
     /// Abre o WhatsApp (wa.me) com uma mensagem pronta para o paciente quando a secretária
     /// não consegue contato por ligação para obter a 1ª/2ª guia. Um clique leva direto à conversa.
     /// </summary>
