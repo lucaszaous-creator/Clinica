@@ -5,6 +5,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -25,11 +26,49 @@
                     <TextBlock Text="Recurso de glosa (.xml)" />
                 </StackPanel>
             </Button>
+            <Button Command="{Binding AbrirGuiaCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0"
+                    ToolTip="O que cada motivo de glosa significa, como evitá-lo e o que juntar para recorrer">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE897;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                    <TextBlock Text="Por que as guias são glosadas" />
+                </StackPanel>
+            </Button>
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
                        Foreground="{StaticResource Brush.Erro}" />
         </StackPanel>
 
-        <Border Grid.Row="2" Style="{StaticResource Card}">
+        <!-- O padrão da própria clínica: o que mais glosa aqui, e o que fazer a respeito -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,10"
+                Visibility="{Binding MotivosRecorrentes.Count, Converter={StaticResource ZeroParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="O que mais glosa nesta clínica" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                <ItemsControl ItemsSource="{Binding MotivosRecorrentes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Style="{StaticResource Badge.Erro}" VerticalAlignment="Top"
+                                        Margin="0,0,10,0">
+                                    <TextBlock Text="{Binding Rotulo}" />
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="{Binding ComoEvitar}" TextWrapping="Wrap"
+                                           VerticalAlignment="Center" Style="{StaticResource FichaRotulo}" Margin="0" />
+                                <Button Grid.Column="2" Content="Entenda" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        VerticalAlignment="Center" Margin="10,0,0,0"
+                                        Command="{Binding DataContext.AbrirGuiaCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding Codigo}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource Card}">
         <DataGrid ItemsSource="{Binding Glosas}">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="30">

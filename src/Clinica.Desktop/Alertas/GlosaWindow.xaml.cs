@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Windows.Controls;
 using Clinica.Domain.Regras;
 
 namespace Clinica.Desktop.Alertas;
@@ -22,6 +23,24 @@ public partial class GlosaWindow : Window
         TxtPrazo.Text = $"O prazo de recurso desta glosa será de {prazoRecursoDias} dias " +
                         "e aparecerá no painel de pendências até ser resolvido.";
     }
+
+    /// <summary>Mostra o que o motivo escolhido significa, como evitá-lo e o que juntar para recorrer.</summary>
+    private void Motivo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (CmbMotivo.SelectedItem is not MotivoGlosa motivo)
+        {
+            PainelOrientacao.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PainelOrientacao.Visibility = Visibility.Visible;
+        TxtSignificado.Text = motivo.Significado;
+        TxtComoEvitar.Text = motivo.ComoEvitar;
+        TxtLastro.Text = motivo.Lastro;
+    }
+
+    private void Guia_Click(object sender, RoutedEventArgs e)
+        => new GuiaGlosasWindow((CmbMotivo.SelectedItem as MotivoGlosa)?.Codigo) { Owner = this }.ShowDialog();
 
     private void Confirmar_Click(object sender, RoutedEventArgs e)
     {
