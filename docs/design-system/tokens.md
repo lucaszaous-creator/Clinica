@@ -6,11 +6,11 @@ Fonte da verdade: `src/Clinica.Desktop/Styles/Tokens.xaml` (espelhado em `tokens
 
 | Chave XAML | CSS | Valor | Uso |
 |---|---|---|---|
-| `Brush.Acento` | `--acento` | `#2563EB` | Ação primária, links, seleção ativa |
-| `Brush.Acento.Hover` | `--acento-hover` | `#1D4ED8` | Hover da ação primária |
-| `Brush.Acento.Suave` | `--acento-suave` | `#EFF6FF` | Fundo de item ativo/seleção |
-| `Brush.Acento.Tint` | `--acento-tint` | `#DBEAFE` | Texto sobre azul forte |
-| `Brush.Foco` | `--foco` | `#3B82F6` | Anel de foco do teclado |
+| `Brush.Acento` | `--acento` | `#123A9E` | Ação primária, links, seleção ativa |
+| `Brush.Acento.Hover` | `--acento-hover` | `#0A2E86` | Hover da ação primária |
+| `Brush.Acento.Suave` | `--acento-suave` | `#EEF3FC` | Fundo de item ativo/seleção |
+| `Brush.Acento.Tint` | `--acento-tint` | `#D8E3F7` | Texto sobre azul forte |
+| `Brush.Foco` | `--foco` | `#3F62C9` | Anel de foco do teclado |
 | `Brush.Fundo` | `--fundo` | `#F8FAFC` | Fundo do app |
 | `Brush.Superficie` | `--superficie` | `#FFFFFF` | Cartões, tabelas, campos, topbar |
 | `Brush.Superficie.Hover` | `--superficie-hover` | `#F1F5F9` | Hover de linhas/itens; cabeçalho de tabela |
