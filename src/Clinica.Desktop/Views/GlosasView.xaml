@@ -47,7 +47,7 @@
                 <DataGridTextColumn Header="Código"
                                     Binding="{Binding Codigo.Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Nº guia" Binding="{Binding Codigo.NumeroGuiaReal}" Width="Auto" />
-                <DataGridTextColumn Header="Glosada em" Binding="{Binding Codigo.DataGlosa}" Width="Auto" />
+                <DataGridTextColumn Header="Glosada em" Binding="{Binding Codigo.DataGlosa, StringFormat=dd/MM/yyyy}" Width="Auto" />
                 <DataGridTextColumn Header="Motivo (ANS)" Binding="{Binding MotivoAns}" Width="1.2*" />
                 <DataGridTextColumn Header="Complemento" Binding="{Binding Codigo.MotivoGlosa}" Width="*" />
                 <DataGridTextColumn Header="Prazo recurso" Binding="{Binding PrazoRotulo}" Width="Auto" />

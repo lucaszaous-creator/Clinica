@@ -37,7 +37,7 @@
                                     Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
                 <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="*" />
-                <DataGridTextColumn Header="Baixa" Binding="{Binding DataBaixa}" Width="Auto" />
+                <DataGridTextColumn Header="Baixa" Binding="{Binding DataBaixa, StringFormat=dd/MM/yyyy}" Width="Auto" />
                 <DataGridTextColumn Header="Glosa" Binding="{Binding Glosa}" Width="Auto" />
                 <DataGridTemplateColumn Header="Ações" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>

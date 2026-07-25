@@ -49,12 +49,12 @@
                     <DataGrid ItemsSource="{Binding Lotes}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Nº lote" Binding="{Binding Numero}" Width="Auto" />
-                            <DataGridTextColumn Header="Gerado em" Binding="{Binding DataGeracao}" Width="Auto" />
+                            <DataGridTextColumn Header="Gerado em" Binding="{Binding DataGeracao, StringFormat=dd/MM/yyyy}" Width="Auto" />
                             <DataGridTextColumn Header="Guias" Binding="{Binding Guias}" Width="Auto" />
                             <DataGridTextColumn Header="Situação" Binding="{Binding StatusRotulo}" Width="Auto" />
-                            <DataGridTextColumn Header="Enviado em" Binding="{Binding DataEnvio}" Width="Auto" />
+                            <DataGridTextColumn Header="Enviado em" Binding="{Binding DataEnvio, StringFormat=dd/MM/yyyy}" Width="Auto" />
                             <DataGridTextColumn Header="Protocolo" Binding="{Binding Protocolo}" Width="*" />
-                            <DataGridTextColumn Header="Retorno em" Binding="{Binding DataRetorno}" Width="Auto" />
+                            <DataGridTextColumn Header="Retorno em" Binding="{Binding DataRetorno, StringFormat=dd/MM/yyyy}" Width="Auto" />
                             <DataGridTextColumn Header="Glosadas" Binding="{Binding Glosadas}" Width="Auto" />
                             <DataGridTemplateColumn Header="Ações" Width="Auto">
                                 <DataGridTemplateColumn.CellTemplate>

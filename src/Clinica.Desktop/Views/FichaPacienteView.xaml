@@ -241,7 +241,7 @@
 
                             <DataGrid ItemsSource="{Binding Atendimentos}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Data" Binding="{Binding Data}" Width="Auto" />
+                                    <DataGridTextColumn Header="Data" Binding="{Binding Data, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Atendimento" Binding="{Binding Numero}" Width="Auto" />
                                     <DataGridTextColumn Header="Modalidade" Binding="{Binding Modalidade}" Width="*" />
                                     <DataGridTextColumn Header="Guias" Binding="{Binding Guias}" Width="Auto" />
@@ -291,12 +291,12 @@
 
                             <DataGrid ItemsSource="{Binding Codigos}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
+                                    <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Código"
                                                         Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                                     <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
                                     <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
-                                    <DataGridTextColumn Header="Baixado em" Binding="{Binding DataBaixa}" Width="Auto" />
+                                    <DataGridTextColumn Header="Baixado em" Binding="{Binding DataBaixa, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Situação"
                                                         Binding="{Binding Path=., Converter={StaticResource StatusCodigo}}" Width="2*" />
                                     <DataGridTemplateColumn Header="Ação" Width="Auto">
@@ -334,8 +334,8 @@
 
                             <DataGrid ItemsSource="{Binding Consultas}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Emitida em" Binding="{Binding DataEmissao}" Width="Auto" />
-                                    <DataGridTextColumn Header="Válida até" Binding="{Binding DataVencimento}" Width="Auto" />
+                                    <DataGridTextColumn Header="Emitida em" Binding="{Binding DataEmissao, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                                    <DataGridTextColumn Header="Válida até" Binding="{Binding DataVencimento, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Validade (dias)" Binding="{Binding ValidadeDias}" Width="Auto" />
                                     <DataGridTextColumn Header="Convênio"
                                                         Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
