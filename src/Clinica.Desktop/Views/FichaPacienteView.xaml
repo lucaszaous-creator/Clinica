@@ -197,7 +197,8 @@
                         <TextBlock Text="Modalidade habitual" Style="{StaticResource FichaRotulo}" />
                         <TextBlock Text="{Binding ModalidadeTexto}" Style="{StaticResource FichaValor}" />
 
-                        <TextBlock Text="Observações" Style="{StaticResource FichaRotulo}">
+                        <!-- Estilo só no elemento-propriedade: o BasedOn já traz o FichaRotulo. -->
+                        <TextBlock Text="Observações">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource FichaRotulo}">
                                     <Style.Triggers>

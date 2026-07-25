@@ -18,8 +18,14 @@
   <ItemGroup>
     <!-- Webcam da recepção: wrapper gerenciado sobre o DirectShow do próprio Windows
          (sem DLL nativa extra). System.Drawing.Common entra por causa do Bitmap
-         que o AForge entrega em cada quadro. -->
-    <PackageReference Include="AForge.Video.DirectShow" Version="2.2.5" />
+         que o AForge entrega em cada quadro.
+         NU1701: o pacote é da era .NET Framework, mas a compatibilidade foi conferida —
+         assembly IL-only AnyCPU (sem 32BITREQUIRED) e a única dependência é System.Drawing,
+         cujo facade acompanha o Microsoft.WindowsDesktop.App e vai no publish self-contained. -->
+    <PackageReference Include="AForge.Video.DirectShow" Version="2.2.5" NoWarn="NU1701" />
+    <!-- Dependências transitivas do AForge, declaradas só para o NoWarn valer nelas também. -->
+    <PackageReference Include="AForge.Video" Version="2.2.5" NoWarn="NU1701" />
+    <PackageReference Include="AForge" Version="2.2.5" NoWarn="NU1701" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
