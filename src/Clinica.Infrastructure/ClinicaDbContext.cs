@@ -9,6 +9,7 @@ public class ClinicaDbContext : DbContext
 
     public DbSet<Paciente> Pacientes => Set<Paciente>();
     public DbSet<PacienteFoto> PacientesFotos => Set<PacienteFoto>();
+    public DbSet<AutorizacaoSessoes> Autorizacoes => Set<AutorizacaoSessoes>();
     public DbSet<Atendimento> Atendimentos => Set<Atendimento>();
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
@@ -55,6 +56,21 @@ public class ClinicaDbContext : DbContext
             e.HasOne(f => f.Paciente).WithOne(p => p.Foto)
                 .HasForeignKey<PacienteFoto>(f => f.PacienteId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // Cota de sessões liberada pelo convênio (previne a glosa 2006).
+        b.Entity<AutorizacaoSessoes>(e =>
+        {
+            e.ToTable("Autorizacoes");
+            e.HasKey(a => a.Id);
+            e.Property(a => a.Numero).HasMaxLength(40);
+            e.Property(a => a.Convenio).HasConversion<string>().HasMaxLength(40);
+            e.Property(a => a.ConvenioCodigo).HasMaxLength(40);
+            e.Property(a => a.Observacoes).HasMaxLength(500);
+            e.HasOne(a => a.Paciente).WithMany().HasForeignKey(a => a.PacienteId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(a => a.PacienteId);
+            e.HasIndex(a => a.DataValidade);
         });
 
         b.Entity<Atendimento>(e =>

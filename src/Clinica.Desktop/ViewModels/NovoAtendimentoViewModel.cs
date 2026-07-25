@@ -61,6 +61,15 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Nome do convênio do paciente selecionado (resolvido pelo catálogo).</summary>
     [ObservableProperty] private string? _convenioPaciente;
 
+    /// <summary>Cota de sessões: "Senha 12345 · 7 de 10 usadas — restam 3". Nulo = sem autorização vigente.</summary>
+    [ObservableProperty] private string? _saldoAutorizacao;
+
+    /// <summary>Cota esgotada ou autorização vencida: lançar agora é candidato à glosa 2006.</summary>
+    [ObservableProperty] private bool _autorizacaoCritica;
+
+    /// <summary>Resta uma sessão: hora de pedir a renovação da senha.</summary>
+    [ObservableProperty] private bool _autorizacaoNaUltima;
+
     [ObservableProperty] private bool _ocupado;
 
     private int _ultimoAtendimentoId;
@@ -152,6 +161,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     {
         AvisoPendencias = null;
         AvisoCarteirinha = null;
+        SaldoAutorizacao = null;
+        AutorizacaoCritica = false;
+        AutorizacaoNaUltima = false;
         PacienteEscolhido = value is not null;
         ConvenioPaciente = value is null
             ? null
@@ -167,6 +179,49 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             : null;
 
         _ = VerificarPendenciasAsync(value.Id);
+        _ = VerificarAutorizacaoAsync(value.Id);
+    }
+
+    /// <summary>
+    /// Mostra a cota de sessões antes de lançar. É o aviso que evita a glosa 2006
+    /// ("quantidade executada acima da autorizada") — o sistema registrava essa glosa
+    /// depois do prejuízo e não avisava antes.
+    /// </summary>
+    private async Task VerificarAutorizacaoAsync(int pacienteId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var autorizacoes = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
+            var saldo = await autorizacoes.VigenteAsync(pacienteId, DateOnly.FromDateTime(Data));
+
+            // A seleção pode ter mudado enquanto a consulta rodava.
+            if (PacienteSelecionado?.Id != pacienteId) return;
+
+            if (saldo is null)
+            {
+                SaldoAutorizacao = null;
+                AutorizacaoCritica = false;
+                AutorizacaoNaUltima = false;
+                return;
+            }
+
+            var senha = string.IsNullOrWhiteSpace(saldo.Autorizacao.Numero)
+                ? "Autorização"
+                : $"Senha {saldo.Autorizacao.Numero}";
+            SaldoAutorizacao = saldo.Vencida
+                ? $"{senha}: venceu em {saldo.Autorizacao.DataValidade:dd/MM/yyyy} — peça uma nova antes de lançar."
+                : $"{senha}: {saldo.Resumo} (válida até {saldo.Autorizacao.DataValidade:dd/MM/yyyy}).";
+            AutorizacaoCritica = saldo.Vencida || saldo.Esgotada;
+            AutorizacaoNaUltima = !AutorizacaoCritica && saldo.NaUltima;
+        }
+        catch
+        {
+            // Aviso é auxiliar: nunca pode impedir o lançamento do atendimento.
+            SaldoAutorizacao = null;
+            AutorizacaoCritica = false;
+            AutorizacaoNaUltima = false;
+        }
     }
 
     /// <summary>Volta para a busca, para trocar o paciente escolhido.</summary>

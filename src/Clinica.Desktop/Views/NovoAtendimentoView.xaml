@@ -104,6 +104,31 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Cota de sessões: evita a glosa 2006 antes de ela acontecer -->
+                        <Border Margin="0,8,0,0"
+                                Visibility="{Binding SaldoAutorizacao, Converter={StaticResource TextoParaVisibilidade}}">
+                            <Border.Style>
+                                <!-- Verde com folga, laranja na última, vermelho sem cota -->
+                                <Style TargetType="Border" BasedOn="{StaticResource AlertaSucesso}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding AutorizacaoNaUltima}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                            <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding AutorizacaoCritica}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Erro}" />
+                                            <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Texto.Invertido}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE9D9;" Style="{StaticResource Icone}" Margin="0,0,8,0"
+                                           VerticalAlignment="Top" />
+                                <TextBlock Text="{Binding SaldoAutorizacao}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+
                         <!-- Guia pendente de baixa: cobrar agora, com o paciente na frente -->
                         <Border Style="{StaticResource AlertaAviso}" Margin="0,8,0,0"
                                 Visibility="{Binding TemAvisoPendencias, Converter={StaticResource BoolParaVisibilidade}}">

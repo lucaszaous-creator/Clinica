@@ -79,6 +79,20 @@ public interface IClinicaRepositorio
     /// <summary>Apaga o retrato do paciente (foto cheia e miniatura). Não persiste.</summary>
     Task RemoverFotoPacienteAsync(int pacienteId, CancellationToken ct = default);
 
+    // ---- Autorizações de sessões (cota do convênio) ----
+
+    /// <summary>Autorizações do paciente, da mais recente para a mais antiga.</summary>
+    Task<IReadOnlyList<AutorizacaoSessoes>> AutorizacoesDoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    Task<AutorizacaoSessoes?> ObterAutorizacaoAsync(int autorizacaoId, CancellationToken ct = default);
+
+    Task AdicionarAutorizacaoAsync(AutorizacaoSessoes autorizacao, CancellationToken ct = default);
+
+    Task RemoverAutorizacaoAsync(int autorizacaoId, CancellationToken ct = default);
+
+    /// <summary>Quantos atendimentos o paciente teve no intervalo (base do consumo da cota).</summary>
+    Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
     // ---- Agenda ----
     // ---- Parâmetros dos convênios ----
     Task<IReadOnlyList<ParametroConvenio>> ParametrosAsync(CancellationToken ct = default);
