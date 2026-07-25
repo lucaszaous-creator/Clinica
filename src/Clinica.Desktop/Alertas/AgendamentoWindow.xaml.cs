@@ -11,7 +11,7 @@ namespace Clinica.Desktop.Alertas;
 /// </summary>
 public partial class AgendamentoWindow : Window
 {
-    public AgendamentoWindow(AgendamentoEdicaoViewModel vm, DateTime? inicio)
+    public AgendamentoWindow(AgendamentoEdicaoViewModel vm, DateTime? inicio, int? agendamentoId = null)
     {
         InitializeComponent();
         DataContext = vm;
@@ -19,7 +19,7 @@ public partial class AgendamentoWindow : Window
         vm.Agendou += AoAgendar;
         Closed += (_, _) => vm.Agendou -= AoAgendar;
 
-        Loaded += async (_, _) => await vm.CarregarAsync(inicio);
+        Loaded += async (_, _) => await vm.CarregarAsync(inicio, agendamentoId);
     }
 
     private void AoAgendar()

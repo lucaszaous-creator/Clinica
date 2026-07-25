@@ -34,6 +34,16 @@ public sealed class ZeroParaVisibilidadeConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>Nega um booleano (ex.: travar um campo enquanto um modo está ativo).</summary>
+public sealed class BoolInvertidoConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is not true;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is not true;
+}
+
 /// <summary>Visível quando o booleano é FALSO — para alternar dois blocos com um só estado.</summary>
 public sealed class BoolInvertidoParaVisibilidadeConverter : IValueConverter
 {

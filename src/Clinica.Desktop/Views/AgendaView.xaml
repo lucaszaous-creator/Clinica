@@ -116,6 +116,11 @@
                                 ToolTip="Confirmar presença e gerar os códigos de faturamento"
                                 Command="{Binding DataContext.ConfirmarPresencaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
+                        <Button Content="Remarcar" Margin="6,0,0,0"
+                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                ToolTip="Mudar o horário sem perder o agendamento nem o histórico"
+                                Command="{Binding DataContext.RemarcarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
                         <Button Content="Faltou" Margin="6,0,0,0"
                                 Style="{StaticResource BotaoAcaoGridSecundario}"
                                 Command="{Binding DataContext.FaltouCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -125,6 +130,15 @@
                                 Foreground="{StaticResource Brush.Erro}"
                                 ToolTip="Cancelar o agendamento" AutomationProperties.Name="Cancelar"
                                 Command="{Binding DataContext.CancelarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
+                    </StackPanel>
+
+                    <!-- Cancelado ou falta: dá para trazer de volta remarcando -->
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
+                                Visibility="{Binding Encerrado, Converter={StaticResource BoolParaVisibilidade}}">
+                        <Button Content="Remarcar" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                ToolTip="Reagendar este paciente — o horário volta para a agenda"
+                                Command="{Binding DataContext.RemarcarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
                     </StackPanel>
                 </Grid>

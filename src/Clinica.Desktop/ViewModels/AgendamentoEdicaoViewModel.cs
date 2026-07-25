@@ -36,6 +36,22 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     /// <summary>Aviso de contexto do paciente escolhido (carteirinha vencida etc.).</summary>
     [ObservableProperty] private string? _avisoPaciente;
 
+    /// <summary>Id do agendamento em edição. Null = agendamento novo.</summary>
+    [ObservableProperty] private int? _editandoId;
+
+    /// <summary>Em edição o paciente não muda: remarcar é mover o horário, não trocar de pessoa.</summary>
+    public bool Remarcando => EditandoId is not null;
+
+    public string Titulo => Remarcando ? "Remarcar agendamento" : "Novo agendamento";
+    public string RotuloConfirmar => Remarcando ? "Salvar alterações" : "Agendar";
+
+    partial void OnEditandoIdChanged(int? value)
+    {
+        OnPropertyChanged(nameof(Remarcando));
+        OnPropertyChanged(nameof(Titulo));
+        OnPropertyChanged(nameof(RotuloConfirmar));
+    }
+
     partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
 
     /// <summary>Comportamento (base) da modalidade selecionada.</summary>
@@ -79,8 +95,11 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         _dialogo = dialogo;
     }
 
-    /// <summary>Prepara o formulário. <paramref name="inicio"/> vem da faixa clicada na agenda.</summary>
-    public async Task CarregarAsync(DateTime? inicio)
+    /// <summary>
+    /// Prepara o formulário. <paramref name="inicio"/> vem da faixa clicada na agenda;
+    /// <paramref name="agendamentoId"/> abre em modo de remarcação.
+    /// </summary>
+    public async Task CarregarAsync(DateTime? inicio, int? agendamentoId = null)
     {
         Modalidades.Clear();
         foreach (var m in CatalogoModalidades.Ativas)
@@ -99,6 +118,37 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         }
 
         await BuscarPacientes();
+
+        if (agendamentoId is not int id) return;
+
+        // Remarcação: traz o agendamento e trava o paciente (mover horário ≠ trocar de pessoa).
+        using var scope = _scopeFactory.CreateScope();
+        var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+        var ag = await agenda.ObterAsync(id);
+        if (ag is null)
+        {
+            Mensagem = "Agendamento não encontrado.";
+            return;
+        }
+
+        EditandoId = ag.Id;
+
+        // O paciente entra ANTES da modalidade: escolher paciente pré-preenche a modalidade
+        // habitual dele, e aqui quem manda é o que já estava marcado no agendamento.
+        var paciente = ag.Paciente ?? Pacientes.FirstOrDefault(p => p.Id == ag.PacienteId);
+        if (paciente is not null)
+        {
+            if (Pacientes.All(p => p.Id != paciente.Id)) Pacientes.Insert(0, paciente);
+            PacienteSelecionado = paciente;
+        }
+
+        Data = ag.DataHora.Date;
+        Hora = ag.DataHora.ToString("HH:mm");
+        Observacoes = ag.Observacoes;
+        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == ag.ModalidadeCodigo)
+            ?? Modalidades.FirstOrDefault(m => m.Base == ag.ModalidadePrevista)
+            ?? ModalidadeSelecionada;
+        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == ag.EspecialidadeConsultaCodigo);
     }
 
     [RelayCommand]
@@ -150,16 +200,22 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
 
             // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
-            var conflito = await agenda.ConflitoAsync(dataHora);
+            // Numa remarcação, o próprio agendamento não conflita consigo mesmo.
+            var conflito = await agenda.ConflitoAsync(dataHora, ignorarAgendamentoId: EditandoId);
             if (conflito is not null &&
                 !_dialogo.Confirmar("Horário ocupado",
                     $"{conflito.Paciente?.Nome} já está agendado em {dataHora:dd/MM/yyyy} às {dataHora:HH:mm}.\n" +
                     "Agendar mesmo assim (encaixe)?"))
                 return;
 
-            await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes,
-                modalidadeCodigo: ModalidadeSelecionada.Codigo,
-                especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
+            if (EditandoId is int id)
+                await agenda.RemarcarAsync(id, dataHora, Observacoes,
+                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
+            else
+                await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes,
+                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
         }
         catch (Exception ex)
         {

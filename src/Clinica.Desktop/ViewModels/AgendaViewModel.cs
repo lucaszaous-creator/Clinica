@@ -209,17 +209,35 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand] private async Task Hoje() { Dia = DateTime.Today; await Recarregar(); }
 
     /// <summary>Abre o cadastro de agendamento; com faixa, já vai com data e hora preenchidas.</summary>
-    private async Task AbrirCadastroAsync(DateTime? inicio)
+    private async Task AbrirCadastroAsync(DateTime? inicio, int? agendamentoId = null)
     {
         var janela = new Alertas.AgendamentoWindow(
-            new AgendamentoEdicaoViewModel(_scopeFactory, _dialogo), inicio)
+            new AgendamentoEdicaoViewModel(_scopeFactory, _dialogo), inicio, agendamentoId)
         {
             Owner = System.Windows.Application.Current.MainWindow
         };
         if (janela.ShowDialog() != true) return;
 
-        Mensagem = "Agendamento criado.";
+        Mensagem = agendamentoId is null ? "Agendamento criado." : "Agendamento remarcado.";
         await Recarregar();
+    }
+
+    /// <summary>
+    /// Remarca o horário preservando o agendamento. Cancelar e recriar seria mentir no
+    /// histórico: registraria um cancelamento que nunca aconteceu.
+    /// </summary>
+    [RelayCommand]
+    private async Task Remarcar(CartaoAgendamento? cartao)
+    {
+        if (cartao is null) return;
+
+        if (cartao.Realizado)
+        {
+            Mensagem = "Este horário já virou atendimento; estorne o atendimento antes de remarcar.";
+            return;
+        }
+
+        await AbrirCadastroAsync(cartao.Item.DataHora, cartao.Item.Id);
     }
 
     [RelayCommand]
