@@ -74,6 +74,23 @@
                                 </Border.Style>
                                 <TextBlock Text="{Binding ConsultaTexto}" />
                             </Border>
+
+                            <!-- Cota de sessões: vira alerta quando acaba ou está na última -->
+                            <Border Margin="0,0,8,4"
+                                    Visibility="{Binding AutorizacaoTexto, Converter={StaticResource TextoParaVisibilidade}}"
+                                    ToolTip="Sessões liberadas pelo convênio — estourar a cota é a glosa 2006">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource Badge.Sucesso}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AutorizacaoEmRisco}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding AutorizacaoTexto}" />
+                            </Border>
                         </WrapPanel>
                     </StackPanel>
 
@@ -241,7 +258,7 @@
 
                             <DataGrid ItemsSource="{Binding Atendimentos}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Data" Binding="{Binding Data}" Width="Auto" />
+                                    <DataGridTextColumn Header="Data" Binding="{Binding Data, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Atendimento" Binding="{Binding Numero}" Width="Auto" />
                                     <DataGridTextColumn Header="Modalidade" Binding="{Binding Modalidade}" Width="*" />
                                     <DataGridTextColumn Header="Guias" Binding="{Binding Guias}" Width="Auto" />
@@ -291,12 +308,12 @@
 
                             <DataGrid ItemsSource="{Binding Codigos}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
+                                    <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Código"
                                                         Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                                     <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
                                     <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
-                                    <DataGridTextColumn Header="Baixado em" Binding="{Binding DataBaixa}" Width="Auto" />
+                                    <DataGridTextColumn Header="Baixado em" Binding="{Binding DataBaixa, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Situação"
                                                         Binding="{Binding Path=., Converter={StaticResource StatusCodigo}}" Width="2*" />
                                     <DataGridTemplateColumn Header="Ação" Width="Auto">
@@ -313,6 +330,93 @@
                                 </DataGrid.Columns>
                             </DataGrid>
                         </Grid>
+                    </TabItem>
+
+                    <!-- ===== Cota de sessões liberada pelo convênio ===== -->
+                    <TabItem Header="Autorizações">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                                <Button DockPanel.Dock="Right" Command="{Binding NovaAutorizacaoCommand}"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        ToolTip="Registrar a senha que o convênio liberou">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE710;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                                        <TextBlock Text="Nova autorização" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock Style="{StaticResource TextoSuave}" VerticalAlignment="Center" Margin="0"
+                                           Text="O consumo é contado pelos atendimentos dentro da vigência de cada senha." />
+                            </DockPanel>
+
+                            <Grid>
+                                <ctrl:EmptyState Glifo="&#xE9D9;" Titulo="Nenhuma autorização registrada" Panel.ZIndex="1"
+                                                 Descricao="Cadastre a senha que o convênio liberou e o Novo atendimento passa a avisar quando as sessões estiverem acabando — antes de virar glosa por quantidade acima da autorizada."
+                                                 TextoAcao="Nova autorização" AcaoCommand="{Binding NovaAutorizacaoCommand}">
+                                    <ctrl:EmptyState.Style>
+                                        <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Autorizacoes.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </ctrl:EmptyState.Style>
+                                </ctrl:EmptyState>
+
+                                <DataGrid ItemsSource="{Binding Autorizacoes}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Senha" Binding="{Binding Autorizacao.Numero}" Width="Auto" />
+                                        <DataGridTextColumn Header="Emitida em"
+                                                            Binding="{Binding Autorizacao.DataEmissao, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                                        <DataGridTextColumn Header="Válida até"
+                                                            Binding="{Binding Autorizacao.DataValidade, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                                        <DataGridTextColumn Header="Autorizadas" Binding="{Binding Autorizadas}" Width="Auto" />
+                                        <DataGridTextColumn Header="Usadas" Binding="{Binding Utilizadas}" Width="Auto" />
+                                        <DataGridTemplateColumn Header="Saldo" Width="1.4*" SortMemberPath="Restantes">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                            <Ellipse.Style>
+                                                                <Style TargetType="Ellipse">
+                                                                    <Setter Property="Fill" Value="{StaticResource Brush.Sucesso}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding NaUltima}" Value="True">
+                                                                            <Setter Property="Fill" Value="{StaticResource Brush.Aviso}" />
+                                                                        </DataTrigger>
+                                                                        <DataTrigger Binding="{Binding Utilizavel}" Value="False">
+                                                                            <Setter Property="Fill" Value="{StaticResource Brush.Erro}" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </Ellipse.Style>
+                                                        </Ellipse>
+                                                        <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Observações" Binding="{Binding Autorizacao.Observacoes}" Width="*" />
+                                        <DataGridTemplateColumn Header="Ações" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Button Content="Editar" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                                Command="{Binding DataContext.EditarAutorizacaoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                CommandParameter="{Binding}" />
+                                                        <Button Content="Excluir" Margin="6,0,0,0"
+                                                                Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                                Command="{Binding DataContext.ExcluirAutorizacaoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                                CommandParameter="{Binding}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </DockPanel>
                     </TabItem>
 
                     <!-- ===== Consultas autorizadas (ciclo de renovação) ===== -->
@@ -334,8 +438,8 @@
 
                             <DataGrid ItemsSource="{Binding Consultas}">
                                 <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Emitida em" Binding="{Binding DataEmissao}" Width="Auto" />
-                                    <DataGridTextColumn Header="Válida até" Binding="{Binding DataVencimento}" Width="Auto" />
+                                    <DataGridTextColumn Header="Emitida em" Binding="{Binding DataEmissao, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                                    <DataGridTextColumn Header="Válida até" Binding="{Binding DataVencimento, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Validade (dias)" Binding="{Binding ValidadeDias}" Width="Auto" />
                                     <DataGridTextColumn Header="Convênio"
                                                         Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />

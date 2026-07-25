@@ -213,6 +213,31 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         paciente.FotoAtualizadaEm = agora;
     }
 
+    // ---- Autorizações de sessões (cota do convênio) ----
+
+    public async Task<IReadOnlyList<AutorizacaoSessoes>> AutorizacoesDoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => await _db.Autorizacoes
+            .Where(a => a.PacienteId == pacienteId)
+            .OrderByDescending(a => a.DataEmissao)
+            .ThenByDescending(a => a.Id)
+            .ToListAsync(ct);
+
+    public Task<AutorizacaoSessoes?> ObterAutorizacaoAsync(int autorizacaoId, CancellationToken ct = default)
+        => _db.Autorizacoes.FirstOrDefaultAsync(a => a.Id == autorizacaoId, ct);
+
+    public async Task AdicionarAutorizacaoAsync(AutorizacaoSessoes autorizacao, CancellationToken ct = default)
+        => await _db.Autorizacoes.AddAsync(autorizacao, ct);
+
+    public async Task RemoverAutorizacaoAsync(int autorizacaoId, CancellationToken ct = default)
+    {
+        var autorizacao = await _db.Autorizacoes.FirstOrDefaultAsync(a => a.Id == autorizacaoId, ct);
+        if (autorizacao is not null)
+            _db.Autorizacoes.Remove(autorizacao);
+    }
+
+    public Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => _db.Atendimentos.CountAsync(a => a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim, ct);
+
     public async Task RemoverFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
     {
         var foto = await _db.PacientesFotos.FirstOrDefaultAsync(f => f.PacienteId == pacienteId, ct);

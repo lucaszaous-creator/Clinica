@@ -32,7 +32,7 @@
             <TextBox Text="{Binding NumeroGuia, UpdateSourceTrigger=PropertyChanged}" />
 
             <TextBlock Text="Data da baixa" Style="{StaticResource Rotulo}" />
-            <DatePicker SelectedDate="{Binding DataBaixa}" HorizontalAlignment="Left" Width="160" />
+            <DatePicker SelectedDate="{Binding DataBaixa, StringFormat=dd/MM/yyyy}" HorizontalAlignment="Left" Width="160" />
 
             <TextBlock Text="Observação" Style="{StaticResource Rotulo}" />
             <TextBox Text="{Binding Observacao}" Height="60" AcceptsReturn="True" TextWrapping="Wrap" />

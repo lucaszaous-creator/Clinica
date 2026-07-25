@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -71,6 +72,15 @@ public partial class FichaPacienteViewModel : ObservableObject
     /// <summary>Consultas autorizadas do paciente (o que vence e precisa renovar).</summary>
     public ObservableCollection<Consulta> Consultas { get; } = new();
 
+    /// <summary>Cotas de sessões liberadas pelo convênio, com o saldo já calculado.</summary>
+    public ObservableCollection<SaldoAutorizacao> Autorizacoes { get; } = new();
+
+    /// <summary>Resumo da cota vigente para o cabeçalho; null quando não há autorização vigente.</summary>
+    [ObservableProperty] private string? _autorizacaoTexto;
+
+    /// <summary>Cota esgotada ou vencida — o cabeçalho alerta.</summary>
+    [ObservableProperty] private bool _autorizacaoEmRisco;
+
     /// <summary>Resumo da consulta vigente para o cabeçalho; null quando não há consulta.</summary>
     [ObservableProperty] private string? _consultaTexto;
 
@@ -99,6 +109,7 @@ public partial class FichaPacienteViewModel : ObservableObject
         Codigos.Clear();
         Atendimentos.Clear();
         Consultas.Clear();
+        Autorizacoes.Clear();
         if (Paciente is not null)
         {
             var todos = Paciente.Atendimentos
@@ -141,6 +152,7 @@ public partial class FichaPacienteViewModel : ObservableObject
 
             MontarLinhaDoTempo(hoje);
             await CarregarConsultasAsync(service, pacienteId, hoje);
+            await CarregarAutorizacoesAsync(pacienteId, hoje);
 
             // Retrato: a miniatura já veio com o paciente e entra na hora; a foto cheia
             // (tabela à parte) é buscada logo em seguida para o cabeçalho da ficha.
@@ -225,6 +237,77 @@ public partial class FichaPacienteViewModel : ObservableObject
             : dias == 0
                 ? "Consulta vence hoje"
                 : $"Consulta válida até {vigente.DataVencimento:dd/MM/yyyy} ({dias} dia(s))";
+    }
+
+    /// <summary>Cotas de sessões do convênio + resumo da vigente para o cabeçalho.</summary>
+    private async Task CarregarAutorizacoesAsync(int pacienteId, DateOnly hoje)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
+            foreach (var s in await service.SaldosAsync(pacienteId, hoje))
+                Autorizacoes.Add(s);
+
+            var vigente = Autorizacoes.FirstOrDefault(s => s.Autorizacao.Vigente(hoje) && s.Utilizavel)
+                ?? Autorizacoes.FirstOrDefault(s => s.Autorizacao.Vigente(hoje));
+            if (vigente is null)
+            {
+                AutorizacaoTexto = Autorizacoes.Count == 0 ? null : "Sem autorização vigente";
+                AutorizacaoEmRisco = Autorizacoes.Count > 0;
+                return;
+            }
+
+            AutorizacaoTexto = $"Sessões: {vigente.Resumo}";
+            AutorizacaoEmRisco = !vigente.Utilizavel || vigente.NaUltima;
+        }
+        catch
+        {
+            // A ficha não depende da cota para ser útil.
+            AutorizacaoTexto = null;
+            AutorizacaoEmRisco = false;
+        }
+    }
+
+    /// <summary>Abre o cadastro de autorização (nova ou existente) e recarrega a ficha.</summary>
+    private async Task AbrirAutorizacaoAsync(int? autorizacaoId)
+    {
+        if (Paciente is null) return;
+
+        var janela = new Alertas.AutorizacaoWindow(
+            new AutorizacaoEdicaoViewModel(_scopeFactory, Paciente.Id),
+            autorizacaoId,
+            Paciente.ConvenioCodigo ?? Paciente.Convenio.ToString())
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        await CarregarAsync(_pacienteId);
+    }
+
+    [RelayCommand]
+    private async Task NovaAutorizacao() => await AbrirAutorizacaoAsync(null);
+
+    [RelayCommand]
+    private async Task EditarAutorizacao(SaldoAutorizacao? saldo)
+    {
+        if (saldo is not null) await AbrirAutorizacaoAsync(saldo.Autorizacao.Id);
+    }
+
+    [RelayCommand]
+    private async Task ExcluirAutorizacao(SaldoAutorizacao? saldo)
+    {
+        if (saldo is null) return;
+        if (!_dialogo.ConfirmarPerigo("Excluir autorização",
+            "Excluir esta autorização de sessões? O histórico de atendimentos não é afetado.")) return;
+
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var service = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
+            await service.RemoverAsync(saldo.Autorizacao.Id);
+        }
+        await CarregarAsync(_pacienteId);
     }
 
     /// <summary>Abre a conversa de WhatsApp (wa.me) com o paciente.</summary>

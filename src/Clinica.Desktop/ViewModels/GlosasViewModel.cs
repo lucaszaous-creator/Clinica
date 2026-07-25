@@ -27,6 +27,12 @@ public sealed record GlosaLinha(
             : $"{PrazoRecurso:dd/MM/yyyy} ({DiasParaFimPrazo} d)";
 }
 
+/// <summary>Um motivo que se repete nas glosas da clínica, com quantas vezes apareceu.</summary>
+public sealed record MotivoRecorrente(string Codigo, string Descricao, int Ocorrencias, string ComoEvitar)
+{
+    public string Rotulo => $"{Ocorrencias}× · {Codigo} — {Descricao}";
+}
+
 /// <summary>
 /// Controle de glosas: acompanha guias recusadas com o prazo de recurso no semáforo,
 /// reapresenta, marca recuperadas e gera o XML de recurso de glosa (TISS).
@@ -37,6 +43,13 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
     private readonly Controls.IDialogoService _dialogo;
 
     public ObservableCollection<GlosaLinha> Glosas { get; } = new();
+
+    /// <summary>
+    /// Os motivos que mais glosam esta clínica, do maior para o menor. A cliente dizia
+    /// nunca saber por que as guias caem; ver o próprio padrão é o primeiro passo para
+    /// atacar a causa em vez de recorrer caso a caso.
+    /// </summary>
+    public ObservableCollection<MotivoRecorrente> MotivosRecorrentes { get; } = new();
 
     /// <summary>Quando true, mostra só as glosas ainda não recuperadas.</summary>
     [ObservableProperty] private bool _somenteEmAberto = true;
@@ -74,6 +87,41 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
                     : dias <= 7 ? NivelUrgencia.Amarelo
                     : NivelUrgencia.Verde));
         }
+
+        MontarMotivosRecorrentes();
+    }
+
+    /// <summary>Ranking dos motivos da própria clínica — o padrão que dá para atacar.</summary>
+    private void MontarMotivosRecorrentes()
+    {
+        MotivosRecorrentes.Clear();
+        var ranking = Glosas
+            .Where(g => !string.IsNullOrWhiteSpace(g.Codigo.MotivoGlosaCodigo))
+            .GroupBy(g => g.Codigo.MotivoGlosaCodigo!)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key)
+            .Take(3);
+
+        foreach (var grupo in ranking)
+        {
+            var motivo = MotivosGlosa.Obter(grupo.Key);
+            MotivosRecorrentes.Add(new MotivoRecorrente(
+                grupo.Key,
+                motivo?.Descricao ?? grupo.Key,
+                grupo.Count(),
+                motivo?.ComoEvitar ?? string.Empty));
+        }
+    }
+
+    /// <summary>Abre o guia com o que cada motivo de glosa significa e como evitá-lo.</summary>
+    [RelayCommand]
+    private void AbrirGuia(string? codigo)
+    {
+        var janela = new Alertas.GuiaGlosasWindow(codigo)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        janela.ShowDialog();
     }
 
     [RelayCommand]
