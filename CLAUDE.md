@@ -86,6 +86,11 @@ Camadas clássicas, todas em `src/`:
   ou automaticamente quando o **paciente volta** — `AtendimentoService.LancarAsync` reabre as NCs do
   paciente e avisa a secretária para cobrar a guia na hora. Toggles em Configurações estendem a rodada
   a consultas/carteirinhas.
+- **Foto do paciente**: capturada pela webcam da recepção (`Desktop/Servicos/CameraServico.cs`,
+  DirectShow via AForge; `Retrato.cs` recorta em quadrado e gera os dois JPEGs). O armazenamento é
+  deliberadamente partido em dois: `Paciente.FotoMiniatura` (~160px, na própria linha, alimenta os
+  avatares da lista) e a tabela `PacientesFotos` (~640px, carregada só sob demanda) — assim a busca
+  de pacientes não arrasta imagem. A gravação acontece no Salvar do cadastro, nunca na captura.
 - Ações que alteram faturamento (baixa, estorno, glosa, lote) devem gravar um `EventoAuditoria`
   via `IClinicaRepositorio.RegistrarAuditoriaAsync` no MESMO SaveChanges da ação (atômico).
 - Concorrência otimista via `xmin` (só no Npgsql — testes rodam em SQLite e ficam de fora);

@@ -185,6 +185,48 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.Pacientes.Remove(paciente);
     }
 
+    // ---- Retrato do paciente ----
+
+    public Task<PacienteFoto?> ObterFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => _db.PacientesFotos.AsNoTracking().FirstOrDefaultAsync(f => f.PacienteId == pacienteId, ct);
+
+    public async Task DefinirFotoPacienteAsync(int pacienteId, byte[] conteudo, byte[] miniatura, CancellationToken ct = default)
+    {
+        var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct)
+            ?? throw new InvalidOperationException("Paciente não encontrado para gravar a foto.");
+
+        // Hora de parede (sem fuso), como no restante do sistema.
+        var agora = DateTime.Now;
+        var foto = await _db.PacientesFotos.FirstOrDefaultAsync(f => f.PacienteId == pacienteId, ct);
+        if (foto is null)
+        {
+            await _db.PacientesFotos.AddAsync(
+                new PacienteFoto { PacienteId = pacienteId, Conteudo = conteudo, AtualizadaEm = agora }, ct);
+        }
+        else
+        {
+            foto.Conteudo = conteudo;
+            foto.AtualizadaEm = agora;
+        }
+
+        paciente.FotoMiniatura = miniatura;
+        paciente.FotoAtualizadaEm = agora;
+    }
+
+    public async Task RemoverFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
+    {
+        var foto = await _db.PacientesFotos.FirstOrDefaultAsync(f => f.PacienteId == pacienteId, ct);
+        if (foto is not null)
+            _db.PacientesFotos.Remove(foto);
+
+        var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
+        if (paciente is not null)
+        {
+            paciente.FotoMiniatura = null;
+            paciente.FotoAtualizadaEm = null;
+        }
+    }
+
     // ---- Parâmetros ----
 
     public async Task<IReadOnlyList<ParametroConvenio>> ParametrosAsync(CancellationToken ct = default)

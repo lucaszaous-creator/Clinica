@@ -39,6 +39,26 @@ public class Paciente
 
     public string? Observacoes { get; set; }
 
+    /// <summary>
+    /// Miniatura JPEG quadrada (~160px) do retrato. Fica na própria linha do paciente
+    /// porque é pequena e alimenta os avatares da lista; a foto cheia mora em
+    /// <see cref="Foto"/> (tabela à parte, carregada sob demanda).
+    /// </summary>
+    public byte[]? FotoMiniatura { get; set; }
+
+    /// <summary>Quando o retrato foi capturado pela última vez. Null = paciente sem foto.</summary>
+    public DateTime? FotoAtualizadaEm { get; set; }
+
+    /// <summary>Retrato em tamanho cheio. Só é carregado quando explicitamente pedido.</summary>
+    public PacienteFoto? Foto { get; set; }
+
+    /// <summary>Atalho de leitura para a UI: o paciente já tem retrato cadastrado?</summary>
+    public bool TemFoto => FotoAtualizadaEm is not null;
+
+    /// <summary>Carteirinha com validade já passada — guia recusada na hora pelo convênio.</summary>
+    public bool CarteirinhaVencida =>
+        ValidadeCarteirinha is { } validade && validade < DateOnly.FromDateTime(DateTime.Today);
+
     public List<Atendimento> Atendimentos { get; set; } = new();
 
     public List<Consulta> Consultas { get; set; } = new();

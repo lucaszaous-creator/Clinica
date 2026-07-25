@@ -90,6 +90,11 @@
     <SolidColorBrush x:Key="Brush.Sidebar.Texto" Color="{StaticResource Cor.Cinza.700}" />
     <SolidColorBrush x:Key="Brush.Sidebar.TextoAtivo" Color="{StaticResource Cor.Azul.600}" />
 
+    <!-- Visor de mídia (preview escuro da webcam na captura da foto do paciente) -->
+    <SolidColorBrush x:Key="Brush.Visor.Fundo" Color="{StaticResource Cor.Cinza.900}" />
+    <SolidColorBrush x:Key="Brush.Visor.Texto" Color="{StaticResource Cor.Cinza.300}" />
+    <SolidColorBrush x:Key="Brush.Visor.Guia" Color="#FFFFFF" Opacity="0.4" />
+
     <!-- Snackbar (fundo escuro exige tons claros dos estados) -->
     <SolidColorBrush x:Key="Brush.Snackbar.Sucesso" Color="#4ADE80" />
     <SolidColorBrush x:Key="Brush.Snackbar.Erro" Color="#F87171" />

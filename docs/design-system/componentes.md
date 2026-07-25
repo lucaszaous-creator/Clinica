@@ -39,6 +39,8 @@ Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto 
 
 `DataGrid` implícito: cabeçalho cinza-100 40px clicável com **seta de ordenação** (`SortDirection`), linhas 36px alternadas, hover cinza, seleção azul-suave, virtualização de linhas ativa. Ações por linha com `BotaoAcaoGrid*`. Não envolver DataGrid em ScrollViewer (quebra a virtualização).
 
+- `ListaCartoes` + `ItemLista` (ListBox/ListBoxItem): listagem em cartões, para quando a linha precisa de retrato e de duas linhas de texto e a grade fica apertada (lista de Pacientes). Cada item é um cartão de raio 8 com hover e seleção; a virtualização do ListBox continua ativa.
+
 ## Navegação (`Navegacao.xaml`)
 
 - `TabControl`/`TabItem`: abas sublinhadas (2px azul no ativo).
@@ -63,4 +65,10 @@ Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto 
 
 - `Card`: branco, borda 1px, raio 12, padding 16.
 - `CardKpi` + `CardKpi.Rotulo` + `CardKpi.Valor`: indicadores do painel (variantes coloridas trocando `Background` pelos tints semânticos).
+- `TituloSecao` + `Divisor`: agrupam um formulário longo em blocos (escreva o título em CAIXA ALTA; o divisor é uma linha de 1px logo abaixo). Usado no cadastro de Pacientes.
+- `FichaRotulo` + `FichaValor`: par rótulo/valor empilhado, para painéis de dados cadastrais (ficha do paciente).
 - `Expander` implícito: accordion com chevron animado.
+
+## Mídia (`Midia.xaml`)
+
+- **Avatar** (`ctrl:Avatar`): retrato circular do paciente. Propriedades: `Foto` (byte[] JPEG — miniatura na lista, foto cheia na ficha), `Nome` (fallback de iniciais quando não há foto) e `Tamanho` (diâmetro; o tamanho das iniciais acompanha). Sem foto, mostra até duas iniciais sobre o tint do acento — a lista nunca fica com buracos.

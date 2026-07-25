@@ -24,6 +24,7 @@ Fonte da verdade: `src/Clinica.Desktop/Styles/Tokens.xaml` (espelhado em `tokens
 | `Brush.Info` / `.Suave` | `--info*` | `#0EA5E9` / `#E0F2FE` | Informação |
 | `Brush.Sidebar.*` | `--sidebar-*` | — | Fundo/hover/ativo/texto da sidebar |
 | `Brush.Snackbar.Sucesso` / `.Erro` | — | `#4ADE80` / `#F87171` | Ícones de estado sobre o fundo escuro do snackbar |
+| `Brush.Visor.Fundo` / `.Texto` / `.Guia` | `--visor-*` | `#111827` / `#D1D5DB` / branco 40% | Visor escuro de mídia (preview da webcam na captura da foto) |
 
 Semáforo de urgência do domínio (`UrgenciaParaCorConverter`): verde `#2E7D32`, amarelo `#F9A825`, vermelho `#C62828` — não usar fora do semáforo.
 

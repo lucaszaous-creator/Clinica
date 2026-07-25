@@ -10,6 +10,20 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.ViewModels;
 
+/// <summary>
+/// Uma visita na linha do tempo da ficha, já com o placar de guias daquele dia —
+/// é o que a secretária quer ver primeiro: o atendimento fechou ou ficou pendurado?
+/// </summary>
+public sealed record LinhaAtendimento(
+    DateOnly Data,
+    string? Numero,
+    string Modalidade,
+    int Guias,
+    int Baixadas,
+    int Pendentes,
+    string Situacao,
+    bool TemPendencia);
+
 /// <summary>Ficha do paciente: dados + histórico completo de códigos, com estorno de baixas.</summary>
 public partial class FichaPacienteViewModel : ObservableObject
 {
@@ -28,6 +42,18 @@ public partial class FichaPacienteViewModel : ObservableObject
     [ObservableProperty] private bool _carteirinhaVencida;
     [ObservableProperty] private string? _validadeCarteirinhaTexto;
 
+    /// <summary>Retrato em tamanho cheio; null quando o paciente ainda não tem foto.</summary>
+    [ObservableProperty] private byte[]? _foto;
+
+    /// <summary>Ex.: "Foto de 24/07/2026"; vazio quando não há retrato.</summary>
+    [ObservableProperty] private string? _fotoTexto;
+
+    /// <summary>Nome da modalidade habitual do paciente (pré-preenche a Agenda).</summary>
+    [ObservableProperty] private string? _modalidadeTexto;
+
+    /// <summary>Telefone formatado ou "—" quando não informado.</summary>
+    [ObservableProperty] private string _telefoneTexto = "—";
+
     // Indicadores da ficha
     [ObservableProperty] private int _totalSessoes;
     [ObservableProperty] private int _totalBaixados;
@@ -38,6 +64,18 @@ public partial class FichaPacienteViewModel : ObservableObject
     private string? _nomeClinica;
 
     public ObservableCollection<CodigoFaturamento> Codigos { get; } = new();
+
+    /// <summary>Linha do tempo de visitas, da mais recente para a mais antiga.</summary>
+    public ObservableCollection<LinhaAtendimento> Atendimentos { get; } = new();
+
+    /// <summary>Consultas autorizadas do paciente (o que vence e precisa renovar).</summary>
+    public ObservableCollection<Consulta> Consultas { get; } = new();
+
+    /// <summary>Resumo da consulta vigente para o cabeçalho; null quando não há consulta.</summary>
+    [ObservableProperty] private string? _consultaTexto;
+
+    /// <summary>Consulta vencida ou a menos de uma semana de vencer — cabeçalho alerta.</summary>
+    [ObservableProperty] private bool _consultaEmRisco;
 
     public event Action? Voltar;
 
@@ -59,6 +97,8 @@ public partial class FichaPacienteViewModel : ObservableObject
         CpfFormatado = Cpf.Formatar(Paciente?.Documento);
 
         Codigos.Clear();
+        Atendimentos.Clear();
+        Consultas.Clear();
         if (Paciente is not null)
         {
             var todos = Paciente.Atendimentos
@@ -66,7 +106,9 @@ public partial class FichaPacienteViewModel : ObservableObject
                 .OrderByDescending(c => c.DataPrevistaFaturamento);
             foreach (var c in todos) Codigos.Add(c);
 
-            NomeConvenio = Domain.Regras.ConvenioInfo.NomeExibicao(Paciente.Convenio);
+            // Pelo código do catálogo, para refletir variantes/renomeações feitas na clínica.
+            NomeConvenio = Domain.Regras.CatalogoConvenios.Nome(
+                Paciente.ConvenioCodigo ?? Paciente.Convenio.ToString());
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
@@ -83,7 +125,10 @@ public partial class FichaPacienteViewModel : ObservableObject
             }
 
             CarteirinhaTexto = string.IsNullOrWhiteSpace(Paciente.Carteirinha) ? "—" : Paciente.Carteirinha;
-            CarteirinhaVencida = Paciente.ValidadeCarteirinha is { } val && val < hoje;
+            TelefoneTexto = string.IsNullOrWhiteSpace(Paciente.Telefone) ? "—" : Paciente.Telefone;
+            ModalidadeTexto = Domain.Regras.CatalogoModalidades.Nome(
+                Paciente.ModalidadePreferidaCodigo ?? Paciente.ModalidadePreferida.ToString());
+            CarteirinhaVencida = Paciente.CarteirinhaVencida;
             ValidadeCarteirinhaTexto = Paciente.ValidadeCarteirinha is { } v2
                 ? (CarteirinhaVencida ? $"Carteirinha VENCIDA em {v2:dd/MM/yyyy}" : $"Carteirinha válida até {v2:dd/MM/yyyy}")
                 : null;
@@ -93,6 +138,25 @@ public partial class FichaPacienteViewModel : ObservableObject
             UltimaSessao = Paciente.Atendimentos.Count > 0
                 ? Paciente.Atendimentos.Max(a => a.Data).ToString("dd/MM/yyyy")
                 : "—";
+
+            MontarLinhaDoTempo(hoje);
+            await CarregarConsultasAsync(service, pacienteId, hoje);
+
+            // Retrato: a miniatura já veio com o paciente e entra na hora; a foto cheia
+            // (tabela à parte) é buscada logo em seguida para o cabeçalho da ficha.
+            Foto = Paciente.FotoMiniatura;
+            FotoTexto = Paciente.FotoAtualizadaEm is { } capturada
+                ? $"Foto de {capturada:dd/MM/yyyy}"
+                : null;
+            try
+            {
+                var cheia = await service.ObterFotoAsync(pacienteId);
+                if (cheia is not null && _pacienteId == pacienteId) Foto = cheia;
+            }
+            catch
+            {
+                // Sem a foto cheia a ficha segue com a miniatura.
+            }
         }
 
         try
@@ -104,6 +168,63 @@ public partial class FichaPacienteViewModel : ObservableObject
         {
             // Sem assinatura na mensagem; não impede a ficha.
         }
+    }
+
+    /// <summary>Agrupa os códigos por visita: cada linha mostra se aquele dia fechou ou ficou pendurado.</summary>
+    private void MontarLinhaDoTempo(DateOnly hoje)
+    {
+        if (Paciente is null) return;
+
+        foreach (var a in Paciente.Atendimentos.OrderByDescending(x => x.Data).ThenByDescending(x => x.Id))
+        {
+            var baixadas = a.Codigos.Count(c => c.Baixado);
+            var pendentes = a.Codigos.Count(c => c.EstaPendente(hoje));
+            var situacao = a.Codigos.Count == 0 ? "Sem guias"
+                : pendentes > 0 ? $"{pendentes} guia(s) em aberto"
+                : baixadas == a.Codigos.Count ? "Tudo baixado"
+                : "Sem pendência ativa";
+
+            Atendimentos.Add(new LinhaAtendimento(
+                a.Data,
+                a.Numero,
+                Domain.Regras.CatalogoModalidades.Nome(a.ModalidadeCodigo ?? a.Modalidade.ToString()),
+                a.Codigos.Count,
+                baixadas,
+                pendentes,
+                situacao,
+                pendentes > 0));
+        }
+    }
+
+    /// <summary>Consultas autorizadas + resumo da vigente (o que precisa renovar e quando).</summary>
+    private async Task CarregarConsultasAsync(PacienteService service, int pacienteId, DateOnly hoje)
+    {
+        try
+        {
+            foreach (var c in await service.ConsultasAsync(pacienteId))
+                Consultas.Add(c);
+        }
+        catch
+        {
+            // A ficha não depende das consultas para ser útil.
+            return;
+        }
+
+        var vigente = Consultas.FirstOrDefault(c => c.Status == StatusConsulta.Ativa);
+        if (vigente is null)
+        {
+            ConsultaTexto = Consultas.Count == 0 ? null : "Sem consulta vigente — precisa renovar";
+            ConsultaEmRisco = Consultas.Count > 0;
+            return;
+        }
+
+        var dias = vigente.DiasParaVencer(hoje);
+        ConsultaEmRisco = dias <= 5;
+        ConsultaTexto = dias < 0
+            ? $"Consulta vencida em {vigente.DataVencimento:dd/MM/yyyy}"
+            : dias == 0
+                ? "Consulta vence hoje"
+                : $"Consulta válida até {vigente.DataVencimento:dd/MM/yyyy} ({dias} dia(s))";
     }
 
     /// <summary>Abre a conversa de WhatsApp (wa.me) com o paciente.</summary>
