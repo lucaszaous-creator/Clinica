@@ -15,14 +15,26 @@ using Microsoft.Win32;
 
 namespace Clinica.Desktop.ViewModels;
 
+/// <summary>
+/// Um código recém-gerado, com a informação que decide a ação da tela: dá para baixar
+/// agora ou só depois? O 1º código já nasce faturável hoje; o 2º só a partir de +24h.
+/// </summary>
+public sealed record CodigoLancado(CodigoFaturamento Codigo, bool PodeBaixar, string? Impedimento)
+{
+    public bool Baixado => Codigo.Baixado;
+}
+
 /// <summary>Lança um atendimento. O sistema gera automaticamente os códigos (inclusive o 2º código +24h).</summary>
 public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
     public ObservableCollection<Paciente> Pacientes { get; } = new();
-    public ObservableCollection<CodigoFaturamento> CodigosGerados { get; } = new();
+    public ObservableCollection<CodigoLancado> CodigosGerados { get; } = new();
     public ObservableCollection<string> Avisos { get; } = new();
+
+    /// <summary>Placar das baixas do atendimento recém-lançado ("1 de 2 guias baixadas…").</summary>
+    [ObservableProperty] private string? _resumoBaixas;
 
     /// <summary>Modalidades ativas do catálogo (embutidas + variantes criadas pela clínica).</summary>
     public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
@@ -237,6 +249,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         _ultimoAtendimentoId = 0;
         CodigosGerados.Clear();
         Avisos.Clear();
+        ResumoBaixas = null;
         Observacoes = null;
         Mensagem = null;
         Data = DateTime.Today;
@@ -332,8 +345,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
                 modalidadeCodigo: ModalidadeSelecionada.Codigo,
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
 
-            foreach (var c in resultado.Atendimento.Codigos)
-                CodigosGerados.Add(c);
+            MontarCodigos(resultado.Atendimento.Codigos);
             foreach (var a in resultado.Avisos)
                 Avisos.Add(a);
 
@@ -348,6 +360,97 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         finally
         {
             Ocupado = false;
+        }
+    }
+
+    /// <summary>
+    /// Monta as linhas do resultado marcando o que já dá para baixar hoje. O 1º código
+    /// nasce faturável na hora; o 2º só a partir da data prevista (+24h).
+    /// </summary>
+    private void MontarCodigos(IEnumerable<CodigoFaturamento> codigos)
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        CodigosGerados.Clear();
+
+        foreach (var c in codigos.OrderBy(c => c.DataPrevistaFaturamento).ThenBy(c => c.Ordem))
+        {
+            var podeBaixar = c.EstaPendente(hoje);
+            var impedimento = c.Baixado || podeBaixar || c.Status == StatusCodigo.NaoAplicavel
+                ? null
+                : $"Libera em {c.DataPrevistaFaturamento:dd/MM/yyyy}";
+            CodigosGerados.Add(new CodigoLancado(c, podeBaixar, impedimento));
+        }
+
+        AtualizarResumoBaixas(hoje);
+    }
+
+    private void AtualizarResumoBaixas(DateOnly hoje)
+    {
+        var faturaveis = CodigosGerados.Where(l => l.Codigo.Status != StatusCodigo.NaoAplicavel).ToList();
+        if (faturaveis.Count == 0) { ResumoBaixas = null; return; }
+
+        var baixadas = faturaveis.Count(l => l.Baixado);
+        var proxima = faturaveis
+            .Where(l => !l.Baixado && l.Codigo.DataPrevistaFaturamento > hoje)
+            .OrderBy(l => l.Codigo.DataPrevistaFaturamento)
+            .FirstOrDefault();
+
+        ResumoBaixas = $"{baixadas} de {faturaveis.Count} guia(s) baixada(s)"
+            + (proxima is null
+                ? baixadas == faturaveis.Count ? " — nada pendente deste atendimento." : "."
+                : $" — a próxima libera em {proxima.Codigo.DataPrevistaFaturamento:dd/MM/yyyy} e vai para o painel de pendências.");
+    }
+
+    /// <summary>
+    /// Baixa a guia sem sair da tela. Antes era preciso lançar o atendimento, ir ao painel
+    /// de pendências e baixar lá — sendo que a 1ª guia já sai faturável no mesmo instante.
+    /// </summary>
+    [RelayCommand]
+    private async Task DarBaixa(CodigoLancado? linha)
+    {
+        if (linha is null || !linha.PodeBaixar) return;
+
+        var descricao = $"{PacienteSelecionado?.Nome} — {RotuloTipo(linha.Codigo.Tipo)} " +
+                        $"({(linha.Codigo.Ordem == OrdemCodigo.Segundo ? "2º" : "1º")} código) " +
+                        $"do atendimento {NumeroAtendimento}";
+
+        var janela = new Alertas.BaixaGuiaWindow(descricao)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
+            await faturamento.DarBaixaAsync(linha.Codigo.Id, janela.DataBaixa, janela.NumeroGuia,
+                Environment.UserName, janela.Observacao);
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível registrar a baixa: {ex.Message}";
+            return;
+        }
+
+        Mensagem = null;
+        await RecarregarCodigosAsync();
+    }
+
+    /// <summary>Relê os códigos do atendimento para refletir a baixa recém-registrada.</summary>
+    private async Task RecarregarCodigosAsync()
+    {
+        if (_ultimoAtendimentoId == 0) return;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var atendimento = await repo.ObterAtendimentoAsync(_ultimoAtendimentoId);
+            if (atendimento is not null) MontarCodigos(atendimento.Codigos);
+        }
+        catch
+        {
+            // A baixa já foi gravada; falhar aqui só deixa a tela desatualizada.
         }
     }
 
