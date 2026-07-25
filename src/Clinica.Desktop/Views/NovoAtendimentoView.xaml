@@ -235,8 +235,13 @@
             <!-- Códigos gerados -->
             <Border Grid.Row="1" Style="{StaticResource Card}">
                 <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Códigos gerados" Style="{StaticResource H3}"
-                               Margin="0,0,0,8" />
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock DockPanel.Dock="Left" Text="Códigos gerados" Style="{StaticResource H3}"
+                                   Margin="0" />
+                        <TextBlock Text="{Binding ResumoBaixas}" Style="{StaticResource FichaRotulo}"
+                                   Margin="12,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Visibility="{Binding ResumoBaixas, Converter={StaticResource TextoParaVisibilidade}}" />
+                    </DockPanel>
 
                     <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding Avisos}" Margin="0,10,0,0">
                         <ItemsControl.ItemTemplate>
@@ -266,15 +271,40 @@
                         <DataGrid ItemsSource="{Binding CodigosGerados}">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Código"
-                                                    Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                                    Binding="{Binding Codigo.Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                                 <DataGridTextColumn Header="Especialidade"
-                                                    Binding="{Binding EspecialidadeCodigo, Converter={StaticResource CodigoEspecialidade}}" Width="*" />
-                                <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
+                                                    Binding="{Binding Codigo.EspecialidadeCodigo, Converter={StaticResource CodigoEspecialidade}}" Width="*" />
+                                <DataGridTextColumn Header="Ordem" Binding="{Binding Codigo.Ordem}" Width="0.7*" />
                                 <DataGridTextColumn Header="Faturar em"
-                                                    Binding="{Binding DataPrevistaFaturamento, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                                                    Binding="{Binding Codigo.DataPrevistaFaturamento, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                 <DataGridTextColumn Header="Como obter"
-                                                    Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
-                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
+                                                    Binding="{Binding Codigo.FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
+                                <DataGridTextColumn Header="Nº guia" Binding="{Binding Codigo.NumeroGuiaReal}" Width="Auto" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Codigo.Status}" Width="Auto" />
+
+                                <!-- Baixa na hora: a 1ª guia já sai faturável, não precisa
+                                     passar pelo painel de pendências. -->
+                                <DataGridTemplateColumn Header="Ação" Width="Auto">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
+                                                        ToolTip="Registrar que a guia foi efetivada no sistema do convênio"
+                                                        Visibility="{Binding PodeBaixar, Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}" />
+                                                <TextBlock Text="{Binding Impedimento}" VerticalAlignment="Center"
+                                                           Style="{StaticResource FichaRotulo}" Margin="0"
+                                                           ToolTip="Esta guia só pode ser baixada a partir da data prevista; até lá ela fica no painel de pendências."
+                                                           Visibility="{Binding Impedimento, Converter={StaticResource TextoParaVisibilidade}}" />
+                                                <TextBlock Text="✓ baixada" VerticalAlignment="Center"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.Sucesso.Forte}"
+                                                           Visibility="{Binding Baixado, Converter={StaticResource BoolParaVisibilidade}}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </Grid>
