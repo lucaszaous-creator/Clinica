@@ -50,6 +50,16 @@ public sealed class NuloParaVisibilidadeConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>Visível quando o número é diferente de zero (badges de contagem).</summary>
+public sealed class ZeroParaVisibilidadeConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value is int n && n != 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Visível quando o texto tem conteúdo (esconde separadores de campos vazios).</summary>
 public sealed class TextoParaVisibilidadeConverter : IValueConverter
 {

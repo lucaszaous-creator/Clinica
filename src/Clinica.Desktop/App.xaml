@@ -31,6 +31,7 @@
             <conv:IdadeConverter x:Key="Idade" />
             <conv:NuloParaVisibilidadeConverter x:Key="NuloParaVisibilidade" />
             <conv:TextoParaVisibilidadeConverter x:Key="TextoParaVisibilidade" />
+            <conv:ZeroParaVisibilidadeConverter x:Key="ZeroParaVisibilidade" />
             <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         </ResourceDictionary>
     </Application.Resources>
