@@ -211,7 +211,8 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
             if (EditandoId is int id)
                 await agenda.RemarcarAsync(id, dataHora, Observacoes,
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
-                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
+                    operador: Environment.UserName);
             else
                 await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes,
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,

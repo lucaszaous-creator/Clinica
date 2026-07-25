@@ -93,7 +93,7 @@
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Faltou}" Value="True">
                                             <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
-                                            <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso}" />
+                                            <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso.Texto}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -244,9 +244,9 @@
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Aviso}" />
+                               Foreground="{StaticResource Brush.Aviso.Texto}" />
                     <TextBlock Text="{Binding TotalFaltas}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Aviso}" />
+                               Foreground="{StaticResource Brush.Aviso.Texto}" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}">

@@ -79,7 +79,7 @@
                 <StackPanel>
                     <TextBlock Text="Consultas a renovar" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding ConsultasARenovar}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Aviso}" />
+                               Foreground="{StaticResource Brush.Aviso.Texto}" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Acento}"

@@ -18,7 +18,8 @@ Fonte da verdade: `src/Clinica.Desktop/Styles/Tokens.xaml` (espelhado em `tokens
 | `Brush.Borda.Hover` | `--borda-hover` | `#D1D5DB` | Borda em hover |
 | `Brush.Texto.Primario` | `--texto-primario` | `#111827` | Títulos e conteúdo |
 | `Brush.Texto.Secundario` | `--texto-secundario` | `#6B7280` | Rótulos, legendas, dicas |
-| `Brush.Sucesso` / `.Forte` / `.Suave` | `--sucesso*` | `#16A34A` / `#15803D` / `#DCFCE7` | Estados de sucesso |
+| `Brush.Sucesso` / `.Forte` / `.Suave` | `--sucesso*` | `#16A34A` / `#15803D` / `#DCFCE7` | Estados de sucesso (`.Forte` é a cor de texto) |
+| `Brush.Aviso.Texto` / `.Erro.Texto` / `.Info.Texto` | `--*-texto` | `#C2410C` / `#B91C1C` / `#0369A1` | **Texto** semântico sobre fundo suave ou branco — o tom 600/500 não fecha AA |
 | `Brush.Aviso` / `.Suave` | `--aviso*` | `#EA580C` / `#FFEDD5` | Avisos |
 | `Brush.Erro` / `.Hover` / `.Suave` | `--erro*` | `#DC2626` / `#B91C1C` / `#FEE2E2` | Erros, ações destrutivas |
 | `Brush.Info` / `.Suave` | `--info*` | `#0EA5E9` / `#E0F2FE` | Informação |

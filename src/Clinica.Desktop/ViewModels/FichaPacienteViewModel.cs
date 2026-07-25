@@ -305,7 +305,7 @@ public partial class FichaPacienteViewModel : ObservableObject
         using (var scope = _scopeFactory.CreateScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
-            await service.RemoverAsync(saldo.Autorizacao.Id);
+            await service.RemoverAsync(saldo.Autorizacao.Id, Environment.UserName);
         }
         await CarregarAsync(_pacienteId);
     }

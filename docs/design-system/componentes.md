@@ -54,6 +54,7 @@ Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto 
 - **EmptyState** (`ctrl:EmptyState`): ícone + título + descrição + ação opcional. Sobrepor à DataGrid com `Panel.ZIndex="1"` e trigger em `Itens.Count == 0` (exemplos em DashboardView e ConsultaGuiasView).
 - **Loading**: `Spinner` (Control girando) e `Skeleton` (Border pulsante para placeholders).
 - **Snackbar**: host único no MainWindow bindado ao `SnackbarService`; nos VMs, injete `ISnackbarService` e chame `Sucesso/Erro/Info("…")`. Auto-dispensa em 4s. Confirmações Sim/Não continuam em diálogo.
+- **Mensagem inline x snackbar** — a escolha não é de gosto. Formulário usa **mensagem inline** (`Mensagem`/`MensagemEhErro` no VM, desenhada perto da ação): validação e erro de gravação precisam ficar na tela enquanto o usuário corrige. Snackbar é só para confirmação passageira de ação sem lugar natural na tela; como some sozinho, nunca serve para erro que exija correção.
 
 ## Sobreposição (`Sobreposicao.xaml`)
 

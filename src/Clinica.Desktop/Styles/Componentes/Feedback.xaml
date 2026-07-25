@@ -27,15 +27,15 @@
     </Style>
     <Style x:Key="Badge.Aviso" TargetType="Border" BasedOn="{StaticResource Badge}">
         <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
-        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso.Texto}" />
     </Style>
     <Style x:Key="Badge.Erro" TargetType="Border" BasedOn="{StaticResource Badge}">
         <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro.Texto}" />
     </Style>
     <Style x:Key="Badge.Info" TargetType="Border" BasedOn="{StaticResource Badge}">
         <Setter Property="Background" Value="{StaticResource Brush.Info.Suave}" />
-        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Info}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Info.Texto}" />
     </Style>
     <!-- Contador circular (notificações) -->
     <Style x:Key="BadgeContador" TargetType="Border">

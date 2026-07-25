@@ -13,17 +13,20 @@ Razões medidas (WCAG 2.1). AA exige **4.5:1** para texto normal e 3:1 para text
 | `#FFFFFF` sobre `#123A9E` | 9.88:1 | Botão primário | ✅ |
 | `#FFFFFF` sobre `#DC2626` | 4.83:1 | Botão perigo, faixa de alerta | ✅ |
 | `#15803D` sobre `#DCFCE7` | 4.57:1 | Badge de sucesso | ✅ |
-| `#DC2626` sobre `#FEE2E2` | 3.95:1 | Badge de erro | ⚠️ |
-| `#EA580C` sobre `#FFEDD5` | 3.11:1 | Badge de aviso | ⚠️ |
-| `#0EA5E9` sobre `#E0F2FE` | 2.42:1 | Badge de informação | ❌ |
+| `#B91C1C` sobre `#FEE2E2` | 5.30:1 | Badge de erro (`Brush.Erro.Texto`) | ✅ |
+| `#C2410C` sobre `#FFEDD5` | 4.52:1 | Badge de aviso (`Brush.Aviso.Texto`) | ✅ |
+| `#0369A1` sobre `#E0F2FE` | 5.17:1 | Badge de informação (`Brush.Info.Texto`) | ✅ |
 
-> **Dívida conhecida.** Os três últimos pares não alcançam 4.5:1 no texto de 12px dos
-> badges. O padrão "fundo suave + texto forte" só fecha AA quando o texto usa a variante
-> **700** da família (é o caso do sucesso, `Verde.700`); erro, aviso e info usam a **600/500**
-> e ficam abaixo. A correção é acrescentar `Vermelho.700` (já existe), `Laranja.700`
-> (`#C2410C` → 4.52:1) e `Ciano.700` (`#0369A1` → 5.17:1) e apontar os badges para elas.
-> Enquanto isso não é feito, nenhum badge carrega informação exclusiva: todos vêm
-> acompanhados de rótulo textual.
+> **Por que existem `Brush.*.Texto`.** O padrão "fundo suave + texto forte" só fecha AA
+> quando o texto usa a variante **700** da família. Com o tom 600/500 os badges ficavam em
+> 3.95:1 (erro), 3.11:1 (aviso) e 2.42:1 (info) — abaixo dos 4.5:1 exigidos para os 12px do
+> badge. Por isso a cor de **fundo/ícone** (`Brush.Aviso`, `Brush.Info`, `Brush.Erro`) é
+> separada da cor de **texto sobre o tint** (`Brush.*.Texto`). Sucesso não precisou de token
+> novo: `Brush.Sucesso.Forte` já era `Verde.700`.
+>
+> Regra prática: sobre fundo suave ou branco, texto semântico usa sempre a variante
+> `.Texto`. `Brush.Aviso` (3.56:1) e `Brush.Info` (2.77:1) **não servem para texto** nem
+> sobre branco — só para preenchimento, tarja e ícone, onde vale o mínimo de 3:1.
 
 Regras:
 - Texto pequeno sobre azul/vermelho: sempre branco.

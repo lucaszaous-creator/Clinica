@@ -135,7 +135,7 @@
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="17"
                                            VerticalAlignment="Top" Margin="0,1,10,0"
-                                           Foreground="{StaticResource Brush.Aviso}" />
+                                           Foreground="{StaticResource Brush.Aviso.Texto}" />
                                 <TextBlock Text="{Binding AvisoPendencias}" TextWrapping="Wrap"
                                            FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}" />
                             </StackPanel>

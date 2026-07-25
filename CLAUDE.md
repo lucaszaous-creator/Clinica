@@ -106,7 +106,13 @@ Camadas clássicas, todas em `src/`:
 
 - Ao adicionar um convênio fixo: nova classe em `Domain/Regras/`, registrar em `RegistroRegras`,
   adicionar ao enum `Convenio`, cobrir o fluxograma com testes em `RegrasFaturamentoTests`.
-- Toda tela que escreve segue o padrão de robustez: exceções tratadas com snackbar
-  (`ISnackbarService`), erro global nunca derruba o app (`DispatcherUnhandledException`).
+- Toda tela que escreve trata as exceções e nunca derruba o app (`DispatcherUnhandledException`
+  como última rede). O **feedback tem dois canais, e a escolha não é livre**:
+  - **Mensagem inline** (propriedade `Mensagem` + `MensagemEhErro` no VM, desenhada perto da
+    ação) — é o padrão para formulário: validação, erro de gravação e confirmação que precisa
+    ficar na tela enquanto o usuário corrige. Usado em 13 dos 18 VMs.
+  - **Snackbar** (`ISnackbarService`) — só para confirmação passageira de ação que não tem
+    lugar natural na tela (ex.: salvar em Configurações). Some em 4s, então nunca para erro
+    que exija correção.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.
