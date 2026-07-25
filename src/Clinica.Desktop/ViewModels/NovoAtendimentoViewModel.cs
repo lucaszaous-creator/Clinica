@@ -51,6 +51,16 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 
     /// <summary>Há aviso de pendências a exibir?</summary>
     public bool TemAvisoPendencias => !string.IsNullOrWhiteSpace(AvisoPendencias);
+
+    /// <summary>Aviso de carteirinha vencida do paciente selecionado. Separado da mensagem de erro.</summary>
+    [ObservableProperty] private string? _avisoCarteirinha;
+
+    /// <summary>Já há paciente escolhido? Alterna a busca pelo resumo do paciente na tela.</summary>
+    [ObservableProperty] private bool _pacienteEscolhido;
+
+    /// <summary>Nome do convênio do paciente selecionado (resolvido pelo catálogo).</summary>
+    [ObservableProperty] private string? _convenioPaciente;
+
     [ObservableProperty] private bool _ocupado;
 
     private int _ultimoAtendimentoId;
@@ -141,17 +151,42 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     partial void OnPacienteSelecionadoChanged(Paciente? value)
     {
         AvisoPendencias = null;
+        AvisoCarteirinha = null;
+        PacienteEscolhido = value is not null;
+        ConvenioPaciente = value is null
+            ? null
+            : CatalogoConvenios.Nome(value.ConvenioCodigo ?? value.Convenio.ToString());
         if (value is null) return;
 
         // Pré-seleciona a modalidade habitual do paciente: primeiro pelo código salvo, senão pela base.
         ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == value.ModalidadePreferidaCodigo)
             ?? Modalidades.FirstOrDefault(m => m.Base == value.ModalidadePreferida)
             ?? ModalidadeSelecionada;
-        Mensagem = value.ValidadeCarteirinha is { } val && val < DateOnly.FromDateTime(DateTime.Today)
-            ? $"Atenção: a carteirinha de {value.Nome} venceu em {val:dd/MM/yyyy} — o convênio pode recusar a guia."
+        AvisoCarteirinha = value.CarteirinhaVencida
+            ? $"A carteirinha de {value.Nome} venceu em {value.ValidadeCarteirinha:dd/MM/yyyy} — o convênio pode recusar a guia."
             : null;
 
         _ = VerificarPendenciasAsync(value.Id);
+    }
+
+    /// <summary>Volta para a busca, para trocar o paciente escolhido.</summary>
+    [RelayCommand]
+    private void TrocarPaciente() => PacienteSelecionado = null;
+
+    /// <summary>Zera a tela para lançar outro atendimento, sem sair da seção.</summary>
+    [RelayCommand]
+    private void NovoLancamento()
+    {
+        Lancado = false;
+        NumeroAtendimento = null;
+        _ultimoAtendimentoId = 0;
+        CodigosGerados.Clear();
+        Avisos.Clear();
+        Observacoes = null;
+        Mensagem = null;
+        Data = DateTime.Today;
+        PacienteSelecionado = null;
+        Busca = null;
     }
 
     /// <summary>

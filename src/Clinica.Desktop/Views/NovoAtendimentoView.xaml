@@ -4,114 +4,216 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Grid Margin="24">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="380" />
+            <ColumnDefinition Width="420" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- Rolagem própria do formulário: em telas baixas o botão "Lançar" continua acessível. -->
-        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <Border Style="{StaticResource Card}" Margin="0,0,24,0" VerticalAlignment="Top">
-            <StackPanel>
-                <TextBlock Text="Novo atendimento" Style="{StaticResource H2}" />
+        <!-- ============================================================
+             Coluna 1 — o lançamento em duas etapas: quem, e o quê.
+             ============================================================ -->
+        <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,24,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-                <TextBlock Text="Buscar paciente (nome ou CPF)" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}" />
-                <ListBox ItemsSource="{Binding Pacientes}" SelectedItem="{Binding PacienteSelecionado}"
-                         DisplayMemberPath="Nome" Height="130" Margin="0,6,0,4" />
-                <TextBlock Text="{Binding PacienteSelecionado.Nome, StringFormat='Selecionado: {0}'}"
-                           Foreground="{StaticResource Brush.Sucesso.Forte}" FontWeight="SemiBold" Margin="0,0,0,8" />
+                <TextBlock Grid.Row="0" Text="Novo atendimento" Style="{StaticResource H2}" Margin="0" />
 
-                <!-- Aviso: paciente com guia pendente de baixa — cobrar na hora -->
-                <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,8"
-                        Visibility="{Binding TemAvisoPendencias, Converter={StaticResource BoolParaVisibilidade}}">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="17"
-                                   VerticalAlignment="Top" Margin="0,1,10,0" Foreground="{StaticResource Brush.Aviso}" />
-                        <TextBlock Text="{Binding AvisoPendencias}" TextWrapping="Wrap" VerticalAlignment="Center"
-                                   FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}" />
-                    </StackPanel>
-                </Border>
-
-                <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
-                <DatePicker SelectedDate="{Binding Data}" />
-
-                <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
-                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadeSelecionada}"
-                          DisplayMemberPath="Nome" />
-
-                <StackPanel Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeSelecionada}"
-                              DisplayMemberPath="Nome" />
-                    <TextBlock Text="Fica registrada na guia e nos relatórios (quantas consultas de cada especialidade)."
-                               FontSize="11" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,3,0,0" TextWrapping="Wrap" />
-                </StackPanel>
-
-                <StackPanel Visibility="{Binding ModalidadeDupla, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="Qual código o convênio libera primeiro (hoje)?" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding OpcoesPrimeiroCodigo}" SelectedItem="{Binding PrimeiroCodigo}" />
-                    <TextBlock Text="O outro código vira o 2º (previsto para +24h)."
-                               FontSize="11" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,3,0,0" TextWrapping="Wrap" />
-                </StackPanel>
-
-                <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
-                <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
-
-                <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}" Margin="0,14,0,0"
-                        ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
-                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" Margin="0,8,0,0"
-                           Foreground="{StaticResource Brush.Erro}" />
-
-                <Border Background="{StaticResource Brush.Sucesso.Suave}" CornerRadius="8" Padding="12,10" Margin="0,12,0,0"
-                        Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}">
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,4,0">
                     <StackPanel>
-                        <TextBlock Text="{Binding NumeroAtendimento, StringFormat='Atendimento nº {0}'}"
-                                   FontWeight="Bold" Foreground="{StaticResource Brush.Sucesso.Forte}" />
-                        <Button Command="{Binding GerarCapaCommand}"
-                                Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Left" Margin="0,8,0,0">
+
+                        <!-- ===== 1. Paciente ===== -->
+                        <TextBlock Text="1 · PACIENTE" Style="{StaticResource TituloSecao}" />
+                        <Border Style="{StaticResource Divisor}" />
+
+                        <!-- Enquanto ninguém está escolhido: a busca -->
+                        <StackPanel Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolInvertidoParaVisibilidade}}">
+                            <TextBox Margin="0,8,0,8"
+                                     Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource CampoPesquisa}"
+                                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF…" />
+                            <ListBox ItemsSource="{Binding Pacientes}" SelectedItem="{Binding PacienteSelecionado}"
+                                     Style="{StaticResource ListaCartoes}" MaxHeight="260">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <ctrl:Avatar Grid.Column="0" Tamanho="34" VerticalAlignment="Center"
+                                                         Margin="0,0,10,0"
+                                                         Nome="{Binding Nome}" Foto="{Binding FotoMiniatura}" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Documento, Converter={StaticResource Cpf}}"
+                                                           Style="{StaticResource FichaRotulo}" Margin="0,2,0,0" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+
+                        <!-- Escolhido: o resumo, com o contexto que importa na hora da guia -->
+                        <Border Background="{StaticResource Brush.Fundo}" CornerRadius="{StaticResource Raio.Medio}"
+                                Padding="12" Margin="0,8,0,0"
+                                Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ctrl:Avatar Grid.Column="0" Tamanho="48" VerticalAlignment="Center" Margin="0,0,12,0"
+                                             Nome="{Binding PacienteSelecionado.Nome}"
+                                             Foto="{Binding PacienteSelecionado.FotoMiniatura}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding PacienteSelecionado.Nome}" FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                        <Border Style="{StaticResource Badge.Info}" Margin="0,0,6,0">
+                                            <TextBlock Text="{Binding ConvenioPaciente}" />
+                                        </Border>
+                                        <Border Style="{StaticResource Badge}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
+                                                         Fill="{Binding PacienteSelecionado.Categoria, Converter={StaticResource CategoriaParaCor}}" />
+                                                <TextBlock Text="{Binding PacienteSelecionado.Categoria}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button Grid.Column="2" Content="Trocar" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding TrocarPacienteCommand}"
+                                        ToolTip="Escolher outro paciente" />
+                            </Grid>
+                        </Border>
+
+                        <!-- Carteirinha vencida: a guia será recusada -->
+                        <Border Style="{StaticResource AlertaPerigo}" Margin="0,8,0,0"
+                                Visibility="{Binding AvisoCarteirinha, Converter={StaticResource TextoParaVisibilidade}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7BA;" Style="{StaticResource Icone}" Margin="0,0,8,0"
+                                           VerticalAlignment="Top" />
+                                <TextBlock Text="{Binding AvisoCarteirinha}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Guia pendente de baixa: cobrar agora, com o paciente na frente -->
+                        <Border Style="{StaticResource AlertaAviso}" Margin="0,8,0,0"
+                                Visibility="{Binding TemAvisoPendencias, Converter={StaticResource BoolParaVisibilidade}}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="17"
+                                           VerticalAlignment="Top" Margin="0,1,10,0"
+                                           Foreground="{StaticResource Brush.Aviso}" />
+                                <TextBlock Text="{Binding AvisoPendencias}" TextWrapping="Wrap"
+                                           FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ===== 2. Atendimento ===== -->
+                        <TextBlock Text="2 · ATENDIMENTO" Style="{StaticResource TituloSecao}" />
+                        <Border Style="{StaticResource Divisor}" />
+
+                        <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
+                        <DatePicker SelectedDate="{Binding Data}" />
+
+                        <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadeSelecionada}"
+                                  DisplayMemberPath="Nome" />
+
+                        <StackPanel Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeSelecionada}"
+                                      DisplayMemberPath="Nome" />
+                            <TextBlock Style="{StaticResource TextoSuave}"
+                                       Text="Fica registrada na guia e nos relatórios (quantas consultas de cada especialidade)." />
+                        </StackPanel>
+
+                        <StackPanel Visibility="{Binding ModalidadeDupla, Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Qual código o convênio libera primeiro (hoje)?" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding OpcoesPrimeiroCodigo}" SelectedItem="{Binding PrimeiroCodigo}" />
+                            <TextBlock Style="{StaticResource TextoSuave}"
+                                       Text="O outro código vira o 2º, previsto para +24h — é ele que o painel de pendências vigia." />
+                        </StackPanel>
+
+                        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"
+                                 MinHeight="56" MaxHeight="110" VerticalScrollBarVisibility="Auto"
+                                 ctrl:Ajudantes.Placeholder="Opcional — fica no atendimento e na capa." />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Ações fixas: o botão não some com a rolagem -->
+                <StackPanel Grid.Row="2">
+                    <Border Style="{StaticResource Divisor}" Margin="0,16,0,0" />
+                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                        <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}"
+                                ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
+                        <Button Content="Limpar" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0"
+                                Command="{Binding NovoLancamentoCommand}"
+                                ToolTip="Descartar e começar um lançamento novo" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" Margin="0,10,0,0"
+                               Foreground="{StaticResource Brush.Erro}"
+                               Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============================================================
+             Coluna 2 — resultado do lançamento.
+             ============================================================ -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Confirmação do lançamento -->
+            <Border Grid.Row="0" Style="{StaticResource AlertaSucesso}" Margin="0,0,0,16"
+                    Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="&#xE73E;" Style="{StaticResource Icone}" FontSize="20"
+                               VerticalAlignment="Center" Margin="0,0,12,0" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding NumeroAtendimento, StringFormat='Atendimento nº {0} lançado'}"
+                                   FontWeight="Bold" />
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
+                                   Foreground="{StaticResource Brush.Sucesso.Forte}"
+                                   Text="Os códigos já estão no painel de pendências, com as datas previstas." />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Command="{Binding GerarCapaCommand}" Style="{StaticResource BotaoSecundario}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="&#xE749;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
-                                <TextBlock Text="Gerar capa inicial (PDF)" />
+                                <TextBlock Text="Capa inicial (PDF)" />
                             </StackPanel>
                         </Button>
+                        <Button Content="Lançar outro" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0"
+                                Command="{Binding NovoLancamentoCommand}" />
                     </StackPanel>
-                </Border>
-            </StackPanel>
-        </Border>
-        </ScrollViewer>
-
-        <StackPanel Grid.Column="1">
-            <!-- Regras por convênio (card informativo do design) -->
-            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                <StackPanel>
-                    <TextBlock Text="Regras por convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Primario}" FontSize="13" LineHeight="22">
-                        <Run Text="• Unimed Padrão: código no app ou por ligação." /><LineBreak />
-                        <Run Text="• Unimed Intercâmbio: " /><Run Text="2 códigos" FontWeight="Bold" /><Run Text=" — o 2º deve ser obtido em +24h por ligação." /><LineBreak />
-                        <Run Text="• Amil: guia gerada no portal; baixa após atendimento." /><LineBreak />
-                        <Run Text="• Petrobras: exige sexo do paciente no cadastro." />
-                    </TextBlock>
-                </StackPanel>
+                </Grid>
             </Border>
 
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-                    <TextBlock Text="Códigos gerados" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                    <DataGrid ItemsSource="{Binding CodigosGerados}" MaxHeight="280">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Código"
-                                                Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
-                            <DataGridTextColumn Header="Especialidade"
-                                                Binding="{Binding EspecialidadeCodigo, Converter={StaticResource CodigoEspecialidade}}" Width="*" />
-                            <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
-                            <DataGridTextColumn Header="Faturar em" Binding="{Binding DataPrevistaFaturamento, StringFormat=dd/MM/yyyy}" Width="*" />
-                            <DataGridTextColumn Header="Como obter"
-                                                Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
-                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
-                        </DataGrid.Columns>
-                    </DataGrid>
+            <!-- Códigos gerados -->
+            <Border Grid.Row="1" Style="{StaticResource Card}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Códigos gerados" Style="{StaticResource H3}"
+                               Margin="0,0,0,8" />
 
-                    <ItemsControl ItemsSource="{Binding Avisos}" Margin="0,10,0,0">
+                    <ItemsControl DockPanel.Dock="Bottom" ItemsSource="{Binding Avisos}" Margin="0,10,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,6">
@@ -120,8 +222,50 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                </StackPanel>
+
+                    <Grid>
+                        <ctrl:EmptyState Glifo="&#xE8C7;" Titulo="Nenhum código ainda" Panel.ZIndex="1"
+                                         Descricao="Escolha o paciente e a modalidade e clique em “Lançar e gerar códigos”. O sistema aplica a regra do convênio e já agenda o 2º código para +24h.">
+                            <ctrl:EmptyState.Style>
+                                <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding CodigosGerados.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ctrl:EmptyState.Style>
+                        </ctrl:EmptyState>
+
+                        <DataGrid ItemsSource="{Binding CodigosGerados}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Código"
+                                                    Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                <DataGridTextColumn Header="Especialidade"
+                                                    Binding="{Binding EspecialidadeCodigo, Converter={StaticResource CodigoEspecialidade}}" Width="*" />
+                                <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
+                                <DataGridTextColumn Header="Faturar em"
+                                                    Binding="{Binding DataPrevistaFaturamento, StringFormat=dd/MM/yyyy}" Width="Auto" />
+                                <DataGridTextColumn Header="Como obter"
+                                                    Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.3*" />
+                                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </DockPanel>
             </Border>
-        </StackPanel>
+
+            <!-- Lembrete das regras (consulta rápida da recepção) -->
+            <Expander Grid.Row="2" Header="Regras por convênio" Margin="0,12,0,0">
+                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Primario}"
+                           FontSize="{StaticResource Fonte.Tabela}" LineHeight="22">
+                    <Run Text="• Unimed Padrão: código no app ou por ligação." /><LineBreak />
+                    <Run Text="• Unimed Intercâmbio: " /><Run Text="2 códigos" FontWeight="Bold" /><Run Text=" — o 2º deve ser obtido em +24h por ligação." /><LineBreak />
+                    <Run Text="• Amil: guia gerada no portal; baixa após atendimento." /><LineBreak />
+                    <Run Text="• Petrobras: exige sexo do paciente no cadastro." />
+                </TextBlock>
+            </Expander>
+        </Grid>
     </Grid>
 </UserControl>
