@@ -2,7 +2,6 @@ using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Windows;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -13,59 +12,63 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.ViewModels;
 
-/// <summary>Agenda do dia: marca horários e, ao confirmar presença, gera o atendimento.</summary>
+/// <summary>
+/// Agenda da recepção. A visão de dia é uma grade de faixas de 30 minutos — o horário
+/// livre é tão visível quanto o ocupado, e clicar nele já abre o agendamento com a hora
+/// preenchida. A visão de semana empilha os dias lado a lado.
+/// </summary>
 public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
 {
+    private static readonly CultureInfo PtBr = new("pt-BR");
+
+    /// <summary>Faixa padrão exibida na grade do dia; expande sozinha se houver horário fora dela.</summary>
+    private static readonly TimeOnly AberturaPadrao = new(7, 0);
+    private static readonly TimeOnly FechamentoPadrao = new(20, 0);
+    private const int MinutosPorFaixa = 30;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
 
-    public ObservableCollection<Agendamento> Agendamentos { get; } = new();
-    public ObservableCollection<Paciente> Pacientes { get; } = new();
+    /// <summary>Grade de faixas de horário (visão de dia).</summary>
+    public ObservableCollection<FaixaHorario> Faixas { get; } = new();
 
-    /// <summary>Modalidades ativas do catálogo (embutidas + variantes criadas pela clínica).</summary>
-    public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
-
-    /// <summary>Especialidades ativas do catálogo (para a consulta avulsa).</summary>
-    public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = new();
+    /// <summary>Colunas de segunda a domingo (visão de semana).</summary>
+    public ObservableCollection<ColunaDia> Semana { get; } = new();
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
 
     /// <summary>false = visão de dia; true = visão de semana (segunda a domingo do dia atual).</summary>
     [ObservableProperty] private bool _modoSemana;
 
-    // Formulário de novo agendamento
-    [ObservableProperty] private string? _busca;
-    [ObservableProperty] private Paciente? _pacienteSelecionado;
-    [ObservableProperty] private DateTime _dataNovo = DateTime.Today;
-    [ObservableProperty] private string _hora = "09:00";
-    [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
-    [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
-    [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _ocupado;
 
-    /// <summary>Comportamento (base) da modalidade selecionada.</summary>
-    private ModalidadeAtendimento Modalidade =>
-        ModalidadeSelecionada?.Base ?? ModalidadeAtendimento.AcupunturaComEletro;
+    // Placar do período exibido
+    [ObservableProperty] private int _totalAgendados;
+    [ObservableProperty] private int _totalRealizados;
+    [ObservableProperty] private int _totalFaltas;
+    [ObservableProperty] private int _totalCancelados;
 
-    /// <summary>Consulta avulsa: pede a especialidade (levada ao atendimento na confirmação).</summary>
-    public bool ModalidadeConsulta => Modalidade == ModalidadeAtendimento.Consulta;
-
-    partial void OnModalidadeSelecionadaChanged(EntradaModalidade? value)
-    {
-        if (Modalidade != ModalidadeAtendimento.Consulta)
-            EspecialidadeSelecionada = null;
-        OnPropertyChanged(nameof(ModalidadeConsulta));
-    }
-
-    private static readonly CultureInfo PtBr = new("pt-BR");
+    /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
+    private string? _nomeClinica;
 
     /// <summary>Segunda-feira da semana do dia selecionado.</summary>
     private DateTime InicioSemana => Dia.AddDays(-(((int)Dia.DayOfWeek + 6) % 7));
 
     public string TituloDia => ModoSemana
         ? $"Semana de {InicioSemana:dd/MM} a {InicioSemana.AddDays(6):dd/MM/yyyy}"
-        : Dia.ToString("dddd, dd/MM/yyyy", PtBr);
+        : Dia.ToString("dddd, dd 'de' MMMM 'de' yyyy", PtBr);
+
+    /// <summary>"Hoje", "Amanhã" ou vazio — contexto rápido ao lado do título.</summary>
+    public string? SeloDia
+    {
+        get
+        {
+            if (ModoSemana) return null;
+            var diferenca = (Dia.Date - DateTime.Today).Days;
+            return diferenca switch { 0 => "Hoje", 1 => "Amanhã", -1 => "Ontem", _ => null };
+        }
+    }
 
     public AgendaViewModel(IServiceScopeFactory scopeFactory, Controls.IDialogoService dialogo)
     {
@@ -73,32 +76,22 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         _dialogo = dialogo;
     }
 
-    partial void OnDiaChanged(DateTime value) => OnPropertyChanged(nameof(TituloDia));
+    partial void OnDiaChanged(DateTime value)
+    {
+        OnPropertyChanged(nameof(TituloDia));
+        OnPropertyChanged(nameof(SeloDia));
+    }
 
     partial void OnModoSemanaChanged(bool value)
     {
         OnPropertyChanged(nameof(TituloDia));
-        _ = RecarregarDia();
+        OnPropertyChanged(nameof(SeloDia));
+        _ = Recarregar();
     }
-    partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
-
-    // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro).
-    partial void OnPacienteSelecionadoChanged(Paciente? value)
-    {
-        if (value is not null)
-            ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == value.ModalidadePreferidaCodigo)
-                ?? Modalidades.FirstOrDefault(m => m.Base == value.ModalidadePreferida)
-                ?? ModalidadeSelecionada;
-    }
-
-    /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
-    private string? _nomeClinica;
 
     public async Task CarregarAsync()
     {
-        CarregarCatalogos();
-        await BuscarPacientes();
-        await RecarregarDia();
+        await Recarregar();
 
         try
         {
@@ -112,120 +105,149 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         }
     }
 
-    /// <summary>Recarrega as opções de modalidade/especialidade do cache (reflete o que foi salvo em Configurações).</summary>
-    private void CarregarCatalogos()
+    [RelayCommand]
+    private async Task Recarregar()
     {
-        var modalidadeAtual = ModalidadeSelecionada?.Codigo;
-        Modalidades.Clear();
-        foreach (var m in CatalogoModalidades.Ativas)
-            Modalidades.Add(m);
-        ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == modalidadeAtual)
-            ?? Modalidades.FirstOrDefault(m => m.Base == ModalidadeAtendimento.AcupunturaComEletro)
-            ?? Modalidades.FirstOrDefault();
+        IReadOnlyList<Agendamento> lista;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            lista = ModoSemana
+                ? await agenda.NoPeriodoAsync(DateOnly.FromDateTime(InicioSemana), DateOnly.FromDateTime(InicioSemana.AddDays(6)))
+                : await agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
+        }
 
-        var especialidadeAtual = EspecialidadeSelecionada?.Codigo;
-        Especialidades.Clear();
-        foreach (var e in CatalogoEspecialidades.Ativas)
-            Especialidades.Add(e);
-        EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual);
+        TotalAgendados = lista.Count(a => a.Status == StatusAgendamento.Agendado);
+        TotalRealizados = lista.Count(a => a.Status == StatusAgendamento.Realizado);
+        TotalFaltas = lista.Count(a => a.Status == StatusAgendamento.Faltou);
+        TotalCancelados = lista.Count(a => a.Status == StatusAgendamento.Cancelado);
+
+        if (ModoSemana) MontarSemana(lista);
+        else MontarDia(lista);
     }
 
-    private async Task RecarregarDia()
+    /// <summary>Monta a grade de faixas do dia, incluindo as vazias (o horário livre é informação).</summary>
+    private void MontarDia(IReadOnlyList<Agendamento> lista)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-        var lista = ModoSemana
-            ? await agenda.NoPeriodoAsync(DateOnly.FromDateTime(InicioSemana), DateOnly.FromDateTime(InicioSemana.AddDays(6)))
-            : await agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
+        Semana.Clear();
+        Faixas.Clear();
 
-        Agendamentos.Clear();
-        foreach (var a in lista)
-            Agendamentos.Add(a);
+        // A janela padrão abre em 07:00–20:00, mas nunca esconde um agendamento:
+        // encaixes fora do expediente esticam a grade.
+        var abertura = AberturaPadrao;
+        var fechamento = FechamentoPadrao;
+        if (lista.Count > 0)
+        {
+            var primeiro = TimeOnly.FromDateTime(lista.Min(a => a.DataHora));
+            var ultimo = TimeOnly.FromDateTime(lista.Max(a => a.DataHora));
+            if (primeiro < abertura) abertura = new TimeOnly(primeiro.Hour, 0);
+            if (ultimo >= fechamento) fechamento = new TimeOnly(ultimo.Hour, 0).AddMinutes(MinutosPorFaixa);
+        }
+
+        var cursor = Dia.Date.Add(abertura.ToTimeSpan());
+        var fim = Dia.Date.Add(fechamento.ToTimeSpan());
+        while (cursor < fim)
+        {
+            var limite = cursor.AddMinutes(MinutosPorFaixa);
+            var naFaixa = lista
+                .Where(a => a.DataHora >= cursor && a.DataHora < limite)
+                .OrderBy(a => a.DataHora)
+                .Select(Montar)
+                .ToList();
+
+            Faixas.Add(new FaixaHorario(cursor.ToString("HH:mm"), cursor, naFaixa));
+            cursor = limite;
+        }
+    }
+
+    private void MontarSemana(IReadOnlyList<Agendamento> lista)
+    {
+        Faixas.Clear();
+        Semana.Clear();
+
+        for (var i = 0; i < 7; i++)
+        {
+            var data = InicioSemana.Date.AddDays(i);
+            var doDia = lista
+                .Where(a => a.DataHora.Date == data)
+                .OrderBy(a => a.DataHora)
+                .Select(Montar)
+                .ToList();
+
+            Semana.Add(new ColunaDia(
+                PtBr.DateTimeFormat.GetAbbreviatedDayName(data.DayOfWeek).TrimEnd('.').ToUpperInvariant(),
+                data.ToString("dd/MM"),
+                data,
+                data == DateTime.Today,
+                doDia));
+        }
+    }
+
+    private static CartaoAgendamento Montar(Agendamento a) => new(
+        a,
+        a.DataHora.ToString("HH:mm"),
+        a.Paciente?.Nome ?? "—",
+        CatalogoModalidades.Nome(a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
+        a.Status switch
+        {
+            StatusAgendamento.Realizado => "Atendido",
+            StatusAgendamento.Faltou => "Faltou",
+            StatusAgendamento.Cancelado => "Cancelado",
+            _ => "Agendado"
+        },
+        a.Paciente?.FotoMiniatura,
+        a.Paciente is null ? string.Empty : CatalogoConvenios.Nome(a.Paciente.ConvenioCodigo ?? a.Paciente.Convenio.ToString()),
+        a.Paciente?.CarteirinhaVencida ?? false,
+        a.Observacoes,
+        a.Status == StatusAgendamento.Agendado,
+        a.Status == StatusAgendamento.Realizado,
+        a.Status == StatusAgendamento.Faltou,
+        a.Status == StatusAgendamento.Cancelado);
+
+    [RelayCommand] private async Task DiaAnterior() { Dia = Dia.AddDays(ModoSemana ? -7 : -1); await Recarregar(); }
+    [RelayCommand] private async Task ProximoDia() { Dia = Dia.AddDays(ModoSemana ? 7 : 1); await Recarregar(); }
+    [RelayCommand] private async Task Hoje() { Dia = DateTime.Today; await Recarregar(); }
+
+    /// <summary>Abre o cadastro de agendamento; com faixa, já vai com data e hora preenchidas.</summary>
+    private async Task AbrirCadastroAsync(DateTime? inicio)
+    {
+        var janela = new Alertas.AgendamentoWindow(
+            new AgendamentoEdicaoViewModel(_scopeFactory, _dialogo), inicio)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        Mensagem = "Agendamento criado.";
+        await Recarregar();
     }
 
     [RelayCommand]
-    private async Task BuscarPacientes()
+    private async Task Novo() => await AbrirCadastroAsync(ModoSemana ? null : Dia.Date.Add(AberturaPadrao.ToTimeSpan()));
+
+    /// <summary>Clique numa faixa livre da grade: agenda naquele horário.</summary>
+    [RelayCommand]
+    private async Task AgendarNaFaixa(FaixaHorario? faixa)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-        Pacientes.Clear();
-        foreach (var p in await service.BuscarAsync(Busca))
-            Pacientes.Add(p);
+        if (faixa is not null) await AbrirCadastroAsync(faixa.Inicio);
     }
 
-    [RelayCommand] private async Task DiaAnterior() { Dia = Dia.AddDays(ModoSemana ? -7 : -1); await RecarregarDia(); }
-    [RelayCommand] private async Task ProximoDia() { Dia = Dia.AddDays(ModoSemana ? 7 : 1); await RecarregarDia(); }
-    [RelayCommand] private async Task Hoje() { Dia = DateTime.Today; await RecarregarDia(); }
-
+    /// <summary>Clique no cabeçalho de um dia da semana: abre aquele dia na visão de dia.</summary>
     [RelayCommand]
-    private async Task Agendar()
+    private async Task AbrirDia(ColunaDia? coluna)
     {
-        if (PacienteSelecionado is null)
-        {
-            Mensagem = "Selecione o paciente.";
-            return;
-        }
-        if (!TimeOnly.TryParse(Hora, out var hora))
-        {
-            Mensagem = "Hora inválida (use HH:mm, ex.: 14:30).";
-            return;
-        }
-        if (ModalidadeSelecionada is null)
-        {
-            Mensagem = "Selecione a modalidade.";
-            return;
-        }
-        if (ModalidadeConsulta && EspecialidadeSelecionada is null)
-        {
-            Mensagem = "Informe a especialidade da consulta.";
-            return;
-        }
-
-        // Hora de parede (sem fuso) para casar com a coluna 'timestamp without time zone'.
-        var dataHora = DateTime.SpecifyKind(DataNovo.Date.Add(hora.ToTimeSpan()), DateTimeKind.Unspecified);
-
-        if (Ocupado) return;
-        Ocupado = true;
-        try
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-
-                // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
-                var conflito = await agenda.ConflitoAsync(dataHora);
-                if (conflito is not null &&
-                    !_dialogo.Confirmar("Horário ocupado",
-                        $"{conflito.Paciente?.Nome} já está agendado em {dataHora:dd/MM} às {dataHora:HH:mm}.\n" +
-                        "Agendar mesmo assim (encaixe)?"))
-                    return;
-
-                await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes,
-                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
-                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
-            }
-
-            Mensagem = "Agendamento criado.";
-            Observacoes = null;
-            Dia = DataNovo; // pula para o dia agendado
-            await RecarregarDia();
-        }
-        catch (Exception ex)
-        {
-            Mensagem = $"Não foi possível agendar: {ex.Message}";
-        }
-        finally
-        {
-            Ocupado = false;
-        }
+        if (coluna is null) return;
+        Dia = coluna.Data;
+        ModoSemana = false;   // já dispara o recarregamento
+        await Task.CompletedTask;
     }
 
     [RelayCommand]
-    private async Task ConfirmarPresenca(Agendamento? ag)
+    private async Task ConfirmarPresenca(CartaoAgendamento? cartao)
     {
-        if (ag is null) return;
+        if (cartao is null) return;
         if (!_dialogo.Confirmar("Confirmar presença",
-            $"Confirmar presença de {ag.Paciente?.Nome} e gerar o atendimento (códigos de faturamento)?")) return;
+            $"Confirmar presença de {cartao.Paciente} e gerar o atendimento (códigos de faturamento)?")) return;
 
         if (Ocupado) return;
         Ocupado = true;
@@ -234,11 +256,11 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
             {
                 var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-                var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
+                var resultado = await agenda.ConfirmarPresencaAsync(cartao.Item.Id);
                 Mensagem = $"Atendimento gerado com {resultado.Atendimento.Codigos.Count} código(s).";
             }
 
-            await RecarregarDia();
+            await Recarregar();
         }
         catch (Exception ex)
         {
@@ -251,27 +273,30 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     }
 
     [RelayCommand]
-    private async Task Cancelar(Agendamento? ag)
+    private async Task Cancelar(CartaoAgendamento? cartao)
     {
-        if (ag is null) return;
+        if (cartao is null) return;
+        if (!_dialogo.ConfirmarPerigo("Cancelar agendamento",
+            $"Cancelar o horário de {cartao.Paciente} às {cartao.Hora}?")) return;
+
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.CancelarAsync(ag.Id);
+            await agenda.CancelarAsync(cartao.Item.Id);
         }
-        await RecarregarDia();
+        await Recarregar();
     }
 
     [RelayCommand]
-    private async Task Faltou(Agendamento? ag)
+    private async Task Faltou(CartaoAgendamento? cartao)
     {
-        if (ag is null) return;
+        if (cartao is null) return;
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.MarcarFaltaAsync(ag.Id);
+            await agenda.MarcarFaltaAsync(cartao.Item.Id);
         }
-        await RecarregarDia();
+        await Recarregar();
     }
 
     /// <summary>
@@ -279,22 +304,24 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     /// Falta de paciente é sessão não faturada — confirmar na véspera é rotina da recepção.
     /// </summary>
     [RelayCommand]
-    private void Whatsapp(Agendamento? ag)
+    private void Whatsapp(CartaoAgendamento? cartao)
     {
-        if (ag?.Paciente is null) return;
+        if (cartao?.Item.Paciente is null) return;
+        var paciente = cartao.Item.Paciente;
 
-        var fone = Telefone.Normalizar(ag.Paciente.Telefone);
+        var fone = Telefone.Normalizar(paciente.Telefone);
         if (fone.Length is < 10 or > 13)
         {
-            Mensagem = $"{ag.Paciente.Nome}: telefone ausente ou inválido no cadastro (edite em Pacientes).";
+            Mensagem = $"{paciente.Nome}: telefone ausente ou inválido no cadastro (edite em Pacientes).";
             return;
         }
         if (fone.Length is 10 or 11)
             fone = "55" + fone; // wa.me exige DDI
 
-        var primeiroNome = ag.Paciente.Nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ag.Paciente.Nome;
-        var quando = ag.DataHora.Date == DateTime.Today.AddDays(1) ? "amanhã" : ag.DataHora.ToString("dd/MM", PtBr);
-        var texto = $"Olá, {primeiroNome}! Estamos confirmando sua sessão {quando} às {ag.DataHora:HH:mm}." +
+        var quando = cartao.Item.DataHora;
+        var primeiroNome = paciente.Nome.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? paciente.Nome;
+        var dia = quando.Date == DateTime.Today.AddDays(1) ? "amanhã" : quando.ToString("dd/MM", PtBr);
+        var texto = $"Olá, {primeiroNome}! Estamos confirmando sua sessão {dia} às {quando:HH:mm}." +
                     " Se tiver algum imprevisto, é só responder por aqui." +
                     (string.IsNullOrWhiteSpace(_nomeClinica) ? string.Empty : $" — {_nomeClinica}");
 
@@ -312,5 +339,5 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     }
 
     // Atalhos globais do shell (IAtalhosDeTela)
-    public ICommand? AtalhoAtualizar => HojeCommand;
+    public ICommand? AtalhoAtualizar => RecarregarCommand;
 }

@@ -32,6 +32,7 @@
             <conv:NuloParaVisibilidadeConverter x:Key="NuloParaVisibilidade" />
             <conv:TextoParaVisibilidadeConverter x:Key="TextoParaVisibilidade" />
             <conv:ZeroParaVisibilidadeConverter x:Key="ZeroParaVisibilidade" />
+            <conv:BoolInvertidoParaVisibilidadeConverter x:Key="BoolInvertidoParaVisibilidade" />
             <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         </ResourceDictionary>
     </Application.Resources>
