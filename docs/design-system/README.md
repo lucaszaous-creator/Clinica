@@ -29,6 +29,7 @@ Design system do app desktop (C#/.NET 8, WPF puro, MVVM com CommunityToolkit.Mvv
 - [atalhos.md](atalhos.md) — atalhos de teclado e roteamento.
 - [acessibilidade.md](acessibilidade.md) — contraste AA, foco e teclado.
 - [recomendacoes-dotnet.md](recomendacoes-dotnet.md) — práticas de implementação WPF.
+- [armadilhas-xaml.md](armadilhas-xaml.md) — erros que só o compilador de marcação pega (leia antes de mexer em views).
 
 ## Fase 2 (planejada, não implementada)
 
