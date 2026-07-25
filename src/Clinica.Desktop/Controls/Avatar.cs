@@ -30,13 +30,18 @@ public class Avatar : Control
     }
 
     public static readonly DependencyProperty FotoProperty =
-        DependencyProperty.Register(nameof(Foto), typeof(byte[]), typeof(Avatar),
+        DependencyProperty.Register(nameof(Foto), typeof(object), typeof(Avatar),
             new PropertyMetadata(null, (d, _) => ((Avatar)d).AtualizarImagem()));
 
-    /// <summary>Bytes da foto (JPEG). Null ou vazio = mostra as iniciais.</summary>
-    public byte[]? Foto
+    /// <summary>
+    /// Bytes da foto (JPEG). Null ou vazio = mostra as iniciais.
+    /// Tipado como object de propósito: uma propriedade de dependência de tipo array
+    /// não pode ser atribuída dentro de um DataTemplate (erro MC4102 do compilador de
+    /// XAML), e é exatamente assim que a lista de pacientes usa o avatar.
+    /// </summary>
+    public object? Foto
     {
-        get => (byte[]?)GetValue(FotoProperty);
+        get => GetValue(FotoProperty);
         set => SetValue(FotoProperty, value);
     }
 
@@ -89,7 +94,7 @@ public class Avatar : Control
 
     private void AtualizarImagem()
     {
-        var imagem = Retrato.Carregar(Foto);
+        var imagem = Retrato.Carregar(Foto as byte[]);
         SetValue(ImagemKey, imagem);
         SetValue(TemFotoKey, imagem is not null);
     }
