@@ -47,6 +47,29 @@ public sealed class PacienteService
         await _repo.SalvarAsync(ct);
     }
 
+    /// <summary>Retrato em tamanho cheio (JPEG) do paciente; null quando não há foto.</summary>
+    public async Task<byte[]?> ObterFotoAsync(int pacienteId, CancellationToken ct = default)
+        => (await _repo.ObterFotoPacienteAsync(pacienteId, ct))?.Conteudo;
+
+    /// <summary>
+    /// Grava o retrato capturado na recepção: a foto cheia e a miniatura usada nos avatares.
+    /// Ambas já chegam em JPEG, recortadas e redimensionadas pela camada visual.
+    /// </summary>
+    public async Task DefinirFotoAsync(int pacienteId, byte[] conteudo, byte[] miniatura, CancellationToken ct = default)
+    {
+        if (conteudo.Length == 0 || miniatura.Length == 0)
+            throw new ArgumentException("Foto vazia — repita a captura.");
+
+        await _repo.DefinirFotoPacienteAsync(pacienteId, conteudo, miniatura, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    public async Task RemoverFotoAsync(int pacienteId, CancellationToken ct = default)
+    {
+        await _repo.RemoverFotoPacienteAsync(pacienteId, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     /// <summary>Valida nome e CPF, normalizando o CPF (só dígitos) quando informado.</summary>
     private static void Validar(Paciente paciente)
     {

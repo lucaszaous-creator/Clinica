@@ -28,6 +28,18 @@ public partial class FichaPacienteViewModel : ObservableObject
     [ObservableProperty] private bool _carteirinhaVencida;
     [ObservableProperty] private string? _validadeCarteirinhaTexto;
 
+    /// <summary>Retrato em tamanho cheio; null quando o paciente ainda não tem foto.</summary>
+    [ObservableProperty] private byte[]? _foto;
+
+    /// <summary>Ex.: "Foto de 24/07/2026"; vazio quando não há retrato.</summary>
+    [ObservableProperty] private string? _fotoTexto;
+
+    /// <summary>Nome da modalidade habitual do paciente (pré-preenche a Agenda).</summary>
+    [ObservableProperty] private string? _modalidadeTexto;
+
+    /// <summary>Telefone formatado ou "—" quando não informado.</summary>
+    [ObservableProperty] private string _telefoneTexto = "—";
+
     // Indicadores da ficha
     [ObservableProperty] private int _totalSessoes;
     [ObservableProperty] private int _totalBaixados;
@@ -66,7 +78,9 @@ public partial class FichaPacienteViewModel : ObservableObject
                 .OrderByDescending(c => c.DataPrevistaFaturamento);
             foreach (var c in todos) Codigos.Add(c);
 
-            NomeConvenio = Domain.Regras.ConvenioInfo.NomeExibicao(Paciente.Convenio);
+            // Pelo código do catálogo, para refletir variantes/renomeações feitas na clínica.
+            NomeConvenio = Domain.Regras.CatalogoConvenios.Nome(
+                Paciente.ConvenioCodigo ?? Paciente.Convenio.ToString());
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
@@ -83,7 +97,10 @@ public partial class FichaPacienteViewModel : ObservableObject
             }
 
             CarteirinhaTexto = string.IsNullOrWhiteSpace(Paciente.Carteirinha) ? "—" : Paciente.Carteirinha;
-            CarteirinhaVencida = Paciente.ValidadeCarteirinha is { } val && val < hoje;
+            TelefoneTexto = string.IsNullOrWhiteSpace(Paciente.Telefone) ? "—" : Paciente.Telefone;
+            ModalidadeTexto = Domain.Regras.CatalogoModalidades.Nome(
+                Paciente.ModalidadePreferidaCodigo ?? Paciente.ModalidadePreferida.ToString());
+            CarteirinhaVencida = Paciente.CarteirinhaVencida;
             ValidadeCarteirinhaTexto = Paciente.ValidadeCarteirinha is { } v2
                 ? (CarteirinhaVencida ? $"Carteirinha VENCIDA em {v2:dd/MM/yyyy}" : $"Carteirinha válida até {v2:dd/MM/yyyy}")
                 : null;
@@ -93,6 +110,22 @@ public partial class FichaPacienteViewModel : ObservableObject
             UltimaSessao = Paciente.Atendimentos.Count > 0
                 ? Paciente.Atendimentos.Max(a => a.Data).ToString("dd/MM/yyyy")
                 : "—";
+
+            // Retrato: a miniatura já veio com o paciente e entra na hora; a foto cheia
+            // (tabela à parte) é buscada logo em seguida para o cabeçalho da ficha.
+            Foto = Paciente.FotoMiniatura;
+            FotoTexto = Paciente.FotoAtualizadaEm is { } capturada
+                ? $"Foto de {capturada:dd/MM/yyyy}"
+                : null;
+            try
+            {
+                var cheia = await service.ObterFotoAsync(pacienteId);
+                if (cheia is not null && _pacienteId == pacienteId) Foto = cheia;
+            }
+            catch
+            {
+                // Sem a foto cheia a ficha segue com a miniatura.
+            }
         }
 
         try

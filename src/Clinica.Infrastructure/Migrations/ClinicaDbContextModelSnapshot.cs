@@ -554,6 +554,12 @@ namespace Clinica.Infrastructure.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
 
+                    b.Property<DateTime?>("FotoAtualizadaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<byte[]>("FotoMiniatura")
+                        .HasColumnType("bytea");
+
                     b.Property<string>("ModalidadePreferida")
                         .IsRequired()
                         .HasMaxLength(40)
@@ -595,6 +601,23 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Pacientes");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.PacienteFoto", b =>
+                {
+                    b.Property<int>("PacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("AtualizadaEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<byte[]>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("PacienteId");
+
+                    b.ToTable("PacientesFotos");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ParametroConvenio", b =>
@@ -687,6 +710,17 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Paciente");
                 });
 
+            modelBuilder.Entity("Clinica.Domain.Entities.PacienteFoto", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.Paciente", "Paciente")
+                        .WithOne("Foto")
+                        .HasForeignKey("Clinica.Domain.Entities.PacienteFoto", "PacienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Paciente");
+                });
+
             modelBuilder.Entity("Clinica.Domain.Entities.Atendimento", b =>
                 {
                     b.Navigation("Codigos");
@@ -702,6 +736,8 @@ namespace Clinica.Infrastructure.Migrations
                     b.Navigation("Atendimentos");
 
                     b.Navigation("Consultas");
+
+                    b.Navigation("Foto");
                 });
 #pragma warning restore 612, 618
         }

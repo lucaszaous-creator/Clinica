@@ -13,6 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.ViewModels;
 
+/// <summary>Opção do filtro de convênio da lista de pacientes. Código null = todos.</summary>
+public sealed record OpcaoConvenio(string? Codigo, string Nome);
+
 /// <summary>Cadastro, busca (nome/CPF), edição, exclusão de pacientes e acesso à ficha.</summary>
 public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 {
@@ -20,6 +23,9 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     private readonly Controls.IDialogoService _dialogo;
 
     public ObservableCollection<Paciente> Pacientes { get; } = new();
+
+    /// <summary>Opções do filtro de convênio (a primeira é sempre "Todos os convênios").</summary>
+    public ObservableCollection<OpcaoConvenio> FiltrosConvenio { get; } = new();
 
     /// <summary>Convênios ATIVOS do catálogo (código + nome + família).</summary>
     public ObservableCollection<EntradaConvenio> Convenios { get; } = new();
@@ -44,6 +50,10 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     // Pesquisa instantânea (padrão CampoPesquisa do design system).
     partial void OnBuscaChanged(string? value) => _ = Buscar();
 
+    /// <summary>Filtro de convênio aplicado sobre o resultado da busca.</summary>
+    [ObservableProperty] private OpcaoConvenio? _filtroConvenio;
+    partial void OnFiltroConvenioChanged(OpcaoConvenio? value) { if (!_carregando) _ = Buscar(); }
+
     // Formulário
     [ObservableProperty] private int? _editandoId;
     [ObservableProperty] private string _nome = string.Empty;
@@ -65,6 +75,14 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _ocupado;
+
+    // Retrato em edição. A gravação só acontece no Salvar, junto com o resto do cadastro.
+    [ObservableProperty] private byte[]? _fotoConteudo;
+    [ObservableProperty] private byte[]? _fotoMiniatura;
+    [ObservableProperty] private bool _temFoto;
+    private bool _fotoAlterada;
+
+    partial void OnFotoConteudoChanged(byte[]? value) => TemFoto = value is { Length: > 0 };
 
     // Controle da auto-sugestão de categoria (plano + app) x override manual.
     private bool _categoriaManual;
@@ -114,6 +132,15 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         Modalidades.Clear();
         foreach (var m in CatalogoModalidades.Ativas)
             Modalidades.Add(m);
+
+        _carregando = true;
+        FiltrosConvenio.Clear();
+        FiltrosConvenio.Add(new OpcaoConvenio(null, "Todos os convênios"));
+        foreach (var op in CatalogoConvenios.Ativos)
+            FiltrosConvenio.Add(new OpcaoConvenio(op.Codigo, op.Nome));
+        FiltroConvenio = FiltrosConvenio[0];
+        _carregando = false;
+
         await Buscar();
     }
 
@@ -122,8 +149,17 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     {
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
+        var encontrados = await service.BuscarAsync(Busca);
+
+        // Filtro de convênio: comparado pelo código do catálogo, com fallback na
+        // família para cadastros antigos gravados antes dos convênios dinâmicos.
+        if (FiltroConvenio?.Codigo is { } codigo)
+            encontrados = encontrados
+                .Where(p => (p.ConvenioCodigo ?? p.Convenio.ToString()) == codigo)
+                .ToList();
+
         Pacientes.Clear();
-        foreach (var p in await service.BuscarAsync(Busca))
+        foreach (var p in encontrados)
             Pacientes.Add(p);
     }
 
@@ -175,6 +211,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
                 if (p is null) { Mensagem = "Paciente não encontrado."; MensagemEhErro = true; return; }
                 Aplicar(p);
                 await service.AtualizarAsync(p, _categoriaManual);
+                await GravarFotoAsync(service, p.Id);
                 Mensagem = "Paciente atualizado.";
                 MensagemEhErro = false;
             }
@@ -183,6 +220,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
                 var p = new Paciente();
                 Aplicar(p);
                 await service.SalvarNovoAsync(p, _categoriaManual);
+                await GravarFotoAsync(service, p.Id);
                 Mensagem = "Paciente salvo.";
                 MensagemEhErro = false;
             }
@@ -198,7 +236,12 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
             Ocupado = false;
         }
 
+        // Limpar() zera a mensagem junto com o formulário — a confirmação é reposta
+        // depois, senão o usuário salva e não vê retorno nenhum.
+        var confirmacao = Mensagem;
         Limpar();
+        Mensagem = confirmacao;
+        MensagemEhErro = false;
         await Buscar();
     }
 
@@ -220,6 +263,68 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         p.ModalidadePreferidaCodigo = ModalidadePreferidaCodigo;
         p.ModalidadePreferida = CatalogoModalidades.Base(ModalidadePreferidaCodigo); // base derivada do código
         p.Observacoes = string.IsNullOrWhiteSpace(Observacoes) ? null : Observacoes.Trim();
+    }
+
+    /// <summary>Grava (ou apaga) o retrato depois que o cadastro já tem Id. Sem foto tocada, não faz nada.</summary>
+    private async Task GravarFotoAsync(PacienteService service, int pacienteId)
+    {
+        if (!_fotoAlterada) return;
+
+        if (FotoConteudo is { Length: > 0 } conteudo && FotoMiniatura is { Length: > 0 } miniatura)
+            await service.DefinirFotoAsync(pacienteId, conteudo, miniatura);
+        else
+            await service.RemoverFotoAsync(pacienteId);
+
+        _fotoAlterada = false;
+    }
+
+    /// <summary>Abre a webcam da recepção (ou a escolha de arquivo) para o retrato do paciente.</summary>
+    [RelayCommand]
+    private void CapturarFoto()
+    {
+        var janela = new Alertas.CapturaFotoWindow(Nome)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        FotoConteudo = janela.Conteudo;
+        FotoMiniatura = janela.Miniatura;
+        _fotoAlterada = true;
+        Mensagem = "Foto definida — clique em Salvar para gravar no cadastro.";
+        MensagemEhErro = false;
+    }
+
+    [RelayCommand]
+    private void RemoverFoto()
+    {
+        if (FotoConteudo is null && FotoMiniatura is null) return;
+
+        FotoConteudo = null;
+        FotoMiniatura = null;
+        _fotoAlterada = true;
+        Mensagem = "Foto removida — clique em Salvar para confirmar.";
+        MensagemEhErro = false;
+    }
+
+    /// <summary>Traz a foto cheia do paciente em edição (a lista só carrega a miniatura).</summary>
+    private async Task CarregarFotoAsync(int pacienteId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
+            var foto = await service.ObterFotoAsync(pacienteId);
+
+            // Se o usuário já capturou outra foto (ou trocou de paciente) enquanto
+            // a consulta corria, o que veio do banco é descartado.
+            if (_fotoAlterada || EditandoId != pacienteId) return;
+            FotoConteudo = foto;
+        }
+        catch
+        {
+            // Sem a foto cheia a ficha ainda funciona: a miniatura já está na tela.
+        }
     }
 
     [RelayCommand]
@@ -245,6 +350,12 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         _categoriaManual = p.Categoria != CategoriaBase(p.PossuiApp);
         _carregando = false;
         Mensagem = null;
+
+        // Miniatura entra na hora (já veio com a lista) e a foto cheia chega em seguida.
+        _fotoAlterada = false;
+        FotoMiniatura = p.FotoMiniatura;
+        FotoConteudo = p.FotoMiniatura;
+        _ = CarregarFotoAsync(p.Id);
     }
 
     [RelayCommand]
@@ -287,6 +398,9 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         ModalidadePreferidaCodigo = ModalidadeAtendimento.AcupunturaComEletro.ToString();
         Observacoes = null;
         Mensagem = null;
+        FotoConteudo = null;
+        FotoMiniatura = null;
+        _fotoAlterada = false;
         _carregando = false;
         SugerirCategoria();
     }

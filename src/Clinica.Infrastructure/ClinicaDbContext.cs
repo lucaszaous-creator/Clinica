@@ -8,6 +8,7 @@ public class ClinicaDbContext : DbContext
     public ClinicaDbContext(DbContextOptions<ClinicaDbContext> options) : base(options) { }
 
     public DbSet<Paciente> Pacientes => Set<Paciente>();
+    public DbSet<PacienteFoto> PacientesFotos => Set<PacienteFoto>();
     public DbSet<Atendimento> Atendimentos => Set<Atendimento>();
     public DbSet<CodigoFaturamento> Codigos => Set<CodigoFaturamento>();
     public DbSet<Agendamento> Agendamentos => Set<Agendamento>();
@@ -35,7 +36,25 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Categoria).HasConversion<string>().HasMaxLength(20);
             e.Property(p => p.ModalidadePreferida).HasConversion<string>().HasMaxLength(40);
             e.Property(p => p.ModalidadePreferidaCodigo).HasMaxLength(40);
+            // Hora de parede (sem fuso), como na Agenda — evita o erro do Npgsql com DateTime local.
+            e.Property(p => p.FotoAtualizadaEm).HasColumnType("timestamp without time zone");
+            e.Ignore(p => p.TemFoto);
+            e.Ignore(p => p.CarteirinhaVencida);
             e.HasMany(p => p.Atendimentos).WithOne(a => a.Paciente!).HasForeignKey(a => a.PacienteId);
+        });
+
+        // Retrato em tamanho cheio numa tabela própria: a lista de pacientes carrega só
+        // a miniatura, e os bytes grandes só vêm do banco quando a ficha os pede.
+        b.Entity<PacienteFoto>(e =>
+        {
+            e.ToTable("PacientesFotos");
+            e.HasKey(f => f.PacienteId);
+            e.Property(f => f.PacienteId).ValueGeneratedNever();
+            e.Property(f => f.Conteudo).IsRequired();
+            e.Property(f => f.AtualizadaEm).HasColumnType("timestamp without time zone");
+            e.HasOne(f => f.Paciente).WithOne(p => p.Foto)
+                .HasForeignKey<PacienteFoto>(f => f.PacienteId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Atendimento>(e =>

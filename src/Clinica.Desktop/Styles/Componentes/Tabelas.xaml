@@ -106,4 +106,47 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ============================================================
+         Lista em cartões — para listagens que precisam de retrato e de
+         duas linhas de texto por item, onde a grade fica apertada.
+         ============================================================ -->
+
+    <Style x:Key="ItemLista" TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="b" Background="{StaticResource Brush.Superficie}"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                            CornerRadius="{StaticResource Raio.Medio}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Borda.Hover}" />
+                            <Setter TargetName="b" Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                            <Setter TargetName="b" Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ListaCartoes" TargetType="ListBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="ItemContainerStyle" Value="{StaticResource ItemLista}" />
+    </Style>
+
 </ResourceDictionary>

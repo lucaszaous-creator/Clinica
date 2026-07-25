@@ -65,6 +65,20 @@ public interface IClinicaRepositorio
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 
+    // ---- Retrato do paciente ----
+
+    /// <summary>Foto em tamanho cheio do paciente (tabela à parte). Null quando não há retrato.</summary>
+    Task<PacienteFoto?> ObterFotoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Grava (ou substitui) o retrato do paciente: a foto cheia na tabela própria e a
+    /// miniatura na linha do paciente. Não persiste — chame <c>SalvarAsync</c>.
+    /// </summary>
+    Task DefinirFotoPacienteAsync(int pacienteId, byte[] conteudo, byte[] miniatura, CancellationToken ct = default);
+
+    /// <summary>Apaga o retrato do paciente (foto cheia e miniatura). Não persiste.</summary>
+    Task RemoverFotoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
     // ---- Agenda ----
     // ---- Parâmetros dos convênios ----
     Task<IReadOnlyList<ParametroConvenio>> ParametrosAsync(CancellationToken ct = default);

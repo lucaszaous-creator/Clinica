@@ -33,6 +33,35 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
     </Style>
 
+    <!-- Título de bloco dentro de um formulário/cartão (escreva o texto em CAIXA ALTA) -->
+    <Style x:Key="TituloSecao" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="Margin" Value="0,20,0,2" />
+    </Style>
+
+    <!-- Linha divisória de 1px entre blocos -->
+    <Style x:Key="Divisor" TargetType="Border">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Background" Value="{StaticResource Brush.Borda}" />
+        <Setter Property="Margin" Value="0,0,0,4" />
+    </Style>
+
+    <!-- Rótulo/valor de uma ficha (lado a lado, em WrapPanel ou Grid) -->
+    <Style x:Key="FichaRotulo" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="Margin" Value="0,0,0,2" />
+    </Style>
+    <Style x:Key="FichaValor" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
     <!-- Accordion (Expander): header limpo com chevron à direita -->
     <Style TargetType="Expander">
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
