@@ -18,6 +18,12 @@ public sealed class PacienteService
     public Task<Paciente?> ObterComHistoricoAsync(int pacienteId, CancellationToken ct = default)
         => _repo.ObterPacienteComHistoricoAsync(pacienteId, ct);
 
+    /// <summary>Consultas autorizadas do paciente (ciclo de renovação), da mais recente para a mais antiga.</summary>
+    public async Task<IReadOnlyList<Consulta>> ConsultasAsync(int pacienteId, CancellationToken ct = default)
+        => (await _repo.ConsultasDoPacienteAsync(pacienteId, ct))
+            .OrderByDescending(c => c.DataEmissao)
+            .ToList();
+
     public async Task<Paciente> SalvarNovoAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
     {
         Validar(paciente);

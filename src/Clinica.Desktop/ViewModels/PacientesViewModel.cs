@@ -54,6 +54,12 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private OpcaoConvenio? _filtroConvenio;
     partial void OnFiltroConvenioChanged(OpcaoConvenio? value) { if (!_carregando) _ = Buscar(); }
 
+    /// <summary>Ordenação da lista. "Recentes" usa o Id (ordem de cadastro).</summary>
+    public string[] Ordenacoes { get; } = { "Nome (A–Z)", "Cadastro mais recente" };
+
+    [ObservableProperty] private string _ordenacao = "Nome (A–Z)";
+    partial void OnOrdenacaoChanged(string value) { if (!_carregando) _ = Buscar(); }
+
     // Formulário
     [ObservableProperty] private int? _editandoId;
     [ObservableProperty] private string _nome = string.Empty;
@@ -157,6 +163,10 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
             encontrados = encontrados
                 .Where(p => (p.ConvenioCodigo ?? p.Convenio.ToString()) == codigo)
                 .ToList();
+
+        // A busca já vem por nome; só o "mais recente" precisa reordenar (Id = ordem de cadastro).
+        if (Ordenacao == Ordenacoes[1])
+            encontrados = encontrados.OrderByDescending(p => p.Id).ToList();
 
         Pacientes.Clear();
         foreach (var p in encontrados)

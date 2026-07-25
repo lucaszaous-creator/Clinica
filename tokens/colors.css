@@ -21,4 +21,5 @@
 --info:var(--ciano-500);--info-suave:var(--ciano-100);
 --sidebar-bg:#FFFFFF;--sidebar-item-ativo:var(--azul-50);--sidebar-item-hover:var(--cinza-100);
 --sidebar-texto:var(--cinza-700);--sidebar-texto-ativo:var(--azul-600);
+--visor-bg:var(--cinza-900);--visor-texto:var(--cinza-300);--visor-guia:rgba(255,255,255,.4);
 }

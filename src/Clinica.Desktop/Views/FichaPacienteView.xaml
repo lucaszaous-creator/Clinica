@@ -57,6 +57,23 @@
                             <Border Style="{StaticResource Badge}" Margin="0,0,8,4">
                                 <TextBlock Text="{Binding ModalidadeTexto}" />
                             </Border>
+
+                            <!-- Situação da consulta autorizada: vira alerta quando está perto de vencer -->
+                            <Border Margin="0,0,8,4"
+                                    Visibility="{Binding ConsultaTexto, Converter={StaticResource TextoParaVisibilidade}}"
+                                    ToolTip="Consulta autorizada do paciente — ao vencer precisa ser renovada antes da próxima guia">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource Badge.Sucesso}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding ConsultaEmRisco}" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding ConsultaTexto}" />
+                            </Border>
                         </WrapPanel>
                     </StackPanel>
 
@@ -82,7 +99,7 @@
                 </Grid>
 
                 <!-- Faixa vermelha só quando a carteirinha já venceu -->
-                <Border Style="{StaticResource AlertaPerigo}" Margin="0,14,0,0"
+                <Border Style="{StaticResource AlertaPerigo}" Margin="0,16,0,0"
                         Visibility="{Binding CarteirinhaVencida, Converter={StaticResource BoolParaVisibilidade}}">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE7BA;" Style="{StaticResource Icone}" Margin="0,0,8,0" />
@@ -159,7 +176,7 @@
                         <TextBlock Text="{Binding NomeConvenio}" Style="{StaticResource FichaValor}" />
 
                         <TextBlock Text="Carteirinha" Style="{StaticResource FichaRotulo}" />
-                        <TextBlock Text="{Binding CarteirinhaTexto}" Style="{StaticResource FichaValor}" Margin="0,0,0,2" />
+                        <TextBlock Text="{Binding CarteirinhaTexto}" Style="{StaticResource FichaValor}" Margin="0,0,0,4" />
                         <TextBlock Text="{Binding ValidadeCarteirinhaTexto}" TextWrapping="Wrap"
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12">
                             <TextBlock.Style>
@@ -202,49 +219,132 @@
             </Border>
 
             <Border Grid.Column="1" Style="{StaticResource Card}">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Histórico de códigos" Style="{StaticResource H3}"
-                               Margin="0,0,0,8" />
-                    <Grid>
-                        <ctrl:EmptyState Glifo="&#xE8C7;" Titulo="Sem histórico ainda" Panel.ZIndex="1"
-                                         Descricao="Os códigos de faturamento aparecem aqui após o primeiro atendimento.">
-                            <ctrl:EmptyState.Style>
-                                <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Codigos.Count}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ctrl:EmptyState.Style>
-                        </ctrl:EmptyState>
+                <TabControl>
 
-                        <DataGrid ItemsSource="{Binding Codigos}">
-                            <DataGrid.Columns>
-                                <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
-                                <DataGridTextColumn Header="Código"
-                                                    Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
-                                <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
-                                <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
-                                <DataGridTextColumn Header="Baixado em" Binding="{Binding DataBaixa}" Width="Auto" />
-                                <DataGridTextColumn Header="Situação"
-                                                    Binding="{Binding Path=., Converter={StaticResource StatusCodigo}}" Width="2*" />
-                                <DataGridTemplateColumn Header="Ação" Width="Auto">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Content="Estornar"
-                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                    Visibility="{Binding Baixado, Converter={StaticResource BoolParaVisibilidade}}"
-                                                    Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                                    CommandParameter="{Binding}" />
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-                            </DataGrid.Columns>
-                        </DataGrid>
-                    </Grid>
-                </DockPanel>
+                    <!-- ===== Linha do tempo de visitas ===== -->
+                    <TabItem Header="Atendimentos">
+                        <Grid>
+                            <ctrl:EmptyState Glifo="&#xE787;" Titulo="Nenhum atendimento lançado" Panel.ZIndex="1"
+                                             Descricao="Cada visita do paciente aparece aqui com o placar de guias daquele dia.">
+                                <ctrl:EmptyState.Style>
+                                    <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Atendimentos.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ctrl:EmptyState.Style>
+                            </ctrl:EmptyState>
+
+                            <DataGrid ItemsSource="{Binding Atendimentos}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Data" Binding="{Binding Data}" Width="Auto" />
+                                    <DataGridTextColumn Header="Atendimento" Binding="{Binding Numero}" Width="Auto" />
+                                    <DataGridTextColumn Header="Modalidade" Binding="{Binding Modalidade}" Width="*" />
+                                    <DataGridTextColumn Header="Guias" Binding="{Binding Guias}" Width="Auto" />
+                                    <DataGridTextColumn Header="Baixadas" Binding="{Binding Baixadas}" Width="Auto" />
+                                    <DataGridTemplateColumn Header="Situação" Width="1.4*" SortMemberPath="Situacao">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                        <Ellipse.Style>
+                                                            <Style TargetType="Ellipse">
+                                                                <Setter Property="Fill" Value="{StaticResource Brush.Sucesso}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding TemPendencia}" Value="True">
+                                                                        <Setter Property="Fill" Value="{StaticResource Brush.Erro}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Ellipse.Style>
+                                                    </Ellipse>
+                                                    <TextBlock Text="{Binding Situacao}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- ===== Guias/códigos de faturamento ===== -->
+                    <TabItem Header="Guias e códigos">
+                        <Grid>
+                            <ctrl:EmptyState Glifo="&#xE8C7;" Titulo="Sem histórico ainda" Panel.ZIndex="1"
+                                             Descricao="Os códigos de faturamento aparecem aqui após o primeiro atendimento.">
+                                <ctrl:EmptyState.Style>
+                                    <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Codigos.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ctrl:EmptyState.Style>
+                            </ctrl:EmptyState>
+
+                            <DataGrid ItemsSource="{Binding Codigos}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
+                                    <DataGridTextColumn Header="Código"
+                                                        Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                    <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />
+                                    <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuiaReal}" Width="Auto" />
+                                    <DataGridTextColumn Header="Baixado em" Binding="{Binding DataBaixa}" Width="Auto" />
+                                    <DataGridTextColumn Header="Situação"
+                                                        Binding="{Binding Path=., Converter={StaticResource StatusCodigo}}" Width="2*" />
+                                    <DataGridTemplateColumn Header="Ação" Width="Auto">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Button Content="Estornar"
+                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                        Visibility="{Binding Baixado, Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        CommandParameter="{Binding}" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+
+                    <!-- ===== Consultas autorizadas (ciclo de renovação) ===== -->
+                    <TabItem Header="Consultas">
+                        <Grid>
+                            <ctrl:EmptyState Glifo="&#xE8F1;" Titulo="Nenhuma consulta autorizada" Panel.ZIndex="1"
+                                             Descricao="As consultas emitidas para este paciente e suas validades aparecem aqui.">
+                                <ctrl:EmptyState.Style>
+                                    <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Consultas.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ctrl:EmptyState.Style>
+                            </ctrl:EmptyState>
+
+                            <DataGrid ItemsSource="{Binding Consultas}">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Emitida em" Binding="{Binding DataEmissao}" Width="Auto" />
+                                    <DataGridTextColumn Header="Válida até" Binding="{Binding DataVencimento}" Width="Auto" />
+                                    <DataGridTextColumn Header="Validade (dias)" Binding="{Binding ValidadeDias}" Width="Auto" />
+                                    <DataGridTextColumn Header="Convênio"
+                                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                    <DataGridTextColumn Header="Situação" Binding="{Binding Status}" Width="Auto" />
+                                    <DataGridTextColumn Header="Observações" Binding="{Binding Observacoes}" Width="1.5*" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </TabItem>
+                </TabControl>
             </Border>
         </Grid>
     </Grid>

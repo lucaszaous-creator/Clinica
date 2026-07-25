@@ -58,16 +58,15 @@ public sealed class CameraServico : IDisposable
             var dispositivo = new VideoCaptureDevice(camera.Moniker);
 
             // Melhor resolução até 1280px de largura: acima disso o preview pesa sem
-            // ganho nenhum para um retrato de 640px.
+            // ganho nenhum para um retrato de 640px. Se a câmera só oferece resoluções
+            // maiores, fica com a menor delas.
             var capacidades = dispositivo.VideoCapabilities;
             if (capacidades is { Length: > 0 })
             {
-                var escolhida = capacidades
-                    .Where(c => c.FrameSize.Width <= 1280)
-                    .OrderByDescending(c => c.FrameSize.Width * c.FrameSize.Height)
-                    .FirstOrDefault()
-                    ?? capacidades.OrderBy(c => c.FrameSize.Width * c.FrameSize.Height).First();
-                dispositivo.VideoResolution = escolhida;
+                var candidatas = capacidades.Where(c => c.FrameSize.Width <= 1280).ToArray();
+                dispositivo.VideoResolution = candidatas.Length > 0
+                    ? candidatas.OrderByDescending(c => c.FrameSize.Width * c.FrameSize.Height).First()
+                    : capacidades.OrderBy(c => c.FrameSize.Width * c.FrameSize.Height).First();
             }
 
             dispositivo.NewFrame += AoReceberQuadro;
@@ -93,11 +92,17 @@ public sealed class CameraServico : IDisposable
         dispositivo.VideoSourceError -= AoFalhar;
         try
         {
-            if (dispositivo.IsRunning)
+            if (!dispositivo.IsRunning) return;
+
+            dispositivo.SignalToStop();
+
+            // WaitForStop bloqueia até a thread do driver encerrar — num driver ruim isso
+            // congelaria a janela. A espera fica fora da UI; o dispositivo já foi solto aqui.
+            Task.Run(() =>
             {
-                dispositivo.SignalToStop();
-                dispositivo.WaitForStop();
-            }
+                try { dispositivo.WaitForStop(); }
+                catch { /* encerramento best-effort */ }
+            });
         }
         catch
         {

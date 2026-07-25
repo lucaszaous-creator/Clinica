@@ -39,7 +39,7 @@
                                 <ctrl:Avatar Tamanho="112" HorizontalAlignment="Center"
                                              Nome="{Binding Nome}" Foto="{Binding FotoConteudo}" />
 
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,14,0,0">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,16,0,0">
                                     <Button Command="{Binding CapturarFotoCommand}"
                                             ToolTip="Abrir a webcam da recepção para fotografar o paciente"
                                             AutomationProperties.Name="Tirar foto do paciente">
@@ -137,7 +137,7 @@
                         </Grid>
 
                         <CheckBox Content="Possui app da Unimed (gera QR Code do 2º código)"
-                                  IsChecked="{Binding PossuiApp}" Style="{StaticResource Switch}" Margin="0,14,0,4" />
+                                  IsChecked="{Binding PossuiApp}" Style="{StaticResource Switch}" Margin="0,16,0,4" />
 
                         <TextBlock Text="Categoria (semáforo)" Style="{StaticResource Rotulo}" />
                         <Grid>
@@ -172,7 +172,7 @@
                 <!-- ===== Ações (fixas: Salvar não some com a rolagem do formulário) ===== -->
                 <StackPanel Grid.Row="2">
                     <Border Style="{StaticResource Divisor}" Margin="0,16,0,0" />
-                    <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
                         <Button Content="Salvar" Command="{Binding SalvarCommand}"
                                 ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
                         <Button Content="Limpar" Style="{StaticResource BotaoSecundario}"
@@ -228,7 +228,8 @@
             <Grid Grid.Row="1" Margin="0,12,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="240" />
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="200" />
                 </Grid.ColumnDefinitions>
                 <TextBox Grid.Column="0"
                          Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
@@ -238,6 +239,9 @@
                           ItemsSource="{Binding FiltrosConvenio}" SelectedItem="{Binding FiltroConvenio}"
                           DisplayMemberPath="Nome"
                           ToolTip="Mostrar só os pacientes de um convênio" />
+                <ComboBox Grid.Column="2" Margin="12,0,0,0"
+                          ItemsSource="{Binding Ordenacoes}" SelectedItem="{Binding Ordenacao}"
+                          ToolTip="Ordem da lista" />
             </Grid>
 
             <Grid Grid.Row="2">
@@ -272,8 +276,12 @@
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
                                                TextTrimming="CharacterEllipsis" />
-                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                         <TextBlock Text="{Binding Documento, Converter={StaticResource Cpf}}"
+                                                   Style="{StaticResource FichaRotulo}" Margin="0" />
+                                        <TextBlock Text="  •  " Style="{StaticResource FichaRotulo}" Margin="0"
+                                                   Visibility="{Binding DataNascimento, Converter={StaticResource NuloParaVisibilidade}}" />
+                                        <TextBlock Text="{Binding DataNascimento, Converter={StaticResource Idade}}"
                                                    Style="{StaticResource FichaRotulo}" Margin="0" />
                                         <TextBlock Text="  •  " Style="{StaticResource FichaRotulo}" Margin="0"
                                                    Visibility="{Binding Telefone, Converter={StaticResource TextoParaVisibilidade}}" />

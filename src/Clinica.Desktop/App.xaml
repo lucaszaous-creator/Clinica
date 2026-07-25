@@ -28,6 +28,7 @@
             <conv:CodigoModalidadeConverter x:Key="CodigoModalidade" />
             <conv:CodigoEspecialidadeConverter x:Key="CodigoEspecialidade" />
             <conv:ConvenioPacienteConverter x:Key="ConvenioPaciente" />
+            <conv:IdadeConverter x:Key="Idade" />
             <conv:NuloParaVisibilidadeConverter x:Key="NuloParaVisibilidade" />
             <conv:TextoParaVisibilidadeConverter x:Key="TextoParaVisibilidade" />
             <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />

@@ -13,15 +13,15 @@
 
         <!-- ===== Visor: o recorte quadrado do preview é o mesmo que vai para o banco ===== -->
         <Border Width="320" Height="320" CornerRadius="{StaticResource Raio.Grande}"
-                Background="#111827" ClipToBounds="True" HorizontalAlignment="Center">
+                Background="{StaticResource Brush.Visor.Fundo}" ClipToBounds="True" HorizontalAlignment="Center">
             <Grid>
                 <Image x:Name="Visor" Stretch="UniformToFill" />
 
                 <!-- Guia de enquadramento (o avatar é circular) -->
-                <Ellipse x:Name="Guia" Margin="26" Stroke="#66FFFFFF" StrokeThickness="2"
+                <Ellipse x:Name="Guia" Margin="24" Stroke="{StaticResource Brush.Visor.Guia}" StrokeThickness="2"
                          StrokeDashArray="6 4" IsHitTestVisible="False" />
 
-                <TextBlock x:Name="TxtEstado" Foreground="#D1D5DB" TextWrapping="Wrap"
+                <TextBlock x:Name="TxtEstado" Foreground="{StaticResource Brush.Visor.Texto}" TextWrapping="Wrap"
                            TextAlignment="Center" VerticalAlignment="Center" Margin="24"
                            Text="Ligando a câmera…" />
             </Grid>

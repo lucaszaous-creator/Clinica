@@ -22,6 +22,24 @@ public sealed class ConvenioPacienteConverter : IValueConverter
         => throw new NotSupportedException();
 }
 
+/// <summary>Idade a partir da data de nascimento ("64 anos"); vazio quando não informada.</summary>
+public sealed class IdadeConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is not DateOnly nascimento) return string.Empty;
+
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        var idade = hoje.Year - nascimento.Year;
+        // Ainda não fez aniversário este ano.
+        if (nascimento.AddYears(idade) > hoje) idade--;
+        return idade < 0 ? string.Empty : $"{idade} anos";
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotSupportedException();
+}
+
 /// <summary>Visível quando o valor NÃO é nulo (ex.: badge "Em edição").</summary>
 public sealed class NuloParaVisibilidadeConverter : IValueConverter
 {

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using Clinica.Desktop.Servicos;
 
 namespace Clinica.Desktop.Alertas;
@@ -14,7 +15,16 @@ namespace Clinica.Desktop.Alertas;
 public partial class CapturaFotoWindow : Window
 {
     private readonly CameraServico _camera = new();
+
+    /// <summary>
+    /// Quando a câmera é bloqueada pela privacidade do Windows (ou está presa em outro
+    /// programa) ela costuma abrir sem erro e simplesmente não entregar quadro nenhum.
+    /// Este relógio transforma esse silêncio numa orientação clara.
+    /// </summary>
+    private readonly DispatcherTimer _vigiaPrimeiroQuadro = new() { Interval = TimeSpan.FromSeconds(6) };
+
     private bool _capturado;
+    private bool _recebeuQuadro;
 
     /// <summary>Foto cheia em JPEG (só preenchida quando o diálogo confirma).</summary>
     public byte[]? Conteudo { get; private set; }
@@ -31,9 +41,27 @@ public partial class CapturaFotoWindow : Window
 
         _camera.QuadroRecebido += AoReceberQuadro;
         _camera.Falhou += AoFalhar;
+        _vigiaPrimeiroQuadro.Tick += AoDemorarPrimeiroQuadro;
 
         Loaded += (_, _) => CarregarCameras();
-        Closed += (_, _) => _camera.Dispose();
+        Closed += (_, _) =>
+        {
+            _vigiaPrimeiroQuadro.Stop();
+            _camera.Dispose();
+        };
+    }
+
+    private void AoDemorarPrimeiroQuadro(object? sender, EventArgs e)
+    {
+        _vigiaPrimeiroQuadro.Stop();
+        if (_recebeuQuadro || _capturado) return;
+
+        TxtEstado.Text = "A câmera não está enviando imagem.";
+        TxtEstado.Visibility = Visibility.Visible;
+        Erro("Verifique se outro programa está usando a webcam e se o acesso está liberado em "
+             + "Configurações do Windows → Privacidade e segurança → Câmera "
+             + "(inclusive “Permitir que aplicativos da área de trabalho acessem sua câmera”). "
+             + "Enquanto isso, dá para usar “Escolher arquivo…”.");
     }
 
     private void CarregarCameras()
@@ -70,11 +98,15 @@ public partial class CapturaFotoWindow : Window
     {
         if (ComboCameras.SelectedItem is not DispositivoCamera camera) return;
         _capturado = false;
+        _recebeuQuadro = false;
         AtualizarAcoes();
         TxtEstado.Text = "Ligando a câmera…";
         TxtEstado.Visibility = Visibility.Visible;
         Erro(null);
         _camera.Iniciar(camera);
+
+        _vigiaPrimeiroQuadro.Stop();
+        _vigiaPrimeiroQuadro.Start();
     }
 
     /// <summary>Chega na thread do AForge: a imagem é montada aqui (congelada) e só a troca vai para a UI.</summary>
@@ -87,13 +119,19 @@ public partial class CapturaFotoWindow : Window
         Dispatcher.InvokeAsync(() =>
         {
             if (_capturado) return;
+            _recebeuQuadro = true;
+            _vigiaPrimeiroQuadro.Stop();
             Visor.Source = imagem;
             TxtEstado.Visibility = Visibility.Collapsed;
         });
     }
 
     private void AoFalhar(string mensagem)
-        => Dispatcher.InvokeAsync(() => Erro($"Problema com a câmera: {mensagem}"));
+        => Dispatcher.InvokeAsync(() =>
+        {
+            _vigiaPrimeiroQuadro.Stop();
+            Erro($"Problema com a câmera: {mensagem}. Você ainda pode usar “Escolher arquivo…”.");
+        });
 
     private void Capturar_Click(object sender, RoutedEventArgs e)
     {
@@ -134,6 +172,7 @@ public partial class CapturaFotoWindow : Window
             Conteudo = cheia;
             Miniatura = miniatura;
             _capturado = true;
+            _vigiaPrimeiroQuadro.Stop();
             Visor.Source = Retrato.Carregar(cheia);
             TxtEstado.Visibility = Visibility.Collapsed;
             Erro(null);
