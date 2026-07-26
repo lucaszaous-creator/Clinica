@@ -146,7 +146,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Codigos)
             .FirstOrDefaultAsync(a => a.Id == atendimentoId, ct);
 
-    public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default)
     {
         var query = _db.Pacientes.AsQueryable();
         termo = Cpf.Normalizar(termo).Length > 0 ? termo!.Trim() : termo?.Trim();
@@ -160,7 +160,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 || (digitos.Length > 0 && p.Documento != null && p.Documento.Contains(digitos)));
         }
 
-        return await query.OrderBy(p => p.Nome).ToListAsync(ct);
+        query = query.OrderBy(p => p.Nome);
+        // O corte vai para o SQL (LIMIT), não para um Take() depois de materializar a lista.
+        if (limite is > 0) query = query.Take(limite.Value);
+
+        return await query.ToListAsync(ct);
     }
 
     public Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default)

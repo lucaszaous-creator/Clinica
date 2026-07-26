@@ -114,5 +114,11 @@ Camadas clássicas, todas em `src/`:
   - **Snackbar** (`ISnackbarService`) — só para confirmação passageira de ação que não tem
     lugar natural na tela (ex.: salvar em Configurações). Some em 4s, então nunca para erro
     que exija correção.
+- **Escolher paciente é um componente só**: `SeletorPacienteViewModel` (VM) +
+  `ItemPacienteSeletor` (`Styles/Componentes/Pacientes.xaml`). Ele já resolve limite no SQL
+  (`BuscarPacientesAsync(termo, limite)` — nunca `Take()` depois de materializar), agrupamento
+  das teclas e descarte de resposta fora de ordem. Tela nova que escolhe paciente usa ele; não
+  reescreva a busca. A **listagem** de Pacientes é outra coisa (linha com ações) e usa o mesmo
+  VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.

@@ -158,6 +158,67 @@ public class PacienteServiceTests : IDisposable
         consultas[0].DataEmissao.Should().Be(new DateOnly(2026, 7, 1));
     }
 
+    // ---- Limite da busca ----
+    // O corte tem de sair no SQL: os seletores da UI mostram poucas linhas, e trazer a base
+    // inteira pela rede a cada tecla para descartar em memória é o que existia antes.
+
+    [Fact]
+    public async Task Buscar_SemLimite_TrazTodos()
+    {
+        for (var i = 1; i <= 5; i++) await CriarPacienteAsync($"Paciente {i:00}");
+
+        var encontrados = await _pacientes.BuscarAsync(null);
+
+        encontrados.Should().HaveCount(5);
+    }
+
+    [Fact]
+    public async Task Buscar_ComLimite_CortaOResultado()
+    {
+        for (var i = 1; i <= 5; i++) await CriarPacienteAsync($"Paciente {i:00}");
+
+        var encontrados = await _pacientes.BuscarAsync(null, limite: 2);
+
+        encontrados.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Buscar_ComLimite_MantemAOrdemAlfabetica()
+    {
+        await CriarPacienteAsync("Zulmira Nunes");
+        await CriarPacienteAsync("Ana Paula Souza");
+        await CriarPacienteAsync("Beatriz Lima");
+
+        var encontrados = await _pacientes.BuscarAsync(null, limite: 2);
+
+        // O corte é depois da ordenação: quem aparece são os primeiros nomes, não dois quaisquer.
+        encontrados.Select(p => p.Nome).Should().Equal("Ana Paula Souza", "Beatriz Lima");
+    }
+
+    [Fact]
+    public async Task Buscar_ComLimite_AplicaOTermoAntesDeCortar()
+    {
+        await CriarPacienteAsync("Ana Paula Souza");
+        await CriarPacienteAsync("Ana Clara Dias");
+        await CriarPacienteAsync("Beatriz Lima");
+
+        var encontrados = await _pacientes.BuscarAsync("ana", limite: 5);
+
+        encontrados.Should().HaveCount(2);
+        encontrados.Should().OnlyContain(p => p.Nome.StartsWith("Ana"));
+    }
+
+    [Fact]
+    public async Task Buscar_LimiteZeroOuNegativo_EhIgnorado()
+    {
+        await CriarPacienteAsync("Ana Paula Souza");
+        await CriarPacienteAsync("Beatriz Lima");
+
+        // Guarda de sanidade: um limite inválido nunca pode esvaziar a tela.
+        (await _pacientes.BuscarAsync(null, limite: 0)).Should().HaveCount(2);
+        (await _pacientes.BuscarAsync(null, limite: -1)).Should().HaveCount(2);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

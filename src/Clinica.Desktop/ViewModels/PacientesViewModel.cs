@@ -22,27 +22,24 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
 
-    public ObservableCollection<Paciente> Pacientes { get; } = new();
+    /// <summary>
+    /// A busca compartilhada com Novo atendimento e Agendamento. Aqui vai sem limite — uma
+    /// LISTA precisa mostrar todo mundo — e com <c>Refinar</c> para aplicar convênio e ordenação.
+    /// </summary>
+    public SeletorPacienteViewModel Seletor { get; }
 
     /// <summary>Opções do filtro de convênio (a primeira é sempre "Todos os convênios").</summary>
     public ObservableCollection<OpcaoConvenio> FiltrosConvenio { get; } = new();
 
-    [ObservableProperty] private string? _busca;
-
-    // Pesquisa instantânea (padrão CampoPesquisa do design system).
-    partial void OnBuscaChanged(string? value) => _ = Buscar();
-
     /// <summary>Filtro de convênio aplicado sobre o resultado da busca.</summary>
     [ObservableProperty] private OpcaoConvenio? _filtroConvenio;
-    partial void OnFiltroConvenioChanged(OpcaoConvenio? value) { if (!_carregando) _ = Buscar(); }
+    partial void OnFiltroConvenioChanged(OpcaoConvenio? value) { if (!_carregando) _ = Seletor.BuscarAsync(imediato: true); }
 
     /// <summary>Ordenação da lista. "Recentes" usa o Id (ordem de cadastro).</summary>
     public string[] Ordenacoes { get; } = { "Nome (A–Z)", "Cadastro mais recente" };
 
     [ObservableProperty] private string _ordenacao = "Nome (A–Z)";
-    partial void OnOrdenacaoChanged(string value) { if (!_carregando) _ = Buscar(); }
-
-    [ObservableProperty] private bool _carregandoLista;
+    partial void OnOrdenacaoChanged(string value) { if (!_carregando) _ = Seletor.BuscarAsync(imediato: true); }
 
     /// <summary>Quantos dos pacientes listados estão com a carteirinha vencida.</summary>
     [ObservableProperty] private int _totalCarteirinhasVencidas;
@@ -56,6 +53,30 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     {
         _scopeFactory = scopeFactory;
         _dialogo = dialogo;
+
+        Seletor = new SeletorPacienteViewModel(scopeFactory, limite: null)
+        {
+            Refinar = Aplicar
+        };
+        Seletor.Atualizou += () =>
+            TotalCarteirinhasVencidas = Seletor.Resultados.Count(p => p.CarteirinhaVencida);
+    }
+
+    /// <summary>Filtro de convênio + ordenação, aplicados sobre o que o banco devolveu.</summary>
+    private IEnumerable<Paciente> Aplicar(IReadOnlyList<Paciente> encontrados)
+    {
+        IEnumerable<Paciente> resultado = encontrados;
+
+        // Comparado pelo código do catálogo, com fallback na família para cadastros antigos
+        // gravados antes dos convênios dinâmicos.
+        if (FiltroConvenio?.Codigo is { } codigo)
+            resultado = resultado.Where(p => (p.ConvenioCodigo ?? p.Convenio.ToString()) == codigo);
+
+        // A busca já vem por nome; só o "mais recente" precisa reordenar (Id = cadastro).
+        if (Ordenacao == Ordenacoes[1])
+            resultado = resultado.OrderByDescending(p => p.Id);
+
+        return resultado;
     }
 
     public async Task CarregarAsync()
@@ -68,41 +89,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         FiltroConvenio = FiltrosConvenio[0];
         _carregando = false;
 
-        await Buscar();
-    }
-
-    [RelayCommand]
-    private async Task Buscar()
-    {
-        if (CarregandoLista) return;
-        CarregandoLista = true;
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-            var encontrados = await service.BuscarAsync(Busca);
-
-            // Filtro de convênio: comparado pelo código do catálogo, com fallback na
-            // família para cadastros antigos gravados antes dos convênios dinâmicos.
-            if (FiltroConvenio?.Codigo is { } codigo)
-                encontrados = encontrados
-                    .Where(p => (p.ConvenioCodigo ?? p.Convenio.ToString()) == codigo)
-                    .ToList();
-
-            // A busca já vem por nome; só o "mais recente" precisa reordenar (Id = cadastro).
-            if (Ordenacao == Ordenacoes[1])
-                encontrados = encontrados.OrderByDescending(p => p.Id).ToList();
-
-            Pacientes.Clear();
-            foreach (var p in encontrados)
-                Pacientes.Add(p);
-
-            TotalCarteirinhasVencidas = Pacientes.Count(p => p.CarteirinhaVencida);
-        }
-        finally
-        {
-            CarregandoLista = false;
-        }
+        await Seletor.BuscarAsync(imediato: true);
     }
 
     /// <summary>Abre a janela de cadastro (vazia para novo, preenchida para edição).</summary>
@@ -114,7 +101,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         };
         if (janela.ShowDialog() != true) return false;
 
-        await Buscar();
+        await Seletor.BuscarAsync(imediato: true);
         return true;
     }
 
@@ -137,7 +124,7 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
         await service.RemoverAsync(p.Id);
-        await Buscar();
+        await Seletor.BuscarAsync(imediato: true);
     }
 
     [RelayCommand]
@@ -155,5 +142,5 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
 
     // Atalhos globais do shell (IAtalhosDeTela). Salvar não se aplica: a tela é uma
     // listagem e a gravação acontece dentro da janela de cadastro.
-    public ICommand? AtalhoAtualizar => BuscarCommand;
+    public ICommand? AtalhoAtualizar => Seletor.AtualizarCommand;
 }

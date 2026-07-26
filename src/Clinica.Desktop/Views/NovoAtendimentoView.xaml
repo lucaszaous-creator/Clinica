@@ -31,31 +31,16 @@
                         <!-- Enquanto ninguém está escolhido: a busca -->
                         <StackPanel Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolInvertidoParaVisibilidade}}">
                             <TextBox Margin="0,8,0,8"
-                                     Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                                     Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                                      Style="{StaticResource CampoPesquisa}"
                                      ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF…" />
-                            <ListBox ItemsSource="{Binding Pacientes}" SelectedItem="{Binding PacienteSelecionado}"
-                                     Style="{StaticResource ListaCartoes}" MaxHeight="260">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <ctrl:Avatar Grid.Column="0" Tamanho="34" VerticalAlignment="Center"
-                                                         Margin="0,0,10,0"
-                                                         Nome="{Binding Nome}" Foto="{Binding FotoMiniatura}" />
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Documento, Converter={StaticResource Cpf}}"
-                                                           Style="{StaticResource FichaRotulo}" Margin="0,2,0,0" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                            <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                                     SelectedItem="{Binding Seletor.Selecionado}"
+                                     ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                                     Style="{StaticResource ListaCartoes}" MaxHeight="260" />
+                            <TextBlock Text="{Binding Seletor.Erro}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                       Foreground="{StaticResource Brush.Erro.Texto}"
+                                       Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade}}" />
                         </StackPanel>
 
                         <!-- Escolhido: o resumo, com o contexto que importa na hora da guia -->

@@ -2,6 +2,8 @@
 
 Todos em `src/Clinica.Desktop/Styles/Componentes/`. Estados cobertos por padrão: normal, hover, focus (anel azul), disabled (opacidade 0.5–0.7); loading onde indicado.
 
+Os conversores ficam em `Styles/Conversores.xaml` (e não soltos no `App.xaml`): assim um dicionário de componente pode mergeá-los e usar `{StaticResource}` dentro dos seus templates, do mesmo jeito que faz com `Tokens.xaml`.
+
 ## Botões (`Botoes.xaml`)
 
 Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto (funciona sobre qualquer cor), anel de foco externo, spinner de loading.
@@ -69,6 +71,17 @@ Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto 
 - `TituloSecao` + `Divisor`: agrupam um formulário longo em blocos (escreva o título em CAIXA ALTA; o divisor é uma linha de 1px logo abaixo). Usado no cadastro de Pacientes.
 - `FichaRotulo` + `FichaValor`: par rótulo/valor empilhado, para painéis de dados cadastrais (ficha do paciente).
 - `Expander` implícito: accordion com chevron animado.
+
+## Paciente (`Pacientes.xaml`)
+
+- **`ItemPacienteSeletor`** (`DataTemplate`): a linha de toda lista em que se **escolhe** um paciente — avatar, nome, CPF, badge do convênio e a tarja de carteirinha vencida. Usada em Novo atendimento e na janela de Agendamento; use-a em qualquer tela nova de escolha em vez de desenhar outra.
+  ```xml
+  <ListBox ItemsSource="{Binding Seletor.Resultados}"
+           SelectedItem="{Binding Seletor.Selecionado}"
+           ItemTemplate="{StaticResource ItemPacienteSeletor}"
+           Style="{StaticResource ListaCartoes}" />
+  ```
+  Do lado do ViewModel o par dela é `SeletorPacienteViewModel` (`Termo`, `Resultados`, `Selecionado`, `Buscando`, `Erro`, `Travado`), que já traz limite no SQL, agrupamento das teclas e proteção contra resposta fora de ordem. A **listagem** de Pacientes é outra coisa: linha mais rica, com ações — não use este template lá.
 
 ## Mídia (`Midia.xaml`)
 

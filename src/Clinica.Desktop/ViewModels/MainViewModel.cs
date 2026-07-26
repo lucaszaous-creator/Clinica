@@ -200,6 +200,9 @@ public partial class MainViewModel : ObservableObject
             _ = PesquisarPacientesAsync(termo);
     }
 
+    /// <summary>Quantos pacientes cabem no menu da pesquisa global sem virar uma lista.</summary>
+    private const int MaximoPacientesNaPesquisa = 6;
+
     private async Task PesquisarPacientesAsync(string termo)
     {
         try
@@ -207,12 +210,13 @@ public partial class MainViewModel : ObservableObject
             using var scope = _sp.CreateScope();
             var pacientes = await scope.ServiceProvider
                 .GetRequiredService<Clinica.Application.Servicos.PacienteService>()
-                .BuscarAsync(termo);
+                // O corte vai no SQL: a pesquisa global mostra no máximo 6 nomes.
+                .BuscarAsync(termo, limite: MaximoPacientesNaPesquisa);
 
             // O usuário pode ter continuado digitando enquanto o banco respondia.
             if (TextoPesquisaGlobal.Trim() != termo) return;
 
-            foreach (var p in pacientes.Take(6))
+            foreach (var p in pacientes)
                 ResultadosPesquisa.Add(new ItemMenu
                 {
                     Secao = Secao.Pacientes,

@@ -19,12 +19,12 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
 
-    public ObservableCollection<Paciente> Pacientes { get; } = new();
+    /// <summary>Busca de paciente compartilhada com Pacientes e Novo atendimento.</summary>
+    public SeletorPacienteViewModel Seletor { get; }
+
     public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
     public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = new();
 
-    [ObservableProperty] private string? _busca;
-    [ObservableProperty] private Paciente? _pacienteSelecionado;
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private string _hora = "09:00";
     [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
@@ -50,9 +50,8 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(Remarcando));
         OnPropertyChanged(nameof(Titulo));
         OnPropertyChanged(nameof(RotuloConfirmar));
+        Seletor.Travado = Remarcando;
     }
-
-    partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
 
     /// <summary>Comportamento (base) da modalidade selecionada.</summary>
     private ModalidadeAtendimento Modalidade =>
@@ -69,7 +68,7 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     }
 
     // Pré-preenche a modalidade com a habitual do paciente e avisa o que atrapalha a guia.
-    partial void OnPacienteSelecionadoChanged(Paciente? value)
+    private void AoTrocarPaciente(Paciente? value)
     {
         if (value is null)
         {
@@ -93,6 +92,8 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     {
         _scopeFactory = scopeFactory;
         _dialogo = dialogo;
+        Seletor = new SeletorPacienteViewModel(scopeFactory);
+        Seletor.SelecaoMudou += AoTrocarPaciente;
     }
 
     /// <summary>
@@ -117,7 +118,7 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
             Hora = quando.ToString("HH:mm");
         }
 
-        await BuscarPacientes();
+        await Seletor.BuscarAsync(imediato: true);
 
         if (agendamentoId is not int id) return;
 
@@ -135,12 +136,9 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
 
         // O paciente entra ANTES da modalidade: escolher paciente pré-preenche a modalidade
         // habitual dele, e aqui quem manda é o que já estava marcado no agendamento.
-        var paciente = ag.Paciente ?? Pacientes.FirstOrDefault(p => p.Id == ag.PacienteId);
+        var paciente = ag.Paciente ?? Seletor.Resultados.FirstOrDefault(p => p.Id == ag.PacienteId);
         if (paciente is not null)
-        {
-            if (Pacientes.All(p => p.Id != paciente.Id)) Pacientes.Insert(0, paciente);
-            PacienteSelecionado = paciente;
-        }
+            Seletor.SelecionarGarantindoNaLista(paciente);
 
         Data = ag.DataHora.Date;
         Hora = ag.DataHora.ToString("HH:mm");
@@ -152,23 +150,9 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task BuscarPacientes()
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-        var encontrados = await service.BuscarAsync(Busca);
-
-        Pacientes.Clear();
-        // Sem termo de busca, a lista inteira não ajuda ninguém: mostra as primeiras
-        // e deixa o campo de busca fazer o trabalho.
-        foreach (var p in encontrados.Take(50))
-            Pacientes.Add(p);
-    }
-
-    [RelayCommand]
     private async Task Agendar()
     {
-        if (PacienteSelecionado is null)
+        if (Seletor.Selecionado is not { } paciente)
         {
             Mensagem = "Selecione o paciente.";
             return;
@@ -214,7 +198,7 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
                     operador: Environment.UserName);
             else
-                await agenda.AgendarAsync(PacienteSelecionado.Id, dataHora, Modalidade, Observacoes,
+                await agenda.AgendarAsync(paciente.Id, dataHora, Modalidade, Observacoes,
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
         }

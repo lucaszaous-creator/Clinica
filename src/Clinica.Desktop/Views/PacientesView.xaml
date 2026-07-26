@@ -6,6 +6,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -24,7 +25,7 @@
                 <TextBlock Text="Pacientes" Style="{StaticResource H1}" Margin="0" />
                 <Border Style="{StaticResource Badge}" VerticalAlignment="Center" Margin="12,4,0,0">
                     <TextBlock>
-                        <Run Text="{Binding Pacientes.Count, Mode=OneWay}" /><Run Text=" cadastrado(s)" />
+                        <Run Text="{Binding Seletor.Resultados.Count, Mode=OneWay}" /><Run Text=" cadastrado(s)" />
                     </TextBlock>
                 </Border>
                 <Border Style="{StaticResource Badge.Erro}" VerticalAlignment="Center" Margin="8,4,0,0"
@@ -45,7 +46,7 @@
                 <ColumnDefinition Width="220" />
             </Grid.ColumnDefinitions>
             <TextBox Grid.Column="0"
-                     Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                     Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                      Style="{StaticResource CampoPesquisa}"
                      ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF — a lista filtra enquanto você digita…" />
             <ComboBox Grid.Column="1" Margin="12,0,0,0"
@@ -57,8 +58,14 @@
                       ToolTip="Ordem da lista" />
         </Grid>
 
+        <!-- Falha de busca: a lista fica como estava e o motivo aparece na tela -->
+        <Border Grid.Row="2" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade}}">
+            <TextBlock Text="{Binding Seletor.Erro}" TextWrapping="Wrap" />
+        </Border>
+
         <!-- ===== Lista ===== -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <ctrl:EmptyState Glifo="&#xE716;" Titulo="Nenhum paciente encontrado" Panel.ZIndex="1"
                              Descricao="Ajuste a busca ou o filtro de convênio — ou cadastre um paciente novo."
                              TextoAcao="Novo paciente" AcaoCommand="{Binding NovoCommand}">
@@ -66,7 +73,7 @@
                     <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
                         <Setter Property="Visibility" Value="Collapsed" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding Pacientes.Count}" Value="0">
+                            <DataTrigger Binding="{Binding Seletor.Resultados.Count}" Value="0">
                                 <Setter Property="Visibility" Value="Visible" />
                             </DataTrigger>
                         </Style.Triggers>
@@ -74,7 +81,7 @@
                 </ctrl:EmptyState.Style>
             </ctrl:EmptyState>
 
-            <ListBox ItemsSource="{Binding Pacientes}" Style="{StaticResource ListaCartoes}">
+            <ListBox ItemsSource="{Binding Seletor.Resultados}" Style="{StaticResource ListaCartoes}">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid>
