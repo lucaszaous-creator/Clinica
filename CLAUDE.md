@@ -85,14 +85,19 @@ Camadas clássicas, todas em `src/`:
   prevista +24h e a inversão de datas do BSV são requisitos do convênio, não bugs.
 - Guia exportada num lote TISS não pode entrar em outro lote; glosa ganha data-limite de recurso
   (prazo configurável, padrão 30 dias) vigiada no dashboard.
-- **Rodar as pendências** (`RodadaPendenciasService`): o prazo de decisão é contado **por atendimento** —
-  cada guia pendente vence N dias (configurável, padrão 10) depois do **atendimento do paciente**
-  (`CodigoFaturamento.PrazoDecisaoVencido`). Passado o prazo sem baixa, o painel alarda (banner) e a
-  abertura do app abre uma janela BLOQUEANTE com as guias vencidas: cada uma exige decisão — baixa ou
-  **não conformidade** (`StatusCodigo.NaoConformidade` + justificativa) — e o sistema fica travado até
-  a resolução. Há uma **carência de 1ª execução** (`ParametrosService.InicioRodadaPorAtendimento`,
-  ancorada por `GarantirInicioAsync`): guias de atendimentos anteriores à ativação da versão só passam
-  a contar o prazo a partir da ativação, para o backlog acumulado não bloquear tudo de uma vez. O usuário também pode marcar NC proativamente (sem esperar o prazo) pelo botão **NC** na
+- **Rodar as pendências** (`RodadaPendenciasService`): o prazo de decisão é **por guia** — cada
+  pendência vence N dias (configurável, padrão 10) depois de **virar pendente**, ou seja da
+  `DataPrevistaFaturamento` (`CodigoFaturamento.PrazoDecisaoVencido`). Não conta do atendimento: o 2º
+  código só existe +24h depois, e contar do atendimento lhe daria um prazo real menor que o do 1º,
+  cobrando decisão sobre uma guia que ninguém tinha como tirar. Passado o prazo sem baixa, o painel
+  alarda (banner) e a abertura do app abre uma janela BLOQUEANTE com as guias vencidas: cada uma exige
+  decisão — baixa ou **não conformidade** (`StatusCodigo.NaoConformidade` + justificativa) — e o
+  sistema fica travado até a resolução. Há uma **carência de 1ª execução**
+  (`ParametrosService.ChaveInicioRodadaPrazo`, ancorada por `GarantirInicioAsync`): guias que já
+  estavam pendentes antes da ativação da versão só passam a contar o prazo a partir da ativação, para
+  o backlog acumulado não bloquear tudo de uma vez. O valor da chave no banco continua
+  `"InicioRodadaPorAtendimento"` de propósito — renomeá-lo perderia a âncora já gravada.
+  O usuário também pode marcar NC proativamente (sem esperar o prazo) pelo botão **NC** na
   linha da pendência no painel (`NaoConformidadeWindow`). A não conformidade sai das
   pendências ativas (`EstaPendente`/`CodigosEmAbertoAsync` a ignoram) e vai para a aba própria **NC**
   (`NaoConformidadesViewModel` / `Secao.NaoConformidades`), que lista todas via

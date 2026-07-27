@@ -21,6 +21,12 @@ public sealed class LinhaCaixa
     public required bool VeioDoFaturamento { get; init; }
 
     public required bool EhEntrada { get; init; }
+
+    /// <summary>Previsto: ainda dá para marcar como pago/recebido.</summary>
+    public required bool PodeRealizar { get; init; }
+
+    /// <summary>Cancelado não se cancela de novo (e continua no histórico).</summary>
+    public required bool PodeCancelar { get; init; }
 }
 
 /// <summary>
@@ -31,6 +37,7 @@ public sealed partial class CaixaViewModel : ObservableObject
 {
     private readonly FinanceiroService _financeiro;
     private readonly ISnackbarService _snackbar;
+    private readonly IDialogoService _dialogo;
 
     public ObservableCollection<LinhaCaixa> Linhas { get; } = [];
 
@@ -52,10 +59,11 @@ public sealed partial class CaixaViewModel : ObservableObject
     [ObservableProperty]
     private string _previsto = "—";
 
-    public CaixaViewModel(FinanceiroService financeiro, ISnackbarService snackbar)
+    public CaixaViewModel(FinanceiroService financeiro, ISnackbarService snackbar, IDialogoService dialogo)
     {
         _financeiro = financeiro;
         _snackbar = snackbar;
+        _dialogo = dialogo;
         _ = CarregarAsync();
     }
 
@@ -84,7 +92,9 @@ public sealed partial class CaixaViewModel : ObservableObject
                     ValorFormatado = $"{(entrada ? "+" : "-")} {l.Valor:C}",
                     StatusRotulo = Rotular(l.Status),
                     VeioDoFaturamento = l.CodigoFaturamentoId is not null,
-                    EhEntrada = entrada
+                    EhEntrada = entrada,
+                    PodeRealizar = l.Status == StatusLancamento.Previsto,
+                    PodeCancelar = l.Status != StatusLancamento.Cancelado
                 });
             }
 
@@ -96,11 +106,77 @@ public sealed partial class CaixaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — caixa não pôde ser carregado", ex);
             _snackbar.Erro($"Não foi possível carregar o caixa: {ex.Message}");
         }
         finally
         {
             Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Abre o formulário do lançamento manual. É a entrada do dinheiro que o faturamento
+    /// não conhece (aluguel, material, recebimento avulso) — o que vem de guia continua
+    /// entrando pela Conciliação, já vinculado.
+    /// </summary>
+    [RelayCommand]
+    private async Task NovoLancamentoAsync()
+    {
+        var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_financeiro))
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true) return;
+
+        _snackbar.Sucesso("Lançamento registrado.");
+        await CarregarAsync();
+    }
+
+    /// <summary>Marca um lançamento previsto como efetivamente pago/recebido.</summary>
+    [RelayCommand]
+    private async Task RealizarAsync(LinhaCaixa? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            await _financeiro.RealizarAsync(linha.Id, operador: Environment.UserName);
+            _snackbar.Sucesso("Lançamento realizado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — lançamento não pôde ser realizado", ex);
+            _snackbar.Erro($"Não foi possível realizar: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Cancela um lançamento. Nunca apaga — sai dos totais e fica no histórico com o
+    /// motivo, que o serviço exige.
+    /// </summary>
+    [RelayCommand]
+    private async Task CancelarAsync(LinhaCaixa? linha)
+    {
+        if (linha is null) return;
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Cancelar lançamento",
+            $"Por que \"{linha.Descricao}\" está sendo cancelado? O lançamento sai dos totais mas continua no histórico.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        try
+        {
+            await _financeiro.CancelarAsync(linha.Id, motivo, operador: Environment.UserName);
+            _snackbar.Sucesso("Lançamento cancelado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — lançamento não pôde ser cancelado", ex);
+            _snackbar.Erro($"Não foi possível cancelar: {ex.Message}");
         }
     }
 

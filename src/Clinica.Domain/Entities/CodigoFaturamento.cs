@@ -111,19 +111,24 @@ public class CodigoFaturamento
 
     /// <summary>
     /// O prazo de decisão da rodada venceu: a guia continua pendente e já se passaram
-    /// <paramref name="prazoDias"/> dias (padrão 10) desde o ATENDIMENTO do paciente. A partir daí o
-    /// sistema EXIGE uma decisão — baixa ou não conformidade — e bloqueia o uso até que ela seja tomada.
-    /// Sem o atendimento carregado, conta a partir da data prevista de faturamento.
+    /// <paramref name="prazoDias"/> dias (padrão 10) desde que ela VIROU PENDENTE
+    /// (<see cref="DataPrevistaFaturamento"/>). A partir daí o sistema EXIGE uma decisão — baixa ou
+    /// não conformidade — e bloqueia o uso até que ela seja tomada.
     ///
-    /// <paramref name="ativacao"/> é a data em que a rodada por atendimento passou a valer (1ª execução
-    /// nesta versão). Guias de atendimentos ANTERIORES a ela contam o prazo a partir da ativação, não do
-    /// atendimento — assim o backlog acumulado ganha um período de carência e não bloqueia tudo de uma
-    /// vez logo na primeira abertura. Null (testes/legado) = conta puramente pelo atendimento.
+    /// A contagem começa na data prevista, e não no atendimento, porque antes dela a guia sequer podia
+    /// ser resolvida: o 2º código só existe +24h depois. Contar do atendimento daria ao 2º código um
+    /// prazo real menor que o do 1º, cobrando decisão sobre uma guia que ninguém tinha como tirar.
+    /// (<see cref="EstaPendente"/> usa a mesma data — as duas noções ficam ancoradas no mesmo ponto.)
+    ///
+    /// <paramref name="ativacao"/> é a data em que a rodada passou a valer (1ª execução nesta versão).
+    /// Guias que viraram pendentes ANTES dela contam o prazo a partir da ativação — assim o backlog
+    /// acumulado ganha um período de carência e não bloqueia tudo de uma vez logo na primeira abertura.
+    /// Null (testes/legado) = conta puramente pela data prevista.
     /// </summary>
     public bool PrazoDecisaoVencido(DateOnly referencia, int prazoDias, DateOnly? ativacao = null)
     {
         if (!EstaPendente(referencia)) return false;
-        var origem = Atendimento?.Data ?? DataPrevistaFaturamento;
+        var origem = DataPrevistaFaturamento;
         // Backlog anterior à ativação: o prazo só começa a contar a partir da ativação (carência).
         if (ativacao is { } inicio && origem < inicio)
             origem = inicio;

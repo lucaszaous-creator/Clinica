@@ -229,6 +229,21 @@ public sealed class FinanceiroService
     public Task<IReadOnlyList<CategoriaFinanceira>> CategoriasAsync(CancellationToken ct = default)
         => _repo.CategoriasFinanceirasAsync(ct);
 
+    /// <summary>
+    /// Categorias ativas de um tipo, na ordem de exibição — o que o combo do lançamento
+    /// oferece. Categoria de despesa não faz sentido numa entrada, e vice-versa.
+    /// </summary>
+    public async Task<IReadOnlyList<CategoriaFinanceira>> CategoriasAsync(
+        TipoLancamento tipo, CancellationToken ct = default)
+    {
+        var todas = await _repo.CategoriasFinanceirasAsync(ct);
+        return todas
+            .Where(c => c.Ativa && c.Tipo == tipo)
+            .OrderBy(c => c.Ordem)
+            .ThenBy(c => c.Nome)
+            .ToList();
+    }
+
     /// <summary>Cria uma categoria do plano de contas.</summary>
     public async Task<CategoriaFinanceira> CriarCategoriaAsync(
         string codigo, string nome, TipoLancamento tipo, int ordem = 0, CancellationToken ct = default)

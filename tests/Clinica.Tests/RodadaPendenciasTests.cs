@@ -10,10 +10,13 @@ using Microsoft.EntityFrameworkCore;
 namespace Clinica.Tests;
 
 /// <summary>
-/// Rodada de pendências ("rodar as pendências"): prazo de decisão POR ATENDIMENTO. Passados N dias
-/// (padrão 10) desde o atendimento sem baixa, a guia exige decisão — a secretária baixa o que puder e
-/// justifica o resto como NÃO CONFORMIDADE, que silencia a pendência (sai do painel), fica no relatório
-/// e só volta a ser pendência se for reaberta.
+/// Rodada de pendências ("rodar as pendências"): prazo de decisão POR GUIA. Passados N dias
+/// (padrão 10) desde que a guia VIROU PENDENTE (data prevista) sem baixa, ela exige decisão — a
+/// secretária baixa o que puder e justifica o resto como NÃO CONFORMIDADE, que silencia a pendência
+/// (sai do painel), fica no relatório e só volta a ser pendência se for reaberta.
+///
+/// Atenção nas datas: o atendimento do helper gera DOIS códigos, com previstas em dias diferentes
+/// (1º em 07-10, 2º em 07-11) — é justamente o que separa o prazo por guia do prazo por atendimento.
 /// </summary>
 public class RodadaPendenciasTests : IDisposable
 {
@@ -149,9 +152,10 @@ public class RodadaPendenciasTests : IDisposable
     [Fact]
     public async Task Status_DentroDoPrazo_NaoExigeDecisao()
     {
-        await CriarSegundoCodigoAsync(); // atendimento em 2026-07-10; prazo padrão = 10 dias
+        // O atendimento gera DOIS códigos: 1º previsto em 07-10 e 2º em 07-11.
+        await CriarSegundoCodigoAsync(); // prazo padrão = 10 dias
 
-        // 9 dias após o atendimento: pendente, mas ainda dentro do prazo.
+        // 07-19: 9 dias do 1º e 8 do 2º — os dois ainda dentro do prazo.
         var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 19));
 
         status.PrazoDias.Should().Be(10);
@@ -161,12 +165,12 @@ public class RodadaPendenciasTests : IDisposable
     }
 
     [Fact]
-    public async Task Status_AposPrazoDesdeAtendimento_ExigeDecisao()
+    public async Task Status_AposPrazoDaDataPrevista_ExigeDecisao()
     {
-        await CriarSegundoCodigoAsync(); // atendimento em 2026-07-10
+        await CriarSegundoCodigoAsync(); // prevista em 2026-07-11
 
-        // Exatamente 10 dias após o atendimento: o prazo venceu e o sistema exige decisão.
-        var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 20));
+        // Exatamente 10 dias após a data prevista: o prazo venceu e o sistema exige decisão.
+        var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 21));
 
         status.GuiasParaDecisao.Should().BeGreaterThan(0);
         status.ExigeDecisao.Should().BeTrue();
@@ -175,32 +179,65 @@ public class RodadaPendenciasTests : IDisposable
     [Fact]
     public async Task GuiasVencidasParaDecisao_TrazSomenteAsVencidas()
     {
-        var codigo = await CriarSegundoCodigoAsync(); // atendimento em 2026-07-10
+        // O atendimento gera DOIS códigos, com datas previstas diferentes: 1º em 07-10, 2º em 07-11.
+        var segundo = await CriarSegundoCodigoAsync();
 
-        // Ainda no prazo: nenhuma guia vencida.
+        // 07-19: nenhum dos dois venceu ainda.
         (await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 19)))
             .Should().BeEmpty();
 
-        // Prazo vencido: a guia entra na lista de decisão obrigatória.
-        var vencidas = await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 21));
-        vencidas.Should().Contain(p => p.CodigoId == codigo.Id);
+        // 07-20: só o 1º venceu — é exatamente o "somente as vencidas" que o nome promete.
+        var noDiaVinte = await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 20));
+        noDiaVinte.Should().ContainSingle()
+            .Which.Ordem.Should().Be(OrdemCodigo.Primeiro);
+
+        // 07-21: o 2º completa seus 10 dias e entra também.
+        var noDiaVinteEUm = await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 21));
+        noDiaVinteEUm.Should().Contain(p => p.CodigoId == segundo.Id);
+        noDiaVinteEUm.Should().HaveCount(2);
     }
 
     [Fact]
-    public async Task PrazoConta_DesdeOAtendimento_NaoDaDataPrevista()
+    public async Task PrazoConta_DaDataPrevista_NaoDoAtendimento()
     {
-        // O 2º código tem data prevista = atendimento + 1 dia; o prazo deve contar desde o ATENDIMENTO.
+        // O 2º código só EXISTE +24h depois do atendimento: cobrar decisão contando do atendimento
+        // daria a ele um dia a menos que o 1º código para ser resolvido.
         var codigo = await CriarSegundoCodigoAsync(); // atendimento 2026-07-10, prevista 2026-07-11
         var salvo = await _repo.ObterCodigoAsync(codigo.Id);
 
-        salvo!.PrazoDecisaoVencido(new DateOnly(2026, 7, 19), 10).Should().BeFalse(); // 9 dias do atendimento
-        salvo.PrazoDecisaoVencido(new DateOnly(2026, 7, 20), 10).Should().BeTrue();  // 10 dias do atendimento
+        // 10 dias do ATENDIMENTO já passaram, mas só 9 da data prevista: ainda não vence.
+        salvo!.PrazoDecisaoVencido(new DateOnly(2026, 7, 20), 10).Should().BeFalse();
+        salvo.PrazoDecisaoVencido(new DateOnly(2026, 7, 21), 10).Should().BeTrue(); // 10 dias da prevista
+    }
+
+    [Fact]
+    public async Task PrazoDaMesmaJanelaAos1oE2oCodigos_DoMesmoAtendimento()
+    {
+        // A razão de ser da contagem pela data prevista: os dois códigos do MESMO atendimento
+        // têm o mesmo prazo real para serem resolvidos, cada um a partir de quando pôde existir.
+        var p = new Paciente { Nome = "Paciente", Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };
+        _db.Pacientes.Add(p);
+        await _db.SaveChangesAsync();
+        var r = await new AtendimentoService(_repo).LancarAsync(
+            p.Id, new DateOnly(2026, 7, 10), ModalidadeAtendimento.AcupunturaComEletro);
+
+        var primeiro = await _repo.ObterCodigoAsync(r.Atendimento.Codigos.First(c => c.Ordem == OrdemCodigo.Primeiro).Id);
+        var segundo = await _repo.ObterCodigoAsync(r.Atendimento.Codigos.First(c => c.Ordem == OrdemCodigo.Segundo).Id);
+
+        // 1º código: prevista 2026-07-10 → vence em 07-20. 2º: prevista 07-11 → vence em 07-21.
+        primeiro!.PrazoDecisaoVencido(new DateOnly(2026, 7, 20), 10).Should().BeTrue();
+        segundo!.PrazoDecisaoVencido(new DateOnly(2026, 7, 20), 10).Should().BeFalse();
+        segundo.PrazoDecisaoVencido(new DateOnly(2026, 7, 21), 10).Should().BeTrue();
+
+        // Cada um teve exatamente 10 dias desde que virou cobrável.
+        (primeiro.DataPrevistaFaturamento.DayNumber - segundo.DataPrevistaFaturamento.DayNumber)
+            .Should().Be(-1);
     }
 
     [Fact]
     public async Task Carencia_BacklogAnteriorAAtivacao_ContaDaAtivacao()
     {
-        // Guia antiga (atendimento 2026-07-10) e a rodada por atendimento só foi ativada em 2026-08-01.
+        // Guia antiga (prevista 2026-07-11) e a rodada só foi ativada em 2026-08-01.
         var codigo = await CriarSegundoCodigoAsync();
         var salvo = await _repo.ObterCodigoAsync(codigo.Id);
         var ativacao = new DateOnly(2026, 8, 1);
@@ -212,25 +249,25 @@ public class RodadaPendenciasTests : IDisposable
         salvo.PrazoDecisaoVencido(new DateOnly(2026, 8, 10), 10, ativacao).Should().BeFalse(); // 9 dias da ativação
         salvo.PrazoDecisaoVencido(new DateOnly(2026, 8, 11), 10, ativacao).Should().BeTrue();  // 10 dias da ativação
 
-        // Ativação anterior ao atendimento não muda nada: conta do atendimento normalmente.
-        salvo.PrazoDecisaoVencido(new DateOnly(2026, 7, 19), 10, new DateOnly(2026, 7, 1)).Should().BeFalse();
-        salvo.PrazoDecisaoVencido(new DateOnly(2026, 7, 20), 10, new DateOnly(2026, 7, 1)).Should().BeTrue();
+        // Ativação anterior à data prevista não muda nada: conta da data prevista normalmente.
+        salvo.PrazoDecisaoVencido(new DateOnly(2026, 7, 20), 10, new DateOnly(2026, 7, 1)).Should().BeFalse();
+        salvo.PrazoDecisaoVencido(new DateOnly(2026, 7, 21), 10, new DateOnly(2026, 7, 1)).Should().BeTrue();
     }
 
     [Fact]
     public async Task GarantirInicio_AncoraUmaVezENaoSobrescreve()
     {
         await _rodada.GarantirInicioAsync(new DateOnly(2026, 7, 20));
-        (await _parametros.ObterInicioRodadaPorAtendimentoAsync()).Should().Be(new DateOnly(2026, 7, 20));
+        (await _parametros.ObterInicioRodadaPrazoAsync()).Should().Be(new DateOnly(2026, 7, 20));
 
         await _rodada.GarantirInicioAsync(new DateOnly(2026, 8, 1)); // não sobrescreve a âncora existente
-        (await _parametros.ObterInicioRodadaPorAtendimentoAsync()).Should().Be(new DateOnly(2026, 7, 20));
+        (await _parametros.ObterInicioRodadaPrazoAsync()).Should().Be(new DateOnly(2026, 7, 20));
     }
 
     [Fact]
     public async Task Status_ComCarencia_NaoBloqueiaBacklogNaPrimeiraAbertura()
     {
-        await CriarSegundoCodigoAsync(); // atendimento 2026-07-10 (backlog)
+        await CriarSegundoCodigoAsync(); // prevista 2026-07-11 (backlog)
         await _rodada.GarantirInicioAsync(new DateOnly(2026, 8, 1)); // ativação bem depois
 
         // No dia da ativação, o backlog NÃO deve exigir decisão (carência de 10 dias).

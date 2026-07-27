@@ -3,13 +3,13 @@ using Clinica.Domain;
 namespace Clinica.Application.Modelos;
 
 /// <summary>
-/// Situação da rodada de pendências. O prazo é contado POR ATENDIMENTO: cada guia pendente vence
-/// <see cref="PrazoDias"/> dias (padrão 10) depois do atendimento do paciente. Ao vencer sem baixa,
+/// Situação da rodada de pendências. O prazo é contado POR GUIA: cada pendência vence
+/// <see cref="PrazoDias"/> dias (padrão 10) depois de virar pendente. Ao vencer sem baixa,
 /// a guia EXIGE uma decisão (baixa ou não conformidade) e bloqueia o uso até a resolução.
 /// Alimenta o banner do painel e o gatilho do aviso bloqueante.
 /// </summary>
 public sealed record RodadaPendenciasStatus(
-    /// <summary>Prazo (em dias, desde o atendimento) para exigir decisão em cada guia.</summary>
+    /// <summary>Prazo (em dias, desde a data prevista) para exigir decisão em cada guia.</summary>
     int PrazoDias,
     /// <summary>Guias pendentes cujo prazo já venceu — exigem decisão (baixa ou não conformidade) e bloqueiam.</summary>
     int GuiasParaDecisao,

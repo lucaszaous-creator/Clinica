@@ -17,6 +17,12 @@ public interface IDialogoService
 
     /// <summary>Aviso simples com OK.</summary>
     void Aviso(string titulo, string mensagem);
+
+    /// <summary>
+    /// Pede um texto obrigatório (motivo, justificativa). Retorna null se o usuário
+    /// desistir — o chamador não deve seguir com a ação nesse caso.
+    /// </summary>
+    string? PerguntarTexto(string titulo, string pergunta, string? textoInicial = null);
 }
 
 public sealed class DialogoService : IDialogoService
@@ -31,4 +37,14 @@ public sealed class DialogoService : IDialogoService
 
     public void Aviso(string titulo, string mensagem) =>
         MessageBox.Show(mensagem, titulo, MessageBoxButton.OK, MessageBoxImage.Information);
+
+    public string? PerguntarTexto(string titulo, string pergunta, string? textoInicial = null)
+    {
+        var janela = new PromptWindow(titulo, pergunta, textoInicial)
+        {
+            // Qualificado: dentro de Clinica.*, "Application" é o namespace Clinica.Application.
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+        return janela.ShowDialog() == true ? janela.Resposta : null;
+    }
 }

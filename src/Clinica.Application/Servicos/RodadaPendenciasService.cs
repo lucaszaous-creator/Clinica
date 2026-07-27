@@ -6,8 +6,10 @@ namespace Clinica.Application.Servicos;
 
 /// <summary>
 /// Orquestra a rodada de pendências ("rodar as pendências") — o fechamento de ciclo que impede a
-/// pendência de acumular indefinidamente. O prazo é contado POR ATENDIMENTO: cada guia pendente vence
-/// N dias (configurável, padrão 10) depois do atendimento do paciente. Ao vencer sem baixa, o sistema
+/// pendência de acumular indefinidamente. O prazo é POR GUIA: cada pendência vence N dias
+/// (configurável, padrão 10) depois de VIRAR PENDENTE (data prevista de faturamento) — e não depois do
+/// atendimento, senão o 2º código, que só existe +24h depois, teria prazo real menor que o 1º.
+/// Ao vencer sem baixa, o sistema
 /// EXIGE uma decisão — baixa ou NÃO CONFORMIDADE com justificativa — e bloqueia o uso até a resolução.
 /// A não conformidade silencia a pendência (sai do painel) e fica documentada no relatório — só volta
 /// a ser pendência se for reaberta manualmente ou quando o paciente retorna.
@@ -26,21 +28,21 @@ public sealed class RodadaPendenciasService
     }
 
     /// <summary>
-    /// Ancora a carência no primeiro uso: se a rodada por atendimento ainda não tem data de início,
+    /// Ancora a carência no primeiro uso: se a rodada ainda não tem data de início,
     /// define-a como hoje — assim o backlog acumulado só começa a contar o prazo a partir de agora e
     /// não bloqueia tudo de uma vez na primeira abertura desta versão.
     /// </summary>
     public async Task GarantirInicioAsync(DateOnly hoje, CancellationToken ct = default)
     {
-        if (await _parametros.ObterInicioRodadaPorAtendimentoAsync(ct) is null)
-            await _parametros.SalvarInicioRodadaPorAtendimentoAsync(hoje, ct);
+        if (await _parametros.ObterInicioRodadaPrazoAsync(ct) is null)
+            await _parametros.SalvarInicioRodadaPrazoAsync(hoje, ct);
     }
 
     /// <summary>Situação atual da rodada (para o banner do painel e a decisão de bloqueio).</summary>
     public async Task<RodadaPendenciasStatus> ObterStatusAsync(DateOnly hoje, CancellationToken ct = default)
     {
         var prazo = await _parametros.ObterIntervaloRodadaPendenciasAsync(ct);
-        var ativacao = await _parametros.ObterInicioRodadaPorAtendimentoAsync(ct);
+        var ativacao = await _parametros.ObterInicioRodadaPrazoAsync(ct);
         var vencidas = await _pendencias.CodigosVencidosParaDecisaoAsync(hoje, prazo, ativacao, ct);
         var pendentes = await _pendencias.CodigosPendentesAsync(hoje, ct);
 
@@ -60,13 +62,13 @@ public sealed class RodadaPendenciasService
     }
 
     /// <summary>
-    /// Guias pendentes cujo prazo de decisão (atendimento + N dias) já venceu — as que exigem baixa ou
+    /// Guias pendentes cujo prazo de decisão (data prevista + N dias) já venceu — as que exigem baixa ou
     /// não conformidade e bloqueiam o uso até a resolução. Usa o prazo configurado (padrão 10 dias).
     /// </summary>
     public async Task<IReadOnlyList<PendenciaCodigo>> GuiasVencidasParaDecisaoAsync(DateOnly hoje, CancellationToken ct = default)
     {
         var prazo = await _parametros.ObterIntervaloRodadaPendenciasAsync(ct);
-        var ativacao = await _parametros.ObterInicioRodadaPorAtendimentoAsync(ct);
+        var ativacao = await _parametros.ObterInicioRodadaPrazoAsync(ct);
         return await _pendencias.CodigosVencidosParaDecisaoAsync(hoje, prazo, ativacao, ct);
     }
 

@@ -27,6 +27,8 @@ public sealed class ModuloFinanceiro : IModuloApp
     public void Registrar(IServiceCollection servicos)
     {
         servicos.AddTransient<CaixaViewModel>();
+        // Transient de propósito: cada janela de lançamento abre com o formulário limpo.
+        servicos.AddTransient<LancamentoEdicaoViewModel>();
         servicos.AddTransient<ConciliacaoViewModel>();
         servicos.AddTransient<ProducaoViewModel>();
     }

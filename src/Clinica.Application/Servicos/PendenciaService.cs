@@ -42,7 +42,7 @@ public sealed class PendenciaService
 
     /// <summary>
     /// Guias pendentes cujo PRAZO DE DECISÃO venceu: já se passaram <paramref name="prazoDias"/> dias
-    /// (padrão 10) desde o atendimento e a guia continua sem baixa. São as que o sistema EXIGE decidir
+    /// (padrão 10) desde a data prevista e a guia continua sem baixa. São as que o sistema EXIGE decidir
     /// (baixa ou não conformidade) e que bloqueiam o uso até a resolução.
     /// <paramref name="ativacao"/> aplica a carência do backlog anterior à 1ª execução (ver
     /// <see cref="CodigoFaturamento.PrazoDecisaoVencido"/>).

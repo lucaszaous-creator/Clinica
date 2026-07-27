@@ -11,7 +11,7 @@ namespace Clinica.Desktop.Alertas;
 /// <summary>
 /// Janela de "rodar as pendências": lista guias para uma decisão explícita — dar baixa (informando o
 /// nº da guia) ou registrar como NÃO CONFORMIDADE (com justificativa). No modo BLOQUEANTE traz as
-/// guias cujo prazo desde o atendimento venceu e só fecha depois que toda guia tiver uma decisão.
+/// guias cujo prazo desde a data prevista venceu e só fecha depois que toda guia tiver uma decisão.
 /// </summary>
 public partial class RodadaPendenciasWindow : Window
 {
@@ -58,7 +58,7 @@ public partial class RodadaPendenciasWindow : Window
             : string.Empty;
 
         TxtResumo.Text = bloqueante
-            ? $"Estas {Linhas.Count} guia(s) passaram de {status.PrazoDias} dias desde o atendimento sem resolução." +
+            ? $"Estas {Linhas.Count} guia(s) estão pendentes há mais de {status.PrazoDias} dias sem resolução." +
               " Decida cada uma para continuar — dê baixa ou justifique como não conformidade." + lembrete
             : $"{Linhas.Count} guia(s) pendente(s). Dê baixa no que puder e justifique o restante como não conformidade." + lembrete;
 
