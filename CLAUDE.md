@@ -70,12 +70,18 @@ Camadas clássicas, todas em `src/`:
   `Clinica.Financeiro`, `Clinica.Gerente`) — três executáveis NOVOS, ao lado do faturamento e sem
   encostar nele. O shell tem o design system, a janela genérica, o contrato de módulo (`IModuloApp`)
   e a abertura padrão (`SuiteApp`); cada módulo é uma **biblioteca** com suas telas; cada `.exe` é uma
-  casca que só escolhe a lista de módulos — o Gerente Geral carrega todos. O faturamento
-  (`Clinica.Desktop`) vira módulo na Fase 4. **Leia `docs/arquitetura-multi-exe.md` antes de mexer
-  aqui**: fases, débito assumido (design system e log duplicados até a Fase 4), canais de release e o
-  plano da Fase 4.
+  casca que só escolhe a lista de módulos — o Gerente Geral carrega todos. **Leia
+  `docs/arquitetura-multi-exe.md` antes de mexer aqui**: fases, débito assumido (design system e log
+  duplicados, agora permanentes) e canais de release.
 - **tests/Clinica.Tests** — xUnit; os testes de regras validam cada fluxograma de convênio de ponta a
   ponta usando repositório fake em memória (sem banco).
+
+⚠️ **O FATURAMENTO (`Clinica.Desktop`) ESTÁ CONGELADO.** Ele fatura a clínica hoje e não se encosta
+nele: nada de editar telas, ViewModels ou fluxos dele, e nada de migration que renomeie ou remova o
+que ele usa (**só aditiva**). Criar entidade/serviço novo nas camadas compartilhadas é permitido;
+feature nova vai para Recepção, Financeiro ou Gerente. Por isso a **Fase 4 foi cancelada**. O que
+cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.md` e
+`docs/entrega-ao-cliente.md`.
 
 ### Regras de negócio que não são óbvias pelo código
 
