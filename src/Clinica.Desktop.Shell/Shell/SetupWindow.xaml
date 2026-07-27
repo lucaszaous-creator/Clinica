@@ -1,0 +1,43 @@
+<Window x:Class="Clinica.Desktop.Shell.SetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configuração inicial — Banco de dados" Width="640" SizeToContent="Height"
+        Icon="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/icone.png"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <StackPanel Margin="28">
+        <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
+               Height="40" HorizontalAlignment="Left" Margin="0,0,0,18"
+               RenderOptions.BitmapScalingMode="HighQuality" ToolTip="Clínica SemDor" />
+
+        <TextBlock x:Name="TxtTitulo" Style="{StaticResource H2}" Margin="0,0,0,4" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,4"
+                   Text="Cole a connection string do PostgreSQL. Também aceita a URI da Neon (postgresql://…) — o sistema converte sozinho." />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   Text="Ela fica criptografada neste computador, para o seu usuário do Windows, e vale para todos os apps da suíte instalados aqui — você só faz isso uma vez." />
+
+        <TextBlock Text="Connection string / URL da Neon" Style="{StaticResource Rotulo}" />
+        <TextBox x:Name="TxtConexao" Height="90" AcceptsReturn="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto" FontFamily="Consolas"
+                 TextChanged="AoDigitar" />
+
+        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+            <Button x:Name="BtnTestar" Content="Testar conexão" MinWidth="150"
+                    Style="{StaticResource BotaoSecundario}" Click="Testar" />
+            <Button x:Name="BtnSalvar" Content="Salvar e continuar" MinWidth="170" Margin="10,0,0,0"
+                    Click="Salvar" IsEnabled="False" IsDefault="True" />
+        </StackPanel>
+
+        <!-- Um alerta por estado: o teste tem três respostas e cada uma tem sua cor. -->
+        <Border x:Name="BoxInfo" Style="{StaticResource AlertaInfo}" Margin="0,16,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="TxtInfo" TextWrapping="Wrap" />
+        </Border>
+        <Border x:Name="BoxSucesso" Style="{StaticResource AlertaSucesso}" Margin="0,16,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="TxtSucesso" TextWrapping="Wrap" />
+        </Border>
+        <Border x:Name="BoxErro" Style="{StaticResource AlertaPerigo}" Margin="0,16,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="TxtErro" TextWrapping="Wrap" />
+        </Border>
+    </StackPanel>
+</Window>

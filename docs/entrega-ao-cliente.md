@@ -24,27 +24,42 @@ PostgreSQL — não há comunicação entre eles.
 O Gerente Geral **carrega os módulos dos outros** — quem o instala não precisa da Recepção
 nem do Financeiro na mesma máquina.
 
-## Pré-requisito bloqueante: a conexão
+## A conexão — resolvido na parcela 0
 
-**Hoje Recepção, Financeiro e Gerente só sobem se o Faturamento estiver instalado na mesma
-máquina.** Eles leem a connection string da pasta dele como fallback
-(`Clinica.Desktop.Shell/Configuracao/ConexaoStore.cs`).
+Até a parcela 0, Recepção, Financeiro e Gerente só subiam se o Faturamento estivesse
+instalado na mesma máquina: liam a connection string da pasta dele. Com um app por posto
+isso era inviável — o balcão não tem faturamento.
 
-Com um app por perfil isso é inviável: o balcão não terá faturamento. **Sem a tela de setup
-própria, nenhum dos três instala** — é a parcela 0, e ela não é opcional.
+Agora **cada app tem tela de setup própria** (`Clinica.Desktop.Shell/Shell/SetupWindow`):
+no primeiro acesso a clínica cola a connection string (ou a URI da Neon), testa e salva.
+Salvar só libera depois de o teste passar — conexão que não abre, gravada, transforma o
+próximo erro em mistério.
 
-## Release e versão por app
+A configuração fica criptografada por usuário do Windows (DPAPI) em
+`%APPDATA%\ClinicaSemDor` e **vale para todos os apps da suíte** naquela máquina: configura
+uma vez, os outros aproveitam. Se o Faturamento já estiver instalado ali, a dele continua
+sendo lida como alternativa e a tela nem aparece.
 
-Com quatro apps evoluindo em ritmos diferentes, a release conjunta obriga a **republicar o
-faturamento por mudança que não é dele** — download e reinício reais numa máquina em
-produção, sem nenhum ganho para quem opera. Cada app passa a ter sua tag e sua versão.
+Se a conexão falhar depois (senha trocada, servidor mudou), o app oferece reconfigurar
+em vez de só mostrar o erro e fechar.
 
-| App | packId | Canal | Tag |
+## Release e versão por app — entregue na parcela 0
+
+Com quatro apps evoluindo em ritmos diferentes, a release conjunta obrigava a **republicar
+o faturamento por mudança que não era dele** — download e reinício reais numa máquina em
+produção, sem nenhum ganho para quem opera. Cada app tem agora sua tag, sua versão e sua
+release.
+
+| App | packId | Canal | Publicar com |
 |---|---|---|---|
-| Faturamento | `Clinica.Faturamento` | `win` | `vX.Y.Z` |
-| Recepção | `Clinica.Recepcao` | `recepcao` | `recepcao-vX.Y.Z` |
-| Financeiro | `Clinica.Financeiro` | `financeiro` | `financeiro-vX.Y.Z` |
-| Gerente Geral | `Clinica.Gerente` | `gerente` | `gerente-vX.Y.Z` |
+| Faturamento | `Clinica.Faturamento` | `win` | `git tag v1.2.3` |
+| Recepção | `Clinica.Recepcao` | `recepcao` | `git tag recepcao-v1.0.0` |
+| Financeiro | `Clinica.Financeiro` | `financeiro` | `git tag financeiro-v1.0.0` |
+| Gerente Geral | `Clinica.Gerente` | `gerente` | `git tag gerente-v1.0.0` |
+
+Ou pela aba **Actions → "Release" → Run workflow**, escolhendo o app e a versão.
+O faturamento **não** recebe `--channel` no `vpk`: ele fica no canal padrão, e passar o
+parâmetro mudaria o nome do feed e quebraria o auto-update já instalado.
 
 **`packId` e canal do faturamento não mudam nunca** — mexer neles faz as instalações
 existentes perderem o canal de auto-update e pararem de atualizar.
@@ -64,33 +79,33 @@ app instalado.
 | App | Pronto para o cliente? |
 |---|---|
 | Faturamento | ✅ Sim — está em produção |
-| Recepção | ⚠️ Só a fila do dia, e **não instala sozinho** (parcela 0) |
-| Financeiro | ⚠️ Caixa, conciliação e produção; **não instala sozinho** |
-| Gerente | ⚠️ Reúne Recepção e Financeiro; sem telas de faturamento |
+| Recepção | ✅ Instala e roda sozinho; por enquanto só a fila do dia |
+| Financeiro | ✅ Instala e roda sozinho; caixa, conciliação e produção |
+| Gerente | ✅ Instala e roda sozinho; reúne Recepção e Financeiro (sem telas de faturamento) |
 
-Na prática: **hoje só o Faturamento é entregável.** Os outros três dependem da parcela 0.
+Com a parcela 0 entregue, **os quatro são instaláveis**. O que varia é quanto cada um já
+entrega de conteúdo — ver [`features-por-modulo.md`](features-por-modulo.md).
 
 ## As parcelas
 
 | Parcela | Módulo | Entrega | Destrava |
 |---|---|---|---|
-| **0 — Instalável** | Todos | Tela de setup própria da suíte; release e versão por app | Instalar qualquer app **sem** o Faturamento na máquina |
+| ~~**0 — Instalável**~~ ✅ | Todos | Tela de setup própria da suíte; release e versão por app | Instalar qualquer app **sem** o Faturamento na máquina |
 | **1 — Fundação** | Recepção | `Profissional` + `Sala`; agenda multiprofissional com encaixe e lista de espera; fila em kanban; painel próprio | Features 02 e 03 — e pré-requisito de 05, 09, 12 e 13 |
 | **2 — Cadastro e prontuário** | Recepção | Pacientes 360º com consentimento LGPD; prontuário com evolução e escala EVA | Features 04 e 05 — fecha a Fase 1 da proposta |
 | **3 — Ato clínico** | Recepção | Mapa corporal com protocolo reutilizável; prescrição; os 7 documentos clínicos | Features 06 e 07, e a página 21 |
 | **4 — Dinheiro e insumo** | Financeiro | Pacotes/vouchers com saldo; repasse por profissional; estoque com validade e custo | Features 08, 09 e 10 |
 | **5 — Inteligência** | Gerente | BI (ocupação, no-show, produtividade); NPS e recall; perfis, permissões e LGPD; visão consolidada lendo o faturamento | Features 11, 12 e 13 |
 
-A ordem não é negociável nos dois primeiros passos: a **0** é o que torna qualquer app
-instalável, e a **1** cria `Profissional`, sem o qual metade das outras features não tem
-onde se apoiar.
+A **parcela 0 está entregue**. A **1** é a próxima e também não é negociável: cria
+`Profissional`, sem o qual metade das outras features não tem onde se apoiar.
 
 ## Instalação numa clínica nova
 
 1. Configurar o banco (Neon/PostgreSQL) e ter a connection string em mãos.
 2. Instalar o app do perfil em cada posto.
-3. No **primeiro** app aberto, informar a conexão na tela de setup (parcela 0). Ela fica
-   criptografada por usuário do Windows (DPAPI) em `%APPDATA%\ClinicaSemDor`.
+3. No **primeiro** app aberto, informar a conexão na tela de setup, testar e salvar. Ela
+   fica criptografada por usuário do Windows (DPAPI) em `%APPDATA%\ClinicaSemDor`.
 4. Os demais apps da mesma máquina reaproveitam essa configuração automaticamente.
 5. As migrations sobem sozinhas na abertura, serializadas por advisory lock — dois apps
    abrindo às 8h não brigam.
