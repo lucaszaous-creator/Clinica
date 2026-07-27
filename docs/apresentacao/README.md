@@ -14,3 +14,9 @@ em página única (HTML autocontido, sem dependências externas).
 
 Abra o arquivo em qualquer navegador. Tem alternância claro/escuro no topo e é responsivo.
 Para gerar um PDF, use **Imprimir → Salvar como PDF** no navegador.
+
+## Divergências conhecidas
+
+A apresentação é material de venda e **não** acompanha o código automaticamente. O que
+está desatualizado hoje, e o mapa completo entre o que ela promete e o que cada módulo
+entrega, está em [`docs/features-por-modulo.md`](../features-por-modulo.md).

@@ -105,6 +105,10 @@ public interface IModuloApp
 O shell monta a sidebar a partir de todos os módulos registrados, na ordem em que
 foram informados. Nenhum módulo conhece os outros.
 
+> Para o mapa entre as features vendidas na apresentação comercial e o módulo dono de
+> cada uma — com o que ainda não existe —, veja
+> [`docs/features-por-modulo.md`](features-por-modulo.md).
+
 ## Ordem de trabalho
 
 A sequência é deliberada: o faturamento é o **último** a mudar.
