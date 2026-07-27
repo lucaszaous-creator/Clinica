@@ -570,6 +570,125 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         ConsentimentoLgpd consentimento, CancellationToken ct = default)
         => await _db.Consentimentos.AddAsync(consentimento, ct);
 
+    // ---- Ato clínico: mapa corporal e protocolos ----
+
+    // Rastreado (sem AsNoTracking) de propósito: quem abre o mapa é quem vai regravá-lo.
+    public Task<MapaCorporal?> ObterMapaDaEvolucaoAsync(int evolucaoId, CancellationToken ct = default)
+        => _db.MapasCorporais
+            .Include(m => m.Pontos)
+            .FirstOrDefaultAsync(m => m.EvolucaoId == evolucaoId, ct);
+
+    public async Task AdicionarMapaAsync(MapaCorporal mapa, CancellationToken ct = default)
+        => await _db.MapasCorporais.AddAsync(mapa, ct);
+
+    public async Task RemoverPontosDoMapaAsync(int mapaId, CancellationToken ct = default)
+    {
+        var pontos = await _db.PontosMapa.Where(p => p.MapaCorporalId == mapaId).ToListAsync(ct);
+        _db.PontosMapa.RemoveRange(pontos);
+    }
+
+    public async Task<IReadOnlyList<ProtocoloCorporal>> ProtocolosCorporaisAsync(
+        int? pacienteId, bool somenteAtivos = true, CancellationToken ct = default)
+        => await _db.ProtocolosCorporais.AsNoTracking()
+            .Include(p => p.Pontos)
+            // Os da clínica valem para todo mundo; os do paciente, só para ele.
+            .Where(p => p.PacienteId == null || p.PacienteId == pacienteId)
+            .Where(p => !somenteAtivos || p.Ativo)
+            .OrderBy(p => p.PacienteId == null ? 0 : 1).ThenBy(p => p.Nome)
+            .ToListAsync(ct);
+
+    public Task<ProtocoloCorporal?> ObterProtocoloCorporalAsync(
+        int protocoloId, CancellationToken ct = default)
+        => _db.ProtocolosCorporais
+            .Include(p => p.Pontos)
+            .FirstOrDefaultAsync(p => p.Id == protocoloId, ct);
+
+    public async Task AdicionarProtocoloCorporalAsync(
+        ProtocoloCorporal protocolo, CancellationToken ct = default)
+        => await _db.ProtocolosCorporais.AddAsync(protocolo, ct);
+
+    public async Task RemoverProtocoloCorporalAsync(int protocoloId, CancellationToken ct = default)
+    {
+        var protocolo = await _db.ProtocolosCorporais
+            .FirstOrDefaultAsync(p => p.Id == protocoloId, ct);
+        if (protocolo is not null)
+            _db.ProtocolosCorporais.Remove(protocolo);
+    }
+
+    // ---- Documentos clínicos ----
+
+    public async Task AdicionarDocumentoAsync(DocumentoClinico documento, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AddAsync(documento, ct);
+
+    public Task<DocumentoClinico?> ObterDocumentoAsync(int documentoId, CancellationToken ct = default)
+        => _db.DocumentosClinicos
+            .Include(d => d.Itens)
+            .Include(d => d.Paciente)
+            .Include(d => d.Profissional)
+            .FirstOrDefaultAsync(d => d.Id == documentoId, ct);
+
+    public Task<DocumentoClinico?> ObterDocumentoPorCodigoAsync(
+        string codigo, CancellationToken ct = default)
+        => _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Itens)
+            .Include(d => d.Paciente)
+            .Include(d => d.Profissional)
+            .FirstOrDefaultAsync(d => d.CodigoVerificacao == codigo, ct);
+
+    // Sem os itens: a lista da ficha mostra número, tipo e data — o corpo só é lido
+    // quando alguém abre ou reimprime um documento específico.
+    public async Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Profissional)
+            .Where(d => d.PacienteId == pacienteId)
+            .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
+            .ToListAsync(ct);
+
+    public async Task<int> ProximoNumeroDocumentoAsync(int ano, CancellationToken ct = default)
+    {
+        // Contar serve porque documento não se apaga: cancelar mantém a linha (e o número).
+        var prefixo = ano.ToString() + "/";
+        var emitidos = await _db.DocumentosClinicos.AsNoTracking()
+            .CountAsync(d => d.Numero.StartsWith(prefixo), ct);
+        return emitidos + 1;
+    }
+
+    public async Task<IReadOnlyList<ModeloDocumento>> ModelosDocumentoAsync(
+        TipoDocumentoClinico? tipo = null, CancellationToken ct = default)
+        => await _db.ModelosDocumento.AsNoTracking()
+            .Include(m => m.Itens)
+            .Where(m => tipo == null || m.Tipo == tipo)
+            .OrderBy(m => m.Ordem).ThenBy(m => m.Nome)
+            .ToListAsync(ct);
+
+    public Task<ModeloDocumento?> ObterModeloDocumentoAsync(int modeloId, CancellationToken ct = default)
+        => _db.ModelosDocumento
+            .Include(m => m.Itens)
+            .FirstOrDefaultAsync(m => m.Id == modeloId, ct);
+
+    public Task<ModeloDocumento?> ObterModeloDocumentoPorNomeAsync(
+        TipoDocumentoClinico tipo, string nome, CancellationToken ct = default)
+        => _db.ModelosDocumento
+            .Include(m => m.Itens)
+            .FirstOrDefaultAsync(m => m.Tipo == tipo && m.Nome == nome, ct);
+
+    public async Task AdicionarModeloDocumentoAsync(ModeloDocumento modelo, CancellationToken ct = default)
+        => await _db.ModelosDocumento.AddAsync(modelo, ct);
+
+    public async Task RemoverModeloDocumentoAsync(int modeloId, CancellationToken ct = default)
+    {
+        var modelo = await _db.ModelosDocumento.FirstOrDefaultAsync(m => m.Id == modeloId, ct);
+        if (modelo is not null)
+            _db.ModelosDocumento.Remove(modelo);
+    }
+
+    public async Task RemoverItensDoModeloAsync(int modeloId, CancellationToken ct = default)
+    {
+        var itens = await _db.ItensModelo.Where(i => i.ModeloDocumentoId == modeloId).ToListAsync(ct);
+        _db.ItensModelo.RemoveRange(itens);
+    }
+
     // ---- Auditoria ----
 
     public async Task RegistrarAuditoriaAsync(EventoAuditoria evento, CancellationToken ct = default)

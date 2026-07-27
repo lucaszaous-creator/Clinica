@@ -112,6 +112,26 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   ou automaticamente quando o **paciente volta** — `AtendimentoService.LancarAsync` reabre as NCs do
   paciente e avisa a secretária para cobrar a guia na hora. Toggles em Configurações estendem a rodada
   a consultas/carteirinhas.
+- **Mapa corporal e protocolo** (`MapaCorporalService`, parcela 3): o mapa é **1:1 com a
+  evolução** (é a mesma sessão vista de outro jeito) e some com ela. Aplicar um protocolo
+  é **COPIAR** os pontos para a sessão, nunca apontar para ele — referência viva faria
+  corrigir um ponto hoje reescrever o protocolo da clínica e a sessão da semana passada.
+  As coordenadas são **normalizadas (0 a 1)** sobre a figura, nunca pixels: quem converte
+  o clique é a tela (`PontoMapaItem.LarguraFigura`/`AlturaFigura`, os mesmos números do
+  XAML). "Repetir a sessão anterior" e "aplicar protocolo" **não gravam** — trazem os
+  pontos para a tela, e só o Salvar da sessão os efetiva.
+- **Documento clínico é fato** (`DocumentoClinicoService`, parcela 3): os sete papéis da
+  página 21 que saem da Recepção viram um `DocumentoClinico` numerado por ano
+  (`2026/0001`) com código de conferência. Não se apaga nem se reescreve: **cancela-se
+  com motivo** e emite-se outro (como a revogação de consentimento). O conteúdo é gravado
+  na EMISSÃO e não remontado na reimpressão — a segunda via tem de sair idêntica à que o
+  paciente levou. Quatro são escritos (receita, atestado, comparecimento, pedido de
+  exame) e três montados do prontuário (relatório de evolução, termo de consentimento,
+  anamnese). O **CID só sai impresso com autorização expressa do paciente**
+  (`CidImpresso`); receita, atestado e pedido de exame **exigem** o profissional que
+  assina — única exceção à regra de "avisa, mas não impede". Não há assinatura ICP-Brasil:
+  o PDF traz carimbo, linha de assinatura e código de conferência, e chamar isso de
+  assinatura digital seria mentir sobre o que a via garante.
 - **Foto do paciente**: capturada pela webcam da recepção (`Desktop/Servicos/CameraServico.cs`,
   DirectShow via AForge; `Retrato.cs` recorta em quadrado e gera os dois JPEGs). O armazenamento é
   deliberadamente partido em dois: `Paciente.FotoMiniatura` (~160px, na própria linha, alimenta os

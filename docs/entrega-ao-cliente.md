@@ -8,56 +8,58 @@
 
 ## Onde estamos
 
-**3 das 6 parcelas entregues.** Com a parcela 2, a **Fase 1 da proposta está fechada**.
+**4 das 6 parcelas entregues.** Com a parcela 3, a **Recepção está completa** — só falta
+dela a confirmação automática por WhatsApp, que é campanha e vai com o recall.
 
 | Parcela | Estado |
 |---|---|
 | 0 — Instalável | ✅ entregue |
 | 1 — Fundação | ✅ entregue |
 | 2 — Cadastro e prontuário | ✅ entregue |
-| 3 — Ato clínico | ⬜ próxima |
-| 4 — Dinheiro e insumo | ⬜ |
+| 3 — Ato clínico | ✅ entregue |
+| 4 — Dinheiro e insumo | ⬜ próxima |
 | 5 — Inteligência | ⬜ |
 
-Das **14 features** vendidas na proposta: **5 completas, 4 parciais, 5 inexistentes.**
+Das **14 features** vendidas na proposta: **7 completas, 4 parciais, 3 inexistentes.**
 
 | Estado | Features |
 |---|---|
-| ✅ Completas | 01 painel · 03 fila kanban · 04 pacientes 360º · 05 prontuário/EVA · 14 TISS |
+| ✅ Completas | 01 painel · 03 fila kanban · 04 pacientes 360º · 05 prontuário/EVA · 06 mapa corporal · 07 prescrição · 14 TISS |
 | 🟡 Parciais | 02 agenda · 09 caixa · 12 BI · 13 permissões/LGPD |
-| ⬜ Inexistentes | 06 mapa corporal · 07 prescrição · 08 pacotes · 10 estoque · 11 NPS/recall |
+| ⬜ Inexistentes | 08 pacotes · 10 estoque · 11 NPS/recall |
 
-Dos **12 documentos impressos** da página 21 da proposta, **3 existem** (capa de lote,
-guia TISS e fechamento). Os 9 restantes são das parcelas 3 e 4.
+Dos **12 documentos impressos** da página 21 da proposta, **10 existem**. Os 2 restantes
+(recibo e orçamento) são do Financeiro, na parcela 4.
 
 ### O que temos e o que falta, app por app
 
 | App | O que já entrega | O que ainda falta |
 |---|---|---|
 | **Faturamento** | Tudo: motor de regras, 2º código, lotes TISS, glosa e recurso, PDFs. **Em produção.** | Nada — está **congelado** de propósito |
-| **Recepção** | Painel do dia, agenda multiprofissional com encaixe e lista de espera, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos | Mapa corporal, prescrição e os 7 documentos clínicos (parcela 3); confirmação automática por WhatsApp (parcela 5) |
+| **Recepção** | Painel do dia, agenda multiprofissional com encaixe e lista de espera, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos, mapa corporal com protocolo e os 7 documentos clínicos | Só a confirmação automática por WhatsApp (parcela 5) |
 | **Financeiro** | Caixa do mês, lançamento manual, conciliação com o faturamento, produção do período | Pacotes/vouchers, estoque, repasse por profissional, recibo e orçamento (parcela 4) |
 | **Gerente Geral** | Carrega Recepção + Financeiro inteiros | Telas próprias de BI, NPS/recall, perfis e permissões, e a visão consolidada do faturamento (parcela 5) |
 
 ### O que falta, na ordem em que vai ser feito
 
-- **Parcela 3 — ato clínico** (Recepção): mapa corporal com protocolo reutilizável,
-  prescrição, e os 7 documentos clínicos da página 21 (receita, atestado, comparecimento,
-  pedido de exame, relatório de evolução, consentimento, anamnese).
 - **Parcela 4 — dinheiro e insumo** (Financeiro): pacotes/planos/vouchers com saldo,
   repasse por profissional, estoque com validade e custo, recibo e orçamento.
 - **Parcela 5 — inteligência** (Gerente): BI com ocupação, no-show e produtividade; NPS e
   recall; perfis e permissões; visão consolidada lendo o faturamento; e a confirmação
   automática por WhatsApp, que é campanha e por isso vem com o recall.
 
-### Duas afirmações da proposta que ainda não se sustentam
+### Duas afirmações da proposta que ainda precisam de decisão
 
 1. **Página 24 — "Dois apps, um banco".** São **quatro**, um por perfil.
-2. **Página 23 — "Prontuário com mapa corporal e EVA"**, marcado ✓ contra os concorrentes.
-   Depois da parcela 2, **metade virou verdade**: o prontuário com EVA existe. O **mapa
-   corporal** não — vai na parcela 3.
+2. **Feature 07 — "assinatura e carimbo digitais".** O que existe é o carimbo do
+   profissional (nome e registro no conselho), a linha de assinatura e um código de
+   conferência que acha o documento no sistema. **Não** há certificado ICP-Brasil —
+   chamar isso de assinatura digital seria mentir sobre o que a via garante. Validade
+   jurídica de assinatura eletrônica é escopo novo.
 
-Ambas precisam de decisão comercial antes de o documento ir para outro cliente.
+A **página 23** ("Prontuário com mapa corporal e EVA") deixou de ser divergência: a EVA
+saiu na parcela 2 e o mapa corporal saiu na 3 — a afirmação agora é inteiramente
+verdadeira.
 
 ## Topologia: quatro apps, um por perfil
 
@@ -193,6 +195,45 @@ Quatro decisões que valem registrar:
 A migration continua **puramente aditiva**: só tabelas novas (`Evolucoes`,
 `AnexosProntuario`, `Consentimentos`).
 
+## Ato clínico — resolvido na parcela 3
+
+A parcela 3 fecha a Recepção. Ela entrega o que a proposta vendeu como **mapa corporal**
+(feature 06), **prescrição** (feature 07) e os **sete documentos impressos** da página 21
+que saem do balcão.
+
+**Mapa corporal.** Duas figuras — frente e costas — em que o profissional clica para
+marcar onde aplicou, com a técnica (agulha, eletro, moxa, ventosa, aurículo, laser). O
+mapa é 1:1 com a sessão do prontuário: é a mesma sessão vista de outro jeito, e some com
+ela. Um conjunto de pontos pode ser guardado como **protocolo** — da clínica ("Lombalgia
+— padrão", vale para todo mundo) ou do paciente ("o esquema da dona Maria") — e
+reaplicado nas próximas sessões; e há o atalho que resolve o dia a dia: **repetir o mapa
+da sessão anterior**.
+
+**Documentos clínicos.** Um só registro numerado por ano (`2026/0001`) com código de
+conferência impresso no rodapé. Quatro são escritos pelo profissional (receita, atestado,
+declaração de comparecimento, pedido de exame), com **modelos** reutilizáveis; três o
+sistema monta do que já tem (relatório de evolução com a EVA, termo de consentimento
+LGPD, anamnese).
+
+Quatro decisões que valem registrar:
+
+- **Aplicar um protocolo é copiar pontos, nunca apontar para ele.** Se fosse referência,
+  corrigir um ponto hoje reescreveria o protocolo da clínica — e, pior, a sessão da
+  semana passada. Prontuário é registro do que aconteceu.
+- **Documento emitido é fato.** Não se apaga nem se reescreve: cancela-se com motivo e
+  emite-se outro. A linha cancelada continua na ficha, porque a via em papel não some
+  por ser apagada do sistema. É a mesma lógica do consentimento revogado da parcela 2.
+- **A segunda via sai igual à primeira.** O conteúdo é gravado na emissão, não remontado
+  na hora de imprimir — inclusive nos documentos montados do prontuário. Um relatório
+  reimpresso em dezembro não pode "crescer" porque houve sessões em novembro.
+- **O CID só entra no atestado com autorização expressa do paciente.** O campo fica
+  gravado (é dado clínico), mas não vai para o papel sem a autorização — e a tela avisa
+  antes, para ninguém entregar o documento achando que o diagnóstico foi junto.
+
+A migration é **puramente aditiva**: só tabelas novas (`MapasCorporais`, `PontosMapa`,
+`ProtocolosCorporais`, `PontosProtocolo`, `DocumentosClinicos`, `ItensDocumento`,
+`ModelosDocumento`, `ItensModelo`).
+
 ## Os quatro são instaláveis
 
 Desde a parcela 0, **os quatro apps instalam e rodam sozinhos** — nenhum depende de o
@@ -207,7 +248,7 @@ o inventário está em [Onde estamos](#onde-estamos), e o detalhe feature a feat
 | ~~**0 — Instalável**~~ ✅ | Todos | Tela de setup própria da suíte; release e versão por app | Instalar qualquer app **sem** o Faturamento na máquina |
 | ~~**1 — Fundação**~~ ✅ | Recepção | `Profissional` + `Sala`; agenda multiprofissional com encaixe e lista de espera; fila em kanban; painel próprio | Features 01 e 03 entregues, 02 sem a confirmação automática — e destrava 05, 09, 12 e 13 |
 | ~~**2 — Cadastro e prontuário**~~ ✅ | Recepção | Pacientes 360º com consentimento LGPD; prontuário com evolução e escala EVA | Features 04 e 05 — **fecha a Fase 1 da proposta** |
-| **3 — Ato clínico** | Recepção | Mapa corporal com protocolo reutilizável; prescrição; os 7 documentos clínicos | Features 06 e 07, e a página 21 |
+| ~~**3 — Ato clínico**~~ ✅ | Recepção | Mapa corporal com protocolo reutilizável; prescrição com modelos; os 7 documentos clínicos | Features 06 e 07, e 7 dos 12 documentos da página 21 — **fecha a Recepção** |
 | **4 — Dinheiro e insumo** | Financeiro | Pacotes/vouchers com saldo; repasse por profissional; estoque com validade e custo | Features 08, 09 e 10 |
 | **5 — Inteligência** | Gerente | BI (ocupação, no-show, produtividade); NPS, recall e confirmação automática; perfis e permissões; visão consolidada lendo o faturamento | Features 11 e 12, a metade que falta da 13 (a LGPD saiu na parcela 2) e a confirmação automática da 02 |
 

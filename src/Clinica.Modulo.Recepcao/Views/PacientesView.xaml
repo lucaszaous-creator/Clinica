@@ -334,6 +334,104 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- ===== Documentos clínicos ===== -->
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                        <StackPanel>
+                            <Grid>
+                                <TextBlock Text="Documentos" Style="{StaticResource H3}"
+                                           VerticalAlignment="Center" />
+                                <Button Content="Novo documento…" HorizontalAlignment="Right"
+                                        Style="{StaticResource BotaoPequeno}"
+                                        Command="{Binding NovoDocumentoCommand}" />
+                            </Grid>
+
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                                       Text="Receita, atestado, declaração e pedido de exame são escritos na janela. Os três abaixo o sistema monta do prontuário — e todos ficam numerados aqui, com código de conferência para a via em papel." />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Button Content="Relatório de evolução" Style="{StaticResource BotaoPequeno}"
+                                        Command="{Binding EmitirRelatorioCommand}" />
+                                <Button Content="Termo de consentimento" Margin="8,0,0,0"
+                                        Style="{StaticResource BotaoPequeno}"
+                                        Command="{Binding EmitirTermoCommand}" />
+                                <Button Content="Anamnese" Margin="8,0,0,0"
+                                        Style="{StaticResource BotaoPequeno}"
+                                        Command="{Binding EmitirAnamneseCommand}" />
+                            </StackPanel>
+
+                            <TextBlock Text="Nenhum documento emitido para este paciente ainda." Margin="0,8">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Documentos.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <ItemsControl ItemsSource="{Binding Documentos}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:LinhaDocumento}">
+                                        <Border Padding="0,10"
+                                                BorderBrush="{StaticResource Brush.Borda}"
+                                                BorderThickness="0,0,0,1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="90" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Grid.Column="0" Text="{Binding Data}"
+                                                           FontWeight="SemiBold" VerticalAlignment="Center"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Tipo}" FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                        <TextBlock Text="{Binding Numero}" Margin="8,0,0,0"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                    </StackPanel>
+                                                    <TextBlock Margin="0,2,0,0"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                        <Run Text="{Binding Profissional, Mode=OneWay}" />
+                                                        <Run Text=" · conferência " />
+                                                        <Run Text="{Binding Codigo, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                            VerticalAlignment="Center">
+                                                    <Border Style="{StaticResource Badge.Erro}" Margin="0,0,8,0"
+                                                            Visibility="{Binding Cancelado,
+                                                                         Converter={StaticResource BoolParaVisibilidade}}">
+                                                        <TextBlock Text="{Binding Situacao}" />
+                                                    </Border>
+                                                    <Button Content="Imprimir" Style="{StaticResource BotaoPequeno}"
+                                                            Command="{Binding DataContext.ImprimirDocumentoCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="Cancelar" Margin="8,0,0,0"
+                                                            Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                            IsEnabled="{Binding PodeCancelar}"
+                                                            Command="{Binding DataContext.CancelarDocumentoCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
                     <!-- ===== Consentimentos LGPD ===== -->
                     <Border Style="{StaticResource Card}" Margin="0,12,0,24">
                         <StackPanel>

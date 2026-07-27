@@ -6,6 +6,7 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
+using Clinica.Recepcao.Servicos;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,6 +46,25 @@ public sealed class LinhaAlerta
     public required bool EhVermelho { get; init; }
 }
 
+/// <summary>Um documento clínico emitido, na lista da ficha.</summary>
+public sealed class LinhaDocumento
+{
+    public required int DocumentoId { get; init; }
+    public required string Numero { get; init; }
+    public required string Tipo { get; init; }
+    public required string Data { get; init; }
+    public required string Profissional { get; init; }
+    public required string Codigo { get; init; }
+    public required bool Cancelado { get; init; }
+    public required string Situacao { get; init; }
+
+    /// <summary>Nome sugerido ao salvar o PDF.</summary>
+    public string NomeArquivo => $"{Tipo}-{Numero.Replace('/', '-')}.pdf";
+
+    /// <summary>Cancelar duas vezes não existe — o botão desliga depois do primeiro.</summary>
+    public bool PodeCancelar => !Cancelado;
+}
+
 /// <summary>
 /// Ficha 360º do paciente: cadastro, elegibilidade, consentimentos LGPD, prontuário com
 /// a evolução da dor e o histórico de guias — tudo o que a recepção precisa saber com o
@@ -63,6 +83,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public ObservableCollection<LinhaEvolucao> Prontuario { get; } = [];
     public ObservableCollection<LinhaConsentimento> Consentimentos { get; } = [];
     public ObservableCollection<LinhaAlerta> Alertas { get; } = [];
+    public ObservableCollection<LinhaDocumento> Documentos { get; } = [];
 
     [ObservableProperty] private int _pacienteId;
     [ObservableProperty] private bool _carregando;
@@ -150,6 +171,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
             await CarregarProntuarioAsync(scope);
             await CarregarConsentimentosAsync(scope);
+            await CarregarDocumentosAsync(scope);
             await CarregarElegibilidadeAsync(scope);
         }
         catch (Exception ex)
@@ -269,6 +291,27 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
                 RegistroId = atual?.Id
             });
         }
+    }
+
+    private async Task CarregarDocumentosAsync(IServiceScope scope)
+    {
+        var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+
+        Documentos.Clear();
+        foreach (var d in await servico.DoPacienteAsync(PacienteId))
+            Documentos.Add(new LinhaDocumento
+            {
+                DocumentoId = d.Id,
+                Numero = d.Numero,
+                Tipo = TipoDocumentoInfo.Rotular(d.Tipo),
+                Data = d.Data.ToString("dd/MM/yyyy"),
+                Profissional = d.Profissional?.Rotulo ?? "—",
+                Codigo = d.CodigoVerificacao,
+                Cancelado = d.Cancelado,
+                Situacao = d.Cancelado
+                    ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
+                    : "Válido"
+            });
     }
 
     private static string Descrever(ConsentimentoLgpd? registro) => registro switch
@@ -431,6 +474,160 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Recepção — consentimento não pôde ser revogado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    // ==================== Documentos clínicos ====================
+
+    /// <summary>Abre a janela de emissão (receita, atestado, declaração, pedido de exame).</summary>
+    [RelayCommand]
+    private async Task NovoDocumentoAsync()
+    {
+        if (PacienteId == 0) return;
+
+        var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
+        var janela = new Janelas.DocumentoWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true)
+        {
+            // Mesmo quando o usuário fecha sem concluir, um documento pode ter sido
+            // emitido e só a impressão ter falhado — a lista precisa refletir isso.
+            await CarregarAsync();
+            return;
+        }
+
+        _snackbar.Sucesso("Documento emitido.");
+        await CarregarAsync();
+    }
+
+    /// <summary>Relatório de evolução da dor, montado do prontuário.</summary>
+    [RelayCommand]
+    private Task EmitirRelatorioAsync()
+        => EmitirMontadoAsync(TipoDocumentoClinico.RelatorioEvolucao);
+
+    /// <summary>Termo de consentimento LGPD em papel, para assinar.</summary>
+    [RelayCommand]
+    private Task EmitirTermoAsync()
+        => EmitirMontadoAsync(TipoDocumentoClinico.Consentimento);
+
+    /// <summary>Anamnese: preenchida com o que o prontuário sabe, em linhas com o resto.</summary>
+    [RelayCommand]
+    private Task EmitirAnamneseAsync()
+        => EmitirMontadoAsync(TipoDocumentoClinico.Anamnese);
+
+    private async Task EmitirMontadoAsync(TipoDocumentoClinico tipo)
+    {
+        if (PacienteId == 0) return;
+
+        try
+        {
+            DocumentoClinico emitido;
+            using (var scope = _escopos.CreateScope())
+            {
+                var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+                var operador = Environment.UserName;
+
+                emitido = tipo switch
+                {
+                    TipoDocumentoClinico.RelatorioEvolucao =>
+                        await servico.EmitirRelatorioEvolucaoAsync(PacienteId, operador: operador),
+                    TipoDocumentoClinico.Consentimento =>
+                        await servico.EmitirTermoConsentimentoAsync(PacienteId, operador: operador),
+                    _ => await servico.EmitirAnamneseAsync(PacienteId, operador: operador)
+                };
+            }
+
+            await CarregarAsync();
+            await ImprimirAsync(
+                emitido.Id,
+                $"{TipoDocumentoInfo.Rotular(tipo)}-{emitido.Numero.Replace('/', '-')}.pdf",
+                emitido.Numero);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — documento montado do prontuário não pôde ser emitido", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>Segunda via: reimprime exatamente o que foi emitido.</summary>
+    [RelayCommand]
+    private async Task ImprimirDocumentoAsync(LinhaDocumento? linha)
+    {
+        if (linha is null) return;
+        await ImprimirAsync(linha.DocumentoId, linha.NomeArquivo, linha.Numero);
+    }
+
+    private async Task ImprimirAsync(int documentoId, string nomeArquivo, string numero)
+    {
+        try
+        {
+            byte[] pdf;
+            using (var scope = _escopos.CreateScope())
+            {
+                var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+                pdf = await pdfs.GerarAsync(documentoId, await parametros.ObterPrestadorAsync());
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));
+
+            if (erro is null)
+            {
+                Mensagem = string.Empty;
+                MensagemEhErro = false;
+                return;
+            }
+
+            Mensagem = erro;
+            MensagemEhErro = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — documento clínico não pôde ser impresso", ex);
+            Mensagem = $"O documento {numero} está emitido, mas o PDF não pôde ser gerado: {ex.Message}";
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Cancela um documento. Ele NÃO some da lista: a via que o paciente levou continua
+    /// no mundo, e o registro é o que prova que ela não vale mais.
+    /// </summary>
+    [RelayCommand]
+    private async Task CancelarDocumentoAsync(LinhaDocumento? linha)
+    {
+        if (linha is null || linha.Cancelado) return;
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Cancelar documento",
+            $"Por que o(a) {linha.Tipo.ToLowerInvariant()} {linha.Numero} está sendo cancelado? "
+            + "Ele continua na lista, marcado como cancelado — a via impressa não desaparece "
+            + "por ser apagada do sistema.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+            await servico.CancelarAsync(linha.DocumentoId, motivo, Environment.UserName);
+
+            _snackbar.Info("Documento cancelado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — documento clínico não pôde ser cancelado", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
