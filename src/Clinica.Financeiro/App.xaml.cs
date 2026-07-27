@@ -9,7 +9,7 @@ namespace Clinica.Financeiro;
 /// Executável do Financeiro: casca fina sobre o shell, igual à Recepção —
 /// só muda a lista de módulos carregados.
 /// </summary>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private IHost? _host;
 

@@ -14,7 +14,7 @@ namespace Clinica.Gerente;
 ///
 /// A ordem da lista é a ordem dos grupos na sidebar.
 /// </summary>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private IHost? _host;
 

@@ -12,7 +12,13 @@ O que confere:
   3. todo pack URI `...;component/Caminho.xaml` aponta para um arquivo existente;
   4. todo `x:Class` tem o code-behind correspondente com a classe declarada;
   5. todo `<ProjectReference>` aponta para um .csproj existente, e todo .csproj da
-     suíte está no Clinica.sln.
+     suíte está no Clinica.sln;
+  6. nenhum uso do tipo `Application` sem qualificar (ver ARMADILHA abaixo).
+
+ARMADILHA `Application` (CS0118): dentro de qualquer namespace `Clinica.*`, o nome
+`Application` resolve para o NAMESPACE `Clinica.Application` — nunca para o tipo
+`System.Windows.Application`. `public partial class App : Application` compila em
+qualquer outro projeto WPF do mundo e falha aqui. Sempre `System.Windows.Application`.
 
 NÃO substitui o build no Windows — substitui a parte dele que dá para conferir aqui.
 
@@ -128,6 +134,33 @@ for proj in csprojs():
             erros.append(f"{rel(proj)}: ProjectReference inexistente — {destino}")
     if proj.name not in sln:
         erros.append(f"{rel(proj)}: fora do Clinica.sln (não será compilado pelo CI)")
+
+
+# --------------------------------------------------- 6. nomes que colidem com namespace
+# Nomes de tipo que, sem qualificar, o compilador resolve como namespace `Clinica.X`
+# em vez do tipo pretendido (CS0118). O erro não aparece em nenhum outro projeto WPF,
+# só aqui — e só no Windows, que é onde não dá para compilar antes de subir.
+COLISOES = {"Application": "System.Windows.Application"}
+
+# Ocorrência do nome sozinho: nem precedida de ponto (já qualificada) nem seguida de
+# ponto (é o prefixo de um namespace, como em `Application.Servicos`).
+def solto(nome: str) -> re.Pattern[str]:
+    return re.compile(rf"(?<![\w.]){re.escape(nome)}(?![\w.])")
+
+
+for proj in PROJETOS:
+    for cs in sorted((RAIZ / proj).rglob("*.cs")):
+        if "obj" in cs.parts or "bin" in cs.parts:
+            continue
+        for n, linha in enumerate(cs.read_text(encoding="utf-8").splitlines(), 1):
+            codigo = linha.split("//", 1)[0]
+            if codigo.lstrip().startswith(("///", "*", "/*")):
+                continue
+            for nome, correcao in COLISOES.items():
+                if solto(nome).search(codigo):
+                    erros.append(
+                        f"{rel(cs)}:{n}: '{nome}' sem qualificar resolve para o namespace "
+                        f"Clinica.{nome} (CS0118) — use '{correcao}'")
 
 
 # ---------------------------------------------------------------------- saída

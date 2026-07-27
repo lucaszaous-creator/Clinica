@@ -356,6 +356,15 @@ sistema — **`python3 tools/verificar-suite.py`**, também no CI:
 | pack URI `...;component/Caminho.xaml` existente | arquivo movido de pasta |
 | `x:Class` com code-behind declarando a `partial class` | View sem `.xaml.cs`, classe renomeada pela metade |
 | `ProjectReference` existente e projeto no `Clinica.sln` | projeto novo que o CI não compilaria |
+| `Application` usado sem qualificar | a armadilha CS0118 abaixo |
+
+**Armadilha `Application` (CS0118).** Dentro de qualquer namespace `Clinica.*`, o
+nome `Application` resolve para o **namespace** `Clinica.Application` — nunca para o
+tipo `System.Windows.Application`. Ou seja: `public partial class App : Application`,
+que é como todo projeto WPF do mundo escreve, **não compila neste repositório**. Use
+sempre `System.Windows.Application` (é o que o faturamento já fazia). O erro só
+aparece no Windows, exatamente onde não dá para compilar antes de subir — por isso
+virou uma regra do `verificar-suite.py`.
 
 Não substitui o build no Windows — substitui a parte dele que dá para conferir sem
 Windows, que é onde estava a maioria dos erros.

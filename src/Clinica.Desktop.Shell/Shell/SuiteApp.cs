@@ -21,7 +21,7 @@ public static class SuiteApp
     /// numa versão nova, ou a abertura falhou — e aí a mensagem já foi mostrada e o
     /// encerramento já foi pedido.
     /// </summary>
-    /// <param name="app">A instância de <see cref="Application"/> do executável.</param>
+    /// <param name="app">A instância de <see cref="System.Windows.Application"/> do executável.</param>
     /// <param name="nomeApp">Nome curto, usado nos títulos das caixas de mensagem ("Recepção").</param>
     /// <param name="titulo">Título da janela ("Recepção — Clínica SemDor").</param>
     /// <param name="modulos">
@@ -29,7 +29,7 @@ public static class SuiteApp
     /// registram no DI e montam o menu.
     /// </param>
     public static async Task<IHost?> IniciarAsync(
-        Application app, string nomeApp, string titulo, IReadOnlyList<IModuloApp> modulos)
+        System.Windows.Application app, string nomeApp, string titulo, IReadOnlyList<IModuloApp> modulos)
     {
         // Degradação deliberada nas camadas sem UI também deixa rastro em arquivo.
         LogSuite.Instalar();

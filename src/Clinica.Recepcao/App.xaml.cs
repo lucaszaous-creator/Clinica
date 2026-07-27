@@ -9,7 +9,7 @@ namespace Clinica.Recepcao;
 /// Executável da Recepção: uma casca fina sobre o shell. Só escolhe quais módulos
 /// carregar — a subida (log, conexão, banco, janela) é do <see cref="SuiteApp"/>.
 /// </summary>
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private IHost? _host;
 
