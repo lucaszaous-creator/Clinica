@@ -74,12 +74,45 @@ Coluna nova o EF do app antigo ignora sem problema; **renomear ou remover algo q
 faturamento usa derruba a clínica**. Não há exceção a essa regra enquanto houver mais de um
 app instalado.
 
+## A fundação — resolvido na parcela 1
+
+O agendamento não sabia **com quem** nem **onde** — não existia `Profissional` nem `Sala`.
+Sem isso a agenda só podia ser uma lista única (dois consultórios não cabiam na mesma
+tela), o prontuário não teria como dizer quem atendeu, e repasse, produtividade e perfis
+de acesso ficavam todos parados atrás do mesmo buraco.
+
+A parcela 1 cria `Profissional`, `Sala` e `ListaEspera`, e dá ao agendamento os campos
+que faltavam. Com isso a Recepção passa a ter:
+
+| Tela | O que resolve |
+|---|---|
+| **Painel** | O dia visto do balcão: quem chegou, quem espera, ocupação por profissional, taxa de falta — e as guias pendentes **dos pacientes de hoje** |
+| **Agenda** | Uma coluna por profissional, com sala, duração, **encaixe** e a **lista de espera** ao lado |
+| **Fila de hoje** | Kanban Aguardando → Chegou → Em atendimento → Finalizado, com tempo de espera à vista |
+| **Profissionais e salas** | O cadastro que destrava tudo o mais |
+
+Três decisões que valem registrar:
+
+- **O choque de horário é por intervalo e por recurso.** Marcar 14h30 sobre uma sessão de
+  30 min que começou às 14h é o mesmo choque; o que colide é o profissional ou a sala
+  (respeitando a capacidade dela — sala com duas macas comporta dois). A agenda **recusa**
+  e a recepção pode **assumir o encaixe**, que fica registrado.
+- **O kanban não inventou status.** As colunas saem de dois carimbos de hora novos
+  (`ChegadaEm`, `InicioAtendimentoEm`); o faturamento continua vendo o `StatusAgendamento`
+  de sempre. "Concluir" é o antigo check-in e fica no fim do fluxo: a guia nasce quando a
+  sessão de fato aconteceu.
+- **Quem não informa profissional nem sala não é barrado.** É exatamente o caminho do
+  faturamento: ele avisa na tela e marca assim mesmo, como sempre fez.
+
+A migration é **puramente aditiva** (tabelas novas e colunas novas anuláveis), como manda
+a regra de conviver com versões diferentes em campo.
+
 ## O que já dá para entregar hoje
 
 | App | Pronto para o cliente? |
 |---|---|
 | Faturamento | ✅ Sim — está em produção |
-| Recepção | ✅ Instala e roda sozinho; por enquanto só a fila do dia |
+| Recepção | ✅ Painel, agenda multiprofissional, fila em kanban e cadastro da equipe |
 | Financeiro | ✅ Instala e roda sozinho; caixa, conciliação e produção |
 | Gerente | ✅ Instala e roda sozinho; reúne Recepção e Financeiro (sem telas de faturamento) |
 
@@ -91,14 +124,18 @@ entrega de conteúdo — ver [`features-por-modulo.md`](features-por-modulo.md).
 | Parcela | Módulo | Entrega | Destrava |
 |---|---|---|---|
 | ~~**0 — Instalável**~~ ✅ | Todos | Tela de setup própria da suíte; release e versão por app | Instalar qualquer app **sem** o Faturamento na máquina |
-| **1 — Fundação** | Recepção | `Profissional` + `Sala`; agenda multiprofissional com encaixe e lista de espera; fila em kanban; painel próprio | Features 02 e 03 — e pré-requisito de 05, 09, 12 e 13 |
+| ~~**1 — Fundação**~~ ✅ | Recepção | `Profissional` + `Sala`; agenda multiprofissional com encaixe e lista de espera; fila em kanban; painel próprio | Features 01 e 03 entregues, 02 sem a confirmação automática — e destrava 05, 09, 12 e 13 |
 | **2 — Cadastro e prontuário** | Recepção | Pacientes 360º com consentimento LGPD; prontuário com evolução e escala EVA | Features 04 e 05 — fecha a Fase 1 da proposta |
 | **3 — Ato clínico** | Recepção | Mapa corporal com protocolo reutilizável; prescrição; os 7 documentos clínicos | Features 06 e 07, e a página 21 |
 | **4 — Dinheiro e insumo** | Financeiro | Pacotes/vouchers com saldo; repasse por profissional; estoque com validade e custo | Features 08, 09 e 10 |
 | **5 — Inteligência** | Gerente | BI (ocupação, no-show, produtividade); NPS e recall; perfis, permissões e LGPD; visão consolidada lendo o faturamento | Features 11, 12 e 13 |
 
-A **parcela 0 está entregue**. A **1** é a próxima e também não é negociável: cria
-`Profissional`, sem o qual metade das outras features não tem onde se apoiar.
+As parcelas **0 e 1 estão entregues**. A **2** é a próxima: prontuário com evolução e
+escala EVA é a afirmação mais exposta da proposta (página 23) e o que ainda não existe.
+
+A única coisa que ficou de fora da parcela 1 é a **confirmação automática** por WhatsApp
+(feature 02): o envio de 1 clique existe na agenda, mas automatizar o disparo é campanha
+— vai junto com o recall e o NPS, na parcela 5.
 
 ## Instalação numa clínica nova
 

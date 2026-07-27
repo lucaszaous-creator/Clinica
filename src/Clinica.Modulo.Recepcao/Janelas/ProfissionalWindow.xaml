@@ -1,0 +1,115 @@
+<Window x:Class="Clinica.Recepcao.Janelas.ProfissionalWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Profissional" Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <StackPanel Margin="24">
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+
+        <TextBlock Text="Nome" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Nome curto (agenda)" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding NomeCurto}" MaxLength="40" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Conselho e registro" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding RegistroConselho}" MaxLength="40" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Especialidade" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding Especialidade}"
+                          DisplayMemberPath="Nome" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Duração padrão (min)" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding DuracaoPadrao}" MaxLength="4" />
+                <TextBlock Text="Vazio = padrão da clínica (30 min)."
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Telefone" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Telefone}" MaxLength="20" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="E-mail" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Email}" MaxLength="120" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Cor na agenda (#RRGGBB)" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Cor}" MaxLength="9" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Ordem nas listas" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Ordem}" MaxLength="4" />
+            </StackPanel>
+        </Grid>
+
+        <CheckBox Content="Ativo (aparece na agenda)" IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                   Text="Desativar preserva toda a agenda passada — é o caminho certo para quem saiu da clínica." />
+
+        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
+
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Salvar profissional" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="160" />
+        </StackPanel>
+    </StackPanel>
+</Window>

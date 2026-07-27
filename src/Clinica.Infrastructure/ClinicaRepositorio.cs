@@ -399,12 +399,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default)
         => await _db.Agendamentos.AddAsync(agendamento, ct);
 
+    // Profissional e Sala vêm juntos: a grade da agenda os desenha em coluna, e a
+    // duração efetiva do horário depende do padrão do profissional.
     public Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
-        => _db.Agendamentos.Include(a => a.Paciente).FirstOrDefaultAsync(a => a.Id == agendamentoId, ct);
+        => _db.Agendamentos
+            .Include(a => a.Paciente)
+            .Include(a => a.Profissional)
+            .Include(a => a.Sala)
+            .FirstOrDefaultAsync(a => a.Id == agendamentoId, ct);
 
     public async Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default)
         => await _db.Agendamentos
             .Include(a => a.Paciente)
+            .Include(a => a.Profissional)
+            .Include(a => a.Sala)
             .Where(a => a.DataHora >= inicio && a.DataHora <= fim)
             .OrderBy(a => a.DataHora)
             .ToListAsync(ct);
@@ -414,6 +422,81 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         var ag = await _db.Agendamentos.FirstOrDefaultAsync(a => a.Id == agendamentoId, ct);
         if (ag is not null)
             _db.Agendamentos.Remove(ag);
+    }
+
+    // ---- Equipe: profissionais e salas ----
+
+    public async Task<IReadOnlyList<Profissional>> ProfissionaisAsync(CancellationToken ct = default)
+        => await _db.Profissionais.AsNoTracking()
+            .OrderBy(p => p.Ordem).ThenBy(p => p.Nome)
+            .ToListAsync(ct);
+
+    public Task<Profissional?> ObterProfissionalAsync(int profissionalId, CancellationToken ct = default)
+        => _db.Profissionais.FirstOrDefaultAsync(p => p.Id == profissionalId, ct);
+
+    public async Task AdicionarProfissionalAsync(Profissional profissional, CancellationToken ct = default)
+        => await _db.Profissionais.AddAsync(profissional, ct);
+
+    public async Task<bool> ProfissionalEmUsoAsync(int profissionalId, CancellationToken ct = default)
+        => await _db.Agendamentos.AnyAsync(a => a.ProfissionalId == profissionalId, ct)
+           || await _db.ListaEspera.AnyAsync(l => l.ProfissionalId == profissionalId, ct);
+
+    public async Task RemoverProfissionalAsync(int profissionalId, CancellationToken ct = default)
+    {
+        var p = await _db.Profissionais.FirstOrDefaultAsync(x => x.Id == profissionalId, ct);
+        if (p is not null)
+            _db.Profissionais.Remove(p);
+    }
+
+    public async Task<IReadOnlyList<Sala>> SalasAsync(CancellationToken ct = default)
+        => await _db.Salas.AsNoTracking()
+            .OrderBy(s => s.Ordem).ThenBy(s => s.Nome)
+            .ToListAsync(ct);
+
+    public Task<Sala?> ObterSalaAsync(int salaId, CancellationToken ct = default)
+        => _db.Salas.FirstOrDefaultAsync(s => s.Id == salaId, ct);
+
+    public async Task AdicionarSalaAsync(Sala sala, CancellationToken ct = default)
+        => await _db.Salas.AddAsync(sala, ct);
+
+    public async Task<bool> SalaEmUsoAsync(int salaId, CancellationToken ct = default)
+        => await _db.Agendamentos.AnyAsync(a => a.SalaId == salaId, ct);
+
+    public async Task RemoverSalaAsync(int salaId, CancellationToken ct = default)
+    {
+        var s = await _db.Salas.FirstOrDefaultAsync(x => x.Id == salaId, ct);
+        if (s is not null)
+            _db.Salas.Remove(s);
+    }
+
+    // ---- Lista de espera ----
+
+    public async Task AdicionarListaEsperaAsync(ListaEspera pedido, CancellationToken ct = default)
+        => await _db.ListaEspera.AddAsync(pedido, ct);
+
+    public Task<ListaEspera?> ObterListaEsperaAsync(int pedidoId, CancellationToken ct = default)
+        => _db.ListaEspera
+            .Include(l => l.Paciente)
+            .Include(l => l.Profissional)
+            .FirstOrDefaultAsync(l => l.Id == pedidoId, ct);
+
+    public async Task<IReadOnlyList<ListaEspera>> ListaEsperaAsync(
+        bool somenteAguardando = true, CancellationToken ct = default)
+    {
+        var q = _db.ListaEspera
+            .Include(l => l.Paciente)
+            .Include(l => l.Profissional)
+            .AsQueryable();
+
+        if (somenteAguardando)
+            q = q.Where(l => l.Status == StatusListaEspera.Aguardando);
+
+        // Prioritário primeiro; dentro de cada grupo, quem pediu antes é chamado antes.
+        return await q
+            .OrderByDescending(l => l.Prioritario)
+            .ThenBy(l => l.CriadoEm)
+            .ThenBy(l => l.Id)
+            .ToListAsync(ct);
     }
 
     // ---- Auditoria ----

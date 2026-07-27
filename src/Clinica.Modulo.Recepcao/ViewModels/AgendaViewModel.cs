@@ -1,0 +1,373 @@
+using System.Collections.ObjectModel;
+using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Domain.Entities;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Clinica.Recepcao.ViewModels;
+
+/// <summary>Um horário na coluna de um profissional.</summary>
+public sealed class CartaoAgenda
+{
+    public required int AgendamentoId { get; init; }
+    public required string Faixa { get; init; }
+    public required string Paciente { get; init; }
+    public string? Telefone { get; init; }
+    public required DateTime DataHora { get; init; }
+    public required string Modalidade { get; init; }
+    public required string Sala { get; init; }
+    public required string StatusRotulo { get; init; }
+    public required bool EhEncaixe { get; init; }
+    public required bool EhRetornoDoSegundoCodigo { get; init; }
+    public required bool VeioDaListaEspera { get; init; }
+
+    /// <summary>Ainda dá para remarcar/cancelar (não virou atendimento).</summary>
+    public required bool EmAberto { get; init; }
+
+    public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
+}
+
+/// <summary>Uma coluna da grade — um profissional (ou o resíduo "sem profissional").</summary>
+public sealed class ColunaAgenda
+{
+    public required int? ProfissionalId { get; init; }
+    public required string Nome { get; init; }
+    public required string Resumo { get; init; }
+    public required ObservableCollection<CartaoAgenda> Horarios { get; init; }
+    public bool Vazia => Horarios.Count == 0;
+}
+
+/// <summary>Um pedido na lista de espera.</summary>
+public sealed class LinhaListaEspera
+{
+    public required int PedidoId { get; init; }
+    public required string Paciente { get; init; }
+    public required string Preferencias { get; init; }
+    public required string Desde { get; init; }
+    public required bool Prioritario { get; init; }
+    public string? Observacoes { get; init; }
+}
+
+/// <summary>
+/// Agenda multiprofissional: uma coluna por profissional, o dia inteiro à vista.
+///
+/// É a resposta ao bloqueio de fundação — antes o agendamento não sabia com quem era,
+/// então a agenda só podia ser uma lista única e ninguém conseguia ver dois
+/// consultórios ao mesmo tempo. Ao lado dela fica a LISTA DE ESPERA: quando um horário
+/// vaga, a recepção vê na mesma tela quem chamar, em vez de tentar lembrar.
+/// </summary>
+public sealed partial class AgendaViewModel : ObservableObject
+{
+    private readonly IServiceScopeFactory _escopos;
+    private readonly ISnackbarService _snackbar;
+    private readonly IDialogoService _dialogo;
+
+    public ObservableCollection<ColunaAgenda> Colunas { get; } = [];
+    public ObservableCollection<LinhaListaEspera> Espera { get; } = [];
+
+    [ObservableProperty] private DateTime _dia = DateTime.Today;
+    [ObservableProperty] private bool _carregando;
+    [ObservableProperty] private string _resumo = string.Empty;
+
+    /// <summary>Feedback inline: erro de agenda fica na tela enquanto o usuário resolve.</summary>
+    [ObservableProperty] private string _mensagem = string.Empty;
+    [ObservableProperty] private bool _mensagemEhErro;
+
+    /// <summary>
+    /// Nenhum profissional cadastrado ainda: a grade não tem colunas e a tela precisa
+    /// dizer o que fazer, em vez de aparecer vazia sem explicação.
+    /// </summary>
+    [ObservableProperty] private bool _semProfissionais;
+
+    public AgendaViewModel(
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
+    {
+        _escopos = escopos;
+        _snackbar = snackbar;
+        _dialogo = dialogo;
+        _ = CarregarAsync();
+    }
+
+    partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
+
+    [RelayCommand]
+    public async Task CarregarAsync()
+    {
+        try
+        {
+            Carregando = true;
+            Mensagem = string.Empty;
+            MensagemEhErro = false;
+
+            using var scope = _escopos.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();
+            var espera = scope.ServiceProvider.GetRequiredService<ListaEsperaService>();
+
+            var dia = DateOnly.FromDateTime(Dia);
+            var doDia = await agenda.DoDiaAsync(dia);
+            var profissionais = await equipe.ProfissionaisAtivosAsync();
+            SemProfissionais = profissionais.Count == 0;
+
+            Colunas.Clear();
+
+            foreach (var p in profissionais)
+                Colunas.Add(MontarColuna(p.Id, p.Rotulo, doDia.Where(a => a.ProfissionalId == p.Id)));
+
+            // "Sem profissional" só aparece quando existe: é resíduo da agenda antiga
+            // (e do faturamento, que marca sem informar quem atende), não uma pessoa.
+            var orfaos = doDia.Where(a => a.ProfissionalId is null).ToList();
+            if (orfaos.Count > 0)
+                Colunas.Add(MontarColuna(null, "Sem profissional", orfaos));
+
+            var ocupando = doDia.Count(a => a.OcupaAgenda);
+            Resumo = $"{ocupando} horário(s) no dia · {Colunas.Count} coluna(s)";
+
+            await CarregarEsperaAsync(espera);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Recepção — agenda do dia não pôde ser carregada", ex);
+            Mensagem = $"Não foi possível carregar a agenda: {ex.Message}";
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
+    private static ColunaAgenda MontarColuna(
+        int? profissionalId, string nome, IEnumerable<Agendamento> agendamentos)
+    {
+        var cartoes = new ObservableCollection<CartaoAgenda>();
+        var ocupando = 0;
+
+        foreach (var a in agendamentos.OrderBy(a => a.DataHora))
+        {
+            if (a.OcupaAgenda) ocupando++;
+            cartoes.Add(new CartaoAgenda
+            {
+                AgendamentoId = a.Id,
+                Faixa = $"{a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
+                Paciente = a.Paciente?.Nome ?? "(paciente removido)",
+                Telefone = a.Paciente?.Telefone,
+                DataHora = a.DataHora,
+                Modalidade = a.ModalidadePrevista.ToString(),
+                Sala = a.Sala?.Nome ?? "—",
+                StatusRotulo = Rotular(a.Status),
+                EhEncaixe = a.Encaixe,
+                EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
+                VeioDaListaEspera = a.Origem == OrigemAgendamento.ListaEspera,
+                EmAberto = a.Status == StatusAgendamento.Agendado
+            });
+        }
+
+        return new ColunaAgenda
+        {
+            ProfissionalId = profissionalId,
+            Nome = nome,
+            Resumo = $"{ocupando} horário(s)",
+            Horarios = cartoes
+        };
+    }
+
+    private async Task CarregarEsperaAsync(ListaEsperaService espera)
+    {
+        var pedidos = await espera.AguardandoAsync();
+
+        Espera.Clear();
+        foreach (var p in pedidos)
+            Espera.Add(new LinhaListaEspera
+            {
+                PedidoId = p.Id,
+                Paciente = p.Paciente?.Nome ?? "(paciente removido)",
+                Preferencias = DescreverPreferencias(p),
+                Desde = $"na lista desde {p.CriadoEm:dd/MM}",
+                Prioritario = p.Prioritario,
+                Observacoes = p.Observacoes
+            });
+    }
+
+    private static string DescreverPreferencias(ListaEspera p)
+    {
+        var partes = new List<string>
+        {
+            p.Profissional?.Rotulo ?? "qualquer profissional",
+            p.Periodo switch
+            {
+                PeriodoPreferido.Manha => "manhã",
+                PeriodoPreferido.Tarde => "tarde",
+                _ => "qualquer turno"
+            }
+        };
+
+        if (p.DisponivelDe is not null || p.DisponivelAte is not null)
+            partes.Add($"{p.DisponivelDe?.ToString("dd/MM") ?? "hoje"}"
+                       + $" a {p.DisponivelAte?.ToString("dd/MM") ?? "sem limite"}");
+
+        return string.Join(" · ", partes);
+    }
+
+    // ==================== Comandos ====================
+
+    /// <summary>Abre o formulário de um horário novo.</summary>
+    [RelayCommand]
+    private async Task NovoHorarioAsync()
+        => await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
+        {
+            Data = Dia
+        });
+
+    /// <summary>Remarca: move o horário preservando o registro (e o histórico).</summary>
+    [RelayCommand]
+    private async Task RemarcarAsync(CartaoAgenda? cartao)
+    {
+        if (cartao is null) return;
+        await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos, cartao.AgendamentoId));
+    }
+
+    /// <summary>Chama alguém da lista de espera para um horário que vagou.</summary>
+    [RelayCommand]
+    private async Task ChamarDaEsperaAsync(LinhaListaEspera? linha)
+    {
+        if (linha is null) return;
+
+        var vm = new AgendamentoEdicaoViewModel(_escopos)
+        {
+            Data = Dia,
+            Titulo = $"Chamar {linha.Paciente} da lista de espera",
+            PedidoListaEsperaId = linha.PedidoId
+        };
+        await AbrirFormularioAsync(vm);
+    }
+
+    /// <summary>Coloca um paciente na lista de espera.</summary>
+    [RelayCommand]
+    private async Task NovoPedidoEsperaAsync()
+    {
+        var vm = new ListaEsperaEdicaoViewModel(_escopos);
+        var janela = new Janelas.ListaEsperaWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true) return;
+        _snackbar.Sucesso("Paciente entrou na lista de espera.");
+        await CarregarAsync();
+    }
+
+    /// <summary>Tira o pedido da lista sem agendar (desistiu, resolveu em outro lugar).</summary>
+    [RelayCommand]
+    private async Task RemoverDaEsperaAsync(LinhaListaEspera? linha)
+    {
+        if (linha is null) return;
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Sair da lista de espera",
+            $"Por que {linha.Paciente} está saindo da lista? Fica registrado no pedido.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        await ExecutarAsync(async scope =>
+        {
+            var espera = scope.ServiceProvider.GetRequiredService<ListaEsperaService>();
+            await espera.RemoverAsync(linha.PedidoId, motivo);
+            _snackbar.Info($"{linha.Paciente} saiu da lista de espera.");
+        }, "saída da lista de espera");
+    }
+
+    [RelayCommand]
+    private async Task CancelarAsync(CartaoAgenda? cartao)
+    {
+        if (cartao is null) return;
+        if (!_dialogo.Confirmar("Cancelar horário",
+                $"Cancelar o horário de {cartao.Paciente} ({cartao.Faixa})?")) return;
+
+        await ExecutarAsync(async scope =>
+        {
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            await agenda.CancelarAsync(cartao.AgendamentoId, Environment.UserName);
+            _snackbar.Info("Horário cancelado.");
+        }, "cancelamento do horário");
+    }
+
+    [RelayCommand]
+    private async Task MarcarFaltaAsync(CartaoAgenda? cartao)
+    {
+        if (cartao is null) return;
+
+        await ExecutarAsync(async scope =>
+        {
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            await agenda.MarcarFaltaAsync(cartao.AgendamentoId, Environment.UserName);
+            _snackbar.Info($"{cartao.Paciente} marcado como falta.");
+        }, "marcação de falta");
+    }
+
+    /// <summary>
+    /// Confirma a sessão pelo WhatsApp. Falta é sessão não faturada — confirmar na
+    /// véspera é a rotina que mais evita buraco na agenda.
+    /// </summary>
+    [RelayCommand]
+    private void Confirmar(CartaoAgenda? cartao)
+    {
+        if (cartao is null) return;
+
+        var erro = Whatsapp.Abrir(
+            cartao.Telefone, cartao.Paciente,
+            Whatsapp.ConfirmacaoDeSessao(cartao.Paciente, cartao.DataHora));
+
+        if (erro is null) return;
+        Mensagem = erro;
+        MensagemEhErro = true;
+    }
+
+    private async Task AbrirFormularioAsync(AgendamentoEdicaoViewModel vm)
+    {
+        var janela = new Janelas.AgendamentoWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true) return;
+        _snackbar.Sucesso("Agenda atualizada.");
+        await CarregarAsync();
+    }
+
+    private async Task ExecutarAsync(Func<IServiceScope, Task> acao, string contexto)
+    {
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            await acao(scope);
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar($"Recepção — falha em: {contexto}", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    [RelayCommand]
+    private void DiaAnterior() => Dia = Dia.AddDays(-1);
+
+    [RelayCommand]
+    private void ProximoDia() => Dia = Dia.AddDays(1);
+
+    [RelayCommand]
+    private void Hoje() => Dia = DateTime.Today;
+
+    private static string Rotular(StatusAgendamento status) => status switch
+    {
+        StatusAgendamento.Agendado => "Marcado",
+        StatusAgendamento.Realizado => "Atendido",
+        StatusAgendamento.Cancelado => "Cancelado",
+        StatusAgendamento.Faltou => "Faltou",
+        _ => status.ToString()
+    };
+}

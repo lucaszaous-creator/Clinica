@@ -1,0 +1,144 @@
+<Window x:Class="Clinica.Recepcao.Janelas.AgendamentoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Horário da agenda" Width="620" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <StackPanel Margin="24">
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+
+        <!-- ============ Paciente ============ -->
+        <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" />
+        <TextBox Style="{StaticResource CampoPesquisa}"
+                 Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                 IsEnabled="{Binding Seletor.Editavel}"
+                 ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+        <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                 SelectedItem="{Binding Seletor.Selecionado}"
+                 ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                 MaxHeight="150" Margin="0,6,0,0" />
+        <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                   TextWrapping="Wrap" />
+
+        <!-- ============ Quando ============ -->
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding Data}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Hora" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}" MaxLength="5" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="4">
+                <TextBlock Text="Duração (min)" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Duracao, UpdateSourceTrigger=PropertyChanged}" MaxLength="4" />
+                <TextBlock Text="Vazio = padrão do profissional."
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ============ Com quem e onde ============ -->
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Profissional" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}"
+                          DisplayMemberPath="Rotulo" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Sala" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Salas}" SelectedItem="{Binding Sala}"
+                          DisplayMemberPath="Nome" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ============ O quê ============ -->
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadeSelecionada}"
+                          DisplayMemberPath="Nome" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2"
+                        Visibility="{Binding ModalidadeConsulta,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="Especialidade" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeSelecionada}"
+                          DisplayMemberPath="Nome" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
+
+        <!-- ============ Choque de horário ============
+             O conflito aparece ANTES de salvar: a recepção decide com a informação
+             na mão — trocar o horário ou assumir o encaixe. -->
+        <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
+                Visibility="{Binding TemConflito, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="Choque de horário" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <ItemsControl ItemsSource="{Binding Conflitos}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <CheckBox Content="Marcar como encaixe (atender por cima do horário ocupado)"
+                  IsChecked="{Binding Encaixe}" Margin="0,12,0,0" />
+
+        <!-- Feedback inline: é formulário, a mensagem fica na tela enquanto o usuário corrige. -->
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Assumir encaixe" Style="{StaticResource BotaoSecundario}"
+                    MinWidth="140" Margin="0,0,8,0"
+                    Command="{Binding AssumirEncaixeCommand}"
+                    Visibility="{Binding TemConflito, Converter={StaticResource BoolParaVisibilidade}}" />
+            <Button Content="Salvar horário" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="150" />
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -1,0 +1,50 @@
+<!--
+  Escolher paciente é um componente só: este DataTemplate é a linha do
+  SeletorPacienteViewModel (Componentes/SeletorPacienteViewModel.cs). Tela nova da
+  suíte que precisa escolher paciente usa os dois juntos, em vez de reescrever a busca.
+
+  É a versão da SUÍTE do item que o faturamento tem em Clinica.Desktop — mais enxuta,
+  sem avatar e sem os conversores daquele projeto. A duplicação é o débito assumido em
+  docs/arquitetura-multi-exe.md, que a Fase 4 cancelada tornou permanente.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <DataTemplate x:Key="ItemPacienteSeletor">
+        <Grid Margin="0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.Texto.Primario}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Documento}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                           Margin="0,2,0,0" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Carteirinha vencida aparece ANTES da escolha: a guia seria recusada. -->
+                <Border Style="{StaticResource Badge.Erro}" Margin="0,0,6,0"
+                        ToolTip="Carteirinha vencida — o convênio recusa a guia">
+                    <Border.Visibility>
+                        <Binding Path="CarteirinhaVencida">
+                            <Binding.Converter>
+                                <BooleanToVisibilityConverter />
+                            </Binding.Converter>
+                        </Binding>
+                    </Border.Visibility>
+                    <TextBlock Text="Carteirinha vencida" />
+                </Border>
+                <Border Style="{StaticResource Badge}">
+                    <TextBlock Text="{Binding Convenio}" />
+                </Border>
+            </StackPanel>
+        </Grid>
+    </DataTemplate>
+
+</ResourceDictionary>
