@@ -526,13 +526,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.Evolucoes.Remove(evolucao);
     }
 
-    public async Task<IReadOnlyList<Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default)
         => await _db.AnexosProntuario.AsNoTracking()
             .Where(a => a.EvolucaoId == evolucaoId)
             .OrderBy(a => a.CriadoEm).ThenBy(a => a.Id)
             // A projeção é o ponto: o SELECT não inclui Conteudo.
-            .Select(a => new Modelos.AnexoResumo(
+            .Select(a => new Clinica.Application.Modelos.AnexoResumo(
                 a.Id, a.EvolucaoId, a.NomeArquivo, a.Tipo, a.TipoConteudo,
                 a.Tamanho, a.Descricao, a.CriadoEm))
             .ToListAsync(ct);
