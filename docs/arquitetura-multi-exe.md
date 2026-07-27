@@ -189,30 +189,58 @@ A tela de setup própria entra quando a Recepção passar a ser instalada sozinh
 
 ## Fase 2 — o que foi construído
 
-- **`src/Clinica.Financeiro`** — segundo executável sobre o shell, com a tela
-  **Produção**: volume de códigos por mês, quanto foi efetivado e quanto segue
-  pendente, com indicadores e taxa de efetivação.
+- **`src/Clinica.Financeiro`** — segundo executável sobre o shell, com três telas:
+  **Caixa** (entradas, saídas, saldo realizado e previsto do mês), **Conciliação**
+  (guias efetivadas sem receita lançada) e **Produção** (volume de códigos por mês).
 
 O `App.xaml.cs` do Financeiro é idêntico ao da Recepção a menos da lista de
 módulos — que é exatamente o resultado esperado da arquitetura de casca fina.
 
-### Pendência de decisão: entidades monetárias
+### Financeiro e faturamento conversando
 
-Caixa, repasse por profissional e conciliação **precisam de valores**, e o
-domínio hoje não tem nenhum campo de dinheiro — é uma regra explícita do projeto
-(`CLAUDE.md`: "faturamento ≠ recebíveis; nunca adicione campos de dinheiro").
+A decisão tomada foi criar **entidades monetárias novas e separadas**, sem tocar nas
+entidades de faturamento. O desenho que sustenta isso:
 
-A tela de Produção foi escolhida justamente por não depender disso: ela trabalha
-só com contagens, e já entrega a conferência do faturamento e a base do repasse.
+- O dinheiro vive **apenas** em `LancamentoFinanceiro`. `CodigoFaturamento` e
+  `Atendimento` continuam sem nenhum campo de valor, como manda o `CLAUDE.md`.
+- As chaves estrangeiras apontam **do financeiro para o faturamento**
+  (`CodigoFaturamentoId`, `AtendimentoId`, `PacienteId`), todas opcionais — uma
+  despesa de aluguel não tem guia nem paciente.
+- A dependência tem **um sentido só**: o faturamento segue funcionando sem saber
+  que o financeiro existe. Isso é o que permite evoluir o financeiro à vontade
+  sem risco para o módulo que já está em produção.
 
-O passo seguinte do Financeiro exige decidir entre:
+A migration é **puramente aditiva** (cria `CategoriasFinanceiras` e `Lancamentos`;
+não altera nenhuma tabela existente), respeitando a regra de convivência entre
+versões diferentes instaladas.
 
-1. **Entidades monetárias novas e separadas** (ex.: `LancamentoFinanceiro`,
-   `Repasse`), sem tocar nas entidades de faturamento — preserva a regra atual,
-   que protege o domínio do faturamento, e exige uma migration aditiva.
-2. **Manter o Financeiro sem valores**, como visão analítica de produção.
+#### A conciliação
 
-Enquanto a decisão não sai, o módulo entrega a Produção.
+É onde os dois módulos se encontram. `FinanceiroService.GuiasSemLancamentoAsync`
+pergunta ao faturamento quais guias já foram efetivadas no convênio e cruza com os
+lançamentos existentes; o que sobra é receita que ainda não entrou no caixa.
+Ao lançar, o vínculo com a guia fica gravado e ela sai da lista.
+
+Lançamento cancelado **não** conta como conciliado — a guia volta a cobrar
+lançamento, para que um estorno não esconda receita.
+
+#### Modelo financeiro
+
+| Entidade | Papel |
+|---|---|
+| `LancamentoFinanceiro` | Entrada ou saída, com status Previsto/Realizado/Cancelado |
+| `CategoriaFinanceira` | Plano de contas editável pela clínica |
+
+Regras já cobertas por teste: valor sempre positivo (o sinal vem do tipo), data de
+pagamento automática ao realizar, cancelamento exigindo motivo e preservando
+histórico, e auditoria no mesmo `SaveChanges` da ação.
+
+#### Próximos passos do financeiro
+
+- Formulário de novo lançamento e edição na UI (o serviço já suporta).
+- Repasse por profissional — depende de uma entidade `Profissional`, que ainda não
+  existe (hoje há um prestador único em `ParametrosService`).
+- Contas a pagar/receber recorrentes e centro de custo.
 
 ### Validação
 
