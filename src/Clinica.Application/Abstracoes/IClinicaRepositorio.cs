@@ -183,6 +183,41 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ListaEspera>> ListaEsperaAsync(
         bool somenteAguardando = true, CancellationToken ct = default);
 
+    // ---- Prontuário ----
+
+    Task AdicionarEvolucaoAsync(Evolucao evolucao, CancellationToken ct = default);
+
+    /// <summary>Evolução com profissional carregado (entidade rastreada, para editar).</summary>
+    Task<Evolucao?> ObterEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Prontuário do paciente, da sessão mais recente para a mais antiga. NÃO traz os
+    /// anexos — abrir o prontuário não pode arrastar os arquivos junto.
+    /// </summary>
+    Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    Task RemoverEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
+
+    /// <summary>Anexos de uma evolução, por projeção — sem os bytes (corte no SQL).</summary>
+    Task<IReadOnlyList<Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
+        int evolucaoId, CancellationToken ct = default);
+
+    /// <summary>Bytes de UM anexo. É a única consulta que materializa o arquivo.</summary>
+    Task<byte[]?> ConteudoDoAnexoAsync(int anexoId, CancellationToken ct = default);
+
+    Task AdicionarAnexoAsync(AnexoProntuario anexo, CancellationToken ct = default);
+    Task RemoverAnexoAsync(int anexoId, CancellationToken ct = default);
+
+    // ---- Consentimento LGPD ----
+
+    /// <summary>Todos os registros de consentimento do paciente, do mais recente ao mais antigo.</summary>
+    Task<IReadOnlyList<ConsentimentoLgpd>> ConsentimentosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    Task<ConsentimentoLgpd?> ObterConsentimentoAsync(int consentimentoId, CancellationToken ct = default);
+    Task AdicionarConsentimentoAsync(ConsentimentoLgpd consentimento, CancellationToken ct = default);
+
     // ---- Auditoria ----
 
     /// <summary>Acrescenta um evento à trilha de auditoria (persistido junto com o SalvarAsync da ação).</summary>

@@ -41,8 +41,8 @@ por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
 | 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
 | 02 | Agenda multiprofissional | Recepção | 🟡 | 1 |
 | 03 | Fila em kanban | Recepção | ✅ | 1 |
-| 04 | Pacientes — cadastro 360º | Recepção | 🟡 | 2 |
-| 05 | Prontuário — evolução + EVA | Recepção | ⬜ | 2 |
+| 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
+| 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
 | 06 | Mapa corporal | Recepção | ⬜ | 3 |
 | 07 | Prescrição | Recepção | ⬜ | 3 |
 | 08 | Pacotes, planos e vouchers | Financeiro | ⬜ | 4 |
@@ -140,25 +140,48 @@ zero.**
 > "Concluir" é o antigo check-in — gera o atendimento e os códigos — e fica no fim do
 > fluxo de propósito: a guia nasce quando a sessão de fato aconteceu.
 
-### Feature 04 · Pacientes — cadastro 360º — 🟡 · parcela 2
+### Feature 04 · Pacientes — cadastro 360º — ✅ · parcela 2
 
 | Item | Estado | Onde |
 |---|---|---|
-| Dados, convênio e carteirinha | ✅ | Existe no faturamento; replicar na Recepção |
-| Foto pela webcam | ✅ | `CameraServico`, `Retrato` — é a webcam da recepção |
-| Histórico de sessões e guias | 🟡 | `FichaPacienteViewModel` (faturamento) |
-| Validação de elegibilidade | ⬜ | |
-| LGPD: consentimento registrado | ⬜ | |
+| Dados, convênio e carteirinha | ✅ | `PacienteEdicaoViewModel` (Recepção) |
+| Foto pela webcam | ✅ | `Desktop.Shell/Componentes/CameraServico`, `Retrato` |
+| Histórico de sessões e guias | ✅ | `FichaPacienteViewModel` (Recepção): sessões, guias em aberto, última sessão |
+| Validação de elegibilidade | ✅ | `ElegibilidadeService` |
+| LGPD: consentimento registrado | ✅ | `ConsentimentoService`, `ConsentimentoLgpd` |
 
-### Feature 05 · Prontuário — evolução + EVA — ⬜ · parcela 2
+> A tela é **master-detail**: lista à esquerda, ficha à direita. O balcão trabalha com o
+> paciente na frente — navegar para outra seção custaria um clique e o contexto a cada
+> atendimento. A busca **não** foi reescrita: usa o `SeletorPacienteViewModel` da suíte
+> com `limite: null`, como manda a convenção.
 
-| Item | Estado |
-|---|---|
-| Escala de dor EVA por sessão | ⬜ |
-| Evolução em texto e estruturada | ⬜ |
-| Anexos e imagens no histórico | ⬜ |
+> **A elegibilidade é o que esta tela tem de mais valioso.** Carteirinha vencida e cota
+> estourada hoje só aparecem na hora de faturar, quando a sessão já aconteceu e o
+> prejuízo é certo. O `ElegibilidadeService` junta o que já existia espalhado
+> (`Paciente.CarteirinhaVencida`, `AutorizacaoService`, consentimento) e responde no
+> balcão. Ele **informa, nunca impede** — quem decide é a clínica.
 
-Nada existe. Entidades, serviço, telas e testes do zero.
+### Feature 05 · Prontuário — evolução + EVA — ✅ · parcela 2
+
+| Item | Estado | Onde |
+|---|---|---|
+| Escala de dor EVA por sessão | ✅ | `Evolucao.EvaAntes`/`EvaDepois`, régua de 0 a 10 na tela |
+| Evolução em texto e estruturada | ✅ | queixa, conduta, evolução e orientações em campos próprios |
+| Anexos e imagens no histórico | ✅ | `AnexoProntuario`, `ProntuarioService.AnexarAsync` |
+| Evolução da dor ao longo do tratamento | 🔵 | `ProntuarioService.EvolucaoDaDorAsync` |
+
+> **A EVA vale em PAR.** Medir só antes (ou só depois) não diz se o tratamento
+> funcionou, então a `EvolucaoDaDorAsync` só considera as sessões com as duas medidas —
+> deixar meia medida entrar faria a linha oscilar por falta de dado, não por dor. A tela
+> mostra quantas sessões têm o par, para o número nunca parecer mais firme do que é.
+
+> A régua da EVA é uma fileira de casas clicáveis, não campo de texto: no balcão a
+> pergunta é feita em voz alta ("de 0 a 10, quanto dói?") e a resposta tem de caber num
+> clique. Campo de texto aqui é o caminho mais curto para a medida não ser registrada.
+
+> Os anexos ficam em tabela própria e a **lista vem por projeção, sem os bytes**: abrir o
+> prontuário não pode arrastar megabytes pela rede (o banco é remoto). Só quem pede um
+> arquivo específico materializa o conteúdo.
 
 ### Feature 06 · Mapa corporal — ⬜ · parcela 3
 
@@ -256,6 +279,10 @@ sendo só leitura não há risco de escrita concorrente.
 
 **12 prometidos, 3 existem.**
 
+> A base do **Relatório de evolução (EVA)** e da **Anamnese** já existe no domínio
+> (`Evolucao`, `EvolucaoDaDor`); o que falta para os dois é o PDF, que vai na parcela 3
+> junto com os outros documentos.
+
 | Documento | Módulo | Estado | Onde |
 |---|---|---|---|
 | Capa de lote | Faturamento | ✅ | `CapaFaturamentoService` |
@@ -298,18 +325,22 @@ O documento já foi ao cliente. Estas três precisam de decisão comercial:
 
 1. **Página 24 diz "Dois apps, um banco".** São **quatro** apps, um por perfil.
 2. **Página 23 marca ✓ em "Prontuário com mapa corporal e EVA"** para a SemDor contra os
-   concorrentes. São as features 05 e 06 — **não existem**. É a afirmação mais exposta do
-   documento.
-3. **O cronograma não fecha.** A Fase 1 (1–2 meses) inclui prontuário com EVA: domínio,
-   telas, PDF e testes do zero. As parcelas deste arquivo são a ordem técnica correta; o
-   calendário contra o cliente é decisão sua.
+   concorrentes. Depois da parcela 2, **metade da afirmação passou a ser verdadeira**: o
+   prontuário com EVA existe (feature 05). O **mapa corporal** (feature 06) continua não
+   existindo — vai na parcela 3. Até lá, a página 23 segue afirmando mais do que o
+   produto entrega.
+3. **O cronograma não fecha** — mas encolheu. A Fase 1 (1–2 meses) foi fechada com as
+   parcelas 1 e 2. O que resta do calendário original é decisão sua; as parcelas deste
+   arquivo continuam sendo a ordem técnica correta.
 
 ## Parcelas
 
-A **parcela 0 (instalável)** e a **parcela 1 (fundação)** estão entregues: os quatro apps
-instalam sozinhos, e a Recepção já tem painel próprio, agenda multiprofissional com
-encaixe e lista de espera, fila em kanban e o cadastro de profissionais e salas. A
-próxima é a **parcela 2 (cadastro e prontuário)**.
+As parcelas **0 (instalável)**, **1 (fundação)** e **2 (cadastro e prontuário)** estão
+entregues: os quatro apps instalam sozinhos, e a Recepção já tem painel próprio, agenda
+multiprofissional com encaixe e lista de espera, fila em kanban, cadastro de
+profissionais e salas, Pacientes 360º com foto e consentimento LGPD, e prontuário com
+evolução, escala EVA e anexos. Com isso **a Fase 1 da proposta está fechada**. A próxima
+é a **parcela 3 (ato clínico)**: mapa corporal, prescrição e os documentos impressos.
 
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

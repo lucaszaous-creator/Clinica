@@ -107,12 +107,45 @@ Três decisões que valem registrar:
 A migration é **puramente aditiva** (tabelas novas e colunas novas anuláveis), como manda
 a regra de conviver com versões diferentes em campo.
 
+## Cadastro e prontuário — resolvido na parcela 2
+
+A parcela 2 fecha a **Fase 1 da proposta**. A Recepção ganha duas coisas que não existiam
+em lugar nenhum do sistema:
+
+**Pacientes 360º.** Lista à esquerda, ficha à direita — o balcão trabalha com o paciente
+na frente, e mandar navegar para outra seção custaria um clique e o contexto a cada
+atendimento. A ficha reúne cadastro, foto (tirada ali, pela webcam do balcão), histórico
+de sessões e guias, consentimentos LGPD e o prontuário.
+
+**Prontuário com escala EVA.** Cada sessão registra a dor **antes e depois**, mais queixa,
+conduta, evolução e orientações, com anexos (fotos da região, laudos, exames).
+
+Quatro decisões que valem registrar:
+
+- **A elegibilidade passou para o balcão.** Carteirinha vencida e cota de sessões
+  estourada só apareciam na hora de faturar — quando a sessão já aconteceu e a glosa é
+  certa. A ficha agora responde "pode ser atendido hoje?" antes do atendimento. Ela
+  **informa, nunca impede**: quem decide é a clínica.
+- **A EVA vale em par.** Medir só antes não diz se o tratamento funcionou. A evolução da
+  dor só conta as sessões com as duas medidas, e a tela diz quantas são — o número nunca
+  parece mais firme do que é.
+- **Consentimento LGPD é fato datado, não interruptor.** Conceder, recusar e revogar
+  criam registros novos; revogar **não apaga** o anterior, que continua provando o
+  consentimento do período em que os dados foram tratados. É isso que a lei pede.
+- **A webcam mudou de lugar.** `CameraServico` e `Retrato` foram copiados para o shell da
+  suíte: a câmera está no balcão, e o shell não pode referenciar o executável congelado
+  do faturamento. Mesmo débito de duplicação do design system — e as constantes de
+  tamanho da foto precisam continuar iguais nos dois, porque gravam na mesma tabela.
+
+A migration continua **puramente aditiva**: só tabelas novas (`Evolucoes`,
+`AnexosProntuario`, `Consentimentos`).
+
 ## O que já dá para entregar hoje
 
 | App | Pronto para o cliente? |
 |---|---|
 | Faturamento | ✅ Sim — está em produção |
-| Recepção | ✅ Painel, agenda multiprofissional, fila em kanban e cadastro da equipe |
+| Recepção | ✅ Painel, agenda, fila em kanban, equipe, Pacientes 360º e prontuário com EVA |
 | Financeiro | ✅ Instala e roda sozinho; caixa, conciliação e produção |
 | Gerente | ✅ Instala e roda sozinho; reúne Recepção e Financeiro (sem telas de faturamento) |
 
@@ -125,17 +158,21 @@ entrega de conteúdo — ver [`features-por-modulo.md`](features-por-modulo.md).
 |---|---|---|---|
 | ~~**0 — Instalável**~~ ✅ | Todos | Tela de setup própria da suíte; release e versão por app | Instalar qualquer app **sem** o Faturamento na máquina |
 | ~~**1 — Fundação**~~ ✅ | Recepção | `Profissional` + `Sala`; agenda multiprofissional com encaixe e lista de espera; fila em kanban; painel próprio | Features 01 e 03 entregues, 02 sem a confirmação automática — e destrava 05, 09, 12 e 13 |
-| **2 — Cadastro e prontuário** | Recepção | Pacientes 360º com consentimento LGPD; prontuário com evolução e escala EVA | Features 04 e 05 — fecha a Fase 1 da proposta |
+| ~~**2 — Cadastro e prontuário**~~ ✅ | Recepção | Pacientes 360º com consentimento LGPD; prontuário com evolução e escala EVA | Features 04 e 05 — **fecha a Fase 1 da proposta** |
 | **3 — Ato clínico** | Recepção | Mapa corporal com protocolo reutilizável; prescrição; os 7 documentos clínicos | Features 06 e 07, e a página 21 |
 | **4 — Dinheiro e insumo** | Financeiro | Pacotes/vouchers com saldo; repasse por profissional; estoque com validade e custo | Features 08, 09 e 10 |
 | **5 — Inteligência** | Gerente | BI (ocupação, no-show, produtividade); NPS e recall; perfis, permissões e LGPD; visão consolidada lendo o faturamento | Features 11, 12 e 13 |
 
-As parcelas **0 e 1 estão entregues**. A **2** é a próxima: prontuário com evolução e
-escala EVA é a afirmação mais exposta da proposta (página 23) e o que ainda não existe.
+As parcelas **0, 1 e 2 estão entregues** — com a 2, a **Fase 1 da proposta está fechada**.
+A próxima é a **3 (ato clínico)**: mapa corporal, prescrição e os documentos impressos.
 
-A única coisa que ficou de fora da parcela 1 é a **confirmação automática** por WhatsApp
-(feature 02): o envio de 1 clique existe na agenda, mas automatizar o disparo é campanha
-— vai junto com o recall e o NPS, na parcela 5.
+Duas coisas ficaram deliberadamente de fora e continuam pendentes:
+
+- **Confirmação automática por WhatsApp** (feature 02): o envio de 1 clique existe na
+  agenda, mas automatizar o disparo é campanha — vai junto com o recall e o NPS, na
+  parcela 5.
+- **Mapa corporal** (feature 06): é a outra metade da afirmação da página 23 da proposta.
+  Vai na parcela 3.
 
 ## Instalação numa clínica nova
 

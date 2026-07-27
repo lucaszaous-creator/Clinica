@@ -1,0 +1,57 @@
+<Window x:Class="Clinica.Desktop.Shell.Controls.CapturaFotoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Foto do paciente" Width="620" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Fundo}">
+    <StackPanel Margin="24">
+        <TextBlock Text="Foto do paciente" Style="{StaticResource H2}" Margin="0,0,0,2" />
+        <TextBlock x:Name="TxtPaciente" Style="{StaticResource TextoSuave}" Margin="0,0,0,4" />
+        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,16"
+                   Text="Enquadre o rosto no círculo, com o paciente de frente e boa luz. A área mostrada é exatamente a que será gravada." />
+
+        <!-- ===== Visor: o recorte quadrado do preview é o mesmo que vai para o banco ===== -->
+        <Border Width="320" Height="320" CornerRadius="{StaticResource Raio.Grande}"
+                Background="{StaticResource Brush.Visor.Fundo}" ClipToBounds="True" HorizontalAlignment="Center">
+            <Grid>
+                <Image x:Name="Visor" Stretch="UniformToFill" />
+
+                <!-- Guia de enquadramento (o avatar é circular) -->
+                <Ellipse x:Name="Guia" Margin="24" Stroke="{StaticResource Brush.Visor.Guia}" StrokeThickness="2"
+                         StrokeDashArray="6 4" IsHitTestVisible="False" />
+
+                <TextBlock x:Name="TxtEstado" Foreground="{StaticResource Brush.Visor.Texto}" TextWrapping="Wrap"
+                           TextAlignment="Center" VerticalAlignment="Center" Margin="24"
+                           Text="Ligando a câmera…" />
+            </Grid>
+        </Border>
+
+        <!-- ===== Escolha da câmera ===== -->
+        <StackPanel x:Name="PainelCamera" Margin="0,16,0,0">
+            <TextBlock Text="Câmera" Style="{StaticResource Rotulo}" />
+            <ComboBox x:Name="ComboCameras" DisplayMemberPath="Nome"
+                      SelectionChanged="ComboCameras_SelectionChanged"
+                      ToolTip="Webcams conectadas ao computador" />
+        </StackPanel>
+
+        <TextBlock x:Name="TxtErro" Foreground="{StaticResource Brush.Erro}" TextWrapping="Wrap"
+                   Margin="0,10,0,0" Visibility="Collapsed" />
+
+        <!-- ===== Ações ===== -->
+        <DockPanel Margin="0,20,0,0">
+            <Button DockPanel.Dock="Left" Content="Escolher arquivo…" Style="{StaticResource BotaoSecundario}"
+                    Click="Arquivo_Click" HorizontalAlignment="Left"
+                    ToolTip="Usar uma foto já existente no computador (JPG, PNG ou BMP)" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click"
+                        IsCancel="True" Margin="0,0,10,0" />
+                <Button x:Name="BtnRepetir" Content="Repetir" Style="{StaticResource BotaoSecundario}"
+                        Click="Repetir_Click" Margin="0,0,10,0" Visibility="Collapsed" />
+                <Button x:Name="BtnCapturar" Content="Capturar" Click="Capturar_Click" IsDefault="True" />
+                <Button x:Name="BtnUsar" Content="Usar esta foto" Click="Usar_Click"
+                        Visibility="Collapsed" />
+            </StackPanel>
+        </DockPanel>
+    </StackPanel>
+</Window>
