@@ -116,5 +116,24 @@ public interface IClinicaRepositorio
     /// <summary>Eventos de auditoria, do mais recente ao mais antigo (limitado).</summary>
     Task<IReadOnlyList<EventoAuditoria>> EventosAuditoriaAsync(int limite = 200, CancellationToken ct = default);
 
+    // ---- Financeiro ----
+
+    Task AdicionarLancamentoAsync(LancamentoFinanceiro lancamento, CancellationToken ct = default);
+    Task<LancamentoFinanceiro?> ObterLancamentoAsync(int lancamentoId, CancellationToken ct = default);
+
+    /// <summary>Lançamentos por data de competência, com categoria e paciente carregados.</summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Ids de guias que já possuem lançamento vinculado — base da conciliação
+    /// (guia efetivada no convênio que ainda não virou dinheiro no caixa).
+    /// </summary>
+    Task<IReadOnlyList<int>> CodigosComLancamentoAsync(
+        IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
+    Task<IReadOnlyList<CategoriaFinanceira>> CategoriasFinanceirasAsync(CancellationToken ct = default);
+    Task AdicionarCategoriaFinanceiraAsync(CategoriaFinanceira categoria, CancellationToken ct = default);
+
     Task<int> SalvarAsync(CancellationToken ct = default);
 }

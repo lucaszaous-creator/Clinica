@@ -343,6 +343,44 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Take(limite)
             .ToListAsync(ct);
 
+    // ---- Financeiro ----
+
+    public async Task AdicionarLancamentoAsync(LancamentoFinanceiro lancamento, CancellationToken ct = default)
+        => await _db.Lancamentos.AddAsync(lancamento, ct);
+
+    public async Task<LancamentoFinanceiro?> ObterLancamentoAsync(int lancamentoId, CancellationToken ct = default)
+        => await _db.Lancamentos.FirstOrDefaultAsync(l => l.Id == lancamentoId, ct);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Lancamentos
+            .Include(l => l.Categoria)
+            .Include(l => l.Paciente)
+            .Where(l => l.Data >= inicio && l.Data <= fim)
+            .OrderByDescending(l => l.Data).ThenByDescending(l => l.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<int>> CodigosComLancamentoAsync(
+        IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+    {
+        if (codigoIds.Count == 0) return [];
+        return await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.CodigoFaturamentoId != null
+                     && codigoIds.Contains(l.CodigoFaturamentoId.Value)
+                     && l.Status != StatusLancamento.Cancelado)
+            .Select(l => l.CodigoFaturamentoId!.Value)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<CategoriaFinanceira>> CategoriasFinanceirasAsync(CancellationToken ct = default)
+        => await _db.CategoriasFinanceiras.AsNoTracking()
+            .OrderBy(c => c.Ordem).ThenBy(c => c.Nome)
+            .ToListAsync(ct);
+
+    public async Task AdicionarCategoriaFinanceiraAsync(CategoriaFinanceira categoria, CancellationToken ct = default)
+        => await _db.CategoriasFinanceiras.AddAsync(categoria, ct);
+
     public async Task<int> SalvarAsync(CancellationToken ct = default)
     {
         try
