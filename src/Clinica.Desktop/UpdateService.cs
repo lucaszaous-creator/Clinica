@@ -32,8 +32,9 @@ public static class UpdateService
                 var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
                 return mgr.IsInstalled ? mgr.CurrentVersion?.ToString() : null;
             }
-            catch
+            catch (Exception ex)
             {
+                Configuracao.LogErros.Registrar("Atualização — versão instalada não pôde ser lida", ex);
                 return null;
             }
         }
@@ -67,9 +68,12 @@ public static class UpdateService
             mgr.ApplyUpdatesAndRestart(novidade); // encerra este processo e reabre atualizado
             return true;
         }
-        catch
+        catch (Exception ex)
         {
-            return false; // qualquer falha: abre normalmente na versão atual
+            // Qualquer falha: abre normalmente na versão atual — mas registrada, senão
+            // "por que não atualizou?" vira adivinhação.
+            Configuracao.LogErros.Registrar("Atualização — verificação na abertura falhou", ex);
+            return false;
         }
     }
 
@@ -116,9 +120,10 @@ public static class UpdateService
 
             return novidade.TargetFullRelease.Version.ToString();
         }
-        catch
+        catch (Exception ex)
         {
-            // Falha (offline, GitHub fora etc.) é silenciosa — nunca impede o uso.
+            // Falha (offline, GitHub fora etc.) nunca impede o uso, mas fica no log.
+            Configuracao.LogErros.Registrar("Atualização — download em segundo plano falhou", ex);
             return null;
         }
     }
@@ -135,9 +140,10 @@ public static class UpdateService
             if (_mgrPreparado is { } mgr && _updatePreparado is { } up)
                 mgr.ApplyUpdatesAndRestart(up); // encerra este processo e reabre atualizado
         }
-        catch
+        catch (Exception ex)
         {
             // Se a aplicação imediata falhar, a versão segue agendada para o fechamento.
+            Configuracao.LogErros.Registrar("Atualização — aplicação imediata falhou", ex);
         }
     }
 }

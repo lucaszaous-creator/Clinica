@@ -23,6 +23,10 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
+        // As camadas Application/Infrastructure não conhecem a UI: liga o log de arquivo
+        // nelas antes de qualquer coisa, para uma falha na abertura já ficar registrada.
+        Clinica.Application.Diagnostico.Sink = LogErros.Registrar;
+
         // Rede/banco podem falhar no meio de um comando assíncrono (Wi-Fi caiu, Neon
         // hibernou). Sem este handler, qualquer exceção não tratada fecha o app com
         // perda do que estava na tela; com ele, avisamos e o app continua de pé.

@@ -34,8 +34,13 @@ public interface IClinicaRepositorio
 
     // ---- Busca / ficha do paciente / faturados ----
 
-    /// <summary>Busca pacientes por nome ou CPF (termo normalizado). Termo vazio devolve todos.</summary>
-    Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, CancellationToken ct = default);
+    /// <summary>
+    /// Busca pacientes por nome ou CPF (termo normalizado). Termo vazio devolve todos.
+    /// <paramref name="limite"/> corta o resultado no BANCO — os seletores da UI só mostram as
+    /// primeiras linhas, e trazer a base inteira para descartar em memória é desperdício de rede
+    /// (o banco é remoto). Null = sem corte, para quem precisa varrer todo mundo.
+    /// </summary>
+    Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default);
 
     /// <summary>Paciente com todo o histórico (atendimentos e seus códigos) carregado.</summary>
     Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default);

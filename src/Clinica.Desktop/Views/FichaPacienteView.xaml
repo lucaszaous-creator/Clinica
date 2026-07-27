@@ -67,7 +67,7 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding ConsultaEmRisco}" Value="True">
                                                 <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
-                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso}" />
+                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Aviso.Texto}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -84,7 +84,7 @@
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding AutorizacaoEmRisco}" Value="True">
                                                 <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
-                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro}" />
+                                                <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro.Texto}" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -153,9 +153,9 @@
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Pendentes hoje" Style="{StaticResource CardKpi.Rotulo}"
-                               Foreground="{StaticResource Brush.Erro}" />
+                               Foreground="{StaticResource Brush.Erro.Texto}" />
                     <TextBlock Text="{Binding TotalPendentes}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Erro}" />
+                               Foreground="{StaticResource Brush.Erro.Texto}" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}">

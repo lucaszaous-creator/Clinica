@@ -98,7 +98,7 @@ public partial class AutorizacaoEdicaoViewModel : ObservableObject
                 QuantidadeUtilizadaManual = QuantidadeUtilizadaManual,
                 Observacoes = string.IsNullOrWhiteSpace(Observacoes) ? null : Observacoes.Trim(),
                 Encerrada = Encerrada
-            });
+            }, Environment.UserName);
         }
         catch (Exception ex)
         {

@@ -60,17 +60,27 @@ public sealed class AutorizacaoService
         return new SaldoAutorizacao(a, utilizadas, restantes, a.Vencida(referencia));
     }
 
-    public async Task<AutorizacaoSessoes> SalvarAsync(AutorizacaoSessoes autorizacao, CancellationToken ct = default)
+    /// <param name="operador">
+    /// Quem está gravando. A cota decide se uma guia pode ser emitida, então mudar de 10
+    /// para 20 sessões precisa deixar rastro tanto quanto uma baixa.
+    /// </param>
+    public async Task<AutorizacaoSessoes> SalvarAsync(
+        AutorizacaoSessoes autorizacao, string? operador = null, CancellationToken ct = default)
     {
         Validar(autorizacao);
 
-        if (autorizacao.Id == 0)
+        var novo = autorizacao.Id == 0;
+        var anterior = novo ? null : await _repo.ObterAutorizacaoAsync(autorizacao.Id, ct);
+
+        var quantidadeAnterior = anterior?.QuantidadeAutorizada;
+
+        if (novo)
         {
             await _repo.AdicionarAutorizacaoAsync(autorizacao, ct);
         }
         else
         {
-            var atual = await _repo.ObterAutorizacaoAsync(autorizacao.Id, ct)
+            var atual = anterior
                 ?? throw new InvalidOperationException("Autorização não encontrada.");
 
             atual.Numero = autorizacao.Numero;
@@ -84,13 +94,36 @@ public sealed class AutorizacaoService
             atual.Encerrada = autorizacao.Encerrada;
         }
 
+        var mudouCota = !novo && quantidadeAnterior != autorizacao.QuantidadeAutorizada;
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = novo ? "AutorizacaoCriada" : "AutorizacaoAlterada",
+            Detalhe = $"Senha {autorizacao.Numero ?? "(sem número)"}: {autorizacao.QuantidadeAutorizada} sessão(ões)"
+                      + (mudouCota ? $" (antes {quantidadeAnterior})" : string.Empty)
+                      + $", válida até {autorizacao.DataValidade:dd/MM/yyyy}"
+                      + (autorizacao.Encerrada ? " — encerrada" : string.Empty),
+            PacienteId = autorizacao.PacienteId
+        }, ct);
+
         await _repo.SalvarAsync(ct);
         return autorizacao;
     }
 
-    public async Task RemoverAsync(int autorizacaoId, CancellationToken ct = default)
+    public async Task RemoverAsync(int autorizacaoId, string? operador = null, CancellationToken ct = default)
     {
+        var autorizacao = await _repo.ObterAutorizacaoAsync(autorizacaoId, ct);
         await _repo.RemoverAutorizacaoAsync(autorizacaoId, ct);
+
+        if (autorizacao is not null)
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+                Acao = "AutorizacaoRemovida",
+                Detalhe = $"Senha {autorizacao.Numero ?? "(sem número)"}, {autorizacao.QuantidadeAutorizada} sessão(ões)",
+                PacienteId = autorizacao.PacienteId
+            }, ct);
+
         await _repo.SalvarAsync(ct);
     }
 

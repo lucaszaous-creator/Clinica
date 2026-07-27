@@ -232,9 +232,12 @@ public sealed class ParametrosService
         {
             return JsonSerializer.Deserialize<DadosPrestador>(json, OpcoesJson) ?? new DadosPrestador();
         }
-        catch
+        catch (Exception ex)
         {
-            return new DadosPrestador(); // configuração corrompida não impede o uso
+            // Configuração corrompida não impede o uso — mas fica no log, senão o
+            // prestador "some" da guia sem ninguém entender por quê.
+            Diagnostico.Registrar("Parâmetros — dados do prestador corrompidos", ex);
+            return new DadosPrestador();
         }
     }
 

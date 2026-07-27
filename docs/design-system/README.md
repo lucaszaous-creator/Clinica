@@ -5,7 +5,7 @@ Design system do app desktop (C#/.NET 8, WPF puro, MVVM com CommunityToolkit.Mvv
 ## Princípios
 
 1. **Flat e limpo** — superfícies brancas, borda 1px `--borda`, sem sombras em cartões (sombra só em popups e snackbar).
-2. **Uma cor de ação** — azul `#2563EB` é a única cor de ação; verde/laranja/vermelho/ciano são exclusivamente semânticos (sucesso/aviso/erro/info).
+2. **Uma cor de ação** — azul-royal da marca `#123A9E` é a única cor de ação; verde/laranja/vermelho/ciano são exclusivamente semânticos (sucesso/aviso/erro/info).
 3. **Hierarquia por tipografia e espaço** — escala 24/20/18/14/13/12 e espaçamento em múltiplos de 8; nunca por peso de cor.
 4. **Feedback imediato** — hover/focus/disabled em todos os controles; microinterações ≤150ms; snackbar para confirmações não-bloqueantes.
 5. **Teclado em primeiro lugar** — atalhos globais, foco visível (anel azul), `IsDefault`/`IsCancel` em todos os diálogos.

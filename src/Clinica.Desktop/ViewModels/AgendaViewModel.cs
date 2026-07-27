@@ -99,9 +99,10 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
             _nomeClinica = string.IsNullOrWhiteSpace(prestador.NomeFantasia) ? prestador.RazaoSocial : prestador.NomeFantasia;
         }
-        catch
+        catch (Exception ex)
         {
             // Sem nome da clínica a mensagem sai sem assinatura; não impede a agenda.
+            Configuracao.LogErros.Registrar("Agenda — nome da clínica não pôde ser lido", ex);
         }
     }
 
@@ -300,7 +301,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.CancelarAsync(cartao.Item.Id);
+            await agenda.CancelarAsync(cartao.Item.Id, Environment.UserName);
         }
         await Recarregar();
     }
@@ -312,7 +313,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.MarcarFaltaAsync(cartao.Item.Id);
+            await agenda.MarcarFaltaAsync(cartao.Item.Id, Environment.UserName);
         }
         await Recarregar();
     }

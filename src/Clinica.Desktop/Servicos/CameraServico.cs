@@ -41,9 +41,10 @@ public sealed class CameraServico : IDisposable
             foreach (FilterInfo filtro in new FilterInfoCollection(FilterCategory.VideoInputDevice))
                 lista.Add(new DispositivoCamera(filtro.Name, filtro.MonikerString));
         }
-        catch
+        catch (Exception ex)
         {
             // Sem DirectShow disponível: a tela cai no modo "escolher arquivo".
+            Configuracao.LogErros.Registrar("Câmera — enumeração de dispositivos falhou", ex);
         }
         return lista;
     }
@@ -77,6 +78,7 @@ public sealed class CameraServico : IDisposable
         catch (Exception ex)
         {
             Parar();
+            Configuracao.LogErros.Registrar("Câmera — falha ao abrir o dispositivo", ex);
             Falhou?.Invoke($"Não foi possível abrir a câmera: {ex.Message}");
         }
     }
@@ -104,9 +106,10 @@ public sealed class CameraServico : IDisposable
                 catch { /* encerramento best-effort */ }
             });
         }
-        catch
+        catch (Exception ex)
         {
             // Driver travando no encerramento não pode derrubar a tela.
+            Configuracao.LogErros.Registrar("Câmera — falha ao encerrar o dispositivo", ex);
         }
     }
 

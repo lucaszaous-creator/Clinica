@@ -317,6 +317,29 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         return dup.Count > 0 ? string.Join(", ", dup) : null;
     }
 
+    /// <summary>Onde o sistema grava os erros — mostrado na tela para o suporte pedir o arquivo.</summary>
+    public string PastaLogs => Configuracao.LogErros.Pasta;
+
+    /// <summary>Abre a pasta de logs no Explorador do Windows.</summary>
+    [RelayCommand]
+    private void AbrirPastaLogs()
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(PastaLogs);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(PastaLogs)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Configuracao.LogErros.Registrar("Configurações — abrir pasta de logs", ex);
+            Mensagem = $"Não foi possível abrir a pasta: {PastaLogs}";
+            MensagemEhErro = true;
+        }
+    }
+
     [RelayCommand]
     private async Task Salvar()
     {

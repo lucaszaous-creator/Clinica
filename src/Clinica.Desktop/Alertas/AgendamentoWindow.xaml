@@ -33,8 +33,8 @@
                                Visibility="{Binding Remarcando, Converter={StaticResource BoolParaVisibilidade}}" />
 
                     <TextBox DockPanel.Dock="Top" Margin="0,8,0,10"
-                             IsEnabled="{Binding Remarcando, Converter={StaticResource BoolInvertido}}"
-                             Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{Binding Seletor.Travado, Converter={StaticResource BoolInvertido}}"
+                             Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                              Style="{StaticResource CampoPesquisa}"
                              ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF…" />
 
@@ -47,33 +47,15 @@
                         </StackPanel>
                     </Border>
 
-                    <ListBox ItemsSource="{Binding Pacientes}" SelectedItem="{Binding PacienteSelecionado}"
-                             IsEnabled="{Binding Remarcando, Converter={StaticResource BoolInvertido}}"
-                             Style="{StaticResource ListaCartoes}">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <ctrl:Avatar Grid.Column="0" Tamanho="36" VerticalAlignment="Center"
-                                                 Margin="0,0,10,0"
-                                                 Nome="{Binding Nome}" Foto="{Binding FotoMiniatura}" />
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding Documento, Converter={StaticResource Cpf}}"
-                                                   Style="{StaticResource FichaRotulo}" Margin="0,2,0,0" />
-                                    </StackPanel>
-                                    <Border Grid.Column="2" Style="{StaticResource Badge}" VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding Path=., Converter={StaticResource ConvenioPaciente}}" />
-                                    </Border>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Seletor.Erro}" TextWrapping="Wrap"
+                               Margin="0,8,0,0" Foreground="{StaticResource Brush.Erro.Texto}"
+                               Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade}}" />
+
+                    <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                             SelectedItem="{Binding Seletor.Selecionado}"
+                             IsEnabled="{Binding Seletor.Travado, Converter={StaticResource BoolInvertido}}"
+                             ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                             Style="{StaticResource ListaCartoes}" />
                 </DockPanel>
             </Border>
 

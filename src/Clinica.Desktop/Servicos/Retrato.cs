@@ -32,9 +32,10 @@ public static class Retrato
             imagem.Freeze();
             return imagem;
         }
-        catch
+        catch (Exception ex)
         {
             // Bytes inválidos (arquivo corrompido): a UI cai no avatar de iniciais.
+            Configuracao.LogErros.Registrar("Retrato — imagem do paciente não pôde ser lida", ex);
             return null;
         }
     }

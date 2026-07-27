@@ -12,8 +12,12 @@ public sealed class PacienteService
 
     public PacienteService(IClinicaRepositorio repo) => _repo = repo;
 
-    public Task<IReadOnlyList<Paciente>> BuscarAsync(string? termo, CancellationToken ct = default)
-        => _repo.BuscarPacientesAsync(termo, ct);
+    /// <summary>
+    /// Busca por nome ou CPF. <paramref name="limite"/> corta no banco (ver o repositório);
+    /// null traz todos. Quem escolhe o corte é a tela, por um único ponto (o seletor de paciente).
+    /// </summary>
+    public Task<IReadOnlyList<Paciente>> BuscarAsync(string? termo, int? limite = null, CancellationToken ct = default)
+        => _repo.BuscarPacientesAsync(termo, limite, ct);
 
     public Task<Paciente?> ObterComHistoricoAsync(int pacienteId, CancellationToken ct = default)
         => _repo.ObterPacienteComHistoricoAsync(pacienteId, ct);

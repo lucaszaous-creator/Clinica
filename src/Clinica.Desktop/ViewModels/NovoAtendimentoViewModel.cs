@@ -29,7 +29,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
-    public ObservableCollection<Paciente> Pacientes { get; } = new();
+    /// <summary>Busca de paciente compartilhada (mesmo limite e mesmo comportamento das outras telas).</summary>
+    public SeletorPacienteViewModel Seletor { get; }
+
+    /// <summary>Atalho para o paciente escolhido no seletor.</summary>
+    public Paciente? PacienteSelecionado => Seletor.Selecionado;
+
     public ObservableCollection<CodigoLancado> CodigosGerados { get; } = new();
     public ObservableCollection<string> Avisos { get; } = new();
 
@@ -45,8 +50,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Opções de qual código sai primeiro (hoje) numa modalidade dupla. Vazio nas simples.</summary>
     public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
 
-    [ObservableProperty] private string? _busca;
-    [ObservableProperty] private Paciente? _pacienteSelecionado;
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
     [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
@@ -100,6 +103,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public NovoAtendimentoViewModel(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
+        Seletor = new SeletorPacienteViewModel(scopeFactory);
+        Seletor.SelecaoMudou += AoTrocarPaciente;
         AtualizarOpcoesPrimeiroCodigo();
     }
 
@@ -133,7 +138,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public async Task CarregarAsync()
     {
         CarregarCatalogos();
-        await BuscarPacientes();
+        await Seletor.BuscarAsync(imediato: true);
     }
 
     /// <summary>Recarrega as opções de modalidade/especialidade do cache (reflete o que foi salvo em Configurações).</summary>
@@ -154,23 +159,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual);
     }
 
-    /// <summary>Busca pacientes por nome ou CPF para o seletor.</summary>
-    [RelayCommand]
-    private async Task BuscarPacientes()
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-        Pacientes.Clear();
-        foreach (var p in await service.BuscarAsync(Busca))
-            Pacientes.Add(p);
-    }
-
-    partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
-
     // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro)
     // e avisa carteirinha vencida ANTES de gerar uma guia que o convênio vai recusar.
-    partial void OnPacienteSelecionadoChanged(Paciente? value)
+    private void AoTrocarPaciente(Paciente? value)
     {
+        OnPropertyChanged(nameof(PacienteSelecionado));
         AvisoPendencias = null;
         AvisoCarteirinha = null;
         SaldoAutorizacao = null;
@@ -227,9 +220,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             AutorizacaoCritica = saldo.Vencida || saldo.Esgotada;
             AutorizacaoNaUltima = !AutorizacaoCritica && saldo.NaUltima;
         }
-        catch
+        catch (Exception ex)
         {
             // Aviso é auxiliar: nunca pode impedir o lançamento do atendimento.
+            Configuracao.LogErros.Registrar("Novo atendimento — cota de sessões não pôde ser lida", ex);
             SaldoAutorizacao = null;
             AutorizacaoCritica = false;
             AutorizacaoNaUltima = false;
@@ -238,7 +232,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 
     /// <summary>Volta para a busca, para trocar o paciente escolhido.</summary>
     [RelayCommand]
-    private void TrocarPaciente() => PacienteSelecionado = null;
+    private void TrocarPaciente() => Seletor.Limpar();
 
     /// <summary>Zera a tela para lançar outro atendimento, sem sair da seção.</summary>
     [RelayCommand]
@@ -253,8 +247,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         Observacoes = null;
         Mensagem = null;
         Data = DateTime.Today;
-        PacienteSelecionado = null;
-        Busca = null;
+        Seletor.Limpar();
+        Seletor.Termo = null;
     }
 
     /// <summary>
@@ -292,9 +286,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 
             AvisoPendencias = "Este paciente tem " + string.Join(" ", partes);
         }
-        catch
+        catch (Exception ex)
         {
             // Aviso é auxiliar: uma falha aqui nunca pode impedir o lançamento do atendimento.
+            Configuracao.LogErros.Registrar("Novo atendimento — pendências do paciente não puderam ser lidas", ex);
             AvisoPendencias = null;
         }
     }
@@ -312,7 +307,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand]
     private async Task Lancar()
     {
-        if (PacienteSelecionado is null)
+        if (Seletor.Selecionado is not { } paciente)
         {
             Mensagem = "Selecione o paciente.";
             return;
@@ -340,7 +335,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
             var resultado = await service.LancarAsync(
-                PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
+                paciente.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
                 registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
                 modalidadeCodigo: ModalidadeSelecionada.Codigo,
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
@@ -448,9 +443,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             var atendimento = await repo.ObterAtendimentoAsync(_ultimoAtendimentoId);
             if (atendimento is not null) MontarCodigos(atendimento.Codigos);
         }
-        catch
+        catch (Exception ex)
         {
             // A baixa já foi gravada; falhar aqui só deixa a tela desatualizada.
+            Configuracao.LogErros.Registrar("Novo atendimento — recarga dos códigos após a baixa falhou", ex);
         }
     }
 

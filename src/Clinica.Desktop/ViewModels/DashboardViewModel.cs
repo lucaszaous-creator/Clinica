@@ -39,8 +39,18 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>A rodada de pendências venceu (mostra o banner do fechamento de ciclo).</summary>
     [ObservableProperty] private bool _rodadaVencida;
 
+    /// <summary>
+    /// Não deu para consultar a rodada (banco fora do ar, por exemplo). É um estado
+    /// PRÓPRIO, e não "não venceu": a promessa do produto é não deixar guia esquecida,
+    /// então silêncio por falha tem de aparecer como falha, nunca como tudo certo.
+    /// </summary>
+    [ObservableProperty] private bool _rodadaIndeterminada;
+
     /// <summary>Texto do banner da rodada (quanto está vencida / o que precisa decidir).</summary>
     [ObservableProperty] private string _rodadaBanner = string.Empty;
+
+    /// <summary>Texto do aviso de rodada não verificada.</summary>
+    [ObservableProperty] private string _rodadaAvisoFalha = string.Empty;
 
     /// <summary>Total de códigos/guias pendentes de baixa (para a faixa de alerta do topo).</summary>
     public int TotalCodigos => _todos.Count;
@@ -96,15 +106,24 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
             await rodada.GarantirInicioAsync(hoje); // ancora a carência do backlog no 1º uso
             var status = await rodada.ObterStatusAsync(hoje);
             RodadaVencida = status.ExigeDecisao;
+            RodadaIndeterminada = false;
+            RodadaAvisoFalha = string.Empty;
             RodadaBanner = status.ExigeDecisao
                 ? $"{status.GuiasParaDecisao} guia(s) passaram de {status.PrazoDias} dias desde o atendimento " +
                   "sem resolução. Rode agora: cada uma exige baixa ou não conformidade."
                 : string.Empty;
         }
-        catch
+        catch (Exception ex)
         {
-            // O banner da rodada nunca deve derrubar o carregamento do painel.
+            // A falha não derruba o painel, mas TAMBÉM não pode virar "não venceu": antes
+            // isto zerava RodadaVencida, e o painel afirmava que estava tudo em dia quando
+            // na verdade não tinha conseguido perguntar.
+            Configuracao.LogErros.Registrar("Painel — situação da rodada de pendências", ex);
             RodadaVencida = false;
+            RodadaIndeterminada = true;
+            RodadaAvisoFalha =
+                "Não foi possível verificar a rodada de pendências agora — pode haver guia vencida " +
+                "sem aparecer aqui. Atualize o painel; se continuar, avise o suporte.";
         }
 
         if (_nomeClinica is null)
@@ -114,7 +133,11 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
                 var d = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
                 _nomeClinica = string.IsNullOrWhiteSpace(d.NomeFantasia) ? d.RazaoSocial : d.NomeFantasia;
             }
-            catch { /* sem nome a mensagem sai sem assinatura; não impede o painel */ }
+            catch (Exception ex)
+            {
+                // Sem nome a mensagem sai sem assinatura; não impede o painel.
+                Configuracao.LogErros.Registrar("Painel — nome da clínica não pôde ser lido", ex);
+            }
         }
 
         AplicarFiltro();

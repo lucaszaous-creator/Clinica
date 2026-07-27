@@ -165,9 +165,10 @@ public partial class FichaPacienteViewModel : ObservableObject
                 var cheia = await service.ObterFotoAsync(pacienteId);
                 if (cheia is not null && _pacienteId == pacienteId) Foto = cheia;
             }
-            catch
+            catch (Exception ex)
             {
                 // Sem a foto cheia a ficha segue com a miniatura.
+                Configuracao.LogErros.Registrar("Ficha — foto do paciente não pôde ser carregada", ex);
             }
         }
 
@@ -176,9 +177,10 @@ public partial class FichaPacienteViewModel : ObservableObject
             var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
             _nomeClinica = string.IsNullOrWhiteSpace(prestador.NomeFantasia) ? prestador.RazaoSocial : prestador.NomeFantasia;
         }
-        catch
+        catch (Exception ex)
         {
             // Sem assinatura na mensagem; não impede a ficha.
+            Configuracao.LogErros.Registrar("Ficha — nome da clínica não pôde ser lido", ex);
         }
     }
 
@@ -216,9 +218,10 @@ public partial class FichaPacienteViewModel : ObservableObject
             foreach (var c in await service.ConsultasAsync(pacienteId))
                 Consultas.Add(c);
         }
-        catch
+        catch (Exception ex)
         {
             // A ficha não depende das consultas para ser útil.
+            Configuracao.LogErros.Registrar("Ficha — consultas do paciente não puderam ser lidas", ex);
             return;
         }
 
@@ -261,9 +264,10 @@ public partial class FichaPacienteViewModel : ObservableObject
             AutorizacaoTexto = $"Sessões: {vigente.Resumo}";
             AutorizacaoEmRisco = !vigente.Utilizavel || vigente.NaUltima;
         }
-        catch
+        catch (Exception ex)
         {
             // A ficha não depende da cota para ser útil.
+            Configuracao.LogErros.Registrar("Ficha — cota de sessões não pôde ser lida", ex);
             AutorizacaoTexto = null;
             AutorizacaoEmRisco = false;
         }
@@ -305,7 +309,7 @@ public partial class FichaPacienteViewModel : ObservableObject
         using (var scope = _scopeFactory.CreateScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
-            await service.RemoverAsync(saldo.Autorizacao.Id);
+            await service.RemoverAsync(saldo.Autorizacao.Id, Environment.UserName);
         }
         await CarregarAsync(_pacienteId);
     }
