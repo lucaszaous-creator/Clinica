@@ -1,8 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Executável da Recepção — casca fina sobre Clinica.Desktop.Shell.
-    Ver docs/arquitetura-multi-exe.md (Fase 1).
+    Executável do Gerente Geral — a mesma casca fina dos outros, só que carregando
+    TODOS os módulos. Não tem tela própria: cada item da sidebar vem do módulo dono,
+    então nada aqui precisa ser corrigido em dois lugares.
+    Ver docs/arquitetura-multi-exe.md (Fase 3).
+
+    O módulo de Faturamento entra nesta lista na Fase 4, quando Clinica.Desktop virar
+    módulo — e o Gerente ganha as telas do faturamento sem uma linha de código novo.
   -->
 
   <PropertyGroup>
@@ -11,11 +16,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <RootNamespace>Clinica.Recepcao</RootNamespace>
+    <RootNamespace>Clinica.Gerente</RootNamespace>
     <!-- Sobrescrita no release pelo workflow (-p:Version=x.y.z). -->
     <Version>1.0.0</Version>
     <!-- Velopack precisa rodar seus hooks antes da UI. -->
-    <StartupObject>Clinica.Recepcao.Program</StartupObject>
+    <StartupObject>Clinica.Gerente.Program</StartupObject>
     <ApplicationIcon>..\Clinica.Desktop.Shell\Assets\Marca\icone.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -28,6 +33,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
     <ProjectReference Include="..\Clinica.Modulo.Recepcao\Clinica.Modulo.Recepcao.csproj" />
+    <ProjectReference Include="..\Clinica.Modulo.Financeiro\Clinica.Modulo.Financeiro.csproj" />
   </ItemGroup>
 
   <!-- App.xaml deixa de gerar o Main automático (usamos Program.Main). -->

@@ -17,8 +17,22 @@ Solução em camadas (.NET 8):
 | `Clinica.Domain` | Entidades, enums e o **motor de regras** (uma classe por convênio). |
 | `Clinica.Application` | Serviços: `AtendimentoService`, `PendenciaService`, `FaturamentoService`. |
 | `Clinica.Infrastructure` | EF Core (`ClinicaDbContext`), repositório, migrations (**PostgreSQL/Npgsql**). |
-| `Clinica.Desktop` | Aplicativo **WPF/MVVM** (recepção). ⚠️ Compila apenas no **Windows**. |
+| `Clinica.Desktop` | Aplicativo **WPF/MVVM** de faturamento. ⚠️ Compila apenas no **Windows**. |
 | `Clinica.Tests` | Testes xUnit validando cada fluxograma. |
+
+### Suíte multi-exe
+
+Ao lado do faturamento existem mais três aplicativos, montados sobre o mesmo banco e as mesmas
+camadas — sem duplicar código e sem encostar no que já está em produção:
+
+| Projeto | Responsabilidade |
+|---|---|
+| `Clinica.Desktop.Shell` | Design system, janela genérica, contrato de módulo (`IModuloApp`) e a abertura padrão. |
+| `Clinica.Modulo.Recepcao` | Telas da recepção (fila do dia). |
+| `Clinica.Modulo.Financeiro` | Caixa, Conciliação e Produção. |
+| `Clinica.Recepcao` / `Clinica.Financeiro` / `Clinica.Gerente` | Executáveis — cascas finas que só escolhem quais módulos carregar. O Gerente Geral carrega todos. |
+
+O faturamento vira módulo na Fase 4. Detalhes, fases e plano: [`docs/arquitetura-multi-exe.md`](docs/arquitetura-multi-exe.md).
 
 ### Convênios modelados
 - **Unimed Costa do Sol (Padrão)** — com app → acu+eletro (2º código +24h, ligar/QR), VERDE; sem app → só acupuntura, AMARELA.

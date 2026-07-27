@@ -4,20 +4,8 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <!--
-                  Design system vindo do shell (assembly Clinica.Desktop.Shell).
-                  Ordem importa: tokens → estilos → componentes.
-                -->
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Tokens.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Theme.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Botoes.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Campos.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Selecao.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Tabelas.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Navegacao.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Feedback.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Sobreposicao.xaml" />
-                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Cartoes.xaml" />
+                <!-- Design system da suíte, inteiro e na ordem certa (assembly Clinica.Desktop.Shell). -->
+                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

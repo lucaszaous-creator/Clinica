@@ -32,6 +32,21 @@ Ou pela aba **Actions → "Release (instalador + auto-update)" → Run workflow*
 
 O workflow (`.github/workflows/release.yml`) então: roda o publish com a versão carimbada no assembly (`-p:Version`), empacota com `vpk pack` e publica a release com Setup.exe + pacotes de update. Minutos depois, todos os apps instalados baixam a nova versão no próximo ciclo de verificação.
 
+## Os quatro apps na mesma release
+
+Desde a Fase 3 da suíte multi-exe (`docs/arquitetura-multi-exe.md`) a mesma release `vX.Y.Z` carrega **quatro** apps. O que separa um do outro é o **canal** do Velopack, não a release: cada canal tem seu `releases.<canal>.json`, e o app instalado só enxerga o do canal com que foi empacotado.
+
+| App | Instalador | Canal |
+|---|---|---|
+| Faturamento | `Clinica.Faturamento-win-Setup.exe` | `win` (padrão — **não mudar**) |
+| Recepção | `Clinica.Recepcao-recepcao-Setup.exe` | `recepcao` |
+| Financeiro | `Clinica.Financeiro-financeiro-Setup.exe` | `financeiro` |
+| Gerente Geral | `Clinica.Gerente-gerente-Setup.exe` | `gerente` |
+
+⚠️ Mudar o `packId` ou o canal do faturamento faz as instalações que já existem na clínica perderem o canal de auto-update e **pararem de atualizar**. Os apps novos ganharam canais próprios exatamente para não encostar nele.
+
+Os apps da suíte só têm a atualização **na abertura** (`AtualizadorSuite`, no shell): havendo versão nova, baixam e reiniciam já atualizados, com limite de 30s para rede lenta não travar a abertura. O ciclo periódico de 2 horas com aviso no snackbar e o botão "Atualizar" continuam exclusivos do faturamento, que tem onde mostrá-los; os dois fluxos viram um só na Fase 4.
+
 ## Arquivos envolvidos
 
 | Papel | Arquivo |
@@ -39,5 +54,6 @@ O workflow (`.github/workflows/release.yml`) então: roda o publish com a versã
 | Cliente de update (checar/baixar/aplicar) | `src/Clinica.Desktop/UpdateService.cs` |
 | Agendamento (abertura + a cada 2h) e aviso ao usuário | `src/Clinica.Desktop/App.xaml.cs` |
 | Versão no rodapé da sidebar | `ViewModels/MainViewModel.cs` (`VersaoApp`) + `MainWindow.xaml` |
-| Pipeline de release (instalador + publicação) | `.github/workflows/release.yml` |
+| Cliente de update dos apps da suíte | `src/Clinica.Desktop.Shell/Shell/AtualizadorSuite.cs` |
+| Pipeline de release (instalador + publicação dos 4 apps) | `.github/workflows/release.yml` |
 | Build portátil (dev apenas) | `publish-exe.bat`, `.github/workflows/build-exe.yml` |

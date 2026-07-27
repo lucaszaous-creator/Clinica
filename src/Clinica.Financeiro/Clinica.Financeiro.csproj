@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Executável da Recepção — casca fina sobre Clinica.Desktop.Shell.
-    Ver docs/arquitetura-multi-exe.md (Fase 1).
+    Executável do Financeiro — casca fina sobre Clinica.Desktop.Shell.
+    Ver docs/arquitetura-multi-exe.md (Fase 2).
   -->
 
   <PropertyGroup>
@@ -27,8 +27,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
-    <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
-    <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+    <ProjectReference Include="..\Clinica.Modulo.Financeiro\Clinica.Modulo.Financeiro.csproj" />
   </ItemGroup>
 
   <!-- App.xaml deixa de gerar o Main automático (usamos Program.Main). -->

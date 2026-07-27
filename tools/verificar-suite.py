@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""
+Verificação estática da suíte multi-exe (Shell, módulos e executáveis).
+
+Existe porque estes projetos são net8.0-windows/WPF e NÃO compilam em Linux: sem
+Windows, um `x:Key` errado ou um pack URI apontando para arquivo que não existe só
+apareceria no CI (ou, pior, em tempo de execução, como XamlParseException).
+
+O que confere:
+  1. XAML bem-formado (todo .xaml da suíte);
+  2. todo `{StaticResource X}` tem um `x:Key="X"` no design system ou no próprio arquivo;
+  3. todo pack URI `...;component/Caminho.xaml` aponta para um arquivo existente;
+  4. todo `x:Class` tem o code-behind correspondente com a classe declarada;
+  5. todo `<ProjectReference>` aponta para um .csproj existente, e todo .csproj da
+     suíte está no Clinica.sln.
+
+NÃO substitui o build no Windows — substitui a parte dele que dá para conferir aqui.
+
+Uso:  python3 tools/verificar-suite.py
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+RAIZ = Path(__file__).resolve().parent.parent
+
+# Projetos que compõem a suíte (o faturamento, Clinica.Desktop, entra na Fase 4).
+PROJETOS = [
+    "src/Clinica.Desktop.Shell",
+    "src/Clinica.Modulo.Recepcao",
+    "src/Clinica.Modulo.Financeiro",
+    "src/Clinica.Recepcao",
+    "src/Clinica.Financeiro",
+    "src/Clinica.Gerente",
+]
+
+X = "{http://schemas.microsoft.com/winfx/2006/xaml}"
+
+erros: list[str] = []
+avisos: list[str] = []
+
+
+def rel(p: Path) -> str:
+    return str(p.relative_to(RAIZ))
+
+
+def xamls() -> list[Path]:
+    return sorted(f for proj in PROJETOS for f in (RAIZ / proj).rglob("*.xaml"))
+
+
+def csprojs() -> list[Path]:
+    return sorted(f for proj in PROJETOS for f in (RAIZ / proj).glob("*.csproj"))
+
+
+# ---------------------------------------------------------------- 1. bem-formado
+arvores: dict[Path, ET.Element] = {}
+for f in xamls():
+    try:
+        arvores[f] = ET.parse(f).getroot()
+    except ET.ParseError as e:
+        erros.append(f"{rel(f)}: XAML malformado — {e}")
+
+
+# ------------------------------------------------- 2. chaves do design system
+def chaves(raiz: ET.Element) -> set[str]:
+    return {el.attrib[X + "Key"] for el in raiz.iter() if X + "Key" in el.attrib}
+
+
+# O design system é global (mesclado no App.xaml): qualquer tela pode usar suas chaves.
+chaves_globais: set[str] = set()
+for f, raiz in arvores.items():
+    if "Styles" in f.parts:
+        chaves_globais |= chaves(raiz)
+
+# Chaves que o WPF resolve sozinho (tema do sistema) e não vêm do design system.
+CHAVES_DO_SISTEMA = {"{x:Type ", "SystemColors"}
+
+REF_ESTATICA = re.compile(r"\{StaticResource\s+([A-Za-z0-9_.]+)\s*\}")
+
+for f, raiz in arvores.items():
+    locais = chaves(raiz)
+    texto = f.read_text(encoding="utf-8")
+    for chave in sorted(set(REF_ESTATICA.findall(texto))):
+        if chave in locais or chave in chaves_globais:
+            continue
+        if any(chave.startswith(p) for p in CHAVES_DO_SISTEMA):
+            continue
+        erros.append(f"{rel(f)}: StaticResource '{chave}' não existe no design system")
+
+
+# --------------------------------------------------------------- 3. pack URIs
+PACK = re.compile(r"pack://application:,,,/([A-Za-z0-9_.]+);component/([^\"']+)")
+
+for f in arvores:
+    for assembly, caminho in PACK.findall(f.read_text(encoding="utf-8")):
+        destino = RAIZ / "src" / assembly / caminho
+        if not destino.exists():
+            erros.append(f"{rel(f)}: pack URI aponta para arquivo inexistente — {assembly}/{caminho}")
+
+
+# ------------------------------------------------------------- 4. code-behind
+for f, raiz in arvores.items():
+    classe = raiz.attrib.get(X + "Class")
+    if not classe:
+        continue
+    cs = f.with_suffix(".xaml.cs")
+    if not cs.exists():
+        erros.append(f"{rel(f)}: x:Class='{classe}' sem code-behind ({cs.name})")
+        continue
+    simples = classe.rsplit(".", 1)[-1]
+    fonte = cs.read_text(encoding="utf-8")
+    if not re.search(rf"partial class {re.escape(simples)}\b", fonte):
+        erros.append(f"{rel(cs)}: não declara 'partial class {simples}'")
+
+
+# ----------------------------------------------------- 5. referências e solução
+sln = (RAIZ / "Clinica.sln").read_text(encoding="utf-8")
+
+for proj in csprojs():
+    texto = proj.read_text(encoding="utf-8")
+    for destino in re.findall(r'<ProjectReference\s+Include="([^"]+)"', texto):
+        alvo = (proj.parent / destino.replace("\\", "/")).resolve()
+        if not alvo.exists():
+            erros.append(f"{rel(proj)}: ProjectReference inexistente — {destino}")
+    if proj.name not in sln:
+        erros.append(f"{rel(proj)}: fora do Clinica.sln (não será compilado pelo CI)")
+
+
+# ---------------------------------------------------------------------- saída
+for a in avisos:
+    print(f"aviso: {a}")
+
+if erros:
+    print(f"\n{len(erros)} problema(s) encontrado(s):\n")
+    for e in erros:
+        print(f"  - {e}")
+    sys.exit(1)
+
+print(f"OK — {len(arvores)} XAML e {len(csprojs())} projetos da suíte verificados.")

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Módulo da Recepção: as telas (Views + ViewModels) e o registro no shell.
+    É uma BIBLIOTECA de propósito — o mesmo módulo é carregado pelo
+    Clinica.Recepcao.exe e pelo Clinica.Gerente.exe, sem cópia de código.
+    Ver docs/arquitetura-multi-exe.md (Fase 3).
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- O namespace continua Clinica.Recepcao: só o assembly mudou de nome. -->
+    <RootNamespace>Clinica.Recepcao</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
+    <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
+    <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+  </ItemGroup>
+
+</Project>
