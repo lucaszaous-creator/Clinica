@@ -1,0 +1,248 @@
+<UserControl x:Class="Clinica.Recepcao.Views.PainelView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <!-- ============ Cabeçalho ============ -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Painel da recepção" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                           Text="Como está o dia no balcão: quem chegou, quem espera e quanto cada profissional tem na agenda." />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="◀" Command="{Binding DiaAnteriorCommand}"
+                        Style="{StaticResource BotaoSecundario}" Width="40" />
+                <Border Background="{StaticResource Brush.Superficie}"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                        CornerRadius="{StaticResource Raio.Medio}"
+                        Padding="16,8" Margin="8,0">
+                    <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Texto.Primario}"
+                               VerticalAlignment="Center" />
+                </Border>
+                <Button Content="▶" Command="{Binding ProximoDiaCommand}"
+                        Style="{StaticResource BotaoSecundario}" Width="40" />
+                <Button Content="Hoje" Command="{Binding HojeCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Erro de carregamento: inline, fica na tela enquanto durar -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,16"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <!-- ============ KPIs do dia ============ -->
+                <UniformGrid Columns="5" Margin="0,0,0,16">
+                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding Agendados}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Na recepção" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding NaRecepcao}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Em atendimento" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding EmAtendimento}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardKpi}">
+                        <StackPanel>
+                            <TextBlock Text="Espera média" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding EsperaMedia}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <UniformGrid Columns="4" Margin="0,0,0,16">
+                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Taxa de falta" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding TaxaFalta}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                        <StackPanel>
+                            <TextBlock Text="Encaixes" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding Encaixes}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource CardKpi}">
+                        <StackPanel>
+                            <TextBlock Text="Na lista de espera" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding ListaDeEspera}" Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                    </Border>
+                </UniformGrid>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="1.2*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ============ Ocupação por profissional ============ -->
+                    <Border Grid.Column="0" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Ocupação por profissional" Style="{StaticResource H3}" />
+                            <TextBlock Style="{StaticResource TextoSuave}"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
+                                       Text="Barra sobre uma jornada de referência de 8 horas." />
+
+                            <TextBlock Text="Nenhum horário marcado para este dia."
+                                       Margin="0,12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Ocupacao.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <ItemsControl ItemsSource="{Binding Ocupacao}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:LinhaOcupacao}">
+                                        <StackPanel Margin="0,0,0,14">
+                                            <Grid>
+                                                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock HorizontalAlignment="Right"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                    <Run Text="{Binding Horarios, Mode=OneWay}" />
+                                                    <Run Text="·" />
+                                                    <Run Text="{Binding Carga, Mode=OneWay}" />
+                                                    <Run Text="·" />
+                                                    <Run Text="{Binding Faltas, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </Grid>
+                                            <ProgressBar Height="6" Margin="0,6,0,0"
+                                                         Minimum="0" Maximum="1"
+                                                         Value="{Binding Fracao, Mode=OneWay}"
+                                                         Foreground="{StaticResource Brush.Acento}"
+                                                         Background="{StaticResource Brush.LinhaAlt}"
+                                                         BorderThickness="0" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ============ Guias pendentes de quem vem hoje ============ -->
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Guias pendentes de quem vem hoje" Style="{StaticResource H3}" />
+                            <TextBlock Style="{StaticResource TextoSuave}"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
+                                       TextWrapping="Wrap"
+                                       Text="O paciente está no balcão: é a hora barata de pedir o documento. Depois vira telefonema do faturamento." />
+
+                            <!-- Terceiro estado: a checagem NÃO rodou. Nunca mostrar
+                                 "nenhuma pendência" quando na verdade não foi possível conferir. -->
+                            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,8"
+                                    Visibility="{Binding PendenciasNaoVerificadas,
+                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock TextWrapping="Wrap"
+                                           Text="Não foi possível verificar as guias pendentes agora. Isto NÃO quer dizer que não há pendências — tente Atualizar." />
+                            </Border>
+
+                            <TextBlock Text="Nenhuma guia pendente entre os pacientes de hoje."
+                                       Margin="0,12">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding Pendencias.Count}" Value="0" />
+                                                    <Condition Binding="{Binding PendenciasNaoVerificadas}" Value="False" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+
+                            <ItemsControl ItemsSource="{Binding Pendencias}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:LinhaPendenciaRecepcao}">
+                                        <Border Padding="0,10"
+                                                BorderBrush="{StaticResource Brush.Borda}"
+                                                BorderThickness="0,0,0,1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                    <TextBlock Margin="0,2,0,0"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                        <Run Text="{Binding Descricao, Mode=OneWay}" />
+                                                        <Run Text="·" />
+                                                        <Run Text="{Binding Atraso, Mode=OneWay}" />
+                                                    </TextBlock>
+                                                </StackPanel>
+
+                                                <Button Grid.Column="1" Content="WhatsApp"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        VerticalAlignment="Center"
+                                                        IsEnabled="{Binding TemTelefone}"
+                                                        Command="{Binding DataContext.CobrarGuiaCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

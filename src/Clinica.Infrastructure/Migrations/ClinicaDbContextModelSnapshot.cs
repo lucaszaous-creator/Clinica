@@ -33,8 +33,26 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int?>("AtendimentoId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("ChegadaEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTime>("DataHora")
                         .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("DuracaoMinutos")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Encaixe")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("InicioAtendimentoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("ProfissionalId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SalaId")
+                        .HasColumnType("integer");
 
                     b.Property<string>("EspecialidadeConsulta")
                         .HasMaxLength(30)
@@ -84,7 +102,165 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.HasIndex("PacienteId");
 
+                    b.HasIndex("SalaId");
+
+                    b.HasIndex("ProfissionalId", "DataHora");
+
                     b.ToTable("Agendamentos");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.Profissional", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Cor")
+                        .HasMaxLength(9)
+                        .HasColumnType("character varying(9)");
+
+                    b.Property<int?>("DuracaoPadraoMinutos")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("EspecialidadeCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("NomeCurto")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RegistroConselho")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Telefone")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nome");
+
+                    b.ToTable("Profissionais");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.Sala", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Capacidade")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nome")
+                        .IsUnique();
+
+                    b.ToTable("Salas");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ListaEspera", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AgendamentoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateOnly?>("DisponivelAte")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("DisponivelDe")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ModalidadeCodigo")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<int>("PacienteId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Periodo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("Prioritario")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("ProfissionalId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ResolvidoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AgendamentoId");
+
+                    b.HasIndex("PacienteId");
+
+                    b.HasIndex("ProfissionalId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("ListaEspera");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.Atendimento", b =>
@@ -845,9 +1021,48 @@ namespace Clinica.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Clinica.Domain.Entities.Profissional", "Profissional")
+                        .WithMany()
+                        .HasForeignKey("ProfissionalId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Clinica.Domain.Entities.Sala", "Sala")
+                        .WithMany()
+                        .HasForeignKey("SalaId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Atendimento");
 
                     b.Navigation("Paciente");
+
+                    b.Navigation("Profissional");
+
+                    b.Navigation("Sala");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ListaEspera", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.Agendamento", "Agendamento")
+                        .WithMany()
+                        .HasForeignKey("AgendamentoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Clinica.Domain.Entities.Paciente", "Paciente")
+                        .WithMany()
+                        .HasForeignKey("PacienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Clinica.Domain.Entities.Profissional", "Profissional")
+                        .WithMany()
+                        .HasForeignKey("ProfissionalId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Agendamento");
+
+                    b.Navigation("Paciente");
+
+                    b.Navigation("Profissional");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.Atendimento", b =>

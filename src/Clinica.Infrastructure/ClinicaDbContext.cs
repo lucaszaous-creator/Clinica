@@ -23,6 +23,9 @@ public class ClinicaDbContext : DbContext
     public DbSet<EventoAuditoria> Auditoria => Set<EventoAuditoria>();
     public DbSet<CategoriaFinanceira> CategoriasFinanceiras => Set<CategoriaFinanceira>();
     public DbSet<LancamentoFinanceiro> Lancamentos => Set<LancamentoFinanceiro>();
+    public DbSet<Profissional> Profissionais => Set<Profissional>();
+    public DbSet<Sala> Salas => Set<Sala>();
+    public DbSet<ListaEspera> ListaEspera => Set<ListaEspera>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -198,6 +201,67 @@ public class ClinicaDbContext : DbContext
             e.HasOne(a => a.Atendimento).WithMany().HasForeignKey(a => a.AtendimentoId)
                 .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(a => a.DataHora);
+
+            // Fundação da recepção: recursos disputados e carimbos do kanban. Todos
+            // opcionais — desligar um profissional não pode apagar a agenda dele.
+            e.Property(a => a.ChegadaEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.InicioAtendimentoEm).HasColumnType("timestamp without time zone");
+            e.HasOne(a => a.Profissional).WithMany()
+                .HasForeignKey(a => a.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(a => a.Sala).WithMany()
+                .HasForeignKey(a => a.SalaId).OnDelete(DeleteBehavior.SetNull);
+            // A grade da agenda filtra por profissional dentro de um dia.
+            e.HasIndex(a => new { a.ProfissionalId, a.DataHora });
+            // Propriedades calculadas (Etapa, FimPrevisto, Rotulo…) vivem só em memória.
+            e.Ignore(a => a.Etapa);
+            e.Ignore(a => a.DuracaoEfetiva);
+            e.Ignore(a => a.FimPrevisto);
+            e.Ignore(a => a.OcupaAgenda);
+        });
+
+        // ---------- Fundação da recepção (parcela 1) ----------
+        // Profissional e Sala são os recursos que a agenda disputa; a lista de espera
+        // é quem entra quando um deles vaga.
+        b.Entity<Profissional>(e =>
+        {
+            e.HasKey(p => p.Id);
+            e.Property(p => p.Nome).IsRequired().HasMaxLength(120);
+            e.Property(p => p.NomeCurto).HasMaxLength(40);
+            e.Property(p => p.RegistroConselho).HasMaxLength(40);
+            e.Property(p => p.EspecialidadeCodigo).HasMaxLength(40);
+            e.Property(p => p.Telefone).HasMaxLength(20);
+            e.Property(p => p.Email).HasMaxLength(120);
+            e.Property(p => p.Cor).HasMaxLength(9);
+            e.Property(p => p.Observacoes).HasMaxLength(500);
+            e.Ignore(p => p.Rotulo);
+            e.HasIndex(p => p.Nome);
+        });
+
+        b.Entity<Sala>(e =>
+        {
+            e.HasKey(s => s.Id);
+            e.Property(s => s.Nome).IsRequired().HasMaxLength(80);
+            e.Property(s => s.Observacoes).HasMaxLength(500);
+            e.HasIndex(s => s.Nome).IsUnique();
+        });
+
+        b.Entity<ListaEspera>(e =>
+        {
+            e.HasKey(l => l.Id);
+            e.Property(l => l.ModalidadeCodigo).HasMaxLength(40);
+            e.Property(l => l.Periodo).HasConversion<string>().HasMaxLength(20);
+            e.Property(l => l.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(l => l.Observacoes).HasMaxLength(500);
+            e.Property(l => l.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(l => l.ResolvidoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(l => l.Paciente).WithMany().HasForeignKey(l => l.PacienteId);
+            e.HasOne(l => l.Profissional).WithMany()
+                .HasForeignKey(l => l.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(l => l.Agendamento).WithMany()
+                .HasForeignKey(l => l.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(l => l.Status);
         });
 
         b.Entity<EventoAuditoria>(e =>

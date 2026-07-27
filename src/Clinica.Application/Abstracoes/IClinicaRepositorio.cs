@@ -147,6 +147,42 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
     Task RemoverAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
 
+    // ---- Equipe: profissionais e salas (fundação da recepção) ----
+
+    /// <summary>Profissionais cadastrados (ativos e inativos), na ordem de exibição.</summary>
+    Task<IReadOnlyList<Profissional>> ProfissionaisAsync(CancellationToken ct = default);
+
+    Task<Profissional?> ObterProfissionalAsync(int profissionalId, CancellationToken ct = default);
+    Task AdicionarProfissionalAsync(Profissional profissional, CancellationToken ct = default);
+
+    /// <summary>Há agendamento (ou pedido na lista de espera) apontando para este profissional?</summary>
+    Task<bool> ProfissionalEmUsoAsync(int profissionalId, CancellationToken ct = default);
+
+    Task RemoverProfissionalAsync(int profissionalId, CancellationToken ct = default);
+
+    /// <summary>Salas cadastradas (ativas e inativas), na ordem de exibição.</summary>
+    Task<IReadOnlyList<Sala>> SalasAsync(CancellationToken ct = default);
+
+    Task<Sala?> ObterSalaAsync(int salaId, CancellationToken ct = default);
+    Task AdicionarSalaAsync(Sala sala, CancellationToken ct = default);
+
+    /// <summary>Há agendamento marcado nesta sala?</summary>
+    Task<bool> SalaEmUsoAsync(int salaId, CancellationToken ct = default);
+
+    Task RemoverSalaAsync(int salaId, CancellationToken ct = default);
+
+    // ---- Lista de espera ----
+
+    Task AdicionarListaEsperaAsync(ListaEspera pedido, CancellationToken ct = default);
+    Task<ListaEspera?> ObterListaEsperaAsync(int pedidoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Pedidos da lista de espera, com paciente e profissional carregados.
+    /// <paramref name="somenteAguardando"/> filtra os que ainda procuram horário.
+    /// </summary>
+    Task<IReadOnlyList<ListaEspera>> ListaEsperaAsync(
+        bool somenteAguardando = true, CancellationToken ct = default);
+
     // ---- Auditoria ----
 
     /// <summary>Acrescenta um evento à trilha de auditoria (persistido junto com o SalvarAsync da ação).</summary>

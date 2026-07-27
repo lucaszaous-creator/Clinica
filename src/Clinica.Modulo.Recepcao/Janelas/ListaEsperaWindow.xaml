@@ -1,0 +1,94 @@
+<Window x:Class="Clinica.Recepcao.Janelas.ListaEsperaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Lista de espera" Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <StackPanel Margin="24">
+        <TextBlock Text="Entrar na lista de espera" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,12" TextWrapping="Wrap"
+                   Text="Quanto mais preferências você registrar, mais fácil achar quem serve para o horário que vagar." />
+
+        <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" />
+        <TextBox Style="{StaticResource CampoPesquisa}"
+                 Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                 ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+        <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                 SelectedItem="{Binding Seletor.Selecionado}"
+                 ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                 MaxHeight="150" Margin="0,6,0,0" />
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Profissional desejado" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}"
+                          DisplayMemberPath="Rotulo" />
+                <TextBlock Text="Em branco = qualquer um (chama mais rápido)."
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}"
+                          DisplayMemberPath="Nome" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Turno" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Periodos}" SelectedItem="{Binding Periodo}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Pode vir a partir de" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding DisponivelDe}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="4">
+                <TextBlock Text="Até" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding DisponivelAte}" />
+            </StackPanel>
+        </Grid>
+
+        <CheckBox Content="Prioritário (entra na frente da fila)"
+                  IsChecked="{Binding Prioritario}" Margin="0,12,0,0" />
+
+        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
+
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Entrar na lista" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="150" />
+        </StackPanel>
+    </StackPanel>
+</Window>

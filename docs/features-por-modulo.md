@@ -38,9 +38,9 @@ por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
 
 | # | Feature | Módulo dono | Estado | Parcela |
 |---|---|---|---|---|
-| 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ⬜ | 1 |
+| 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
 | 02 | Agenda multiprofissional | Recepção | 🟡 | 1 |
-| 03 | Fila em kanban | Recepção | 🟡 | 1 |
+| 03 | Fila em kanban | Recepção | ✅ | 1 |
 | 04 | Pacientes — cadastro 360º | Recepção | 🟡 | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ⬜ | 2 |
 | 06 | Mapa corporal | Recepção | ⬜ | 3 |
@@ -98,31 +98,47 @@ reconstruir o que já existe — e para que o Gerente saiba o que pode ler.
 O balcão e o ato clínico. É o módulo com mais dívida: **quatro das sete features são do
 zero.**
 
-### Feature 01 · Painel próprio da recepção — ⬜ · parcela 1
-
-| Item | Estado |
-|---|---|
-| Pendências de guias em destaque | ⬜ (lê `PendenciaService`, já existe) |
-| Agenda do dia e ocupação | ⬜ |
-| Atalho de 1 clique para o WhatsApp | 🔵 já existe no faturamento; replicar |
-
-### Feature 02 · Agenda multiprofissional — 🟡 · parcela 1
-
-| Item | Estado | Observação |
-|---|---|---|
-| Grade de horários com remarcação | ✅ | Existe **no faturamento** (`Secao.Agenda`) |
-| Visão por profissional ou por sala | ⬜ | `Agendamento` não tem `ProfissionalId` nem `SalaId` |
-| Encaixe rápido e lista de espera | ⬜ | |
-| Confirmação automática por WhatsApp | ⬜ | Hoje o envio é manual, 1 clique |
-
-### Feature 03 · Fila em kanban — 🟡 · parcela 1
+### Feature 01 · Painel próprio da recepção — ✅ · parcela 1
 
 | Item | Estado | Onde |
 |---|---|---|
-| Fila do dia com confirmar/cancelar/faltou | ✅ | `FilaViewModel` — mas em **lista**, não kanban |
-| Colunas Chegou · Em atendimento · Finalizado | ⬜ | |
-| Tempo de espera visível | ⬜ | |
-| Aviso de pendência já no check-in | ✅ | `AgendaService.ConfirmarPresencaAsync` |
+| Pendências de guias em destaque | ✅ | `PainelRecepcaoService.PendenciasDoDiaAsync` — recortadas para quem vem hoje |
+| Agenda do dia e ocupação | ✅ | `PainelRecepcaoService.ResumoAsync`, `AgendaService.OcupacaoDoDiaAsync` |
+| Atalho de 1 clique para o WhatsApp | ✅ | `Desktop.Shell/Componentes/Whatsapp` |
+
+> O painel da Recepção **não é** o do faturamento. Lá a pergunta é "que guia vence
+> primeiro"; aqui é "como está o dia": quem chegou, quem espera, quanto cada
+> profissional tem na agenda. As guias pendentes aparecem só para os pacientes de HOJE
+> — é o único momento barato de cobrar o documento.
+
+### Feature 02 · Agenda multiprofissional — 🟡 · parcela 1
+
+| Item | Estado | Onde / observação |
+|---|---|---|
+| Grade de horários com remarcação | ✅ | `AgendaView` (Recepção) + `AgendaService.RemarcarAsync` |
+| Visão por profissional ou por sala | ✅ | `Agendamento.ProfissionalId`/`SalaId`, uma coluna por profissional |
+| Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
+| Confirmação **automática** por WhatsApp | ⬜ | O envio de 1 clique existe; automatizar é campanha — vai com a feature 11 (parcela 5) |
+
+> O choque de horário passou a ser por **intervalo e por recurso**: uma sessão de 30 min
+> marcada às 14h colide com outra às 14h30, e o que colide é o profissional ou a sala
+> (respeitando a capacidade dela). A agenda **recusa** o choque; a recepção pode assumir
+> o **encaixe**, e aí ele fica registrado em vez de virar conflito silencioso. Quem não
+> informa profissional nem sala — o faturamento — enxerga o comportamento de sempre.
+
+### Feature 03 · Fila em kanban — ✅ · parcela 1
+
+| Item | Estado | Onde |
+|---|---|---|
+| Fila do dia com confirmar/cancelar/faltou | ✅ | `FilaViewModel` |
+| Colunas Aguardando · Chegou · Em atendimento · Finalizado | ✅ | `Agendamento.Etapa`, `FilaView` |
+| Tempo de espera visível | ✅ | `Agendamento.EsperaMinutos`, atualizado a cada minuto na tela |
+| Aviso de pendência já no check-in | ✅ | `AgendaService.ConfirmarPresencaAsync` + etiqueta no cartão |
+
+> As colunas saem dos **carimbos de hora** (`ChegadaEm`, `InicioAtendimentoEm`), não de
+> um status novo: o faturamento continua vendo o mesmo `StatusAgendamento` de sempre.
+> "Concluir" é o antigo check-in — gera o atendimento e os códigos — e fica no fim do
+> fluxo de propósito: a guia nasce quando a sessão de fato aconteceu.
 
 ### Feature 04 · Pacientes — cadastro 360º — 🟡 · parcela 2
 
@@ -257,19 +273,24 @@ sendo só leitura não há risco de escrita concorrente.
 
 ---
 
-## O bloqueio de fundação
+## O bloqueio de fundação — resolvido na parcela 1
 
-Não existe entidade `Profissional`, e `Agendamento` não tem `ProfissionalId` nem `SalaId`
-(`src/Clinica.Domain/Entities/Agendamento.cs`). Isso trava, de uma vez:
+Até a parcela 1 não existia entidade `Profissional`, e `Agendamento` não tinha
+`ProfissionalId` nem `SalaId`. Isso travava, de uma vez, agenda multiprofissional (02),
+"quem atendeu" no prontuário (05), repasse por profissional (09), produtividade e
+ocupação no BI (12) e perfis de acesso (13).
 
-- agenda multiprofissional (02)
-- quem atendeu, no prontuário (05)
-- repasse por profissional (09)
-- produtividade e ocupação no BI (12)
-- perfis de acesso (13)
+Agora existem `Profissional`, `Sala` e `ListaEspera`
+(`src/Clinica.Domain/Entities/Equipe.cs`), e o agendamento ganhou `ProfissionalId`,
+`SalaId`, `DuracaoMinutos`, `Encaixe`, `ChegadaEm` e `InicioAtendimentoEm`. A migration
+(`20260727180000_FundacaoRecepcao`) é **puramente aditiva** — tabelas novas e colunas
+novas anuláveis —, então o faturamento em produção segue lendo e gravando
+`Agendamentos` sem saber que estes campos existem.
 
-É por isso que a fundação é a **parcela 1**. E ela é puramente aditiva — tabela e colunas
-novas —, então não encosta no faturamento.
+O que ainda depende disto, e vem nas parcelas seguintes: carimbar o **atendimento** com
+quem atendeu (05), repasse (09), produtividade (12) e perfis (13). Nenhum deles perdeu
+dado no caminho: o agendamento guarda o profissional e aponta para o atendimento que
+gerou.
 
 ## Divergências da proposta
 
@@ -285,8 +306,10 @@ O documento já foi ao cliente. Estas três precisam de decisão comercial:
 
 ## Parcelas
 
-A **parcela 0 (instalável)** está entregue: cada app tem tela de setup própria e release
-por app. Os quatro instalam e rodam sozinhos. A próxima é a **parcela 1 (fundação)**.
+A **parcela 0 (instalável)** e a **parcela 1 (fundação)** estão entregues: os quatro apps
+instalam sozinhos, e a Recepção já tem painel próprio, agenda multiprofissional com
+encaixe e lista de espera, fila em kanban e o cadastro de profissionais e salas. A
+próxima é a **parcela 2 (cadastro e prontuário)**.
 
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

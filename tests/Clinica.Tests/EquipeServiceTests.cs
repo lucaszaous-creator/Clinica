@@ -1,0 +1,159 @@
+using Clinica.Application.Servicos;
+using Clinica.Domain;
+using Clinica.Domain.Entities;
+using Clinica.Infrastructure;
+using FluentAssertions;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
+
+namespace Clinica.Tests;
+
+/// <summary>
+/// Cadastro da equipe (parcela 1). O ponto sensível aqui não é o CRUD: é a regra de
+/// que quem já tem agenda NÃO pode ser excluído — apagar o profissional apagaria o
+/// "quem atendeu" de tudo o que ele já fez.
+/// </summary>
+public class EquipeServiceTests : IDisposable
+{
+    private readonly SqliteConnection _conn;
+    private readonly ClinicaDbContext _db;
+    private readonly ClinicaRepositorio _repo;
+    private readonly EquipeService _equipe;
+    private readonly AgendaService _agenda;
+
+    public EquipeServiceTests()
+    {
+        _conn = new SqliteConnection("DataSource=:memory:");
+        _conn.Open();
+        var options = new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options;
+        _db = new ClinicaDbContext(options);
+        _db.Database.EnsureCreated();
+        _repo = new ClinicaRepositorio(_db);
+        _equipe = new EquipeService(_repo);
+        _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
+    }
+
+    private async Task<int> CriarPacienteAsync()
+    {
+        var p = new Paciente { Nome = "Paciente", Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };
+        _db.Pacientes.Add(p);
+        await _db.SaveChangesAsync();
+        return p.Id;
+    }
+
+    [Fact]
+    public async Task SalvarProfissional_CriaEDepoisAtualiza()
+    {
+        var criado = await _equipe.SalvarProfissionalAsync(new Profissional
+        {
+            Nome = "  Ana Souza  ",
+            RegistroConselho = "CRM-SP 123456",
+            DuracaoPadraoMinutos = 45
+        });
+
+        criado.Id.Should().BeGreaterThan(0);
+        criado.Nome.Should().Be("Ana Souza", "o nome é aparado ao salvar");
+
+        await _equipe.SalvarProfissionalAsync(new Profissional
+        {
+            Id = criado.Id,
+            Nome = "Ana Souza",
+            NomeCurto = "Dra. Ana",
+            DuracaoPadraoMinutos = 60,
+            Ativo = true
+        });
+
+        var todos = await _equipe.ProfissionaisAsync();
+        todos.Should().ContainSingle("editar não pode criar um segundo registro");
+        todos[0].NomeCurto.Should().Be("Dra. Ana");
+        todos[0].DuracaoPadraoMinutos.Should().Be(60);
+    }
+
+    [Fact]
+    public async Task SalvarProfissional_SemNome_Falha()
+    {
+        var acao = () => _equipe.SalvarProfissionalAsync(new Profissional { Nome = "   " });
+        await acao.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task SalvarProfissional_DuracaoZero_Falha()
+    {
+        var acao = () => _equipe.SalvarProfissionalAsync(
+            new Profissional { Nome = "Ana", DuracaoPadraoMinutos = 0 });
+        await acao.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task ProfissionaisAtivos_NaoTrazemOsDesligados()
+    {
+        await _equipe.SalvarProfissionalAsync(new Profissional { Nome = "Ana", Ativo = true });
+        await _equipe.SalvarProfissionalAsync(new Profissional { Nome = "Bruno", Ativo = false });
+
+        (await _equipe.ProfissionaisAtivosAsync()).Should().ContainSingle()
+            .Which.Nome.Should().Be("Ana");
+        (await _equipe.ProfissionaisAsync()).Should().HaveCount(2, "o inativo continua no cadastro");
+    }
+
+    [Fact]
+    public async Task ExcluirProfissional_ComAgenda_Recusa()
+    {
+        var prof = await _equipe.SalvarProfissionalAsync(new Profissional { Nome = "Ana" });
+        var pacienteId = await CriarPacienteAsync();
+        await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 8, 3, 9, 0, 0),
+            ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: prof.Id);
+
+        var acao = () => _equipe.ExcluirProfissionalAsync(prof.Id);
+
+        await acao.Should().ThrowAsync<InvalidOperationException>(
+            "apagar quem já atendeu apagaria o histórico — o caminho é desativar");
+    }
+
+    [Fact]
+    public async Task ExcluirProfissional_SemUso_Funciona()
+    {
+        var prof = await _equipe.SalvarProfissionalAsync(new Profissional { Nome = "Ana" });
+
+        await _equipe.ExcluirProfissionalAsync(prof.Id);
+
+        (await _equipe.ProfissionaisAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SalvarSala_NomeRepetido_Falha()
+    {
+        await _equipe.SalvarSalaAsync(new Sala { Nome = "Consultório 1" });
+
+        var acao = () => _equipe.SalvarSalaAsync(new Sala { Nome = "consultório 1" });
+
+        await acao.Should().ThrowAsync<InvalidOperationException>(
+            "duas salas com o mesmo nome tornam a agenda ambígua");
+    }
+
+    [Fact]
+    public async Task SalvarSala_CapacidadeInvalida_Falha()
+    {
+        var acao = () => _equipe.SalvarSalaAsync(new Sala { Nome = "Sala", Capacidade = 0 });
+        await acao.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Fact]
+    public async Task ExcluirSala_ComAgenda_Recusa()
+    {
+        var sala = await _equipe.SalvarSalaAsync(new Sala { Nome = "Consultório 1" });
+        var pacienteId = await CriarPacienteAsync();
+        await _agenda.AgendarAsync(pacienteId, new DateTime(2026, 8, 3, 9, 0, 0),
+            ModalidadeAtendimento.AcupunturaSimples, null, salaId: sala.Id);
+
+        var acao = () => _equipe.ExcluirSalaAsync(sala.Id);
+
+        await acao.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    public void Dispose()
+    {
+        _db.Dispose();
+        _conn.Dispose();
+    }
+}

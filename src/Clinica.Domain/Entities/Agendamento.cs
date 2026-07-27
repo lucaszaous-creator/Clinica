@@ -13,7 +13,31 @@ public enum StatusAgendamento
 public enum OrigemAgendamento
 {
     Manual,          // marcado pela secretária
-    RetornoSugerido  // sugerido automaticamente (retorno de 24h do 2º código)
+    RetornoSugerido, // sugerido automaticamente (retorno de 24h do 2º código)
+    ListaEspera      // chamado da lista de espera para um horário que vagou
+}
+
+/// <summary>
+/// Coluna do kanban da fila do dia. Não é persistida: é derivada dos carimbos de
+/// hora do agendamento — assim o faturamento, que só conhece <see cref="StatusAgendamento"/>,
+/// continua funcionando sem saber que o kanban existe.
+/// </summary>
+public enum EtapaFila
+{
+    /// <summary>Marcado, ainda não chegou ao balcão.</summary>
+    Aguardando,
+
+    /// <summary>Fez check-in na recepção e está esperando ser chamado.</summary>
+    Chegou,
+
+    /// <summary>Foi chamado; está na sala com o profissional.</summary>
+    EmAtendimento,
+
+    /// <summary>Atendimento encerrado — gerou o atendimento e os códigos.</summary>
+    Finalizado,
+
+    /// <summary>Faltou ou foi cancelado; fora do fluxo do dia.</summary>
+    ForaDaFila
 }
 
 /// <summary>
@@ -49,4 +73,80 @@ public class Agendamento
     /// <summary>Preenchido quando a presença é confirmada e um atendimento é gerado.</summary>
     public int? AtendimentoId { get; set; }
     public Atendimento? Atendimento { get; set; }
+
+    // ---------- Fundação da recepção (parcela 1) ----------
+    // Tudo daqui para baixo é ADITIVO e anulável: o faturamento continua marcando
+    // horário sem informar profissional nem sala, e os agendamentos que já existem
+    // no banco seguem válidos com estes campos nulos.
+
+    /// <summary>Quem vai atender. Null = agenda antiga/sem profissional definido.</summary>
+    public int? ProfissionalId { get; set; }
+    public Profissional? Profissional { get; set; }
+
+    /// <summary>Onde vai atender. Null = sala a definir.</summary>
+    public int? SalaId { get; set; }
+    public Sala? Sala { get; set; }
+
+    /// <summary>
+    /// Duração prevista em minutos. Null usa <see cref="DuracaoPadraoMinutos"/> — ou a
+    /// duração padrão do profissional, quando ele tiver uma.
+    /// </summary>
+    public int? DuracaoMinutos { get; set; }
+
+    /// <summary>
+    /// Encaixe: marcado por cima de um horário que já estava ocupado, com o choque
+    /// aceito de propósito. Fica registrado para a agenda mostrar (e para o BI saber
+    /// que a ocupação passou do previsto) em vez de virar um conflito silencioso.
+    /// </summary>
+    public bool Encaixe { get; set; }
+
+    /// <summary>Check-in no balcão: o paciente chegou. Base do tempo de espera.</summary>
+    public DateTime? ChegadaEm { get; set; }
+
+    /// <summary>O profissional chamou o paciente — fim da espera, início da sessão.</summary>
+    public DateTime? InicioAtendimentoEm { get; set; }
+
+    /// <summary>Duração padrão da clínica quando ninguém informou nada.</summary>
+    public const int DuracaoPadraoMinutos = 30;
+
+    /// <summary>Duração efetiva: a do agendamento, a do profissional ou a da clínica.</summary>
+    public int DuracaoEfetiva
+        => DuracaoMinutos ?? Profissional?.DuracaoPadraoMinutos ?? DuracaoPadraoMinutos;
+
+    /// <summary>Fim previsto do horário — o que faz a grade saber se dois se sobrepõem.</summary>
+    public DateTime FimPrevisto => DataHora.AddMinutes(DuracaoEfetiva);
+
+    /// <summary>Coluna do kanban, derivada do status e dos carimbos de hora.</summary>
+    public EtapaFila Etapa => Status switch
+    {
+        StatusAgendamento.Realizado => EtapaFila.Finalizado,
+        StatusAgendamento.Cancelado or StatusAgendamento.Faltou => EtapaFila.ForaDaFila,
+        _ when InicioAtendimentoEm is not null => EtapaFila.EmAtendimento,
+        _ when ChegadaEm is not null => EtapaFila.Chegou,
+        _ => EtapaFila.Aguardando
+    };
+
+    /// <summary>
+    /// Há quanto tempo o paciente espera, em minutos: da chegada até ser chamado (ou até
+    /// <paramref name="agora"/>, se ainda não foi). Null enquanto não fez check-in.
+    /// </summary>
+    public int? EsperaMinutos(DateTime agora)
+    {
+        if (ChegadaEm is null) return null;
+        var fim = InicioAtendimentoEm ?? agora;
+        var minutos = (int)Math.Round((fim - ChegadaEm.Value).TotalMinutes);
+        return minutos < 0 ? 0 : minutos;
+    }
+
+    /// <summary>
+    /// Este horário se sobrepõe ao intervalo informado? Comparação por intervalo (e não
+    /// por igualdade de horário) — o choque real é a sessão de 30 min que invade a
+    /// seguinte, não só o horário batido na mosca.
+    /// </summary>
+    public bool ColideCom(DateTime inicio, DateTime fim)
+        => DataHora < fim && inicio < FimPrevisto;
+
+    /// <summary>Ocupa a agenda (não foi cancelado nem faltou).</summary>
+    public bool OcupaAgenda
+        => Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado;
 }
