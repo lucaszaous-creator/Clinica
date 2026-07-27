@@ -139,7 +139,10 @@ public sealed class ParametrosService
     public const string ChaveIntervaloRodadaPendencias = "IntervaloRodadaPendenciasDias";
     public const int IntervaloRodadaPendenciasPadrao = 10;
 
-    /// <summary>De quantos em quantos dias as pendências devem ser rodadas (global; padrão 10).</summary>
+    /// <summary>
+    /// Dias que uma guia pode ficar pendente (contados da data prevista de faturamento) antes de
+    /// EXIGIR decisão na rodada — baixa ou não conformidade. Prazo por guia (global; padrão 10).
+    /// </summary>
     public async Task<int> ObterIntervaloRodadaPendenciasAsync(CancellationToken ct = default)
         => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveIntervaloRodadaPendencias, ct), out var dias) && dias >= 1
             ? dias
@@ -148,20 +151,6 @@ public sealed class ParametrosService
     public async Task SalvarIntervaloRodadaPendenciasAsync(int dias, CancellationToken ct = default)
     {
         await _repo.SalvarConfiguracaoAsync(ChaveIntervaloRodadaPendencias, Math.Max(1, dias).ToString(), ct);
-        await _repo.SalvarAsync(ct);
-    }
-
-    public const string ChaveDataUltimaRodadaPendencias = "DataUltimaRodadaPendencias";
-
-    /// <summary>Data da última rodada concluída (null = nunca rodou; a âncora é definida no 1º uso).</summary>
-    public async Task<DateOnly?> ObterDataUltimaRodadaPendenciasAsync(CancellationToken ct = default)
-        => DateOnly.TryParse(await _repo.ObterConfiguracaoAsync(ChaveDataUltimaRodadaPendencias, ct), out var d)
-            ? d
-            : null;
-
-    public async Task SalvarDataUltimaRodadaPendenciasAsync(DateOnly data, CancellationToken ct = default)
-    {
-        await _repo.SalvarConfiguracaoAsync(ChaveDataUltimaRodadaPendencias, data.ToString("yyyy-MM-dd"), ct);
         await _repo.SalvarAsync(ct);
     }
 

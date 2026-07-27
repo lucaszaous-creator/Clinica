@@ -5,11 +5,12 @@ using Clinica.Domain.Entities;
 namespace Clinica.Application.Servicos;
 
 /// <summary>
-/// Orquestra a rodada de pendências ("rodar as pendências") — o fechamento de ciclo periódico que
-/// impede a pendência de acumular indefinidamente. A cada N dias (configurável, padrão 10) o sistema
-/// alarda; a secretária então baixa o que puder e, no que ficar, registra uma NÃO CONFORMIDADE com
-/// justificativa. A não conformidade silencia a pendência (sai do painel) e fica documentada no
-/// relatório — só volta a ser pendência se for reaberta manualmente (quando aparece solução).
+/// Orquestra a rodada de pendências ("rodar as pendências") — o mecanismo que impede a pendência de
+/// acumular indefinidamente. O prazo é POR GUIA: cada pendência exige decisão quando fica pendente há
+/// mais do que o intervalo configurado (contado da DATA PREVISTA de faturamento — de quando ela virou
+/// pendência). Ao vencer, o sistema alarda; a secretária baixa o que puder e, no que ficar, registra
+/// uma NÃO CONFORMIDADE com justificativa. A não conformidade sai do painel (vai para a aba NC) e fica
+/// no relatório — só volta a ser pendência se for reaberta (manualmente ou quando o paciente volta).
 /// </summary>
 public sealed class RodadaPendenciasService
 {
@@ -28,12 +29,9 @@ public sealed class RodadaPendenciasService
     public async Task<RodadaPendenciasStatus> ObterStatusAsync(DateOnly hoje, CancellationToken ct = default)
     {
         var intervalo = await _parametros.ObterIntervaloRodadaPendenciasAsync(ct);
-        var ultima = await _parametros.ObterDataUltimaRodadaPendenciasAsync(ct);
-        var proxima = ultima?.AddDays(intervalo);
-        var vencida = proxima is { } p && hoje >= p;
-        var diasEmAtraso = vencida ? hoje.DayNumber - proxima!.Value.DayNumber : 0;
-
-        var guias = await _pendencias.CodigosPendentesAsync(hoje, ct);
+        var vencidas = await GuiasParaDecisaoAsync(hoje, intervalo, ct);
+        // Atraso além do prazo da guia mais antiga (DiasEmAtraso é a idade da pendência; - intervalo = quanto passou).
+        var maiorAtraso = vencidas.Count > 0 ? vencidas.Max(g => g.DiasEmAtraso) - intervalo : 0;
 
         var aplicaConsultas = await _parametros.ObterRodadaAplicaConsultasAsync(ct);
         var aplicaCarteirinhas = await _parametros.ObterRodadaAplicaCarteirinhasAsync(ct);
@@ -42,11 +40,9 @@ public sealed class RodadaPendenciasService
 
         return new RodadaPendenciasStatus(
             IntervaloDias: intervalo,
-            UltimaRodada: ultima,
-            ProximaRodada: proxima,
-            Vencida: vencida,
-            DiasEmAtraso: diasEmAtraso,
-            GuiasParaDecisao: guias.Count,
+            Vencida: vencidas.Count > 0,
+            GuiasParaDecisao: vencidas.Count,
+            MaiorAtrasoDias: maiorAtraso,
             AplicaConsultas: aplicaConsultas,
             ConsultasParaRevisar: consultas,
             AplicaCarteirinhas: aplicaCarteirinhas,
@@ -54,13 +50,17 @@ public sealed class RodadaPendenciasService
     }
 
     /// <summary>
-    /// Ancora o ciclo no primeiro uso: se nunca houve rodada, define a última rodada como hoje —
-    /// assim a primeira cobrança acontece um intervalo depois, de forma previsível.
+    /// Guias que já passaram do prazo de decisão: pendentes há pelo menos o intervalo configurado
+    /// (contado da data prevista de faturamento). São as que a rodada cobra — baixa ou não conformidade.
     /// </summary>
-    public async Task GarantirAncoraAsync(DateOnly hoje, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PendenciaCodigo>> GuiasParaDecisaoAsync(DateOnly hoje, CancellationToken ct = default)
+        => await GuiasParaDecisaoAsync(hoje, await _parametros.ObterIntervaloRodadaPendenciasAsync(ct), ct);
+
+    private async Task<IReadOnlyList<PendenciaCodigo>> GuiasParaDecisaoAsync(DateOnly hoje, int intervalo, CancellationToken ct)
     {
-        if (await _parametros.ObterDataUltimaRodadaPendenciasAsync(ct) is null)
-            await _parametros.SalvarDataUltimaRodadaPendenciasAsync(hoje, ct);
+        var guias = await _pendencias.CodigosPendentesAsync(hoje, ct);
+        // DiasEmAtraso = hoje - DataPrevistaFaturamento (idade da pendência). Vence quando >= intervalo.
+        return guias.Where(g => g.DiasEmAtraso >= intervalo).ToList();
     }
 
     /// <summary>Marca uma guia pendente como não conformidade (com justificativa), silenciando-a.</summary>
@@ -96,21 +96,6 @@ public sealed class RodadaPendenciasService
             CodigoId = codigo.Id,
             PacienteId = codigo.Atendimento?.PacienteId
         }, ct);
-        await _repo.SalvarAsync(ct);
-    }
-
-    /// <summary>Conclui a rodada: carimba hoje como a última rodada (zera o prazo do próximo ciclo).</summary>
-    public async Task ConcluirRodadaAsync(DateOnly hoje, string? usuario, CancellationToken ct = default)
-    {
-        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
-        {
-            Operador = string.IsNullOrWhiteSpace(usuario) ? "?" : usuario,
-            Acao = "RodadaPendencias",
-            Detalhe = $"Rodada de pendências concluída em {hoje:dd/MM/yyyy}"
-        }, ct);
-        // Mesmo SaveChanges da auditoria: grava a data direto no KV para manter a operação atômica.
-        await _repo.SalvarConfiguracaoAsync(
-            ParametrosService.ChaveDataUltimaRodadaPendencias, hoje.ToString("yyyy-MM-dd"), ct);
         await _repo.SalvarAsync(ct);
     }
 

@@ -3,29 +3,28 @@ using Clinica.Domain;
 namespace Clinica.Application.Modelos;
 
 /// <summary>
-/// Situação da rodada de pendências ("rodar as pendências" — o fechamento de ciclo periódico,
-/// à moda do fechamento de diárias hoteleiro). Alimenta o banner do painel e o bloqueio ao vencer.
+/// Situação da rodada de pendências ("rodar as pendências"). O prazo é POR GUIA: cada pendência
+/// exige decisão (baixa ou não conformidade) quando fica pendente há mais do que o intervalo
+/// configurado (contado da data prevista de faturamento). Alimenta o banner do painel e o bloqueio.
 /// </summary>
 public sealed record RodadaPendenciasStatus(
     int IntervaloDias,
-    /// <summary>Última rodada concluída (null = ciclo ainda não ancorado).</summary>
-    DateOnly? UltimaRodada,
-    /// <summary>Quando a próxima rodada vence (null enquanto não houver âncora).</summary>
-    DateOnly? ProximaRodada,
+    /// <summary>Há ao menos uma guia que passou do prazo (intervalo) sem decisão.</summary>
     bool Vencida,
-    int DiasEmAtraso,
-    /// <summary>Guias pendentes que exigem decisão (baixa ou não conformidade) nesta rodada.</summary>
+    /// <summary>Quantas guias já passaram do prazo e exigem decisão (baixa ou não conformidade).</summary>
     int GuiasParaDecisao,
+    /// <summary>Atraso (em dias além do prazo) da guia mais antiga que exige decisão — para o banner.</summary>
+    int MaiorAtrasoDias,
     bool AplicaConsultas,
     int ConsultasParaRevisar,
     bool AplicaCarteirinhas,
     int CarteirinhasParaRevisar)
 {
-    /// <summary>Há guias aguardando decisão na rodada.</summary>
+    /// <summary>Há guias que passaram do prazo, aguardando decisão.</summary>
     public bool TemGuiasParaDecisao => GuiasParaDecisao > 0;
 
-    /// <summary>A rodada venceu e ainda há guias sem decisão — é o gatilho do aviso bloqueante.</summary>
-    public bool ExigeDecisao => Vencida && GuiasParaDecisao > 0;
+    /// <summary>Gatilho do aviso bloqueante: alguma guia passou do prazo sem decisão.</summary>
+    public bool ExigeDecisao => Vencida;
 }
 
 /// <summary>Uma guia marcada como não conformidade (backlog documentado, exibido no relatório e reabrível).</summary>

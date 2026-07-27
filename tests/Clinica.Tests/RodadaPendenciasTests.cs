@@ -10,9 +10,10 @@ using Microsoft.EntityFrameworkCore;
 namespace Clinica.Tests;
 
 /// <summary>
-/// Rodada de pendências ("rodar as pendências"): fechamento de ciclo periódico. Ao vencer o prazo,
-/// a secretária baixa o que puder e justifica o resto como NÃO CONFORMIDADE — que silencia a pendência
-/// (sai do painel), fica no relatório e só volta a ser pendência se for reaberta.
+/// Rodada de pendências ("rodar as pendências"): prazo POR GUIA. Cada pendência exige decisão quando
+/// fica em aberto há mais que o intervalo (contado da data prevista). A secretária baixa o que puder e
+/// justifica o resto como NÃO CONFORMIDADE — que sai do painel, fica no relatório e só volta a ser
+/// pendência se for reaberta.
 /// </summary>
 public class RodadaPendenciasTests : IDisposable
 {
@@ -146,58 +147,58 @@ public class RodadaPendenciasTests : IDisposable
     }
 
     [Fact]
-    public async Task Status_SemAncora_NaoVencida()
+    public async Task Status_DentroDoPrazoDaGuia_NaoExigeDecisao()
     {
+        // 2º código: data prevista 2026-07-11. Em 2026-07-20 está pendente há 9 dias (< 10).
         await CriarSegundoCodigoAsync();
 
-        var status = await _rodada.ObterStatusAsync(Ref);
+        var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 20));
 
-        status.UltimaRodada.Should().BeNull();
-        status.ProximaRodada.Should().BeNull();
         status.Vencida.Should().BeFalse();
         status.ExigeDecisao.Should().BeFalse();
+        status.GuiasParaDecisao.Should().Be(0);
+        (await _rodada.GuiasParaDecisaoAsync(new DateOnly(2026, 7, 20))).Should().BeEmpty();
     }
 
     [Fact]
-    public async Task Status_AposAncora_VenceUmIntervaloDepois()
+    public async Task Status_AposPrazoDaGuia_ExigeDecisao()
+    {
+        // Data prevista 2026-07-11; em 2026-07-25 está pendente há 14 dias (>= 10) → passa do prazo.
+        var codigo = await CriarSegundoCodigoAsync();
+
+        var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 25));
+
+        status.Vencida.Should().BeTrue();
+        status.ExigeDecisao.Should().BeTrue();
+        status.GuiasParaDecisao.Should().Be(1);
+        status.MaiorAtrasoDias.Should().Be(4); // 14 dias pendente − 10 de prazo
+        (await _rodada.GuiasParaDecisaoAsync(new DateOnly(2026, 7, 25)))
+            .Should().ContainSingle(g => g.CodigoId == codigo.Id);
+    }
+
+    [Fact]
+    public async Task Prazo_ContaDeQuandoViraPendencia_NaoDoAtendimento()
+    {
+        // Atendimento 2026-07-10, mas o 2º código só vira pendência em 2026-07-11 (+1 dia).
+        // Com prazo 10, ele vence em 2026-07-21 (11 + 10), não em 2026-07-20 (10 + 10).
+        await CriarSegundoCodigoAsync();
+
+        (await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 20))).Vencida.Should().BeFalse();
+        (await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 21))).Vencida.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PrazoConfiguravel_MudaOVencimentoDaGuia()
     {
         await CriarSegundoCodigoAsync();
-        await _rodada.GarantirAncoraAsync(new DateOnly(2026, 7, 10)); // intervalo padrão = 10 → próxima 2026-07-20
+        await _parametros.SalvarIntervaloRodadaPendenciasAsync(5);
 
-        var dentroDoPrazo = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 19));
-        dentroDoPrazo.Vencida.Should().BeFalse();
-        dentroDoPrazo.ProximaRodada.Should().Be(new DateOnly(2026, 7, 20));
+        // Data prevista 2026-07-11; em 2026-07-17 são 6 dias pendente (>= 5) → vence com prazo 5.
+        var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 17));
 
-        var vencida = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 21));
-        vencida.Vencida.Should().BeTrue();
-        vencida.DiasEmAtraso.Should().Be(1);
-        vencida.GuiasParaDecisao.Should().BeGreaterThan(0);
-        vencida.ExigeDecisao.Should().BeTrue();
-    }
-
-    [Fact]
-    public async Task GarantirAncora_NaoSobrescreveExistente()
-    {
-        await _parametros.SalvarDataUltimaRodadaPendenciasAsync(new DateOnly(2026, 7, 1));
-
-        await _rodada.GarantirAncoraAsync(new DateOnly(2026, 7, 10));
-
-        (await _parametros.ObterDataUltimaRodadaPendenciasAsync()).Should().Be(new DateOnly(2026, 7, 1));
-    }
-
-    [Fact]
-    public async Task ConcluirRodada_CarimbaHojeEZeraVencimento()
-    {
-        await CriarSegundoCodigoAsync();
-        await _rodada.GarantirAncoraAsync(new DateOnly(2026, 7, 10));
-
-        await _rodada.ConcluirRodadaAsync(new DateOnly(2026, 7, 21), "maria");
-
-        (await _parametros.ObterDataUltimaRodadaPendenciasAsync()).Should().Be(new DateOnly(2026, 7, 21));
-        var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 21));
-        status.Vencida.Should().BeFalse();
-        status.ProximaRodada.Should().Be(new DateOnly(2026, 7, 31));
-        (await _repo.EventosAuditoriaAsync()).Should().Contain(e => e.Acao == "RodadaPendencias");
+        status.IntervaloDias.Should().Be(5);
+        status.Vencida.Should().BeTrue();
+        status.GuiasParaDecisao.Should().Be(1);
     }
 
     [Fact]

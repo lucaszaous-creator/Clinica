@@ -93,16 +93,11 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         try
         {
             var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
-            await rodada.GarantirAncoraAsync(hoje); // ancora o ciclo no 1º uso
             var status = await rodada.ObterStatusAsync(hoje);
             RodadaVencida = status.Vencida;
             RodadaBanner = status.Vencida
-                ? (status.DiasEmAtraso > 0
-                    ? $"A rodada de pendências venceu há {status.DiasEmAtraso} dia(s). "
-                    : "A rodada de pendências vence hoje. ") +
-                  (status.TemGuiasParaDecisao
-                    ? $"Rode agora: {status.GuiasParaDecisao} guia(s) aguardam decisão (baixa ou não conformidade)."
-                    : "Rode agora para fechar o ciclo.")
+                ? $"{status.GuiasParaDecisao} guia(s) passaram do prazo de {status.IntervaloDias} dias pendentes e " +
+                  "precisam de decisão. Rode agora: dê baixa ou justifique como não conformidade."
                 : string.Empty;
         }
         catch

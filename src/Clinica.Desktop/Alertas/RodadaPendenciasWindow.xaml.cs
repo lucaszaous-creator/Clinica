@@ -58,9 +58,10 @@ public partial class RodadaPendenciasWindow : Window
             : string.Empty;
 
         TxtResumo.Text = bloqueante
-            ? $"A rodada de pendências venceu (a cada {status.IntervaloDias} dias)." +
-              $" Decida todas as {Linhas.Count} guia(s) abaixo para continuar — dê baixa ou justifique como não conformidade." + lembrete
-            : $"{Linhas.Count} guia(s) pendente(s). Dê baixa no que puder e justifique o restante como não conformidade." + lembrete;
+            ? $"{Linhas.Count} guia(s) passaram de {status.IntervaloDias} dias pendentes e precisam de decisão. " +
+              "Decida cada uma para continuar — dê baixa ou justifique como não conformidade." + lembrete
+            : $"{Linhas.Count} guia(s) passaram do prazo de {status.IntervaloDias} dias pendentes. " +
+              "Dê baixa no que puder e justifique o restante como não conformidade." + lembrete;
 
         if (bloqueante)
             BtnCancelar.Visibility = Visibility.Collapsed;
