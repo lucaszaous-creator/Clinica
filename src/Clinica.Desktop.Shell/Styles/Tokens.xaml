@@ -99,6 +99,12 @@
     <SolidColorBrush x:Key="Brush.Semaforo.Amarelo" Color="#F9A825" />
     <SolidColorBrush x:Key="Brush.Semaforo.Vermelho" Color="#C62828" />
 
+    <!-- Visor da webcam (captura do retrato do paciente) — fundo escuro de propósito:
+         é o que faz o rosto no preview aparecer como aparecerá no avatar. -->
+    <SolidColorBrush x:Key="Brush.Visor.Fundo" Color="{StaticResource Cor.Cinza.900}" />
+    <SolidColorBrush x:Key="Brush.Visor.Texto" Color="{StaticResource Cor.Cinza.300}" />
+    <SolidColorBrush x:Key="Brush.Visor.Guia" Color="#FFFFFF" Opacity="0.4" />
+
     <!-- ============ Tipografia ============ -->
     <sys:Double x:Key="Fonte.H1">24</sys:Double>
     <sys:Double x:Key="Fonte.H2">20</sys:Double>

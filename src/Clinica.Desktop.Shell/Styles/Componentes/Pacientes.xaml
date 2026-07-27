@@ -8,16 +8,21 @@
   docs/arquitetura-multi-exe.md, que a Fase 4 cancelada tornou permanente.
 -->
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
 
     <DataTemplate x:Key="ItemPacienteSeletor">
         <Grid Margin="0,2">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+            <ctrl:Avatar Grid.Column="0" Tamanho="36" VerticalAlignment="Center" Margin="0,0,10,0"
+                         Nome="{Binding Nome}" Foto="{Binding FotoMiniatura}" />
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
                            Foreground="{StaticResource Brush.Texto.Primario}"
                            TextTrimming="CharacterEllipsis" />
@@ -27,7 +32,7 @@
                            Margin="0,2,0,0" />
             </StackPanel>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                 <!-- Carteirinha vencida aparece ANTES da escolha: a guia seria recusada. -->
                 <Border Style="{StaticResource Badge.Erro}" Margin="0,0,6,0"
                         ToolTip="Carteirinha vencida — o convênio recusa a guia">

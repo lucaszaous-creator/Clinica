@@ -18,6 +18,7 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChavePainel = "painel-recepcao";
     public const string ChaveAgenda = "agenda-recepcao";
     public const string ChaveFila = "fila";
+    public const string ChavePacientes = "pacientes-recepcao";
     public const string ChaveEquipe = "equipe";
 
     public string Nome => "Recepção";
@@ -27,6 +28,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo { Chave = ChavePainel, Rotulo = "Painel", Glifo = "\uE80F" },
         new ItemMenuModulo { Chave = ChaveAgenda, Rotulo = "Agenda", Glifo = "\uE787" },
         new ItemMenuModulo { Chave = ChaveFila, Rotulo = "Fila de hoje", Glifo = "\uE8FD" },
+        new ItemMenuModulo { Chave = ChavePacientes, Rotulo = "Pacientes", Glifo = "\uE77B" },
         new ItemMenuModulo { Chave = ChaveEquipe, Rotulo = "Profissionais e salas", Glifo = "\uE716" }
     ];
 
@@ -35,10 +37,11 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<PainelViewModel>();
         servicos.AddTransient<AgendaViewModel>();
         servicos.AddTransient<FilaViewModel>();
+        servicos.AddTransient<PacientesViewModel>();
         servicos.AddTransient<EquipeViewModel>();
         // Os ViewModels de formulário (agendamento, lista de espera, profissional,
-        // sala) são construídos à mão pelas telas: cada janela abre com o formulário
-        // limpo e, quando é edição, precisa receber o id no construtor.
+        // sala, paciente, evolução) são construídos à mão pelas telas: cada janela abre
+        // com o formulário limpo e, quando é edição, precisa receber o id no construtor.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
@@ -46,6 +49,7 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePainel => new PainelView { DataContext = servicos.GetRequiredService<PainelViewModel>() },
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
+        ChavePacientes => new PacientesView { DataContext = servicos.GetRequiredService<PacientesViewModel>() },
         ChaveEquipe => new EquipeView { DataContext = servicos.GetRequiredService<EquipeViewModel>() },
         _ => null
     };

@@ -499,6 +499,77 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    // ---- Prontuário ----
+
+    public async Task AdicionarEvolucaoAsync(Evolucao evolucao, CancellationToken ct = default)
+        => await _db.Evolucoes.AddAsync(evolucao, ct);
+
+    public Task<Evolucao?> ObterEvolucaoAsync(int evolucaoId, CancellationToken ct = default)
+        => _db.Evolucoes
+            .Include(e => e.Profissional)
+            .FirstOrDefaultAsync(e => e.Id == evolucaoId, ct);
+
+    // Sem Include dos anexos de propósito: os bytes só saem do banco quando alguém
+    // pede um arquivo específico (ver ConteudoDoAnexoAsync).
+    public async Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.Evolucoes.AsNoTracking()
+            .Include(e => e.Profissional)
+            .Where(e => e.PacienteId == pacienteId)
+            .OrderByDescending(e => e.Data).ThenByDescending(e => e.Id)
+            .ToListAsync(ct);
+
+    public async Task RemoverEvolucaoAsync(int evolucaoId, CancellationToken ct = default)
+    {
+        var evolucao = await _db.Evolucoes.FirstOrDefaultAsync(e => e.Id == evolucaoId, ct);
+        if (evolucao is not null)
+            _db.Evolucoes.Remove(evolucao);
+    }
+
+    public async Task<IReadOnlyList<Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
+        int evolucaoId, CancellationToken ct = default)
+        => await _db.AnexosProntuario.AsNoTracking()
+            .Where(a => a.EvolucaoId == evolucaoId)
+            .OrderBy(a => a.CriadoEm).ThenBy(a => a.Id)
+            // A projeção é o ponto: o SELECT não inclui Conteudo.
+            .Select(a => new Modelos.AnexoResumo(
+                a.Id, a.EvolucaoId, a.NomeArquivo, a.Tipo, a.TipoConteudo,
+                a.Tamanho, a.Descricao, a.CriadoEm))
+            .ToListAsync(ct);
+
+    public async Task<byte[]?> ConteudoDoAnexoAsync(int anexoId, CancellationToken ct = default)
+        => await _db.AnexosProntuario.AsNoTracking()
+            .Where(a => a.Id == anexoId)
+            .Select(a => a.Conteudo)
+            .FirstOrDefaultAsync(ct);
+
+    public async Task AdicionarAnexoAsync(AnexoProntuario anexo, CancellationToken ct = default)
+        => await _db.AnexosProntuario.AddAsync(anexo, ct);
+
+    public async Task RemoverAnexoAsync(int anexoId, CancellationToken ct = default)
+    {
+        var anexo = await _db.AnexosProntuario.FirstOrDefaultAsync(a => a.Id == anexoId, ct);
+        if (anexo is not null)
+            _db.AnexosProntuario.Remove(anexo);
+    }
+
+    // ---- Consentimento LGPD ----
+
+    public async Task<IReadOnlyList<ConsentimentoLgpd>> ConsentimentosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.Consentimentos.AsNoTracking()
+            .Where(c => c.PacienteId == pacienteId)
+            .OrderByDescending(c => c.RegistradoEm).ThenByDescending(c => c.Id)
+            .ToListAsync(ct);
+
+    public Task<ConsentimentoLgpd?> ObterConsentimentoAsync(
+        int consentimentoId, CancellationToken ct = default)
+        => _db.Consentimentos.FirstOrDefaultAsync(c => c.Id == consentimentoId, ct);
+
+    public async Task AdicionarConsentimentoAsync(
+        ConsentimentoLgpd consentimento, CancellationToken ct = default)
+        => await _db.Consentimentos.AddAsync(consentimento, ct);
+
     // ---- Auditoria ----
 
     public async Task RegistrarAuditoriaAsync(EventoAuditoria evento, CancellationToken ct = default)

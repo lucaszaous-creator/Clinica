@@ -26,6 +26,9 @@ public class ClinicaDbContext : DbContext
     public DbSet<Profissional> Profissionais => Set<Profissional>();
     public DbSet<Sala> Salas => Set<Sala>();
     public DbSet<ListaEspera> ListaEspera => Set<ListaEspera>();
+    public DbSet<Evolucao> Evolucoes => Set<Evolucao>();
+    public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
+    public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -264,6 +267,68 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(l => l.Status);
         });
 
+        // ---------- Prontuário e LGPD (parcela 2) ----------
+        // A evolução é do PACIENTE; o vínculo com atendimento/agendamento é opcional,
+        // porque a sessão acontece antes de a guia existir (e a particular não gera guia).
+        b.Entity<Evolucao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.QueixaPrincipal).HasMaxLength(1000);
+            e.Property(x => x.Conduta).HasMaxLength(4000);
+            e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
+            e.Property(x => x.Orientacoes).HasMaxLength(2000);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Atendimento).WithMany()
+                .HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Agendamento).WithMany()
+                .HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
+
+            // O prontuário é sempre lido por paciente, do mais recente para o mais antigo.
+            e.HasIndex(x => new { x.PacienteId, x.Data });
+
+            e.Ignore(x => x.VariacaoEva);
+            e.Ignore(x => x.TemParEva);
+        });
+
+        b.Entity<AnexoProntuario>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.NomeArquivo).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.TipoConteudo).HasMaxLength(120);
+            e.Property(x => x.Descricao).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            // Apagar a evolução leva os anexos junto: anexo órfão não é prontuário.
+            e.HasOne(x => x.Evolucao).WithMany(x => x.Anexos)
+                .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.EvolucaoId);
+        });
+
+        b.Entity<ConsentimentoLgpd>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Finalidade).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.VersaoTermo).HasMaxLength(40);
+            e.Property(x => x.RegistradoPor).HasMaxLength(80);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.RevogadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+
+            e.HasIndex(x => new { x.PacienteId, x.Finalidade });
+            e.Ignore(x => x.Vigente);
+        });
+
         b.Entity<EventoAuditoria>(e =>
         {
             e.HasKey(x => x.Id);
@@ -332,6 +397,9 @@ public class ClinicaDbContext : DbContext
             b.Entity<Consulta>().Property<uint>("xmin").IsRowVersion();
             b.Entity<Agendamento>().Property<uint>("xmin").IsRowVersion();
             b.Entity<LancamentoFinanceiro>().Property<uint>("xmin").IsRowVersion();
+            // Prontuário: dois postos abrindo a mesma evolução não podem sobrescrever
+            // o texto um do outro em silêncio.
+            b.Entity<Evolucao>().Property<uint>("xmin").IsRowVersion();
         }
     }
 }
