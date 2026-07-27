@@ -50,8 +50,16 @@ por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
 | 10 | Estoque | Financeiro | ⬜ | 4 |
 | 11 | Marketing — NPS e recall | Gerente | ⬜ | 5 |
 | 12 | BI — indicadores | Gerente | 🟡 | 5 |
-| 13 | Permissões e LGPD | Gerente | ⬜ | 5 |
+| 13 | Permissões e LGPD | Gerente / Recepção | 🟡 | 5 |
 | 14 | Faturamento TISS 4.01 | Faturamento | ✅ | — |
+
+**Placar: 5 completas, 4 parciais, 5 inexistentes.**
+
+| Estado | Features |
+|---|---|
+| ✅ Completas | 01 · 03 · 04 · 05 · 14 |
+| 🟡 Parciais | 02 (falta a confirmação automática) · 09 (falta o repasse) · 12 (falta a tela no Gerente) · 13 (LGPD feito, permissões não) |
+| ⬜ Inexistentes | 06 · 07 · 08 · 10 · 11 |
 
 ---
 
@@ -265,13 +273,17 @@ sendo só leitura não há risco de escrita concorrente.
 | Recall de pacientes inativos | ⬜ |
 | Campanhas por WhatsApp | ⬜ |
 
-### Feature 13 · Permissões e LGPD — ⬜ · parcela 5
+### Feature 13 · Permissões e LGPD — 🟡 · parcela 5
 
 | Item | Estado | Onde |
 |---|---|---|
 | Trilha de auditoria imutável | ✅ | `EventoAuditoria`, `RegistrarAuditoriaAsync` |
-| Perfis e permissões finas | ⬜ | Depende de `Profissional` |
-| Conformidade LGPD (consentimento) | ⬜ | |
+| Conformidade LGPD (consentimento) | ✅ | `ConsentimentoService` — entregue na parcela 2, na Recepção |
+| Perfis e permissões finas | ⬜ | `Profissional` já existe; falta usuário, login e perfil |
+
+> A metade LGPD saiu antes da hora, junto do cadastro do paciente (parcela 2) — é lá que
+> o consentimento é colhido, no balcão. O que resta para a parcela 5 é o controle de
+> acesso: usuário, login e perfil apontando para o `Profissional` que a parcela 1 criou.
 
 ---
 

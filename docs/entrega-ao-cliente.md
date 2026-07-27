@@ -6,6 +6,59 @@
 > O catálogo do que cada módulo entrega está em
 > [`features-por-modulo.md`](features-por-modulo.md).
 
+## Onde estamos
+
+**3 das 6 parcelas entregues.** Com a parcela 2, a **Fase 1 da proposta está fechada**.
+
+| Parcela | Estado |
+|---|---|
+| 0 — Instalável | ✅ entregue |
+| 1 — Fundação | ✅ entregue |
+| 2 — Cadastro e prontuário | ✅ entregue |
+| 3 — Ato clínico | ⬜ próxima |
+| 4 — Dinheiro e insumo | ⬜ |
+| 5 — Inteligência | ⬜ |
+
+Das **14 features** vendidas na proposta: **5 completas, 4 parciais, 5 inexistentes.**
+
+| Estado | Features |
+|---|---|
+| ✅ Completas | 01 painel · 03 fila kanban · 04 pacientes 360º · 05 prontuário/EVA · 14 TISS |
+| 🟡 Parciais | 02 agenda · 09 caixa · 12 BI · 13 permissões/LGPD |
+| ⬜ Inexistentes | 06 mapa corporal · 07 prescrição · 08 pacotes · 10 estoque · 11 NPS/recall |
+
+Dos **12 documentos impressos** da página 21 da proposta, **3 existem** (capa de lote,
+guia TISS e fechamento). Os 9 restantes são das parcelas 3 e 4.
+
+### O que temos e o que falta, app por app
+
+| App | O que já entrega | O que ainda falta |
+|---|---|---|
+| **Faturamento** | Tudo: motor de regras, 2º código, lotes TISS, glosa e recurso, PDFs. **Em produção.** | Nada — está **congelado** de propósito |
+| **Recepção** | Painel do dia, agenda multiprofissional com encaixe e lista de espera, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos | Mapa corporal, prescrição e os 7 documentos clínicos (parcela 3); confirmação automática por WhatsApp (parcela 5) |
+| **Financeiro** | Caixa do mês, lançamento manual, conciliação com o faturamento, produção do período | Pacotes/vouchers, estoque, repasse por profissional, recibo e orçamento (parcela 4) |
+| **Gerente Geral** | Carrega Recepção + Financeiro inteiros | Telas próprias de BI, NPS/recall, perfis e permissões, e a visão consolidada do faturamento (parcela 5) |
+
+### O que falta, na ordem em que vai ser feito
+
+- **Parcela 3 — ato clínico** (Recepção): mapa corporal com protocolo reutilizável,
+  prescrição, e os 7 documentos clínicos da página 21 (receita, atestado, comparecimento,
+  pedido de exame, relatório de evolução, consentimento, anamnese).
+- **Parcela 4 — dinheiro e insumo** (Financeiro): pacotes/planos/vouchers com saldo,
+  repasse por profissional, estoque com validade e custo, recibo e orçamento.
+- **Parcela 5 — inteligência** (Gerente): BI com ocupação, no-show e produtividade; NPS e
+  recall; perfis e permissões; visão consolidada lendo o faturamento; e a confirmação
+  automática por WhatsApp, que é campanha e por isso vem com o recall.
+
+### Duas afirmações da proposta que ainda não se sustentam
+
+1. **Página 24 — "Dois apps, um banco".** São **quatro**, um por perfil.
+2. **Página 23 — "Prontuário com mapa corporal e EVA"**, marcado ✓ contra os concorrentes.
+   Depois da parcela 2, **metade virou verdade**: o prontuário com EVA existe. O **mapa
+   corporal** não — vai na parcela 3.
+
+Ambas precisam de decisão comercial antes de o documento ir para outro cliente.
+
 ## Topologia: quatro apps, um por perfil
 
 Cada posto de trabalho instala **só o app do seu perfil**. Todos falam com o mesmo
@@ -18,8 +71,8 @@ PostgreSQL — não há comunicação entre eles.
 | Administrativo | Financeiro | `Clinica.Financeiro-financeiro-Setup.exe` | Caixa, pacotes, estoque |
 | Direção | Gerente Geral | `Clinica.Gerente-gerente-Setup.exe` | Todos os módulos + BI, NPS e permissões |
 
-> A proposta comercial (página 24) diz *"Dois apps, um banco"*. São quatro. A página
-> precisa ser corrigida antes de ir para outro cliente.
+> São **quatro** — a proposta comercial (página 24) diz *"Dois apps, um banco"*. Ver
+> [Duas afirmações da proposta que ainda não se sustentam](#duas-afirmações-da-proposta-que-ainda-não-se-sustentam).
 
 O Gerente Geral **carrega os módulos dos outros** — quem o instala não precisa da Recepção
 nem do Financeiro na mesma máquina.
@@ -140,17 +193,12 @@ Quatro decisões que valem registrar:
 A migration continua **puramente aditiva**: só tabelas novas (`Evolucoes`,
 `AnexosProntuario`, `Consentimentos`).
 
-## O que já dá para entregar hoje
+## Os quatro são instaláveis
 
-| App | Pronto para o cliente? |
-|---|---|
-| Faturamento | ✅ Sim — está em produção |
-| Recepção | ✅ Painel, agenda, fila em kanban, equipe, Pacientes 360º e prontuário com EVA |
-| Financeiro | ✅ Instala e roda sozinho; caixa, conciliação e produção |
-| Gerente | ✅ Instala e roda sozinho; reúne Recepção e Financeiro (sem telas de faturamento) |
-
-Com a parcela 0 entregue, **os quatro são instaláveis**. O que varia é quanto cada um já
-entrega de conteúdo — ver [`features-por-modulo.md`](features-por-modulo.md).
+Desde a parcela 0, **os quatro apps instalam e rodam sozinhos** — nenhum depende de o
+Faturamento estar na mesma máquina. O que varia é quanto cada um já entrega de conteúdo:
+o inventário está em [Onde estamos](#onde-estamos), e o detalhe feature a feature em
+[`features-por-modulo.md`](features-por-modulo.md).
 
 ## As parcelas
 
@@ -161,18 +209,11 @@ entrega de conteúdo — ver [`features-por-modulo.md`](features-por-modulo.md).
 | ~~**2 — Cadastro e prontuário**~~ ✅ | Recepção | Pacientes 360º com consentimento LGPD; prontuário com evolução e escala EVA | Features 04 e 05 — **fecha a Fase 1 da proposta** |
 | **3 — Ato clínico** | Recepção | Mapa corporal com protocolo reutilizável; prescrição; os 7 documentos clínicos | Features 06 e 07, e a página 21 |
 | **4 — Dinheiro e insumo** | Financeiro | Pacotes/vouchers com saldo; repasse por profissional; estoque com validade e custo | Features 08, 09 e 10 |
-| **5 — Inteligência** | Gerente | BI (ocupação, no-show, produtividade); NPS e recall; perfis, permissões e LGPD; visão consolidada lendo o faturamento | Features 11, 12 e 13 |
+| **5 — Inteligência** | Gerente | BI (ocupação, no-show, produtividade); NPS, recall e confirmação automática; perfis e permissões; visão consolidada lendo o faturamento | Features 11 e 12, a metade que falta da 13 (a LGPD saiu na parcela 2) e a confirmação automática da 02 |
 
-As parcelas **0, 1 e 2 estão entregues** — com a 2, a **Fase 1 da proposta está fechada**.
-A próxima é a **3 (ato clínico)**: mapa corporal, prescrição e os documentos impressos.
-
-Duas coisas ficaram deliberadamente de fora e continuam pendentes:
-
-- **Confirmação automática por WhatsApp** (feature 02): o envio de 1 clique existe na
-  agenda, mas automatizar o disparo é campanha — vai junto com o recall e o NPS, na
-  parcela 5.
-- **Mapa corporal** (feature 06): é a outra metade da afirmação da página 23 da proposta.
-  Vai na parcela 3.
+A coluna "Destrava" é o que justifica a ordem: cada parcela existe porque a seguinte não
+teria onde se apoiar sem ela. A fundação (1) é o caso mais claro — sem `Profissional`,
+metade das features de 4 e 5 fica parada.
 
 ## Instalação numa clínica nova
 
