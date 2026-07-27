@@ -219,7 +219,7 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>
-    /// Se há guias cujo prazo desde o atendimento venceu (padrão 10 dias) sem baixa, abre a janela
+    /// Se há guias pendentes há mais que o prazo (padrão 10 dias) sem baixa, abre a janela
     /// BLOQUEANTE de "rodar as pendências": a secretária precisa dar baixa ou justificar (não
     /// conformidade) cada uma antes de seguir. Nunca derruba o app.
     /// </summary>

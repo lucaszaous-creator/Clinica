@@ -109,7 +109,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
             RodadaIndeterminada = false;
             RodadaAvisoFalha = string.Empty;
             RodadaBanner = status.ExigeDecisao
-                ? $"{status.GuiasParaDecisao} guia(s) passaram de {status.PrazoDias} dias desde o atendimento " +
+                ? $"{status.GuiasParaDecisao} guia(s) estão pendentes há mais de {status.PrazoDias} dias " +
                   "sem resolução. Rode agora: cada uma exige baixa ou não conformidade."
                 : string.Empty;
         }

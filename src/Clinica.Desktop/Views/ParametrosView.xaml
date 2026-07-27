@@ -206,7 +206,7 @@
                         <StackPanel>
                             <TextBlock Text="Rodar as pendências" Style="{StaticResource H2}" Margin="0,0,0,4" />
                             <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
-                                       Text="Prazo por atendimento: passado o prazo desde o atendimento sem baixa, o sistema BLOQUEIA o uso e cobra uma decisão em cada guia vencida — dar baixa ou justificar como não conformidade (que sai do painel e vai para o relatório)." />
+                                       Text="Prazo por guia: passado o prazo desde que a guia ficou pendente sem baixa, o sistema BLOQUEIA o uso e cobra uma decisão em cada guia vencida — dar baixa ou justificar como não conformidade (que sai do painel e vai para o relatório)." />
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <TextBlock Text="Exigir decisão após" VerticalAlignment="Center" Margin="0,0,8,0"
                                            Foreground="{StaticResource Brush.Texto.Primario}" />

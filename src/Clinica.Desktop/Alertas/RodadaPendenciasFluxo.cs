@@ -18,7 +18,7 @@ internal static class RodadaPendenciasFluxo
 {
     /// <summary>
     /// Executa a rodada. <paramref name="bloqueante"/> = true lista apenas as guias com prazo vencido
-    /// (atendimento + N dias) e trava a janela até que toda guia tenha uma decisão (baixa ou não
+    /// (data prevista + N dias) e trava a janela até que toda guia tenha uma decisão (baixa ou não
     /// conformidade); false lista todas as pendentes (cobrança proativa). Retorna true se foi concluída.
     /// </summary>
     public static async Task<bool> ExecutarAsync(IServiceScopeFactory scopeFactory, Window? owner, bool bloqueante)

@@ -134,13 +134,13 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
-    // ---- Rodada de pendências ("rodar as pendências" — prazo de decisão por atendimento) ----
+    // ---- Rodada de pendências ("rodar as pendências" — prazo de decisão por guia) ----
 
     public const string ChaveIntervaloRodadaPendencias = "IntervaloRodadaPendenciasDias";
     public const int IntervaloRodadaPendenciasPadrao = 10;
 
     /// <summary>
-    /// Prazo (em dias, desde o atendimento) para exigir decisão em cada guia pendente (padrão 10).
+    /// Prazo (em dias, desde a data prevista) para exigir decisão em cada guia pendente (padrão 10).
     /// Ao vencer sem baixa, a guia entra no bloqueio da rodada.
     /// </summary>
     public async Task<int> ObterIntervaloRodadaPendenciasAsync(CancellationToken ct = default)
@@ -154,22 +154,25 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
-    public const string ChaveInicioRodadaPorAtendimento = "InicioRodadaPorAtendimento";
+    // O VALOR da chave continua "InicioRodadaPorAtendimento" de propósito: é o que já está gravado
+    // nas instalações que ancoraram a carência. Renomeá-lo perderia a âncora e reiniciaria o período
+    // de carência do zero. Só o nome em C# acompanhou a mudança do prazo para a data prevista.
+    public const string ChaveInicioRodadaPrazo = "InicioRodadaPorAtendimento";
 
     /// <summary>
-    /// Data em que a rodada por atendimento passou a valer (definida na 1ª execução desta versão).
-    /// Serve para dar carência ao backlog anterior — guias de atendimentos mais antigos só começam a
-    /// contar o prazo a partir daqui, evitando um bloqueio em massa logo na primeira abertura.
+    /// Data em que a rodada passou a valer (definida na 1ª execução desta versão). Serve para dar
+    /// carência ao backlog anterior — guias que já estavam pendentes antes dela só começam a contar
+    /// o prazo a partir daqui, evitando um bloqueio em massa logo na primeira abertura.
     /// Null = ainda não ancorada.
     /// </summary>
-    public async Task<DateOnly?> ObterInicioRodadaPorAtendimentoAsync(CancellationToken ct = default)
-        => DateOnly.TryParse(await _repo.ObterConfiguracaoAsync(ChaveInicioRodadaPorAtendimento, ct), out var d)
+    public async Task<DateOnly?> ObterInicioRodadaPrazoAsync(CancellationToken ct = default)
+        => DateOnly.TryParse(await _repo.ObterConfiguracaoAsync(ChaveInicioRodadaPrazo, ct), out var d)
             ? d
             : null;
 
-    public async Task SalvarInicioRodadaPorAtendimentoAsync(DateOnly data, CancellationToken ct = default)
+    public async Task SalvarInicioRodadaPrazoAsync(DateOnly data, CancellationToken ct = default)
     {
-        await _repo.SalvarConfiguracaoAsync(ChaveInicioRodadaPorAtendimento, data.ToString("yyyy-MM-dd"), ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveInicioRodadaPrazo, data.ToString("yyyy-MM-dd"), ct);
         await _repo.SalvarAsync(ct);
     }
 
