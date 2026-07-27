@@ -1,0 +1,128 @@
+<UserControl x:Class="Clinica.Financeiro.Views.ProducaoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <DockPanel Margin="24">
+
+        <!-- ============ Cabeçalho ============ -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Produção" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Text="Volume de códigos por mês, efetivados e pendentes."
+                           Style="{StaticResource TextoSuave}" Margin="0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="6 meses" Command="{Binding Ultimos6MesesCommand}"
+                        Style="{StaticResource BotaoSecundario}" />
+                <Button Content="12 meses" Command="{Binding Ultimos12MesesCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ============ Indicadores ============ -->
+        <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,16">
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                    CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="CÓDIGOS NO PERÍODO" Style="{StaticResource Rotulo}" Margin="0" />
+                    <TextBlock Text="{Binding TotalCodigos}" FontSize="{StaticResource Fonte.H1}"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                </StackPanel>
+            </Border>
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                    CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="EFETIVADOS" Style="{StaticResource Rotulo}" Margin="0" />
+                    <TextBlock Text="{Binding TotalBaixados}" FontSize="{StaticResource Fonte.H1}"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Sucesso}" />
+                </StackPanel>
+            </Border>
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                    CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="PENDENTES" Style="{StaticResource Rotulo}" Margin="0" />
+                    <TextBlock Text="{Binding TotalPendentes}" FontSize="{StaticResource Fonte.H1}"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Aviso}" />
+                </StackPanel>
+            </Border>
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                    CornerRadius="{StaticResource Raio.Grande}" Padding="16">
+                <StackPanel>
+                    <TextBlock Text="TAXA DE EFETIVAÇÃO" Style="{StaticResource Rotulo}" Margin="0" />
+                    <TextBlock Text="{Binding TaxaBaixaFormatada}" FontSize="{StaticResource Fonte.H1}"
+                               FontWeight="Bold"
+                               Foreground="{StaticResource Brush.Acento}" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <!-- ============ Tabela mensal ============ -->
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Padding="16,12"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="140" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Mês" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="1" Text="Códigos" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="2" Text="Efetivados" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="3" Text="Pendentes" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="4" Text="Taxa" Style="{StaticResource Rotulo}" Margin="0" />
+                    </Grid>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Meses}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16,10"
+                                        BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="140" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                        <TextBlock Grid.Column="1" Text="{Binding TotalCodigos}"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Baixados}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Pendentes}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Grid.Column="4"
+                                                   Text="{Binding TaxaBaixa, StringFormat='{}{0:P1}'}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

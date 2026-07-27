@@ -108,7 +108,7 @@ A sequência é deliberada: o faturamento é o **último** a mudar.
 | Fase | Entrega | Toca o faturamento? |
 |---|---|---|
 | 1 | `Clinica.Desktop.Shell` + `Clinica.Recepcao.exe` com a fila do dia | Não |
-| 2 | `Clinica.Financeiro.exe` | Não |
+| 2 | `Clinica.Financeiro.exe` com a Produção do período | Não |
 | 3 | `Clinica.Gerente.exe` (casca com todos os módulos) | Não |
 | 4 | Faturamento migra para módulo e passa a usar o shell | Sim, mecânico |
 
@@ -187,9 +187,44 @@ A Recepção ainda **não tem tela de setup própria**: ela obtém a conexão da
 máquina. Se não encontrar nenhuma, orienta a abrir o Faturamento e configurar uma vez.
 A tela de setup própria entra quando a Recepção passar a ser instalada sozinha.
 
+## Fase 2 — o que foi construído
+
+- **`src/Clinica.Financeiro`** — segundo executável sobre o shell, com a tela
+  **Produção**: volume de códigos por mês, quanto foi efetivado e quanto segue
+  pendente, com indicadores e taxa de efetivação.
+
+O `App.xaml.cs` do Financeiro é idêntico ao da Recepção a menos da lista de
+módulos — que é exatamente o resultado esperado da arquitetura de casca fina.
+
+### Pendência de decisão: entidades monetárias
+
+Caixa, repasse por profissional e conciliação **precisam de valores**, e o
+domínio hoje não tem nenhum campo de dinheiro — é uma regra explícita do projeto
+(`CLAUDE.md`: "faturamento ≠ recebíveis; nunca adicione campos de dinheiro").
+
+A tela de Produção foi escolhida justamente por não depender disso: ela trabalha
+só com contagens, e já entrega a conferência do faturamento e a base do repasse.
+
+O passo seguinte do Financeiro exige decidir entre:
+
+1. **Entidades monetárias novas e separadas** (ex.: `LancamentoFinanceiro`,
+   `Repasse`), sem tocar nas entidades de faturamento — preserva a regra atual,
+   que protege o domínio do faturamento, e exige uma migration aditiva.
+2. **Manter o Financeiro sem valores**, como visão analítica de produção.
+
+Enquanto a decisão não sai, o módulo entrega a Produção.
+
 ### Validação
 
 `Clinica.Desktop.Shell` e `Clinica.Recepcao` são `net8.0-windows` com WPF —
 **não compilam em Linux**. A verificação é o CI no runner Windows
-(`.github/workflows/build-exe.yml`), que passou a compilar os projetos novos
-além do faturamento.
+(`.github/workflows/build-exe.yml`), que passou a compilar e publicar Recepção e
+Financeiro além do faturamento.
+
+Atenção: o workflow só dispara em `push` na `main` ou em pull request para a
+`main` — commits na branch de trabalho não geram build sozinhos.
+
+Antes de subir, os projetos novos passam por uma verificação estática local
+(XAML bem-formado, chaves de `StaticResource` existentes no design system e
+bindings casando com os membros gerados pelo MVVM Toolkit), que pega a maior
+parte dos erros sem precisar do Windows.

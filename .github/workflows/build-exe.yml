@@ -71,3 +71,21 @@ jobs:
           name: Clinica-Recepcao-win-x64
           path: publish-recepcao/
           if-no-files-found: error
+
+      - name: Publicar .exe do Financeiro (self-contained, arquivo único)
+        run: >
+          dotnet publish src/Clinica.Financeiro/Clinica.Financeiro.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableWindowsTargeting=true
+          -o publish-financeiro
+
+      - name: Enviar artefato do Financeiro
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clinica-Financeiro-win-x64
+          path: publish-financeiro/
+          if-no-files-found: error
