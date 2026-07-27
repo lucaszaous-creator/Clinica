@@ -67,12 +67,10 @@ Clinica.Desktop.Shell         (lib)  design system, sidebar, snackbar,
                                      ConexaoStore, janela genérica, bootstrap
 Clinica.Modulo.Recepcao       (lib)  Views + ViewModels da recepção
 Clinica.Modulo.Financeiro     (lib)
-Clinica.Modulo.Faturamento    (lib)  o que hoje vive em Clinica.Desktop (por último)
-
 Clinica.Recepcao.exe    → Shell + Recepcao
 Clinica.Financeiro.exe  → Shell + Financeiro
 Clinica.Gerente.exe     → Shell + TODOS os módulos
-Clinica.Desktop.exe     → intocado por enquanto
+Clinica.Desktop.exe     → o faturamento, intocado (nunca vira módulo — ver Fase 4)
 ```
 
 Cada executável fica com poucas dezenas de linhas: registra os módulos desejados
@@ -105,9 +103,10 @@ public interface IModuloApp
 O shell monta a sidebar a partir de todos os módulos registrados, na ordem em que
 foram informados. Nenhum módulo conhece os outros.
 
-> Para o mapa entre as features vendidas na apresentação comercial e o módulo dono de
-> cada uma — com o que ainda não existe —, veja
-> [`docs/features-por-modulo.md`](features-por-modulo.md).
+> Para a distribuição das features vendidas na proposta pelos quatro módulos — com o
+> estado de cada uma e a ordem das parcelas —, veja
+> [`features-por-modulo.md`](features-por-modulo.md) e
+> [`entrega-ao-cliente.md`](entrega-ao-cliente.md).
 
 ## Ordem de trabalho
 
@@ -118,19 +117,21 @@ A sequência é deliberada: o faturamento é o **último** a mudar.
 | 1 | `Clinica.Desktop.Shell` + `Clinica.Recepcao.exe` com a fila do dia | Não | ✅ feita |
 | 2 | `Clinica.Financeiro.exe` com Caixa, Conciliação e Produção | Não | ✅ feita |
 | 3 | Módulos viram bibliotecas + `Clinica.Gerente.exe` + empacotamento dos quatro | Não | ✅ feita |
-| 4 | Faturamento migra para módulo e passa a usar o shell | Sim, mecânico | ⬜ planejada (abaixo) |
+| 4 | Faturamento migra para módulo e passa a usar o shell | Sim, mecânico | ❌ **cancelada** (abaixo) |
 
 Extrair a abstração **depois** de ter dois ou três consumidores reais produz um
-shell muito melhor do que tentar adivinhá-lo agora. Se a Fase 4 nunca acontecer,
-o sistema continua funcionando — apenas com duas cópias do design system.
+shell muito melhor do que tentar adivinhá-lo agora. E a Fase 4 de fato não vai
+acontecer: o sistema continua funcionando — apenas com duas cópias do design system.
 
 ### Débito assumido conscientemente
 
-Na Fase 1 o shell nasce com uma **cópia** do design system e dos controles
-(`Styles/`, `Controls/`). São dois lugares para mudar um token de cor até a Fase 4,
-quando as cópias originais de `Clinica.Desktop` são removidas. O mesmo vale para
-`LogSuite` (shell) e `LogErros` (faturamento): mesma política de log, duas
-implementações, que viram uma na Fase 4.
+Na Fase 1 o shell nasceu com uma **cópia** do design system e dos controles
+(`Styles/`, `Controls/`). Com a Fase 4 cancelada, essa cópia é **permanente**: são dois
+lugares para mudar um token de cor, para sempre. O mesmo vale para `LogSuite` (shell) e
+`LogErros` (faturamento): mesma política de log, duas implementações.
+
+O que segura a divergência é o CI — `tokens/verificar-espelho.py` reprova cor fora de
+sincronia entre o CSS da marca e o `Tokens.xaml`.
 
 Para que a cópia do XAML não precise de edição, as classes de controle no shell
 mantêm o namespace original `Clinica.Desktop.Controls` — é o que os dicionários
@@ -168,7 +169,7 @@ falhar, a release do faturamento já saiu inteira.
 O cliente de update dos apps novos é o `AtualizadorSuite` (shell): checa na
 abertura, baixa e reinicia já atualizado, com limite de 30s para rede lenta nunca
 travar a abertura. O ciclo periódico de 2h com aviso no snackbar continua só no
-faturamento, que tem onde mostrá-lo; os dois se juntam na Fase 4.
+faturamento, que tem onde mostrá-lo. Como a Fase 4 foi cancelada, seguem separados.
 
 ### Connection string única
 
@@ -275,7 +276,7 @@ A fase que a arquitetura vinha prometendo: **o Gerente Geral sem uma tela própr
   mudou de nome; os namespaces continuam `Clinica.Recepcao.*` e `Clinica.Financeiro.*`.
 - **`src/Clinica.Gerente`** — terceiro executável, com os dois módulos na lista.
   Sem View, sem ViewModel, sem cópia: ganha as telas dos outros dois de graça, e
-  ganhará as do faturamento na Fase 4 acrescentando **uma linha** à lista.
+  ganha as do faturamento por telas próprias de leitura (ver Fase 4 — cancelada).
 - **`Clinica.Desktop.Shell/Shell/SuiteApp.cs`** — a abertura de um app da suíte
   (log → rede de segurança de exceções → conexão → host → migrations → janela),
   agora num lugar só. O `App.xaml.cs` de cada exe ficou com a lista de módulos e
@@ -297,48 +298,44 @@ existe para evitar — o dono das telas passaria a ser o executável. Com biblio
 
 ### O que a Fase 3 NÃO fez
 
-O faturamento continua intocado (é a Fase 4), então o Gerente Geral ainda **não**
-tem as telas de faturamento — ele reúne Recepção e Financeiro. O `CLAUDE.md` e o
-`README.md` seguem descrevendo o faturamento como o app principal, o que continua
-verdade até a Fase 4.
+O faturamento continua intocado, então o Gerente Geral ainda **não** tem as telas de
+faturamento — ele reúne Recepção e Financeiro. Ganhá-las é trabalho da parcela 5
+(`entrega-ao-cliente.md`), por telas próprias de leitura.
 
-## Fase 4 — o plano (ainda não executada)
+## Fase 4 — cancelada
 
-A migração do faturamento é **mecânica, grande e a única que toca produção**. O
-roteiro, na ordem em que reduz risco:
+**O faturamento está em produção e não se encosta nele.** Migrá-lo para módulo é, por
+definição, encostar — mover todas as telas, trocar a navegação e reempacotar o app que
+fatura a clínica hoje, sem nenhum ganho para quem opera.
 
-1. **`Clinica.Modulo.Faturamento` (lib)** — mover `Views/`, `ViewModels/`,
-   `Alertas/`, `Converters/`, `Controls/` e `Servicos/` de `Clinica.Desktop` para a
-   biblioteca. Sem mudança de namespace (`Clinica.Desktop.*`), como foi feito com
-   Recepção e Financeiro.
-2. **`ModuloFaturamento : IModuloApp`** — o `MainViewModel` hoje crava a lista de
-   seções e navega por um `switch` sobre o enum `Secao`. Vira `Itens` +
-   `CriarTela(chave)`. O enum `Secao` pode continuar existindo internamente; o que
-   o shell enxerga é a chave em texto.
-3. **`Clinica.Desktop.exe` vira casca** — `App.xaml.cs` reduzido à lista de módulos,
-   como os outros três. Aqui entram os dois pontos que só o faturamento tem e que
-   precisam subir para o shell antes: o **backup antes de migration** e o
-   **fluxo bloqueante da rodada de pendências** na abertura.
-4. **Apagar as cópias** — `Styles/` e `Controls/` de `Clinica.Desktop`, e `LogErros`
-   (o `LogSuite` fica). É o pagamento do débito assumido na Fase 1.
-5. **Uma linha no Gerente** — `new ModuloFaturamento()` na lista.
+A decisão foi tomada com o produto já vendido: o que importa agora é entregar as features
+da proposta nos outros três módulos, não reorganizar o que funciona.
 
-Riscos e cuidados:
+### O que isso custa, e por que está tudo bem
 
-- **`packId` e canal do faturamento não mudam.** A casca nova continua se chamando
-  `Clinica.Desktop.exe` e empacotando como `Clinica.Faturamento` no canal `win`,
-  senão as instalações da clínica param de se atualizar.
-- **Migration só aditiva** enquanto houver versões diferentes em campo — a Fase 4
-  não precisa de nenhuma, e é bom que continue assim.
-- A pasta de log do faturamento muda de `%APPDATA%\ClinicaFaturamento\logs` para o
-  fallback do `LogSuite` (`%APPDATA%\ClinicaSemDor\logs`) apenas no caso raro de a
-  raiz da instalação não ser gravável; na instalação normal o caminho é o mesmo.
-- É a fase com maior chance de erro de XAML em massa. Rodar
-  `python3 tools/verificar-suite.py` a cada passo, incluindo `Clinica.Desktop` na
-  lista `PROJETOS` do script assim que ele virar módulo.
+O débito assumido na Fase 1 vira **permanente**:
 
-Se a Fase 4 nunca acontecer, nada quebra: o sistema segue com duas cópias do
-design system e o Gerente Geral sem as telas de faturamento.
+- duas cópias do design system (`Clinica.Desktop/Styles` e `Clinica.Desktop.Shell/Styles`);
+- duas implementações da mesma política de log (`LogErros` e `LogSuite`).
+
+Mudar um token de cor passa a ser duas edições, para sempre. É barato perto de mexer no app
+que fatura — e o espelho de tokens (`tokens/verificar-espelho.py`) já trava divergência de
+cor no CI.
+
+### E o Gerente Geral, que "reflete tudo"?
+
+Sem a Fase 4 ele não herda as telas do faturamento. A saída é melhor que a original: o
+Gerente ganha **telas próprias de leitura** construídas sobre os mesmos serviços
+compartilhados que o faturamento usa — `PendenciaService`, `RelatorioService`,
+`LoteTissService`. Ele enxerga tudo sem tocar em uma linha de `Clinica.Desktop`, e como é
+só leitura, não há risco de escrita concorrente com o faturista.
+
+Isso também mantém honesta a promessa da arquitetura: o executável não é dono das telas.
+O Gerente continua sendo uma casca — só que com um módulo de leitura a mais.
+
+> A distribuição das features da proposta pelos quatro módulos, com o estado de cada uma,
+> está em [`features-por-modulo.md`](features-por-modulo.md); como o cliente recebe os
+> apps, em [`entrega-ao-cliente.md`](entrega-ao-cliente.md).
 
 ### Validação
 

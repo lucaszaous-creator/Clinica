@@ -1,205 +1,287 @@
 # Features por módulo
 
-> O mapa entre o que a **apresentação comercial** promete
-> (`docs/apresentacao/apresentacao-semdor.html`) e o que cada módulo da suíte entrega.
-> Serve para evoluir um módulo de cada vez sem perder de vista o que foi vendido.
+> O catálogo do que a **proposta comercial** (`ApresentacaoSemDor.pdf`) vendeu, distribuído
+> pelos **quatro módulos** da suíte, com o estado real de cada feature conferido no código.
+> É a lista que a gente vai quitando em parcelas.
 
-A apresentação foi feita quando existia **um** produto ("Clínica SemDor — Sistema de
-Faturamento") e **um** executável. A suíte multi-exe partiu isso em quatro
-(`docs/arquitetura-multi-exe.md`). Nenhuma feature sumiu no caminho — mas várias
-mudaram de dono, e é isso que este arquivo registra.
+**Módulos são os quatro apps:** Faturamento · Recepção · Financeiro · Gerente Geral.
+Os 14 itens numerados da proposta são **features**, e cada uma precisa de um módulo dono.
 
 ## Como ler
 
 | Estado | Significado |
 |---|---|
 | ✅ | Pronto e em produção |
-| 🟡 | Existe, mas não como a apresentação promete |
-| ⬜ | Prometido na apresentação e **ainda não existe** |
-| 🔵 | Existe, mas **não** está na apresentação (nasceu depois) |
+| 🟡 | Existe, mas não como a proposta promete |
+| ⬜ | Vendido e **ainda não existe** |
+| 🔵 | Existe e **não** está na proposta (nasceu depois) |
 
-**A regra de dono:** uma feature pertence ao módulo de **quem faz o trabalho**, não de
-quem olha o resultado. A recepção marca e faz o check-in; o faturamento cobra a guia; o
-financeiro registra o dinheiro. Quem só consulta ganha uma visão, não a feature.
+Cada estado ✅ ou 🟡 cita o arquivo que o sustenta. Estado sem evidência não entra aqui.
 
-**O Gerente Geral não aparece nas tabelas abaixo de propósito**: ele carrega todos os
-módulos, então tem, por construção, tudo o que estiver marcado aqui. Ele só tem seção
-própria no fim deste arquivo, para o que **só** faz sentido nele.
+## A regra que manda em tudo: o Faturamento está congelado
+
+Ele fatura a clínica hoje. **Não se encosta nele.** Como os quatro apps compartilham
+`Clinica.Domain`, `Clinica.Application` e `Clinica.Infrastructure`, a fronteira precisa ser
+exata — senão nada poderia ser construído:
+
+| Pode | Não pode |
+|---|---|
+| Criar entidades e serviços novos nas camadas compartilhadas | Alterar ou remover o que o faturamento já usa |
+| Migration **aditiva** (tabela nova, coluna nova anulável) | Renomear ou remover coluna/tabela existente |
+| Ler dados do faturamento a partir de outro módulo | Editar telas, ViewModels ou fluxos de `Clinica.Desktop` |
+| Publicar release dos outros três apps | Republicar o faturamento por mudança que não é dele |
+
+**Por isso a Fase 4 da arquitetura foi cancelada** — migrar o faturamento para módulo é,
+por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
+
+## Onde cada feature da proposta foi parar
+
+| # | Feature | Módulo dono | Estado | Parcela |
+|---|---|---|---|---|
+| 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ⬜ | 1 |
+| 02 | Agenda multiprofissional | Recepção | 🟡 | 1 |
+| 03 | Fila em kanban | Recepção | 🟡 | 1 |
+| 04 | Pacientes — cadastro 360º | Recepção | 🟡 | 2 |
+| 05 | Prontuário — evolução + EVA | Recepção | ⬜ | 2 |
+| 06 | Mapa corporal | Recepção | ⬜ | 3 |
+| 07 | Prescrição | Recepção | ⬜ | 3 |
+| 08 | Pacotes, planos e vouchers | Financeiro | ⬜ | 4 |
+| 09 | Caixa, repasses e conciliação | Financeiro | 🟡 | 4 |
+| 10 | Estoque | Financeiro | ⬜ | 4 |
+| 11 | Marketing — NPS e recall | Gerente | ⬜ | 5 |
+| 12 | BI — indicadores | Gerente | 🟡 | 5 |
+| 13 | Permissões e LGPD | Gerente | ⬜ | 5 |
+| 14 | Faturamento TISS 4.01 | Faturamento | ✅ | — |
 
 ---
 
-## Faturamento — `Clinica.Desktop`
+## Módulo FATURAMENTO — `Clinica.Desktop`
 
-O módulo que a apresentação descreve. É também o que está em produção na clínica, e por
-isso o último a ser mexido (Fase 4 da arquitetura).
+**Congelado.** Nenhuma feature nova entra aqui. Está listado para que ninguém tente
+reconstruir o que já existe — e para que o Gerente saiba o que pode ler.
 
-### Painel de pendências — *Tela 01 da apresentação*
+### Feature 14 · Faturamento TISS 4.01 — ✅
 
-| Feature | Estado | Onde |
+| Item | Estado | Onde |
 |---|---|---|
-| Semáforo de urgência por guia (verde/amarelo/vermelho) | ✅ | `PendenciaService`, `DashboardViewModel` |
-| 2º código visível até a baixa | ✅ | `PendenciaService.CodigosPendentesAsync` |
-| KPIs no topo (em aberto, urgentes, consultas a renovar, total) | ✅ | `DashboardViewModel` |
-| Filtros por convênio e urgência | ✅ | `DashboardViewModel.FiltroConvenio/FiltroUrgencia` |
-| Ações na linha: baixa, WhatsApp, NC | ✅ | `DashboardView.xaml` |
-| Baixa em lote | ✅ | `Alertas/BaixaLoteWindow` |
-| Consultas a renovar e carteirinhas a vencer | ✅ | `PendenciaService` |
-
-### Rodada de não conformidade — *Tela 03*
-
-| Feature | Estado | Onde |
-|---|---|---|
-| Prazo por guia, com bloqueio na abertura | ✅ | `RodadaPendenciasService`, `RodadaPendenciasFluxo` |
-| Decisão obrigatória: baixa ou NC justificada | ✅ | `RodadaPendenciasWindow` |
-| NC reabre sozinha quando o paciente volta | ✅ | `AtendimentoService.LancarAsync` |
-| Carência de 1ª execução (backlog não trava tudo) | ✅ | `ParametrosService.ChaveInicioRodadaPrazo` |
-| Aba própria de NC + NC proativa pelo painel | ✅ | `NaoConformidadesViewModel` |
-| **Texto da apresentação diz "10 dias após o atendimento"** | 🟡 | Ver *Dívidas da apresentação* |
-
-### Novo atendimento e motor de regras — *Tela 02*
-
-| Feature | Estado | Onde |
-|---|---|---|
-| 2º código gerado automaticamente com data prevista +24h | ✅ | `AtendimentoService`, `Domain/Regras/` |
-| Uma regra por convênio (Unimed Padrão/Intercâmbio, Amil, Petrobras) | ✅ | `RegistroRegras` |
-| BSV com inversão de datas | ✅ | modalidade `BsvComAcupuntura` dentro das regras |
-| Convênio personalizado criado em runtime | 🔵 | `RegraGenerica`, `CatalogoConvenios` |
-| Escolha de qual código sai primeiro (modalidade dupla) | ✅ | `NovoAtendimentoViewModel` |
-| Capa inicial em PDF | ✅ | `CapaFaturamentoService` |
-| Baixa da 1ª guia na própria tela de lançamento | 🔵 | `NovoAtendimentoViewModel` |
-| Aviso de guia pendente / NC do paciente ao lançar | 🔵 | `PendenciaService.PendenciasDoPacienteAsync` |
-| Aviso de cota de sessões autorizadas (evita glosa 2006) | 🔵 | `AutorizacaoService` |
-
-### Ciclo TISS — *Tela 04*
-
-| Feature | Estado | Onde |
-|---|---|---|
+| Motor de regras por convênio (Unimed Padrão/Intercâmbio, Amil, Petrobras) | ✅ | `Domain/Regras/`, `RegistroRegras` |
+| BSV com inversão de datas | ✅ | modalidade `BsvComAcupuntura` |
+| 2º código automático com data prevista +24h | ✅ | `AtendimentoService` |
 | Lote → envio → retorno → glosa → recurso | ✅ | `LoteTissService` |
-| XML TISS 4.01 (consulta e SP/SADT) | ✅ | `TissExportService` |
-| Epílogo validado por hash antes de sair | ✅ | `TissValidador` |
-| XSD oficial opcional | ✅ | `%APPDATA%\ClinicaFaturamento\tiss\schemas` |
-| Guia exportada nunca entra em dois lotes | ✅ | `LoteTissService` |
-| Importar demonstrativo e pré-preencher o retorno | ✅ | `TissRetornoImport` |
+| XML TISS 4.01 com epílogo validado por hash | ✅ | `TissExportService`, `TissValidador` |
 | Guia em PDF no leiaute ANS | ✅ | `GuiaTissPdfService` |
-
-### Glosas — *Tela 05*
-
-| Feature | Estado | Onde |
-|---|---|---|
-| Prazo de recurso com data-limite e semáforo | ✅ | `GlosaService`, `PendenciaService` |
-| Motivo padronizado pela tabela ANS | ✅ | `Domain/Regras/MotivosGlosa` |
+| Importar demonstrativo e pré-preencher o retorno | ✅ | `TissRetornoImport` |
 | Recurso de glosa em XML | ✅ | `TissExportService.GerarRecursoGlosaXml` |
-| Radar de prevenção de glosa na exportação | 🔵 | `PrevencaoGlosaService` |
+| Glosa com prazo de recurso e motivo ANS | ✅ | `GlosaService`, `MotivosGlosa` |
+| Radar de prevenção de glosa | 🔵 | `PrevencaoGlosaService` |
+| Convênios personalizados criados em runtime | 🔵 | `RegraGenerica`, `CatalogoConvenios` |
+| Cota de sessões autorizadas (evita glosa 2006) | 🔵 | `AutorizacaoService` |
 
-### Relatórios — *"Relatórios que provam"*
+### Feature 01 · Início — painel com semáforo — ✅ (versão do faturamento)
 
-| Feature | Estado | Onde |
+| Item | Estado | Onde |
 |---|---|---|
-| Taxa de baixa | ✅ | `ResumoFaturamento.TaxaBaixa` |
-| Taxa de glosa por convênio | ✅ | `FaturamentoPorConvenio.TaxaGlosa` |
-| Tempo médio do atendimento até a baixa | ✅ | `ResumoFaturamento.TempoMedioBaixaDias` |
-| Envelhecimento das pendências e evolução mensal | 🔵 | `FaixaEnvelhecimento`, `ResumoMensal` |
+| Semáforo de urgência por guia | ✅ | `PendenciaService`, `DashboardViewModel` |
+| KPIs, filtros por convênio e urgência | ✅ | `DashboardViewModel` |
+| Baixa, WhatsApp e NC na própria linha | ✅ | `DashboardView.xaml` |
+| Baixa em lote | ✅ | `Alertas/BaixaLoteWindow` |
+| Rodada de não conformidade com bloqueio | ✅ | `RodadaPendenciasService` |
+| **Agenda do dia e ocupação no painel** | ⬜ | Vai na Recepção, não aqui |
+
+> O faturamento também tem hoje telas de Agenda, Pacientes e Consultas. Elas **permanecem
+> como estão** e não evoluem — a versão que cresce é a da Recepção.
 
 ---
 
-## Recepção — `Clinica.Modulo.Recepcao`
+## Módulo RECEPÇÃO — `Clinica.Modulo.Recepcao`
 
-A apresentação chama a tela do faturamento de "Recepção" porque, no produto único, era a
-secretária que fazia tudo. Com a suíte, **a recepção vira um módulo próprio** — e as
-features de atendimento ao paciente são dela, não do faturamento.
+O balcão e o ato clínico. É o módulo com mais dívida: **quatro das sete features são do
+zero.**
 
-| Feature | Estado | Observação |
+### Feature 01 · Painel próprio da recepção — ⬜ · parcela 1
+
+| Item | Estado |
+|---|---|
+| Pendências de guias em destaque | ⬜ (lê `PendenciaService`, já existe) |
+| Agenda do dia e ocupação | ⬜ |
+| Atalho de 1 clique para o WhatsApp | 🔵 já existe no faturamento; replicar |
+
+### Feature 02 · Agenda multiprofissional — 🟡 · parcela 1
+
+| Item | Estado | Observação |
 |---|---|---|
-| Fila do dia (confirmar presença, cancelar, marcar falta) | ✅ | Entregue na Fase 1 |
-| Check-in que gera o atendimento e os códigos | ✅ | `AgendaService.ConfirmarPresencaAsync` — alimenta o faturamento sem redigitar |
-| Agenda em grade de horários, com remarcação | 🟡 | Existe, mas **no faturamento** (`Secao.Agenda`) |
-| Cadastro de paciente | 🟡 | Existe no faturamento (`Secao.Pacientes`) |
-| Foto do paciente pela webcam | 🟡 | Existe no faturamento — e é literalmente a webcam da recepção |
-| Carteirinha vencida / cota de sessões: avisar na chegada | 🟡 | Existe no lançamento do faturamento |
-| Tela de setup da conexão própria | ⬜ | Hoje depende do Faturamento instalado na máquina |
+| Grade de horários com remarcação | ✅ | Existe **no faturamento** (`Secao.Agenda`) |
+| Visão por profissional ou por sala | ⬜ | `Agendamento` não tem `ProfissionalId` nem `SalaId` |
+| Encaixe rápido e lista de espera | ⬜ | |
+| Confirmação automática por WhatsApp | ⬜ | Hoje o envio é manual, 1 clique |
 
-**Decisão pendente:** as linhas 🟡 acima estão hoje no faturamento e são candidatas
-naturais a migrar para o módulo de Recepção na Fase 4 — ou a virar um módulo
-compartilhado ("Cadastro"), já que o faturamento também precisa delas. Não é mecânico;
-depende de quem você quer que instale o quê.
+### Feature 03 · Fila em kanban — 🟡 · parcela 1
+
+| Item | Estado | Onde |
+|---|---|---|
+| Fila do dia com confirmar/cancelar/faltou | ✅ | `FilaViewModel` — mas em **lista**, não kanban |
+| Colunas Chegou · Em atendimento · Finalizado | ⬜ | |
+| Tempo de espera visível | ⬜ | |
+| Aviso de pendência já no check-in | ✅ | `AgendaService.ConfirmarPresencaAsync` |
+
+### Feature 04 · Pacientes — cadastro 360º — 🟡 · parcela 2
+
+| Item | Estado | Onde |
+|---|---|---|
+| Dados, convênio e carteirinha | ✅ | Existe no faturamento; replicar na Recepção |
+| Foto pela webcam | ✅ | `CameraServico`, `Retrato` — é a webcam da recepção |
+| Histórico de sessões e guias | 🟡 | `FichaPacienteViewModel` (faturamento) |
+| Validação de elegibilidade | ⬜ | |
+| LGPD: consentimento registrado | ⬜ | |
+
+### Feature 05 · Prontuário — evolução + EVA — ⬜ · parcela 2
+
+| Item | Estado |
+|---|---|
+| Escala de dor EVA por sessão | ⬜ |
+| Evolução em texto e estruturada | ⬜ |
+| Anexos e imagens no histórico | ⬜ |
+
+Nada existe. Entidades, serviço, telas e testes do zero.
+
+### Feature 06 · Mapa corporal — ⬜ · parcela 3
+
+| Item | Estado |
+|---|---|
+| Mapa corporal interativo | ⬜ |
+| Protocolo reutilizável entre sessões | ⬜ |
+| Vinculado à evolução clínica | ⬜ |
+
+### Feature 07 · Prescrição — ⬜ · parcela 3
+
+| Item | Estado |
+|---|---|
+| Modelos de receita e orientação | ⬜ |
+| Impressão com a marca SemDor | 🔵 infraestrutura existe (`MarcaSemDor`) |
+| Assinatura e carimbo digitais | ⬜ |
 
 ---
 
-## Financeiro — `Clinica.Modulo.Financeiro`
+## Módulo FINANCEIRO — `Clinica.Modulo.Financeiro`
 
-**Nada aqui foi prometido na apresentação** — ela é sobre faturamento, e faturamento
-neste produto não tem campo de dinheiro. O módulo nasceu depois, e por isso é todo 🔵.
+### Feature 09 · Caixa, repasses e conciliação — 🟡 · parcela 4
 
-| Feature | Estado | Onde |
+| Item | Estado | Onde |
 |---|---|---|
-| Caixa do mês (entradas, saídas, saldo realizado e previsto) | ✅ | `CaixaViewModel` |
-| Lançamento manual, realizar e cancelar (com motivo) | ✅ | `LancamentoEdicaoViewModel` |
-| Conciliação: guia efetivada que não virou receita | ✅ | `FinanceiroService.GuiasSemLancamentoAsync` |
-| Produção do período (volume de códigos) | ✅ | `ProducaoViewModel` |
-| Plano de contas (categorias) | 🟡 | Serviço pronto; sem tela de gestão |
-| Repasse por profissional | ⬜ | Depende de uma entidade `Profissional` que não existe |
-| Contas recorrentes e centro de custo | ⬜ | — |
+| Fluxo de caixa diário | ✅ | `CaixaViewModel` |
+| Lançamento manual, realizar e cancelar | ✅ | `LancamentoEdicaoViewModel` |
+| Conciliação com o atendimento | ✅ | `FinanceiroService.GuiasSemLancamentoAsync` |
+| Produção do período | 🔵 | `ProducaoViewModel` |
+| Plano de contas (categorias) | 🟡 | Serviço pronto, sem tela de gestão |
+| **Repasse por profissional** | ⬜ | Depende de `Profissional` (parcela 1) |
 
-> A fronteira é regra de projeto, não acaso: **o dinheiro vive só em
-> `LancamentoFinanceiro`**. `CodigoFaturamento` e `Atendimento` nunca ganham campo de
-> valor, e a dependência aponta só do financeiro para o faturamento.
+> A fronteira é regra de projeto: **o dinheiro vive só em `LancamentoFinanceiro`**.
+> `CodigoFaturamento` e `Atendimento` nunca ganham campo de valor.
+
+### Feature 08 · Pacotes, planos e vouchers — ⬜ · parcela 4
+
+| Item | Estado |
+|---|---|
+| Saldo de sessões por paciente | ⬜ |
+| Vouchers e planos recorrentes | ⬜ |
+| Baixa automática ao atender | ⬜ |
+
+> Cuidado para não confundir com `AutorizacaoSessoes`, que é **cota do convênio** — outra
+> coisa. Pacote é venda da clínica.
+
+### Feature 10 · Estoque — ⬜ · parcela 4
+
+| Item | Estado |
+|---|---|
+| Entrada e baixa por sessão | ⬜ |
+| Alerta de mínimo e validade | ⬜ |
+| Custo por atendimento | ⬜ |
 
 ---
 
-## Transversal — `Clinica.Desktop.Shell` e camadas compartilhadas
+## Módulo GERENTE GERAL — `Clinica.Gerente`
 
-A apresentação vende isto como "Por dentro / pronto para produção". Não é de nenhum
-módulo: é de todos.
+Ele **carrega os módulos dos outros** — então tem, por construção, tudo o que estiver
+marcado acima. Só entram aqui as features que **só** fazem sentido nele.
 
-| Feature | Estado | Onde |
+Com a Fase 4 cancelada, o Gerente não herda as telas do faturamento. Ele ganha **telas
+próprias de leitura** sobre os mesmos serviços compartilhados (`PendenciaService`,
+`RelatorioService`, `LoteTissService`) — enxerga tudo sem tocar no app em produção, e
+sendo só leitura não há risco de escrita concorrente.
+
+### Feature 12 · BI — indicadores — 🟡 · parcela 5
+
+| Item | Estado | Onde |
 |---|---|---|
-| Trilha de auditoria (baixa, estorno, glosa, lote) | ✅ | `IClinicaRepositorio.RegistrarAuditoriaAsync` |
-| Multiusuário sem sobrescrever (concorrência otimista `xmin`) | ✅ | `ClinicaRepositorio.SalvarAsync` |
-| Migrations na abertura, com advisory lock entre os apps | ✅ | `ShellBootstrap.PrepararBancoAsync` |
-| Backup local antes de migrar + backup diário | ✅ | `BackupLocal` |
-| Atualização automática | ✅ | `UpdateService` (faturamento), `AtualizadorSuite` (suíte) |
-| Log de erros em arquivo | ✅ | `LogErros` + `LogSuite` |
-| Design system único | 🟡 | Duplicado entre faturamento e shell até a Fase 4 |
-| **Contingência offline** | ⬜ | **Não existe** — ver abaixo |
+| Faturamento e taxa de glosa | ✅ | `RelatorioService` — falta a tela no Gerente |
+| Envelhecimento e evolução mensal | 🔵 | `FaixaEnvelhecimento`, `ResumoMensal` |
+| Ocupação e no-show | ⬜ | Depende de `Profissional`/`Sala` |
+| Produtividade por profissional | ⬜ | Depende de `Profissional` |
+
+### Feature 11 · Marketing — NPS e recall — ⬜ · parcela 5
+
+| Item | Estado |
+|---|---|
+| NPS automático pós-consulta | ⬜ |
+| Recall de pacientes inativos | ⬜ |
+| Campanhas por WhatsApp | ⬜ |
+
+### Feature 13 · Permissões e LGPD — ⬜ · parcela 5
+
+| Item | Estado | Onde |
+|---|---|---|
+| Trilha de auditoria imutável | ✅ | `EventoAuditoria`, `RegistrarAuditoriaAsync` |
+| Perfis e permissões finas | ⬜ | Depende de `Profissional` |
+| Conformidade LGPD (consentimento) | ⬜ | |
 
 ---
 
-## Gerente Geral — `Clinica.Gerente`
+## Documentos impressos — página 21 da proposta
 
-Ele **reflete tudo**: carrega os módulos dos outros e ganha cada feature acima sem uma
-linha de código. Não tem, nem deve ter, tela própria.
+**12 prometidos, 3 existem.**
 
-O que só faz sentido nele:
-
-| Feature | Estado | Observação |
-|---|---|---|
-| Todos os módulos numa janela só | ✅ | Entregue na Fase 3 |
-| Módulo de faturamento na lista | ⬜ | Entra na Fase 4 — hoje o Gerente **não** tem as telas de faturamento |
-| Visão consolidada (faturamento + caixa + produção) | ⬜ | Uma tela que cruza os módulos; nenhum módulo isolado pode oferecê-la |
-| Perfis de acesso (quem pode ver o quê) | ⬜ | Fora do escopo das Fases 1–4 |
+| Documento | Módulo | Estado | Onde |
+|---|---|---|---|
+| Capa de lote | Faturamento | ✅ | `CapaFaturamentoService` |
+| Guia TISS SP/SADT | Faturamento | ✅ | `GuiaTissPdfService` |
+| Fechamento | Faturamento | ✅ | `FechamentoPdfService` |
+| Receita | Recepção | ⬜ | parcela 3 |
+| Atestado | Recepção | ⬜ | parcela 3 |
+| Comparecimento | Recepção | ⬜ | parcela 3 |
+| Pedido de exame | Recepção | ⬜ | parcela 3 |
+| Relatório de evolução (EVA) | Recepção | ⬜ | parcela 3 |
+| Consentimento | Recepção | ⬜ | parcela 3 |
+| Anamnese | Recepção | ⬜ | parcela 3 |
+| Recibo | Financeiro | ⬜ | parcela 4 |
+| Orçamento | Financeiro | ⬜ | parcela 4 |
 
 ---
 
-## O que a apresentação promete e ainda não existe
+## O bloqueio de fundação
 
-Curto de propósito — é a lista que importa.
+Não existe entidade `Profissional`, e `Agendamento` não tem `ProfissionalId` nem `SalaId`
+(`src/Clinica.Domain/Entities/Agendamento.cs`). Isso trava, de uma vez:
 
-1. **Contingência offline.** A apresentação afirma: *"Internet caiu? O sistema mostra as
-   últimas pendências sincronizadas — a recepção sabe o que faturar hoje."* **Não há nada
-   disso no código**: sem banco, o app não abre. Existe `BackupLocal`, mas é recuperação
-   de desastre, não leitura offline. É a única promessa da apresentação sem nenhuma
-   implementação — e é uma promessa fácil de checar numa demonstração.
+- agenda multiprofissional (02)
+- quem atendeu, no prontuário (05)
+- repasse por profissional (09)
+- produtividade e ocupação no BI (12)
+- perfis de acesso (13)
 
-2. **Tela de setup própria da suíte.** Recepção, Financeiro e Gerente só sobem se o
-   Faturamento já tiver sido configurado na mesma máquina. Não está na apresentação, mas
-   impede vender qualquer módulo separadamente — que é a premissa comercial da suíte.
+É por isso que a fundação é a **parcela 1**. E ela é puramente aditiva — tabela e colunas
+novas —, então não encosta no faturamento.
 
-### Dívidas da apresentação (texto desatualizado)
+## Divergências da proposta
 
-A apresentação vai para cliente, então divergência aqui não é detalhe:
+O documento já foi ao cliente. Estas três precisam de decisão comercial:
 
-- Ela diz **"cada guia vence 10 dias após o atendimento"** e *"3 guias passaram de 10 dias
-  desde o atendimento"*. Desde o PR #44 o prazo conta **da data prevista de faturamento**,
-  não do atendimento. O texto precisa ser corrigido.
-- Ela não menciona nada da suíte (Recepção, Financeiro, Gerente Geral), que hoje é o
-  principal argumento de venda além do faturamento.
+1. **Página 24 diz "Dois apps, um banco".** São **quatro** apps, um por perfil.
+2. **Página 23 marca ✓ em "Prontuário com mapa corporal e EVA"** para a SemDor contra os
+   concorrentes. São as features 05 e 06 — **não existem**. É a afirmação mais exposta do
+   documento.
+3. **O cronograma não fecha.** A Fase 1 (1–2 meses) inclui prontuário com EVA: domínio,
+   telas, PDF e testes do zero. As parcelas deste arquivo são a ordem técnica correta; o
+   calendário contra o cliente é decisão sua.
+
+> Como o cliente recebe os quatro apps, em que ordem e o que precisa estar pronto antes:
+> [`entrega-ao-cliente.md`](entrega-ao-cliente.md).
