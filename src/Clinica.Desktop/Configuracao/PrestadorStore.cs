@@ -30,9 +30,10 @@ public static class PrestadorStore
             if (File.Exists(Arquivo))
                 return JsonSerializer.Deserialize<DadosPrestador>(File.ReadAllText(Arquivo), Opcoes) ?? new DadosPrestador();
         }
-        catch
+        catch (Exception ex)
         {
-            // Config corrompida não deve impedir o uso.
+            // Config corrompida não deve impedir o uso, mas precisa deixar rastro.
+            LogErros.Registrar("Prestador — configuração local corrompida", ex);
         }
         return new DadosPrestador();
     }

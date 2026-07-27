@@ -220,9 +220,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             AutorizacaoCritica = saldo.Vencida || saldo.Esgotada;
             AutorizacaoNaUltima = !AutorizacaoCritica && saldo.NaUltima;
         }
-        catch
+        catch (Exception ex)
         {
             // Aviso é auxiliar: nunca pode impedir o lançamento do atendimento.
+            Configuracao.LogErros.Registrar("Novo atendimento — cota de sessões não pôde ser lida", ex);
             SaldoAutorizacao = null;
             AutorizacaoCritica = false;
             AutorizacaoNaUltima = false;
@@ -285,9 +286,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 
             AvisoPendencias = "Este paciente tem " + string.Join(" ", partes);
         }
-        catch
+        catch (Exception ex)
         {
             // Aviso é auxiliar: uma falha aqui nunca pode impedir o lançamento do atendimento.
+            Configuracao.LogErros.Registrar("Novo atendimento — pendências do paciente não puderam ser lidas", ex);
             AvisoPendencias = null;
         }
     }
@@ -441,9 +443,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             var atendimento = await repo.ObterAtendimentoAsync(_ultimoAtendimentoId);
             if (atendimento is not null) MontarCodigos(atendimento.Codigos);
         }
-        catch
+        catch (Exception ex)
         {
             // A baixa já foi gravada; falhar aqui só deixa a tela desatualizada.
+            Configuracao.LogErros.Registrar("Novo atendimento — recarga dos códigos após a baixa falhou", ex);
         }
     }
 

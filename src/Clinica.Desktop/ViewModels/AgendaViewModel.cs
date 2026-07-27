@@ -99,9 +99,10 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             var prestador = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
             _nomeClinica = string.IsNullOrWhiteSpace(prestador.NomeFantasia) ? prestador.RazaoSocial : prestador.NomeFantasia;
         }
-        catch
+        catch (Exception ex)
         {
             // Sem nome da clínica a mensagem sai sem assinatura; não impede a agenda.
+            Configuracao.LogErros.Registrar("Agenda — nome da clínica não pôde ser lido", ex);
         }
     }
 

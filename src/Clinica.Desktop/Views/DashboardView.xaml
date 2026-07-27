@@ -58,6 +58,21 @@
                                Text="{Binding RodadaBanner}" />
                 </DockPanel>
             </Border>
+
+            <!-- A rodada NÃO pôde ser verificada. Estado próprio: o painel não pode
+                 sugerir que está tudo em dia só porque a consulta falhou. -->
+            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,14"
+                    Visibility="{Binding RodadaIndeterminada, Converter={StaticResource BoolParaVisibilidade}}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icone}" FontSize="19"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <Button DockPanel.Dock="Right" Command="{Binding AtualizarCommand}"
+                            Style="{StaticResource BotaoSecundario}"
+                            VerticalAlignment="Center" Margin="10,0,0,0" Content="Tentar de novo" />
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold"
+                               Text="{Binding RodadaAvisoFalha}" />
+                </DockPanel>
+            </Border>
         </StackPanel>
 
         <!-- KPIs do painel -->

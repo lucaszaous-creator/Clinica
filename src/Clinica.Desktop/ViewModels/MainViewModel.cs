@@ -228,9 +228,10 @@ public partial class MainViewModel : ObservableObject
 
             PesquisaAberta = ResultadosPesquisa.Count > 0;
         }
-        catch
+        catch (Exception ex)
         {
             // Banco fora do ar não pode quebrar a digitação na pesquisa.
+            Configuracao.LogErros.Registrar("Pesquisa global — busca de pacientes falhou", ex);
         }
     }
 

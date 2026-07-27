@@ -126,9 +126,10 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
             await File.WriteAllBytesAsync(dialog.FileName, resultado.Pdf);
             Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
         }
-        catch
+        catch (Exception ex)
         {
             // A geração da capa nunca deve impedir a baixa.
+            Configuracao.LogErros.Registrar("Baixa — geração da capa falhou", ex);
         }
     }
 

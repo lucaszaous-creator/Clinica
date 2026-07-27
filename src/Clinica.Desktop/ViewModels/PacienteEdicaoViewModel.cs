@@ -164,9 +164,10 @@ public partial class PacienteEdicaoViewModel : ObservableObject
             var cheia = await service.ObterFotoAsync(id);
             if (!_fotoAlterada && cheia is not null) FotoConteudo = cheia;
         }
-        catch
+        catch (Exception ex)
         {
             // Sem a foto cheia o formulário segue com a miniatura.
+            Configuracao.LogErros.Registrar("Cadastro de paciente — foto não pôde ser carregada", ex);
         }
     }
 

@@ -29,8 +29,10 @@ public static class ConexaoStore
             var bytes = ProtectedData.Unprotect(protegido, null, DataProtectionScope.CurrentUser);
             return Encoding.UTF8.GetString(bytes);
         }
-        catch
+        catch (Exception ex)
         {
+            // Arquivo corrompido ou perfil do Windows trocado: cai na tela de primeiro acesso.
+            LogErros.Registrar("Conexão — não foi possível ler a configuração salva", ex);
             return null;
         }
     }
@@ -92,6 +94,8 @@ public static class ConexaoStore
         }
         catch (Exception ex)
         {
+            // Falha de conexão é a ocorrência nº 1 de suporte: sempre no log.
+            LogErros.Registrar("Conexão — teste falhou", ex);
             return (false, ex.Message);
         }
     }

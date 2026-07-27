@@ -114,6 +114,16 @@ Camadas clássicas, todas em `src/`:
   - **Snackbar** (`ISnackbarService`) — só para confirmação passageira de ação que não tem
     lugar natural na tela (ex.: salvar em Configurações). Some em 4s, então nunca para erro
     que exija correção.
+- **Degradação silenciosa tem que deixar rastro.** O projeto degrada de propósito em vez de
+  derrubar o app (aviso que não carregou, foto que não abriu, update que falhou) — e isso é
+  certo. Mas todo `catch` desses grava `LogErros.Registrar(contexto, ex)` (Desktop) ou
+  `Diagnostico.Registrar` (Application/Infrastructure, com o sink ligado no `App.OnStartup`).
+  O log é um `.txt` por mês em `<pasta da instalação>\logs` (fora da pasta versionada do
+  Velopack, para sobreviver às atualizações), rotacionado em 2 MB e expurgado em 90 dias;
+  Configurações → Clínica/prestador tem o caminho e o botão "Abrir pasta de logs".
+  Só ficam mudos: o próprio logger, decodificação de quadro da webcam (30x/s) e cancelamento
+  esperado. **Falha nunca pode ser exibida como sucesso** — se a checagem não rodou, a tela
+  mostra um terceiro estado ("não verificado"), como o painel faz com a rodada de pendências.
 - **Escolher paciente é um componente só**: `SeletorPacienteViewModel` (VM) +
   `ItemPacienteSeletor` (`Styles/Componentes/Pacientes.xaml`). Ele já resolve limite no SQL
   (`BuscarPacientesAsync(termo, limite)` — nunca `Take()` depois de materializar), agrupamento
