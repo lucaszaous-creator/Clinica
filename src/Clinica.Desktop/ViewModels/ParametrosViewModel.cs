@@ -48,6 +48,15 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Dias para recorrer de uma glosa (data-limite calculada no registro da glosa).</summary>
     [ObservableProperty] private int _prazoRecursoGlosaDias = 30;
 
+    /// <summary>De quantos em quantos dias as pendências devem ser rodadas (fechamento de ciclo).</summary>
+    [ObservableProperty] private int _intervaloRodadaPendenciasDias = 10;
+
+    /// <summary>A rodada também cobra consultas a renovar? (começa aplicável só às guias).</summary>
+    [ObservableProperty] private bool _rodadaAplicaConsultas;
+
+    /// <summary>A rodada também cobra carteirinhas a vencer?</summary>
+    [ObservableProperty] private bool _rodadaAplicaCarteirinhas;
+
     // Dados da clínica/prestador (capa de faturamento + lote TISS)
     [ObservableProperty] private string? _razaoSocial;
     [ObservableProperty] private string? _nomeFantasia;
@@ -103,6 +112,9 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 
         JanelaAlertaConsultaDias = await parametros.ObterJanelaAlertaConsultaAsync();
         PrazoRecursoGlosaDias = await parametros.ObterPrazoRecursoGlosaAsync();
+        IntervaloRodadaPendenciasDias = await parametros.ObterIntervaloRodadaPendenciasAsync();
+        RodadaAplicaConsultas = await parametros.ObterRodadaAplicaConsultasAsync();
+        RodadaAplicaCarteirinhas = await parametros.ObterRodadaAplicaCarteirinhasAsync();
 
         var d = await parametros.ObterPrestadorAsync();
         RazaoSocial = d.RazaoSocial;
@@ -305,6 +317,29 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         return dup.Count > 0 ? string.Join(", ", dup) : null;
     }
 
+    /// <summary>Onde o sistema grava os erros — mostrado na tela para o suporte pedir o arquivo.</summary>
+    public string PastaLogs => Configuracao.LogErros.Pasta;
+
+    /// <summary>Abre a pasta de logs no Explorador do Windows.</summary>
+    [RelayCommand]
+    private void AbrirPastaLogs()
+    {
+        try
+        {
+            System.IO.Directory.CreateDirectory(PastaLogs);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(PastaLogs)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Configuracao.LogErros.Registrar("Configurações — abrir pasta de logs", ex);
+            Mensagem = $"Não foi possível abrir a pasta: {PastaLogs}";
+            MensagemEhErro = true;
+        }
+    }
+
     [RelayCommand]
     private async Task Salvar()
     {
@@ -313,6 +348,13 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
         if (JanelaAlertaConsultaDias < 0)
         {
             Mensagem = "A antecedência do alerta de consultas não pode ser negativa.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        if (IntervaloRodadaPendenciasDias < 1)
+        {
+            Mensagem = "O intervalo para rodar as pendências deve ser de pelo menos 1 dia.";
             MensagemEhErro = true;
             return;
         }
@@ -346,6 +388,8 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             await parametros.SalvarAsync(Itens.ToList());
             await parametros.SalvarJanelaAlertaConsultaAsync(JanelaAlertaConsultaDias);
             await parametros.SalvarPrazoRecursoGlosaAsync(PrazoRecursoGlosaDias);
+            await parametros.SalvarIntervaloRodadaPendenciasAsync(IntervaloRodadaPendenciasDias);
+            await parametros.SalvarRodadaAplicaAsync(RodadaAplicaConsultas, RodadaAplicaCarteirinhas);
             await parametros.SalvarPrestadorAsync(MontarPrestador());
             await catalogo.SalvarAsync(Catalogo.Select(c => c.ParaCadastro()).ToList());
 

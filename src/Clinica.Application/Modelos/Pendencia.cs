@@ -7,7 +7,8 @@ public enum NivelUrgencia
 {
     Verde,    // dentro do prazo
     Amarelo,  // vence hoje / muito em breve
-    Vermelho  // atrasado
+    Vermelho, // atrasado
+    Cinza     // não conformidade parada (documentada): reativa quando o paciente volta ou é resolvida
 }
 
 /// <summary>Uma guia/código pendente de baixa (a causa da perda de faturas).</summary>
@@ -28,7 +29,9 @@ public sealed record PendenciaCodigo(
     /// <summary>Anotação do responsável sobre por que a guia ainda não foi baixada (nula = sem anotação).</summary>
     string? ObservacaoPendencia = null,
     /// <summary>Quando a observação foi anotada/atualizada.</summary>
-    DateTime? ObservacaoPendenciaEm = null)
+    DateTime? ObservacaoPendenciaEm = null,
+    /// <summary>True quando esta linha é uma NÃO CONFORMIDADE parada (semáforo cinza, reabrível).</summary>
+    bool EhNaoConformidade = false)
 {
     /// <summary>True quando há uma observação registrada (para destacar a linha na tela).</summary>
     public bool TemObservacao => !string.IsNullOrWhiteSpace(ObservacaoPendencia);

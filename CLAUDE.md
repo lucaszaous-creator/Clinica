@@ -70,6 +70,27 @@ Camadas clássicas, todas em `src/`:
   prevista +24h e a inversão de datas do BSV são requisitos do convênio, não bugs.
 - Guia exportada num lote TISS não pode entrar em outro lote; glosa ganha data-limite de recurso
   (prazo configurável, padrão 30 dias) vigiada no dashboard.
+- **Rodar as pendências** (`RodadaPendenciasService`): o prazo de decisão é contado **por atendimento** —
+  cada guia pendente vence N dias (configurável, padrão 10) depois do **atendimento do paciente**
+  (`CodigoFaturamento.PrazoDecisaoVencido`). Passado o prazo sem baixa, o painel alarda (banner) e a
+  abertura do app abre uma janela BLOQUEANTE com as guias vencidas: cada uma exige decisão — baixa ou
+  **não conformidade** (`StatusCodigo.NaoConformidade` + justificativa) — e o sistema fica travado até
+  a resolução. Há uma **carência de 1ª execução** (`ParametrosService.InicioRodadaPorAtendimento`,
+  ancorada por `GarantirInicioAsync`): guias de atendimentos anteriores à ativação da versão só passam
+  a contar o prazo a partir da ativação, para o backlog acumulado não bloquear tudo de uma vez. O usuário também pode marcar NC proativamente (sem esperar o prazo) pelo botão **NC** na
+  linha da pendência no painel (`NaoConformidadeWindow`). A não conformidade sai das
+  pendências ativas (`EstaPendente`/`CodigosEmAbertoAsync` a ignoram) e vai para a aba própria **NC**
+  (`NaoConformidadesViewModel` / `Secao.NaoConformidades`), que lista todas via
+  `RodadaPendenciasService.NaoConformidadesAsync`, permite ler a justificativa e reabrir; também entra
+  no relatório. Ela reativa (volta a pendência) de duas formas: manualmente (botão Reabrir na aba NC)
+  ou automaticamente quando o **paciente volta** — `AtendimentoService.LancarAsync` reabre as NCs do
+  paciente e avisa a secretária para cobrar a guia na hora. Toggles em Configurações estendem a rodada
+  a consultas/carteirinhas.
+- **Foto do paciente**: capturada pela webcam da recepção (`Desktop/Servicos/CameraServico.cs`,
+  DirectShow via AForge; `Retrato.cs` recorta em quadrado e gera os dois JPEGs). O armazenamento é
+  deliberadamente partido em dois: `Paciente.FotoMiniatura` (~160px, na própria linha, alimenta os
+  avatares da lista) e a tabela `PacientesFotos` (~640px, carregada só sob demanda) — assim a busca
+  de pacientes não arrasta imagem. A gravação acontece no Salvar do cadastro, nunca na captura.
 - Ações que alteram faturamento (baixa, estorno, glosa, lote) devem gravar um `EventoAuditoria`
   via `IClinicaRepositorio.RegistrarAuditoriaAsync` no MESMO SaveChanges da ação (atômico).
 - Concorrência otimista via `xmin` (só no Npgsql — testes rodam em SQLite e ficam de fora);
@@ -85,7 +106,29 @@ Camadas clássicas, todas em `src/`:
 
 - Ao adicionar um convênio fixo: nova classe em `Domain/Regras/`, registrar em `RegistroRegras`,
   adicionar ao enum `Convenio`, cobrir o fluxograma com testes em `RegrasFaturamentoTests`.
-- Toda tela que escreve segue o padrão de robustez: exceções tratadas com snackbar
-  (`ISnackbarService`), erro global nunca derruba o app (`DispatcherUnhandledException`).
+- Toda tela que escreve trata as exceções e nunca derruba o app (`DispatcherUnhandledException`
+  como última rede). O **feedback tem dois canais, e a escolha não é livre**:
+  - **Mensagem inline** (propriedade `Mensagem` + `MensagemEhErro` no VM, desenhada perto da
+    ação) — é o padrão para formulário: validação, erro de gravação e confirmação que precisa
+    ficar na tela enquanto o usuário corrige. Usado em 13 dos 18 VMs.
+  - **Snackbar** (`ISnackbarService`) — só para confirmação passageira de ação que não tem
+    lugar natural na tela (ex.: salvar em Configurações). Some em 4s, então nunca para erro
+    que exija correção.
+- **Degradação silenciosa tem que deixar rastro.** O projeto degrada de propósito em vez de
+  derrubar o app (aviso que não carregou, foto que não abriu, update que falhou) — e isso é
+  certo. Mas todo `catch` desses grava `LogErros.Registrar(contexto, ex)` (Desktop) ou
+  `Diagnostico.Registrar` (Application/Infrastructure, com o sink ligado no `App.OnStartup`).
+  O log é um `.txt` por mês em `<pasta da instalação>\logs` (fora da pasta versionada do
+  Velopack, para sobreviver às atualizações), rotacionado em 2 MB e expurgado em 90 dias;
+  Configurações → Clínica/prestador tem o caminho e o botão "Abrir pasta de logs".
+  Só ficam mudos: o próprio logger, decodificação de quadro da webcam (30x/s) e cancelamento
+  esperado. **Falha nunca pode ser exibida como sucesso** — se a checagem não rodou, a tela
+  mostra um terceiro estado ("não verificado"), como o painel faz com a rodada de pendências.
+- **Escolher paciente é um componente só**: `SeletorPacienteViewModel` (VM) +
+  `ItemPacienteSeletor` (`Styles/Componentes/Pacientes.xaml`). Ele já resolve limite no SQL
+  (`BuscarPacientesAsync(termo, limite)` — nunca `Take()` depois de materializar), agrupamento
+  das teclas e descarte de resposta fora de ordem. Tela nova que escolhe paciente usa ele; não
+  reescreva a busca. A **listagem** de Pacientes é outra coisa (linha com ações) e usa o mesmo
+  VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.

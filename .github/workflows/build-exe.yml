@@ -22,6 +22,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Conferir espelho dos tokens (CSS x XAML)
+        run: python tokens/verificar-espelho.py
+
       - name: Restaurar
         run: dotnet restore Clinica.sln
 

@@ -64,6 +64,7 @@ public partial class MainViewModel : ObservableObject
         _itens =
         [
             new ItemMenu { Secao = Secao.Pendencias, Rotulo = "Pendências", Glifo = "\uE9D5", Grupo = "Painel" },
+            new ItemMenu { Secao = Secao.NaoConformidades, Rotulo = "NC", Glifo = "", Grupo = "Painel" },
             new ItemMenu { Secao = Secao.Agenda, Rotulo = "Agenda", Glifo = "\uE787", Grupo = "Agenda" },
             new ItemMenu { Secao = Secao.Atendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51", Grupo = "Atendimento" },
             new ItemMenu { Secao = Secao.Consultas, Rotulo = "Consultas", Glifo = "\uE8A5", Grupo = "Atendimento" },
@@ -103,12 +104,49 @@ public partial class MainViewModel : ObservableObject
             comando.Execute(null);
     }
 
+    /// <summary>
+    /// True quando o sistema detectou (em segundo plano) uma versão nova já baixada e pronta — é o que
+    /// faz o botão "Atualizar" aparecer no rodapé. Enquanto false, não há nada a atualizar e o botão some.
+    /// </summary>
+    [ObservableProperty]
+    private bool _atualizacaoDisponivel;
+
+    /// <summary>Número da versão nova disponível (para o rótulo do botão), quando houver.</summary>
+    [ObservableProperty]
+    private string _versaoDisponivel = string.Empty;
+
+    /// <summary>
+    /// Sinaliza que há uma atualização baixada e pronta (chamado pela verificação em segundo plano).
+    /// Faz o botão "Atualizar" aparecer. Idempotente.
+    /// </summary>
+    public void SinalizarAtualizacaoDisponivel(string versao)
+    {
+        VersaoDisponivel = versao;
+        AtualizacaoDisponivel = true;
+    }
+
+    /// <summary>
+    /// Botão "Atualizar": aplica NA HORA a versão nova já baixada e reinicia o app atualizado. Só
+    /// aparece quando há atualização pronta (<see cref="AtualizacaoDisponivel"/>); se o usuário não
+    /// clicar, a mesma versão é aplicada ao fechar o sistema.
+    /// </summary>
+    [RelayCommand]
+    private void AtualizarAgora()
+    {
+        var dialogo = _sp.GetRequiredService<Controls.IDialogoService>();
+        if (dialogo.Confirmar("Atualizar sistema",
+                $"A versão {VersaoDisponivel} está pronta. Reiniciar agora para aplicar? " +
+                "(Se preferir, ela é aplicada automaticamente quando você fechar o sistema.)"))
+            UpdateService.AplicarEReiniciar(); // encerra e reabre já atualizado
+    }
+
     [RelayCommand]
     private void Navegar(Secao secao)
     {
         switch (secao)
         {
             case Secao.Pendencias: MostrarDashboard(); break;
+            case Secao.NaoConformidades: MostrarNaoConformidades(); break;
             case Secao.Agenda: MostrarAgenda(); break;
             case Secao.Atendimento: MostrarNovoAtendimento(); break;
             case Secao.Consultas: MostrarConsultas(); break;
@@ -162,6 +200,9 @@ public partial class MainViewModel : ObservableObject
             _ = PesquisarPacientesAsync(termo);
     }
 
+    /// <summary>Quantos pacientes cabem no menu da pesquisa global sem virar uma lista.</summary>
+    private const int MaximoPacientesNaPesquisa = 6;
+
     private async Task PesquisarPacientesAsync(string termo)
     {
         try
@@ -169,12 +210,13 @@ public partial class MainViewModel : ObservableObject
             using var scope = _sp.CreateScope();
             var pacientes = await scope.ServiceProvider
                 .GetRequiredService<Clinica.Application.Servicos.PacienteService>()
-                .BuscarAsync(termo);
+                // O corte vai no SQL: a pesquisa global mostra no máximo 6 nomes.
+                .BuscarAsync(termo, limite: MaximoPacientesNaPesquisa);
 
             // O usuário pode ter continuado digitando enquanto o banco respondia.
             if (TextoPesquisaGlobal.Trim() != termo) return;
 
-            foreach (var p in pacientes.Take(6))
+            foreach (var p in pacientes)
                 ResultadosPesquisa.Add(new ItemMenu
                 {
                     Secao = Secao.Pacientes,
@@ -186,9 +228,10 @@ public partial class MainViewModel : ObservableObject
 
             PesquisaAberta = ResultadosPesquisa.Count > 0;
         }
-        catch
+        catch (Exception ex)
         {
             // Banco fora do ar não pode quebrar a digitação na pesquisa.
+            Configuracao.LogErros.Registrar("Pesquisa global — busca de pacientes falhou", ex);
         }
     }
 
@@ -292,6 +335,15 @@ public partial class MainViewModel : ObservableObject
     {
         var vm = _sp.GetRequiredService<GlosasViewModel>();
         DefinirSecao(Secao.Glosas);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    [RelayCommand]
+    private void MostrarNaoConformidades()
+    {
+        var vm = _sp.GetRequiredService<NaoConformidadesViewModel>();
+        DefinirSecao(Secao.NaoConformidades);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }

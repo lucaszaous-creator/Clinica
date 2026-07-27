@@ -17,10 +17,12 @@ public static class DependencyInjection
         services.AddScoped<AtendimentoService>();
         services.AddScoped<FaturamentoService>();
         services.AddScoped<PendenciaService>();
+        services.AddScoped<RodadaPendenciasService>();
         services.AddScoped<RelatorioService>();
         services.AddScoped<PacienteService>();
         services.AddScoped<AgendaService>();
         services.AddScoped<ConsultaService>();
+        services.AddScoped<AutorizacaoService>();
         services.AddScoped<GlosaService>();
         services.AddScoped<FinanceiroService>();
         services.AddScoped<PrevencaoGlosaService>();

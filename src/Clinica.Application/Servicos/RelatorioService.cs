@@ -28,12 +28,32 @@ public sealed class RelatorioService
             {
                 var r = Resumir(g);
                 return new FaturamentoPorConvenio(g.Key, r.TotalCodigos, r.Baixados, r.Pendentes, r.TaxaBaixa,
-                    r.Glosadas, r.TaxaGlosa, r.TempoMedioBaixaDias);
+                    r.Glosadas, r.TaxaGlosa, r.TempoMedioBaixaDias, r.NaoConformidades);
             })
             .OrderBy(c => c.Convenio)
             .ToList();
 
         var envelhecimento = await EnvelhecimentoAsync(referencia, ct);
+
+        // Não conformidades do período: guias justificadas numa rodada (documentam o que ficou por baixar).
+        var naoConformidades = codigos
+            .Where(c => c.EmNaoConformidade)
+            .Select(c =>
+            {
+                var paciente = c.Atendimento?.Paciente;
+                return new NaoConformidadeItem(
+                    c.Id,
+                    paciente?.Nome ?? "(desconhecido)",
+                    paciente?.Convenio ?? default,
+                    c.Tipo,
+                    c.Ordem,
+                    c.DataPrevistaFaturamento,
+                    c.NaoConformidadeJustificativa ?? string.Empty,
+                    c.NaoConformidadeEm);
+            })
+            .OrderByDescending(n => n.Em)
+            .ThenBy(n => n.PacienteNome)
+            .ToList();
 
         // Consultas avulsas por especialidade — responde "quantas consultas de cada especialidade fizemos".
         // Agrupa pelo código (abrange especialidades criadas pela clínica) e resolve o nome pelo catálogo.
@@ -48,7 +68,7 @@ public sealed class RelatorioService
             .ThenBy(c => c.Especialidade)
             .ToList();
 
-        return new RelatorioFaturamento(inicio, fim, resumo, porConvenio, envelhecimento, consultasEspecialidades);
+        return new RelatorioFaturamento(inicio, fim, resumo, porConvenio, envelhecimento, consultasEspecialidades, naoConformidades);
     }
 
     private static ResumoFaturamento Resumir(IEnumerable<CodigoFaturamento> codigos)
@@ -56,7 +76,9 @@ public sealed class RelatorioService
         var lista = codigos as IReadOnlyCollection<CodigoFaturamento> ?? codigos.ToList();
         var total = lista.Count;
         var baixados = lista.Count(c => c.Baixado);
-        var pendentes = total - baixados;
+        var naoConformidades = lista.Count(c => c.EmNaoConformidade);
+        // Pendentes ativas = nem baixadas nem justificadas como não conformidade.
+        var pendentes = total - baixados - naoConformidades;
         var taxa = total == 0 ? 0 : Math.Round(baixados * 100.0 / total, 1);
 
         // Taxa de glosa: % das guias baixadas que sofreram glosa (mesmo que depois recuperada).
@@ -70,7 +92,7 @@ public sealed class RelatorioService
             .ToList();
         double? tempoMedio = tempos.Count == 0 ? null : Math.Round(tempos.Average(), 1);
 
-        return new ResumoFaturamento(total, baixados, pendentes, taxa, glosadas, taxaGlosa, tempoMedio);
+        return new ResumoFaturamento(total, baixados, pendentes, taxa, glosadas, taxaGlosa, tempoMedio, naoConformidades);
     }
 
     /// <summary>

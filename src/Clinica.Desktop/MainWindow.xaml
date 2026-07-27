@@ -24,6 +24,9 @@
         <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
             <views:DashboardView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:NaoConformidadesViewModel}">
+            <views:NaoConformidadesView />
+        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:PacientesViewModel}">
             <views:PacientesView />
         </DataTemplate>
@@ -227,6 +230,27 @@
                         </Style>
                     </TextBlock.Style>
                 </TextBlock>
+
+                <!-- Atualizar (rodapé): aparece só quando o sistema detectou uma versão nova já baixada.
+                     Um clique aplica e reinicia. Oculto quando recolhido ou sem atualização disponível. -->
+                <Button DockPanel.Dock="Bottom"
+                        Margin="12,0,12,8" Padding="10,6" FontSize="12"
+                        Command="{Binding AtualizarAgoraCommand}"
+                        Content="{Binding VersaoDisponivel, StringFormat='Atualizar para v{0}'}"
+                        ToolTip="Aplicar a atualização baixada e reiniciar o sistema">
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding AtualizacaoDisponivel}" Value="False">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
 
                 <!-- Badge de pendências (rodapé; oculto quando recolhida) -->
                 <Border DockPanel.Dock="Bottom" Margin="12,8,12,12" CornerRadius="8"

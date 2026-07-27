@@ -34,29 +34,52 @@ public sealed class PendenciaService
 
         return abertos
             .Where(c => c.EstaPendente(referencia))
-            .Select(c =>
-            {
-                var atraso = referencia.DayNumber - c.DataPrevistaFaturamento.DayNumber;
-                var paciente = c.Atendimento?.Paciente;
-                return new PendenciaCodigo(
-                    CodigoId: c.Id,
-                    PacienteId: paciente?.Id ?? 0,
-                    PacienteNome: paciente?.Nome ?? "(desconhecido)",
-                    Convenio: paciente?.Convenio ?? default,
-                    Tipo: c.Tipo,
-                    Ordem: c.Ordem,
-                    DataPrevista: c.DataPrevistaFaturamento,
-                    FormaObtencao: c.FormaObtencao,
-                    DiasEmAtraso: atraso,
-                    Urgencia: atraso <= 0 ? NivelUrgencia.Amarelo : NivelUrgencia.Vermelho,
-                    Descricao: c.Descricao,
-                    PacienteTelefone: paciente?.Telefone,
-                    ObservacaoPendencia: c.ObservacaoPendencia,
-                    ObservacaoPendenciaEm: c.ObservacaoPendenciaEm);
-            })
+            .Select(c => MapearPendencia(c, referencia))
             .OrderByDescending(p => p.DiasEmAtraso)
             .ThenBy(p => p.PacienteNome)
             .ToList();
+    }
+
+    /// <summary>
+    /// Guias pendentes cujo PRAZO DE DECISÃO venceu: já se passaram <paramref name="prazoDias"/> dias
+    /// (padrão 10) desde o atendimento e a guia continua sem baixa. São as que o sistema EXIGE decidir
+    /// (baixa ou não conformidade) e que bloqueiam o uso até a resolução.
+    /// <paramref name="ativacao"/> aplica a carência do backlog anterior à 1ª execução (ver
+    /// <see cref="CodigoFaturamento.PrazoDecisaoVencido"/>).
+    /// </summary>
+    public async Task<IReadOnlyList<PendenciaCodigo>> CodigosVencidosParaDecisaoAsync(
+        DateOnly referencia, int prazoDias, DateOnly? ativacao = null, CancellationToken ct = default)
+    {
+        var abertos = await _repo.CodigosEmAbertoAsync(ct);
+
+        return abertos
+            .Where(c => c.PrazoDecisaoVencido(referencia, prazoDias, ativacao))
+            .Select(c => MapearPendencia(c, referencia))
+            .OrderByDescending(p => p.DiasEmAtraso)
+            .ThenBy(p => p.PacienteNome)
+            .ToList();
+    }
+
+    /// <summary>Converte um código em aberto na linha de pendência exibida (semáforo pela data prevista).</summary>
+    private static PendenciaCodigo MapearPendencia(CodigoFaturamento c, DateOnly referencia)
+    {
+        var atraso = referencia.DayNumber - c.DataPrevistaFaturamento.DayNumber;
+        var paciente = c.Atendimento?.Paciente;
+        return new PendenciaCodigo(
+            CodigoId: c.Id,
+            PacienteId: paciente?.Id ?? 0,
+            PacienteNome: paciente?.Nome ?? "(desconhecido)",
+            Convenio: paciente?.Convenio ?? default,
+            Tipo: c.Tipo,
+            Ordem: c.Ordem,
+            DataPrevista: c.DataPrevistaFaturamento,
+            FormaObtencao: c.FormaObtencao,
+            DiasEmAtraso: atraso,
+            Urgencia: atraso <= 0 ? NivelUrgencia.Amarelo : NivelUrgencia.Vermelho,
+            Descricao: c.Descricao,
+            PacienteTelefone: paciente?.Telefone,
+            ObservacaoPendencia: c.ObservacaoPendencia,
+            ObservacaoPendenciaEm: c.ObservacaoPendenciaEm);
     }
 
     /// <summary>
@@ -67,6 +90,47 @@ public sealed class PendenciaService
         int pacienteId, DateOnly referencia, CancellationToken ct = default)
     {
         var todas = await CodigosPendentesAsync(referencia, ct);
+        return todas.Where(p => p.PacienteId == pacienteId).ToList();
+    }
+
+    /// <summary>
+    /// Não conformidades como linhas de pendência CINZA para o painel: ficam paradas (documentadas)
+    /// até o paciente voltar (reabertas) ou serem resolvidas. Não contam como urgência.
+    /// </summary>
+    public async Task<IReadOnlyList<PendenciaCodigo>> NaoConformidadesComoPendenciaAsync(
+        DateOnly referencia, CancellationToken ct = default)
+    {
+        var ncs = await _repo.CodigosEmNaoConformidadeAsync(ct);
+        return ncs
+            .Select(c =>
+            {
+                var paciente = c.Atendimento?.Paciente;
+                return new PendenciaCodigo(
+                    CodigoId: c.Id,
+                    PacienteId: paciente?.Id ?? 0,
+                    PacienteNome: paciente?.Nome ?? "(desconhecido)",
+                    Convenio: paciente?.Convenio ?? default,
+                    Tipo: c.Tipo,
+                    Ordem: c.Ordem,
+                    DataPrevista: c.DataPrevistaFaturamento,
+                    FormaObtencao: c.FormaObtencao,
+                    DiasEmAtraso: referencia.DayNumber - c.DataPrevistaFaturamento.DayNumber,
+                    Urgencia: NivelUrgencia.Cinza,
+                    Descricao: c.Descricao,
+                    PacienteTelefone: paciente?.Telefone,
+                    ObservacaoPendencia: c.NaoConformidadeJustificativa,
+                    ObservacaoPendenciaEm: c.NaoConformidadeEm,
+                    EhNaoConformidade: true);
+            })
+            .OrderBy(p => p.PacienteNome)
+            .ToList();
+    }
+
+    /// <summary>Não conformidades de UM paciente (para avisar quando ele volta, no novo atendimento).</summary>
+    public async Task<IReadOnlyList<PendenciaCodigo>> NaoConformidadesDoPacienteAsync(
+        int pacienteId, DateOnly referencia, CancellationToken ct = default)
+    {
+        var todas = await NaoConformidadesComoPendenciaAsync(referencia, ct);
         return todas.Where(p => p.PacienteId == pacienteId).ToList();
     }
 
@@ -156,7 +220,8 @@ public sealed class PendenciaService
     /// </summary>
     public async Task<IReadOnlyList<PendenciaCarteirinha>> CarteirinhasAVencerAsync(DateOnly referencia, CancellationToken ct = default)
     {
-        var pacientes = await _repo.BuscarPacientesAsync(null, ct);
+        // Sem limite: a varredura de carteirinhas precisa olhar a base inteira.
+        var pacientes = await _repo.BuscarPacientesAsync(null, limite: null, ct);
 
         return pacientes
             .Where(p => p.ValidadeCarteirinha is not null)

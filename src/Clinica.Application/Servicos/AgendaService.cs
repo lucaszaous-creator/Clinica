@@ -52,6 +52,54 @@ public sealed class AgendaService
         return ag;
     }
 
+    /// <summary>
+    /// Remarca/edita um agendamento já existente. Preserva o registro (e as observações)
+    /// em vez de obrigar a cancelar e criar de novo — cancelamento é informação, e um
+    /// cancelamento que nunca aconteceu polui o histórico da recepção.
+    /// Só vale para horário ainda de pé: presença confirmada já virou atendimento.
+    /// </summary>
+    public async Task<Agendamento> RemarcarAsync(
+        int agendamentoId, DateTime dataHora, string? observacoes,
+        string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null,
+        string? operador = null, CancellationToken ct = default)
+    {
+        var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException("Agendamento não encontrado.");
+
+        if (ag.Status == StatusAgendamento.Realizado)
+            throw new InvalidOperationException(
+                "Este horário já virou atendimento; não é possível remarcá-lo. Estorne o atendimento antes.");
+
+        var modalidade = modalidadeCodigo is not null
+            ? CatalogoModalidades.Base(modalidadeCodigo)
+            : ag.ModalidadePrevista;
+        var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
+        var horarioAnterior = ag.DataHora;
+
+        ag.DataHora = dataHora;
+        ag.ModalidadePrevista = modalidade;
+        ag.ModalidadeCodigo = modalidadeCodigo ?? modalidade.ToString();
+        ag.EspecialidadeConsulta = ehConsulta ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null;
+        ag.EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null;
+        ag.Observacoes = observacoes;
+        // Remarcar um horário cancelado/faltado o traz de volta para a agenda.
+        ag.Status = StatusAgendamento.Agendado;
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "AgendamentoRemarcado",
+            Detalhe = $"De {horarioAnterior:dd/MM/yyyy HH:mm} para {dataHora:dd/MM/yyyy HH:mm}",
+            PacienteId = ag.PacienteId
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+        return ag;
+    }
+
+    public Task<Agendamento?> ObterAsync(int agendamentoId, CancellationToken ct = default)
+        => _repo.ObterAgendamentoAsync(agendamentoId, ct);
+
     public Task<IReadOnlyList<Agendamento>> DoDiaAsync(DateOnly dia, CancellationToken ct = default)
         => _repo.AgendamentosNoPeriodoAsync(dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct);
 
@@ -63,11 +111,16 @@ public sealed class AgendaService
     /// Agendamento ativo (não cancelado/faltou) que já ocupa exatamente este horário,
     /// ou nulo se o horário está livre — usado para alertar choque de horário.
     /// </summary>
-    public async Task<Agendamento?> ConflitoAsync(DateTime dataHora, CancellationToken ct = default)
+    /// <param name="ignorarAgendamentoId">
+    /// Numa remarcação, o próprio agendamento não conta como conflito consigo mesmo.
+    /// </param>
+    public async Task<Agendamento?> ConflitoAsync(DateTime dataHora, CancellationToken ct = default,
+        int? ignorarAgendamentoId = null)
     {
         var doDia = await DoDiaAsync(DateOnly.FromDateTime(dataHora), ct);
         return doDia.FirstOrDefault(a =>
             a.DataHora == dataHora &&
+            a.Id != ignorarAgendamentoId &&
             a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado);
     }
 
@@ -114,17 +167,30 @@ public sealed class AgendaService
         return resultado;
     }
 
-    public async Task CancelarAsync(int agendamentoId, CancellationToken ct = default)
-        => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Cancelado, ct);
+    public async Task CancelarAsync(int agendamentoId, string? operador = null, CancellationToken ct = default)
+        => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Cancelado, operador, ct);
 
-    public async Task MarcarFaltaAsync(int agendamentoId, CancellationToken ct = default)
-        => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Faltou, ct);
+    public async Task MarcarFaltaAsync(int agendamentoId, string? operador = null, CancellationToken ct = default)
+        => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Faltou, operador, ct);
 
-    private async Task AlterarStatusAsync(int agendamentoId, StatusAgendamento status, CancellationToken ct)
+    private async Task AlterarStatusAsync(
+        int agendamentoId, StatusAgendamento status, string? operador, CancellationToken ct)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
+
+        var anterior = ag.Status;
         ag.Status = status;
+
+        // Falta e cancelamento são sessão não faturada: precisam de rastro de quem marcou.
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = status == StatusAgendamento.Cancelado ? "AgendamentoCancelado" : "AgendamentoFalta",
+            Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — de {anterior} para {status}",
+            PacienteId = ag.PacienteId
+        }, ct);
+
         await _repo.SalvarAsync(ct);
     }
 }

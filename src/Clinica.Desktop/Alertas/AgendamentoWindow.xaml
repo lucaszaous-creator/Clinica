@@ -1,0 +1,111 @@
+<Window x:Class="Clinica.Desktop.Alertas.AgendamentoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="{Binding Titulo}" Width="720" Height="620" MinWidth="640" MinHeight="520"
+        Icon="/Assets/Marca/icone.png"
+        WindowStartupLocation="CenterOwner" FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Fundo}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="{Binding Titulo}" Style="{StaticResource H2}" Margin="0,0,0,16" />
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="300" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== Paciente ===== -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,20,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="PACIENTE" Style="{StaticResource TituloSecao}" Margin="0,0,0,2" />
+                    <Border DockPanel.Dock="Top" Style="{StaticResource Divisor}" />
+
+                    <!-- Remarcar move o horário, não troca de pessoa: a escolha fica travada. -->
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}"
+                               Text="Remarcando — para atender outra pessoa, cancele este horário e crie um novo."
+                               Visibility="{Binding Remarcando, Converter={StaticResource BoolParaVisibilidade}}" />
+
+                    <TextBox DockPanel.Dock="Top" Margin="0,8,0,10"
+                             IsEnabled="{Binding Seletor.Travado, Converter={StaticResource BoolInvertido}}"
+                             Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource CampoPesquisa}"
+                             ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF…" />
+
+                    <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaAviso}" Margin="0,10,0,0"
+                            Visibility="{Binding AvisoPaciente, Converter={StaticResource TextoParaVisibilidade}}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7BA;" Style="{StaticResource Icone}" Margin="0,0,8,0"
+                                       VerticalAlignment="Top" />
+                            <TextBlock Text="{Binding AvisoPaciente}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock DockPanel.Dock="Bottom" Text="{Binding Seletor.Erro}" TextWrapping="Wrap"
+                               Margin="0,8,0,0" Foreground="{StaticResource Brush.Erro.Texto}"
+                               Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade}}" />
+
+                    <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                             SelectedItem="{Binding Seletor.Selecionado}"
+                             IsEnabled="{Binding Seletor.Travado, Converter={StaticResource BoolInvertido}}"
+                             ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                             Style="{StaticResource ListaCartoes}" />
+                </DockPanel>
+            </Border>
+
+            <!-- ===== Horário e procedimento ===== -->
+            <Border Grid.Column="1" Style="{StaticResource Card}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="HORÁRIO" Style="{StaticResource TituloSecao}" Margin="0,0,0,2" />
+                        <Border Style="{StaticResource Divisor}" />
+
+                        <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
+                        <DatePicker SelectedDate="{Binding Data}" />
+
+                        <TextBlock Text="Hora" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
+                                 ctrl:Ajudantes.Placeholder="HH:mm" MaxLength="5" />
+
+                        <TextBlock Text="PROCEDIMENTO" Style="{StaticResource TituloSecao}" />
+                        <Border Style="{StaticResource Divisor}" />
+
+                        <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding ModalidadeSelecionada}"
+                                  DisplayMemberPath="Nome" />
+
+                        <StackPanel Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding EspecialidadeSelecionada}"
+                                      DisplayMemberPath="Nome" />
+                        </StackPanel>
+
+                        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"
+                                 MinHeight="56" MaxHeight="110" VerticalScrollBarVisibility="Auto"
+                                 ctrl:Ajudantes.Placeholder="Ex.: encaixe; paciente pediu horário cedo…" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <!-- ===== Rodapé fixo ===== -->
+        <DockPanel Grid.Row="2" Margin="0,16,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click"
+                        IsCancel="True" Margin="0,0,10,0" />
+                <Button Content="{Binding RotuloConfirmar}" Command="{Binding AgendarCommand}" IsDefault="True"
+                        MinWidth="150" ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
+            </StackPanel>
+
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" VerticalAlignment="Center"
+                       Margin="0,0,16,0" Foreground="{StaticResource Brush.Erro}" />
+        </DockPanel>
+    </Grid>
+</Window>

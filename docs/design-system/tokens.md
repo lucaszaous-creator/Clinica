@@ -6,11 +6,11 @@ Fonte da verdade: `src/Clinica.Desktop/Styles/Tokens.xaml` (espelhado em `tokens
 
 | Chave XAML | CSS | Valor | Uso |
 |---|---|---|---|
-| `Brush.Acento` | `--acento` | `#2563EB` | Ação primária, links, seleção ativa |
-| `Brush.Acento.Hover` | `--acento-hover` | `#1D4ED8` | Hover da ação primária |
-| `Brush.Acento.Suave` | `--acento-suave` | `#EFF6FF` | Fundo de item ativo/seleção |
-| `Brush.Acento.Tint` | `--acento-tint` | `#DBEAFE` | Texto sobre azul forte |
-| `Brush.Foco` | `--foco` | `#3B82F6` | Anel de foco do teclado |
+| `Brush.Acento` | `--acento` | `#123A9E` | Ação primária, links, seleção ativa |
+| `Brush.Acento.Hover` | `--acento-hover` | `#0A2E86` | Hover da ação primária |
+| `Brush.Acento.Suave` | `--acento-suave` | `#EEF3FC` | Fundo de item ativo/seleção |
+| `Brush.Acento.Tint` | `--acento-tint` | `#D8E3F7` | Texto sobre azul forte |
+| `Brush.Foco` | `--foco` | `#3F62C9` | Anel de foco do teclado |
 | `Brush.Fundo` | `--fundo` | `#F8FAFC` | Fundo do app |
 | `Brush.Superficie` | `--superficie` | `#FFFFFF` | Cartões, tabelas, campos, topbar |
 | `Brush.Superficie.Hover` | `--superficie-hover` | `#F1F5F9` | Hover de linhas/itens; cabeçalho de tabela |
@@ -18,12 +18,14 @@ Fonte da verdade: `src/Clinica.Desktop/Styles/Tokens.xaml` (espelhado em `tokens
 | `Brush.Borda.Hover` | `--borda-hover` | `#D1D5DB` | Borda em hover |
 | `Brush.Texto.Primario` | `--texto-primario` | `#111827` | Títulos e conteúdo |
 | `Brush.Texto.Secundario` | `--texto-secundario` | `#6B7280` | Rótulos, legendas, dicas |
-| `Brush.Sucesso` / `.Forte` / `.Suave` | `--sucesso*` | `#16A34A` / `#15803D` / `#DCFCE7` | Estados de sucesso |
+| `Brush.Sucesso` / `.Forte` / `.Suave` | `--sucesso*` | `#16A34A` / `#15803D` / `#DCFCE7` | Estados de sucesso (`.Forte` é a cor de texto) |
+| `Brush.Aviso.Texto` / `.Erro.Texto` / `.Info.Texto` | `--*-texto` | `#C2410C` / `#B91C1C` / `#0369A1` | **Texto** semântico sobre fundo suave ou branco — o tom 600/500 não fecha AA |
 | `Brush.Aviso` / `.Suave` | `--aviso*` | `#EA580C` / `#FFEDD5` | Avisos |
 | `Brush.Erro` / `.Hover` / `.Suave` | `--erro*` | `#DC2626` / `#B91C1C` / `#FEE2E2` | Erros, ações destrutivas |
 | `Brush.Info` / `.Suave` | `--info*` | `#0EA5E9` / `#E0F2FE` | Informação |
 | `Brush.Sidebar.*` | `--sidebar-*` | — | Fundo/hover/ativo/texto da sidebar |
 | `Brush.Snackbar.Sucesso` / `.Erro` | — | `#4ADE80` / `#F87171` | Ícones de estado sobre o fundo escuro do snackbar |
+| `Brush.Visor.Fundo` / `.Texto` / `.Guia` | `--visor-*` | `#111827` / `#D1D5DB` / branco 40% | Visor escuro de mídia (preview da webcam na captura da foto) |
 
 Semáforo de urgência do domínio (`UrgenciaParaCorConverter`): verde `#2E7D32`, amarelo `#F9A825`, vermelho `#C62828` — não usar fora do semáforo.
 

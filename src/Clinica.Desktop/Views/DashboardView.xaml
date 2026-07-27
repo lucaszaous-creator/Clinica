@@ -40,6 +40,39 @@
                     </TextBlock>
                 </StackPanel>
             </Border>
+
+            <!-- Banner da rodada de pendências (fechamento de ciclo periódico) -->
+            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,14"
+                    Visibility="{Binding RodadaVencida, Converter={StaticResource BoolParaVisibilidade}}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="&#xE823;" Style="{StaticResource Icone}" FontSize="19"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <Button DockPanel.Dock="Right" Command="{Binding RodarPendenciasCommand}"
+                            VerticalAlignment="Center" Margin="10,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE895;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
+                            <TextBlock Text="Rodar pendências" />
+                        </StackPanel>
+                    </Button>
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold"
+                               Text="{Binding RodadaBanner}" />
+                </DockPanel>
+            </Border>
+
+            <!-- A rodada NÃO pôde ser verificada. Estado próprio: o painel não pode
+                 sugerir que está tudo em dia só porque a consulta falhou. -->
+            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,14"
+                    Visibility="{Binding RodadaIndeterminada, Converter={StaticResource BoolParaVisibilidade}}">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="&#xE7BA;" Style="{StaticResource Icone}" FontSize="19"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <Button DockPanel.Dock="Right" Command="{Binding AtualizarCommand}"
+                            Style="{StaticResource BotaoSecundario}"
+                            VerticalAlignment="Center" Margin="10,0,0,0" Content="Tentar de novo" />
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="14" FontWeight="SemiBold"
+                               Text="{Binding RodadaAvisoFalha}" />
+                </DockPanel>
+            </Border>
         </StackPanel>
 
         <!-- KPIs do painel -->
@@ -61,7 +94,7 @@
                 <StackPanel>
                     <TextBlock Text="Consultas a renovar" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding ConsultasARenovar}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Aviso}" />
+                               Foreground="{StaticResource Brush.Aviso.Texto}" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Acento}"
@@ -137,7 +170,7 @@
                 <DataGridTextColumn Header="Código"
                                     Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />
-                <DataGridTextColumn Header="Prevista" Binding="{Binding DataPrevista}" Width="0.9*" />
+                <DataGridTextColumn Header="Prevista" Binding="{Binding DataPrevista, StringFormat=dd/MM/yyyy}" Width="0.9*" />
                 <DataGridTextColumn Header="Atraso (dias)" Binding="{Binding DiasEmAtraso}" Width="0.9*" />
                 <DataGridTextColumn Header="Como obter"
                                     Binding="{Binding FormaObtencao, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
@@ -151,7 +184,7 @@
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTemplateColumn Header="" Width="240">
+                <DataGridTemplateColumn Header="" Width="300">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <StackPanel Orientation="Horizontal">
@@ -169,6 +202,11 @@
                                         Content="{Binding TemObservacao, Converter={StaticResource ObservacaoParaRotulo}}"
                                         ToolTip="Anotar por que ainda não foi baixada"
                                         Command="{Binding DataContext.AnotarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                                <Button Content="NC" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
+                                        ToolTip="Marcar como não conformidade (sem esperar o prazo da rodada)"
+                                        AutomationProperties.Name="Marcar como não conformidade"
+                                        Command="{Binding DataContext.NaoConformidadeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
                             </StackPanel>
                         </DataTemplate>
@@ -200,7 +238,7 @@
                                     Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
                 <DataGridTextColumn Header="Nº guia" Binding="{Binding NumeroGuia}" Width="Auto" />
                 <DataGridTextColumn Header="Motivo" Binding="{Binding MotivoResumo}" Width="1.2*" />
-                <DataGridTextColumn Header="Prazo até" Binding="{Binding DataLimiteRecurso}" Width="Auto" />
+                <DataGridTextColumn Header="Prazo até" Binding="{Binding DataLimiteRecurso, StringFormat=dd/MM/yyyy}" Width="Auto" />
                 <DataGridTextColumn Header="Dias restantes" Binding="{Binding DiasParaFimPrazo}" Width="Auto" />
                 <DataGridTemplateColumn Header="" Width="140">
                     <DataGridTemplateColumn.CellTemplate>
@@ -235,7 +273,7 @@
                 <DataGridTextColumn Header="Convênio"
                                     Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
                 <DataGridTextColumn Header="Carteirinha" Binding="{Binding Carteirinha}" Width="*" />
-                <DataGridTextColumn Header="Validade" Binding="{Binding Validade}" Width="Auto" />
+                <DataGridTextColumn Header="Validade" Binding="{Binding Validade, StringFormat=dd/MM/yyyy}" Width="Auto" />
                 <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="Auto" />
                 <DataGridTemplateColumn Header="" Width="170">
                     <DataGridTemplateColumn.CellTemplate>
@@ -278,7 +316,7 @@
                 <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
                                     Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*" />
-                <DataGridTextColumn Header="Vence em" Binding="{Binding DataVencimento}" Width="*" />
+                <DataGridTextColumn Header="Vence em" Binding="{Binding DataVencimento, StringFormat=dd/MM/yyyy}" Width="*" />
                 <DataGridTextColumn Header="Dias p/ vencer" Binding="{Binding DiasParaVencer}" Width="*" />
                 <DataGridTemplateColumn Header="" Width="150">
                     <DataGridTemplateColumn.CellTemplate>

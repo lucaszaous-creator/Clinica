@@ -36,6 +36,22 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private object _filtroUrgencia = "Todos";
     [ObservableProperty] private int _total;
 
+    /// <summary>A rodada de pendências venceu (mostra o banner do fechamento de ciclo).</summary>
+    [ObservableProperty] private bool _rodadaVencida;
+
+    /// <summary>
+    /// Não deu para consultar a rodada (banco fora do ar, por exemplo). É um estado
+    /// PRÓPRIO, e não "não venceu": a promessa do produto é não deixar guia esquecida,
+    /// então silêncio por falha tem de aparecer como falha, nunca como tudo certo.
+    /// </summary>
+    [ObservableProperty] private bool _rodadaIndeterminada;
+
+    /// <summary>Texto do banner da rodada (quanto está vencida / o que precisa decidir).</summary>
+    [ObservableProperty] private string _rodadaBanner = string.Empty;
+
+    /// <summary>Texto do aviso de rodada não verificada.</summary>
+    [ObservableProperty] private string _rodadaAvisoFalha = string.Empty;
+
     /// <summary>Total de códigos/guias pendentes de baixa (para a faixa de alerta do topo).</summary>
     public int TotalCodigos => _todos.Count;
     public bool TemPendencias => _todos.Count > 0;
@@ -83,6 +99,33 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         foreach (var c in await pendencias.CarteirinhasAVencerAsync(hoje))
             Carteirinhas.Add(c);
 
+        // Situação da rodada de pendências ("rodar as pendências") para o banner do fechamento de ciclo.
+        try
+        {
+            var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.GarantirInicioAsync(hoje); // ancora a carência do backlog no 1º uso
+            var status = await rodada.ObterStatusAsync(hoje);
+            RodadaVencida = status.ExigeDecisao;
+            RodadaIndeterminada = false;
+            RodadaAvisoFalha = string.Empty;
+            RodadaBanner = status.ExigeDecisao
+                ? $"{status.GuiasParaDecisao} guia(s) passaram de {status.PrazoDias} dias desde o atendimento " +
+                  "sem resolução. Rode agora: cada uma exige baixa ou não conformidade."
+                : string.Empty;
+        }
+        catch (Exception ex)
+        {
+            // A falha não derruba o painel, mas TAMBÉM não pode virar "não venceu": antes
+            // isto zerava RodadaVencida, e o painel afirmava que estava tudo em dia quando
+            // na verdade não tinha conseguido perguntar.
+            Configuracao.LogErros.Registrar("Painel — situação da rodada de pendências", ex);
+            RodadaVencida = false;
+            RodadaIndeterminada = true;
+            RodadaAvisoFalha =
+                "Não foi possível verificar a rodada de pendências agora — pode haver guia vencida " +
+                "sem aparecer aqui. Atualize o painel; se continuar, avise o suporte.";
+        }
+
         if (_nomeClinica is null)
         {
             try
@@ -90,7 +133,11 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
                 var d = await scope.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrestadorAsync();
                 _nomeClinica = string.IsNullOrWhiteSpace(d.NomeFantasia) ? d.RazaoSocial : d.NomeFantasia;
             }
-            catch { /* sem nome a mensagem sai sem assinatura; não impede o painel */ }
+            catch (Exception ex)
+            {
+                // Sem nome a mensagem sai sem assinatura; não impede o painel.
+                Configuracao.LogErros.Registrar("Painel — nome da clínica não pôde ser lido", ex);
+            }
         }
 
         AplicarFiltro();
@@ -153,6 +200,41 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         catch (Exception ex)
         {
             _dialogo.Aviso("Observação da pendência", ex.Message);
+        }
+
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Marca a guia como NÃO CONFORMIDADE por decisão do usuário, sem esperar o prazo da rodada
+    /// vencer. Pede confirmação e justificativa; a guia sai das pendências ativas e vai para a aba NC
+    /// (reabre se o paciente voltar ou pela aba NC). Atende o "marcar NC antes dos 10 dias".
+    /// </summary>
+    [RelayCommand]
+    private async Task NaoConformidade(PendenciaCodigo? codigo)
+    {
+        if (codigo is null) return;
+
+        if (!_dialogo.Confirmar("Não conformidade",
+                $"Marcar a guia de {codigo.PacienteNome} como não conformidade? " +
+                "Ela sai das pendências ativas do painel e vai para a aba NC."))
+            return;
+
+        var janela = new Alertas.NaoConformidadeWindow(codigo)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+            await rodada.MarcarNaoConformidadeAsync(codigo.CodigoId, janela.Justificativa, Environment.UserName);
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Não conformidade", ex.Message);
         }
 
         await CarregarAsync();
@@ -315,6 +397,26 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Vai para o Controle de glosas (usado no card de prazos de recurso).</summary>
     [RelayCommand]
     private void AbrirGlosas() => AbrirGlosasSolicitado?.Invoke();
+
+    /// <summary>
+    /// Roda as pendências (fechamento de ciclo): abre a janela de decisão para dar baixa ou registrar
+    /// não conformidade em cada guia pendente e conclui a rodada. Disparado pelo botão do banner.
+    /// </summary>
+    [RelayCommand]
+    private async Task RodarPendencias()
+    {
+        try
+        {
+            var concluida = await Alertas.RodadaPendenciasFluxo.ExecutarAsync(
+                _scopeFactory, System.Windows.Application.Current.MainWindow, bloqueante: false);
+            if (concluida)
+                await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            _dialogo.Aviso("Rodar pendências", ex.Message);
+        }
+    }
 
     [RelayCommand]
     private Task Atualizar() => CarregarAsync();

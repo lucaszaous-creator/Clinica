@@ -15,14 +15,31 @@ using Microsoft.Win32;
 
 namespace Clinica.Desktop.ViewModels;
 
+/// <summary>
+/// Um código recém-gerado, com a informação que decide a ação da tela: dá para baixar
+/// agora ou só depois? O 1º código já nasce faturável hoje; o 2º só a partir de +24h.
+/// </summary>
+public sealed record CodigoLancado(CodigoFaturamento Codigo, bool PodeBaixar, string? Impedimento)
+{
+    public bool Baixado => Codigo.Baixado;
+}
+
 /// <summary>Lança um atendimento. O sistema gera automaticamente os códigos (inclusive o 2º código +24h).</summary>
 public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 {
     private readonly IServiceScopeFactory _scopeFactory;
 
-    public ObservableCollection<Paciente> Pacientes { get; } = new();
-    public ObservableCollection<CodigoFaturamento> CodigosGerados { get; } = new();
+    /// <summary>Busca de paciente compartilhada (mesmo limite e mesmo comportamento das outras telas).</summary>
+    public SeletorPacienteViewModel Seletor { get; }
+
+    /// <summary>Atalho para o paciente escolhido no seletor.</summary>
+    public Paciente? PacienteSelecionado => Seletor.Selecionado;
+
+    public ObservableCollection<CodigoLancado> CodigosGerados { get; } = new();
     public ObservableCollection<string> Avisos { get; } = new();
+
+    /// <summary>Placar das baixas do atendimento recém-lançado ("1 de 2 guias baixadas…").</summary>
+    [ObservableProperty] private string? _resumoBaixas;
 
     /// <summary>Modalidades ativas do catálogo (embutidas + variantes criadas pela clínica).</summary>
     public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
@@ -33,8 +50,6 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Opções de qual código sai primeiro (hoje) numa modalidade dupla. Vazio nas simples.</summary>
     public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
 
-    [ObservableProperty] private string? _busca;
-    [ObservableProperty] private Paciente? _pacienteSelecionado;
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
     [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
@@ -51,6 +66,25 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 
     /// <summary>Há aviso de pendências a exibir?</summary>
     public bool TemAvisoPendencias => !string.IsNullOrWhiteSpace(AvisoPendencias);
+
+    /// <summary>Aviso de carteirinha vencida do paciente selecionado. Separado da mensagem de erro.</summary>
+    [ObservableProperty] private string? _avisoCarteirinha;
+
+    /// <summary>Já há paciente escolhido? Alterna a busca pelo resumo do paciente na tela.</summary>
+    [ObservableProperty] private bool _pacienteEscolhido;
+
+    /// <summary>Nome do convênio do paciente selecionado (resolvido pelo catálogo).</summary>
+    [ObservableProperty] private string? _convenioPaciente;
+
+    /// <summary>Cota de sessões: "Senha 12345 · 7 de 10 usadas — restam 3". Nulo = sem autorização vigente.</summary>
+    [ObservableProperty] private string? _saldoAutorizacao;
+
+    /// <summary>Cota esgotada ou autorização vencida: lançar agora é candidato à glosa 2006.</summary>
+    [ObservableProperty] private bool _autorizacaoCritica;
+
+    /// <summary>Resta uma sessão: hora de pedir a renovação da senha.</summary>
+    [ObservableProperty] private bool _autorizacaoNaUltima;
+
     [ObservableProperty] private bool _ocupado;
 
     private int _ultimoAtendimentoId;
@@ -69,6 +103,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public NovoAtendimentoViewModel(IServiceScopeFactory scopeFactory)
     {
         _scopeFactory = scopeFactory;
+        Seletor = new SeletorPacienteViewModel(scopeFactory);
+        Seletor.SelecaoMudou += AoTrocarPaciente;
         AtualizarOpcoesPrimeiroCodigo();
     }
 
@@ -102,7 +138,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public async Task CarregarAsync()
     {
         CarregarCatalogos();
-        await BuscarPacientes();
+        await Seletor.BuscarAsync(imediato: true);
     }
 
     /// <summary>Recarrega as opções de modalidade/especialidade do cache (reflete o que foi salvo em Configurações).</summary>
@@ -123,35 +159,96 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         EspecialidadeSelecionada = Especialidades.FirstOrDefault(e => e.Codigo == especialidadeAtual);
     }
 
-    /// <summary>Busca pacientes por nome ou CPF para o seletor.</summary>
-    [RelayCommand]
-    private async Task BuscarPacientes()
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-        Pacientes.Clear();
-        foreach (var p in await service.BuscarAsync(Busca))
-            Pacientes.Add(p);
-    }
-
-    partial void OnBuscaChanged(string? value) => _ = BuscarPacientes();
-
     // Pré-preenche a modalidade com a habitual do paciente (definida no cadastro)
     // e avisa carteirinha vencida ANTES de gerar uma guia que o convênio vai recusar.
-    partial void OnPacienteSelecionadoChanged(Paciente? value)
+    private void AoTrocarPaciente(Paciente? value)
     {
+        OnPropertyChanged(nameof(PacienteSelecionado));
         AvisoPendencias = null;
+        AvisoCarteirinha = null;
+        SaldoAutorizacao = null;
+        AutorizacaoCritica = false;
+        AutorizacaoNaUltima = false;
+        PacienteEscolhido = value is not null;
+        ConvenioPaciente = value is null
+            ? null
+            : CatalogoConvenios.Nome(value.ConvenioCodigo ?? value.Convenio.ToString());
         if (value is null) return;
 
         // Pré-seleciona a modalidade habitual do paciente: primeiro pelo código salvo, senão pela base.
         ModalidadeSelecionada = Modalidades.FirstOrDefault(m => m.Codigo == value.ModalidadePreferidaCodigo)
             ?? Modalidades.FirstOrDefault(m => m.Base == value.ModalidadePreferida)
             ?? ModalidadeSelecionada;
-        Mensagem = value.ValidadeCarteirinha is { } val && val < DateOnly.FromDateTime(DateTime.Today)
-            ? $"Atenção: a carteirinha de {value.Nome} venceu em {val:dd/MM/yyyy} — o convênio pode recusar a guia."
+        AvisoCarteirinha = value.CarteirinhaVencida
+            ? $"A carteirinha de {value.Nome} venceu em {value.ValidadeCarteirinha:dd/MM/yyyy} — o convênio pode recusar a guia."
             : null;
 
         _ = VerificarPendenciasAsync(value.Id);
+        _ = VerificarAutorizacaoAsync(value.Id);
+    }
+
+    /// <summary>
+    /// Mostra a cota de sessões antes de lançar. É o aviso que evita a glosa 2006
+    /// ("quantidade executada acima da autorizada") — o sistema registrava essa glosa
+    /// depois do prejuízo e não avisava antes.
+    /// </summary>
+    private async Task VerificarAutorizacaoAsync(int pacienteId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var autorizacoes = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
+            var saldo = await autorizacoes.VigenteAsync(pacienteId, DateOnly.FromDateTime(Data));
+
+            // A seleção pode ter mudado enquanto a consulta rodava.
+            if (PacienteSelecionado?.Id != pacienteId) return;
+
+            if (saldo is null)
+            {
+                SaldoAutorizacao = null;
+                AutorizacaoCritica = false;
+                AutorizacaoNaUltima = false;
+                return;
+            }
+
+            var senha = string.IsNullOrWhiteSpace(saldo.Autorizacao.Numero)
+                ? "Autorização"
+                : $"Senha {saldo.Autorizacao.Numero}";
+            SaldoAutorizacao = saldo.Vencida
+                ? $"{senha}: venceu em {saldo.Autorizacao.DataValidade:dd/MM/yyyy} — peça uma nova antes de lançar."
+                : $"{senha}: {saldo.Resumo} (válida até {saldo.Autorizacao.DataValidade:dd/MM/yyyy}).";
+            AutorizacaoCritica = saldo.Vencida || saldo.Esgotada;
+            AutorizacaoNaUltima = !AutorizacaoCritica && saldo.NaUltima;
+        }
+        catch (Exception ex)
+        {
+            // Aviso é auxiliar: nunca pode impedir o lançamento do atendimento.
+            Configuracao.LogErros.Registrar("Novo atendimento — cota de sessões não pôde ser lida", ex);
+            SaldoAutorizacao = null;
+            AutorizacaoCritica = false;
+            AutorizacaoNaUltima = false;
+        }
+    }
+
+    /// <summary>Volta para a busca, para trocar o paciente escolhido.</summary>
+    [RelayCommand]
+    private void TrocarPaciente() => Seletor.Limpar();
+
+    /// <summary>Zera a tela para lançar outro atendimento, sem sair da seção.</summary>
+    [RelayCommand]
+    private void NovoLancamento()
+    {
+        Lancado = false;
+        NumeroAtendimento = null;
+        _ultimoAtendimentoId = 0;
+        CodigosGerados.Clear();
+        Avisos.Clear();
+        ResumoBaixas = null;
+        Observacoes = null;
+        Mensagem = null;
+        Data = DateTime.Today;
+        Seletor.Limpar();
+        Seletor.Termo = null;
     }
 
     /// <summary>
@@ -164,24 +261,35 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         {
             using var scope = _scopeFactory.CreateScope();
             var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
-            var lista = await pendencias.PendenciasDoPacienteAsync(pacienteId, DateOnly.FromDateTime(DateTime.Today));
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var lista = await pendencias.PendenciasDoPacienteAsync(pacienteId, hoje);
+            var ncs = await pendencias.NaoConformidadesDoPacienteAsync(pacienteId, hoje);
 
             // A seleção pode ter mudado enquanto a consulta rodava.
             if (PacienteSelecionado?.Id != pacienteId) return;
-            if (lista.Count == 0) { AvisoPendencias = null; return; }
+            if (lista.Count == 0 && ncs.Count == 0) { AvisoPendencias = null; return; }
 
-            var itens = string.Join("; ", lista.Take(3).Select(p =>
+            var partes = new List<string>();
+            if (lista.Count > 0)
             {
-                var ordinal = p.Ordem == OrdemCodigo.Segundo ? "2ª" : "1ª";
-                return $"{ordinal} guia de {RotuloTipo(p.Tipo)} de {p.DataPrevista:dd/MM}";
-            }));
-            if (lista.Count > 3) itens += $"; +{lista.Count - 3}";
+                var itens = string.Join("; ", lista.Take(3).Select(p =>
+                {
+                    var ordinal = p.Ordem == OrdemCodigo.Segundo ? "2ª" : "1ª";
+                    return $"{ordinal} guia de {RotuloTipo(p.Tipo)} de {p.DataPrevista:dd/MM}";
+                }));
+                if (lista.Count > 3) itens += $"; +{lista.Count - 3}";
+                partes.Add($"{lista.Count} guia(s) pendente(s) de baixa — cobre a guia agora! ({itens}.)");
+            }
+            // Não conformidade: o paciente voltou, então ela será reaberta ao lançar o atendimento.
+            if (ncs.Count > 0)
+                partes.Add($"{ncs.Count} não conformidade(s) — serão reabertas ao lançar (o paciente voltou); cobre a(s) guia(s).");
 
-            AvisoPendencias = $"Este paciente tem {lista.Count} guia(s) pendente(s) de baixa — cobre a guia agora! ({itens}.)";
+            AvisoPendencias = "Este paciente tem " + string.Join(" ", partes);
         }
-        catch
+        catch (Exception ex)
         {
             // Aviso é auxiliar: uma falha aqui nunca pode impedir o lançamento do atendimento.
+            Configuracao.LogErros.Registrar("Novo atendimento — pendências do paciente não puderam ser lidas", ex);
             AvisoPendencias = null;
         }
     }
@@ -199,7 +307,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand]
     private async Task Lancar()
     {
-        if (PacienteSelecionado is null)
+        if (Seletor.Selecionado is not { } paciente)
         {
             Mensagem = "Selecione o paciente.";
             return;
@@ -227,13 +335,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             using var scope = _scopeFactory.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
             var resultado = await service.LancarAsync(
-                PacienteSelecionado.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
+                paciente.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
                 registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
                 modalidadeCodigo: ModalidadeSelecionada.Codigo,
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
 
-            foreach (var c in resultado.Atendimento.Codigos)
-                CodigosGerados.Add(c);
+            MontarCodigos(resultado.Atendimento.Codigos);
             foreach (var a in resultado.Avisos)
                 Avisos.Add(a);
 
@@ -248,6 +355,98 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         finally
         {
             Ocupado = false;
+        }
+    }
+
+    /// <summary>
+    /// Monta as linhas do resultado marcando o que já dá para baixar hoje. O 1º código
+    /// nasce faturável na hora; o 2º só a partir da data prevista (+24h).
+    /// </summary>
+    private void MontarCodigos(IEnumerable<CodigoFaturamento> codigos)
+    {
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        CodigosGerados.Clear();
+
+        foreach (var c in codigos.OrderBy(c => c.DataPrevistaFaturamento).ThenBy(c => c.Ordem))
+        {
+            var podeBaixar = c.EstaPendente(hoje);
+            var impedimento = c.Baixado || podeBaixar || c.Status == StatusCodigo.NaoAplicavel
+                ? null
+                : $"Libera em {c.DataPrevistaFaturamento:dd/MM/yyyy}";
+            CodigosGerados.Add(new CodigoLancado(c, podeBaixar, impedimento));
+        }
+
+        AtualizarResumoBaixas(hoje);
+    }
+
+    private void AtualizarResumoBaixas(DateOnly hoje)
+    {
+        var faturaveis = CodigosGerados.Where(l => l.Codigo.Status != StatusCodigo.NaoAplicavel).ToList();
+        if (faturaveis.Count == 0) { ResumoBaixas = null; return; }
+
+        var baixadas = faturaveis.Count(l => l.Baixado);
+        var proxima = faturaveis
+            .Where(l => !l.Baixado && l.Codigo.DataPrevistaFaturamento > hoje)
+            .OrderBy(l => l.Codigo.DataPrevistaFaturamento)
+            .FirstOrDefault();
+
+        ResumoBaixas = $"{baixadas} de {faturaveis.Count} guia(s) baixada(s)"
+            + (proxima is null
+                ? baixadas == faturaveis.Count ? " — nada pendente deste atendimento." : "."
+                : $" — a próxima libera em {proxima.Codigo.DataPrevistaFaturamento:dd/MM/yyyy} e vai para o painel de pendências.");
+    }
+
+    /// <summary>
+    /// Baixa a guia sem sair da tela. Antes era preciso lançar o atendimento, ir ao painel
+    /// de pendências e baixar lá — sendo que a 1ª guia já sai faturável no mesmo instante.
+    /// </summary>
+    [RelayCommand]
+    private async Task DarBaixa(CodigoLancado? linha)
+    {
+        if (linha is null || !linha.PodeBaixar) return;
+
+        var descricao = $"{PacienteSelecionado?.Nome} — {RotuloTipo(linha.Codigo.Tipo)} " +
+                        $"({(linha.Codigo.Ordem == OrdemCodigo.Segundo ? "2º" : "1º")} código) " +
+                        $"do atendimento {NumeroAtendimento}";
+
+        var janela = new Alertas.BaixaGuiaWindow(descricao)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+        if (janela.ShowDialog() != true) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
+            await faturamento.DarBaixaAsync(linha.Codigo.Id, janela.DataBaixa, janela.NumeroGuia,
+                Environment.UserName, janela.Observacao);
+        }
+        catch (Exception ex)
+        {
+            Mensagem = $"Não foi possível registrar a baixa: {ex.Message}";
+            return;
+        }
+
+        Mensagem = null;
+        await RecarregarCodigosAsync();
+    }
+
+    /// <summary>Relê os códigos do atendimento para refletir a baixa recém-registrada.</summary>
+    private async Task RecarregarCodigosAsync()
+    {
+        if (_ultimoAtendimentoId == 0) return;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
+            var atendimento = await repo.ObterAtendimentoAsync(_ultimoAtendimentoId);
+            if (atendimento is not null) MontarCodigos(atendimento.Codigos);
+        }
+        catch (Exception ex)
+        {
+            // A baixa já foi gravada; falhar aqui só deixa a tela desatualizada.
+            Configuracao.LogErros.Registrar("Novo atendimento — recarga dos códigos após a baixa falhou", ex);
         }
     }
 

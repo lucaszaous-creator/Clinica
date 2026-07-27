@@ -28,7 +28,20 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default)
         => await _db.Codigos
             .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
-            .Where(c => c.DataBaixa == null && c.Status != StatusCodigo.NaoAplicavel)
+            .Where(c => c.DataBaixa == null && c.Status != StatusCodigo.NaoAplicavel
+                        && c.Status != StatusCodigo.NaoConformidade)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeAsync(CancellationToken ct = default)
+        => await _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Where(c => c.Status == StatusCodigo.NaoConformidade)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeDoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => await _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .Where(c => c.Status == StatusCodigo.NaoConformidade && c.Atendimento!.PacienteId == pacienteId)
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<CodigoFaturamento>> CodigosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
@@ -133,7 +146,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Codigos)
             .FirstOrDefaultAsync(a => a.Id == atendimentoId, ct);
 
-    public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, CancellationToken ct = default)
+    public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default)
     {
         var query = _db.Pacientes.AsQueryable();
         termo = Cpf.Normalizar(termo).Length > 0 ? termo!.Trim() : termo?.Trim();
@@ -147,7 +160,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 || (digitos.Length > 0 && p.Documento != null && p.Documento.Contains(digitos)));
         }
 
-        return await query.OrderBy(p => p.Nome).ToListAsync(ct);
+        query = query.OrderBy(p => p.Nome);
+        // O corte vai para o SQL (LIMIT), não para um Take() depois de materializar a lista.
+        if (limite is > 0) query = query.Take(limite.Value);
+
+        return await query.ToListAsync(ct);
     }
 
     public Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default)
@@ -170,6 +187,73 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
         if (paciente is not null)
             _db.Pacientes.Remove(paciente);
+    }
+
+    // ---- Retrato do paciente ----
+
+    public Task<PacienteFoto?> ObterFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => _db.PacientesFotos.AsNoTracking().FirstOrDefaultAsync(f => f.PacienteId == pacienteId, ct);
+
+    public async Task DefinirFotoPacienteAsync(int pacienteId, byte[] conteudo, byte[] miniatura, CancellationToken ct = default)
+    {
+        var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct)
+            ?? throw new InvalidOperationException("Paciente não encontrado para gravar a foto.");
+
+        // Hora de parede (sem fuso), como no restante do sistema.
+        var agora = DateTime.Now;
+        var foto = await _db.PacientesFotos.FirstOrDefaultAsync(f => f.PacienteId == pacienteId, ct);
+        if (foto is null)
+        {
+            await _db.PacientesFotos.AddAsync(
+                new PacienteFoto { PacienteId = pacienteId, Conteudo = conteudo, AtualizadaEm = agora }, ct);
+        }
+        else
+        {
+            foto.Conteudo = conteudo;
+            foto.AtualizadaEm = agora;
+        }
+
+        paciente.FotoMiniatura = miniatura;
+        paciente.FotoAtualizadaEm = agora;
+    }
+
+    // ---- Autorizações de sessões (cota do convênio) ----
+
+    public async Task<IReadOnlyList<AutorizacaoSessoes>> AutorizacoesDoPacienteAsync(int pacienteId, CancellationToken ct = default)
+        => await _db.Autorizacoes
+            .Where(a => a.PacienteId == pacienteId)
+            .OrderByDescending(a => a.DataEmissao)
+            .ThenByDescending(a => a.Id)
+            .ToListAsync(ct);
+
+    public Task<AutorizacaoSessoes?> ObterAutorizacaoAsync(int autorizacaoId, CancellationToken ct = default)
+        => _db.Autorizacoes.FirstOrDefaultAsync(a => a.Id == autorizacaoId, ct);
+
+    public async Task AdicionarAutorizacaoAsync(AutorizacaoSessoes autorizacao, CancellationToken ct = default)
+        => await _db.Autorizacoes.AddAsync(autorizacao, ct);
+
+    public async Task RemoverAutorizacaoAsync(int autorizacaoId, CancellationToken ct = default)
+    {
+        var autorizacao = await _db.Autorizacoes.FirstOrDefaultAsync(a => a.Id == autorizacaoId, ct);
+        if (autorizacao is not null)
+            _db.Autorizacoes.Remove(autorizacao);
+    }
+
+    public Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => _db.Atendimentos.CountAsync(a => a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim, ct);
+
+    public async Task RemoverFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
+    {
+        var foto = await _db.PacientesFotos.FirstOrDefaultAsync(f => f.PacienteId == pacienteId, ct);
+        if (foto is not null)
+            _db.PacientesFotos.Remove(foto);
+
+        var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Id == pacienteId, ct);
+        if (paciente is not null)
+        {
+            paciente.FotoMiniatura = null;
+            paciente.FotoAtualizadaEm = null;
+        }
     }
 
     // ---- Parâmetros ----

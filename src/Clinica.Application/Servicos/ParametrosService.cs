@@ -134,6 +134,65 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Rodada de pendências ("rodar as pendências" — prazo de decisão por atendimento) ----
+
+    public const string ChaveIntervaloRodadaPendencias = "IntervaloRodadaPendenciasDias";
+    public const int IntervaloRodadaPendenciasPadrao = 10;
+
+    /// <summary>
+    /// Prazo (em dias, desde o atendimento) para exigir decisão em cada guia pendente (padrão 10).
+    /// Ao vencer sem baixa, a guia entra no bloqueio da rodada.
+    /// </summary>
+    public async Task<int> ObterIntervaloRodadaPendenciasAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveIntervaloRodadaPendencias, ct), out var dias) && dias >= 1
+            ? dias
+            : IntervaloRodadaPendenciasPadrao;
+
+    public async Task SalvarIntervaloRodadaPendenciasAsync(int dias, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveIntervaloRodadaPendencias, Math.Max(1, dias).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    public const string ChaveInicioRodadaPorAtendimento = "InicioRodadaPorAtendimento";
+
+    /// <summary>
+    /// Data em que a rodada por atendimento passou a valer (definida na 1ª execução desta versão).
+    /// Serve para dar carência ao backlog anterior — guias de atendimentos mais antigos só começam a
+    /// contar o prazo a partir daqui, evitando um bloqueio em massa logo na primeira abertura.
+    /// Null = ainda não ancorada.
+    /// </summary>
+    public async Task<DateOnly?> ObterInicioRodadaPorAtendimentoAsync(CancellationToken ct = default)
+        => DateOnly.TryParse(await _repo.ObterConfiguracaoAsync(ChaveInicioRodadaPorAtendimento, ct), out var d)
+            ? d
+            : null;
+
+    public async Task SalvarInicioRodadaPorAtendimentoAsync(DateOnly data, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveInicioRodadaPorAtendimento, data.ToString("yyyy-MM-dd"), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    public const string ChaveRodadaAplicaConsultas = "RodadaAplicaConsultas";
+    public const string ChaveRodadaAplicaCarteirinhas = "RodadaAplicaCarteirinhas";
+
+    /// <summary>A rodada também cobra consultas a renovar? (padrão: não — começa só pelas guias).</summary>
+    public async Task<bool> ObterRodadaAplicaConsultasAsync(CancellationToken ct = default)
+        => string.Equals(await _repo.ObterConfiguracaoAsync(ChaveRodadaAplicaConsultas, ct), "true",
+            StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A rodada também cobra carteirinhas a vencer? (padrão: não — começa só pelas guias).</summary>
+    public async Task<bool> ObterRodadaAplicaCarteirinhasAsync(CancellationToken ct = default)
+        => string.Equals(await _repo.ObterConfiguracaoAsync(ChaveRodadaAplicaCarteirinhas, ct), "true",
+            StringComparison.OrdinalIgnoreCase);
+
+    public async Task SalvarRodadaAplicaAsync(bool consultas, bool carteirinhas, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveRodadaAplicaConsultas, consultas ? "true" : "false", ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveRodadaAplicaCarteirinhas, carteirinhas ? "true" : "false", ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Numeração sequencial de lote TISS (o padrão exige sequência, não timestamp) ----
 
     public const string ChaveProximoLoteTiss = "TissProximoNumeroLote";
@@ -173,9 +232,12 @@ public sealed class ParametrosService
         {
             return JsonSerializer.Deserialize<DadosPrestador>(json, OpcoesJson) ?? new DadosPrestador();
         }
-        catch
+        catch (Exception ex)
         {
-            return new DadosPrestador(); // configuração corrompida não impede o uso
+            // Configuração corrompida não impede o uso — mas fica no log, senão o
+            // prestador "some" da guia sem ninguém entender por quê.
+            Diagnostico.Registrar("Parâmetros — dados do prestador corrompidos", ex);
+            return new DadosPrestador();
         }
     }
 

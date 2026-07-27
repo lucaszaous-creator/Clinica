@@ -17,10 +17,15 @@ public partial class App : System.Windows.Application
     private DispatcherTimer? _lembreteTimer;
     private DispatcherTimer? _updateTimer;
     private bool _avisoAberto;
+    private bool _rodadaAberta;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // As camadas Application/Infrastructure não conhecem a UI: liga o log de arquivo
+        // nelas antes de qualquer coisa, para uma falha na abertura já ficar registrada.
+        Clinica.Application.Diagnostico.Sink = LogErros.Registrar;
 
         // Rede/banco podem falhar no meio de um comando assíncrono (Wi-Fi caiu, Neon
         // hibernou). Sem este handler, qualquer exceção não tratada fecha o app com
@@ -129,21 +134,33 @@ public partial class App : System.Windows.Application
         // Backup local diário em segundo plano (plano B se o banco na nuvem sumir).
         _ = BackupLocal.ExecutarSeNecessarioAsync(_host.Services);
 
+        // Rodada de pendências vencida (aviso bloqueante) antes do aviso comum: se a rodada zerar
+        // as pendências, o aviso a seguir já não tem o que mostrar.
+        await MostrarRodadaSeVencidaAsync();
+
         // Aviso de baixas pendentes ao abrir + lembrete recorrente (a cada 2h).
         await MostrarAvisoPendenciasAsync();
         _lembreteTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
-        _lembreteTimer.Tick += async (_, _) => await MostrarAvisoPendenciasAsync();
+        _lembreteTimer.Tick += async (_, _) =>
+        {
+            await MostrarRodadaSeVencidaAsync();
+            await MostrarAvisoPendenciasAsync();
+        };
         _lembreteTimer.Start();
 
         // Ciclo periódico (2h): pega versões publicadas DURANTE o expediente, com o app
-        // aberto. Baixa em segundo plano, avisa no snackbar e aplica ao fechar — na
-        // próxima abertura o fluxo acima já reabre atualizado.
+        // aberto. Baixa em segundo plano, faz aparecer o botão "Atualizar" e aplica ao
+        // fechar — na próxima abertura o fluxo acima já reabre atualizado.
         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromHours(2) };
         _updateTimer.Tick += async (_, _) => await VerificarAtualizacaoAsync();
         _updateTimer.Start();
+
+        // Checagem inicial: se a atualização da abertura não pegou (rede lenta) ou já há
+        // uma versão pronta, o botão "Atualizar" aparece logo, sem esperar o 1º ciclo de 2h.
+        await VerificarAtualizacaoAsync();
     }
 
-    /// <summary>Checa/baixa atualização e avisa o usuário quando houver versão nova pronta.</summary>
+    /// <summary>Checa/baixa atualização e, havendo versão nova pronta, mostra o botão "Atualizar" e avisa.</summary>
     private async Task VerificarAtualizacaoAsync()
     {
         if (_host is null) return;
@@ -154,8 +171,13 @@ public partial class App : System.Windows.Application
             if (versao is null) return;
 
             _updateTimer?.Stop(); // já há versão baixada aguardando; não precisa checar de novo
+
+            // Faz o botão "Atualizar" aparecer no rodapé da sidebar (aplica na hora ao clicar).
+            _host.Services.GetRequiredService<MainViewModel>().SinalizarAtualizacaoDisponivel(versao);
+
             var snackbar = _host.Services.GetRequiredService<Controls.ISnackbarService>();
-            snackbar.Info($"Atualização {versao} baixada. Feche e reabra o sistema para aplicar.");
+            snackbar.Info($"Atualização {versao} disponível. Clique em \"Atualizar\" na barra lateral " +
+                          "ou feche e reabra o sistema para aplicar.");
         }
         catch (Exception ex)
         {
@@ -193,6 +215,42 @@ public partial class App : System.Windows.Application
         finally
         {
             _avisoAberto = false;
+        }
+    }
+
+    /// <summary>
+    /// Se há guias cujo prazo desde o atendimento venceu (padrão 10 dias) sem baixa, abre a janela
+    /// BLOQUEANTE de "rodar as pendências": a secretária precisa dar baixa ou justificar (não
+    /// conformidade) cada uma antes de seguir. Nunca derruba o app.
+    /// </summary>
+    private async Task MostrarRodadaSeVencidaAsync()
+    {
+        if (_rodadaAberta || _host is null) return;
+
+        try
+        {
+            var scopeFactory = _host.Services.GetRequiredService<IServiceScopeFactory>();
+            bool exigeDecisao;
+            using (var scope = scopeFactory.CreateScope())
+            {
+                var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
+                var hoje = DateOnly.FromDateTime(DateTime.Today);
+                await rodada.GarantirInicioAsync(hoje); // carência do backlog no 1º uso (não bloqueia de cara)
+                exigeDecisao = (await rodada.ObterStatusAsync(hoje)).ExigeDecisao;
+            }
+            if (!exigeDecisao) return;
+
+            _rodadaAberta = true;
+            await Alertas.RodadaPendenciasFluxo.ExecutarAsync(scopeFactory, MainWindow, bloqueante: true);
+        }
+        catch (Exception ex)
+        {
+            // Uma falha na rodada nunca deve impedir o uso do sistema.
+            LogErros.Registrar("Rodada de pendências (abertura)", ex);
+        }
+        finally
+        {
+            _rodadaAberta = false;
         }
     }
 
@@ -249,6 +307,7 @@ public partial class App : System.Windows.Application
 
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<DashboardViewModel>();
+                services.AddTransient<NaoConformidadesViewModel>();
                 services.AddTransient<PacientesViewModel>();
                 services.AddTransient<NovoAtendimentoViewModel>();
                 services.AddTransient<BaixaViewModel>();

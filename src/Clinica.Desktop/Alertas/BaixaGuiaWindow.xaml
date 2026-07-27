@@ -1,0 +1,36 @@
+<Window x:Class="Clinica.Desktop.Alertas.BaixaGuiaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Dar baixa na guia" Width="500" SizeToContent="Height"
+        Icon="/Assets/Marca/icone.png"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Fundo}">
+    <StackPanel Margin="24">
+        <TextBlock Text="Dar baixa na guia" Style="{StaticResource H2}" Margin="0,0,0,2" />
+        <TextBlock x:Name="TxtGuia" Style="{StaticResource TextoSuave}" Margin="0,0,0,12" />
+
+        <TextBlock Text="Nº da guia no sistema do convênio" Style="{StaticResource Rotulo}" />
+        <TextBox x:Name="TxtNumero" MaxLength="30"
+                 ctrl:Ajudantes.Placeholder="Como o convênio devolveu" />
+
+        <TextBlock Text="Data da baixa" Style="{StaticResource Rotulo}" />
+        <DatePicker x:Name="DpData" />
+
+        <TextBlock Text="Observação (opcional)" Style="{StaticResource Rotulo}" />
+        <TextBox x:Name="TxtObservacao" AcceptsReturn="True" TextWrapping="Wrap"
+                 MinHeight="52" MaxHeight="90" VerticalScrollBarVisibility="Auto" MaxLength="300" />
+
+        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,10,0,0"
+                   Text="Baixa é o registro de que a guia foi efetivada no sistema do convênio. Ela sai das pendências e passa a contar como faturada." />
+
+        <TextBlock x:Name="TxtErro" Foreground="{StaticResource Brush.Erro}" TextWrapping="Wrap"
+                   Margin="0,8,0,0" Visibility="Collapsed" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click"
+                    IsCancel="True" Margin="0,0,10,0" />
+            <Button Content="Registrar baixa" Click="Confirmar_Click" IsDefault="True" MinWidth="130" />
+        </StackPanel>
+    </StackPanel>
+</Window>

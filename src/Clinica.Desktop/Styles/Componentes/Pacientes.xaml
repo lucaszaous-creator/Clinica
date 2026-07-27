@@ -1,0 +1,51 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
+
+    <!-- ============================================================
+         Linha do seletor de paciente.
+
+         Uma linha só, usada por toda tela que escolhe um paciente (Novo
+         atendimento, Agendamento). Antes cada tela desenhava a sua, e elas
+         mostravam coisas diferentes: uma tinha o convênio, a outra não.
+         ============================================================ -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Tokens.xaml" />
+        <ResourceDictionary Source="../Conversores.xaml" />
+        <ResourceDictionary Source="Cartoes.xaml" />
+        <ResourceDictionary Source="Feedback.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <DataTemplate x:Key="ItemPacienteSeletor">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ctrl:Avatar Grid.Column="0" Tamanho="36" VerticalAlignment="Center" Margin="0,0,10,0"
+                         Nome="{Binding Nome}" Foto="{Binding FotoMiniatura}" />
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Documento, Converter={StaticResource Cpf}}"
+                           Style="{StaticResource FichaRotulo}" Margin="0,2,0,0" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Carteirinha vencida aparece ANTES da escolha: a guia seria recusada. -->
+                <Border Style="{StaticResource Badge.Erro}" Margin="0,0,6,0"
+                        ToolTip="Carteirinha vencida — o convênio recusa a guia"
+                        Visibility="{Binding CarteirinhaVencida, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="Carteirinha vencida" />
+                </Border>
+                <Border Style="{StaticResource Badge}">
+                    <TextBlock Text="{Binding Path=., Converter={StaticResource ConvenioPaciente}}" />
+                </Border>
+            </StackPanel>
+        </Grid>
+    </DataTemplate>
+
+</ResourceDictionary>

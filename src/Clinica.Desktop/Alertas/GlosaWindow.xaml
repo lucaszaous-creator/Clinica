@@ -1,7 +1,7 @@
 <Window x:Class="Clinica.Desktop.Alertas.GlosaWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Registrar glosa" Width="480" SizeToContent="Height"
+        Title="Registrar glosa" Width="560" SizeToContent="Height"
         Icon="/Assets/Marca/icone.png"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
         Background="{StaticResource Brush.Fundo}">
@@ -13,7 +13,26 @@
         <DatePicker x:Name="DpData" />
 
         <TextBlock Text="Motivo (tabela ANS)" Style="{StaticResource Rotulo}" />
-        <ComboBox x:Name="CmbMotivo" />
+        <ComboBox x:Name="CmbMotivo" SelectionChanged="Motivo_SelectionChanged" />
+
+        <!-- Orientação do motivo escolhido: o que fazer para não repetir e o que juntar
+             para o recurso. É o que faltava para o código da operadora virar ação. -->
+        <Border x:Name="PainelOrientacao" Background="{StaticResource Brush.Fundo}"
+                CornerRadius="{StaticResource Raio.Medio}" Padding="12" Margin="0,10,0,0"
+                Visibility="Collapsed">
+            <StackPanel>
+                <TextBlock x:Name="TxtSignificado" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Tabela}" />
+
+                <TextBlock Text="COMO EVITAR" Style="{StaticResource TituloSecao}" Margin="0,12,0,2" />
+                <TextBlock x:Name="TxtComoEvitar" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Tabela}" />
+
+                <TextBlock Text="LASTRO DO RECURSO" Style="{StaticResource TituloSecao}" Margin="0,12,0,2" />
+                <TextBlock x:Name="TxtLastro" TextWrapping="Wrap" FontSize="{StaticResource Fonte.Tabela}" />
+
+                <Button Content="Ver o guia completo" Style="{StaticResource BotaoSecundario}"
+                        HorizontalAlignment="Left" Margin="0,12,0,0" Click="Guia_Click" />
+            </StackPanel>
+        </Border>
 
         <TextBlock Text="Complemento / observação" Style="{StaticResource Rotulo}" />
         <TextBox x:Name="TxtMotivo" Height="70" AcceptsReturn="True" TextWrapping="Wrap" />

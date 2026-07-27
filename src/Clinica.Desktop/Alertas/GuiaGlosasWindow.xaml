@@ -1,0 +1,106 @@
+<Window x:Class="Clinica.Desktop.Alertas.GuiaGlosasWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Por que as guias são glosadas" Width="900" Height="640"
+        MinWidth="760" MinHeight="520"
+        Icon="/Assets/Marca/icone.png"
+        WindowStartupLocation="CenterOwner" FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Fundo}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Por que as guias são glosadas" Style="{StaticResource H2}" Margin="0,0,0,2" />
+            <TextBlock Style="{StaticResource TextoSuave}"
+                       Text="O demonstrativo da operadora chega com um código seco. Aqui está o que cada um quer dizer, o que costuma causar, como não repetir — e o que juntar para sustentar o recurso." />
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== Lista de motivos ===== -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,20,0">
+                <DockPanel>
+                    <TextBox DockPanel.Dock="Top" x:Name="TxtBusca" Margin="0,0,0,10"
+                             TextChanged="Busca_TextChanged"
+                             Style="{StaticResource CampoPesquisa}"
+                             ctrl:Ajudantes.Placeholder="Buscar por código ou palavra…" />
+
+                    <ListBox x:Name="ListaMotivos" Style="{StaticResource ListaCartoes}"
+                             SelectionChanged="Motivo_SelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Codigo}" FontWeight="Bold"
+                                               Foreground="{StaticResource Brush.Acento}"
+                                               FontSize="{StaticResource Fonte.Legenda}" />
+                                    <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap"
+                                               FontWeight="SemiBold" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- ===== Detalhe do motivo ===== -->
+            <Border Grid.Column="1" Style="{StaticResource Card}">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="PainelDetalhe">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource Badge.Info}" Margin="0,0,8,0">
+                                <TextBlock x:Name="TxtCodigo" />
+                            </Border>
+                            <Border x:Name="BadgeRecurso" Style="{StaticResource Badge.Sucesso}">
+                                <TextBlock x:Name="TxtRecurso" />
+                            </Border>
+                        </StackPanel>
+
+                        <TextBlock x:Name="TxtDescricao" Style="{StaticResource H3}" TextWrapping="Wrap"
+                                   Margin="0,10,0,0" />
+
+                        <TextBlock Text="O QUE SIGNIFICA" Style="{StaticResource TituloSecao}" />
+                        <Border Style="{StaticResource Divisor}" />
+                        <TextBlock x:Name="TxtSignificado" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   LineHeight="22" />
+
+                        <TextBlock Text="COMO EVITAR" Style="{StaticResource TituloSecao}" />
+                        <Border Style="{StaticResource Divisor}" />
+                        <TextBlock x:Name="TxtComoEvitar" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   LineHeight="22" />
+
+                        <TextBlock Text="LASTRO DO RECURSO" Style="{StaticResource TituloSecao}" />
+                        <Border Style="{StaticResource Divisor}" />
+                        <TextBlock x:Name="TxtLastro" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   LineHeight="22" />
+
+                        <Border x:Name="AvisoNaoRecorrer" Style="{StaticResource AlertaAviso}" Margin="0,16,0,0"
+                                Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE7BA;" Style="{StaticResource Icone}" Margin="0,0,8,0"
+                                           VerticalAlignment="Top" />
+                                <TextBlock TextWrapping="Wrap" FontWeight="SemiBold"
+                                           Text="Neste motivo o recurso costuma não prosperar. Vale mais corrigir a causa (ou tratar como particular) do que gastar o prazo recorrendo." />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <DockPanel Grid.Row="2" Margin="0,16,0,0">
+            <Button DockPanel.Dock="Right" Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                    Click="Fechar_Click" IsCancel="True" IsDefault="True" MinWidth="100" />
+            <TextBlock Style="{StaticResource TextoSuave}" VerticalAlignment="Center" Margin="0"
+                       Text="Códigos da tabela de tipos de glosa do padrão TISS/ANS. O código registrado aqui é o mesmo que sai no XML de recurso." />
+        </DockPanel>
+    </Grid>
+</Window>

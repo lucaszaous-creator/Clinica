@@ -1,0 +1,762 @@
+<title>Clínica SemDor — Sistema de Faturamento</title>
+<style>
+  :root{
+    /* Superfícies / neutros frios (Tokens.xaml) */
+    --bg:#F8FAFC; --surface:#FFFFFF; --surface-2:#F1F5F9; --surface-3:#F8FAFC;
+    --ink:#111827; --ink-2:#374151; --ink-soft:#6B7280;
+    --line:#E5E7EB; --line-2:#D1D5DB;
+    /* Marca SemDor — azul-royal */
+    --accent:#123A9E; --accent-strong:#0A2E86; --accent-tint:#EEF3FC; --accent-tint-2:#D8E3F7;
+    --navy:#07329A; --mid:#5E87D9; --light:#B0D3F3;
+    --hero-a:#0A2E86; --hero-b:#071F5C;
+    /* Estados */
+    --success:#16A34A; --success-strong:#15803D; --success-tint:#DCFCE7;
+    --warn:#EA580C; --warn-tint:#FFEDD5;
+    --err:#DC2626; --err-strong:#B91C1C; --err-tint:#FEE2E2;
+    --info:#0EA5E9; --info-tint:#E0F2FE;
+    /* Semáforo de urgência */
+    --sem-green:#2E7D32; --sem-amber:#F9A825; --sem-red:#C62828;
+    --mono:Consolas,"SF Mono",Menlo,monospace;
+    --ui:"Segoe UI",Inter,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --shadow-card:0 1px 2px rgba(17,24,39,.04),0 10px 26px -14px rgba(17,24,39,.14);
+    --shadow-float:0 26px 64px -26px rgba(7,31,92,.42);
+    --maxw:1120px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0A1220; --surface:#111A2B; --surface-2:#0D1626; --surface-3:#0F1A2C;
+      --ink:#EAF0FA; --ink-2:#C4D0E4; --ink-soft:#8A99B4;
+      --line:#20304A; --line-2:#2A3B57;
+      --accent:#6E97E8; --accent-strong:#8FB0F0; --accent-tint:#14243F; --accent-tint-2:#1A2E4E;
+      --navy:#6E97E8; --mid:#7DA0E6; --light:#B0D3F3;
+      --hero-a:#0B234C; --hero-b:#05122E;
+      --success:#4ADE80; --success-strong:#86EFAC; --success-tint:#12301F;
+      --warn:#FB923C; --warn-tint:#2E1D10;
+      --err:#F87171; --err-strong:#FCA5A5; --err-tint:#301518;
+      --info:#38BDF8; --info-tint:#0C2536;
+      --sem-green:#57C97F; --sem-amber:#E6B34C; --sem-red:#EF6B67;
+      --shadow-card:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.62);
+      --shadow-float:0 30px 70px -28px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0A1220; --surface:#111A2B; --surface-2:#0D1626; --surface-3:#0F1A2C;
+    --ink:#EAF0FA; --ink-2:#C4D0E4; --ink-soft:#8A99B4;
+    --line:#20304A; --line-2:#2A3B57;
+    --accent:#6E97E8; --accent-strong:#8FB0F0; --accent-tint:#14243F; --accent-tint-2:#1A2E4E;
+    --navy:#6E97E8; --mid:#7DA0E6; --light:#B0D3F3;
+    --hero-a:#0B234C; --hero-b:#05122E;
+    --success:#4ADE80; --success-strong:#86EFAC; --success-tint:#12301F;
+    --warn:#FB923C; --warn-tint:#2E1D10;
+    --err:#F87171; --err-strong:#FCA5A5; --err-tint:#301518;
+    --info:#38BDF8; --info-tint:#0C2536;
+    --sem-green:#57C97F; --sem-amber:#E6B34C; --sem-red:#EF6B67;
+    --shadow-card:0 1px 2px rgba(0,0,0,.4),0 12px 30px -16px rgba(0,0,0,.62);
+    --shadow-float:0 30px 70px -28px rgba(0,0,0,.8);
+  }
+  :root[data-theme="light"]{
+    --bg:#F8FAFC; --surface:#FFFFFF; --surface-2:#F1F5F9; --surface-3:#F8FAFC;
+    --ink:#111827; --ink-2:#374151; --ink-soft:#6B7280;
+    --line:#E5E7EB; --line-2:#D1D5DB;
+    --accent:#123A9E; --accent-strong:#0A2E86; --accent-tint:#EEF3FC; --accent-tint-2:#D8E3F7;
+    --navy:#07329A; --mid:#5E87D9; --light:#B0D3F3;
+    --hero-a:#0A2E86; --hero-b:#071F5C;
+    --success:#16A34A; --success-strong:#15803D; --success-tint:#DCFCE7;
+    --warn:#EA580C; --warn-tint:#FFEDD5;
+    --err:#DC2626; --err-strong:#B91C1C; --err-tint:#FEE2E2;
+    --info:#0EA5E9; --info-tint:#E0F2FE;
+    --sem-green:#2E7D32; --sem-amber:#F9A825; --sem-red:#C62828;
+    --shadow-card:0 1px 2px rgba(17,24,39,.04),0 10px 26px -14px rgba(17,24,39,.14);
+    --shadow-float:0 26px 64px -26px rgba(7,31,92,.42);
+  }
+
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  h1,h2,h3{margin:0;text-wrap:balance;letter-spacing:-.02em;line-height:1.1}
+  p{margin:0}
+  .tnum{font-variant-numeric:tabular-nums}
+  .mono{font-family:var(--mono)}
+
+  .eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent)}
+  .eyebrow::before{content:"";width:26px;height:1px;background:currentColor}
+  .eyebrow .pt{width:5px;height:5px;border-radius:50%;background:currentColor;box-shadow:-9px 0 0 -1px currentColor}
+
+  /* top bar of the page */
+  .topnav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 84%,transparent);backdrop-filter:saturate(140%) blur(12px);border-bottom:1px solid var(--line)}
+  .topnav .row{display:flex;align-items:center;gap:16px;height:60px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:750;letter-spacing:-.01em;font-size:16.5px;color:var(--ink)}
+  .brand small{display:block;font-weight:600;font-size:11px;letter-spacing:.03em;color:var(--ink-soft);margin-top:-2px}
+  .topnav nav{margin-left:auto;display:flex;gap:6px;align-items:center}
+  .topnav nav a{font-size:13.5px;font-weight:600;color:var(--ink-2);padding:8px 12px;border-radius:8px;text-decoration:none}
+  .topnav nav a:hover{background:var(--surface-2);color:var(--ink)}
+  .theme-btn{display:inline-grid;place-items:center;width:38px;height:38px;border:1px solid var(--line);background:var(--surface);border-radius:9px;color:var(--ink-2);cursor:pointer}
+  .theme-btn:hover{border-color:var(--line-2);color:var(--ink)}
+  @media (max-width:760px){.topnav nav a.hide-sm{display:none}}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;font-family:inherit;font-size:14.5px;font-weight:650;padding:11px 18px;border-radius:10px;border:1px solid transparent;cursor:pointer;text-decoration:none;transition:transform .1s,background .12s}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent-strong)}
+  .btn-onink{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.26)}
+  .btn-onink:hover{background:rgba(255,255,255,.2)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+  /* hero */
+  .hero{background:radial-gradient(120% 90% at 82% -10%,var(--hero-a) 0%,var(--hero-b) 58%),var(--hero-b);color:#EAF1FF;overflow:hidden;border-bottom:1px solid var(--line)}
+  .hero .wrap{padding-top:74px;padding-bottom:82px;position:relative;z-index:2}
+  .hero h1{font-size:clamp(34px,5.4vw,60px);font-weight:800;color:#fff;margin:20px 0 0;max-width:16ch}
+  .hero .lede{margin-top:20px;font-size:clamp(16px,2vw,19px);line-height:1.55;color:#BCC9E6;max-width:52ch}
+  .hero .cta{margin-top:32px;display:flex;gap:12px;flex-wrap:wrap}
+  .hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center}
+  @media (max-width:880px){.hero-grid{grid-template-columns:1fr;gap:34px}}
+  .statcard{background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.15);border-radius:18px;padding:26px}
+  .statcard .k{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--light)}
+  .statcard .big{display:flex;align-items:baseline;gap:12px;margin:12px 0 4px}
+  .statcard .big b{font-size:60px;font-weight:800;letter-spacing:-.03em;color:#fff;line-height:1}
+  .statcard .big span{font-size:18px;color:#A9BCE0}
+  .statcard .sub{color:#B4C4E6;font-size:14px;line-height:1.5}
+  .hbar{height:12px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden;margin:18px 0 8px}
+  .hbar>i{display:block;height:100%;width:26%;border-radius:999px;background:linear-gradient(90deg,#EF6B67,#F0A24A)}
+  .hbar-l{display:flex;justify-content:space-between;font-size:12.5px;color:#A9BCE0}
+  .hero-deco{position:absolute;inset:0;z-index:1;pointer-events:none;opacity:.5}
+
+  .trust{border-bottom:1px solid var(--line);background:var(--surface)}
+  .trust .row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 26px;padding:16px 0}
+  .trust .lbl{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:999px;padding:6px 13px}
+  .chip .cd{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+  .band{padding:84px 0}
+  .band.alt{background:var(--surface)}
+  .band-head{max-width:62ch}
+  .band-head h2{font-size:clamp(26px,3.4vw,38px);font-weight:800;margin:16px 0 0}
+  .band-head p{margin-top:16px;font-size:17px;color:var(--ink-2);line-height:1.6}
+
+  .prob{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:44px}
+  @media (max-width:820px){.prob{grid-template-columns:1fr}}
+  .cell{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:26px;box-shadow:var(--shadow-card)}
+  .cell.bad{border-color:color-mix(in srgb,var(--sem-red) 45%,var(--line))}
+  .cell.good{border-color:color-mix(in srgb,var(--sem-green) 45%,var(--line))}
+  .cell .t{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .cell .t.r{color:var(--sem-red)}.cell .t.g{color:var(--sem-green)}
+  .cell .num{font-size:44px;font-weight:800;letter-spacing:-.03em;margin:12px 0 2px}
+  .cell .num.r{color:var(--sem-red)}.cell .num.g{color:var(--sem-green)}
+  .cell .d{color:var(--ink-2);font-size:14.5px;line-height:1.55}
+  .track{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin:16px 0 6px}
+  .track>i{display:block;height:100%;border-radius:999px}
+  .track.r>i{width:26%;background:var(--sem-red)}
+  .track.g>i{width:92%;background:var(--sem-green)}
+  .cell .cap{font-size:12.5px;color:var(--ink-soft)}
+
+  .pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:44px}
+  @media (max-width:900px){.pillars{grid-template-columns:1fr 1fr}}
+  @media (max-width:600px){.pillars{grid-template-columns:1fr}}
+  .pillar{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:24px;box-shadow:var(--shadow-card);position:relative}
+  .pillar .ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--accent-tint);color:var(--accent);margin-bottom:16px}
+  .pillar h3{font-size:17.5px;font-weight:750;margin-bottom:8px}
+  .pillar p{font-size:14px;color:var(--ink-2);line-height:1.55}
+  .pillar .n{position:absolute;top:16px;right:18px;font-size:12px;font-weight:700;color:var(--ink-soft)}
+
+  /* ============ REAL APP MOCKUP ============ */
+  .screens{display:flex;flex-direction:column;gap:92px;margin-top:54px}
+  #telas .wrap{max-width:1240px}
+  .screen-head{max-width:80ch}
+  .screen-head .kk{font-size:12px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--accent);font-variant-numeric:tabular-nums}
+  .screen-head h3{font-size:clamp(22px,2.9vw,31px);font-weight:800;margin:12px 0 0}
+  .screen-head p{margin-top:13px;color:var(--ink-2);font-size:16px;line-height:1.6;max-width:72ch}
+  .screen .frame{margin-top:24px}
+  .screen-notes{display:grid;grid-template-columns:repeat(3,1fr);gap:14px 30px;margin-top:22px}
+  @media (max-width:820px){.screen-notes{grid-template-columns:1fr;gap:12px}}
+  .note{display:flex;gap:11px;font-size:14px;color:var(--ink-2);line-height:1.5}
+  .note svg{flex:0 0 auto;color:var(--accent);margin-top:3px}
+  .note b{color:var(--ink);font-weight:700}
+
+  .frame{border:1px solid var(--line-2);border-radius:14px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow-float)}
+  .winbar{height:40px;background:var(--surface-2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:0 16px}
+  .winbar .wd{width:11px;height:11px;border-radius:50%;background:var(--line-2)}
+  .winbar .wt{margin-left:10px;font-size:12.5px;color:var(--ink-soft);font-weight:600}
+
+  .app{display:grid;grid-template-columns:240px 1fr}
+  @media (max-width:640px){.app{grid-template-columns:64px 1fr}.app .side .rot,.app .side .grp,.app .side .brandtxt,.app .side .foot .ver,.app .side .foot .badge{display:none}}
+
+  /* sidebar (real: white, logo, grouped, left active bar) */
+  .side{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:6px 0 10px}
+  .side .logo{display:flex;align-items:center;gap:9px;padding:16px 14px 8px}
+  .side .brandtxt{font-weight:750;font-size:14.5px;letter-spacing:-.01em;color:var(--ink)}
+  .side .brandtxt small{display:block;font-size:10px;font-weight:600;color:var(--ink-soft);letter-spacing:.03em}
+  .side .grp{font-size:11px;font-weight:650;color:var(--ink-soft);padding:14px 20px 4px}
+  .nav{position:relative;display:flex;align-items:center;gap:12px;height:40px;margin:2px 8px;padding:0 12px;border-radius:8px;color:var(--ink-2);font-size:14px;cursor:default}
+  .nav svg{flex:0 0 auto;opacity:.85}
+  .nav .rot{white-space:nowrap}
+  .nav .cnt{margin-left:auto;background:var(--err);color:#fff;font-size:10.5px;font-weight:700;min-width:18px;height:18px;border-radius:999px;display:grid;place-items:center;padding:0 5px}
+  .nav.on{background:var(--accent-tint);color:var(--accent);font-weight:650}
+  .nav.on svg{opacity:1}
+  .nav.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--accent)}
+  .side .foot{margin-top:auto;padding:10px 14px 4px}
+  .side .foot .badge{display:flex;align-items:center;gap:7px;background:var(--err-tint);color:var(--err);border-radius:8px;padding:8px 10px;font-size:12px;font-weight:650;margin-bottom:8px}
+  .side .foot .ver{font-size:11px;color:var(--ink-soft)}
+
+  /* content: topbar + breadcrumb + view */
+  .content{display:flex;flex-direction:column;min-width:0}
+  .cbar{height:52px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 16px}
+  .cbar .ham{width:32px;height:32px;border-radius:8px;display:grid;place-items:center;color:var(--ink-soft)}
+  .cbar .search{flex:1;max-width:340px;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:7px 11px;color:var(--ink-soft);font-size:12.5px}
+  .cbar .ico{margin-left:auto;display:flex;align-items:center;gap:6px;color:var(--ink-soft)}
+  .cbar .ico .b{position:relative;width:32px;height:32px;border-radius:8px;display:grid;place-items:center}
+  .cbar .ico .b .cnt{position:absolute;top:3px;right:3px;background:var(--err);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:999px;display:grid;place-items:center;padding:0 3px}
+  .crumb{display:flex;align-items:center;gap:8px;padding:11px 24px;font-size:12.5px;color:var(--ink-soft);border-bottom:1px solid var(--line);background:var(--surface)}
+  .crumb b{color:var(--ink-2);font-weight:650}
+  .view{background:var(--bg);padding:22px 24px;min-height:400px}
+
+  .vhead{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+  .vhead h4{font-size:22px;font-weight:800;letter-spacing:-.02em;margin:0}
+  .vhead .sp{flex:1}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+  .card .ct{font-size:14px;font-weight:750;color:var(--ink);padding:14px 16px 0}
+  .card .cbody{padding:14px 16px}
+
+  .alert{border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:11px;font-size:14px;font-weight:650;margin-bottom:14px}
+  .alert.danger{background:var(--err);color:#fff}
+  .alert.warn{background:var(--warn-tint);color:var(--ink);border:1px solid color-mix(in srgb,var(--warn) 30%,var(--line))}
+  .alert svg{flex:0 0 auto}
+
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:14px}
+  @media (max-width:640px){.kpis{grid-template-columns:1fr 1fr}}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-height:84px}
+  .kpi .l{font-size:13px;color:var(--ink-soft)}
+  .kpi .v{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-top:4px;color:var(--ink)}
+  .kpi.accent{background:var(--accent);border-color:var(--accent)}
+  .kpi.accent .l{color:var(--accent-tint-2)}.kpi.accent .v{color:#fff}
+  .kpi .v.r{color:var(--err)}.kpi .v.w{color:var(--warn)}
+
+  .filters{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .filters .lb{font-size:13px;color:var(--ink-2)}
+  .combo{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:7px 11px;font-size:13px;color:var(--ink)}
+  .combo svg{color:var(--ink-soft)}
+
+  .btn2{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:650;border-radius:8px;padding:7px 12px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);cursor:default}
+  .btn2.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn2.sm{padding:5px 10px;font-size:12px}
+  .btn2 svg{flex:0 0 auto}
+
+  table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+  table.tbl th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);background:var(--surface-2);padding:9px 13px;border-bottom:1px solid var(--line);white-space:nowrap}
+  table.tbl td{padding:10px 13px;border-bottom:1px solid var(--line);color:var(--ink-2);vertical-align:middle;white-space:nowrap}
+  table.tbl tr:last-child td{border-bottom:0}
+  .who{font-weight:650;color:var(--ink)}
+  .dot{width:12px;height:12px;border-radius:50%;display:inline-block;vertical-align:middle}
+  .dot.r{background:var(--sem-red)}.dot.a{background:var(--sem-amber)}.dot.g{background:var(--sem-green)}.dot.x{background:var(--ink-soft);opacity:.5}
+  .bdg{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px}
+  .bdg.g{background:var(--success-tint);color:var(--success-strong)}
+  .bdg.a{background:var(--warn-tint);color:var(--warn)}
+  .bdg.r{background:var(--err-tint);color:var(--err)}
+  .bdg.b{background:var(--accent-tint);color:var(--accent)}
+  .bdg.x{background:var(--surface-2);color:var(--ink-soft)}
+  .muted{color:var(--ink-soft);font-size:12px}
+  .rowact{display:inline-flex;gap:6px}
+  .ib{width:26px;height:26px;border-radius:7px;border:1px solid var(--line-2);background:var(--surface);display:inline-grid;place-items:center;color:var(--ink-2)}
+
+  /* form (novo atendimento) */
+  .frow{display:flex;flex-direction:column;gap:11px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field .fl{font-size:12px;font-weight:650;color:var(--ink-2)}
+  .field .fi{border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:9px 11px;font-size:13px;color:var(--ink);display:flex;align-items:center;justify-content:space-between}
+  .field .fi.ph{color:var(--ink-soft)}
+  .radio{display:flex;gap:8px}
+  .radio .r{flex:1;border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--ink-2);text-align:center}
+  .radio .r.on{border-color:var(--accent);background:var(--accent-tint);color:var(--accent);font-weight:650}
+
+  /* blocking modal */
+  .modalwrap{position:relative;padding:0;background:repeating-linear-gradient(45deg,var(--surface-2),var(--surface-2) 10px,var(--surface-3) 10px,var(--surface-3) 20px);min-height:400px;display:flex;align-items:center;justify-content:center}
+  .modal{width:min(600px,94%);background:var(--surface);border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow-float);overflow:hidden;margin:22px}
+  .modal .mh{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:11px}
+  .modal .mh .lk{width:32px;height:32px;border-radius:8px;background:var(--err-tint);color:var(--err);display:grid;place-items:center;flex:0 0 auto}
+  .modal .mh h5{margin:0;font-size:15px;font-weight:750}
+  .modal .mh p{font-size:12px;color:var(--ink-soft);margin-top:2px}
+  .modal .mb{padding:16px 18px}
+
+  .flow{display:flex;gap:0;flex-wrap:wrap;margin-bottom:14px}
+  .fstep{flex:1;min-width:92px;background:var(--surface);border:1px solid var(--line);padding:11px;border-radius:10px;text-align:center;position:relative}
+  .fstep+.fstep{margin-left:24px}
+  .fstep+.fstep::before{content:"→";position:absolute;left:-19px;top:50%;transform:translateY(-50%);color:var(--ink-soft)}
+  .fstep .s{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+  .fstep .t{font-size:13px;font-weight:750;margin-top:4px;color:var(--ink)}
+  .fstep.done{border-color:color-mix(in srgb,var(--success) 40%,var(--line));background:var(--success-tint)}
+  .fstep.now{border-color:var(--accent);background:var(--accent-tint)}
+
+  /* architecture / diffs / close */
+  .arch{margin-top:40px;display:flex;flex-direction:column;gap:10px}
+  .layer{display:grid;grid-template-columns:210px 1fr;gap:18px;align-items:center;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow-card)}
+  @media (max-width:640px){.layer{grid-template-columns:1fr;gap:4px}}
+  .layer .ln{font-weight:750;font-size:15px}
+  .layer .ln .mono{display:block;font-size:11px;color:var(--ink-soft);font-weight:600;margin-top:2px}
+  .layer .ld{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+  .diffs{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
+  @media (max-width:900px){.diffs{grid-template-columns:1fr 1fr}}
+  @media (max-width:560px){.diffs{grid-template-columns:1fr}}
+  .diff{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;box-shadow:var(--shadow-card)}
+  .diff .ic{width:38px;height:38px;border-radius:10px;background:var(--surface-2);color:var(--accent);display:grid;place-items:center;margin-bottom:13px}
+  .diff h3{font-size:15.5px;font-weight:750;margin-bottom:6px}
+  .diff p{font-size:13.5px;color:var(--ink-2);line-height:1.5}
+
+  .close{background:radial-gradient(120% 120% at 15% 0%,var(--hero-a),var(--hero-b));color:#fff;text-align:center;padding:92px 0}
+  .close h2{font-size:clamp(28px,4vw,44px);font-weight:800;color:#fff;max-width:20ch;margin:0 auto}
+  .close p{margin:20px auto 0;max-width:52ch;color:#BCC9E6;font-size:17px}
+  .close .cta{margin-top:30px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  footer{background:var(--surface);border-top:1px solid var(--line);padding:30px 0;color:var(--ink-soft);font-size:13px}
+  footer .row{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+</style>
+
+<!-- brand logomark reused -->
+<header class="topnav">
+  <div class="wrap row">
+    <span class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8.5" fill="none" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.4" fill="#fff"/><path d="M16 2.5v6M16 23.5v6M2.5 16h6M23.5 16h6" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>
+      <span>Clínica SemDor<small>Sistema de Faturamento</small></span>
+    </span>
+    <nav>
+      <a class="hide-sm" href="#problema">O problema</a>
+      <a class="hide-sm" href="#telas">Por tela</a>
+      <a class="hide-sm" href="#tecnologia">Tecnologia</a>
+      <button class="theme-btn" id="themeBtn" aria-label="Alternar tema" title="Alternar tema"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></button>
+    </nav>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <svg class="hero-deco" viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g stroke="#2C4C93" stroke-width="1" fill="none" opacity=".6"><path d="M840 40 C 900 160, 1020 180, 1060 300 S 980 460, 1120 520"/><path d="M900 -20 C 960 120, 1080 150, 1100 260"/><path d="M760 80 C 840 200, 900 260, 1000 300"/></g>
+    <g fill="#7FB0FF"><circle cx="840" cy="40" r="3.5"/><circle cx="1060" cy="300" r="3.5"/><circle cx="1000" cy="300" r="3"/><circle cx="900" cy="-20" r="3"/><circle cx="1100" cy="260" r="3.5"/><circle cx="760" cy="80" r="3"/></g>
+  </svg>
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <span class="eyebrow" style="color:var(--light)"><span class="pt"></span>Apresentação do sistema</span>
+        <h1>Nenhuma guia esquecida. Nenhum faturamento perdido.</h1>
+        <p class="lede">O sistema da Clínica SemDor gera o 2º código de cada atendimento de acupuntura automaticamente, vigia cada guia com um semáforo de urgência e fecha o ciclo TISS inteiro — do lote à glosa. O que a clínica antes perdia por esquecimento, o sistema não deixa passar.</p>
+        <div class="cta">
+          <a class="btn btn-primary" href="#telas">Ver o sistema, tela por tela</a>
+          <a class="btn btn-onink" href="#problema">Por que ele existe</a>
+        </div>
+      </div>
+      <div class="statcard">
+        <div class="k">No controle anterior</div>
+        <div class="big"><b class="tnum">36</b><span>de <strong class="tnum" style="color:#DCE6FB">139</strong> faturas possíveis</span></div>
+        <div class="sub">O 2º código — obtido 24h depois do atendimento — era esquecido. Três em cada quatro faturas simplesmente não eram efetivadas.</div>
+        <div class="hbar"><i></i></div>
+        <div class="hbar-l"><span class="tnum">26% efetivadas</span><span class="tnum">74% perdidas</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="trust">
+  <div class="wrap row" style="display:flex">
+    <span class="lbl">Cobre o ciclo inteiro</span>
+    <span class="chip"><span class="cd"></span>Padrão TISS 4.01</span>
+    <span class="chip"><span class="cd"></span>Guia em PDF (leiaute ANS)</span>
+    <span class="chip"><span class="cd"></span>Trilha de auditoria</span>
+    <span class="chip"><span class="cd"></span>Multiusuário (PostgreSQL)</span>
+    <span class="chip"><span class="cd"></span>Atualização automática</span>
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<section class="band" id="problema">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow"><span class="pt"></span>O problema real</span>
+      <h2>O dinheiro não sumia no atendimento. Sumia na guia esquecida.</h2>
+      <p>Na acupuntura, o faturamento não termina na consulta: o 2º código (eletroacupuntura / pós-BSV) só pode ser obtido cerca de 24 horas depois. Sem alguém para lembrar, ele ficava para trás — e com ele, a maior parte da receita.</p>
+    </div>
+    <div class="prob">
+      <div class="cell bad reveal">
+        <span class="t r">Antes — controle manual</span>
+        <div class="num r tnum">26%</div>
+        <div class="d">Apenas 36 de 139 faturas efetivadas. O 2º código dependia da memória da recepção; sem semáforo, sem prazo, sem cobrança — a guia vencia e ninguém percebia.</div>
+        <div class="track r"><i></i></div>
+        <div class="cap tnum">36 efetivadas · 103 perdidas</div>
+      </div>
+      <div class="cell good reveal">
+        <span class="t g">Com o sistema SemDor</span>
+        <div class="num g tnum">92%</div>
+        <div class="d">O 2º código nasce junto com o atendimento, já com data prevista, e fica no painel com semáforo até a baixa. Passou do prazo, o sistema trava e exige uma decisão — baixa ou justificativa.</div>
+        <div class="track g"><i></i></div>
+        <div class="cap tnum">objetivo de operação: nada vence sem decisão</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PILLARS -->
+<section class="band alt">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow"><span class="pt"></span>A solução em camadas</span>
+      <h2>Camadas que trabalham para o mesmo fim: faturar tudo.</h2>
+    </div>
+    <div class="pillars">
+      <div class="pillar reveal"><span class="n tnum">01</span><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg></div><h3>Painel de pendências</h3><p>Toda guia em aberto com semáforo verde/amarelo/vermelho por urgência. O 2º código fica visível até a baixa — impossível esquecer.</p></div>
+      <div class="pillar reveal"><span class="n tnum">02</span><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6a3 3 0 0 0 6 0V2"/><path d="M12 15v3a4 4 0 0 0 8 0"/><circle cx="20" cy="16" r="2"/></svg></div><h3>Motor de regras por convênio</h3><p>Unimed, BSV, Amil, Petrobras — cada convênio tem seu fluxograma modelado. O sistema aplica a regra certa e gera os códigos no lançamento.</p></div>
+      <div class="pillar reveal"><span class="n tnum">03</span><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg></div><h3>Ciclo TISS completo</h3><p>Lote → envio → retorno → glosa → recurso. XML no padrão TISS 4.01 e guia em PDF no leiaute ANS. Guia exportada nunca entra em dois lotes.</p></div>
+      <div class="pillar reveal"><span class="n tnum">04</span><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Rodada de não conformidade</h3><p>Cada guia vence 10 dias após o atendimento. Passou sem baixa, o sistema bloqueia e cobra uma decisão: baixar ou justificar como não conformidade.</p></div>
+      <div class="pillar reveal"><span class="n tnum">05</span><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v7c0 6 8 10 8 10s8-4 8-10V5Z"/><path d="m9 12 2 2 4-4"/></svg></div><h3>Robustez de produção</h3><p>Trilha de auditoria de cada baixa e glosa, concorrência entre máquinas sem sobrescrever, backup local e atualização automática do app.</p></div>
+      <div class="pillar reveal"><span class="n tnum">06</span><div class="ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/></svg></div><h3>Relatórios que provam</h3><p>Taxa de baixa, taxa de glosa por convênio e tempo médio do atendimento até a baixa. O ganho fica em número, não em promessa.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- SCREENS -->
+<section class="band" id="telas">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow"><span class="pt"></span>O sistema, tela por tela</span>
+      <h2>As telas reais do produto — em tamanho real.</h2>
+      <p>Interface, cores e layout são os do sistema em produção. Só os dados (pacientes, guias, convênios) são de demonstração.</p>
+    </div>
+    <div class="screens">
+
+      <!-- 01 · PENDÊNCIAS -->
+      <figure class="screen reveal" style="margin:0">
+        <div class="screen-head"><div class="kk">Tela 01 · Painel</div><h3>Pendências de faturamento, com semáforo de urgência</h3><p>A primeira tela do dia. Cada guia em aberto com sua cor de urgência e o atraso em dias — baixa, WhatsApp para o paciente ou não conformidade, tudo na própria linha.</p></div>
+        <div class="frame">
+          <div class="winbar"><span class="wd"></span><span class="wd"></span><span class="wd"></span><span class="wt">Clínica SemDor — Faturamento</span></div>
+          <div class="app">
+            <!--SIDE:pend-->
+            <aside class="side">
+              <div class="logo"><svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg><span class="brandtxt">Clínica SemDor<small>Faturamento</small></span></div>
+              <div class="grp">Painel</div>
+              <div class="nav on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg><span class="rot">Pendências</span><span class="cnt tnum">6</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span class="rot">NC</span></div>
+              <div class="grp">Atendimento</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg><span class="rot">Agenda</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6a3 3 0 0 0 6 0V2"/><path d="M12 15v3a4 4 0 0 0 8 0"/><circle cx="20" cy="16" r="2"/></svg><span class="rot">Novo atendimento</span></div>
+              <div class="grp">Faturamento</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="rot">Faturados</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg><span class="rot">Glosas</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span class="rot">Guias TISS</span></div>
+              <div class="grp">Gestão</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/></svg><span class="rot">Relatórios</span></div>
+              <div class="foot"><div class="badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>Pendências: 6</div><div class="ver tnum">v1.3.2</div></div>
+            </aside>
+            <div class="content">
+              <div class="cbar"><span class="ham"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span><span class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Pesquisar seção ou paciente…</span><span class="ico"><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg><span class="cnt tnum">6</span></span><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9 2 2 0 1 1-2.8 2.8 1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2 2 2 0 1 1-2.8-2.8A1.7 1.7 0 0 0 4.6 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.2-2.9 2 2 0 1 1 2.8-2.8A1.7 1.7 0 0 0 11.4 4.6a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.2 2 2 0 1 1 2.8 2.8A1.7 1.7 0 0 0 19.4 11a2 2 0 1 1 0 4Z"/></svg></span><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span></span></div>
+              <div class="crumb"><b>Painel</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>Pendências</div>
+              <div class="view">
+                <div class="vhead"><svg width="24" height="24" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg><h4>Pendências de faturamento</h4><div class="sp"></div><span class="btn2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Atualizar</span></div>
+                <div class="alert danger"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>Existem 6 guias pendentes de baixa. Dê baixa assim que possível para não perder o faturamento.</div>
+                <div class="kpis">
+                  <div class="kpi"><div class="l">Guias em aberto</div><div class="v tnum">6</div></div>
+                  <div class="kpi"><div class="l">Urgentes (vermelho)</div><div class="v r tnum">3</div></div>
+                  <div class="kpi"><div class="l">Consultas a renovar</div><div class="v w tnum">2</div></div>
+                  <div class="kpi accent"><div class="l">Pendências totais</div><div class="v tnum">8</div></div>
+                </div>
+                <div class="filters">
+                  <span class="lb">Convênio:</span><span class="combo">Todos<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></span>
+                  <span class="lb">Urgência:</span><span class="combo">Todas<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></span>
+                  <span style="flex:1"></span>
+                  <span class="btn2"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Baixa em lote</span>
+                </div>
+                <div class="card">
+                  <div class="ct">Guias e códigos pendentes</div>
+                  <div style="padding:12px 4px 4px;overflow-x:auto">
+                  <table class="tbl">
+                    <thead><tr><th style="width:24px"></th><th>Paciente</th><th>Convênio</th><th>Código</th><th>Ordem</th><th>Prevista</th><th>Atraso</th><th>Como obter</th><th></th></tr></thead>
+                    <tbody>
+                      <tr><td><span class="dot r"></span></td><td class="who">Maria da Silva</td><td>Unimed Intercâmbio</td><td>Eletroacupuntura</td><td>2º</td><td class="tnum">14/07</td><td class="tnum" style="color:var(--sem-red);font-weight:700">+3</td><td>Ligação</td><td class="rowact"><span class="btn2 sm primary">Dar baixa</span><span class="ib" title="WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20l1.2-5.6A8.4 8.4 0 1 1 21 11.5Z"/></svg></span><span class="ib" title="NC">NC</span></td></tr>
+                      <tr><td><span class="dot r"></span></td><td class="who">Carlos Nunes</td><td>Amil</td><td>Acupuntura</td><td>1º</td><td class="tnum">14/07</td><td class="tnum" style="color:var(--sem-red);font-weight:700">+3</td><td>Portal</td><td class="rowact"><span class="btn2 sm primary">Dar baixa</span><span class="ib" title="WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20l1.2-5.6A8.4 8.4 0 1 1 21 11.5Z"/></svg></span><span class="ib" title="NC">NC</span></td></tr>
+                      <tr><td><span class="dot r"></span></td><td class="who">Rita Campos</td><td>Petrobras</td><td>Consulta (rotação)</td><td>2º</td><td class="tnum">14/07</td><td class="tnum" style="color:var(--sem-red);font-weight:700">+3</td><td>Ligação</td><td class="rowact"><span class="btn2 sm primary">Dar baixa</span><span class="ib" title="WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20l1.2-5.6A8.4 8.4 0 1 1 21 11.5Z"/></svg></span><span class="ib" title="NC">NC</span></td></tr>
+                      <tr><td><span class="dot a"></span></td><td class="who">João Pereira</td><td>Amil</td><td>Acupuntura</td><td>1º</td><td class="tnum">15/07</td><td class="tnum" style="color:var(--sem-amber);font-weight:700">hoje</td><td>Portal</td><td class="rowact"><span class="btn2 sm">Dar baixa</span><span class="ib" title="WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20l1.2-5.6A8.4 8.4 0 1 1 21 11.5Z"/></svg></span><span class="ib" title="NC">NC</span></td></tr>
+                      <tr><td><span class="dot a"></span></td><td class="who">Beatriz Lima</td><td>Unimed Padrão</td><td>Acupuntura</td><td>1º</td><td class="tnum">15/07</td><td class="tnum" style="color:var(--sem-amber);font-weight:700">hoje</td><td>App (QR)</td><td class="rowact"><span class="btn2 sm">Dar baixa</span><span class="ib" title="WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20l1.2-5.6A8.4 8.4 0 1 1 21 11.5Z"/></svg></span><span class="ib" title="NC">NC</span></td></tr>
+                      <tr><td><span class="dot g"></span></td><td class="who">Ana Souza</td><td>Petrobras</td><td>Consulta (rotação)</td><td>2º</td><td class="tnum">16/07</td><td class="tnum" style="color:var(--sem-green);font-weight:700">−1</td><td>Ligação</td><td class="rowact"><span class="btn2 sm">Dar baixa</span><span class="ib" title="WhatsApp"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-12.3 7.4L3 20l1.2-5.6A8.4 8.4 0 1 1 21 11.5Z"/></svg></span><span class="ib" title="NC">NC</span></td></tr>
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-notes">
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/></svg><span><b>Semáforo por urgência.</b> Vermelho passou do prazo, amarelo vence hoje, verde dentro do prazo.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span><b>Ações na própria linha.</b> Baixa, WhatsApp para o paciente ou marcar NC — em um clique.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 2 4-5"/></svg><span><b>KPIs no topo.</b> Guias em aberto, urgentes e pendências totais, sempre à vista.</span></div>
+        </div>
+      </figure>
+
+      <!-- 02 · NOVO ATENDIMENTO -->
+      <figure class="screen reveal" style="margin:0">
+        <div class="screen-head"><div class="kk">Tela 02 · Novo atendimento</div><h3>O 2º código nasce sozinho, com data prevista</h3><p>A secretária lança o atendimento e escolhe o convênio. O motor de regras aplica o fluxograma certo e cria os códigos — inclusive o 2º código, com a data de +24h já calculada e vigiada.</p></div>
+        <div class="frame">
+          <div class="winbar"><span class="wd"></span><span class="wd"></span><span class="wd"></span><span class="wt">Clínica SemDor — Faturamento</span></div>
+          <div class="app">
+            <aside class="side">
+              <div class="logo"><svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg><span class="brandtxt">Clínica SemDor<small>Faturamento</small></span></div>
+              <div class="grp">Painel</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg><span class="rot">Pendências</span></div>
+              <div class="grp">Atendimento</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg><span class="rot">Agenda</span></div>
+              <div class="nav on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6a3 3 0 0 0 6 0V2"/><path d="M12 15v3a4 4 0 0 0 8 0"/><circle cx="20" cy="16" r="2"/></svg><span class="rot">Novo atendimento</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 3.1a4 4 0 0 1 0 7.8"/></svg><span class="rot">Pacientes</span></div>
+              <div class="grp">Faturamento</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="rot">Faturados</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span class="rot">Guias TISS</span></div>
+              <div class="foot"><div class="ver tnum">v1.3.2</div></div>
+            </aside>
+            <div class="content">
+              <div class="cbar"><span class="ham"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span><span class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Pesquisar seção ou paciente…</span><span class="ico"><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span></span></div>
+              <div class="crumb"><b>Atendimento</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>Novo atendimento</div>
+              <div class="view">
+                <div class="vhead"><h4>Novo atendimento</h4></div>
+                <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:14px">
+                  <div class="card"><div class="ct">Dados do atendimento</div>
+                    <div class="cbody frow">
+                      <div class="field"><span class="fl">Buscar paciente (nome ou CPF)</span><span class="fi">Maria da Silva</span></div>
+                      <div class="field"><span class="fl">Convênio</span><span class="fi">Unimed Intercâmbio<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></span></div>
+                      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+                        <div class="field"><span class="fl">Data</span><span class="fi tnum">16/07/2026</span></div>
+                        <div class="field"><span class="fl">Modalidade</span><span class="fi">Acu + eletro</span></div>
+                      </div>
+                      <div class="field"><span class="fl">Qual código o convênio libera primeiro (hoje)?</span>
+                        <div class="radio"><span class="r on">Acupuntura</span><span class="r">Eletroacupuntura</span></div>
+                      </div>
+                      <div style="display:flex;gap:8px;margin-top:4px"><span class="btn2 primary"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6a3 3 0 0 0 6 0V2"/><circle cx="20" cy="16" r="2"/></svg>Lançar e gerar códigos</span><span class="btn2">Gerar capa inicial (PDF)</span></div>
+                    </div>
+                  </div>
+                  <div class="card"><div class="ct">Regras por convênio</div>
+                    <div class="cbody" style="font-size:13px;color:var(--ink-2);line-height:1.7">
+                      <b>Unimed Intercâmbio:</b> 2 códigos — o 2º é obtido pelo próprio sistema em +24h, sem ligar.<br>
+                      <b>Unimed Padrão:</b> código no app (QR) ou por ligação.<br>
+                      <b>Amil:</b> guia no portal; sem 2º código.<br>
+                      <b>Petrobras:</b> rotação de especialidade por sexo do paciente.
+                    </div>
+                  </div>
+                </div>
+                <div class="card" style="margin-top:14px"><div class="ct">Códigos gerados</div>
+                  <div style="padding:12px 4px 4px;overflow-x:auto">
+                  <table class="tbl">
+                    <thead><tr><th>Código</th><th>Especialidade</th><th>Ordem</th><th>Faturar em</th><th>Como obter</th><th>Status</th></tr></thead>
+                    <tbody>
+                      <tr><td class="who">Acupuntura</td><td>—</td><td>1º</td><td class="tnum">16/07/2026 (hoje)</td><td>Sistema</td><td><span class="bdg b">Pronto p/ faturar</span></td></tr>
+                      <tr><td class="who">Eletroacupuntura</td><td>—</td><td>2º</td><td class="tnum">17/07/2026 (+24h)</td><td>Ligação</td><td><span class="bdg a">Previsto</span></td></tr>
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-notes">
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v6a3 3 0 0 0 6 0V2"/><circle cx="20" cy="16" r="2"/></svg><span><b>Uma regra por convênio.</b> O sistema aplica o fluxograma certo no lançamento.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span><b>Data prevista automática.</b> O 2º código já entra no painel com o prazo de +24h.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span><b>Capa inicial em PDF.</b> Documento de abertura do atendimento gerado na hora.</span></div>
+        </div>
+      </figure>
+
+      <!-- 03 · RODADA / NC (bloqueante) -->
+      <figure class="screen reveal" style="margin:0">
+        <div class="screen-head"><div class="kk">Tela 03 · Não conformidade</div><h3>Passou de 10 dias? O sistema trava até resolver</h3><p>Cada guia vence 10 dias após o atendimento. Vencido o prazo sem baixa, a abertura do sistema exibe a janela “Rodar pendências”: cada guia exige uma decisão — dar baixa ou justificar como não conformidade.</p></div>
+        <div class="frame">
+          <div class="winbar"><span class="wd"></span><span class="wd"></span><span class="wd"></span><span class="wt">Clínica SemDor — Rodar pendências</span></div>
+          <div class="app">
+            <aside class="side">
+              <div class="logo"><svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg><span class="brandtxt">Clínica SemDor<small>Faturamento</small></span></div>
+              <div class="grp">Painel</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg><span class="rot">Pendências</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span class="rot">NC</span></div>
+              <div class="foot"><div class="ver tnum">v1.3.2</div></div>
+            </aside>
+            <div class="content">
+              <div class="modalwrap">
+                <div class="modal">
+                  <div class="mh"><span class="lk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><div><h5>Rodar pendências</h5><p>3 guias passaram de 10 dias desde o atendimento. Decida cada uma para continuar.</p></div></div>
+                  <div class="mb">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span class="muted">Data da baixa:</span><span class="combo" style="padding:6px 10px">24/07/2026</span></div>
+                    <div style="border:1px solid var(--line);border-radius:9px;overflow:hidden">
+                    <table class="tbl">
+                      <thead><tr><th>Guia vencida</th><th>Atraso</th><th style="width:210px">Decisão</th></tr></thead>
+                      <tbody>
+                        <tr><td class="who">Maria da Silva · 2º código<div class="muted">Unimed Intercâmbio</div></td><td class="tnum" style="color:var(--sem-red);font-weight:700">12 d</td><td class="rowact"><span class="btn2 sm primary">Baixa</span><span class="btn2 sm">Não conformidade</span></td></tr>
+                        <tr><td class="who">Rita Campos · 2º código<div class="muted">Petrobras</div></td><td class="tnum" style="color:var(--sem-red);font-weight:700">11 d</td><td><span class="bdg g">Baixada · 88262</span></td></tr>
+                        <tr><td class="who">Carlos Nunes · guia<div class="muted">Amil</div></td><td class="tnum" style="color:var(--sem-red);font-weight:700">10 d</td><td><span class="bdg x">NC · “aguardando paciente”</span></td></tr>
+                      </tbody>
+                    </table>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:14px"><span class="muted">1 de 3 ainda sem decisão</span><span style="flex:1"></span><span class="btn2">Cancelar</span><span class="btn2 primary">Concluir rodada</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-notes">
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><span><b>Bloqueio deliberado.</b> Nenhuma guia vencida fica esquecida — o sistema exige a decisão.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 3v6h6"/></svg><span><b>NC reabre sozinha.</b> Quando o paciente volta, a guia justificada vira pendência de novo.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg><span><b>Carência na adoção.</b> O backlog antigo não bloqueia tudo de uma vez no primeiro dia.</span></div>
+        </div>
+      </figure>
+
+      <!-- 04 · GUIAS TISS -->
+      <figure class="screen reveal" style="margin:0">
+        <div class="screen-head"><div class="kk">Tela 04 · Ciclo TISS</div><h3>Guias TISS — do lote ao recurso, sem reenvio duplicado</h3><p>As guias faturadas viram um lote TISS registrado — número sequencial e XML no padrão 4.01 com epílogo validado por hash. Uma guia exportada nunca entra de novo em outro lote.</p></div>
+        <div class="frame">
+          <div class="winbar"><span class="wd"></span><span class="wd"></span><span class="wd"></span><span class="wt">Clínica SemDor — Faturamento</span></div>
+          <div class="app">
+            <aside class="side">
+              <div class="logo"><svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg><span class="brandtxt">Clínica SemDor<small>Faturamento</small></span></div>
+              <div class="grp">Faturamento</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="rot">Faturados</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg><span class="rot">Glosas</span></div>
+              <div class="nav on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span class="rot">Guias TISS</span></div>
+              <div class="grp">Gestão</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/></svg><span class="rot">Relatórios</span></div>
+              <div class="foot"><div class="ver tnum">v1.3.2</div></div>
+            </aside>
+            <div class="content">
+              <div class="cbar"><span class="ham"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span><span class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Pesquisar seção ou paciente…</span><span class="ico"><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span></span></div>
+              <div class="crumb"><b>Faturamento</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>Guias TISS</div>
+              <div class="view">
+                <div class="vhead"><h4>Guias TISS — lotes</h4><div class="sp"></div><span class="muted" style="margin-right:8px">De:</span><span class="combo" style="padding:6px 10px">01/07/2026</span><span class="muted" style="margin:0 8px">Até:</span><span class="combo" style="padding:6px 10px">24/07/2026</span><span class="btn2 primary" style="margin-left:10px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>Gerar lote TISS (.xml)</span></div>
+                <div class="flow">
+                  <div class="fstep done"><div class="s">1</div><div class="t">Lote</div></div>
+                  <div class="fstep now"><div class="s">2</div><div class="t">Envio</div></div>
+                  <div class="fstep"><div class="s">3</div><div class="t">Retorno</div></div>
+                  <div class="fstep"><div class="s">4</div><div class="t">Glosa</div></div>
+                  <div class="fstep"><div class="s">5</div><div class="t">Recurso</div></div>
+                </div>
+                <div class="card">
+                  <div class="ct">Lotes gerados</div>
+                  <div style="padding:12px 4px 4px;overflow-x:auto">
+                  <table class="tbl">
+                    <thead><tr><th>Nº lote</th><th>Convênio</th><th>Gerado em</th><th>Guias</th><th>Situação</th><th>Protocolo</th><th>Glosadas</th><th>Ações</th></tr></thead>
+                    <tbody>
+                      <tr><td class="mono" style="color:var(--accent)">2026-000147</td><td>Unimed Costa do Sol</td><td class="tnum">24/07</td><td class="tnum">6</td><td><span class="bdg b">Gerado</span></td><td class="muted">—</td><td class="tnum">0</td><td class="rowact"><span class="btn2 sm">XML</span><span class="btn2 sm">Marcar enviado</span></td></tr>
+                      <tr><td class="mono">2026-000146</td><td>Amil</td><td class="tnum">22/07</td><td class="tnum">9</td><td><span class="bdg g">Enviado</span></td><td class="mono">A-5521</td><td class="tnum">0</td><td class="rowact"><span class="btn2 sm">XML</span><span class="btn2 sm">Registrar retorno</span></td></tr>
+                      <tr><td class="mono">2026-000145</td><td>Petrobras</td><td class="tnum">19/07</td><td class="tnum">5</td><td><span class="bdg a">Retorno parcial</span></td><td class="mono">PB-3080</td><td class="tnum" style="color:var(--sem-red);font-weight:700">1</td><td class="rowact"><span class="btn2 sm">XML</span><span class="btn2 sm">Registrar retorno</span></td></tr>
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-notes">
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span><b>XML TISS 4.01.</b> Consulta e SP/SADT com epílogo validado por hash antes de sair.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Retorno automático.</b> Importa o demonstrativo e pré-preenche o aceito e o glosado.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17v-6M12 17V7M15 17v-3"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span><b>Sem reenvio duplicado.</b> Guia exportada não entra de novo em outro lote.</span></div>
+        </div>
+      </figure>
+
+      <!-- 05 · GLOSAS -->
+      <figure class="screen reveal" style="margin:0">
+        <div class="screen-head"><div class="kk">Tela 05 · Controle de glosas</div><h3>Glosa com prazo de recurso vigiado pelo semáforo</h3><p>Cada glosa recebe uma data-limite de recurso e entra no painel com o mesmo semáforo do 2º código. Nada prescreve por esquecimento — e o recurso já sai em XML.</p></div>
+        <div class="frame">
+          <div class="winbar"><span class="wd"></span><span class="wd"></span><span class="wd"></span><span class="wt">Clínica SemDor — Faturamento</span></div>
+          <div class="app">
+            <aside class="side">
+              <div class="logo"><svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg><span class="brandtxt">Clínica SemDor<small>Faturamento</small></span></div>
+              <div class="grp">Faturamento</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="rot">Faturados</span></div>
+              <div class="nav on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg><span class="rot">Glosas</span></div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span class="rot">Guias TISS</span></div>
+              <div class="grp">Gestão</div>
+              <div class="nav"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/></svg><span class="rot">Relatórios</span></div>
+              <div class="foot"><div class="ver tnum">v1.3.2</div></div>
+            </aside>
+            <div class="content">
+              <div class="cbar"><span class="ham"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></span><span class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Pesquisar seção ou paciente…</span><span class="ico"><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span><span class="b"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span></span></div>
+              <div class="crumb"><b>Faturamento</b><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>Glosas</div>
+              <div class="view">
+                <div class="vhead"><h4>Controle de glosas</h4><div class="sp"></div><span class="combo" style="padding:6px 10px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.4"><path d="m5 12 4 4L19 6"/></svg>Só glosas em aberto</span><span class="btn2" style="margin-left:8px">Atualizar</span><span class="btn2 primary" style="margin-left:8px">Recurso de glosa (.xml)</span></div>
+                <div class="card">
+                  <div style="padding:12px 4px 4px;overflow-x:auto">
+                  <table class="tbl">
+                    <thead><tr><th style="width:24px"></th><th>Paciente</th><th>Convênio</th><th>Nº guia</th><th>Glosada em</th><th>Motivo (ANS)</th><th>Prazo recurso</th><th>Situação</th><th>Ações</th></tr></thead>
+                    <tbody>
+                      <tr><td><span class="dot r"></span></td><td class="who">João Pereira</td><td>Amil</td><td class="mono">88240</td><td class="tnum">18/07</td><td>1707 · Código não autorizado</td><td class="tnum" style="color:var(--sem-red);font-weight:700">26/07 (2 d)</td><td><span class="bdg r">Glosada</span></td><td class="rowact"><span class="btn2 sm primary">Reapresentar</span></td></tr>
+                      <tr><td><span class="dot a"></span></td><td class="who">Ana Souza</td><td>Petrobras</td><td class="mono">88255</td><td class="tnum">17/07</td><td>1401 · Divergência de dados</td><td class="tnum" style="color:var(--sem-amber);font-weight:700">31/07 (7 d)</td><td><span class="bdg a">Reapresentada</span></td><td class="rowact"><span class="btn2 sm">Recuperada</span></td></tr>
+                      <tr><td><span class="dot g"></span></td><td class="who">Beatriz Lima</td><td>Unimed Padrão</td><td class="mono">88221</td><td class="tnum">12/07</td><td>1801 · Falta de anexo</td><td class="tnum" style="color:var(--sem-green);font-weight:700">09/08 (16 d)</td><td><span class="bdg g">Recuperada</span></td><td class="muted">—</td></tr>
+                    </tbody>
+                  </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="screen-notes">
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg><span><b>Prazo de recurso vigiado.</b> Cada glosa com data-limite e o mesmo semáforo do painel.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span><b>Recurso em XML.</b> O recurso de glosa sai pronto no padrão da operadora.</span></div>
+          <div class="note"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 13Z"/></svg><span><b>Motivo padronizado (ANS).</b> O código do motivo entra pela tabela oficial.</span></div>
+        </div>
+      </figure>
+
+    </div>
+  </div>
+</section>
+
+<!-- ARCHITECTURE / DIFFS -->
+<section class="band alt" id="tecnologia">
+  <div class="wrap">
+    <div class="band-head reveal">
+      <span class="eyebrow"><span class="pt"></span>Por dentro</span>
+      <h2>Construído em camadas, pronto para produção.</h2>
+      <p>.NET 8, aplicativo desktop para a recepção, banco PostgreSQL na nuvem. Um sistema que roda o dia inteiro sem babá.</p>
+    </div>
+    <div class="arch">
+      <div class="layer reveal"><div class="ln">Recepção<span class="mono">WPF · Windows</span></div><div class="ld">A tela que a secretária usa: painel, lançamento, TISS, glosas — com atalhos, avisos e recuperação de erros que nunca derrubam o app.</div></div>
+      <div class="layer reveal"><div class="ln">Regras de negócio<span class="mono">Motor de convênios</span></div><div class="ld">Uma classe por fluxograma de convênio. Adicionar um convênio novo é adicionar uma regra — sem mexer no resto.</div></div>
+      <div class="layer reveal"><div class="ln">Casos de uso<span class="mono">Serviços de aplicação</span></div><div class="ld">Lançamento, pendências, baixa, lotes TISS, glosas e a rodada de não conformidade orquestrados em um ponto só.</div></div>
+      <div class="layer reveal"><div class="ln">Dados<span class="mono">PostgreSQL · EF Core</span></div><div class="ld">Banco na nuvem, migrations aplicadas na abertura, backup local antes de migrar. Concorrência entre máquinas sem sobrescrever ninguém.</div></div>
+    </div>
+    <div class="diffs">
+      <div class="diff reveal"><div class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M9 15l2 2 4-4"/></svg></div><h3>TISS 4.01 validado</h3><p>XML de consulta e SP/SADT com epílogo e hash conferidos antes de sair. XSD oficial opcional.</p></div>
+      <div class="diff reveal"><div class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/></svg></div><h3>Trilha de auditoria</h3><p>Cada baixa, estorno, glosa e lote grava quem fez, o quê e quando — registro só-escrita, nunca editado pelo app.</p></div>
+      <div class="diff reveal"><div class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><path d="M11 7h4a2 2 0 0 1 2 2v4"/></svg></div><h3>Multiusuário seguro</h3><p>Duas recepções na mesma guia? O segundo é avisado para atualizar — nada é sobrescrito em silêncio.</p></div>
+      <div class="diff reveal"><div class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div><h3>Atualização automática</h3><p>Novas versões chegam sozinhas. Quando há atualização pronta, um botão aplica na hora — sem baixar instalador.</p></div>
+      <div class="diff reveal"><div class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/></svg></div><h3>Contingência offline</h3><p>Internet caiu? O sistema mostra as últimas pendências sincronizadas — a recepção sabe o que faturar hoje.</p></div>
+      <div class="diff reveal"><div class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v6H4zM4 14h16v6H4z"/><path d="M8 7h.01M8 17h.01"/></svg></div><h3>Guia em PDF (ANS)</h3><p>Impressão da guia no leiaute oficial da ANS para operadoras que ainda exigem papel.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- CLOSING -->
+<section class="close">
+  <div class="wrap">
+    <span class="eyebrow" style="color:var(--light);justify-content:center;display:inline-flex"><span class="pt"></span>Clínica SemDor</span>
+    <h2>Cada atendimento vira faturamento. Do jeito certo.</h2>
+    <p>O sistema que fecha a brecha entre a agulha e a guia — para que a clínica receba por tudo que atende.</p>
+    <div class="cta"><a class="btn btn-primary" href="#telas">Rever as telas</a><a class="btn btn-onink" href="#problema">O caso de uso</a></div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap row">
+    <span class="brand" style="font-size:15px"><svg width="24" height="24" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>Clínica SemDor · Faturamento</span>
+    <span>Apresentação comercial · telas reais · dados de demonstração · TISS 4.01</span>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    var btn=document.getElementById('themeBtn');
+    btn&&btn.addEventListener('click',function(){
+      var cur=document.documentElement.getAttribute('data-theme');
+      var dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme:dark)').matches;
+      document.documentElement.setAttribute('data-theme',dark?'light':'dark');
+    });
+    var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:.1});
+    document.querySelectorAll('.reveal').forEach(function(el){io.observe(el);});
+  })();
+</script>

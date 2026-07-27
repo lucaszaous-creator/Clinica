@@ -171,7 +171,14 @@ instalado no PC da clínica).
 > (veja *Configurar o banco no primeiro acesso*). Não é preciso levar nenhum arquivo de segredo junto.
 
 ## Fluxo de uso
-1. **Pacientes** — cadastrar (convênio, se possui app, sexo).
+1. **Pacientes** — cadastrar (convênio, se possui app, sexo) e **fotografar o paciente pela webcam
+   da recepção** (botão *Tirar foto*; também dá para escolher um arquivo). O retrato aparece na
+   lista e no topo da ficha, para conferir quem é o paciente na hora de emitir a guia. A lista
+   busca por nome/CPF e filtra por convênio, marcando quem está com a **carteirinha vencida**.
+   A **ficha** reúne, num só lugar: retrato e situação (carteirinha, consulta autorizada a vencer),
+   indicadores do paciente e três abas — **Atendimentos** (cada visita com o placar de guias
+   baixadas/em aberto), **Guias e códigos** (histórico completo, com estorno) e **Consultas**
+   (validades e renovação).
 2. **Novo atendimento** — escolher paciente + modalidade; o sistema gera os códigos e mostra o
    que fatura hoje e o que fica pendente para +24h.
 3. **Pendências (dashboard)** — 2º códigos e consultas a renovar, com semáforo e contador. Botão

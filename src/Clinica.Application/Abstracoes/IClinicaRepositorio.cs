@@ -10,8 +10,14 @@ public interface IClinicaRepositorio
     /// <summary>Códigos do paciente lançados no mês informado (usado pela rotação de especialidades da Petrobras).</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosDoPacienteNoMesAsync(int pacienteId, int ano, int mes, CancellationToken ct = default);
 
-    /// <summary>Todos os códigos ainda em aberto (não baixados e não "não aplicável"), com paciente carregado.</summary>
+    /// <summary>Todos os códigos ainda em aberto (não baixados, não "não aplicável" e não "não conformidade"), com paciente carregado.</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosEmAbertoAsync(CancellationToken ct = default);
+
+    /// <summary>Guias em não conformidade (justificadas numa rodada e silenciadas), com paciente carregado.</summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeAsync(CancellationToken ct = default);
+
+    /// <summary>Guias em não conformidade de UM paciente (para reabrir quando ele volta). Entidades rastreadas.</summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosEmNaoConformidadeDoPacienteAsync(int pacienteId, CancellationToken ct = default);
 
     /// <summary>Códigos cujo atendimento ocorreu no período [inicio, fim], com paciente carregado (usado nos relatórios).</summary>
     Task<IReadOnlyList<CodigoFaturamento>> CodigosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default);
@@ -28,8 +34,13 @@ public interface IClinicaRepositorio
 
     // ---- Busca / ficha do paciente / faturados ----
 
-    /// <summary>Busca pacientes por nome ou CPF (termo normalizado). Termo vazio devolve todos.</summary>
-    Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, CancellationToken ct = default);
+    /// <summary>
+    /// Busca pacientes por nome ou CPF (termo normalizado). Termo vazio devolve todos.
+    /// <paramref name="limite"/> corta o resultado no BANCO — os seletores da UI só mostram as
+    /// primeiras linhas, e trazer a base inteira para descartar em memória é desperdício de rede
+    /// (o banco é remoto). Null = sem corte, para quem precisa varrer todo mundo.
+    /// </summary>
+    Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default);
 
     /// <summary>Paciente com todo o histórico (atendimentos e seus códigos) carregado.</summary>
     Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default);
@@ -58,6 +69,34 @@ public interface IClinicaRepositorio
 
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    // ---- Retrato do paciente ----
+
+    /// <summary>Foto em tamanho cheio do paciente (tabela à parte). Null quando não há retrato.</summary>
+    Task<PacienteFoto?> ObterFotoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Grava (ou substitui) o retrato do paciente: a foto cheia na tabela própria e a
+    /// miniatura na linha do paciente. Não persiste — chame <c>SalvarAsync</c>.
+    /// </summary>
+    Task DefinirFotoPacienteAsync(int pacienteId, byte[] conteudo, byte[] miniatura, CancellationToken ct = default);
+
+    /// <summary>Apaga o retrato do paciente (foto cheia e miniatura). Não persiste.</summary>
+    Task RemoverFotoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    // ---- Autorizações de sessões (cota do convênio) ----
+
+    /// <summary>Autorizações do paciente, da mais recente para a mais antiga.</summary>
+    Task<IReadOnlyList<AutorizacaoSessoes>> AutorizacoesDoPacienteAsync(int pacienteId, CancellationToken ct = default);
+
+    Task<AutorizacaoSessoes?> ObterAutorizacaoAsync(int autorizacaoId, CancellationToken ct = default);
+
+    Task AdicionarAutorizacaoAsync(AutorizacaoSessoes autorizacao, CancellationToken ct = default);
+
+    Task RemoverAutorizacaoAsync(int autorizacaoId, CancellationToken ct = default);
+
+    /// <summary>Quantos atendimentos o paciente teve no intervalo (base do consumo da cota).</summary>
+    Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
     // ---- Agenda ----
     // ---- Parâmetros dos convênios ----

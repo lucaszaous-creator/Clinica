@@ -41,8 +41,9 @@ public static class MarcaSemDor
             stream.CopyTo(ms);
             return ms.ToArray();
         }
-        catch
+        catch (Exception ex)
         {
+            Diagnostico.Registrar("Marca — logo embutida não pôde ser lida", ex);
             return null;
         }
     }

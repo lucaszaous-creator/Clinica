@@ -85,7 +85,7 @@
         </ctrl:EmptyState>
         <DataGrid ItemsSource="{Binding Resultados}">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data}" Width="Auto" />
+                <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data, StringFormat=dd/MM/yyyy}" Width="Auto" />
                 <DataGridTextColumn Header="Atend. nº" Binding="{Binding Atendimento.Numero}" Width="Auto" />
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"

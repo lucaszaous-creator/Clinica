@@ -17,6 +17,11 @@ public static class UpdateService
 
     private static bool _atualizacaoAgendada;
 
+    // Atualização já baixada em segundo plano e agendada para o fechamento (WaitExitThenApplyUpdates).
+    // Guardadas para que o botão "Atualizar" possa aplicá-la NA HORA (ApplyUpdatesAndRestart).
+    private static UpdateManager? _mgrPreparado;
+    private static UpdateInfo? _updatePreparado;
+
     /// <summary>Versão instalada atual (ex.: "1.0.9"), ou nulo no exe portátil/dev.</summary>
     public static string? VersaoInstalada
     {
@@ -27,8 +32,9 @@ public static class UpdateService
                 var mgr = new UpdateManager(new GithubSource(RepoUrl, null, prerelease: false));
                 return mgr.IsInstalled ? mgr.CurrentVersion?.ToString() : null;
             }
-            catch
+            catch (Exception ex)
             {
+                Configuracao.LogErros.Registrar("Atualização — versão instalada não pôde ser lida", ex);
                 return null;
             }
         }
@@ -62,9 +68,12 @@ public static class UpdateService
             mgr.ApplyUpdatesAndRestart(novidade); // encerra este processo e reabre atualizado
             return true;
         }
-        catch
+        catch (Exception ex)
         {
-            return false; // qualquer falha: abre normalmente na versão atual
+            // Qualquer falha: abre normalmente na versão atual — mas registrada, senão
+            // "por que não atualizou?" vira adivinhação.
+            Configuracao.LogErros.Registrar("Atualização — verificação na abertura falhou", ex);
+            return false;
         }
     }
 
@@ -105,12 +114,36 @@ public static class UpdateService
             mgr.WaitExitThenApplyUpdates(novidade);
             _atualizacaoAgendada = true;
 
+            // Guarda o download pronto para o botão "Atualizar" poder aplicar na hora, se o usuário quiser.
+            _mgrPreparado = mgr;
+            _updatePreparado = novidade;
+
             return novidade.TargetFullRelease.Version.ToString();
         }
-        catch
+        catch (Exception ex)
         {
-            // Falha (offline, GitHub fora etc.) é silenciosa — nunca impede o uso.
+            // Falha (offline, GitHub fora etc.) nunca impede o uso, mas fica no log.
+            Configuracao.LogErros.Registrar("Atualização — download em segundo plano falhou", ex);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Aplica NA HORA a atualização já baixada em segundo plano (por <see cref="VerificarEBaixarAsync"/>)
+    /// e reinicia o app já atualizado. Usado pelo botão "Atualizar"; se ninguém chamar, o mesmo download
+    /// é aplicado ao fechar o app (já agendado). Nunca lança.
+    /// </summary>
+    public static void AplicarEReiniciar()
+    {
+        try
+        {
+            if (_mgrPreparado is { } mgr && _updatePreparado is { } up)
+                mgr.ApplyUpdatesAndRestart(up); // encerra este processo e reabre atualizado
+        }
+        catch (Exception ex)
+        {
+            // Se a aplicação imediata falhar, a versão segue agendada para o fechamento.
+            Configuracao.LogErros.Registrar("Atualização — aplicação imediata falhou", ex);
         }
     }
 }

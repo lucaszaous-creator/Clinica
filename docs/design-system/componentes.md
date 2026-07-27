@@ -2,6 +2,8 @@
 
 Todos em `src/Clinica.Desktop/Styles/Componentes/`. Estados cobertos por padrão: normal, hover, focus (anel azul), disabled (opacidade 0.5–0.7); loading onde indicado.
 
+Os conversores ficam em `Styles/Conversores.xaml` (e não soltos no `App.xaml`): assim um dicionário de componente pode mergeá-los e usar `{StaticResource}` dentro dos seus templates, do mesmo jeito que faz com `Tokens.xaml`.
+
 ## Botões (`Botoes.xaml`)
 
 Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto (funciona sobre qualquer cor), anel de foco externo, spinner de loading.
@@ -39,6 +41,8 @@ Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto 
 
 `DataGrid` implícito: cabeçalho cinza-100 40px clicável com **seta de ordenação** (`SortDirection`), linhas 36px alternadas, hover cinza, seleção azul-suave, virtualização de linhas ativa. Ações por linha com `BotaoAcaoGrid*`. Não envolver DataGrid em ScrollViewer (quebra a virtualização).
 
+- `ListaCartoes` + `ItemLista` (ListBox/ListBoxItem): listagem em cartões, para quando a linha precisa de retrato e de duas linhas de texto e a grade fica apertada (lista de Pacientes). Cada item é um cartão de raio 8 com hover e seleção; a virtualização do ListBox continua ativa.
+
 ## Navegação (`Navegacao.xaml`)
 
 - `TabControl`/`TabItem`: abas sublinhadas (2px azul no ativo).
@@ -52,6 +56,7 @@ Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto 
 - **EmptyState** (`ctrl:EmptyState`): ícone + título + descrição + ação opcional. Sobrepor à DataGrid com `Panel.ZIndex="1"` e trigger em `Itens.Count == 0` (exemplos em DashboardView e ConsultaGuiasView).
 - **Loading**: `Spinner` (Control girando) e `Skeleton` (Border pulsante para placeholders).
 - **Snackbar**: host único no MainWindow bindado ao `SnackbarService`; nos VMs, injete `ISnackbarService` e chame `Sucesso/Erro/Info("…")`. Auto-dispensa em 4s. Confirmações Sim/Não continuam em diálogo.
+- **Mensagem inline x snackbar** — a escolha não é de gosto. Formulário usa **mensagem inline** (`Mensagem`/`MensagemEhErro` no VM, desenhada perto da ação): validação e erro de gravação precisam ficar na tela enquanto o usuário corrige. Snackbar é só para confirmação passageira de ação sem lugar natural na tela; como some sozinho, nunca serve para erro que exija correção.
 
 ## Sobreposição (`Sobreposicao.xaml`)
 
@@ -63,4 +68,21 @@ Template único (`TemplateBotaoBase`): hover/pressed por véu escuro sobreposto 
 
 - `Card`: branco, borda 1px, raio 12, padding 16.
 - `CardKpi` + `CardKpi.Rotulo` + `CardKpi.Valor`: indicadores do painel (variantes coloridas trocando `Background` pelos tints semânticos).
+- `TituloSecao` + `Divisor`: agrupam um formulário longo em blocos (escreva o título em CAIXA ALTA; o divisor é uma linha de 1px logo abaixo). Usado no cadastro de Pacientes.
+- `FichaRotulo` + `FichaValor`: par rótulo/valor empilhado, para painéis de dados cadastrais (ficha do paciente).
 - `Expander` implícito: accordion com chevron animado.
+
+## Paciente (`Pacientes.xaml`)
+
+- **`ItemPacienteSeletor`** (`DataTemplate`): a linha de toda lista em que se **escolhe** um paciente — avatar, nome, CPF, badge do convênio e a tarja de carteirinha vencida. Usada em Novo atendimento e na janela de Agendamento; use-a em qualquer tela nova de escolha em vez de desenhar outra.
+  ```xml
+  <ListBox ItemsSource="{Binding Seletor.Resultados}"
+           SelectedItem="{Binding Seletor.Selecionado}"
+           ItemTemplate="{StaticResource ItemPacienteSeletor}"
+           Style="{StaticResource ListaCartoes}" />
+  ```
+  Do lado do ViewModel o par dela é `SeletorPacienteViewModel` (`Termo`, `Resultados`, `Selecionado`, `Buscando`, `Erro`, `Travado`), que já traz limite no SQL, agrupamento das teclas e proteção contra resposta fora de ordem. A **listagem** de Pacientes é outra coisa: linha mais rica, com ações — não use este template lá.
+
+## Mídia (`Midia.xaml`)
+
+- **Avatar** (`ctrl:Avatar`): retrato circular do paciente. Propriedades: `Foto` (byte[] JPEG — miniatura na lista, foto cheia na ficha), `Nome` (fallback de iniciais quando não há foto) e `Tamanho` (diâmetro; o tamanho das iniciais acompanha). Sem foto, mostra até duas iniciais sobre o tint do acento — a lista nunca fica com buracos.
