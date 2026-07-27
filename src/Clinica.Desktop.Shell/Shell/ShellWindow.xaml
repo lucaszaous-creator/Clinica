@@ -1,0 +1,128 @@
+<Window x:Class="Clinica.Desktop.Shell.ShellWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:modulos="clr-namespace:Clinica.Desktop.Shell.Modulos"
+        Title="{Binding Titulo}" Height="760" Width="1280"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Brush.Fundo}"
+        FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <!-- Item da sidebar: fundo/texto mudam quando EstaAtivo. -->
+        <Style x:Key="ItemSidebar" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Sidebar.Texto}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,9" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="b" Background="{TemplateBinding Background}"
+                                CornerRadius="{StaticResource Raio.Medio}"
+                                Margin="8,1">
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background"
+                                        Value="{StaticResource Brush.Sidebar.ItemHover}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding EstaAtivo}" Value="True">
+                    <Setter Property="Background" Value="{StaticResource Brush.Sidebar.ItemAtivo}" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.Sidebar.TextoAtivo}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="248" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ==================== SIDEBAR ==================== -->
+        <Border Grid.Column="0" Background="{StaticResource Brush.Sidebar.Fundo}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <!-- Marca -->
+                <Border DockPanel.Dock="Top" Padding="20,20,20,16">
+                    <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
+                           Height="30" HorizontalAlignment="Left" />
+                </Border>
+
+                <!-- Grupos de módulos -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Grupos}" Margin="0,4,0,16">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type modulos:GrupoMenuModulo}">
+                                <StackPanel Margin="0,10,0,0">
+                                    <TextBlock Text="{Binding Nome}"
+                                               Margin="20,0,20,6"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                    <ItemsControl ItemsSource="{Binding Itens}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate DataType="{x:Type modulos:ItemMenuModulo}">
+                                                <Button Style="{StaticResource ItemSidebar}"
+                                                        Command="{Binding DataContext.NavegarCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Glifo}"
+                                                                   FontFamily="{StaticResource FonteIcones}"
+                                                                   FontSize="14" Width="22"
+                                                                   VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding Rotulo}"
+                                                                   VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ==================== CONTEÚDO ==================== -->
+        <DockPanel Grid.Column="1">
+            <!-- Topbar com breadcrumb -->
+            <Border DockPanel.Dock="Top" Height="56"
+                    Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0">
+                    <TextBlock Text="{Binding ModuloAtual}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               FontSize="{StaticResource Fonte.Tabela}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="  ›  "
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding TituloTela}"
+                               Foreground="{StaticResource Brush.Texto.Primario}"
+                               FontWeight="SemiBold"
+                               FontSize="{StaticResource Fonte.Tabela}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <!-- Tela ativa (a View já vem com DataContext resolvido pelo módulo) -->
+            <ContentControl Content="{Binding TelaAtual}" />
+        </DockPanel>
+    </Grid>
+</Window>

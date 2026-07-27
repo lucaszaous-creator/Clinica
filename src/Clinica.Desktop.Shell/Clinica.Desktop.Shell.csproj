@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Shell compartilhado da suíte: design system, janela genérica, contrato de módulos
+    e bootstrap (conexão → host → migrations). Os executáveis (Recepção, Financeiro,
+    Gerente Geral) são cascas finas sobre esta biblioteca.
+
+    O faturamento (Clinica.Desktop) ainda NÃO usa este shell — migra na Fase 4.
+    Ver docs/arquitetura-multi-exe.md.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Clinica.Desktop.Shell</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+    <!-- DPAPI: criptografa a connection string salva localmente. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
+    <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+    <ProjectReference Include="..\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- Marca: usada via pack URI pela janela do shell. -->
+  <ItemGroup>
+    <Resource Include="Assets\Marca\*.png" />
+  </ItemGroup>
+
+</Project>
