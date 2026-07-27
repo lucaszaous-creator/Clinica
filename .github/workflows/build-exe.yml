@@ -25,6 +25,9 @@ jobs:
       - name: Conferir espelho dos tokens (CSS x XAML)
         run: python tokens/verificar-espelho.py
 
+      - name: Conferir a suíte multi-exe (XAML, pack URIs, projetos)
+        run: python tools/verificar-suite.py
+
       - name: Restaurar
         run: dotnet restore Clinica.sln
 
@@ -47,4 +50,63 @@ jobs:
         with:
           name: Clinica-Faturamento-win-x64
           path: publish/
+          if-no-files-found: error
+
+      # ============================================================
+      # Suíte multi-exe (ver docs/arquitetura-multi-exe.md).
+      # Estes projetos são net8.0-windows/WPF e NÃO compilam em Linux —
+      # este runner Windows é a única validação que eles têm.
+      # ============================================================
+      - name: Publicar .exe da Recepção (self-contained, arquivo único)
+        run: >
+          dotnet publish src/Clinica.Recepcao/Clinica.Recepcao.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableWindowsTargeting=true
+          -o publish-recepcao
+
+      - name: Enviar artefato da Recepção
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clinica-Recepcao-win-x64
+          path: publish-recepcao/
+          if-no-files-found: error
+
+      - name: Publicar .exe do Financeiro (self-contained, arquivo único)
+        run: >
+          dotnet publish src/Clinica.Financeiro/Clinica.Financeiro.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableWindowsTargeting=true
+          -o publish-financeiro
+
+      - name: Enviar artefato do Financeiro
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clinica-Financeiro-win-x64
+          path: publish-financeiro/
+          if-no-files-found: error
+
+      - name: Publicar .exe do Gerente Geral (self-contained, arquivo único)
+        run: >
+          dotnet publish src/Clinica.Gerente/Clinica.Gerente.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableWindowsTargeting=true
+          -o publish-gerente
+
+      - name: Enviar artefato do Gerente Geral
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clinica-Gerente-win-x64
+          path: publish-gerente/
           if-no-files-found: error

@@ -23,17 +23,24 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedNam
 # Rodar o app (apenas Windows — WPF)
 dotnet run --project src/Clinica.Desktop
 
+# Verificação estática da suíte multi-exe (roda em qualquer sistema)
+python3 tools/verificar-suite.py
+
 # Migrations (usa a env var CLINICA_DB como connection string)
 CLINICA_DB="Host=...;Database=...;Username=...;Password=...;SSL Mode=Require" \
   dotnet ef migrations add NomeDaMigration -p src/Clinica.Infrastructure -s src/Clinica.Infrastructure
 ```
 
-⚠️ `Clinica.Desktop` **só compila no Windows** (`net8.0-windows`). Neste ambiente Linux, valide mudanças
-com `dotnet build src/Clinica.Application` / `Clinica.Domain` / `Clinica.Infrastructure` e com os testes;
-o CI (`.github/workflows/build-exe.yml`, runner Windows) compila o app inteiro em cada push na `main`.
+⚠️ `Clinica.Desktop` e toda a suíte multi-exe **só compilam no Windows** (`net8.0-windows`). Neste
+ambiente Linux, valide mudanças com `dotnet build src/Clinica.Application` / `Clinica.Domain` /
+`Clinica.Infrastructure`, com os testes e com `tools/verificar-suite.py` (XAML, pack URIs, chaves do
+design system, projetos na solução); o CI (`.github/workflows/build-exe.yml`, runner Windows) compila
+os quatro apps em cada push na `main` **e em cada PR para a `main`** — commit em branch de trabalho
+não gera build sozinho.
 
-Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/release.yml`, que empacota com
-**Velopack** e publica nas GitHub Releases; os apps instalados se auto-atualizam.
+Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/release.yml`, que empacota
+os quatro apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
+muda**) e publica na mesma release; os apps instalados se auto-atualizam.
 
 ## Arquitetura
 
@@ -59,6 +66,14 @@ Camadas clássicas, todas em `src/`:
   ViewModels em `ViewModels/` (um por seção da sidebar, registrados em `App.ConstruirHost`), design
   system em `Styles/` (tokens + um ResourceDictionary por família de componente; documentado em
   `docs/design-system/`).
+- **Suíte multi-exe** (`Clinica.Desktop.Shell`, `Clinica.Modulo.*`, `Clinica.Recepcao`,
+  `Clinica.Financeiro`, `Clinica.Gerente`) — três executáveis NOVOS, ao lado do faturamento e sem
+  encostar nele. O shell tem o design system, a janela genérica, o contrato de módulo (`IModuloApp`)
+  e a abertura padrão (`SuiteApp`); cada módulo é uma **biblioteca** com suas telas; cada `.exe` é uma
+  casca que só escolhe a lista de módulos — o Gerente Geral carrega todos. O faturamento
+  (`Clinica.Desktop`) vira módulo na Fase 4. **Leia `docs/arquitetura-multi-exe.md` antes de mexer
+  aqui**: fases, débito assumido (design system e log duplicados até a Fase 4), canais de release e o
+  plano da Fase 4.
 - **tests/Clinica.Tests** — xUnit; os testes de regras validam cada fluxograma de convênio de ponta a
   ponta usando repositório fake em memória (sem banco).
 

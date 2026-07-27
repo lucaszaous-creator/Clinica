@@ -1,0 +1,12 @@
+<Application x:Class="Clinica.Gerente.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Design system da suíte, inteiro e na ordem certa (assembly Clinica.Desktop.Shell). -->
+                <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Suite.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -21,6 +21,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<Consulta> Consultas => Set<Consulta>();
     public DbSet<LoteTiss> LotesTiss => Set<LoteTiss>();
     public DbSet<EventoAuditoria> Auditoria => Set<EventoAuditoria>();
+    public DbSet<CategoriaFinanceira> CategoriasFinanceiras => Set<CategoriaFinanceira>();
+    public DbSet<LancamentoFinanceiro> Lancamentos => Set<LancamentoFinanceiro>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -210,6 +212,49 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.CodigoId);
         });
 
+        // ---------- Financeiro ----------
+        // O dinheiro vive só aqui: as entidades de faturamento seguem sem campo de valor.
+        // As FKs apontam do financeiro PARA o faturamento (sentido único), e são
+        // opcionais — uma despesa da clínica não tem guia nem paciente.
+        b.Entity<CategoriaFinanceira>(e =>
+        {
+            e.HasKey(c => c.Id);
+            e.Property(c => c.Codigo).IsRequired().HasMaxLength(40);
+            e.Property(c => c.Nome).IsRequired().HasMaxLength(80);
+            e.Property(c => c.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.HasIndex(c => c.Codigo).IsUnique();
+        });
+
+        b.Entity<LancamentoFinanceiro>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(200);
+            // Dinheiro em decimal exato — nunca ponto flutuante.
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.FormaPagamento).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Convenio).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.ConvenioCodigo).HasMaxLength(40);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Categoria).WithMany()
+                .HasForeignKey(x => x.CategoriaFinanceiraId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Atendimento).WithMany()
+                .HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.CodigoFaturamento).WithMany()
+                .HasForeignKey(x => x.CodigoFaturamentoId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.Data);
+            e.HasIndex(x => x.Status);
+            // Conciliação: achar rápido o lançamento de uma guia.
+            e.HasIndex(x => x.CodigoFaturamentoId);
+        });
+
         // Controle de concorrência otimista via coluna de sistema xmin do PostgreSQL:
         // duas máquinas editando o mesmo registro não se sobrescrevem em silêncio — a
         // segunda gravação falha e o repositório traduz num aviso para atualizar a tela.
@@ -222,6 +267,7 @@ public class ClinicaDbContext : DbContext
             b.Entity<LoteTiss>().Property<uint>("xmin").IsRowVersion();
             b.Entity<Consulta>().Property<uint>("xmin").IsRowVersion();
             b.Entity<Agendamento>().Property<uint>("xmin").IsRowVersion();
+            b.Entity<LancamentoFinanceiro>().Property<uint>("xmin").IsRowVersion();
         }
     }
 }

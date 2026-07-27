@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Executável da Recepção — casca fina sobre Clinica.Desktop.Shell.
+    Ver docs/arquitetura-multi-exe.md (Fase 1).
+  -->
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>Clinica.Recepcao</RootNamespace>
+    <!-- Sobrescrita no release pelo workflow (-p:Version=x.y.z). -->
+    <Version>1.0.0</Version>
+    <!-- Velopack precisa rodar seus hooks antes da UI. -->
+    <StartupObject>Clinica.Recepcao.Program</StartupObject>
+    <ApplicationIcon>..\Clinica.Desktop.Shell\Assets\Marca\icone.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
+    <ProjectReference Include="..\Clinica.Modulo.Recepcao\Clinica.Modulo.Recepcao.csproj" />
+  </ItemGroup>
+
+  <!-- App.xaml deixa de gerar o Main automático (usamos Program.Main). -->
+  <ItemGroup>
+    <ApplicationDefinition Remove="App.xaml" />
+    <Page Include="App.xaml" />
+  </ItemGroup>
+
+</Project>
