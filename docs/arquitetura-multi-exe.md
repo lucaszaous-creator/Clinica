@@ -356,7 +356,14 @@ sistema — **`python3 tools/verificar-suite.py`**, também no CI:
 | pack URI `...;component/Caminho.xaml` existente | arquivo movido de pasta |
 | `x:Class` com code-behind declarando a `partial class` | View sem `.xaml.cs`, classe renomeada pela metade |
 | `ProjectReference` existente e projeto no `Clinica.sln` | projeto novo que o CI não compilaria |
+| propriedade como atributo **e** como elemento (`Style="…"` + `<X.Style>`) | MC3024 — ver `docs/design-system/armadilhas-xaml.md` |
+| `x:Key` repetido no mesmo dicionário | recurso sobrescrevendo outro |
+| evento (`Click="Foo"`) com método no code-behind | handler renomeado só de um lado |
 | `Application` usado sem qualificar | a armadilha CS0118 abaixo |
+
+O script cresceu a cada erro que o CI pegou: cada regra acima existe porque um build
+no Windows falhou por ela. Ao encontrar um erro novo de compilação da suíte, o
+reflexo certo é acrescentar a regra aqui, não só corrigir o arquivo.
 
 **Armadilha `Application` (CS0118).** Dentro de qualquer namespace `Clinica.*`, o
 nome `Application` resolve para o **namespace** `Clinica.Application` — nunca para o

@@ -136,7 +136,54 @@ for proj in csprojs():
         erros.append(f"{rel(proj)}: fora do Clinica.sln (não será compilado pelo CI)")
 
 
-# --------------------------------------------------- 6. nomes que colidem com namespace
+# ------------------------------------- 6. propriedade definida duas vezes no XAML
+# `<TextBlock Style="{StaticResource X}"> <TextBlock.Style> … ` é MC3024: a mesma
+# propriedade como atributo e como elemento. Quando o elemento traz um BasedOn, a
+# intenção era só o elemento — mas o compilador recusa antes de chegar nisso.
+for f, raiz in arvores.items():
+    for pai in raiz.iter():
+        tag_pai = pai.tag.rsplit("}", 1)[-1]
+        for filho in pai:
+            tag = filho.tag.rsplit("}", 1)[-1]
+            if "." not in tag:
+                continue
+            dono, prop = tag.rsplit(".", 1)
+            if dono != tag_pai:
+                continue  # attached property (Grid.Row etc.), não é o caso
+            if prop in pai.attrib:
+                erros.append(
+                    f"{rel(f)}: <{tag_pai}> define '{prop}' como atributo E como "
+                    f"<{tag}> (MC3024) — deixe só um dos dois")
+
+
+# -------------------------------------------------- 7. x:Key repetido no dicionário
+# Duas entradas com a mesma chave no mesmo ResourceDictionary o compilador recusa.
+# (x:Name repetido NÃO entra aqui: cada ControlTemplate é um name scope próprio, e
+# reaproveitar o mesmo nome em templates diferentes é legítimo — e comum no
+# design system.)
+for f, raiz in arvores.items():
+    vistos: dict[str, int] = {}
+    for el in raiz.iter():
+        if X + "Key" in el.attrib:
+            vistos[el.attrib[X + "Key"]] = vistos.get(el.attrib[X + "Key"], 0) + 1
+    for valor, quantas in vistos.items():
+        if quantas > 1:
+            erros.append(f"{rel(f)}: x:Key='{valor}' aparece {quantas}x no mesmo arquivo")
+
+
+# ------------------------------------- 8. manipuladores de evento com code-behind
+EVENTO = re.compile(r'\s(?:Click|Checked|Unchecked|SelectionChanged|TextChanged|'
+                    r'Loaded|MouseDoubleClick|KeyDown|KeyUp|Closing|Closed)="([A-Za-z_]\w*)"')
+
+for f in arvores:
+    cs = f.with_suffix(".xaml.cs")
+    fonte = cs.read_text(encoding="utf-8") if cs.exists() else ""
+    for metodo in sorted(set(EVENTO.findall(f.read_text(encoding="utf-8")))):
+        if not re.search(rf"\b{re.escape(metodo)}\s*\(", fonte):
+            erros.append(f"{rel(f)}: evento aponta para '{metodo}', que não existe no code-behind")
+
+
+# --------------------------------------------------- 9. nomes que colidem com namespace
 # Nomes de tipo que, sem qualificar, o compilador resolve como namespace `Clinica.X`
 # em vez do tipo pretendido (CS0118). O erro não aparece em nenhum outro projeto WPF,
 # só aqui — e só no Windows, que é onde não dá para compilar antes de subir.

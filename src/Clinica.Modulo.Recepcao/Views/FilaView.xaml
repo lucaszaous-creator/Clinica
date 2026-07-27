@@ -65,8 +65,9 @@
                 <!-- Vazio -->
                 <TextBlock DockPanel.Dock="Top"
                            Text="Nenhum agendamento para este dia."
-                           Style="{StaticResource TextoSuave}"
                            HorizontalAlignment="Center" Margin="0,32">
+                    <!-- O estilo vem só daqui: o BasedOn já traz o TextoSuave, e
+                         repetir Style="…" como atributo seria MC3024. -->
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
                             <Setter Property="Visibility" Value="Collapsed" />
