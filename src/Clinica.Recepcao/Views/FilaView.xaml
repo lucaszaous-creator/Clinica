@@ -1,0 +1,154 @@
+<UserControl x:Class="Clinica.Recepcao.Views.FilaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <!-- ============ Cabeçalho: dia + navegação ============ -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Fila de hoje" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" Margin="0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="◀" Command="{Binding DiaAnteriorCommand}"
+                        Style="{StaticResource BotaoSecundario}" Width="40" />
+                <Border Background="{StaticResource Brush.Superficie}"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                        CornerRadius="{StaticResource Raio.Medio}"
+                        Padding="16,8" Margin="8,0">
+                    <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Texto.Primario}"
+                               VerticalAlignment="Center" />
+                </Border>
+                <Button Content="▶" Command="{Binding ProximoDiaCommand}"
+                        Style="{StaticResource BotaoSecundario}" Width="40" />
+                <Button Content="Hoje" Command="{Binding HojeCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ============ Tabela da fila ============ -->
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}">
+            <DockPanel>
+
+                <!-- Cabeçalho da tabela -->
+                <Border DockPanel.Dock="Top" Padding="16,12"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="300" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Horário" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="1" Text="Paciente" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="2" Text="Modalidade" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="3" Text="Situação" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="4" Text="Ações" Style="{StaticResource Rotulo}" Margin="0" />
+                    </Grid>
+                </Border>
+
+                <!-- Vazio -->
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Nenhum agendamento para este dia."
+                           Style="{StaticResource TextoSuave}"
+                           HorizontalAlignment="Center" Margin="0,32">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Linhas.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <!-- Linhas -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Linhas}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:LinhaFila}">
+                                <Border Padding="16,10"
+                                        BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="300" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{Binding Horario}"
+                                                   FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}"
+                                                   VerticalAlignment="Center" />
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Paciente}"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <!-- Retorno criado automaticamente para o 2º código -->
+                                            <TextBlock Text="Retorno do 2º código"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Acento}"
+                                                       Visibility="{Binding EhRetornoDoSegundoCodigo,
+                                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2" Text="{Binding Modalidade}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                   VerticalAlignment="Center" />
+
+                                        <TextBlock Grid.Column="3" Text="{Binding StatusRotulo}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                   VerticalAlignment="Center" />
+
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding EmAberto,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                            <Button Content="Confirmar presença"
+                                                    Style="{StaticResource BotaoPequeno}"
+                                                    Command="{Binding DataContext.ConfirmarPresencaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Falta"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Margin="8,0,0,0"
+                                                    Command="{Binding DataContext.MarcarFaltaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Cancelar"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Margin="8,0,0,0"
+                                                    Command="{Binding DataContext.CancelarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>
