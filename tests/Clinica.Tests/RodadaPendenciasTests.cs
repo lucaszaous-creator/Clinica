@@ -12,9 +12,11 @@ namespace Clinica.Tests;
 /// <summary>
 /// Rodada de pendências ("rodar as pendências"): prazo de decisão POR GUIA. Passados N dias
 /// (padrão 10) desde que a guia VIROU PENDENTE (data prevista) sem baixa, ela exige decisão — a
-/// secretária baixa o que puder e
-/// justifica o resto como NÃO CONFORMIDADE, que silencia a pendência (sai do painel), fica no relatório
-/// e só volta a ser pendência se for reaberta.
+/// secretária baixa o que puder e justifica o resto como NÃO CONFORMIDADE, que silencia a pendência
+/// (sai do painel), fica no relatório e só volta a ser pendência se for reaberta.
+///
+/// Atenção nas datas: o atendimento do helper gera DOIS códigos, com previstas em dias diferentes
+/// (1º em 07-10, 2º em 07-11) — é justamente o que separa o prazo por guia do prazo por atendimento.
 /// </summary>
 public class RodadaPendenciasTests : IDisposable
 {
@@ -150,10 +152,11 @@ public class RodadaPendenciasTests : IDisposable
     [Fact]
     public async Task Status_DentroDoPrazo_NaoExigeDecisao()
     {
-        await CriarSegundoCodigoAsync(); // prevista em 2026-07-11; prazo padrão = 10 dias
+        // O atendimento gera DOIS códigos: 1º previsto em 07-10 e 2º em 07-11.
+        await CriarSegundoCodigoAsync(); // prazo padrão = 10 dias
 
-        // 9 dias após a data prevista: pendente, mas ainda dentro do prazo.
-        var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 20));
+        // 07-19: 9 dias do 1º e 8 do 2º — os dois ainda dentro do prazo.
+        var status = await _rodada.ObterStatusAsync(new DateOnly(2026, 7, 19));
 
         status.PrazoDias.Should().Be(10);
         status.GuiasPendentes.Should().BeGreaterThan(0);
@@ -176,15 +179,22 @@ public class RodadaPendenciasTests : IDisposable
     [Fact]
     public async Task GuiasVencidasParaDecisao_TrazSomenteAsVencidas()
     {
-        var codigo = await CriarSegundoCodigoAsync(); // prevista em 2026-07-11
+        // O atendimento gera DOIS códigos, com datas previstas diferentes: 1º em 07-10, 2º em 07-11.
+        var segundo = await CriarSegundoCodigoAsync();
 
-        // Ainda no prazo (9 dias da data prevista): nenhuma guia vencida.
-        (await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 20)))
+        // 07-19: nenhum dos dois venceu ainda.
+        (await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 19)))
             .Should().BeEmpty();
 
-        // Prazo vencido: a guia entra na lista de decisão obrigatória.
-        var vencidas = await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 21));
-        vencidas.Should().Contain(p => p.CodigoId == codigo.Id);
+        // 07-20: só o 1º venceu — é exatamente o "somente as vencidas" que o nome promete.
+        var noDiaVinte = await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 20));
+        noDiaVinte.Should().ContainSingle()
+            .Which.Ordem.Should().Be(OrdemCodigo.Primeiro);
+
+        // 07-21: o 2º completa seus 10 dias e entra também.
+        var noDiaVinteEUm = await _rodada.GuiasVencidasParaDecisaoAsync(new DateOnly(2026, 7, 21));
+        noDiaVinteEUm.Should().Contain(p => p.CodigoId == segundo.Id);
+        noDiaVinteEUm.Should().HaveCount(2);
     }
 
     [Fact]

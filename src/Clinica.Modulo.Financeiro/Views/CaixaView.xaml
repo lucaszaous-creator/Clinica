@@ -27,7 +27,9 @@
                 </Border>
                 <Button Content="▶" Command="{Binding ProximoMesCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40" />
-                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                <Button Content="Novo lançamento" Command="{Binding NovoLancamentoCommand}" Margin="8,0,0,0" />
             </StackPanel>
         </Grid>
 
@@ -80,12 +82,14 @@
                             <ColumnDefinition Width="180" />
                             <ColumnDefinition Width="130" />
                             <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="190" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Data" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Grid.Column="1" Text="Descrição" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Grid.Column="2" Text="Categoria" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Grid.Column="3" Text="Situação" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Grid.Column="4" Text="Valor" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="5" Text="Ações" Style="{StaticResource Rotulo}" Margin="0" />
                     </Grid>
                 </Border>
 
@@ -102,6 +106,7 @@
                                             <ColumnDefinition Width="180" />
                                             <ColumnDefinition Width="130" />
                                             <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="190" />
                                         </Grid.ColumnDefinitions>
 
                                         <TextBlock Grid.Column="0" Text="{Binding Data}"
@@ -129,6 +134,24 @@
                                                    FontWeight="SemiBold"
                                                    Foreground="{StaticResource Brush.Texto.Primario}"
                                                    VerticalAlignment="Center" />
+
+                                        <StackPanel Grid.Column="5" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Realizar"
+                                                    Style="{StaticResource BotaoAcaoGrid}"
+                                                    Command="{Binding DataContext.RealizarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Visibility="{Binding PodeRealizar,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}" />
+                                            <Button Content="Cancelar" Margin="6,0,0,0"
+                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    Command="{Binding DataContext.CancelarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Visibility="{Binding PodeCancelar,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}" />
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

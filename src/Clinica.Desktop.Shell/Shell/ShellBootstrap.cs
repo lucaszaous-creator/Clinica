@@ -47,6 +47,7 @@ public static class ShellBootstrap
                 servicos.AddSingleton<SnackbarService>();
                 servicos.AddSingleton<ISnackbarService>(
                     sp => sp.GetRequiredService<SnackbarService>());
+                servicos.AddSingleton<IDialogoService, DialogoService>();
 
                 foreach (var modulo in lista) modulo.Registrar(servicos);
             })

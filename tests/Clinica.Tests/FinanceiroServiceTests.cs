@@ -241,6 +241,27 @@ public class FinanceiroServiceTests : IDisposable
         await duplicada.Should().ThrowAsync<InvalidOperationException>();
     }
 
+    [Fact]
+    public async Task CategoriasDoTipo_SoTrazemAsDoTipoEAsAtivas_NaOrdemDeExibicao()
+    {
+        // O combo do lançamento não pode oferecer categoria de despesa numa entrada.
+        await _financeiro.CriarCategoriaAsync("ALUGUEL", "Aluguel", TipoLancamento.Saida, ordem: 2);
+        await _financeiro.CriarCategoriaAsync("MATERIAL", "Material", TipoLancamento.Saida, ordem: 1);
+        await _financeiro.CriarCategoriaAsync("PARTICULAR", "Consulta particular", TipoLancamento.Entrada);
+
+        var inativa = await _financeiro.CriarCategoriaAsync("ANTIGA", "Categoria antiga", TipoLancamento.Saida);
+        inativa.Ativa = false;
+        await _repo.SalvarAsync();
+
+        var saidas = await _financeiro.CategoriasAsync(TipoLancamento.Saida);
+
+        saidas.Select(c => c.Nome).Should().Equal("Material", "Aluguel"); // pela Ordem, não pelo nome
+        saidas.Should().NotContain(c => c.Codigo == "ANTIGA");
+
+        var entradas = await _financeiro.CategoriasAsync(TipoLancamento.Entrada);
+        entradas.Should().ContainSingle().Which.Nome.Should().Be("Consulta particular");
+    }
+
     public void Dispose()
     {
         _db.Dispose();
