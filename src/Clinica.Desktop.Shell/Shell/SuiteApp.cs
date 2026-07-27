@@ -48,33 +48,80 @@ public static class SuiteApp
         if (await AtualizadorSuite.AtualizarNaAberturaAsync(TimeSpan.FromSeconds(30)))
             return null; // o Velopack encerra este processo e reabre o app atualizado
 
-        var connectionString = ShellBootstrap.ObterConnectionString();
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            // A suíte ainda não tem tela de setup própria: reaproveita a conexão já
-            // configurada pelo Faturamento na mesma máquina (ver ConexaoStore).
-            MessageBox.Show(
-                "Nenhuma conexão com o banco foi encontrada.\n\n" +
-                "Abra o app de Faturamento nesta máquina e configure a conexão uma vez; " +
-                $"o {nomeApp} passa a usá-la automaticamente.",
-                nomeApp, MessageBoxButton.OK, MessageBoxImage.Information);
-            app.Shutdown();
-            return null;
-        }
+        // Fechar a janela de setup não pode encerrar o app antes de a janela principal
+        // existir — sem isto, o WPF derruba tudo ao fechar a última janela aberta.
+        app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+        // Laço: obter conexão (1º acesso ou salva) → conectar e migrar. Falhando, a
+        // clínica pode reconfigurar sem reabrir o app — a senha do banco muda, o
+        // servidor troca de endereço, e sair só com "erro" deixaria o posto parado.
         IHost host;
-        try
+        var forcarSetup = false;
+        while (true)
         {
-            host = ShellBootstrap.ConstruirHost(connectionString, modulos);
-            await ShellBootstrap.PrepararBancoAsync(host.Services);
-        }
-        catch (Exception ex)
-        {
-            LogSuite.Registrar($"{nomeApp} — não foi possível preparar o banco", ex);
-            MessageBox.Show($"Não foi possível conectar ao banco de dados:\n\n{ex.Message}",
-                nomeApp, MessageBoxButton.OK, MessageBoxImage.Error);
-            app.Shutdown();
-            return null;
+            // Depois de uma falha, a tela é obrigatória: a conexão ruim pode ser a
+            // herdada do Faturamento ou a da variável de ambiente — nenhuma das duas é
+            // nossa para apagar, e reler a mesma daria um laço infinito de erro.
+            var connectionString = forcarSetup ? null : ShellBootstrap.ObterConnectionString();
+
+            // 1º acesso: sem conexão salva (nem própria nem herdada do Faturamento), a
+            // clínica configura aqui mesmo. Antes desta tela, os apps da suíte só subiam
+            // com o Faturamento instalado na mesma máquina.
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                if (new SetupWindow(nomeApp).ShowDialog() != true)
+                {
+                    app.Shutdown();
+                    return null;
+                }
+                // Depois de gravar, a leitura normal vale de novo — o que a clínica
+                // acabou de salvar tem precedência sobre a herança do Faturamento.
+                forcarSetup = false;
+                connectionString = ConexaoStore.Carregar();
+                if (string.IsNullOrWhiteSpace(connectionString))
+                {
+                    // Salvou e sumiu: só acontece se a leitura de volta falhar, e o
+                    // LogSuite já registrou o motivo na gravação.
+                    MessageBox.Show(
+                        "A conexão foi configurada, mas não pôde ser lida de volta.\n\n" +
+                        "Veja a pasta de logs do aplicativo.",
+                        nomeApp, MessageBoxButton.OK, MessageBoxImage.Error);
+                    app.Shutdown();
+                    return null;
+                }
+            }
+
+            IHost? tentativa = null;
+            try
+            {
+                tentativa = ShellBootstrap.ConstruirHost(connectionString, modulos);
+                await ShellBootstrap.PrepararBancoAsync(tentativa.Services);
+                host = tentativa;
+                break;
+            }
+            catch (Exception ex)
+            {
+                // O host da tentativa que falhou segura conexões: descartar antes de
+                // tentar de novo, senão cada erro deixa um pool para trás.
+                tentativa?.Dispose();
+                LogSuite.Registrar($"{nomeApp} — não foi possível preparar o banco", ex);
+
+                var reconfigurar = MessageBox.Show(
+                    $"Não foi possível conectar ao banco de dados:\n\n{ex.Message}\n\n" +
+                    "Deseja informar outra conexão?",
+                    nomeApp, MessageBoxButton.YesNo, MessageBoxImage.Error) == MessageBoxResult.Yes;
+
+                if (!reconfigurar)
+                {
+                    app.Shutdown();
+                    return null;
+                }
+
+                // Apaga a configuração DA SUÍTE (a do faturamento não é nossa para
+                // apagar) e força a tela na volta do laço.
+                ConexaoStore.Limpar();
+                forcarSetup = true;
+            }
         }
 
         var janela = new ShellWindow
@@ -83,6 +130,10 @@ public static class SuiteApp
         };
         app.MainWindow = janela;
         janela.Show();
+
+        // A janela principal existe: fechar o app volta a ser fechar a janela. Sem isto
+        // o processo ficaria vivo depois de a clínica fechar a janela.
+        app.ShutdownMode = ShutdownMode.OnMainWindowClose;
         return host;
     }
 }

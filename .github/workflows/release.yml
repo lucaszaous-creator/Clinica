@@ -3,33 +3,47 @@ name: Release (instalador + auto-update)
 # Gera o INSTALADOR com Velopack e publica nas GitHub Releases.
 # O app instalado se atualiza sozinho a partir daqui.
 #
-# Como publicar uma nova versão:
-#   - Aba Actions -> "Release (instalador + auto-update)" -> Run workflow -> informe a versão (ex.: 1.0.0)
-#   - OU crie uma tag: git tag v1.0.0 && git push origin v1.0.0
+# CADA APP TEM SUA PRÓPRIA RELEASE E SUA PRÓPRIA VERSÃO. Antes, os quatro saíam
+# juntos — e corrigir uma vírgula no Financeiro obrigava a republicar o Faturamento,
+# que está em produção na clínica: download e reinício reais numa máquina que não
+# ganhou nada com a mudança.
+#
+# Como publicar:
+#   Faturamento  →  git tag v1.2.3            && git push origin v1.2.3
+#   Recepção     →  git tag recepcao-v1.0.0   && git push origin recepcao-v1.0.0
+#   Financeiro   →  git tag financeiro-v1.0.0 && git push origin financeiro-v1.0.0
+#   Gerente      →  git tag gerente-v1.0.0    && git push origin gerente-v1.0.0
+#
+#   Ou: Actions -> "Release" -> Run workflow -> escolha o app e informe a versão.
+#
+# Funciona porque o Velopack separa os apps por CANAL: cada um grava seu
+# releases.<canal>.json, e o GetReleaseFeed percorre as releases procurando o canal
+# do app instalado, em vez de olhar só a mais recente.
 
 on:
   workflow_dispatch:
     inputs:
+      app:
+        description: 'Qual app publicar'
+        required: true
+        type: choice
+        options: [faturamento, recepcao, financeiro, gerente]
       version:
         description: 'Versão (ex.: 1.0.0)'
         required: true
   push:
-    tags: ['v*.*.*']
+    tags:
+      - 'v*.*.*'
+      - 'recepcao-v*.*.*'
+      - 'financeiro-v*.*.*'
+      - 'gerente-v*.*.*'
 
 permissions:
   contents: write
 
 jobs:
-  # ==========================================================================
-  # Faturamento — o app que já está instalado na clínica.
-  # NÃO MUDAR packId nem canal: as instalações existentes perdem o canal de
-  # auto-update e param de atualizar. É também quem CRIA a release da versão;
-  # os apps da suíte só se juntam a ela depois (job "suite", com --merge).
-  # ==========================================================================
   release:
     runs-on: windows-latest
-    outputs:
-      version: ${{ steps.ver.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
@@ -38,17 +52,44 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Definir versão
-        id: ver
+      # Descobre QUAL app e QUAL versão, seja pela tag ou pelo disparo manual.
+      #
+      # ⚠️ packId e canal do FATURAMENTO não mudam nunca: as instalações que já
+      # existem na clínica perdem o canal de auto-update e param de atualizar.
+      - name: Identificar app e versão
+        id: alvo
         shell: pwsh
         run: |
           if ("${{ github.event_name }}" -eq "push") {
-            $v = "${{ github.ref_name }}".TrimStart("v")
+            $ref = "${{ github.ref_name }}"
+            if ($ref -match '^v(.+)$')                 { $app = "faturamento"; $v = $Matches[1] }
+            elseif ($ref -match '^recepcao-v(.+)$')    { $app = "recepcao";    $v = $Matches[1] }
+            elseif ($ref -match '^financeiro-v(.+)$')  { $app = "financeiro";  $v = $Matches[1] }
+            elseif ($ref -match '^gerente-v(.+)$')     { $app = "gerente";     $v = $Matches[1] }
+            else { throw "Tag '$ref' não corresponde a nenhum app." }
           } else {
-            $v = "${{ github.event.inputs.version }}"
+            $app = "${{ github.event.inputs.app }}"
+            $v   = "${{ github.event.inputs.version }}"
           }
-          echo "version=$v" >> $env:GITHUB_OUTPUT
-          echo "Versão: $v"
+
+          $cfg = @{
+            faturamento = @{ projeto = "src/Clinica.Desktop/Clinica.Desktop.csproj";       packId = "Clinica.Faturamento"; mainExe = "Clinica.Desktop.exe";    canal = "win";        titulo = "Clínica SemDor";                    tag = "v$v" }
+            recepcao    = @{ projeto = "src/Clinica.Recepcao/Clinica.Recepcao.csproj";     packId = "Clinica.Recepcao";    mainExe = "Clinica.Recepcao.exe";   canal = "recepcao";   titulo = "Clínica SemDor — Recepção";         tag = "recepcao-v$v" }
+            financeiro  = @{ projeto = "src/Clinica.Financeiro/Clinica.Financeiro.csproj"; packId = "Clinica.Financeiro";  mainExe = "Clinica.Financeiro.exe"; canal = "financeiro"; titulo = "Clínica SemDor — Financeiro";       tag = "financeiro-v$v" }
+            gerente     = @{ projeto = "src/Clinica.Gerente/Clinica.Gerente.csproj";       packId = "Clinica.Gerente";     mainExe = "Clinica.Gerente.exe";    canal = "gerente";    titulo = "Clínica SemDor — Gerente Geral";    tag = "gerente-v$v" }
+          }[$app]
+
+          if (-not $cfg) { throw "App desconhecido: '$app'." }
+
+          "app=$app"                  >> $env:GITHUB_OUTPUT
+          "version=$v"                >> $env:GITHUB_OUTPUT
+          "projeto=$($cfg.projeto)"   >> $env:GITHUB_OUTPUT
+          "packId=$($cfg.packId)"     >> $env:GITHUB_OUTPUT
+          "mainExe=$($cfg.mainExe)"   >> $env:GITHUB_OUTPUT
+          "canal=$($cfg.canal)"       >> $env:GITHUB_OUTPUT
+          "titulo=$($cfg.titulo)"     >> $env:GITHUB_OUTPUT
+          "tag=$($cfg.tag)"           >> $env:GITHUB_OUTPUT
+          Write-Host "Publicando $app $v (canal $($cfg.canal), tag $($cfg.tag))"
 
       - name: Instalar Velopack CLI (vpk)
         shell: pwsh
@@ -57,102 +98,40 @@ jobs:
           echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
 
       - name: Publicar (pasta self-contained)
-        run: dotnet publish src/Clinica.Desktop/Clinica.Desktop.csproj -c Release -r win-x64 --self-contained true -p:Version=${{ steps.ver.outputs.version }} -o publish
+        run: dotnet publish ${{ steps.alvo.outputs.projeto }} -c Release -r win-x64 --self-contained true -p:Version=${{ steps.alvo.outputs.version }} -o publish
 
+      # O faturamento fica no canal padrão (win) e por isso NÃO recebe --channel:
+      # passá-lo mudaria o nome do feed e quebraria o auto-update já instalado.
       - name: Empacotar com Velopack
-        run: >
-          vpk pack
-          --packId Clinica.Faturamento
-          --packVersion ${{ steps.ver.outputs.version }}
-          --packDir publish
-          --mainExe Clinica.Desktop.exe
-          --packTitle "Clínica SemDor"
-
-      - name: Publicar no GitHub Releases
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          vpk upload github
-          --repoUrl https://github.com/lucaszaous-creator/Clinica
-          --publish
-          --releaseName "Clínica SemDor ${{ steps.ver.outputs.version }}"
-          --tag v${{ steps.ver.outputs.version }}
-          --token $env:GITHUB_TOKEN
-
-  # ==========================================================================
-  # Suíte multi-exe (ver docs/arquitetura-multi-exe.md).
-  #
-  # Os três apps entram na MESMA release do faturamento, cada um no seu CANAL:
-  # o Velopack grava um releases.<canal>.json por canal, e o app instalado só
-  # enxerga o do canal com que foi empacotado. Por isso nada aqui pode colidir
-  # com o canal padrão (win) do faturamento.
-  #
-  # Roda DEPOIS do faturamento (needs) e um de cada vez (max-parallel: 1),
-  # porque os três fazem --merge na mesma release — em paralelo, disputariam.
-  # Se este job falhar, a release do faturamento já saiu inteira.
-  # ==========================================================================
-  suite:
-    needs: release
-    runs-on: windows-latest
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        include:
-          - nome: Recepção
-            projeto: src/Clinica.Recepcao/Clinica.Recepcao.csproj
-            packId: Clinica.Recepcao
-            mainExe: Clinica.Recepcao.exe
-            canal: recepcao
-            titulo: Clínica SemDor — Recepção
-          - nome: Financeiro
-            projeto: src/Clinica.Financeiro/Clinica.Financeiro.csproj
-            packId: Clinica.Financeiro
-            mainExe: Clinica.Financeiro.exe
-            canal: financeiro
-            titulo: Clínica SemDor — Financeiro
-          - nome: Gerente Geral
-            projeto: src/Clinica.Gerente/Clinica.Gerente.csproj
-            packId: Clinica.Gerente
-            mainExe: Clinica.Gerente.exe
-            canal: gerente
-            titulo: Clínica SemDor — Gerente Geral
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Instalar Velopack CLI (vpk)
         shell: pwsh
         run: |
-          dotnet tool install -g vpk --version 1.2.0
-          echo "$env:USERPROFILE\.dotnet\tools" >> $env:GITHUB_PATH
+          $canal = "${{ steps.alvo.outputs.canal }}"
+          $args = @(
+            "pack",
+            "--packId",      "${{ steps.alvo.outputs.packId }}",
+            "--packVersion", "${{ steps.alvo.outputs.version }}",
+            "--packDir",     "publish",
+            "--mainExe",     "${{ steps.alvo.outputs.mainExe }}",
+            "--packTitle",   "${{ steps.alvo.outputs.titulo }}"
+          )
+          if ($canal -ne "win") { $args += @("--channel", $canal) }
+          & vpk @args
+          if ($LASTEXITCODE -ne 0) { throw "vpk pack falhou" }
 
-      - name: Publicar ${{ matrix.nome }} (pasta self-contained)
-        run: dotnet publish ${{ matrix.projeto }} -c Release -r win-x64 --self-contained true -p:Version=${{ needs.release.outputs.version }} -o publish
-
-      - name: Empacotar ${{ matrix.nome }} com Velopack
-        run: >
-          vpk pack
-          --packId ${{ matrix.packId }}
-          --packVersion ${{ needs.release.outputs.version }}
-          --packDir publish
-          --mainExe ${{ matrix.mainExe }}
-          --packTitle "${{ matrix.titulo }}"
-          --channel ${{ matrix.canal }}
-
-      - name: Publicar ${{ matrix.nome }} na release
+      - name: Publicar no GitHub Releases
+        shell: pwsh
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          vpk upload github
-          --repoUrl https://github.com/lucaszaous-creator/Clinica
-          --publish
-          --merge
-          --channel ${{ matrix.canal }}
-          --releaseName "Clínica SemDor ${{ needs.release.outputs.version }}"
-          --tag v${{ needs.release.outputs.version }}
-          --token $env:GITHUB_TOKEN
+        run: |
+          $canal = "${{ steps.alvo.outputs.canal }}"
+          $args = @(
+            "upload", "github",
+            "--repoUrl",     "https://github.com/lucaszaous-creator/Clinica",
+            "--publish",
+            "--releaseName", "${{ steps.alvo.outputs.titulo }} ${{ steps.alvo.outputs.version }}",
+            "--tag",         "${{ steps.alvo.outputs.tag }}",
+            "--token",       "$env:GITHUB_TOKEN"
+          )
+          if ($canal -ne "win") { $args += @("--channel", $canal) }
+          & vpk @args
+          if ($LASTEXITCODE -ne 0) { throw "vpk upload falhou" }

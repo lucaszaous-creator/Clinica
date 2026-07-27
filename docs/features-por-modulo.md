@@ -283,5 +283,10 @@ O documento já foi ao cliente. Estas três precisam de decisão comercial:
    telas, PDF e testes do zero. As parcelas deste arquivo são a ordem técnica correta; o
    calendário contra o cliente é decisão sua.
 
-> Como o cliente recebe os quatro apps, em que ordem e o que precisa estar pronto antes:
+## Parcelas
+
+A **parcela 0 (instalável)** está entregue: cada app tem tela de setup própria e release
+por app. Os quatro instalam e rodam sozinhos. A próxima é a **parcela 1 (fundação)**.
+
+> Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).
