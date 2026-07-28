@@ -31,15 +31,45 @@ public sealed class ModuloFinanceiro : IModuloApp
 
     // Todas exigem VerFinanceiro (parcela 5): dinheiro não aparece para quem só
     // trabalha o balcão, a menos que a direção conceda a permissão.
+    // Tudo aqui \u00E9 da se\u00e7\u00e3o FINANCEIRO da proposta: \u00E9 o mesmo assunto \u2014 o dinheiro da
+    // cl\u00EDnica \u2014, visto de sete \u00E2ngulos.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        new ItemMenuModulo { Chave = ChaveCaixa, Rotulo = "Caixa", Glifo = "\uE8C7", Requer = Permissao.VerFinanceiro },
-        new ItemMenuModulo { Chave = ChaveConciliacao, Rotulo = "Concilia\u00e7\u00e3o", Glifo = "\uE8AB", Requer = Permissao.VerFinanceiro },
-        new ItemMenuModulo { Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9D2", Requer = Permissao.VerFinanceiro },
-        new ItemMenuModulo { Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "\uE719", Requer = Permissao.VerFinanceiro },
-        new ItemMenuModulo { Chave = ChaveEstoque, Rotulo = "Estoque", Glifo = "\uE7B8", Requer = Permissao.VerFinanceiro },
-        new ItemMenuModulo { Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE8C8", Requer = Permissao.VerFinanceiro },
-        new ItemMenuModulo { Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8FD", Requer = Permissao.VerFinanceiro }
+        new ItemMenuModulo
+        {
+            Chave = ChavePacotes, Rotulo = "Pacotes / Sess\u00F5es", Glifo = "\uE719",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveCaixa, Rotulo = "Financeiro", Glifo = "\uE8C7",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveConciliacao, Rotulo = "Concilia\u00e7\u00e3o", Glifo = "\uE8AB",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9D2",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveEstoque, Rotulo = "Estoque", Glifo = "\uE7B8",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE8C8",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8FD",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        }
     ];
 
     public void Registrar(IServiceCollection servicos)

@@ -29,25 +29,28 @@ public sealed class ModuloGerente : IModuloApp
 
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
+        // O faturamento entra na se\u00E7\u00E3o FINANCEIRO, junto do caixa e dos pacotes: para
+        // quem usa, \u00E9 tudo dinheiro da cl\u00EDnica. Que a tela venha do m\u00F3dulo da Dire\u00E7\u00E3o \u00E9
+        // detalhe de arquitetura, e arquitetura n\u00E3o organiza menu.
         new ItemMenuModulo
         {
-            Chave = ChaveIndicadores, Rotulo = "Indicadores", Glifo = "\uE9D2",
-            Requer = Permissao.VerIndicadores
+            Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento
         },
         new ItemMenuModulo
         {
-            Chave = ChaveFaturamento, Rotulo = "Faturamento", Glifo = "\uE8C7",
-            Requer = Permissao.VerFaturamento
+            Chave = ChaveCampanhas, Rotulo = "Marketing / Recall", Glifo = "\uE715",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
         },
         new ItemMenuModulo
         {
-            Chave = ChaveCampanhas, Rotulo = "Campanhas", Glifo = "\uE715",
-            Requer = Permissao.GerenciarCampanhas
+            Chave = ChaveIndicadores, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
         new ItemMenuModulo
         {
             Chave = ChaveAcessos, Rotulo = "Acessos", Glifo = "\uE72E",
-            Requer = Permissao.GerenciarUsuarios
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
         }
     ];
 

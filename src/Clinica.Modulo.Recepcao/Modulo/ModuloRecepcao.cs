@@ -28,11 +28,33 @@ public sealed class ModuloRecepcao : IModuloApp
     // na sidebar. Perfis de Recep\u00E7\u00E3o e Profissional j\u00E1 nascem com as daqui.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        new ItemMenuModulo { Chave = ChavePainel, Rotulo = "Painel", Glifo = "\uE80F", Requer = Permissao.VerAgenda },
-        new ItemMenuModulo { Chave = ChaveAgenda, Rotulo = "Agenda", Glifo = "\uE787", Requer = Permissao.VerAgenda },
-        new ItemMenuModulo { Chave = ChaveFila, Rotulo = "Fila de hoje", Glifo = "\uE8FD", Requer = Permissao.VerAgenda },
-        new ItemMenuModulo { Chave = ChavePacientes, Rotulo = "Pacientes", Glifo = "\uE77B", Requer = Permissao.VerProntuario },
-        new ItemMenuModulo { Chave = ChaveEquipe, Rotulo = "Profissionais e salas", Glifo = "\uE716", Requer = Permissao.GerenciarEquipe }
+        new ItemMenuModulo
+        {
+            Chave = ChavePainel, Rotulo = "In\u00EDcio", Glifo = "\uE80F",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveAgenda, Rotulo = "Agenda", Glifo = "\uE787",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveFila, Rotulo = "Recep\u00E7\u00E3o / Check-in", Glifo = "\uE8FD",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChavePacientes, Rotulo = "Pacientes", Glifo = "\uE77B",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        // Cadastro da equipe \u00E9 gest\u00E3o da cl\u00EDnica, n\u00E3o do paciente: quem mexe aqui est\u00E1
+        // organizando quem atende e onde, n\u00E3o atendendo algu\u00E9m.
+        new ItemMenuModulo
+        {
+            Chave = ChaveEquipe, Rotulo = "Profissionais e salas", Glifo = "\uE716",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.GerenciarEquipe
+        }
     ];
 
     public void Registrar(IServiceCollection servicos)
