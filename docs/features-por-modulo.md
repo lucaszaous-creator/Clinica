@@ -278,7 +278,7 @@ zero.**
 |---|---|---|
 | Saldo de sessões por paciente | ✅ | `PacotePaciente.SaldoSessoes`, `PacoteService.DoPacienteAsync` |
 | Vouchers e planos recorrentes | ✅ | `TipoPacote` — plano sem número de sessões é livre dentro da validade |
-| Baixa automática ao atender | ✅ | `PacoteService.ConsumirPorAtendimentoAsync` |
+| Baixa ao atender | ✅ | `PacoteService.ConsumirPorAtendimentoAsync`, **chamado** pelo `FechamentoSessaoService` (parcela 6) |
 | Catálogo do que está à venda | 🔵 | `PacoteCatalogo`, com preço e validade padrão |
 | Orçamento do pacote em PDF | 🔵 | `DocumentoFinanceiroService.EmitirOrcamentoDoPacoteAsync` |
 
@@ -292,11 +292,18 @@ zero.**
 > isso, "o paciente diz que sobrou uma sessão" viraria a palavra de um contra a do outro
 > — que é a conversa que este módulo existe para encerrar.
 
-> A baixa automática debita o pacote que **vence primeiro**, e um atendimento debita **uma
-> vez só**: concluir a mesma sessão de novo não come outra sessão do paciente. Ela é
-> chamada pelo fluxo da Recepção, e **não** pelo `AtendimentoService` — aquele é
-> compartilhado com o faturamento congelado, e dar-lhe efeito colateral novo mudaria o
-> comportamento de um app em produção que nada tem com pacotes.
+> A baixa debita o pacote que **vence primeiro**, e um atendimento debita **uma vez só**:
+> concluir a mesma sessão de novo não come outra sessão do paciente. Ela é chamada pelo
+> fluxo da Recepção, e **não** pelo `AtendimentoService` — aquele é compartilhado com o
+> faturamento congelado, e dar-lhe efeito colateral novo mudaria o comportamento de um app
+> em produção que nada tem com pacotes.
+
+> ⚠️ **Correção de rota (parcela 6).** Até a parcela 5 esta linha dizia "baixa automática
+> ✅" e estava **errada**: o serviço existia e era testado, mas **nenhum código de produção
+> o chamava**. Na clínica, concluir a sessão gerava a guia e o saldo do pacote ficava
+> parado — só baixava se alguém lembrasse de abrir o Financeiro e debitar à mão. Serviço
+> testado sem chamador passa no CI e não faz nada no balcão; a parcela 6 ligou o fio
+> (`FechamentoSessaoService`) e o ✅ passou a ser verdade.
 
 > Cuidado para não confundir com `AutorizacaoSessoes`, que é **cota do convênio** — outra
 > coisa. Pacote é venda da clínica.
@@ -305,9 +312,16 @@ zero.**
 
 | Item | Estado | Onde |
 |---|---|---|
-| Entrada e baixa por sessão | ✅ | `EstoqueService.EntrarAsync`/`BaixarAsync`, `MovimentoEstoque.AtendimentoId` |
+| Entrada e baixa por sessão | ✅ | `EstoqueService.EntrarAsync`/`BaixarAsync`; a baixa POR SESSÃO entrou no fechamento da Recepção (parcela 6) |
 | Alerta de mínimo e validade | ✅ | `AbaixoDoMinimoAsync`, `ValidadesAsync` (janela de 60 dias) |
 | Custo por atendimento | ✅ | `CustoDoAtendimentoAsync`, com custo médio das entradas |
+
+> ⚠️ **Mesma correção de rota do pacote.** `BaixarAsync` aceitava `atendimentoId` desde a
+> parcela 4, mas nenhuma tela o passava: toda saída era digitada à mão na tela de
+> movimento, sem vínculo com a sessão — e por isso o "custo por atendimento" respondia
+> zero para todo mundo. A baixa da sessão agora sai do fechamento da Recepção, que sugere
+> o que a **última sessão** gastou (a clínica não cadastra "kit da sessão", e criar um
+> cadastro novo seria pedir manutenção de uma lista que ninguém mantém).
 
 > **O saldo NÃO é campo**: é a soma dos movimentos. Guardar um total e
 > mantê-lo em dia é como o estoque para de bater — uma gravação que falha no meio e o
@@ -484,6 +498,51 @@ quem atendeu (05), repasse (09), produtividade (12) e perfis (13). Nenhum deles 
 dado no caminho: o agendamento guarda o profissional e aponta para o atendimento que
 gerou.
 
+## Como os módulos se comunicam
+
+Os quatro apps compartilham `Domain`, `Application` e `Infrastructure` — o mesmo banco e os
+mesmos serviços. Isso os deixa **capazes** de se comunicar, mas capacidade não é fluxo: até a
+parcela 5 nenhum ato de um módulo disparava efeito em outro, e o resultado é o que está
+corrigido acima (o pacote não baixava, o insumo não saía, o dinheiro não entrava).
+
+As pontes que existem hoje, e o sentido de cada uma:
+
+| Ponte | Sentido | Onde |
+|---|---|---|
+| Concluir a sessão → guia + pacote + insumo + caixa | Recepção → Faturamento, Financeiro | `FechamentoSessaoService` (parcela 6) |
+| Guia efetivada que ainda não virou dinheiro | Faturamento → Financeiro | `FinanceiroService.GuiasSemLancamentoAsync` (Conciliação) |
+| Quem atendeu, para repasse e produtividade | Recepção → Financeiro, Gerente | `Agendamento.ProfissionalId` + `AtendimentoId` |
+| Pendência de guia no cartão de quem chega hoje | Faturamento → Recepção | `PainelRecepcaoService.PendenciasDoDiaAsync` |
+| Leitura consolidada do faturamento | Faturamento → Gerente | `FaturamentoGerencialView` (só leitura) |
+
+Três regras que valem para qualquer ponte nova:
+
+- **O sentido é sempre PARA FORA do faturamento.** Ele está congelado: os outros leem o que
+  ele produz e escrevem em entidades próprias. Nenhuma ponte pode exigir mudança nele.
+- **Ponte é serviço, não efeito colateral.** O elo mora num serviço próprio da camada
+  Application, chamado explicitamente por quem opera. Pendurá-lo dentro do
+  `AtendimentoService` (compartilhado) mudaria o comportamento de um app em produção.
+- **A ponte que falha avisa.** Falha parcial não pode ser exibida como sucesso, e também não
+  pode desfazer o fato principal: o atendimento aconteceu.
+
+> **Não há mensageria entre os apps.** Dois postos abertos ao mesmo tempo só se enxergam
+> quando a tela recarrega — não existe notificação de um `.exe` para outro. Para esta clínica
+> (poucos postos, banco remoto) isso é decisão, não esquecimento: a alternativa é infraestrutura
+> de eventos que ninguém aqui vai operar. A concorrência de escrita continua protegida pelo
+> `xmin`.
+
+## O que ainda NÃO existe
+
+Levantado no código, não na memória. Nenhum destes tem linha escrita:
+
+| Falta | Módulo dono | Consequência hoje |
+|---|---|---|
+| Taxa de cartão / maquininha | Financeiro | `LancamentoFinanceiro` só tem valor bruto: sem adquirente, bandeira, taxa, líquido nem previsão de recebimento |
+| Impostos (ISS, Simples, retenção) | Financeiro | Nada modelado |
+| Tela de Configurações na suíte | Gerente | As chaves do `ParametrosService` (jornada, recall, prazos, prestador) só são editáveis pelo app de faturamento **congelado** |
+| Tela de Relatórios / exportação | Gerente | `RelatorioService` só é lido pelo faturamento e pela visão gerencial; não há exportação |
+| CRM (origem do paciente, indicação, funil) | Recepção | Não há de onde o paciente veio; o histórico de `ContatoCampanha` não aparece na ficha |
+
 ## Divergências da proposta
 
 O documento já foi ao cliente. Estas precisam de decisão comercial:
@@ -508,8 +567,15 @@ O documento já foi ao cliente. Estas precisam de decisão comercial:
 
 ## Parcelas
 
-As **seis parcelas estão entregues** — 0 (instalável), 1 (fundação), 2 (cadastro e
-prontuário), 3 (ato clínico), 4 (dinheiro e insumo) e 5 (inteligência).
+As **sete parcelas estão entregues** — 0 (instalável), 1 (fundação), 2 (cadastro e
+prontuário), 3 (ato clínico), 4 (dinheiro e insumo), 5 (inteligência) e 6 (integração).
+
+A **parcela 6 não trouxe feature nova**: ligou o que já existia. As parcelas 1 a 5
+construíram serviços e telas módulo a módulo, e o que ficou faltando foi o fio entre eles —
+concluir a sessão na Recepção não debitava o pacote, não baixava o insumo e não lançava o
+caixa, embora os três serviços estivessem prontos e testados. É a lição que vale registrar:
+**serviço testado sem chamador passa no CI e não faz nada na clínica**, e o quadro de
+features marcava ✅ para os dois casos.
 
 Os quatro apps instalam sozinhos. A Recepção tem painel próprio, agenda multiprofissional
 com encaixe e lista de espera, fila em kanban, cadastro de profissionais e salas,
@@ -518,7 +584,8 @@ anexos, mapa corporal com protocolo reutilizável e os sete documentos clínicos
 Financeiro tem caixa, conciliação, produção, pacotes com saldo e baixa automática, estoque
 com alerta de mínimo e validade, repasse por profissional, plano de contas, recibo e
 orçamento. O Gerente tem BI, campanhas (confirmação, NPS e recall), acessos com perfis e
-a visão de leitura do faturamento.
+a visão de leitura do faturamento. E, desde a parcela 6, concluir uma sessão na Recepção
+atravessa os três módulos de uma vez.
 
 A parcela 5 saiu **antes** das 3 e 4 porque não dependia de nenhuma das duas: apoiava-se
 na fundação da parcela 1 (`Profissional`) e no consentimento da parcela 2, que já

@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
@@ -137,21 +136,12 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
 
     /// <summary>
     /// Aceita o valor como a clínica digita: "1.250,00" (pt-BR) e também "1250.00".
+    /// A regra mora no shell (<see cref="Clinica.Desktop.Controls.Valores"/>) porque o
+    /// fechamento da sessão, na Recepção, digita dinheiro pelo mesmo teclado.
     /// O sinal nunca vem daqui — quem decide entrada ou saída é o <see cref="Tipo"/>.
     /// </summary>
     internal static bool TentarLerValor(string? texto, out decimal valor)
-    {
-        valor = 0;
-        if (string.IsNullOrWhiteSpace(texto)) return false;
-
-        var limpo = texto.Trim().Replace("R$", string.Empty).Trim();
-
-        if (!decimal.TryParse(limpo, NumberStyles.Currency, new CultureInfo("pt-BR"), out valor) &&
-            !decimal.TryParse(limpo, NumberStyles.Currency, CultureInfo.InvariantCulture, out valor))
-            return false;
-
-        return valor > 0;
-    }
+        => Clinica.Desktop.Controls.Valores.TentarLerDecimal(texto, out valor);
 
     private void Erro(string mensagem)
     {

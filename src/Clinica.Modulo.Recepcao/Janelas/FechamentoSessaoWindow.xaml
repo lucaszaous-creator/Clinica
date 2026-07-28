@@ -1,0 +1,148 @@
+<Window x:Class="Clinica.Recepcao.Janelas.FechamentoSessaoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Concluir atendimento" Width="620" Height="700"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Concluir atendimento" Style="{StaticResource DialogoTitulo}" />
+            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,8">
+                <Run Text="{Binding Paciente, Mode=OneWay}" />
+                <Run Text=" · " />
+                <Run Text="{Binding Data, Mode=OneWay}" />
+            </TextBlock>
+        </StackPanel>
+
+        <!-- O par de botões muda depois que o atendimento foi concluído: confirmar de
+             novo criaria uma segunda guia para a mesma sessão. -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0"
+                    Visibility="{Binding NaoConcluida, Converter={StaticResource BoolParaVisibilidade}}" />
+            <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0"
+                    Visibility="{Binding Concluida, Converter={StaticResource BoolParaVisibilidade}}" />
+            <Button Content="Concluir sessão" Command="{Binding ConfirmarCommand}"
+                    IsDefault="True" MinWidth="160"
+                    IsEnabled="{Binding PropostaValida}"
+                    Visibility="{Binding NaoConcluida, Converter={StaticResource BoolParaVisibilidade}}" />
+        </StackPanel>
+
+        <TextBlock DockPanel.Dock="Bottom" Style="{StaticResource TextoSuave}"
+                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                   Margin="0,12,0,0" Text="{Binding ResumoDoQueVaiAcontecer}"
+                   Visibility="{Binding PropostaValida, Converter={StaticResource BoolParaVisibilidade}}" />
+
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <TextBlock DockPanel.Dock="Top" Text="Montando a proposta…"
+                   Style="{StaticResource TextoSuave}" Margin="0,8,0,0"
+                   Visibility="{Binding Carregando, Converter={StaticResource BoolParaVisibilidade}}" />
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      Visibility="{Binding PropostaValida, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+
+                <!-- Pacote -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12"
+                        Visibility="{Binding TemPacote, Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                        <CheckBox IsChecked="{Binding DebitarPacote}"
+                                  Content="Debitar 1 sessão do pacote" />
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="24,4,0,0"
+                                   TextWrapping="Wrap" Text="{Binding PacoteRotulo}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="24,4,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                                   Text="É o pacote que vence primeiro — o mesmo que o sistema debitaria sozinho. Sessão comprada já foi paga: não cobre de novo no caixa." />
+                    </StackPanel>
+                </Border>
+
+                <!-- Insumos -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12"
+                        Visibility="{Binding TemInsumos, Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                        <TextBlock Text="Insumos consumidos" Style="{StaticResource Rotulo}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,8"
+                                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                                   Text="Sugerido a partir do que a última sessão gastou. Corrija o que for diferente; em branco não baixa nada." />
+
+                        <ItemsControl ItemsSource="{Binding Insumos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="90" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Nome}" />
+                                            <TextBlock Text="{Binding SaldoRotulo}"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}" />
+                                        </StackPanel>
+                                        <TextBox Grid.Column="1" MaxLength="8"
+                                                 Text="{Binding Quantidade, UpdateSourceTrigger=PropertyChanged}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- Caixa -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <CheckBox IsChecked="{Binding GerarLancamento}"
+                                  IsEnabled="{Binding PodeLancarFinanceiro}"
+                                  Content="Lançar a entrada no caixa" />
+
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="24,4,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap"
+                                   Text="Seu usuário não tem permissão para lançar no caixa — o Financeiro lança pela Conciliação."
+                                   Visibility="{Binding SemPermissaoFinanceiro,
+                                                Converter={StaticResource BoolParaVisibilidade}}" />
+
+                        <Grid Margin="24,10,0,0" IsEnabled="{Binding GerarLancamento}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Valor" Style="{StaticResource Rotulo}" />
+                                <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="12" />
+                                <TextBlock Text="{Binding ProcedenciaDoValor}"
+                                           Style="{StaticResource TextoSuave}"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           TextWrapping="Wrap" Margin="0,4,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Forma de pagamento" Style="{StaticResource Rotulo}" />
+                                <ComboBox ItemsSource="{Binding Formas}" SelectedItem="{Binding Forma}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Margin="24,10,0,0" IsEnabled="{Binding GerarLancamento}">
+                            <TextBlock Text="Categoria" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}"
+                                      DisplayMemberPath="Nome" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

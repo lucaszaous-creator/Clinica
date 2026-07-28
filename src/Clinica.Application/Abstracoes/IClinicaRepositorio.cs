@@ -361,6 +361,17 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<MovimentoEstoque>> MovimentosDoAtendimentoAsync(
         int atendimentoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Saídas da última sessão que baixou insumo — a sugestão de consumo do fechamento
+    /// da Recepção. Vazia quando a clínica nunca baixou insumo por atendimento.
+    ///
+    /// A clínica não cadastra "kit da sessão", e inventar um cadastro novo para isso
+    /// seria pedir manutenção de uma lista que ninguém mantém. O que a última sessão
+    /// gastou é a melhor sugestão disponível sem inventar dado: se estiver errada, a
+    /// recepção corrige na tela antes de gravar.
+    /// </summary>
+    Task<IReadOnlyList<MovimentoEstoque>> UltimoConsumoDeSessaoAsync(CancellationToken ct = default);
+
     Task AdicionarMovimentoEstoqueAsync(MovimentoEstoque movimento, CancellationToken ct = default);
 
     /// <summary>
@@ -404,6 +415,16 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, int? limite = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Última entrada REALIZADA do paciente. É de onde o fechamento da sessão tira o
+    /// valor sugerido: a clínica não cadastra tabela de preço avulso, e o que este
+    /// paciente pagou da última vez é um palpite com procedência — que a tela mostra
+    /// junto ("igual à sessão de 15/07"), para ninguém confirmar um número sem saber de
+    /// onde veio. Null quando ele nunca pagou nada.
+    /// </summary>
+    Task<LancamentoFinanceiro?> UltimoRecebimentoDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
 
     /// <summary>
     /// Só (tipo, situação, valor) dos lançamentos do período — a projeção que os totais
