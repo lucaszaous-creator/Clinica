@@ -363,7 +363,10 @@ public interface IClinicaRepositorio
 
     Task AdicionarMovimentoEstoqueAsync(MovimentoEstoque movimento, CancellationToken ct = default);
 
-    /// <summary>Saldo por item (id → quantidade), somado no banco.</summary>
+    /// <summary>
+    /// Saldo por item (id → quantidade). A projeção corta as colunas no SQL, mas a soma
+    /// é feita em memória: o SQLite não traduz <c>Sum</c> sobre <c>decimal</c>.
+    /// </summary>
     Task<IReadOnlyDictionary<int, decimal>> SaldosEstoqueAsync(CancellationToken ct = default);
 
     // ---- Recibo e orçamento ----

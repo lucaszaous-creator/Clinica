@@ -42,7 +42,7 @@ public sealed record CustoDoAtendimento(
 /// Estoque de insumos (feature 10): entrada, baixa por sessão, alerta de mínimo e de
 /// validade, e custo por atendimento.
 ///
-/// O saldo NUNCA é campo: é a soma dos movimentos, feita no banco. Guardar um total e
+/// O saldo NUNCA é campo: é a soma dos movimentos. Guardar um total e
 /// mantê-lo em dia é como o estoque para de bater — uma gravação que falha no meio e o
 /// número fica errado para sempre, sem ninguém saber desde quando.
 /// </summary>

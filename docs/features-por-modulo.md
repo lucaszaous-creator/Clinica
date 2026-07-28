@@ -309,7 +309,7 @@ zero.**
 | Alerta de mínimo e validade | ✅ | `AbaixoDoMinimoAsync`, `ValidadesAsync` (janela de 60 dias) |
 | Custo por atendimento | ✅ | `CustoDoAtendimentoAsync`, com custo médio das entradas |
 
-> **O saldo NÃO é campo**: é a soma dos movimentos, feita no banco. Guardar um total e
+> **O saldo NÃO é campo**: é a soma dos movimentos. Guardar um total e
 > mantê-lo em dia é como o estoque para de bater — uma gravação que falha no meio e o
 > número fica errado para sempre, sem ninguém saber desde quando.
 

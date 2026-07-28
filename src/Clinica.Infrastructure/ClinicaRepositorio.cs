@@ -857,17 +857,23 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     // arrastar todo o histórico de movimentos a cada abertura da tela.
     public async Task<IReadOnlyDictionary<int, decimal>> SaldosEstoqueAsync(CancellationToken ct = default)
     {
-        var somas = await _db.MovimentosEstoque.AsNoTracking()
-            .GroupBy(m => m.ItemEstoqueId)
-            .Select(g => new
-            {
-                ItemId = g.Key,
-                Entradas = g.Where(m => m.Tipo == TipoMovimentoEstoque.Entrada).Sum(m => m.Quantidade),
-                Saidas = g.Where(m => m.Tipo != TipoMovimentoEstoque.Entrada).Sum(m => m.Quantidade)
-            })
+        // A PROJEÇÃO é o que importa aqui: só três colunas saem do banco (item, tipo e
+        // quantidade) — nada de lote, observação ou vínculo com atendimento.
+        //
+        // A soma, porém, é feita em memória e não em SQL: o SQLite, onde a suíte de
+        // testes roda, não sabe somar `decimal` (NotSupportedException na tradução), e a
+        // saída seria somar em ponto flutuante — trocar exatidão de estoque por uma
+        // linha de SQL. Movimento de insumo é volume baixo (alguns por dia); a projeção
+        // já evita o que era caro, que era arrastar o extrato inteiro.
+        var movimentos = await _db.MovimentosEstoque.AsNoTracking()
+            .Select(m => new { m.ItemEstoqueId, m.Tipo, m.Quantidade })
             .ToListAsync(ct);
 
-        return somas.ToDictionary(s => s.ItemId, s => s.Entradas - s.Saidas);
+        return movimentos
+            .GroupBy(m => m.ItemEstoqueId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(m => m.Tipo == TipoMovimentoEstoque.Entrada ? m.Quantidade : -m.Quantidade));
     }
 
     // ---- Recibo e orçamento ----
