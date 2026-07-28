@@ -267,6 +267,15 @@ public sealed class CampanhaService
         CancellationToken ct = default)
         => _repo.ContatosAsync(tipo, status, inicio, fim, ct);
 
+    /// <summary>
+    /// Histórico de contatos de um paciente — o que a ficha mostra na aba de CRM.
+    /// Fecha o ciclo: a campanha sai no Gerente e o resultado dela aparece no balcão,
+    /// onde alguém vai atender essa pessoa e precisa saber o que já foi falado com ela.
+    /// </summary>
+    public Task<IReadOnlyList<ContatoCampanha>> DoPacienteAsync(
+        int pacienteId, int limite = 20, CancellationToken ct = default)
+        => _repo.ContatosDoPacienteAsync(pacienteId, limite, ct);
+
     /// <summary>Marca que a mensagem foi disparada. Só sai de Pendente — reenvio não reabre o fluxo.</summary>
     public async Task<ContatoCampanha> RegistrarEnvioAsync(
         int contatoId, string? operador = null, CanalContato canal = CanalContato.WhatsApp,

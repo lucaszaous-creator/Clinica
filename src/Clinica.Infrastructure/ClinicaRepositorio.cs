@@ -1083,6 +1083,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    // Aqui a ordem é a oposta da fila: é HISTÓRICO, e histórico se lê do mais novo para
+    // o mais velho. O corte vai no SQL, como manda a convenção do projeto.
+    public async Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
+        int pacienteId, int limite = 20, CancellationToken ct = default)
+        => await _db.Contatos.AsNoTracking()
+            .Where(c => c.PacienteId == pacienteId)
+            .OrderByDescending(c => c.Referencia)
+            .ThenByDescending(c => c.Id)
+            .Take(limite)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<string>> OrigensDeContatoAsync(
         TipoContato tipo, IReadOnlyCollection<string> origens, CancellationToken ct = default)
     {

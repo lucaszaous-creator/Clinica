@@ -477,6 +477,14 @@ public interface IClinicaRepositorio
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
     /// <summary>
+    /// Histórico de contatos de UM paciente, do mais recente para o mais antigo — a
+    /// aba de CRM da ficha. O corte vai no SQL: quem abre a ficha quer as últimas
+    /// conversas, não a carteira inteira de mensagens desde a instalação.
+    /// </summary>
+    Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
+        int pacienteId, int limite = 20, CancellationToken ct = default);
+
+    /// <summary>
     /// Quais destas origens já viraram contato deste tipo. É a checagem de
     /// idempotência da campanha: rodar de novo não pode mandar a mesma mensagem duas
     /// vezes para o mesmo paciente.
