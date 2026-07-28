@@ -10,11 +10,16 @@ name: Release (instalador + auto-update)
 #
 # Como publicar:
 #   Faturamento  →  git tag v1.2.3            && git push origin v1.2.3
-#   Recepção     →  git tag recepcao-v1.0.0   && git push origin recepcao-v1.0.0
+#   Recepção     →  git tag recepcao-v1.1.3   && git push origin recepcao-v1.1.3
 #   Financeiro   →  git tag financeiro-v1.0.0 && git push origin financeiro-v1.0.0
-#   Gerente      →  git tag gerente-v1.0.0    && git push origin gerente-v1.0.0
+#   Gerente      →  git tag gerente-v1.1.1    && git push origin gerente-v1.1.1
 #
 #   Ou: Actions -> "Release" -> Run workflow -> escolha o app e informe a versão.
+#
+# CADA APP TEM SUA PRÓPRIA CONTAGEM DE VERSÃO. Elas não andam juntas: o Faturamento
+# está na 1.1.x há semanas e o Financeiro nunca foi publicado. Repetir um número já
+# usado NAQUELE app é o erro comum — e o passo "Conferir se a versão já foi publicada"
+# recusa antes de compilar, dizendo qual é o próximo livre.
 #
 # Funciona porque o Velopack separa os apps por CANAL: cada um grava seu
 # releases.<canal>.json, e o GetReleaseFeed percorre as releases procurando o canal
@@ -73,10 +78,10 @@ jobs:
           }
 
           $cfg = @{
-            faturamento = @{ projeto = "src/Clinica.Desktop/Clinica.Desktop.csproj";       packId = "Clinica.Faturamento"; mainExe = "Clinica.Desktop.exe";    canal = "win";        titulo = "Clínica SemDor";                    tag = "v$v" }
-            recepcao    = @{ projeto = "src/Clinica.Recepcao/Clinica.Recepcao.csproj";     packId = "Clinica.Recepcao";    mainExe = "Clinica.Recepcao.exe";   canal = "recepcao";   titulo = "Clínica SemDor — Recepção";         tag = "recepcao-v$v" }
-            financeiro  = @{ projeto = "src/Clinica.Financeiro/Clinica.Financeiro.csproj"; packId = "Clinica.Financeiro";  mainExe = "Clinica.Financeiro.exe"; canal = "financeiro"; titulo = "Clínica SemDor — Financeiro";       tag = "financeiro-v$v" }
-            gerente     = @{ projeto = "src/Clinica.Gerente/Clinica.Gerente.csproj";       packId = "Clinica.Gerente";     mainExe = "Clinica.Gerente.exe";    canal = "gerente";    titulo = "Clínica SemDor — Gerente Geral";    tag = "gerente-v$v" }
+            faturamento = @{ projeto = "src/Clinica.Desktop/Clinica.Desktop.csproj";       packId = "Clinica.Faturamento"; mainExe = "Clinica.Desktop.exe";    canal = "win";        titulo = "Clínica SemDor";                    prefixo = "v" }
+            recepcao    = @{ projeto = "src/Clinica.Recepcao/Clinica.Recepcao.csproj";     packId = "Clinica.Recepcao";    mainExe = "Clinica.Recepcao.exe";   canal = "recepcao";   titulo = "Clínica SemDor — Recepção";         prefixo = "recepcao-v" }
+            financeiro  = @{ projeto = "src/Clinica.Financeiro/Clinica.Financeiro.csproj"; packId = "Clinica.Financeiro";  mainExe = "Clinica.Financeiro.exe"; canal = "financeiro"; titulo = "Clínica SemDor — Financeiro";       prefixo = "financeiro-v" }
+            gerente     = @{ projeto = "src/Clinica.Gerente/Clinica.Gerente.csproj";       packId = "Clinica.Gerente";     mainExe = "Clinica.Gerente.exe";    canal = "gerente";    titulo = "Clínica SemDor — Gerente Geral";    prefixo = "gerente-v" }
           }[$app]
 
           if (-not $cfg) { throw "App desconhecido: '$app'." }
@@ -88,8 +93,61 @@ jobs:
           "mainExe=$($cfg.mainExe)"   >> $env:GITHUB_OUTPUT
           "canal=$($cfg.canal)"       >> $env:GITHUB_OUTPUT
           "titulo=$($cfg.titulo)"     >> $env:GITHUB_OUTPUT
-          "tag=$($cfg.tag)"           >> $env:GITHUB_OUTPUT
-          Write-Host "Publicando $app $v (canal $($cfg.canal), tag $($cfg.tag))"
+          "prefixo=$($cfg.prefixo)"   >> $env:GITHUB_OUTPUT
+          "tag=$($cfg.prefixo)$v"     >> $env:GITHUB_OUTPUT
+          Write-Host "Publicando $app $v (canal $($cfg.canal), tag $($cfg.prefixo)$v)"
+
+      # ⚠️ PRÉ-VOO: o vpk só descobre que a versão já existe no ÚLTIMO passo, depois de
+      # compilar e empacotar os quatro minutos de build — e a mensagem dele não diz qual
+      # versão usar. Aqui a recusa é imediata e já entrega o próximo número livre.
+      #
+      # Só olha as tags DESTE app (cada um tem sua família de versões): publicar a
+      # Recepção nunca é impedido por uma versão que o Financeiro já usou.
+      - name: Conferir se a versão já foi publicada
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $prefixo = "${{ steps.alvo.outputs.prefixo }}"
+          $tag     = "${{ steps.alvo.outputs.tag }}"
+          $cabecalho = @{ Authorization = "Bearer $env:GITHUB_TOKEN"; "User-Agent" = "clinica-release" }
+
+          # Todas as tags do repositório (paginado).
+          $tags = @()
+          for ($p = 1; $p -le 10; $p++) {
+            $lote = Invoke-RestMethod -Headers $cabecalho `
+              "https://api.github.com/repos/${{ github.repository }}/tags?per_page=100&page=$p"
+            if (-not $lote) { break }
+            $tags += $lote.name
+          }
+
+          # Só as deste app, e só as que são versão de verdade (x.y.z).
+          $padrao = "^" + [regex]::Escape($prefixo) + "(\d+)\.(\d+)\.(\d+)$"
+          $usadas = $tags | Where-Object { $_ -match $padrao } |
+            ForEach-Object { [version]($_ -replace [regex]::Escape($prefixo), "") }
+
+          $ultima = if ($usadas) { ($usadas | Sort-Object -Descending)[0] } else { $null }
+          $proxima = if ($ultima) { "$($ultima.Major).$($ultima.Minor).$($ultima.Build + 1)" } else { "1.0.0" }
+
+          if ($ultima) { Write-Host "Última publicada deste app: $prefixo$ultima" }
+          else         { Write-Host "Este app ainda não tem release publicada." }
+
+          if ($tags -contains $tag) {
+            throw "A versão '$tag' JÁ FOI PUBLICADA. Uma release não se sobrescreve — o " +
+                  "app instalado na clínica já baixou essa versão e não voltaria a baixá-la. " +
+                  "Use a próxima livre: $prefixo$proxima"
+          }
+
+          # Versão menor que a última também não serve: o auto-update só anda para frente,
+          # então a clínica instalaria e continuaria vendo a versão antiga.
+          $v = [version]"${{ steps.alvo.outputs.version }}"
+          if ($ultima -and $v -lt $ultima) {
+            throw "A versão ${{ steps.alvo.outputs.version }} é ANTERIOR à última publicada " +
+                  "($ultima). O auto-update só avança: a clínica não receberia nada. " +
+                  "Use $prefixo$proxima ou maior."
+          }
+
+          Write-Host "OK — $tag está livre."
 
       - name: Instalar Velopack CLI (vpk)
         shell: pwsh
