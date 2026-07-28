@@ -141,10 +141,14 @@ public sealed class EstoqueService
         var comSaldo = itens.Where(i => saldos.TryGetValue(i.Id, out var s) && s > 0).ToList();
         if (comSaldo.Count == 0) return [];
 
-        // O intervalo é largo de propósito: entradas antigas com validade vencida ainda
-        // interessam, porque o insumo pode continuar na prateleira.
+        // Sem recorte de data, e por dois motivos: entrada antiga com validade vencida
+        // ainda interessa (o insumo pode continuar na prateleira), e entrada lançada com
+        // data à frente — compra registrada adiantada — não pode sumir do alerta.
+        //
+        // Recortar pelo relógio da máquina, em especial, seria trair o parâmetro `hoje`:
+        // quem passa a data de referência espera que ELA mande na resposta inteira.
         var movimentos = await _repo.MovimentosNoPeriodoAsync(
-            DateOnly.MinValue, DateOnly.FromDateTime(DateTime.Today), ct);
+            DateOnly.MinValue, DateOnly.MaxValue, ct);
 
         return movimentos
             .Where(m => m.Tipo == TipoMovimentoEstoque.Entrada && m.Validade is not null)
