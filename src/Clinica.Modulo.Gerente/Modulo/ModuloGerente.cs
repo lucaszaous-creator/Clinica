@@ -64,6 +64,7 @@ public sealed class ModuloGerente : IModuloApp
     {
         servicos.AddTransient<IndicadoresViewModel>();
         servicos.AddTransient<FaturamentoGerencialViewModel>();
+        servicos.AddTransient<FaturamentoTissViewModel>();
         servicos.AddTransient<CampanhasViewModel>();
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
@@ -77,9 +78,9 @@ public sealed class ModuloGerente : IModuloApp
         {
             DataContext = servicos.GetRequiredService<IndicadoresViewModel>()
         },
-        ChaveFaturamento => new FaturamentoGerencialView
+        ChaveFaturamento => new FaturamentoTissView
         {
-            DataContext = servicos.GetRequiredService<FaturamentoGerencialViewModel>()
+            DataContext = servicos.GetRequiredService<FaturamentoTissViewModel>()
         },
         ChaveCampanhas => new CampanhasView
         {

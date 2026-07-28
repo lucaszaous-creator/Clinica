@@ -1,0 +1,220 @@
+using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
+using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
+using Clinica.Domain;
+using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Clinica.Gerente.ViewModels;
+
+/// <summary>Uma guia pendente na visão da direção, com o semáforo já resolvido.</summary>
+public sealed class LinhaPendencia
+{
+    public required int CodigoId { get; init; }
+    public required string Paciente { get; init; }
+    public required string Convenio { get; init; }
+    public required string Guia { get; init; }
+    public required string Prevista { get; init; }
+    public required string Atraso { get; init; }
+    public required string Observacao { get; init; }
+
+    /// <summary>Semáforo: vermelho = atrasada, amarelo = vence hoje/amanhã, verde = em dia.</summary>
+    public required NivelUrgencia Urgencia { get; init; }
+
+    public bool EhVermelha => Urgencia == NivelUrgencia.Vermelho;
+    public bool EhAmarela => Urgencia == NivelUrgencia.Amarelo;
+    public bool EhVerde => Urgencia == NivelUrgencia.Verde;
+
+    public static LinhaPendencia De(PendenciaCodigo p) => new()
+    {
+        CodigoId = p.CodigoId,
+        Paciente = p.PacienteNome,
+        Convenio = CatalogoConvenios.Nome(p.Convenio),
+        Guia = $"{p.Tipo} · {p.Ordem}",
+        Prevista = p.DataPrevista.ToString("dd/MM/yyyy"),
+        Urgencia = p.Urgencia,
+        Atraso = p.DiasEmAtraso switch
+        {
+            < 0 => $"vence em {-p.DiasEmAtraso} dia(s)",
+            0 => "vence hoje",
+            var d => $"{d} dia(s) em atraso"
+        },
+        Observacao = p.ObservacaoPendencia ?? string.Empty
+    };
+}
+
+/// <summary>
+/// Pendências de guias na visão da DIREÇÃO — o mesmo semáforo do painel do faturamento,
+/// dentro do Gerente.
+///
+/// Por que existe: o Gerente Geral deve ter as features dos quatro módulos somados, e o
+/// faturamento é o único cuja tela ele não tinha — só a leitura consolidada. Quem dirige
+/// a clínica precisa ver a guia que está vencendo sem ir até o posto do faturamento, que
+/// é onde o app congelado roda.
+///
+/// Ela NÃO é uma segunda via do app de faturamento: trabalha sobre os MESMOS serviços
+/// compartilhados (<see cref="PendenciaService"/>, <see cref="FaturamentoService"/>), que
+/// já carregam as regras e a auditoria. Nenhuma linha de `Clinica.Desktop` é tocada.
+///
+/// A BAIXA é permitida daqui porque é o ato que destrava a guia e não cria nada: dois
+/// postos dando baixa na mesma guia disputam uma linha, e a concorrência otimista (xmin)
+/// resolve mostrando a mensagem em vez de sobrescrever em silêncio.
+/// </summary>
+public sealed partial class PendenciasGerencialViewModel : ObservableObject
+{
+    private readonly IServiceScopeFactory _escopos;
+    private readonly ISnackbarService _snackbar;
+    private readonly IDialogoService _dialogo;
+
+    public ObservableCollection<LinhaPendencia> Pendencias { get; } = [];
+
+    [ObservableProperty] private bool _carregando;
+    [ObservableProperty] private string _resumo = string.Empty;
+    [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _mensagemEhErro;
+
+    [ObservableProperty] private string _vermelhas = "—";
+    [ObservableProperty] private string _amarelas = "—";
+    [ObservableProperty] private string _verdes = "—";
+
+    /// <summary>
+    /// Metade VISÍVEL da permissão. Ver pendência é VerFaturamento; dar baixa é escrita no
+    /// faturamento, e por isso pede a permissão de quem fatura.
+    /// </summary>
+    public bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.VerFaturamento);
+
+    public PendenciasGerencialViewModel(
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
+    {
+        _escopos = escopos;
+        _snackbar = snackbar;
+        _dialogo = dialogo;
+        _ = CarregarAsync();
+    }
+
+    [RelayCommand]
+    public async Task CarregarAsync()
+    {
+        try
+        {
+            Carregando = true;
+            Mensagem = null;
+            MensagemEhErro = false;
+
+            using var scope = _escopos.CreateScope();
+            var pendencias = scope.ServiceProvider.GetRequiredService<PendenciaService>();
+
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var lista = await pendencias.CodigosPendentesAsync(hoje);
+
+            Pendencias.Clear();
+            foreach (var p in lista.OrderByDescending(p => p.DiasEmAtraso))
+                Pendencias.Add(LinhaPendencia.De(p));
+
+            Vermelhas = Pendencias.Count(p => p.EhVermelha).ToString();
+            Amarelas = Pendencias.Count(p => p.EhAmarela).ToString();
+            Verdes = Pendencias.Count(p => p.EhVerde).ToString();
+            Resumo = Pendencias.Count == 0
+                ? "Nenhuma guia pendente. É o estado que o produto existe para manter."
+                : $"{Pendencias.Count} guia(s) pendente(s) de baixa.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Gerente — pendências não puderam ser lidas", ex);
+            Erro($"Não foi possível ler as pendências: {ex.Message}");
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Baixa: a secretária efetivou a guia no sistema do convênio. Pede o número real da
+    /// guia porque é ele que casa o retorno da operadora com a linha daqui — sem número,
+    /// a conciliação do demonstrativo vira trabalho manual.
+    /// </summary>
+    [RelayCommand]
+    private async Task BaixarAsync(LinhaPendencia? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "dar baixa na guia");
+
+            var numero = _dialogo.PerguntarTexto(
+                "Dar baixa",
+                $"Número da guia de {linha.Paciente} no sistema do convênio. "
+                + "É por ele que o retorno da operadora casa com esta linha — sem número, "
+                + "conciliar o demonstrativo vira trabalho manual.");
+
+            // Cancelar o diálogo devolve null; string vazia é "não tenho o número agora",
+            // que é diferente e continua permitindo a baixa.
+            if (numero is null) return;
+
+            using var scope = _escopos.CreateScope();
+            var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
+
+            await faturamento.DarBaixaAsync(
+                linha.CodigoId, DateOnly.FromDateTime(DateTime.Today),
+                string.IsNullOrWhiteSpace(numero) ? null : numero.Trim(),
+                SessaoUsuario.Atual.Operador, observacao: null);
+
+            _snackbar.Sucesso($"Guia de {linha.Paciente} baixada.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — baixa não pôde ser registrada", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Anota por que a guia ainda não baixou. Não dá baixa: registra a situação, para a
+    /// próxima pessoa que olhar a lista não recomeçar a investigação do zero.
+    /// </summary>
+    [RelayCommand]
+    private async Task AnotarAsync(LinhaPendencia? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "anotar a pendência");
+
+            var texto = _dialogo.PerguntarTexto(
+                "Anotar pendência",
+                $"Por que a guia de {linha.Paciente} ainda não foi baixada?",
+                linha.Observacao);
+            if (texto is null) return;
+
+            using var scope = _escopos.CreateScope();
+            var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
+
+            await faturamento.RegistrarObservacaoPendenciaAsync(
+                linha.CodigoId, texto, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info("Anotação registrada.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — anotação não pôde ser salva", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    private void Erro(string mensagem)
+    {
+        Mensagem = mensagem;
+        MensagemEhErro = true;
+    }
+}

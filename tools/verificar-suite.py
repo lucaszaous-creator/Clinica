@@ -17,7 +17,9 @@ O que confere:
      suíte está no Clinica.sln;
   6. nenhum uso do tipo `Application` sem qualificar (ver ARMADILHA abaixo);
   7. todo `new XViewModel(...)` escrito à mão passa uma quantidade de argumentos que o
-     construtor aceita (ver ARMADILHA do construtor abaixo).
+     construtor aceita (ver ARMADILHA do construtor abaixo);
+  8. todo `new X { ... }` de um tipo com membros `required` inicializa TODOS eles
+     (CS9035) — as classes `Linha*` das listas são cheias deles.
 
 ARMADILHA `Application` (CS0118): dentro de qualquer namespace `Clinica.*`, o nome
 `Application` resolve para o NAMESPACE `Clinica.Application` — nunca para o tipo
@@ -332,6 +334,122 @@ for cs in _fontes():
                 erros.append(
                     f"{rel(cs)}:{n}: new {nome}(...) passa {quantos} argumento(s); o "
                     f"construtor aceita de {minimo} a {maximo} (CS7036)")
+
+
+# ------------------------------------------- 8. membros `required` não inicializados
+#
+# As classes de linha das listas (LinhaEvolucao, LinhaPendencia, LinhaTaxa…) declaram os
+# campos como `required` justamente para o compilador cobrar. Quando uma ganha um campo
+# novo, a fábrica que a monta precisa preenchê-lo — e esquecer disso é CS9035, que sem
+# Windows só aparece no CI.
+#
+# O padrão dominante aqui é a fábrica `public static Linha X De(...) => new() { … }`, com
+# `new()` TIPADO PELO ALVO: o tipo não aparece ao lado do `new`, vem da assinatura. Por
+# isso a varredura casa os dois formatos e lê o corpo contando chaves — o corpo tem
+# `switch` com chaves dentro, e um `[^{}]*` pararia na primeira.
+
+MEMBRO_REQUIRED = re.compile(r"public\s+required\s+[\w\?<>,\[\]\. ]+?\s+(\w+)\s*\{")
+DECL_CLASSE = re.compile(r"\bclass\s+(\w+)")
+# `new Tipo {` … ou `static Tipo Fabrica(...) => new() {`
+NEW_EXPLICITO = re.compile(r"\bnew\s+(\w+)\s*\{")
+NEW_ALVO = re.compile(r"\bstatic\s+(\w+)\s+\w+\s*\([^)]*\)\s*=>\s*new\s*\(\s*\)\s*\{")
+
+
+def _corpo_chaves(texto: str, abre: int) -> str:
+    """Do `{` em `abre` até a chave que o fecha, contando aninhamento."""
+    nivel, i = 0, abre
+    while i < len(texto):
+        if texto[i] == "{":
+            nivel += 1
+        elif texto[i] == "}":
+            nivel -= 1
+            if nivel == 0:
+                return texto[abre + 1 : i]
+        i += 1
+    return ""
+
+
+ULTIMO_NOME = re.compile(r"(\w+)\s*$")
+
+
+def _atribuidos(corpo: str) -> set[str]:
+    """
+    Nomes atribuídos no NÍVEL ZERO do inicializador (switch e lambda aninhados ficam de
+    fora). Comentários saem antes: entre um campo e outro há linhas de `//` explicando a
+    decisão, e elas entrariam no nome lido. Do trecho antes do `=` vale só o ÚLTIMO
+    identificador — que é o do campo.
+    """
+    corpo = "\n".join(l.split("//", 1)[0] for l in corpo.splitlines())
+
+    nomes, nivel, atual = set(), 0, ""
+    for i, ch in enumerate(corpo):
+        if ch in "{([":
+            nivel += 1
+        elif ch in "})]":
+            nivel -= 1
+        elif ch == "," and nivel == 0:
+            atual = ""
+            continue
+        elif ch == "=" and nivel == 0:
+            # Não confundir com ==, =>, !=, <=, >=.
+            anterior = corpo[i - 1] if i else " "
+            seguinte = corpo[i + 1] if i + 1 < len(corpo) else " "
+            if anterior in "=!<>" or seguinte in "=>":
+                atual += ch
+                continue
+            if (m := ULTIMO_NOME.search(atual)) is not None:
+                nomes.add(m.group(1))
+            atual = ""
+            continue
+        atual += ch
+    return nomes
+
+
+# Dois módulos têm uma classe `LinhaContato` cada, com campos diferentes. Sem compilador
+# não há como resolver o nome; então vale o tipo declarado NO MESMO ARQUIVO e, na falta
+# dele, só quando o nome é único na suíte inteira. Ambíguo é PULADO — checagem que chuta
+# produz falso positivo, e falso positivo ensina a ignorar o verificador.
+por_arquivo: dict[tuple[str, str], set[str]] = {}
+por_nome: dict[str, list[set[str]]] = {}
+
+for cs in _fontes():
+    texto = cs.read_text(encoding="utf-8")
+    for m in DECL_CLASSE.finditer(texto):
+        abre = texto.find("{", m.end())
+        if abre < 0:
+            continue
+        nomes = set(MEMBRO_REQUIRED.findall(_corpo_chaves(texto, abre)))
+        if not nomes:
+            continue
+        por_arquivo[(str(cs), m.group(1))] = nomes
+        por_nome.setdefault(m.group(1), []).append(nomes)
+
+
+def _requeridos_de(arquivo: str, tipo: str) -> set[str] | None:
+    if (arquivo, tipo) in por_arquivo:
+        return por_arquivo[(arquivo, tipo)]
+    definicoes = por_nome.get(tipo, [])
+    return definicoes[0] if len(definicoes) == 1 else None
+
+
+for cs in _fontes():
+    texto = cs.read_text(encoding="utf-8")
+    achados: list[tuple[int, str]] = []
+    for m in NEW_EXPLICITO.finditer(texto):
+        achados.append((m.end() - 1, m.group(1)))
+    for m in NEW_ALVO.finditer(texto):
+        achados.append((m.end() - 1, m.group(1)))
+
+    for abre, tipo in achados:
+        esperados = _requeridos_de(str(cs), tipo)
+        if esperados is None:
+            continue
+        faltando = sorted(esperados - _atribuidos(_corpo_chaves(texto, abre)))
+        if faltando:
+            linha = texto.count("\n", 0, abre) + 1
+            erros.append(
+                f"{rel(cs)}:{linha}: inicializador de {tipo} não preenche "
+                f"{', '.join(faltando)} (CS9035: membro required)")
 
 
 # ---------------------------------------------------------------------- saída
