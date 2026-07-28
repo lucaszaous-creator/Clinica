@@ -1,0 +1,182 @@
+<UserControl x:Class="Clinica.Gerente.Views.IndicadoresView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <!-- ============ Cabeçalho ============ -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Indicadores" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                           Text="{Binding IntervaloFormatado, StringFormat='Ocupação, faltas e produtividade — {0}'}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <ComboBox ItemsSource="{Binding Periodos}" SelectedItem="{Binding PeriodoSelecionado}"
+                          MinWidth="150" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ============ KPIs ============ -->
+        <UniformGrid DockPanel.Dock="Top" Columns="5" Margin="0,0,0,8">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="ATENDIDOS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Sucesso}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="FALTAS (NO-SHOW)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding NoShowFormatado}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Erro}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="OCUPAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding OcupacaoFormatada}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Acento}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="PACIENTES ATENDIDOS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding PacientesDistintos}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="NPS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding NpsFormatado}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Marca.Medio}" />
+                    <TextBlock Text="{Binding NpsDetalhe}" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding JornadaFormatada}"
+                   Style="{StaticResource TextoSuave}"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12" />
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ============ Produtividade por profissional ============ -->
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Padding="16,12"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Profissional" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="1" Text="Atendidos" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="2" Text="Faltas" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="3" Text="No-show" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="4" Text="Horas" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="5" Text="Evoluções" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="6" Text="Queda média da dor" Style="{StaticResource Rotulo}" Margin="0" />
+                    </Grid>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <ItemsControl ItemsSource="{Binding Produtividade}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,10"
+                                            BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="2*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Nome}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Atendidos}"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Faltas}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{Binding TaxaNoShow, StringFormat='{}{0:0.#}%'}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <TextBlock Grid.Column="4"
+                                                       Text="{Binding HorasOcupadas, StringFormat='{}{0:0.#} h'}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <TextBlock Grid.Column="5" Text="{Binding Evolucoes}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <TextBlock Grid.Column="6"
+                                                       Text="{Binding MelhoraMediaEva, StringFormat='{}{0:0.#} pontos', TargetNullValue='—'}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Série mensal, logo abaixo: a leitura é "e como isso vem evoluindo?" -->
+                        <TextBlock Text="Evolução mensal" Style="{StaticResource H3}" Margin="16,20,16,8" />
+
+                        <ItemsControl ItemsSource="{Binding Serie}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,8"
+                                            BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="2*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Atendidos, StringFormat='{}{0} atendidos'}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding TaxaNoShow, StringFormat='no-show {0:0.#}%'}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <TextBlock Grid.Column="3"
+                                                       Text="{Binding OcupacaoPercentual, StringFormat='ocupação {0:0.#}%', TargetNullValue='ocupação —'}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

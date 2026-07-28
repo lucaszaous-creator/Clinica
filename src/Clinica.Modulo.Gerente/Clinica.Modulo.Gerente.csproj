@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Módulo do Gerente Geral: Indicadores (BI), Faturamento consolidado (leitura),
+    Campanhas (confirmação, NPS e recall) e Acessos (usuários e permissões).
+    Biblioteca — carregada pelo Clinica.Gerente.exe.
+    Ver docs/arquitetura-multi-exe.md (Fase 3).
+
+    É o único módulo que NÃO é carregado por mais de um executável: as telas daqui só
+    fazem sentido para a direção, e é justamente por isso que elas ficam fora dos
+    outros apps em vez de aparecerem escondidas por permissão.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- O namespace é Clinica.Gerente: só o assembly tem o prefixo Modulo. -->
+    <RootNamespace>Clinica.Gerente</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
+    <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
+    <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+  </ItemGroup>
+
+</Project>

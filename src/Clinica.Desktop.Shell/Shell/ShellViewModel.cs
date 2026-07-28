@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Desktop.Shell.Modulos;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.Shell;
 
@@ -33,21 +34,37 @@ public sealed partial class ShellViewModel : ObservableObject
     [ObservableProperty]
     private string _moduloAtual = string.Empty;
 
+    /// <summary>Quem está usando o app — vai no canto da barra superior.</summary>
+    public string UsuarioRotulo { get; }
+
     public ShellViewModel(string titulo, IEnumerable<IModuloApp> modulos, IServiceProvider servicos)
     {
         Titulo = titulo;
         _modulos = modulos.ToList();
         _servicos = servicos;
 
+        // Sem sessão (teste, ou app aberto por um caminho que não passa pelo login) o
+        // menu aparece inteiro: filtrar por uma permissão que ninguém tem esconderia
+        // tudo, e sidebar vazia parece defeito, não segurança.
+        var sessao = servicos.GetService<SessaoUsuario>();
+        UsuarioRotulo = sessao?.Rotulo ?? Environment.UserName;
+
         var grupos = new List<GrupoMenuModulo>();
         foreach (var modulo in _modulos)
         {
-            foreach (var item in modulo.Itens)
+            var permitidos = modulo.Itens
+                .Where(i => sessao is null || !sessao.Autenticado || sessao.Pode(i.Requer))
+                .ToList();
+
+            // Módulo cujos itens o usuário não pode ver não vira cabeçalho órfão.
+            if (permitidos.Count == 0) continue;
+
+            foreach (var item in permitidos)
             {
                 item.Grupo = modulo.Nome;
                 Itens.Add(item);
             }
-            grupos.Add(new GrupoMenuModulo(modulo.Nome, modulo.Itens));
+            grupos.Add(new GrupoMenuModulo(modulo.Nome, permitidos));
         }
         Grupos = grupos;
 
