@@ -9,6 +9,8 @@ apareceria no CI (ou, pior, em tempo de execução, como XamlParseException).
 O que confere:
   1. XAML bem-formado (todo .xaml da suíte);
   2. todo `{StaticResource X}` tem um `x:Key="X"` no design system ou no próprio arquivo;
+  2b. cada dicionário de Styles/ MESCLA os dicionários das chaves que usa — sem isso o
+     app sobe e quebra ao abrir a tela (ver o bloco da checagem para o porquê);
   3. todo pack URI `...;component/Caminho.xaml` aponta para um arquivo existente;
   4. todo `x:Class` tem o code-behind correspondente com a classe declarada;
   5. todo `<ProjectReference>` aponta para um .csproj existente, e todo .csproj da
@@ -99,9 +101,63 @@ for f, raiz in arvores.items():
         erros.append(f"{rel(f)}: StaticResource '{chave}' não existe no design system")
 
 
-# --------------------------------------------------------------- 3. pack URIs
 PACK = re.compile(r"pack://application:,,,/([A-Za-z0-9_.]+);component/([^\"']+)")
 
+
+# ------------------- 2b. recurso alcançável DE DENTRO do próprio dicionário
+# O conteúdo de um ControlTemplate/DataTemplate é ADIADO: só é interpretado quando o
+# primeiro controle aparece na tela, e aí o {StaticResource} é resolvido no escopo do
+# DICIONÁRIO que o declara — não no App.xaml, que já mesclou tudo. Por isso um
+# dicionário de componente precisa mesclar, ele mesmo, os dicionários das chaves que
+# usa (é o que Botoes/Campos/Feedback já fazem com o Tokens).
+#
+# Sem esta checagem, a suíte sobe normalmente e quebra ao abrir a tela, com
+# "StaticResourceHolder iniciou uma exceção" — foi assim que Midia.xaml e
+# Pacientes.xaml chegaram à clínica sem o bloco MergedDictionaries.
+
+FONTE_MESCLADA = re.compile(r'<ResourceDictionary\s+Source="([^"]+)"')
+
+
+def resolver_fonte(dicionario: Path, fonte: str) -> Path | None:
+    """Caminho no disco de um Source (pack URI ou relativo)."""
+    if fonte.startswith("pack:"):
+        m = PACK.match(fonte)
+        if not m:
+            return None
+        assembly, caminho = m.groups()
+        return RAIZ / "src" / assembly / caminho
+    return (dicionario.parent / fonte.replace("\\", "/")).resolve()
+
+
+def alcancaveis(dicionario: Path, vistos: set[Path] | None = None) -> set[str]:
+    """Chaves visíveis de dentro deste dicionário: as dele + as que ele mescla."""
+    vistos = vistos if vistos is not None else set()
+    if dicionario in vistos or dicionario not in arvores:
+        return set()
+    vistos.add(dicionario)
+
+    chaves_ = chaves(arvores[dicionario])
+    for fonte in FONTE_MESCLADA.findall(dicionario.read_text(encoding="utf-8")):
+        destino = resolver_fonte(dicionario, fonte)
+        if destino is not None:
+            chaves_ |= alcancaveis(destino, vistos)
+    return chaves_
+
+
+for f, raiz in arvores.items():
+    if "Styles" not in f.parts:
+        continue  # views resolvem contra o App.xaml, que mescla tudo
+    visiveis = alcancaveis(f)
+    for chave in sorted(set(REF_ESTATICA.findall(f.read_text(encoding="utf-8")))):
+        if chave in visiveis or any(chave.startswith(p) for p in CHAVES_DO_SISTEMA):
+            continue
+        erros.append(
+            f"{rel(f)}: usa '{chave}' mas não mescla o dicionário que a define — "
+            f"em conteúdo adiado (template) isso quebra em tempo de execução. "
+            f"Acrescente o Source em <ResourceDictionary.MergedDictionaries>")
+
+
+# --------------------------------------------------------------- 3. pack URIs
 for f in arvores:
     for assembly, caminho in PACK.findall(f.read_text(encoding="utf-8")):
         destino = RAIZ / "src" / assembly / caminho
