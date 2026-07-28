@@ -689,6 +689,219 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         _db.ItensModelo.RemoveRange(itens);
     }
 
+    // ---- Pacotes, planos e vouchers ----
+
+    public async Task<IReadOnlyList<PacoteCatalogo>> PacotesCatalogoAsync(
+        bool somenteAtivos = true, CancellationToken ct = default)
+        => await _db.PacotesCatalogo.AsNoTracking()
+            .Where(p => !somenteAtivos || p.Ativo)
+            .OrderBy(p => p.Ordem).ThenBy(p => p.Nome)
+            .ToListAsync(ct);
+
+    public Task<PacoteCatalogo?> ObterPacoteCatalogoAsync(int catalogoId, CancellationToken ct = default)
+        => _db.PacotesCatalogo.FirstOrDefaultAsync(p => p.Id == catalogoId, ct);
+
+    public async Task AdicionarPacoteCatalogoAsync(PacoteCatalogo pacote, CancellationToken ct = default)
+        => await _db.PacotesCatalogo.AddAsync(pacote, ct);
+
+    public async Task RemoverPacoteCatalogoAsync(int catalogoId, CancellationToken ct = default)
+    {
+        var pacote = await _db.PacotesCatalogo.FirstOrDefaultAsync(p => p.Id == catalogoId, ct);
+        if (pacote is not null) _db.PacotesCatalogo.Remove(pacote);
+    }
+
+    // Com os consumos: o saldo é calculado a partir deles, e uma lista de pacotes sem
+    // consumo mostraria todo mundo com o pacote cheio.
+    public async Task<IReadOnlyList<PacotePaciente>> PacotesDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.PacotesPaciente.AsNoTracking()
+            .Include(p => p.Consumos)
+            .Where(p => p.PacienteId == pacienteId)
+            .OrderByDescending(p => p.DataCompra).ThenByDescending(p => p.Id)
+            .ToListAsync(ct);
+
+    public Task<PacotePaciente?> ObterPacotePacienteAsync(int pacoteId, CancellationToken ct = default)
+        => _db.PacotesPaciente
+            .Include(p => p.Consumos)
+            .Include(p => p.Paciente)
+            .FirstOrDefaultAsync(p => p.Id == pacoteId, ct);
+
+    public async Task AdicionarPacotePacienteAsync(PacotePaciente pacote, CancellationToken ct = default)
+        => await _db.PacotesPaciente.AddAsync(pacote, ct);
+
+    public async Task<IReadOnlyList<PacotePaciente>> PacotesVendidosAsync(CancellationToken ct = default)
+        => await _db.PacotesPaciente.AsNoTracking()
+            .Include(p => p.Consumos)
+            .Include(p => p.Paciente)
+            .OrderByDescending(p => p.DataCompra).ThenByDescending(p => p.Id)
+            .ToListAsync(ct);
+
+    public Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default)
+        => _db.ConsumosPacote.AsNoTracking()
+            .AnyAsync(c => c.AtendimentoId == atendimentoId && c.CanceladoEm == null, ct);
+
+    public Task<ConsumoPacote?> ObterConsumoPacoteAsync(int consumoId, CancellationToken ct = default)
+        => _db.ConsumosPacote.FirstOrDefaultAsync(c => c.Id == consumoId, ct);
+
+    // ---- Repasse por profissional ----
+
+    public async Task<IReadOnlyList<RegraRepasse>> RegrasRepasseAsync(
+        int? profissionalId = null, CancellationToken ct = default)
+        => await _db.RegrasRepasse.AsNoTracking()
+            .Include(r => r.Profissional)
+            .Where(r => profissionalId == null || r.ProfissionalId == profissionalId)
+            .OrderBy(r => r.ProfissionalId).ThenByDescending(r => r.VigenteDe)
+            .ToListAsync(ct);
+
+    public Task<RegraRepasse?> ObterRegraRepasseAsync(int regraId, CancellationToken ct = default)
+        => _db.RegrasRepasse.FirstOrDefaultAsync(r => r.Id == regraId, ct);
+
+    public async Task AdicionarRegraRepasseAsync(RegraRepasse regra, CancellationToken ct = default)
+        => await _db.RegrasRepasse.AddAsync(regra, ct);
+
+    public async Task RemoverRegraRepasseAsync(int regraId, CancellationToken ct = default)
+    {
+        var regra = await _db.RegrasRepasse.FirstOrDefaultAsync(r => r.Id == regraId, ct);
+        if (regra is not null) _db.RegrasRepasse.Remove(regra);
+    }
+
+    public async Task<IReadOnlyList<RepasseApurado>> RepassesApuradosAsync(
+        int? profissionalId = null, CancellationToken ct = default)
+        => await _db.RepassesApurados.AsNoTracking()
+            .Include(r => r.Profissional)
+            .Where(r => profissionalId == null || r.ProfissionalId == profissionalId)
+            .OrderByDescending(r => r.Inicio).ThenByDescending(r => r.Id)
+            .ToListAsync(ct);
+
+    public Task<RepasseApurado?> ObterRepasseApuradoAsync(int repasseId, CancellationToken ct = default)
+        => _db.RepassesApurados.FirstOrDefaultAsync(r => r.Id == repasseId, ct);
+
+    public async Task AdicionarRepasseApuradoAsync(RepasseApurado repasse, CancellationToken ct = default)
+        => await _db.RepassesApurados.AddAsync(repasse, ct);
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosComAtendimentoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+    {
+        var de = inicio.ToDateTime(TimeOnly.MinValue);
+        var ate = fim.ToDateTime(TimeOnly.MaxValue);
+
+        return await _db.Agendamentos.AsNoTracking()
+            .Include(a => a.Profissional)
+            .Include(a => a.Paciente)
+            .Where(a => a.DataHora >= de && a.DataHora <= ate)
+            .Where(a => a.AtendimentoId != null && a.ProfissionalId != null)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
+    {
+        if (atendimentoIds.Count == 0) return [];
+
+        return await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.AtendimentoId != null && atendimentoIds.Contains(l.AtendimentoId.Value))
+            .Where(l => l.Status != StatusLancamento.Cancelado)
+            .ToListAsync(ct);
+    }
+
+    // ---- Estoque ----
+
+    public async Task<IReadOnlyList<ItemEstoque>> ItensEstoqueAsync(
+        bool somenteAtivos = false, CancellationToken ct = default)
+        => await _db.ItensEstoque.AsNoTracking()
+            .Where(i => !somenteAtivos || i.Ativo)
+            .OrderBy(i => i.Nome)
+            .ToListAsync(ct);
+
+    public Task<ItemEstoque?> ObterItemEstoqueAsync(int itemId, CancellationToken ct = default)
+        => _db.ItensEstoque.FirstOrDefaultAsync(i => i.Id == itemId, ct);
+
+    public async Task AdicionarItemEstoqueAsync(ItemEstoque item, CancellationToken ct = default)
+        => await _db.ItensEstoque.AddAsync(item, ct);
+
+    public async Task RemoverItemEstoqueAsync(int itemId, CancellationToken ct = default)
+    {
+        var item = await _db.ItensEstoque.FirstOrDefaultAsync(i => i.Id == itemId, ct);
+        if (item is not null) _db.ItensEstoque.Remove(item);
+    }
+
+    public async Task<IReadOnlyList<MovimentoEstoque>> MovimentosDoItemAsync(
+        int itemId, CancellationToken ct = default)
+        => await _db.MovimentosEstoque.AsNoTracking()
+            .Where(m => m.ItemEstoqueId == itemId)
+            .OrderByDescending(m => m.Data).ThenByDescending(m => m.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<MovimentoEstoque>> MovimentosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.MovimentosEstoque.AsNoTracking()
+            .Include(m => m.Item)
+            .Where(m => m.Data >= inicio && m.Data <= fim)
+            .OrderByDescending(m => m.Data).ThenByDescending(m => m.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<MovimentoEstoque>> MovimentosDoAtendimentoAsync(
+        int atendimentoId, CancellationToken ct = default)
+        => await _db.MovimentosEstoque.AsNoTracking()
+            .Include(m => m.Item)
+            .Where(m => m.AtendimentoId == atendimentoId)
+            .OrderBy(m => m.Id)
+            .ToListAsync(ct);
+
+    public async Task AdicionarMovimentoEstoqueAsync(
+        MovimentoEstoque movimento, CancellationToken ct = default)
+        => await _db.MovimentosEstoque.AddAsync(movimento, ct);
+
+    // A soma acontece no BANCO: puxar o extrato inteiro para somar em memória seria
+    // arrastar todo o histórico de movimentos a cada abertura da tela.
+    public async Task<IReadOnlyDictionary<int, decimal>> SaldosEstoqueAsync(CancellationToken ct = default)
+    {
+        var somas = await _db.MovimentosEstoque.AsNoTracking()
+            .GroupBy(m => m.ItemEstoqueId)
+            .Select(g => new
+            {
+                ItemId = g.Key,
+                Entradas = g.Where(m => m.Tipo == TipoMovimentoEstoque.Entrada).Sum(m => m.Quantidade),
+                Saidas = g.Where(m => m.Tipo != TipoMovimentoEstoque.Entrada).Sum(m => m.Quantidade)
+            })
+            .ToListAsync(ct);
+
+        return somas.ToDictionary(s => s.ItemId, s => s.Entradas - s.Saidas);
+    }
+
+    // ---- Recibo e orçamento ----
+
+    public async Task AdicionarDocumentoFinanceiroAsync(
+        DocumentoFinanceiro documento, CancellationToken ct = default)
+        => await _db.DocumentosFinanceiros.AddAsync(documento, ct);
+
+    public Task<DocumentoFinanceiro?> ObterDocumentoFinanceiroAsync(
+        int documentoId, CancellationToken ct = default)
+        => _db.DocumentosFinanceiros
+            .Include(d => d.Itens)
+            .Include(d => d.Paciente)
+            .FirstOrDefaultAsync(d => d.Id == documentoId, ct);
+
+    public async Task<IReadOnlyList<DocumentoFinanceiro>> DocumentosFinanceirosAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.DocumentosFinanceiros.AsNoTracking()
+            .Include(d => d.Itens)
+            .Include(d => d.Paciente)
+            .Where(d => d.Data >= inicio && d.Data <= fim)
+            .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
+            .ToListAsync(ct);
+
+    public async Task<int> ProximoNumeroDocumentoFinanceiroAsync(
+        int ano, TipoDocumentoFinanceiro tipo, CancellationToken ct = default)
+    {
+        // Contar serve porque documento não se apaga: cancelar mantém a linha (e o número).
+        var prefixo = DocumentoFinanceiro.Prefixo(tipo) + " " + ano + "/";
+        var emitidos = await _db.DocumentosFinanceiros.AsNoTracking()
+            .CountAsync(d => d.Numero.StartsWith(prefixo), ct);
+        return emitidos + 1;
+    }
+
     // ---- Auditoria ----
 
     public async Task RegistrarAuditoriaAsync(EventoAuditoria evento, CancellationToken ct = default)
@@ -737,6 +950,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task AdicionarCategoriaFinanceiraAsync(CategoriaFinanceira categoria, CancellationToken ct = default)
         => await _db.CategoriasFinanceiras.AddAsync(categoria, ct);
+
+    public Task<CategoriaFinanceira?> ObterCategoriaFinanceiraAsync(
+        int categoriaId, CancellationToken ct = default)
+        => _db.CategoriasFinanceiras.FirstOrDefaultAsync(c => c.Id == categoriaId, ct);
 
     public async Task<int> SalvarAsync(CancellationToken ct = default)
     {

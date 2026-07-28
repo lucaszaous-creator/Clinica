@@ -37,6 +37,15 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemDocumento> ItensDocumento => Set<ItemDocumento>();
     public DbSet<ModeloDocumento> ModelosDocumento => Set<ModeloDocumento>();
     public DbSet<ItemModelo> ItensModelo => Set<ItemModelo>();
+    public DbSet<PacoteCatalogo> PacotesCatalogo => Set<PacoteCatalogo>();
+    public DbSet<PacotePaciente> PacotesPaciente => Set<PacotePaciente>();
+    public DbSet<ConsumoPacote> ConsumosPacote => Set<ConsumoPacote>();
+    public DbSet<RegraRepasse> RegrasRepasse => Set<RegraRepasse>();
+    public DbSet<RepasseApurado> RepassesApurados => Set<RepasseApurado>();
+    public DbSet<ItemEstoque> ItensEstoque => Set<ItemEstoque>();
+    public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
+    public DbSet<DocumentoFinanceiro> DocumentosFinanceiros => Set<DocumentoFinanceiro>();
+    public DbSet<ItemDocumentoFinanceiro> ItensDocumentoFinanceiro => Set<ItemDocumentoFinanceiro>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -529,6 +538,190 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.Status);
             // Conciliação: achar rápido o lançamento de uma guia.
             e.HasIndex(x => x.CodigoFaturamentoId);
+        });
+
+        // ---------- Dinheiro e insumo (parcela 4) ----------
+        // Pacotes, repasse, estoque e os dois documentos financeiros. Como no resto do
+        // financeiro, as FKs apontam do módulo PARA o faturamento, nunca o contrário.
+        b.Entity<PacoteCatalogo>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+        });
+
+        b.Entity<PacotePaciente>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+            // O catálogo é só procedência: apagar um pacote da tabela de preços não pode
+            // apagar as vendas que ele originou.
+            e.HasOne(x => x.Catalogo).WithMany()
+                .HasForeignKey(x => x.PacoteCatalogoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Lancamento).WithMany()
+                .HasForeignKey(x => x.LancamentoFinanceiroId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.PacienteId);
+
+            e.Ignore(x => x.Cancelado);
+            e.Ignore(x => x.SessoesUsadas);
+            e.Ignore(x => x.SaldoSessoes);
+            e.Ignore(x => x.Esgotado);
+        });
+
+        b.Entity<ConsumoPacote>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Observacao).HasMaxLength(300);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Pacote).WithMany(x => x.Consumos)
+                .HasForeignKey(x => x.PacotePacienteId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Atendimento).WithMany()
+                .HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Agendamento).WithMany()
+                .HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.PacotePacienteId);
+            // A baixa automática pergunta "este atendimento já debitou?" a cada conclusão.
+            e.HasIndex(x => x.AtendimentoId);
+
+            e.Ignore(x => x.Cancelado);
+        });
+
+        b.Entity<RegraRepasse>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Base).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Percentual).HasPrecision(6, 2);
+            e.Property(x => x.ValorPorAtendimento).HasPrecision(14, 2);
+            e.Property(x => x.ModalidadeCodigo).HasMaxLength(40);
+            e.Property(x => x.ConvenioCodigo).HasMaxLength(40);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Profissional).WithMany().HasForeignKey(x => x.ProfissionalId);
+
+            e.HasIndex(x => x.ProfissionalId);
+            e.Ignore(x => x.Descricao);
+        });
+
+        b.Entity<RepasseApurado>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.BaseCalculo).HasPrecision(14, 2);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.RegraDescricao).HasMaxLength(200);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Profissional).WithMany().HasForeignKey(x => x.ProfissionalId);
+            e.HasOne(x => x.Lancamento).WithMany()
+                .HasForeignKey(x => x.LancamentoFinanceiroId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => new { x.ProfissionalId, x.Inicio });
+            e.Ignore(x => x.Cancelado);
+        });
+
+        b.Entity<ItemEstoque>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Unidade).IsRequired().HasMaxLength(10);
+            e.Property(x => x.EstoqueMinimo).HasPrecision(14, 3);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+        });
+
+        b.Entity<MovimentoEstoque>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            // Quantidade fracionada existe (ml, g), então não é inteiro.
+            e.Property(x => x.Quantidade).HasPrecision(14, 3);
+            e.Property(x => x.CustoUnitario).HasPrecision(14, 4);
+            e.Property(x => x.Lote).HasMaxLength(60);
+            e.Property(x => x.Observacao).HasMaxLength(300);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Item).WithMany(x => x.Movimentos)
+                .HasForeignKey(x => x.ItemEstoqueId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Atendimento).WithMany()
+                .HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => new { x.ItemEstoqueId, x.Data });
+            e.HasIndex(x => x.AtendimentoId);
+
+            e.Ignore(x => x.Sinal);
+            e.Ignore(x => x.QuantidadeComSinal);
+        });
+
+        b.Entity<DocumentoFinanceiro>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Numero).IsRequired().HasMaxLength(20);
+            e.Property(x => x.CodigoVerificacao).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Destinatario).IsRequired().HasMaxLength(200);
+            e.Property(x => x.DocumentoDestinatario).HasMaxLength(30);
+            e.Property(x => x.Titulo).HasMaxLength(200);
+            e.Property(x => x.Corpo).HasMaxLength(4000);
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.FormaPagamento).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Lancamento).WithMany()
+                .HasForeignKey(x => x.LancamentoFinanceiroId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.Numero).IsUnique();
+            e.HasIndex(x => x.CodigoVerificacao).IsUnique();
+            e.HasIndex(x => x.Data);
+
+            e.Ignore(x => x.Cancelado);
+            e.Ignore(x => x.ValorTotal);
+            e.Ignore(x => x.TituloImpresso);
+        });
+
+        b.Entity<ItemDocumentoFinanceiro>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Quantidade).HasPrecision(14, 3);
+            e.Property(x => x.ValorUnitario).HasPrecision(14, 2);
+
+            e.HasOne(x => x.Documento).WithMany(x => x.Itens)
+                .HasForeignKey(x => x.DocumentoFinanceiroId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.DocumentoFinanceiroId);
+            e.Ignore(x => x.ValorTotal);
         });
 
         // Controle de concorrência otimista via coluna de sistema xmin do PostgreSQL:

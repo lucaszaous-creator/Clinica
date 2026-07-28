@@ -1,0 +1,95 @@
+<Window x:Class="Clinica.Financeiro.Janelas.RegraRepasseWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Regra de repasse" Width="560" Height="540"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <TextBlock DockPanel.Dock="Top" Text="Regra de repasse"
+                   Style="{StaticResource DialogoTitulo}" />
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Salvar regra" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="140" />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel>
+            <TextBlock Text="Profissional" Style="{StaticResource Rotulo}" />
+            <ComboBox ItemsSource="{Binding Profissionais}" SelectedItem="{Binding Profissional}"
+                      DisplayMemberPath="Rotulo" />
+
+            <TextBlock Text="Base do cálculo" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
+            <ComboBox ItemsSource="{Binding Bases}" SelectedItem="{Binding Base}" />
+
+            <Grid Margin="0,12,0,0">
+                <StackPanel Visibility="{Binding EhPercentual, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="Percentual da receita (%)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Percentual, UpdateSourceTrigger=PropertyChanged}" MaxLength="6" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                               Text="Incide sobre a receita que ENTROU dos atendimentos dele no período — não sobre o que foi faturado e ainda não recebido." />
+                </StackPanel>
+            </Grid>
+
+            <Grid>
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding EhPercentual}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <TextBlock Text="Valor por atendimento" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding ValorPorAtendimento, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="12" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                               Text="Valor fixo por sessão realizada, independente do que entrou no caixa." />
+                </StackPanel>
+            </Grid>
+
+            <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Vigente de" Style="{StaticResource Rotulo}" />
+                    <DatePicker SelectedDate="{Binding VigenteDe}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Vigente até" Style="{StaticResource Rotulo}" />
+                    <DatePicker SelectedDate="{Binding VigenteAte}" />
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                       Text="Deixe o fim em branco para a regra valer daqui em diante. Subir o percentual depois é criar uma regra nova — a apuração antiga continua com a que valia no período." />
+
+            <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
+            <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="60"
+                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="500" />
+        </StackPanel>
+    </DockPanel>
+</Window>

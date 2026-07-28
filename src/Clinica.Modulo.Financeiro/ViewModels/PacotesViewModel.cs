@@ -1,0 +1,317 @@
+using System.Collections.ObjectModel;
+using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Domain.Entities;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+
+namespace Clinica.Financeiro.ViewModels;
+
+/// <summary>Uma linha do catálogo de pacotes, formatada para a tela.</summary>
+public sealed class LinhaCatalogo
+{
+    public required int Id { get; init; }
+    public required string Nome { get; init; }
+    public required string Resumo { get; init; }
+    public required string ValorFormatado { get; init; }
+    public required bool Ativo { get; init; }
+}
+
+/// <summary>Um pacote vendido, com o saldo já calculado.</summary>
+public sealed class LinhaPacoteVendido
+{
+    public required int Id { get; init; }
+    public required int PacienteId { get; init; }
+    public required string Paciente { get; init; }
+    public required string Nome { get; init; }
+    public required string Saldo { get; init; }
+    public required string Situacao { get; init; }
+    public required string ValorFormatado { get; init; }
+    public required string Compra { get; init; }
+    public required bool Ativo { get; init; }
+}
+
+/// <summary>
+/// Pacotes, planos e vouchers (feature 08): o catálogo do que a clínica vende e o saldo
+/// de cada paciente.
+///
+/// A tela mostra os dois lados juntos de propósito: o balcão vende olhando o catálogo e
+/// cobra olhando o saldo, e separar isso em duas seções obrigaria a navegar no meio da
+/// conversa com o paciente.
+/// </summary>
+public sealed partial class PacotesViewModel : ObservableObject
+{
+    private readonly PacoteService _pacotes;
+    private readonly DocumentoFinanceiroService _documentos;
+    private readonly DocumentosFinanceirosPdfService _pdfs;
+    private readonly ParametrosService _parametros;
+    private readonly ISnackbarService _snackbar;
+    private readonly IDialogoService _dialogo;
+
+    public ObservableCollection<LinhaCatalogo> Catalogo { get; } = [];
+    public ObservableCollection<LinhaPacoteVendido> Vendidos { get; } = [];
+
+    public IReadOnlyList<TipoPacote> Tipos { get; } = Enum.GetValues<TipoPacote>();
+
+    // ---- Formulário do catálogo (inline: cadastrar pacote é raro e curto) ----
+    [ObservableProperty] private string? _novoNome;
+    [ObservableProperty] private TipoPacote _novoTipo = TipoPacote.Sessoes;
+    [ObservableProperty] private string? _novoSessoes;
+    [ObservableProperty] private string? _novoValor;
+    [ObservableProperty] private string? _novaValidadeDias;
+
+    [ObservableProperty] private LinhaCatalogo? _catalogoSelecionado;
+    [ObservableProperty] private bool _carregando;
+    [ObservableProperty] private string _mensagem = string.Empty;
+    [ObservableProperty] private bool _mensagemEhErro;
+    [ObservableProperty] private string _resumo = "—";
+
+    public PacotesViewModel(
+        PacoteService pacotes, DocumentoFinanceiroService documentos,
+        DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
+        ISnackbarService snackbar, IDialogoService dialogo)
+    {
+        _pacotes = pacotes;
+        _documentos = documentos;
+        _pdfs = pdfs;
+        _parametros = parametros;
+        _snackbar = snackbar;
+        _dialogo = dialogo;
+        _ = CarregarAsync();
+    }
+
+    [RelayCommand]
+    private async Task CarregarAsync()
+    {
+        try
+        {
+            Carregando = true;
+            Mensagem = string.Empty;
+            MensagemEhErro = false;
+
+            Catalogo.Clear();
+            foreach (var p in await _pacotes.CatalogoAsync(somenteAtivos: false))
+                Catalogo.Add(new LinhaCatalogo
+                {
+                    Id = p.Id,
+                    Nome = p.Nome,
+                    Resumo = ResumirCatalogo(p),
+                    ValorFormatado = p.Valor.ToString("C"),
+                    Ativo = p.Ativo
+                });
+
+            var vendidos = await _pacotes.VendidosAsync();
+
+            Vendidos.Clear();
+            foreach (var v in vendidos)
+                Vendidos.Add(new LinhaPacoteVendido
+                {
+                    Id = v.PacoteId,
+                    PacienteId = v.PacienteId,
+                    Paciente = v.PacienteNome ?? "—",
+                    Nome = v.Nome,
+                    Saldo = v.SaldoRotulo,
+                    Situacao = v.Situacao.ToString(),
+                    ValorFormatado = v.Valor.ToString("C"),
+                    Compra = v.DataCompra.ToString("dd/MM/yyyy"),
+                    Ativo = v.Ativo
+                });
+
+            var ativos = vendidos.Count(v => v.Ativo);
+            Resumo = $"{vendidos.Count} pacote(s) vendidos · {ativos} ativo(s) · "
+                     + $"{vendidos.Where(v => v.Ativo).Sum(v => v.SaldoSessoes ?? 0)} sessão(ões) em saldo";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — pacotes não puderam ser carregados", ex);
+            Erro($"Não foi possível carregar os pacotes: {ex.Message}");
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
+    private static string ResumirCatalogo(PacoteCatalogo p)
+    {
+        var sessoes = p.SessoesIncluidas is { } n ? $"{n} sessões" : "sessões livres";
+        var validade = p.ValidadeDias is { } dias ? $" · vale {dias} dias" : string.Empty;
+        return $"{p.Tipo} · {sessoes}{validade}";
+    }
+
+    // ==================== Catálogo ====================
+
+    [RelayCommand]
+    private async Task AdicionarAoCatalogoAsync()
+    {
+        try
+        {
+            var pacote = new PacoteCatalogo
+            {
+                Nome = NovoNome ?? string.Empty,
+                Tipo = NovoTipo,
+                SessoesIncluidas = LerInteiro(NovoSessoes, "as sessões"),
+                Valor = LerDecimal(NovoValor, "o valor") ?? 0m,
+                ValidadeDias = LerInteiro(NovaValidadeDias, "a validade"),
+                Ativo = true
+            };
+
+            await _pacotes.SalvarCatalogoAsync(pacote, Environment.UserName);
+
+            NovoNome = NovoSessoes = NovoValor = NovaValidadeDias = null;
+            _snackbar.Sucesso("Pacote acrescentado ao catálogo.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — pacote do catálogo não pôde ser salvo", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ExcluirDoCatalogoAsync(LinhaCatalogo? linha)
+    {
+        if (linha is null) return;
+        if (!_dialogo.ConfirmarPerigo("Excluir do catálogo",
+                $"Tirar \"{linha.Nome}\" da lista de venda? Os pacotes JÁ VENDIDOS continuam "
+                + "valendo — eles guardam a própria cópia do que foi contratado.")) return;
+
+        try
+        {
+            await _pacotes.ExcluirDoCatalogoAsync(linha.Id);
+            _snackbar.Info("Pacote removido do catálogo.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — pacote do catálogo não pôde ser excluído", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    // ==================== Venda e consumo ====================
+
+    [RelayCommand]
+    private async Task VenderAsync()
+    {
+        var vm = new PacoteVendaViewModel(_pacotes);
+        var janela = new Janelas.PacoteVendaWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true) return;
+        _snackbar.Sucesso("Pacote vendido.");
+        await CarregarAsync();
+    }
+
+    /// <summary>Debita uma sessão à mão (a automática acontece ao concluir o atendimento).</summary>
+    [RelayCommand]
+    private async Task ConsumirAsync(LinhaPacoteVendido? linha)
+    {
+        if (linha is null) return;
+        if (!_dialogo.Confirmar("Usar uma sessão",
+                $"Debitar uma sessão de \"{linha.Nome}\" ({linha.Paciente})? Hoje o saldo é: "
+                + $"{linha.Saldo}.")) return;
+
+        try
+        {
+            await _pacotes.ConsumirAsync(
+                linha.Id, observacao: "Baixa manual pelo Financeiro", operador: Environment.UserName);
+            _snackbar.Sucesso("Sessão debitada.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — sessão do pacote não pôde ser debitada", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task CancelarPacoteAsync(LinhaPacoteVendido? linha)
+    {
+        if (linha is null) return;
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Cancelar pacote",
+            $"Por que o pacote \"{linha.Nome}\" de {linha.Paciente} está sendo cancelado? "
+            + "Ele continua na lista, com o motivo — as sessões já usadas não somem.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        try
+        {
+            await _pacotes.CancelarAsync(linha.Id, motivo, Environment.UserName);
+            _snackbar.Info("Pacote cancelado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — pacote não pôde ser cancelado", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    /// <summary>Orçamento do pacote escolhido no catálogo, para o paciente levar.</summary>
+    [RelayCommand]
+    private async Task OrcarAsync()
+    {
+        if (CatalogoSelecionado is not { } linha)
+        {
+            Erro("Escolha um pacote do catálogo para orçar.");
+            return;
+        }
+
+        var destinatario = _dialogo.PerguntarTexto(
+            "Orçamento", "Para quem é o orçamento? (nome de quem vai receber o papel)");
+        if (string.IsNullOrWhiteSpace(destinatario)) return;
+
+        try
+        {
+            var documento = await _documentos.EmitirOrcamentoDoPacoteAsync(
+                linha.Id, pacienteId: null, destinatario, Environment.UserName);
+
+            var pdf = await _pdfs.GerarAsync(documento.Id, await _parametros.ObterPrestadorAsync());
+
+            // O documento JÁ está emitido: falha daqui para a frente é de impressão, e
+            // dizer "não foi possível emitir" faria alguém emitir de novo.
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf, ImpressaoPdf.NomeSeguro($"Orcamento-{documento.Numero.Replace('/', '-')}.pdf"));
+
+            if (erro is not null)
+            {
+                Erro($"{erro} O orçamento {documento.Numero} está emitido.");
+                return;
+            }
+
+            _snackbar.Sucesso($"Orçamento {documento.Numero} emitido.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — orçamento não pôde ser emitido", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    private static int? LerInteiro(string? texto, string oQue)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return null;
+        if (int.TryParse(texto, out var valor)) return valor;
+        throw new InvalidOperationException($"Não entendi {oQue}: use só números.");
+    }
+
+    private static decimal? LerDecimal(string? texto, string oQue)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return null;
+        if (decimal.TryParse(texto, out var valor)) return valor;
+        throw new InvalidOperationException($"Não entendi {oQue}: use um número como 250,00.");
+    }
+
+    private void Erro(string texto)
+    {
+        Mensagem = texto;
+        MensagemEhErro = true;
+    }
+}

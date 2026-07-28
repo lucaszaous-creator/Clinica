@@ -1,0 +1,107 @@
+<Window x:Class="Clinica.Financeiro.Janelas.MovimentoEstoqueWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Movimentar estoque" Width="560" Height="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Movimentar estoque" Style="{StaticResource DialogoTitulo}" />
+            <TextBlock Text="{Binding Item}" FontWeight="SemiBold" Margin="0,0,0,12"
+                       Foreground="{StaticResource Brush.Acento}" />
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="BtnCancelar" Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Registrar" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="140" />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Tipo" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Quantidade" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Quantidade, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="10" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
+                    <DatePicker SelectedDate="{Binding Data}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Custo, validade e lote só existem na ENTRADA: é ela que traz o lote. -->
+            <Border Style="{StaticResource Card}" Margin="0,14,0,0"
+                    Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}">
+                <StackPanel>
+                    <TextBlock Text="Dados da entrada" Style="{StaticResource H3}" Margin="0" />
+
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Custo unitário" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding CustoUnitario, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="12" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Validade" Style="{StaticResource Rotulo}" />
+                            <DatePicker SelectedDate="{Binding Validade}" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="Lote" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Lote}" MaxLength="60" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0"
+                               Text="A validade fica no lote, não no item: o mesmo insumo entra em lotes com vencimentos diferentes, e uma validade só por item apagaria o que vence primeiro." />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Observação" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+            <TextBox Text="{Binding Observacao}" AcceptsReturn="True" Height="70"
+                     TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" MaxLength="300" />
+
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                       Text="Perda exige motivo escrito — perda sem motivo vira estoque que não bate. Saída maior que o saldo é recusada: estoque negativo não existe no mundo." />
+        </StackPanel>
+    </DockPanel>
+</Window>
