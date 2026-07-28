@@ -64,7 +64,7 @@ public class IndicadoresServiceTests : IDisposable
             PacienteId = pacienteId,
             ProfissionalId = profissionalId,
             DataHora = dia.ToDateTime(new TimeOnly(hora, 0)),
-            ModalidadePrevista = ModalidadeAtendimento.Acupuntura,
+            ModalidadePrevista = ModalidadeAtendimento.AcupunturaSimples,
             DuracaoMinutos = duracao,
             Encaixe = encaixe,
             Status = status

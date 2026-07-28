@@ -61,7 +61,7 @@ public class CampanhaServiceTests : IDisposable
         {
             PacienteId = pacienteId,
             DataHora = dia.ToDateTime(new TimeOnly(14, 0)),
-            ModalidadePrevista = ModalidadeAtendimento.Acupuntura,
+            ModalidadePrevista = ModalidadeAtendimento.AcupunturaSimples,
             Status = status,
             AtendimentoId = atendimentoId
         };
@@ -76,7 +76,7 @@ public class CampanhaServiceTests : IDisposable
         {
             PacienteId = pacienteId,
             Data = dia,
-            Modalidade = ModalidadeAtendimento.Acupuntura
+            Modalidade = ModalidadeAtendimento.AcupunturaSimples
         };
         _db.Atendimentos.Add(a);
         await _db.SaveChangesAsync();
