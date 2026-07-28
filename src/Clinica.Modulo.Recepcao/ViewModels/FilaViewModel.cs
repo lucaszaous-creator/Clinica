@@ -227,7 +227,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task RegistrarChegadaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
             await _agenda.RegistrarChegadaAsync(c.AgendamentoId);
             if (c.TemGuiaPendente)
@@ -244,7 +244,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task IniciarAtendimentoAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
             await _agenda.IniciarAtendimentoAsync(c.AgendamentoId);
             _snackbar.Sucesso($"{c.Paciente} em atendimento.");
@@ -255,7 +255,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task FinalizarAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
             var resultado = await _agenda.ConfirmarPresencaAsync(c.AgendamentoId);
             var codigos = resultado.Atendimento.Codigos.Count;
@@ -267,7 +267,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task VoltarEtapaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
             await _agenda.VoltarEtapaAsync(c.AgendamentoId);
             _snackbar.Info("Cartão devolvido para a coluna anterior.");
@@ -277,7 +277,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task MarcarFaltaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
             await _agenda.MarcarFaltaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"{c.Paciente} marcado como falta.");
@@ -287,7 +287,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task CancelarAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
             await _agenda.CancelarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"Agendamento de {c.Paciente} cancelado.");

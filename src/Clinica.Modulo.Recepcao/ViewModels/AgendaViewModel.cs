@@ -255,12 +255,14 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// <summary>Abre o formulário de um horário novo.</summary>
     [RelayCommand]
     private async Task NovoHorarioAsync()
-        => await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
-        {
+    {
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
+        await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
+        {
             Data = Dia
         });
+    }
 
     /// <summary>Remarca: move o horário preservando o registro (e o histórico).</summary>
     [RelayCommand]
