@@ -53,8 +53,10 @@ public sealed partial class PrescricoesViewModel : ObservableObject
         _dialogo = dialogo;
 
         Seletor = new SeletorPacienteViewModel(escopos);
-        Seletor.SelecaoMudou += _ => _ = CarregarAsync();
+        Seletor.SelecaoMudou += AoTrocarPaciente;
     }
+
+    private void AoTrocarPaciente(Paciente? paciente) => _ = CarregarAsync();
 
     private int PacienteId => Seletor.Selecionado?.Id ?? 0;
 

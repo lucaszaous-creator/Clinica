@@ -67,8 +67,10 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         // O seletor da suíte, com o corte no SQL e o descarte de resposta fora de ordem
         // já resolvidos. Tela nova que escolhe paciente usa ele — não se reescreve busca.
         Seletor = new SeletorPacienteViewModel(escopos);
-        Seletor.SelecaoMudou += _ => _ = CarregarAsync();
+        Seletor.SelecaoMudou += AoTrocarPaciente;
     }
+
+    private void AoTrocarPaciente(Paciente? paciente) => _ = CarregarAsync();
 
     private int PacienteId => Seletor.Selecionado?.Id ?? 0;
 
