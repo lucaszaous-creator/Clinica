@@ -267,6 +267,26 @@ public sealed class FinanceiroService
         return categoria;
     }
 
+    /// <summary>
+    /// Edita uma categoria do plano de contas. O CÓDIGO não muda: ele é a referência
+    /// estável, e trocá-lo desligaria os lançamentos que já apontam para ela.
+    /// </summary>
+    public async Task<CategoriaFinanceira> AtualizarCategoriaAsync(
+        int categoriaId, string nome, bool ativa, int ordem, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(nome)) throw new ArgumentException("Nome obrigatório.", nameof(nome));
+
+        var categoria = await _repo.ObterCategoriaFinanceiraAsync(categoriaId, ct)
+            ?? throw new InvalidOperationException("Categoria não encontrada.");
+
+        categoria.Nome = nome.Trim();
+        categoria.Ativa = ativa;
+        categoria.Ordem = ordem;
+
+        await _repo.SalvarAsync(ct);
+        return categoria;
+    }
+
     /// <summary>Auditoria no MESMO SaveChanges da ação (atomicidade).</summary>
     private Task RegistrarAsync(string acao, string detalhe,
         LancamentoFinanceiro lancamento, string? operador, CancellationToken ct)

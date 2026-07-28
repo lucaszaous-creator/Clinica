@@ -134,6 +134,31 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   assina — única exceção à regra de "avisa, mas não impede". Não há assinatura ICP-Brasil:
   o PDF traz carimbo, linha de assinatura e código de conferência, e chamar isso de
   assinatura digital seria mentir sobre o que a via garante.
+- **Pacote é venda da clínica, cota é do convênio** (`PacoteService`, parcela 4): não
+  confundir `PacotePaciente` com `AutorizacaoSessoes` — as duas contam sessões e não têm
+  nada a ver uma com a outra (a cota evita glosa; o pacote evita atender de graça). A
+  venda **copia** o catálogo (mudar o preço de tabela não reescreve o que já foi
+  comprado); a **situação é calculada, não guardada** (`Situacao(hoje)`), porque um
+  pacote gravado como "Ativo" viraria mentira à meia-noite do vencimento; consumo é fato
+  datado e se desfaz **cancelando com motivo**. A baixa automática
+  (`ConsumirPorAtendimentoAsync`) debita o pacote **que vence primeiro**, uma vez por
+  atendimento, e é chamada pelo fluxo da **Recepção** — nunca pelo `AtendimentoService`,
+  que é compartilhado com o faturamento congelado.
+- **Repasse** (`RepasseService`, parcela 4): quem atendeu vem do **agendamento**
+  (`Agendamento.ProfissionalId` + `AtendimentoId`), porque `Atendimento` é do faturamento
+  e não guarda profissional. O percentual incide sobre a **receita que entrou**
+  (lançamentos de entrada não cancelados), não sobre o faturado. `RepasseApurado` existe
+  para travar o período: repasse pago duas vezes é dinheiro que não volta; cancelar a
+  apuração cancela junto a saída no caixa. Regra tem vigência — mudar o percentual hoje
+  não reescreve o mês já pago.
+- **Estoque** (`EstoqueService`, parcela 4): o **saldo é a soma dos movimentos**, nunca um
+  campo — total guardado é como o estoque para de bater. A **validade fica no movimento
+  de entrada** (o lote), não no item, senão o lote que vence primeiro some. Saída maior
+  que o saldo é recusada e perda exige motivo escrito.
+- **Recibo e orçamento** (`DocumentoFinanceiroService`, parcela 4): mesmas regras do
+  documento clínico — numerados por ano e por tipo (`REC 2026/0001`), não se apagam,
+  cancelam-se com motivo, e os **valores ficam gravados na emissão**. O recibo aponta
+  para o `LancamentoFinanceiro` que comprova; ele não substitui o caixa.
 - **Foto do paciente**: capturada pela webcam da recepção (`Desktop/Servicos/CameraServico.cs`,
   DirectShow via AForge; `Retrato.cs` recorta em quadrado e gera os dois JPEGs). O armazenamento é
   deliberadamente partido em dois: `Paciente.FotoMiniatura` (~160px, na própria linha, alimenta os

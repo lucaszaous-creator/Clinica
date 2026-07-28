@@ -7,14 +7,25 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Financeiro.Modulo;
 
 /// <summary>
-/// Módulo Financeiro: Caixa (entradas/saídas), Conciliação (guias efetivadas que
-/// ainda não viraram receita) e Produção (volume do faturamento).
+/// Módulo Financeiro: Caixa (entradas/saídas), Conciliação (guias efetivadas que ainda
+/// não viraram receita), Produção (volume do faturamento), Pacotes (o que a clínica
+/// vende), Estoque (insumos), Repasses (o que cada profissional tem a receber) e o
+/// Plano de contas.
+///
+/// A ordem é a do dia de trabalho: primeiro o dinheiro que entra e sai (Caixa), depois o
+/// que ainda não entrou (Conciliação), o volume (Produção), o que foi vendido (Pacotes),
+/// o que se gasta (Estoque), o que se paga (Repasses) e, por último, o cadastro que
+/// classifica tudo — que se mexe raramente.
 /// </summary>
 public sealed class ModuloFinanceiro : IModuloApp
 {
     public const string ChaveCaixa = "caixa";
     public const string ChaveConciliacao = "conciliacao";
     public const string ChaveProducao = "producao";
+    public const string ChavePacotes = "pacotes";
+    public const string ChaveEstoque = "estoque";
+    public const string ChaveRepasses = "repasses";
+    public const string ChavePlanoContas = "plano-contas";
 
     public string Nome => "Financeiro";
 
@@ -23,8 +34,12 @@ public sealed class ModuloFinanceiro : IModuloApp
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
         new ItemMenuModulo { Chave = ChaveCaixa, Rotulo = "Caixa", Glifo = "\uE8C7", Requer = Permissao.VerFinanceiro },
-        new ItemMenuModulo { Chave = ChaveConciliacao, Rotulo = "Conciliação", Glifo = "\uE8AB", Requer = Permissao.VerFinanceiro },
-        new ItemMenuModulo { Chave = ChaveProducao, Rotulo = "Produção", Glifo = "\uE9D2", Requer = Permissao.VerFinanceiro }
+        new ItemMenuModulo { Chave = ChaveConciliacao, Rotulo = "Concilia\u00e7\u00e3o", Glifo = "\uE8AB", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9D2", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "\uE719", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveEstoque, Rotulo = "Estoque", Glifo = "\uE7B8", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE8C8", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8FD", Requer = Permissao.VerFinanceiro }
     ];
 
     public void Registrar(IServiceCollection servicos)
@@ -34,6 +49,13 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<LancamentoEdicaoViewModel>();
         servicos.AddTransient<ConciliacaoViewModel>();
         servicos.AddTransient<ProducaoViewModel>();
+        servicos.AddTransient<PacotesViewModel>();
+        servicos.AddTransient<EstoqueViewModel>();
+        servicos.AddTransient<RepassesViewModel>();
+        servicos.AddTransient<PlanoContasViewModel>();
+        // Os ViewModels de formulário (venda de pacote, movimento de estoque, regra de
+        // repasse) são construídos à mão pelas telas: cada janela abre limpa e precisa
+        // receber o contexto (o item, o pacote) no construtor.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
@@ -41,6 +63,10 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveCaixa => new CaixaView { DataContext = servicos.GetRequiredService<CaixaViewModel>() },
         ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
         ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
+        ChavePacotes => new PacotesView { DataContext = servicos.GetRequiredService<PacotesViewModel>() },
+        ChaveEstoque => new EstoqueView { DataContext = servicos.GetRequiredService<EstoqueViewModel>() },
+        ChaveRepasses => new RepassesView { DataContext = servicos.GetRequiredService<RepassesViewModel>() },
+        ChavePlanoContas => new PlanoContasView { DataContext = servicos.GetRequiredService<PlanoContasViewModel>() },
         _ => null
     };
 }

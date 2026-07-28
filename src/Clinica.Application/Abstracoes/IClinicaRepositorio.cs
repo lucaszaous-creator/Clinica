@@ -285,6 +285,105 @@ public interface IClinicaRepositorio
         IReadOnlyCollection<int> pacienteIds,
         CancellationToken ct = default);
 
+    // ---- Pacotes, planos e vouchers ----
+
+    /// <summary>Catálogo de pacotes à venda.</summary>
+    Task<IReadOnlyList<PacoteCatalogo>> PacotesCatalogoAsync(
+        bool somenteAtivos = true, CancellationToken ct = default);
+
+    Task<PacoteCatalogo?> ObterPacoteCatalogoAsync(int catalogoId, CancellationToken ct = default);
+    Task AdicionarPacoteCatalogoAsync(PacoteCatalogo pacote, CancellationToken ct = default);
+    Task RemoverPacoteCatalogoAsync(int catalogoId, CancellationToken ct = default);
+
+    /// <summary>Pacotes vendidos ao paciente, com os consumos carregados.</summary>
+    Task<IReadOnlyList<PacotePaciente>> PacotesDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    /// <summary>Pacote com consumos e paciente carregados (rastreado, para consumir).</summary>
+    Task<PacotePaciente?> ObterPacotePacienteAsync(int pacoteId, CancellationToken ct = default);
+
+    Task AdicionarPacotePacienteAsync(PacotePaciente pacote, CancellationToken ct = default);
+
+    /// <summary>Todos os pacotes vendidos, com consumos — base dos totais do módulo.</summary>
+    Task<IReadOnlyList<PacotePaciente>> PacotesVendidosAsync(CancellationToken ct = default);
+
+    /// <summary>Consumo já registrado para este atendimento? Evita debitar duas vezes.</summary>
+    Task<bool> AtendimentoJaConsumiuPacoteAsync(int atendimentoId, CancellationToken ct = default);
+
+    Task<ConsumoPacote?> ObterConsumoPacoteAsync(int consumoId, CancellationToken ct = default);
+
+    // ---- Repasse por profissional ----
+
+    Task<IReadOnlyList<RegraRepasse>> RegrasRepasseAsync(
+        int? profissionalId = null, CancellationToken ct = default);
+
+    Task<RegraRepasse?> ObterRegraRepasseAsync(int regraId, CancellationToken ct = default);
+    Task AdicionarRegraRepasseAsync(RegraRepasse regra, CancellationToken ct = default);
+    Task RemoverRegraRepasseAsync(int regraId, CancellationToken ct = default);
+
+    /// <summary>Apurações de repasse, opcionalmente de um profissional.</summary>
+    Task<IReadOnlyList<RepasseApurado>> RepassesApuradosAsync(
+        int? profissionalId = null, CancellationToken ct = default);
+
+    Task<RepasseApurado?> ObterRepasseApuradoAsync(int repasseId, CancellationToken ct = default);
+    Task AdicionarRepasseApuradoAsync(RepasseApurado repasse, CancellationToken ct = default);
+
+    /// <summary>
+    /// Agendamentos realizados no período que geraram atendimento, com profissional.
+    /// É a ponte que permite saber QUEM atendeu: o atendimento não guarda profissional,
+    /// o agendamento sim.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosComAtendimentoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>Entradas realizadas ligadas a uma lista de atendimentos (base do repasse).</summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
+        IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default);
+
+    // ---- Estoque ----
+
+    Task<IReadOnlyList<ItemEstoque>> ItensEstoqueAsync(
+        bool somenteAtivos = false, CancellationToken ct = default);
+
+    Task<ItemEstoque?> ObterItemEstoqueAsync(int itemId, CancellationToken ct = default);
+    Task AdicionarItemEstoqueAsync(ItemEstoque item, CancellationToken ct = default);
+    Task RemoverItemEstoqueAsync(int itemId, CancellationToken ct = default);
+
+    /// <summary>Movimentos de um item, do mais recente ao mais antigo.</summary>
+    Task<IReadOnlyList<MovimentoEstoque>> MovimentosDoItemAsync(
+        int itemId, CancellationToken ct = default);
+
+    /// <summary>Movimentos do período (todos os itens), para o custo e o extrato.</summary>
+    Task<IReadOnlyList<MovimentoEstoque>> MovimentosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>Movimentos de saída ligados a um atendimento — o custo daquela sessão.</summary>
+    Task<IReadOnlyList<MovimentoEstoque>> MovimentosDoAtendimentoAsync(
+        int atendimentoId, CancellationToken ct = default);
+
+    Task AdicionarMovimentoEstoqueAsync(MovimentoEstoque movimento, CancellationToken ct = default);
+
+    /// <summary>
+    /// Saldo por item (id → quantidade). A projeção corta as colunas no SQL, mas a soma
+    /// é feita em memória: o SQLite não traduz <c>Sum</c> sobre <c>decimal</c>.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, decimal>> SaldosEstoqueAsync(CancellationToken ct = default);
+
+    // ---- Recibo e orçamento ----
+
+    Task AdicionarDocumentoFinanceiroAsync(DocumentoFinanceiro documento, CancellationToken ct = default);
+
+    Task<DocumentoFinanceiro?> ObterDocumentoFinanceiroAsync(
+        int documentoId, CancellationToken ct = default);
+
+    /// <summary>Documentos financeiros do período, do mais recente ao mais antigo.</summary>
+    Task<IReadOnlyList<DocumentoFinanceiro>> DocumentosFinanceirosAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>Próximo sequencial do ano para o tipo (recibo e orçamento não se misturam).</summary>
+    Task<int> ProximoNumeroDocumentoFinanceiroAsync(
+        int ano, TipoDocumentoFinanceiro tipo, CancellationToken ct = default);
+
     // ---- Auditoria ----
 
     /// <summary>Acrescenta um evento à trilha de auditoria (persistido junto com o SalvarAsync da ação).</summary>
@@ -312,6 +411,8 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<CategoriaFinanceira>> CategoriasFinanceirasAsync(CancellationToken ct = default);
     Task AdicionarCategoriaFinanceiraAsync(CategoriaFinanceira categoria, CancellationToken ct = default);
 
+    /// <summary>Categoria rastreada, para a tela do plano de contas poder editá-la.</summary>
+    Task<CategoriaFinanceira?> ObterCategoriaFinanceiraAsync(int categoriaId, CancellationToken ct = default);
     // ---- Indicadores gerenciais (parcela 5) ----
 
     /// <summary>

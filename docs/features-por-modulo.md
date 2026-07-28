@@ -45,27 +45,24 @@ por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
 | 06 | Mapa corporal | Recepção | ✅ | 3 |
 | 07 | Prescrição | Recepção | ✅ | 3 |
-| 08 | Pacotes, planos e vouchers | Financeiro | ⬜ | 4 |
-| 09 | Caixa, repasses e conciliação | Financeiro | 🟡 | 4 |
-| 10 | Estoque | Financeiro | ⬜ | 4 |
+| 08 | Pacotes, planos e vouchers | Financeiro | ✅ | 4 |
+| 09 | Caixa, repasses e conciliação | Financeiro | ✅ | 4 |
+| 10 | Estoque | Financeiro | ✅ | 4 |
 | 11 | Marketing — NPS e recall | Gerente | ✅ | 5 |
 | 12 | BI — indicadores | Gerente | ✅ | 5 |
 | 13 | Permissões e LGPD | Gerente / Recepção | ✅ | 5 |
 | 14 | Faturamento TISS 4.01 | Faturamento | ✅ | — |
 
-**Placar: 11 completas, 1 parcial, 2 inexistentes.**
+**Placar: as 14 completas.**
 
 | Estado | Features |
 |---|---|
-| ✅ Completas | 01 · 02 · 03 · 04 · 05 · 06 · 07 · 11 · 12 · 13 · 14 |
-| 🟡 Parciais | 09 (falta o repasse) |
-| ⬜ Inexistentes | 08 · 10 |
+| ✅ Completas | 01 · 02 · 03 · 04 · 05 · 06 · 07 · 08 · 09 · 10 · 11 · 12 · 13 · 14 |
 
-> A feature 02 fechou na parcela 5, com a rodada de confirmação. **"Automática" aqui é
-> a rodada, não o disparo**: o sistema descobre quem confirmar, escreve a mensagem e não
-> repete ninguém; o envio continua sendo um clique por paciente. O motivo está na
-> [feature 11](#feature-11--marketing--nps-e-recall--️--parcela-5) e a divergência com a
-> proposta está registrada no fim deste documento.
+> Completa quer dizer **entregue como o produto se propôs a fazer**, não que não haja o
+> que melhorar. Duas ressalvas seguem valendo e estão no fim deste documento: a feature
+> 02 automatiza a RODADA de confirmação, não o disparo; e a "assinatura digital" da
+> feature 07 é carimbo com código de conferência, não certificado ICP-Brasil.
 
 ---
 
@@ -244,7 +241,7 @@ zero.**
 
 ## Módulo FINANCEIRO — `Clinica.Modulo.Financeiro`
 
-### Feature 09 · Caixa, repasses e conciliação — 🟡 · parcela 4
+### Feature 09 · Caixa, repasses e conciliação — ✅ · parcela 4
 
 | Item | Estado | Onde |
 |---|---|---|
@@ -252,30 +249,76 @@ zero.**
 | Lançamento manual, realizar e cancelar | ✅ | `LancamentoEdicaoViewModel` |
 | Conciliação com o atendimento | ✅ | `FinanceiroService.GuiasSemLancamentoAsync` |
 | Produção do período | 🔵 | `ProducaoViewModel` |
-| Plano de contas (categorias) | 🟡 | Serviço pronto, sem tela de gestão |
-| **Repasse por profissional** | ⬜ | Depende de `Profissional` (parcela 1) |
+| Plano de contas (categorias) | ✅ | `PlanoContasViewModel` — criar, renomear e ativar/desativar |
+| **Repasse por profissional** | ✅ | `RepasseService`, `RepassesViewModel` |
+| Recibo do lançamento | ✅ | botão na linha do Caixa → `DocumentoFinanceiroService` |
 
 > A fronteira é regra de projeto: **o dinheiro vive só em `LancamentoFinanceiro`**.
 > `CodigoFaturamento` e `Atendimento` nunca ganham campo de valor.
 
-### Feature 08 · Pacotes, planos e vouchers — ⬜ · parcela 4
+> **Quem atendeu vem do AGENDAMENTO.** O atendimento é entidade do faturamento congelado
+> e não guarda profissional; o agendamento guarda os dois — o profissional e o
+> atendimento que ele gerou —, e é por essa ponte que a produção de cada um é apurada.
 
-| Item | Estado |
-|---|---|
-| Saldo de sessões por paciente | ⬜ |
-| Vouchers e planos recorrentes | ⬜ |
-| Baixa automática ao atender | ⬜ |
+> **O repasse incide sobre a receita que ENTROU**, não sobre o que foi faturado. Pagar
+> percentual de dinheiro que ainda não chegou descapitaliza a clínica exatamente no mês
+> em que o convênio atrasa.
+
+> **Apurar trava o período.** `RepasseApurado` existe para o repasse não ser pago duas
+> vezes: sem esse registro, nada impediria duas máquinas de fechar o mesmo mês, e o erro
+> só apareceria no extrato — depois do pagamento. Cancelar a apuração cancela junto a
+> saída prevista no caixa.
+
+> **O código da categoria não muda depois de criado**: ele é a referência estável que os
+> lançamentos já gravados apontam. Nome, ordem e "ativa" mudam à vontade.
+
+### Feature 08 · Pacotes, planos e vouchers — ✅ · parcela 4
+
+| Item | Estado | Onde |
+|---|---|---|
+| Saldo de sessões por paciente | ✅ | `PacotePaciente.SaldoSessoes`, `PacoteService.DoPacienteAsync` |
+| Vouchers e planos recorrentes | ✅ | `TipoPacote` — plano sem número de sessões é livre dentro da validade |
+| Baixa automática ao atender | ✅ | `PacoteService.ConsumirPorAtendimentoAsync` |
+| Catálogo do que está à venda | 🔵 | `PacoteCatalogo`, com preço e validade padrão |
+| Orçamento do pacote em PDF | 🔵 | `DocumentoFinanceiroService.EmitirOrcamentoDoPacoteAsync` |
+
+> **A venda COPIA o catálogo.** Mudar o preço de tabela em novembro não pode reescrever
+> o que o paciente comprou em março — o vínculo com o catálogo fica só como procedência.
+
+> **A situação é calculada, não guardada.** Um pacote gravado como "Ativo" viraria
+> mentira à meia-noite do vencimento, e ninguém roda tarefa noturna nesta clínica.
+
+> **Consumo é fato datado**: devolver a sessão é cancelar com motivo, nunca apagar. Sem
+> isso, "o paciente diz que sobrou uma sessão" viraria a palavra de um contra a do outro
+> — que é a conversa que este módulo existe para encerrar.
+
+> A baixa automática debita o pacote que **vence primeiro**, e um atendimento debita **uma
+> vez só**: concluir a mesma sessão de novo não come outra sessão do paciente. Ela é
+> chamada pelo fluxo da Recepção, e **não** pelo `AtendimentoService` — aquele é
+> compartilhado com o faturamento congelado, e dar-lhe efeito colateral novo mudaria o
+> comportamento de um app em produção que nada tem com pacotes.
 
 > Cuidado para não confundir com `AutorizacaoSessoes`, que é **cota do convênio** — outra
 > coisa. Pacote é venda da clínica.
 
-### Feature 10 · Estoque — ⬜ · parcela 4
+### Feature 10 · Estoque — ✅ · parcela 4
 
-| Item | Estado |
-|---|---|
-| Entrada e baixa por sessão | ⬜ |
-| Alerta de mínimo e validade | ⬜ |
-| Custo por atendimento | ⬜ |
+| Item | Estado | Onde |
+|---|---|---|
+| Entrada e baixa por sessão | ✅ | `EstoqueService.EntrarAsync`/`BaixarAsync`, `MovimentoEstoque.AtendimentoId` |
+| Alerta de mínimo e validade | ✅ | `AbaixoDoMinimoAsync`, `ValidadesAsync` (janela de 60 dias) |
+| Custo por atendimento | ✅ | `CustoDoAtendimentoAsync`, com custo médio das entradas |
+
+> **O saldo NÃO é campo**: é a soma dos movimentos. Guardar um total e
+> mantê-lo em dia é como o estoque para de bater — uma gravação que falha no meio e o
+> número fica errado para sempre, sem ninguém saber desde quando.
+
+> **A validade fica no LOTE, não no item.** O mesmo insumo entra em lotes com vencimentos
+> diferentes, e uma validade só por item apagaria justamente o que vence primeiro. O
+> alerta ignora lote de item zerado: não há o que descartar.
+
+> Saída maior que o saldo é **recusada** — estoque negativo não existe no mundo, e aceitar
+> o número esconderia o erro de contagem em vez de mostrá-lo. Perda exige motivo escrito.
 
 ---
 
@@ -378,7 +421,7 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 
 ## Documentos impressos — página 21 da proposta
 
-**12 prometidos, 10 existem.** Faltam os dois do Financeiro, que vão na parcela 4.
+**12 prometidos, 12 existem.** A página 21 está fechada.
 
 | Documento | Módulo | Estado | Onde |
 |---|---|---|---|
@@ -392,8 +435,8 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 | Relatório de evolução (EVA) | Recepção | ✅ | montado do prontuário na emissão |
 | Consentimento | Recepção | ✅ | montado do `ConsentimentoService` |
 | Anamnese | Recepção | ✅ | preenchida com o prontuário, em linhas com o resto |
-| Recibo | Financeiro | ⬜ | parcela 4 |
-| Orçamento | Financeiro | ⬜ | parcela 4 |
+| Recibo | Financeiro | ✅ | `DocumentosFinanceirosPdfService` — emitido do lançamento do caixa |
+| Orçamento | Financeiro | ✅ | idem — com validade padrão de 30 dias |
 
 Os sete da Recepção saem do mesmo `DocumentoClinico`, numerado por ano (`2026/0001`) e
 com código de conferência. Quatro são **escritos** pelo profissional (receita, atestado,
@@ -465,18 +508,21 @@ O documento já foi ao cliente. Estas precisam de decisão comercial:
 
 ## Parcelas
 
-As parcelas **0 (instalável)**, **1 (fundação)**, **2 (cadastro e prontuário)** e
-**3 (ato clínico)** e **5 (inteligência)** estão entregues: os quatro apps instalam
-sozinhos; a Recepção tem painel próprio, agenda multiprofissional com encaixe e lista de
-espera, fila em kanban, cadastro de profissionais e salas, Pacientes 360º com foto e
-consentimento LGPD, prontuário com evolução, escala EVA e anexos, mapa corporal com
-protocolo reutilizável e os sete documentos clínicos impressos; e o Gerente tem BI,
-campanhas (confirmação, NPS e recall), acessos com perfis e a visão de leitura do
-faturamento. Com isso **a Recepção está completa**.
+As **seis parcelas estão entregues** — 0 (instalável), 1 (fundação), 2 (cadastro e
+prontuário), 3 (ato clínico), 4 (dinheiro e insumo) e 5 (inteligência).
 
-Falta a **parcela 4 (dinheiro e insumo)** — pacotes, repasse e estoque —, no Financeiro.
-A parcela 5 saiu antes dela porque não dependia de nada que a 3 ou a 4 fossem entregar:
-apoia-se na fundação da parcela 1 (`Profissional`) e no consentimento da parcela 2.
+Os quatro apps instalam sozinhos. A Recepção tem painel próprio, agenda multiprofissional
+com encaixe e lista de espera, fila em kanban, cadastro de profissionais e salas,
+Pacientes 360º com foto e consentimento LGPD, prontuário com evolução, escala EVA e
+anexos, mapa corporal com protocolo reutilizável e os sete documentos clínicos. O
+Financeiro tem caixa, conciliação, produção, pacotes com saldo e baixa automática, estoque
+com alerta de mínimo e validade, repasse por profissional, plano de contas, recibo e
+orçamento. O Gerente tem BI, campanhas (confirmação, NPS e recall), acessos com perfis e
+a visão de leitura do faturamento.
+
+A parcela 5 saiu **antes** das 3 e 4 porque não dependia de nenhuma das duas: apoiava-se
+na fundação da parcela 1 (`Profissional`) e no consentimento da parcela 2, que já
+existiam.
 
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

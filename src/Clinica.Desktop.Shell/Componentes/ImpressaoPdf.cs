@@ -1,11 +1,11 @@
 using System.Diagnostics;
 using System.IO;
 
-namespace Clinica.Recepcao.Servicos;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>
-/// Salvar um PDF em disco e abrir no leitor do Windows — o mesmo gesto em toda a
-/// Recepção (documentos clínicos hoje, o que vier depois amanhã).
+/// Salvar um PDF em disco e abrir no leitor do Windows — o mesmo gesto em toda a suíte
+/// (documentos clínicos na Recepção, recibo e orçamento no Financeiro).
 ///
 /// Existe para que a falha de ABRIR não seja confundida com a falha de GERAR: o arquivo
 /// já está gravado quando o leitor não abre, e dizer "não foi possível gerar" mandaria

@@ -8,9 +8,8 @@
 
 ## Onde estamos
 
-**5 das 6 parcelas entregues.** Com a parcela 3, a **Recepção está completa**; com a 5,
-o Gerente Geral deixou de ser uma casca que só carrega os outros. Falta a **parcela 4**,
-no Financeiro.
+**As seis parcelas estão entregues.** A 3 fechou a Recepção, a 4 fechou o Financeiro e a
+5 tirou o Gerente Geral da condição de casca que só carregava os outros.
 
 | Parcela | Estado |
 |---|---|
@@ -18,23 +17,25 @@ no Financeiro.
 | 1 — Fundação | ✅ entregue |
 | 2 — Cadastro e prontuário | ✅ entregue |
 | 3 — Ato clínico | ✅ entregue |
-| 4 — Dinheiro e insumo | ⬜ a única que falta |
+| 4 — Dinheiro e insumo | ✅ entregue |
 | 5 — Inteligência | ✅ entregue |
 
 > A parcela 5 saiu **fora da ordem** de propósito: ela não dependia da 3 nem da 4. O que
 > ela precisava — `Profissional` (parcela 1) e o consentimento LGPD (parcela 2) — já
 > estava pronto, e segurá-la só adiaria a única tela que a direção usa.
 
-Das **14 features** vendidas na proposta: **11 completas, 1 parcial, 2 inexistentes.**
+Das **14 features** vendidas na proposta: **as 14 completas.**
 
 | Estado | Features |
 |---|---|
-| ✅ Completas | 01 painel · 02 agenda · 03 fila kanban · 04 pacientes 360º · 05 prontuário/EVA · 06 mapa corporal · 07 prescrição · 11 NPS/recall · 12 BI · 13 permissões/LGPD · 14 TISS |
-| 🟡 Parciais | 09 caixa (falta o repasse) |
-| ⬜ Inexistentes | 08 pacotes · 10 estoque |
+| ✅ Completas | 01 painel · 02 agenda · 03 fila kanban · 04 pacientes 360º · 05 prontuário/EVA · 06 mapa corporal · 07 prescrição · 08 pacotes · 09 caixa e repasses · 10 estoque · 11 NPS/recall · 12 BI · 13 permissões/LGPD · 14 TISS |
 
-Dos **12 documentos impressos** da página 21 da proposta, **10 existem**. Os 2 restantes
-(recibo e orçamento) são do Financeiro, na parcela 4.
+> Completa quer dizer **entregue como o produto se propôs a fazer**. As duas ressalvas
+> que continuam valendo estão em [Duas afirmações da proposta que ainda precisam de
+> decisão](#duas-afirmações-da-proposta-que-ainda-precisam-de-decisão).
+
+Dos **12 documentos impressos** da página 21 da proposta, **os 12 existem** — a página
+está fechada.
 
 ### O que temos e o que falta, app por app
 
@@ -42,16 +43,13 @@ Dos **12 documentos impressos** da página 21 da proposta, **10 existem**. Os 2 
 |---|---|---|
 | **Faturamento** | Tudo: motor de regras, 2º código, lotes TISS, glosa e recurso, PDFs. **Em produção.** | Nada — está **congelado** de propósito |
 | **Recepção** | Painel do dia, agenda multiprofissional com encaixe e lista de espera, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos, mapa corporal com protocolo e os 7 documentos clínicos | Nada da proposta |
-| **Financeiro** | Caixa do mês, lançamento manual, conciliação com o faturamento, produção do período | Pacotes/vouchers, estoque, repasse por profissional, recibo e orçamento (parcela 4) |
-| **Gerente Geral** | Carrega Recepção + Financeiro inteiros **e** as telas da direção: indicadores (ocupação, no-show, produtividade), campanhas (confirmação, NPS e recall), acessos com perfis e permissões, e a visão de leitura do faturamento | Nada da parcela 5 — o que falta aqui chega junto com as parcelas 3 e 4 dos outros módulos |
+| **Financeiro** | Caixa do mês, lançamento manual, conciliação com o faturamento, produção do período, pacotes com saldo e baixa automática, estoque com alerta de mínimo e validade, repasse por profissional, plano de contas, recibo e orçamento | Nada da proposta |
+| **Gerente Geral** | Carrega Recepção + Financeiro inteiros **e** as telas da direção: indicadores (ocupação, no-show, produtividade), campanhas (confirmação, NPS e recall), acessos com perfis e permissões, e a visão de leitura do faturamento | Nada da proposta |
 
-### O que falta, na ordem em que vai ser feito
+### O que falta
 
-- **Parcela 4 — dinheiro e insumo** (Financeiro): pacotes/planos/vouchers com saldo,
-  repasse por profissional, estoque com validade e custo, recibo e orçamento.
-
-A parcela 5 (inteligência) já foi entregue — ver
-[Inteligência e acesso](#inteligência-e-acesso--resolvido-na-parcela-5).
+Nada da proposta comercial. O que existe daqui em diante é evolução, não entrega
+pendente — e as duas ressalvas registradas logo abaixo, que são decisão comercial.
 
 ### Duas afirmações da proposta que ainda precisam de decisão
 
@@ -87,7 +85,7 @@ PostgreSQL — não há comunicação entre eles.
 | Direção | Gerente Geral | `Clinica.Gerente-gerente-Setup.exe` | Todos os módulos + BI, NPS e permissões |
 
 > São **quatro** — a proposta comercial (página 24) diz *"Dois apps, um banco"*. Ver
-> [Duas afirmações da proposta que ainda não se sustentam](#duas-afirmações-da-proposta-que-ainda-não-se-sustentam).
+> [Duas afirmações da proposta que ainda precisam de decisão](#duas-afirmações-da-proposta-que-ainda-precisam-de-decisão).
 
 O Gerente Geral **carrega os módulos dos outros** — quem o instala não precisa da Recepção
 nem do Financeiro na mesma máquina.
@@ -247,6 +245,45 @@ A migration é **puramente aditiva**: só tabelas novas (`MapasCorporais`, `Pont
 `ProtocolosCorporais`, `PontosProtocolo`, `DocumentosClinicos`, `ItensDocumento`,
 `ModelosDocumento`, `ItensModelo`).
 
+## Dinheiro e insumo — resolvido na parcela 4
+
+A parcela 4 fecha o Financeiro: **pacotes** (feature 08), **repasse por profissional** — a
+metade que faltava da feature 09 —, **estoque** (feature 10) e os dois documentos que
+faltavam da página 21, **recibo e orçamento**.
+
+**Pacotes, planos e vouchers.** A clínica cadastra o que vende (catálogo com preço,
+sessões e validade), vende ao paciente e o saldo passa a ser cobrado sozinho: ao concluir
+a sessão na Recepção, o pacote **que vence primeiro** é debitado automaticamente. Plano
+sem número de sessões é livre dentro da validade; voucher é o crédito avulso.
+
+**Repasse.** Regra por profissional (percentual da receita ou valor por atendimento), com
+vigência. A tela mostra o cálculo antes de fechar — quantos atendimentos, quanta receita
+entrou, qual regra — e a apuração cria a saída prevista no caixa.
+
+**Estoque.** Entrada com lote e validade, baixa por sessão, perda com motivo. Alerta de
+reposição e de vencimento, custo médio e custo por atendimento.
+
+Cinco decisões que valem registrar:
+
+- **A venda copia o catálogo.** Mudar o preço de tabela em novembro não pode reescrever o
+  que o paciente comprou em março.
+- **A situação do pacote é calculada, não guardada.** Um pacote gravado como "Ativo"
+  viraria mentira à meia-noite do vencimento, e ninguém roda tarefa noturna aqui.
+- **O saldo do estoque é a soma dos movimentos**, nunca um total guardado — que é como o
+  estoque para de bater. E saída maior que o saldo é recusada: estoque negativo não
+  existe no mundo.
+- **O repasse incide sobre a receita que ENTROU**, não sobre o que foi faturado; pagar
+  percentual de dinheiro que ainda não chegou descapitaliza a clínica no mês em que o
+  convênio atrasa. E **apurar trava o período**, porque repasse pago duas vezes é dinheiro
+  que não volta.
+- **Recibo e orçamento seguem a regra dos documentos clínicos**: não se apagam, cancelam-se
+  com motivo, e os valores ficam gravados na emissão — a segunda via de um recibo de
+  R$ 300 não pode sair R$ 350 porque a tabela subiu.
+
+A migration é **puramente aditiva**: só tabelas novas (`PacotesCatalogo`,
+`PacotesPaciente`, `ConsumosPacote`, `RegrasRepasse`, `RepassesApurados`, `ItensEstoque`,
+`MovimentosEstoque`, `DocumentosFinanceiros`, `ItensDocumentoFinanceiro`).
+
 ## Inteligência e acesso — resolvido na parcela 5
 
 Até aqui o Gerente Geral era uma casca: carregava Recepção e Financeiro e não tinha nada
@@ -302,7 +339,7 @@ o inventário está em [Onde estamos](#onde-estamos), e o detalhe feature a feat
 | ~~**2 — Cadastro e prontuário**~~ ✅ | Recepção | Pacientes 360º com consentimento LGPD; prontuário com evolução e escala EVA | Features 04 e 05 — **fecha a Fase 1 da proposta** |
 | ~~**3 — Ato clínico**~~ ✅ | Recepção | Mapa corporal com protocolo reutilizável; prescrição com modelos; os 7 documentos clínicos | Features 06 e 07, e 7 dos 12 documentos da página 21 — **fecha a Recepção** |
 | ~~**5 — Inteligência**~~ ✅ | Gerente | BI (ocupação, no-show, produtividade); campanhas de confirmação, NPS e recall; perfis, permissões e login; visão de leitura do faturamento | Features 11, 12 e 13, e a metade que faltava da 02 |
-| **4 — Dinheiro e insumo** | Financeiro | Pacotes/vouchers com saldo; repasse por profissional; estoque com validade e custo | Features 08, 09 e 10 |
+| ~~**4 — Dinheiro e insumo**~~ ✅ | Financeiro | Pacotes/vouchers com saldo e baixa automática; repasse por profissional; estoque com validade e custo; plano de contas; recibo e orçamento | Features 08, 09 e 10, e os 2 documentos que faltavam da página 21 — **fecha o Financeiro** |
 
 A coluna "Destrava" é o que justifica a ordem: cada parcela existe porque a seguinte não
 teria onde se apoiar sem ela. A fundação (1) é o caso mais claro — sem `Profissional`,

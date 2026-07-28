@@ -144,6 +144,13 @@
                                                     CommandParameter="{Binding}"
                                                     Visibility="{Binding PodeRealizar,
                                                                  Converter={StaticResource BoolParaVisibilidade}}" />
+                                            <Button Content="Recibo" Margin="6,0,0,0"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Command="{Binding DataContext.EmitirReciboCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Visibility="{Binding EhEntrada,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}" />
                                             <Button Content="Cancelar" Margin="6,0,0,0"
                                                     Style="{StaticResource BotaoAcaoGridPerigo}"
                                                     Command="{Binding DataContext.CancelarCommand,

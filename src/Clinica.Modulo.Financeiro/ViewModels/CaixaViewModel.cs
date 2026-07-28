@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -36,6 +37,9 @@ public sealed class LinhaCaixa
 public sealed partial class CaixaViewModel : ObservableObject
 {
     private readonly FinanceiroService _financeiro;
+    private readonly DocumentoFinanceiroService _documentos;
+    private readonly DocumentosFinanceirosPdfService _pdfs;
+    private readonly ParametrosService _parametros;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
@@ -59,9 +63,15 @@ public sealed partial class CaixaViewModel : ObservableObject
     [ObservableProperty]
     private string _previsto = "—";
 
-    public CaixaViewModel(FinanceiroService financeiro, ISnackbarService snackbar, IDialogoService dialogo)
+    public CaixaViewModel(
+        FinanceiroService financeiro, DocumentoFinanceiroService documentos,
+        DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
+        ISnackbarService snackbar, IDialogoService dialogo)
     {
         _financeiro = financeiro;
+        _documentos = documentos;
+        _pdfs = pdfs;
+        _parametros = parametros;
         _snackbar = snackbar;
         _dialogo = dialogo;
         _ = CarregarAsync();
@@ -177,6 +187,53 @@ public sealed partial class CaixaViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar("Financeiro — lançamento não pôde ser cancelado", ex);
             _snackbar.Erro($"Não foi possível cancelar: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Emite o recibo daquele dinheiro que entrou. O recibo APONTA para o lançamento,
+    /// e não o substitui: o caixa continua sendo a verdade do que entrou, o papel é a
+    /// prova que o paciente leva.
+    /// </summary>
+    [RelayCommand]
+    private async Task EmitirReciboAsync(LinhaCaixa? linha)
+    {
+        if (linha is null) return;
+
+        if (!linha.EhEntrada)
+        {
+            _snackbar.Erro("Só se dá recibo de dinheiro que entrou.");
+            return;
+        }
+
+        var destinatario = _dialogo.PerguntarTexto(
+            "Recibo",
+            "Para quem é o recibo? Deixe em branco para usar o nome do paciente do lançamento.");
+
+        try
+        {
+            var documento = await _documentos.EmitirReciboDoLancamentoAsync(
+                linha.Id, string.IsNullOrWhiteSpace(destinatario) ? null : destinatario,
+                Environment.UserName);
+
+            var pdf = await _pdfs.GerarAsync(documento.Id, await _parametros.ObterPrestadorAsync());
+
+            // O recibo JÁ está emitido: falha daqui para a frente é de impressão.
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf, ImpressaoPdf.NomeSeguro($"Recibo-{documento.Numero.Replace('/', '-')}.pdf"));
+
+            if (erro is not null)
+            {
+                _snackbar.Erro($"{erro} O recibo {documento.Numero} está emitido.");
+                return;
+            }
+
+            _snackbar.Sucesso($"Recibo {documento.Numero} emitido.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — recibo não pôde ser emitido", ex);
+            _snackbar.Erro($"Não foi possível emitir o recibo: {ex.Message}");
         }
     }
 
