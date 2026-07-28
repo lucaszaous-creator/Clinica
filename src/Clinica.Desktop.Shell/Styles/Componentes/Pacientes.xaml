@@ -11,6 +11,16 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
 
+    <!--
+      Obrigatório, não redundante: o corpo de um DataTemplate é conteúdo ADIADO, e o
+      {StaticResource} dentro dele é resolvido no escopo DESTE dicionário quando a
+      primeira linha é desenhada — não no do App. Ver o comentário do Midia.xaml.
+    -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Tokens.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Feedback.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
     <DataTemplate x:Key="ItemPacienteSeletor">
         <Grid Margin="0,2">
             <Grid.ColumnDefinitions>
