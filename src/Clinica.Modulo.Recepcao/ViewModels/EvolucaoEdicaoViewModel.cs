@@ -26,6 +26,13 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<AnexoResumo> Anexos { get; } = [];
 
+    /// <summary>
+    /// O mapa corporal desta sessão. Vive junto da evolução porque é a MESMA sessão
+    /// vista de outro jeito: o texto diz o que foi feito, o desenho diz onde. Ele é
+    /// gravado no Salvar daqui, depois de a evolução existir — o mapa aponta para ela.
+    /// </summary>
+    public MapaCorporalViewModel Mapa { get; }
+
     /// <summary>Valores da escala — a régua de 0 a 10 da tela sai daqui.</summary>
     public IReadOnlyList<int> EscalaEva { get; } =
         Enumerable.Range(Evolucao.EvaMinima, Evolucao.EvaMaxima - Evolucao.EvaMinima + 1).ToList();
@@ -66,6 +73,7 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
         _escopos = escopos;
         _pacienteId = pacienteId;
         _evolucaoId = evolucaoId;
+        Mapa = new MapaCorporalViewModel(escopos, pacienteId, evolucaoId);
         _ = CarregarAsync();
     }
 
@@ -81,6 +89,10 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
 
             Profissionais.Clear();
             foreach (var p in await equipe.ProfissionaisAtivosAsync()) Profissionais.Add(p);
+
+            // O mapa carrega sempre: numa sessão nova ele traz os protocolos, que são
+            // justamente o que evita começar o desenho do zero.
+            await Mapa.CarregarAsync();
 
             if (_evolucaoId is null) return;
 
@@ -150,6 +162,23 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
             }, Environment.UserName);
 
             _evolucaoId = salva.Id;
+
+            // O mapa vem depois de propósito: ele aponta para a evolução, e numa sessão
+            // nova o Id só nasce agora. A falha DELE tem mensagem própria — a sessão já
+            // está gravada, e dizer "não foi possível salvar" faria a secretária digitar
+            // tudo de novo por causa do desenho.
+            try
+            {
+                await Mapa.SalvarAsync(salva.Id);
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Recepção — mapa corporal não pôde ser salvo", ex);
+                Erro($"A sessão foi salva, mas o mapa corporal não: {ex.Message}");
+                return;
+            }
+
             Concluido?.Invoke();
         }
         catch (Exception ex)

@@ -29,6 +29,14 @@ public class ClinicaDbContext : DbContext
     public DbSet<Evolucao> Evolucoes => Set<Evolucao>();
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
+    public DbSet<MapaCorporal> MapasCorporais => Set<MapaCorporal>();
+    public DbSet<PontoMapa> PontosMapa => Set<PontoMapa>();
+    public DbSet<ProtocoloCorporal> ProtocolosCorporais => Set<ProtocoloCorporal>();
+    public DbSet<PontoProtocolo> PontosProtocolo => Set<PontoProtocolo>();
+    public DbSet<DocumentoClinico> DocumentosClinicos => Set<DocumentoClinico>();
+    public DbSet<ItemDocumento> ItensDocumento => Set<ItemDocumento>();
+    public DbSet<ModeloDocumento> ModelosDocumento => Set<ModeloDocumento>();
+    public DbSet<ItemModelo> ItensModelo => Set<ItemModelo>();
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
 
@@ -331,6 +339,145 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.Vigente);
         });
 
+        // ---------- Ato clínico (parcela 3) ----------
+        // Mapa corporal, protocolos reutilizáveis e os documentos impressos. Tudo em
+        // tabelas NOVAS: o faturamento não vê nada disto.
+        b.Entity<MapaCorporal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+
+            // Um mapa por sessão, e apagar a sessão leva o mapa: mapa órfão não diz
+            // de quem nem de quando.
+            e.HasOne(x => x.Evolucao).WithOne()
+                .HasForeignKey<MapaCorporal>(x => x.EvolucaoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.EvolucaoId).IsUnique();
+        });
+
+        b.Entity<PontoMapa>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Face).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Tecnica).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Nome).HasMaxLength(40);
+            e.Property(x => x.Observacao).HasMaxLength(200);
+
+            e.HasOne(x => x.Mapa).WithMany(x => x.Pontos)
+                .HasForeignKey(x => x.MapaCorporalId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.MapaCorporalId);
+        });
+
+        b.Entity<ProtocoloCorporal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Descricao).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+
+            // O protocolo DO PACIENTE morre com ele; o DA CLÍNICA não tem dono
+            // (PacienteId nulo) e nenhuma exclusão de paciente o alcança.
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.PacienteId);
+            e.Ignore(x => x.EhDaClinica);
+        });
+
+        b.Entity<PontoProtocolo>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Face).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Tecnica).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Nome).HasMaxLength(40);
+            e.Property(x => x.Observacao).HasMaxLength(200);
+
+            e.HasOne(x => x.Protocolo).WithMany(x => x.Pontos)
+                .HasForeignKey(x => x.ProtocoloCorporalId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.ProtocoloCorporalId);
+        });
+
+        b.Entity<DocumentoClinico>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Numero).IsRequired().HasMaxLength(20);
+            e.Property(x => x.CodigoVerificacao).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Titulo).HasMaxLength(200);
+            e.Property(x => x.Corpo).HasMaxLength(4000);
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.Cid).HasMaxLength(20);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Evolucao).WithMany()
+                .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.SetNull);
+
+            // Número e código são a identidade da via em papel — não podem repetir.
+            e.HasIndex(x => x.Numero).IsUnique();
+            e.HasIndex(x => x.CodigoVerificacao).IsUnique();
+            e.HasIndex(x => new { x.PacienteId, x.Data });
+
+            e.Ignore(x => x.Cancelado);
+            e.Ignore(x => x.TituloImpresso);
+            e.Ignore(x => x.CidImpresso);
+        });
+
+        b.Entity<ItemDocumento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Detalhe).HasMaxLength(1000);
+            e.Property(x => x.Quantidade).HasMaxLength(60);
+
+            e.HasOne(x => x.Documento).WithMany(x => x.Itens)
+                .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.DocumentoClinicoId);
+        });
+
+        b.Entity<ModeloDocumento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Titulo).HasMaxLength(200);
+            e.Property(x => x.Corpo).HasMaxLength(4000);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+
+            // Salvar um modelo com nome já usado SOBRESCREVE o anterior em vez de
+            // duplicar — é o que quem clica "salvar como modelo" espera.
+            e.HasIndex(x => new { x.Tipo, x.Nome }).IsUnique();
+        });
+
+        b.Entity<ItemModelo>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Detalhe).HasMaxLength(1000);
+            e.Property(x => x.Quantidade).HasMaxLength(60);
+
+            e.HasOne(x => x.Modelo).WithMany(x => x.Itens)
+                .HasForeignKey(x => x.ModeloDocumentoId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.ModeloDocumentoId);
+        });
+
         // ---------- Campanhas e acesso (parcela 5) ----------
         // Ambas apontam para o que já existe (paciente, agendamento, profissional) e
         // nada aponta para elas: o faturamento continua sem saber que existem.
@@ -462,6 +609,9 @@ public class ClinicaDbContext : DbContext
             // Prontuário: dois postos abrindo a mesma evolução não podem sobrescrever
             // o texto um do outro em silêncio.
             b.Entity<Evolucao>().Property<uint>("xmin").IsRowVersion();
+            // O mapa corporal se regrava por INTEIRO (os pontos são substituídos), então
+            // uma gravação por cima da outra não perderia um campo: perderia a sessão.
+            b.Entity<MapaCorporal>().Property<uint>("xmin").IsRowVersion();
         }
     }
 }

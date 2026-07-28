@@ -43,8 +43,8 @@ por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
 | 03 | Fila em kanban | Recepção | ✅ | 1 |
 | 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
-| 06 | Mapa corporal | Recepção | ⬜ | 3 |
-| 07 | Prescrição | Recepção | ⬜ | 3 |
+| 06 | Mapa corporal | Recepção | ✅ | 3 |
+| 07 | Prescrição | Recepção | ✅ | 3 |
 | 08 | Pacotes, planos e vouchers | Financeiro | ⬜ | 4 |
 | 09 | Caixa, repasses e conciliação | Financeiro | 🟡 | 4 |
 | 10 | Estoque | Financeiro | ⬜ | 4 |
@@ -53,13 +53,13 @@ por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
 | 13 | Permissões e LGPD | Gerente / Recepção | ✅ | 5 |
 | 14 | Faturamento TISS 4.01 | Faturamento | ✅ | — |
 
-**Placar: 9 completas, 1 parcial, 4 inexistentes.**
+**Placar: 11 completas, 1 parcial, 2 inexistentes.**
 
 | Estado | Features |
 |---|---|
-| ✅ Completas | 01 · 02 · 03 · 04 · 05 · 11 · 12 · 13 · 14 |
+| ✅ Completas | 01 · 02 · 03 · 04 · 05 · 06 · 07 · 11 · 12 · 13 · 14 |
 | 🟡 Parciais | 09 (falta o repasse) |
-| ⬜ Inexistentes | 06 · 07 · 08 · 10 |
+| ⬜ Inexistentes | 08 · 10 |
 
 > A feature 02 fechou na parcela 5, com a rodada de confirmação. **"Automática" aqui é
 > a rodada, não o disparo**: o sistema descobre quem confirmar, escreve a mensagem e não
@@ -197,21 +197,48 @@ zero.**
 > prontuário não pode arrastar megabytes pela rede (o banco é remoto). Só quem pede um
 > arquivo específico materializa o conteúdo.
 
-### Feature 06 · Mapa corporal — ⬜ · parcela 3
+### Feature 06 · Mapa corporal — ✅ · parcela 3
 
-| Item | Estado |
-|---|---|
-| Mapa corporal interativo | ⬜ |
-| Protocolo reutilizável entre sessões | ⬜ |
-| Vinculado à evolução clínica | ⬜ |
+| Item | Estado | Onde |
+|---|---|---|
+| Mapa corporal interativo | ✅ | `MapaCorporalViewModel` + as duas figuras (frente e costas) na `EvolucaoWindow` |
+| Protocolo reutilizável entre sessões | ✅ | `ProtocoloCorporal`, `MapaCorporalService.AplicarProtocoloAsync` |
+| Vinculado à evolução clínica | ✅ | `MapaCorporal.EvolucaoId` — 1:1 com a sessão, e some com ela |
+| Repetir o mapa da sessão anterior | 🔵 | `MapaCorporalService.PontosDaSessaoAnteriorAsync` |
 
-### Feature 07 · Prescrição — ⬜ · parcela 3
+> **Aplicar um protocolo é COPIAR pontos, nunca apontar para ele.** Se fosse referência,
+> corrigir um ponto hoje reescreveria o protocolo da clínica — e, pior, a sessão da
+> semana passada. Prontuário é registro do que aconteceu; referência viva reescreveria o
+> passado a cada edição.
 
-| Item | Estado |
-|---|---|
-| Modelos de receita e orientação | ⬜ |
-| Impressão com a marca SemDor | 🔵 infraestrutura existe (`MarcaSemDor`) |
-| Assinatura e carimbo digitais | ⬜ |
+> As coordenadas são **normalizadas (0 a 1)**, nunca pixels: a figura pode ser
+> redesenhada, a tela pode mudar de resolução, e a marcação continua no mesmo lugar do
+> corpo. Quem converte o clique em fração é a tela, que é quem conhece o tamanho do
+> desenho.
+
+> **Repetir a sessão anterior não grava nada** — traz os pontos para a tela, e só o
+> Salvar da sessão os efetiva. Gravar no clique deixaria no prontuário um mapa que
+> ninguém confirmou.
+
+### Feature 07 · Prescrição — ✅ · parcela 3
+
+| Item | Estado | Onde |
+|---|---|---|
+| Modelos de receita e orientação | ✅ | `ModeloDocumento`, aplicados e criados na `DocumentoWindow` |
+| Impressão com a marca SemDor | ✅ | `DocumentosClinicosPdfService` (usa `MarcaSemDor`) |
+| Carimbo do profissional e código de conferência | ✅ | nome + registro no conselho, e `DocumentoClinico.CodigoVerificacao` |
+| Assinatura digital com certificado (ICP-Brasil) | ⬜ | **não entregue** — ver abaixo |
+
+> **O que "assinatura digital" entrega hoje, e o que não entrega.** Sai impresso o
+> carimbo do profissional (nome e registro no conselho), a linha de assinatura e um
+> código de conferência que acha o documento no sistema para comparar com o papel.
+> **Não** há certificado ICP-Brasil: chamar o que existe de assinatura digital seria
+> mentir sobre o que a via garante. Se o cliente precisar de validade jurídica de
+> assinatura eletrônica, isso é escopo novo.
+
+> O modelo **nasce do documento que o profissional acabou de escrever** ("guardar como
+> modelo"), e não de uma tela de cadastro: ninguém senta para cadastrar modelos antes de
+> precisar deles. Guardar com um nome já usado corrige o modelo em vez de criar um gêmeo.
 
 ---
 
@@ -351,26 +378,47 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 
 ## Documentos impressos — página 21 da proposta
 
-**12 prometidos, 3 existem.**
-
-> A base do **Relatório de evolução (EVA)** e da **Anamnese** já existe no domínio
-> (`Evolucao`, `EvolucaoDaDor`); o que falta para os dois é o PDF, que vai na parcela 3
-> junto com os outros documentos.
+**12 prometidos, 10 existem.** Faltam os dois do Financeiro, que vão na parcela 4.
 
 | Documento | Módulo | Estado | Onde |
 |---|---|---|---|
 | Capa de lote | Faturamento | ✅ | `CapaFaturamentoService` |
 | Guia TISS SP/SADT | Faturamento | ✅ | `GuiaTissPdfService` |
 | Fechamento | Faturamento | ✅ | `FechamentoPdfService` |
-| Receita | Recepção | ⬜ | parcela 3 |
-| Atestado | Recepção | ⬜ | parcela 3 |
-| Comparecimento | Recepção | ⬜ | parcela 3 |
-| Pedido de exame | Recepção | ⬜ | parcela 3 |
-| Relatório de evolução (EVA) | Recepção | ⬜ | parcela 3 |
-| Consentimento | Recepção | ⬜ | parcela 3 |
-| Anamnese | Recepção | ⬜ | parcela 3 |
+| Receita | Recepção | ✅ | `DocumentosClinicosPdfService` |
+| Atestado | Recepção | ✅ | idem — CID só sai com autorização do paciente |
+| Comparecimento | Recepção | ✅ | idem |
+| Pedido de exame | Recepção | ✅ | idem |
+| Relatório de evolução (EVA) | Recepção | ✅ | montado do prontuário na emissão |
+| Consentimento | Recepção | ✅ | montado do `ConsentimentoService` |
+| Anamnese | Recepção | ✅ | preenchida com o prontuário, em linhas com o resto |
 | Recibo | Financeiro | ⬜ | parcela 4 |
 | Orçamento | Financeiro | ⬜ | parcela 4 |
+
+Os sete da Recepção saem do mesmo `DocumentoClinico`, numerado por ano (`2026/0001`) e
+com código de conferência. Quatro são **escritos** pelo profissional (receita, atestado,
+comparecimento, pedido de exame) e três são **montados** pelo sistema a partir do que ele
+já tem (relatório, termo de consentimento, anamnese) — pedir para alguém digitar o que o
+banco já sabe é o caminho mais curto para o documento sair errado.
+
+Três decisões que valem registrar:
+
+- **Documento emitido é fato.** Uma vez impresso e entregue, existe no mundo: não se
+  apaga nem se reescreve. Corrige-se **cancelando com motivo** e emitindo outro — a
+  mesma lógica do consentimento revogado da parcela 2. A linha cancelada continua na
+  ficha, porque a via em papel não some por ser apagada do sistema.
+- **O conteúdo fica gravado na emissão, não é remontado na reimpressão.** A segunda via
+  de um relatório tem de sair idêntica à primeira, mesmo que o prontuário tenha andado
+  desde então. Por isso até os documentos montados gravam suas linhas.
+- **O CID só entra no atestado com autorização expressa do paciente.** O campo fica
+  gravado (é dado clínico), mas `CidImpresso` devolve nulo sem a autorização e o PDF não
+  o imprime. A tela avisa antes, para ninguém entregar o papel achando que o diagnóstico
+  foi junto.
+
+> **Receita, atestado e pedido de exame exigem o profissional que assina.** São
+> documentos que só existem porque alguém habilitado assina; sem assinante o papel não
+> vale nada — e vale menos ainda descobrir isso na frente do paciente, com o documento
+> já impresso. É a única exceção à regra da agenda ("avisa, mas não impede").
 
 ---
 
@@ -395,17 +443,15 @@ gerou.
 
 ## Divergências da proposta
 
-O documento já foi ao cliente. Estas três precisam de decisão comercial:
+O documento já foi ao cliente. Estas precisam de decisão comercial:
 
 1. **Página 24 diz "Dois apps, um banco".** São **quatro** apps, um por perfil.
-2. **Página 23 marca ✓ em "Prontuário com mapa corporal e EVA"** para a SemDor contra os
-   concorrentes. Depois da parcela 2, **metade da afirmação passou a ser verdadeira**: o
-   prontuário com EVA existe (feature 05). O **mapa corporal** (feature 06) continua não
-   existindo — vai na parcela 3. Até lá, a página 23 segue afirmando mais do que o
-   produto entrega.
-3. **O cronograma não fecha** — mas encolheu. A Fase 1 (1–2 meses) foi fechada com as
-   parcelas 1 e 2. O que resta do calendário original é decisão sua; as parcelas deste
-   arquivo continuam sendo a ordem técnica correta.
+2. ~~**Página 23 marca ✓ em "Prontuário com mapa corporal e EVA"**~~ — **resolvida na
+   parcela 3.** A EVA saiu na parcela 2 e o mapa corporal saiu agora; a afirmação passou
+   a ser inteiramente verdadeira.
+3. **"Assinatura digital" da feature 07.** O que existe é carimbo do profissional, linha
+   de assinatura e código de conferência — **não** certificado ICP-Brasil. Se a clínica
+   precisar de validade jurídica de assinatura eletrônica, é escopo novo.
 4. **"Confirmação automática por WhatsApp" (feature 02).** O que a parcela 5 automatiza é
    a RODADA — descobrir quem confirmar, escrever a mensagem, aplicar a LGPD e não repetir
    ninguém. O **disparo continua sendo um clique por paciente**, de propósito: o número é
@@ -413,21 +459,24 @@ O documento já foi ao cliente. Estas três precisam de decisão comercial:
    número. Se o cliente entendeu "automática" como "sozinho, sem ninguém clicar", isso
    precisa ser dito antes de a expectativa virar cobrança — e a alternativa real é
    contratar a API oficial do WhatsApp Business, que é decisão comercial, não técnica.
+5. **O cronograma não fecha** — mas encolheu. A Fase 1 (1–2 meses) foi fechada com as
+   parcelas 1 e 2, e a 3 fecha o ato clínico. O que resta do calendário original é
+   decisão sua; as parcelas deste arquivo continuam sendo a ordem técnica correta.
 
 ## Parcelas
 
 As parcelas **0 (instalável)**, **1 (fundação)**, **2 (cadastro e prontuário)** e
-**5 (inteligência)** estão entregues: os quatro apps instalam sozinhos, a Recepção tem
-painel próprio, agenda multiprofissional com encaixe e lista de espera, fila em kanban,
-cadastro de profissionais e salas, Pacientes 360º com foto e consentimento LGPD, e
-prontuário com evolução, escala EVA e anexos; e o Gerente tem BI, campanhas (confirmação,
-NPS e recall), acessos com perfis e a visão de leitura do faturamento. Com isso **a Fase 1
-da proposta está fechada**.
+**3 (ato clínico)** e **5 (inteligência)** estão entregues: os quatro apps instalam
+sozinhos; a Recepção tem painel próprio, agenda multiprofissional com encaixe e lista de
+espera, fila em kanban, cadastro de profissionais e salas, Pacientes 360º com foto e
+consentimento LGPD, prontuário com evolução, escala EVA e anexos, mapa corporal com
+protocolo reutilizável e os sete documentos clínicos impressos; e o Gerente tem BI,
+campanhas (confirmação, NPS e recall), acessos com perfis e a visão de leitura do
+faturamento. Com isso **a Recepção está completa**.
 
-Faltam a **parcela 3 (ato clínico)** — mapa corporal, prescrição e os documentos
-impressos — e a **parcela 4 (dinheiro e insumo)** — pacotes, repasse e estoque. A parcela
-5 saiu antes delas porque não dependia de nenhuma das duas: ela se apoia na fundação da
-parcela 1 (`Profissional`) e no consentimento da parcela 2, que já existiam.
+Falta a **parcela 4 (dinheiro e insumo)** — pacotes, repasse e estoque —, no Financeiro.
+A parcela 5 saiu antes dela porque não dependia de nada que a 3 ou a 4 fossem entregar:
+apoia-se na fundação da parcela 1 (`Profissional`) e no consentimento da parcela 2.
 
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

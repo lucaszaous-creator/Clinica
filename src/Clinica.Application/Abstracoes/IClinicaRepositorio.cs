@@ -218,6 +218,62 @@ public interface IClinicaRepositorio
     Task<ConsentimentoLgpd?> ObterConsentimentoAsync(int consentimentoId, CancellationToken ct = default);
     Task AdicionarConsentimentoAsync(ConsentimentoLgpd consentimento, CancellationToken ct = default);
 
+    // ---- Ato clínico: mapa corporal e protocolos ----
+
+    /// <summary>Mapa da sessão, com os pontos carregados e RASTREADO (a edição substitui os pontos).</summary>
+    Task<MapaCorporal?> ObterMapaDaEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
+
+    Task AdicionarMapaAsync(MapaCorporal mapa, CancellationToken ct = default);
+
+    /// <summary>Apaga os pontos de um mapa. Editar o mapa é regravar o conjunto inteiro.</summary>
+    Task RemoverPontosDoMapaAsync(int mapaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Protocolos disponíveis para um paciente: os DA CLÍNICA (sem dono) mais os dele.
+    /// <paramref name="pacienteId"/> nulo traz só os da clínica.
+    /// </summary>
+    Task<IReadOnlyList<ProtocoloCorporal>> ProtocolosCorporaisAsync(
+        int? pacienteId, bool somenteAtivos = true, CancellationToken ct = default);
+
+    /// <summary>Protocolo com os pontos carregados.</summary>
+    Task<ProtocoloCorporal?> ObterProtocoloCorporalAsync(int protocoloId, CancellationToken ct = default);
+
+    Task AdicionarProtocoloCorporalAsync(ProtocoloCorporal protocolo, CancellationToken ct = default);
+    Task RemoverProtocoloCorporalAsync(int protocoloId, CancellationToken ct = default);
+
+    // ---- Documentos clínicos (receita, atestado, relatório…) ----
+
+    Task AdicionarDocumentoAsync(DocumentoClinico documento, CancellationToken ct = default);
+
+    /// <summary>Documento com itens, paciente e profissional carregados.</summary>
+    Task<DocumentoClinico?> ObterDocumentoAsync(int documentoId, CancellationToken ct = default);
+
+    /// <summary>Documento pelo código impresso no rodapé — a conferência da via em papel.</summary>
+    Task<DocumentoClinico?> ObterDocumentoPorCodigoAsync(string codigo, CancellationToken ct = default);
+
+    /// <summary>Documentos do paciente, do mais recente para o mais antigo (sem os itens).</summary>
+    Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    /// <summary>Próximo sequencial do ano para numerar o documento (<c>2026/0001</c>).</summary>
+    Task<int> ProximoNumeroDocumentoAsync(int ano, CancellationToken ct = default);
+
+    /// <summary>Modelos de documento, opcionalmente de um tipo só.</summary>
+    Task<IReadOnlyList<ModeloDocumento>> ModelosDocumentoAsync(
+        TipoDocumentoClinico? tipo = null, CancellationToken ct = default);
+
+    /// <summary>Modelo com os itens carregados e rastreado.</summary>
+    Task<ModeloDocumento?> ObterModeloDocumentoAsync(int modeloId, CancellationToken ct = default);
+
+    /// <summary>Modelo pelo par tipo+nome — salvar com nome repetido SOBRESCREVE em vez de duplicar.</summary>
+    Task<ModeloDocumento?> ObterModeloDocumentoPorNomeAsync(
+        TipoDocumentoClinico tipo, string nome, CancellationToken ct = default);
+
+    Task AdicionarModeloDocumentoAsync(ModeloDocumento modelo, CancellationToken ct = default);
+    Task RemoverModeloDocumentoAsync(int modeloId, CancellationToken ct = default);
+
+    /// <summary>Apaga os itens de um modelo (regravados por inteiro a cada salvamento).</summary>
+    Task RemoverItensDoModeloAsync(int modeloId, CancellationToken ct = default);
     /// <summary>
     /// Quais destes pacientes têm consentimento VIGENTE para a finalidade (o registro
     /// mais recente concedeu e não foi revogado). Em lote de propósito: as campanhas
