@@ -38,6 +38,7 @@ public sealed class LinhaCaixa
 public sealed partial class CaixaViewModel : ObservableObject
 {
     private readonly FinanceiroService _financeiro;
+    private readonly TaxaService _taxas;
     private readonly DocumentoFinanceiroService _documentos;
     private readonly DocumentosFinanceirosPdfService _pdfs;
     private readonly ParametrosService _parametros;
@@ -98,11 +99,13 @@ public sealed partial class CaixaViewModel : ObservableObject
     private bool _truncado;
 
     public CaixaViewModel(
-        FinanceiroService financeiro, DocumentoFinanceiroService documentos,
+        FinanceiroService financeiro, TaxaService taxas,
+        DocumentoFinanceiroService documentos,
         DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
         ISnackbarService snackbar, IDialogoService dialogo)
     {
         _financeiro = financeiro;
+        _taxas = taxas;
         _documentos = documentos;
         _pdfs = pdfs;
         _parametros = parametros;
@@ -175,7 +178,7 @@ public sealed partial class CaixaViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
 
-        var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_financeiro))
+        var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_financeiro, _taxas))
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };

@@ -15,12 +15,20 @@ O que confere:
   4. todo `x:Class` tem o code-behind correspondente com a classe declarada;
   5. todo `<ProjectReference>` aponta para um .csproj existente, e todo .csproj da
      suíte está no Clinica.sln;
-  6. nenhum uso do tipo `Application` sem qualificar (ver ARMADILHA abaixo).
+  6. nenhum uso do tipo `Application` sem qualificar (ver ARMADILHA abaixo);
+  7. todo `new XViewModel(...)` escrito à mão passa uma quantidade de argumentos que o
+     construtor aceita (ver ARMADILHA do construtor abaixo).
 
 ARMADILHA `Application` (CS0118): dentro de qualquer namespace `Clinica.*`, o nome
 `Application` resolve para o NAMESPACE `Clinica.Application` — nunca para o tipo
 `System.Windows.Application`. `public partial class App : Application` compila em
 qualquer outro projeto WPF do mundo e falha aqui. Sempre `System.Windows.Application`.
+
+ARMADILHA do construtor (CS7036): metade dos ViewModels de formulário é construída À MÃO
+pela tela dona (`new PacienteEdicaoViewModel(escopos, id)`), porque precisa receber o id
+no construtor e não passa pelo DI. Quando um deles ganha uma dependência nova, o DI se
+vira sozinho e os pontos de construção manual NÃO — e o erro só aparece no build do
+Windows, minutos depois. A checagem 7 compara a aridade dos dois lados.
 
 NÃO substitui o build no Windows — substitui a parte dele que dá para conferir aqui.
 
@@ -267,6 +275,65 @@ for proj in PROJETOS:
                         f"Clinica.{nome} (CS0118) — use '{correcao}'")
 
 
+# ------------------------------------------- 7. aridade dos construtores de ViewModel
+#
+# Só a ARIDADE, não os tipos: sem compilador não há como resolver sobrecarga, e o que
+# quebra na prática é a tela que continua passando os argumentos antigos depois de o
+# ViewModel ganhar uma dependência. Tipo trocado o build pega; contagem errada, também —
+# mas esta roda em dois segundos e aqui.
+
+CTOR_VM = re.compile(r"public\s+(\w+ViewModel)\s*\(([^)]*)\)\s*(?::[^\{]*)?\{", re.S)
+CHAMADA_VM = re.compile(r"new\s+(?:\w+\.)*(\w+ViewModel)\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)")
+
+
+def _dividir(texto: str) -> list[str]:
+    """Quebra a lista de argumentos na vírgula de nível zero (genéricos e chamadas aninhadas)."""
+    partes, nivel, atual = [], 0, ""
+    for ch in texto:
+        if ch in "(<":
+            nivel += 1
+        elif ch in ")>":
+            nivel -= 1
+        if ch == "," and nivel == 0:
+            partes.append(atual)
+            atual = ""
+        else:
+            atual += ch
+    partes.append(atual)
+    return [x.strip() for x in partes if x.strip()]
+
+
+def _fontes() -> list[Path]:
+    return [
+        cs
+        for proj in PROJETOS
+        for cs in sorted((RAIZ / proj).rglob("*.cs"))
+        if "obj" not in cs.parts and "bin" not in cs.parts
+    ]
+
+
+assinaturas: dict[str, tuple[int, int]] = {}
+for cs in _fontes():
+    for m in CTOR_VM.finditer(cs.read_text(encoding="utf-8")):
+        params = _dividir(m.group(2))
+        opcionais = sum(1 for x in params if "=" in x)
+        assinaturas[m.group(1)] = (len(params) - opcionais, len(params))
+
+for cs in _fontes():
+    for n, linha in enumerate(cs.read_text(encoding="utf-8").splitlines(), 1):
+        codigo = linha.split("//", 1)[0]
+        for m in CHAMADA_VM.finditer(codigo):
+            nome, args = m.group(1), m.group(2).strip()
+            if nome not in assinaturas:
+                continue
+            quantos = len(_dividir(args))
+            minimo, maximo = assinaturas[nome]
+            if not minimo <= quantos <= maximo:
+                erros.append(
+                    f"{rel(cs)}:{n}: new {nome}(...) passa {quantos} argumento(s); o "
+                    f"construtor aceita de {minimo} a {maximo} (CS7036)")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
@@ -277,4 +344,7 @@ if erros:
         print(f"  - {e}")
     sys.exit(1)
 
-print(f"OK — {len(arvores)} XAML e {len(csprojs())} projetos da suíte verificados.")
+print(
+    f"OK — {len(arvores)} XAML, {len(csprojs())} projetos e "
+    f"{len(assinaturas)} construtores de ViewModel verificados."
+)
