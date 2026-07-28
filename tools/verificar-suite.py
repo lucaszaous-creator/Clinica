@@ -39,6 +39,7 @@ PROJETOS = [
     "src/Clinica.Desktop.Shell",
     "src/Clinica.Modulo.Recepcao",
     "src/Clinica.Modulo.Financeiro",
+    "src/Clinica.Modulo.Gerente",
     "src/Clinica.Recepcao",
     "src/Clinica.Financeiro",
     "src/Clinica.Gerente",

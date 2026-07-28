@@ -689,6 +689,28 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         _db.ItensModelo.RemoveRange(itens);
     }
 
+    public async Task<IReadOnlyList<int>> PacientesComConsentimentoVigenteAsync(
+        FinalidadeConsentimento finalidade,
+        IReadOnlyCollection<int> pacienteIds,
+        CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        // Só os registros DESTES pacientes e DESTA finalidade saem do banco; o "mais
+        // recente vence" é resolvido aqui porque é a mesma regra do ConsentimentoService
+        // (situação atual = último registro), e duplicá-la em SQL é convite a divergir.
+        var registros = await _db.Consentimentos.AsNoTracking()
+            .Where(c => c.Finalidade == finalidade && pacienteIds.Contains(c.PacienteId))
+            .OrderByDescending(c => c.RegistradoEm).ThenByDescending(c => c.Id)
+            .ToListAsync(ct);
+
+        return registros
+            .GroupBy(c => c.PacienteId)
+            .Where(g => g.First().Vigente)
+            .Select(g => g.Key)
+            .ToList();
+    }
+
     // ---- Auditoria ----
 
     public async Task RegistrarAuditoriaAsync(EventoAuditoria evento, CancellationToken ct = default)
@@ -737,6 +759,108 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public async Task AdicionarCategoriaFinanceiraAsync(CategoriaFinanceira categoria, CancellationToken ct = default)
         => await _db.CategoriasFinanceiras.AddAsync(categoria, ct);
+
+    // ---- Indicadores gerenciais ----
+
+    public async Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Evolucoes.AsNoTracking()
+            .Include(e => e.Profissional)
+            .Where(e => e.Data >= inicio && e.Data <= fim)
+            .OrderBy(e => e.Data)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.InatividadePaciente>> InatividadeAsync(
+        DateOnly referencia, CancellationToken ct = default)
+    {
+        var apartirDe = referencia.ToDateTime(TimeOnly.MinValue);
+
+        // Projeção pura: o banco devolve uma linha por paciente com duas agregações, em
+        // vez de mandar a base de atendimentos inteira para a aplicação contar.
+        return await _db.Pacientes.AsNoTracking()
+            .Select(p => new Clinica.Application.Modelos.InatividadePaciente(
+                p.Id,
+                p.Nome,
+                p.Telefone,
+                p.Atendimentos.Max(a => (DateOnly?)a.Data),
+                _db.Agendamentos
+                    .Where(a => a.PacienteId == p.Id
+                                && a.DataHora >= apartirDe
+                                && a.Status == StatusAgendamento.Agendado)
+                    .Min(a => (DateTime?)a.DataHora)))
+            .ToListAsync(ct);
+    }
+
+    // ---- Campanhas: confirmação, NPS e recall ----
+
+    public async Task AdicionarContatoAsync(ContatoCampanha contato, CancellationToken ct = default)
+        => await _db.Contatos.AddAsync(contato, ct);
+
+    public Task<ContatoCampanha?> ObterContatoAsync(int contatoId, CancellationToken ct = default)
+        => _db.Contatos
+            .Include(c => c.Paciente)
+            .Include(c => c.Agendamento)
+            .FirstOrDefaultAsync(c => c.Id == contatoId, ct);
+
+    public async Task<IReadOnlyList<ContatoCampanha>> ContatosAsync(
+        TipoContato? tipo, StatusContato? status,
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+    {
+        var q = _db.Contatos.AsNoTracking()
+            .Include(c => c.Paciente)
+            .Include(c => c.Agendamento)
+            .Where(c => c.Referencia >= inicio && c.Referencia <= fim);
+
+        if (tipo is { } t) q = q.Where(c => c.Tipo == t);
+        if (status is { } s) q = q.Where(c => c.Status == s);
+
+        // Pendente primeiro: a tela existe para trabalhar a fila, não para ler histórico.
+        return await q
+            .OrderBy(c => c.Status)
+            .ThenBy(c => c.Referencia)
+            .ThenBy(c => c.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<string>> OrigensDeContatoAsync(
+        TipoContato tipo, IReadOnlyCollection<string> origens, CancellationToken ct = default)
+    {
+        if (origens.Count == 0) return [];
+
+        return await _db.Contatos.AsNoTracking()
+            .Where(c => c.Tipo == tipo && origens.Contains(c.Origem))
+            .Select(c => c.Origem)
+            .ToListAsync(ct);
+    }
+
+    // ---- Usuários e permissões ----
+
+    public async Task<IReadOnlyList<UsuarioSistema>> UsuariosAsync(CancellationToken ct = default)
+        => await _db.Usuarios.AsNoTracking()
+            .Include(u => u.Profissional)
+            .OrderByDescending(u => u.Ativo)
+            .ThenBy(u => u.Nome)
+            .ToListAsync(ct);
+
+    public Task<UsuarioSistema?> ObterUsuarioAsync(int usuarioId, CancellationToken ct = default)
+        => _db.Usuarios
+            .Include(u => u.Profissional)
+            .FirstOrDefaultAsync(u => u.Id == usuarioId, ct);
+
+    public Task<UsuarioSistema?> ObterUsuarioPorLoginAsync(string login, CancellationToken ct = default)
+        => _db.Usuarios
+            .Include(u => u.Profissional)
+            .FirstOrDefaultAsync(u => u.Login == login, ct);
+
+    public async Task AdicionarUsuarioAsync(UsuarioSistema usuario, CancellationToken ct = default)
+        => await _db.Usuarios.AddAsync(usuario, ct);
+
+    public async Task RemoverUsuarioAsync(int usuarioId, CancellationToken ct = default)
+    {
+        var u = await _db.Usuarios.FirstOrDefaultAsync(x => x.Id == usuarioId, ct);
+        if (u is not null)
+            _db.Usuarios.Remove(u);
+    }
 
     public async Task<int> SalvarAsync(CancellationToken ct = default)
     {

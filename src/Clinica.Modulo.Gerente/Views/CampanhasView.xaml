@@ -1,0 +1,160 @@
+<UserControl x:Class="Clinica.Gerente.Views.CampanhasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <!-- ============ Cabeçalho ============ -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Campanhas" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                           Text="Confirmação de sessão, pesquisa de satisfação e recall de quem parou de vir." />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}" MinWidth="130" />
+                <ComboBox ItemsSource="{Binding Situacoes}" SelectedItem="{Binding SituacaoSelecionada}"
+                          MinWidth="130" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0"
+                        Style="{StaticResource BotaoSecundario}" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ============ Gerar rodada ============ -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Gerar rodada" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10"
+                           Text="O sistema descobre quem contatar, respeita o consentimento de comunicação (LGPD) e nunca repete o mesmo paciente na mesma rodada. O envio continua sendo um clique por pessoa — é o WhatsApp da clínica." />
+
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="Confirmações de amanhã" Command="{Binding GerarConfirmacoesCommand}"
+                            MinWidth="200" />
+                    <Button Content="NPS de ontem" Command="{Binding GerarNpsCommand}"
+                            MinWidth="150" Margin="8,0,0,0" Style="{StaticResource BotaoSecundario}" />
+                    <Button Content="Recall do mês" Command="{Binding GerarRecallCommand}"
+                            MinWidth="150" Margin="8,0,0,0" Style="{StaticResource BotaoSecundario}" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding ResultadoRodada}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0,10,0,0" />
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ============ Fila de contatos ============ -->
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Padding="16,12"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="300" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Paciente" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="1" Text="Telefone" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="2" Text="Campanha" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="3" Text="Referência" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="4" Text="Situação" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="5" Text="Nota" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="6" Text="Ações" Style="{StaticResource Rotulo}" Margin="0" />
+                    </Grid>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Contatos}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16,8"
+                                        BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="300" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock Text="{Binding Comentario}" TextTrimming="CharacterEllipsis"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Telefone}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Tipo}"
+                                                   VerticalAlignment="Center" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Referencia}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Grid.Column="4" Text="{Binding Situacao}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Grid.Column="5" Text="{Binding Nota}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+
+                                        <StackPanel Grid.Column="6" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="WhatsApp" Style="{StaticResource BotaoAcaoGrid}"
+                                                    IsEnabled="{Binding PodeEnviar}"
+                                                    Command="{Binding DataContext.EnviarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Nota" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Margin="6,0,0,0" IsEnabled="{Binding PodeAgir}"
+                                                    Visibility="{Binding EhNps, Converter={StaticResource BoolParaVisibilidade}}"
+                                                    Command="{Binding DataContext.RegistrarNotaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Respondeu" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Margin="6,0,0,0" IsEnabled="{Binding PodeAgir}"
+                                                    Command="{Binding DataContext.RegistrarRespostaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Dispensar" Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    Margin="6,0,0,0" IsEnabled="{Binding PodeAgir}"
+                                                    Command="{Binding DataContext.DispensarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

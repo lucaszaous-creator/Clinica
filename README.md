@@ -28,11 +28,15 @@ camadas — sem duplicar código e sem encostar no que já está em produção:
 | Projeto | Responsabilidade |
 |---|---|
 | `Clinica.Desktop.Shell` | Design system, janela genérica, contrato de módulo (`IModuloApp`) e a abertura padrão. |
-| `Clinica.Modulo.Recepcao` | Telas da recepção (fila do dia). |
+| `Clinica.Modulo.Recepcao` | Painel, agenda multiprofissional, fila do dia, pacientes e prontuário. |
 | `Clinica.Modulo.Financeiro` | Caixa, Conciliação e Produção. |
+| `Clinica.Modulo.Gerente` | Indicadores (BI), campanhas (confirmação, NPS e recall), acessos e a visão de leitura do faturamento. |
 | `Clinica.Recepcao` / `Clinica.Financeiro` / `Clinica.Gerente` | Executáveis — cascas finas que só escolhem quais módulos carregar. O Gerente Geral carrega todos. |
 
-O faturamento vira módulo na Fase 4. Detalhes, fases e plano: [`docs/arquitetura-multi-exe.md`](docs/arquitetura-multi-exe.md).
+Recepção, Financeiro e Gerente pedem **login** (`LoginWindow` + `SessaoUsuario` no shell); base sem
+usuário abre o primeiro acesso em vez de trancar a clínica do lado de fora. O **faturamento continua
+sem login e não vira módulo** — a Fase 4 foi cancelada. Detalhes, fases e plano:
+[`docs/arquitetura-multi-exe.md`](docs/arquitetura-multi-exe.md).
 
 ### Convênios modelados
 - **Unimed Costa do Sol (Padrão)** — com app → acu+eletro (2º código +24h, ligar/QR), VERDE; sem app → só acupuntura, AMARELA.

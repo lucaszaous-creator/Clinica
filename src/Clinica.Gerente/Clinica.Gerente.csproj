@@ -6,8 +6,10 @@
     então nada aqui precisa ser corrigido em dois lugares.
     Ver docs/arquitetura-multi-exe.md (Fase 3).
 
-    O módulo de Faturamento entra nesta lista na Fase 4, quando Clinica.Desktop virar
-    módulo — e o Gerente ganha as telas do faturamento sem uma linha de código novo.
+    As telas exclusivas da direção (BI, campanhas, acessos e a visão de leitura do
+    faturamento) vivem no Clinica.Modulo.Gerente, que só este executável carrega.
+    A Fase 4 — faturamento como módulo — foi CANCELADA: o app de faturamento está
+    congelado, e o Gerente o enxerga lendo os serviços compartilhados.
   -->
 
   <PropertyGroup>
@@ -34,6 +36,7 @@
     <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
     <ProjectReference Include="..\Clinica.Modulo.Recepcao\Clinica.Modulo.Recepcao.csproj" />
     <ProjectReference Include="..\Clinica.Modulo.Financeiro\Clinica.Modulo.Financeiro.csproj" />
+    <ProjectReference Include="..\Clinica.Modulo.Gerente\Clinica.Modulo.Gerente.csproj" />
   </ItemGroup>
 
   <!-- App.xaml deixa de gerar o Main automático (usamos Program.Main). -->

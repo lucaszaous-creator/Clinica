@@ -1,4 +1,5 @@
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain.Entities;
 using Clinica.Financeiro.ViewModels;
 using Clinica.Financeiro.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,11 +18,13 @@ public sealed class ModuloFinanceiro : IModuloApp
 
     public string Nome => "Financeiro";
 
+    // Todas exigem VerFinanceiro (parcela 5): dinheiro não aparece para quem só
+    // trabalha o balcão, a menos que a direção conceda a permissão.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        new ItemMenuModulo { Chave = ChaveCaixa, Rotulo = "Caixa", Glifo = "\uE8C7" },
-        new ItemMenuModulo { Chave = ChaveConciliacao, Rotulo = "Conciliação", Glifo = "\uE8AB" },
-        new ItemMenuModulo { Chave = ChaveProducao, Rotulo = "Produção", Glifo = "\uE9D2" }
+        new ItemMenuModulo { Chave = ChaveCaixa, Rotulo = "Caixa", Glifo = "\uE8C7", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveConciliacao, Rotulo = "Conciliação", Glifo = "\uE8AB", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveProducao, Rotulo = "Produção", Glifo = "\uE9D2", Requer = Permissao.VerFinanceiro }
     ];
 
     public void Registrar(IServiceCollection servicos)

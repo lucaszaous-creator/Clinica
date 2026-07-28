@@ -53,6 +53,34 @@ public static class Whatsapp
              + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
     }
 
+    /// <summary>
+    /// Mensagem padrão da pesquisa de satisfação (parcela 5). A pergunta é a do NPS
+    /// clássico, com a escala explícita: sem "de 0 a 10" a resposta vem em texto e a
+    /// nota não existe.
+    /// </summary>
+    public static string PesquisaDeSatisfacao(string nomePaciente, string? nomeClinica = null)
+    {
+        var primeiroNome = PrimeiroNome(nomePaciente);
+
+        return $"Olá, {primeiroNome}! De 0 a 10, o quanto você recomendaria a nossa clínica"
+             + " para um amigo ou familiar? Sua resposta leva 10 segundos e nos ajuda muito."
+             + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
+    }
+
+    /// <summary>Mensagem padrão de recall: o paciente parou de vir e a clínica está chamando de volta.</summary>
+    public static string Recall(string nomePaciente, int? diasSemVir = null, string? nomeClinica = null)
+    {
+        var primeiroNome = PrimeiroNome(nomePaciente);
+        var tempo = diasSemVir is >= 60 ? " Faz um tempinho desde a sua última sessão." : string.Empty;
+
+        return $"Olá, {primeiroNome}! Tudo bem?{tempo}"
+             + " Estamos com horários abertos e podemos reservar um para você — quer que eu marque?"
+             + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");
+    }
+
+    private static string PrimeiroNome(string nomePaciente)
+        => nomePaciente.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? nomePaciente;
+
     /// <summary>Mensagem padrão de cobrança do documento que falta para a guia.</summary>
     public static string CobrancaDeGuia(string nomePaciente, string? nomeClinica = null)
     {

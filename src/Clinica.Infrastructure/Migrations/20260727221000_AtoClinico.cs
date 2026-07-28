@@ -17,7 +17,7 @@ namespace Clinica.Infrastructure.Migrations
     /// alterada ou removida — o faturamento em produção não vê diferença.
     /// </summary>
     [DbContext(typeof(ClinicaDbContext))]
-    [Migration("20260727220000_AtoClinico")]
+    [Migration("20260727221000_AtoClinico")]
     public partial class AtoClinico : Migration
     {
         /// <inheritdoc />
