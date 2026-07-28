@@ -24,6 +24,7 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveFaturamento = "faturamento-gerencial";
     public const string ChaveCampanhas = "campanhas";
     public const string ChaveAcessos = "acessos";
+    public const string ChaveConfiguracoes = "configuracoes";
 
     public string Nome => "Direção";
 
@@ -51,6 +52,11 @@ public sealed class ModuloGerente : IModuloApp
         {
             Chave = ChaveAcessos, Rotulo = "Acessos", Glifo = "\uE72E",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveConfiguracoes, Rotulo = "Configura\u00E7\u00F5es", Glifo = "\uE713",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
         }
     ];
 
@@ -60,6 +66,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<FaturamentoGerencialViewModel>();
         servicos.AddTransient<CampanhasViewModel>();
         servicos.AddTransient<AcessosViewModel>();
+        servicos.AddTransient<ConfiguracoesViewModel>();
         // UsuarioEdicaoViewModel é construído à mão pela tela: precisa receber o id do
         // usuário no construtor, como os demais formulários da suíte.
     }
@@ -81,6 +88,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveAcessos => new AcessosView
         {
             DataContext = servicos.GetRequiredService<AcessosViewModel>()
+        },
+        ChaveConfiguracoes => new ConfiguracoesView
+        {
+            DataContext = servicos.GetRequiredService<ConfiguracoesViewModel>()
         },
         _ => null
     };
