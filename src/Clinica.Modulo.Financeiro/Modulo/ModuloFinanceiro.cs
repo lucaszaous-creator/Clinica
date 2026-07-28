@@ -1,4 +1,5 @@
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain.Entities;
 using Clinica.Financeiro.ViewModels;
 using Clinica.Financeiro.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,15 +29,17 @@ public sealed class ModuloFinanceiro : IModuloApp
 
     public string Nome => "Financeiro";
 
+    // Todas exigem VerFinanceiro (parcela 5): dinheiro não aparece para quem só
+    // trabalha o balcão, a menos que a direção conceda a permissão.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        new ItemMenuModulo { Chave = ChaveCaixa, Rotulo = "Caixa", Glifo = "" },
-        new ItemMenuModulo { Chave = ChaveConciliacao, Rotulo = "Conciliação", Glifo = "" },
-        new ItemMenuModulo { Chave = ChaveProducao, Rotulo = "Produção", Glifo = "" },
-        new ItemMenuModulo { Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "" },
-        new ItemMenuModulo { Chave = ChaveEstoque, Rotulo = "Estoque", Glifo = "" },
-        new ItemMenuModulo { Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "" },
-        new ItemMenuModulo { Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "" }
+        new ItemMenuModulo { Chave = ChaveCaixa, Rotulo = "Caixa", Glifo = "\uE8C7", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveConciliacao, Rotulo = "Concilia\u00e7\u00e3o", Glifo = "\uE8AB", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9D2", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChavePacotes, Rotulo = "Pacotes", Glifo = "\uE719", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveEstoque, Rotulo = "Estoque", Glifo = "\uE7B8", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE8C8", Requer = Permissao.VerFinanceiro },
+        new ItemMenuModulo { Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8FD", Requer = Permissao.VerFinanceiro }
     ];
 
     public void Registrar(IServiceCollection servicos)

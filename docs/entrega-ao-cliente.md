@@ -8,9 +8,8 @@
 
 ## Onde estamos
 
-**5 das 6 parcelas entregues.** Com a parcela 4, **Recepção e Financeiro estão
-completos** — só falta da Recepção a confirmação automática por WhatsApp, que é campanha
-e vai com o recall.
+**As seis parcelas estão entregues.** A 3 fechou a Recepção, a 4 fechou o Financeiro e a
+5 tirou o Gerente Geral da condição de casca que só carregava os outros.
 
 | Parcela | Estado |
 |---|---|
@@ -19,15 +18,21 @@ e vai com o recall.
 | 2 — Cadastro e prontuário | ✅ entregue |
 | 3 — Ato clínico | ✅ entregue |
 | 4 — Dinheiro e insumo | ✅ entregue |
-| 5 — Inteligência | ⬜ próxima (e última) |
+| 5 — Inteligência | ✅ entregue |
 
-Das **14 features** vendidas na proposta: **10 completas, 3 parciais, 1 inexistente.**
+> A parcela 5 saiu **fora da ordem** de propósito: ela não dependia da 3 nem da 4. O que
+> ela precisava — `Profissional` (parcela 1) e o consentimento LGPD (parcela 2) — já
+> estava pronto, e segurá-la só adiaria a única tela que a direção usa.
+
+Das **14 features** vendidas na proposta: **as 14 completas.**
 
 | Estado | Features |
 |---|---|
-| ✅ Completas | 01 painel · 03 fila kanban · 04 pacientes 360º · 05 prontuário/EVA · 06 mapa corporal · 07 prescrição · 08 pacotes · 09 caixa e repasses · 10 estoque · 14 TISS |
-| 🟡 Parciais | 02 agenda · 12 BI · 13 permissões/LGPD |
-| ⬜ Inexistentes | 11 NPS/recall |
+| ✅ Completas | 01 painel · 02 agenda · 03 fila kanban · 04 pacientes 360º · 05 prontuário/EVA · 06 mapa corporal · 07 prescrição · 08 pacotes · 09 caixa e repasses · 10 estoque · 11 NPS/recall · 12 BI · 13 permissões/LGPD · 14 TISS |
+
+> Completa quer dizer **entregue como o produto se propôs a fazer**. As duas ressalvas
+> que continuam valendo estão em [Duas afirmações da proposta que ainda precisam de
+> decisão](#duas-afirmações-da-proposta-que-ainda-precisam-de-decisão).
 
 Dos **12 documentos impressos** da página 21 da proposta, **os 12 existem** — a página
 está fechada.
@@ -37,20 +42,14 @@ está fechada.
 | App | O que já entrega | O que ainda falta |
 |---|---|---|
 | **Faturamento** | Tudo: motor de regras, 2º código, lotes TISS, glosa e recurso, PDFs. **Em produção.** | Nada — está **congelado** de propósito |
-| **Recepção** | Painel do dia, agenda multiprofissional com encaixe e lista de espera, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos, mapa corporal com protocolo e os 7 documentos clínicos | Só a confirmação automática por WhatsApp (parcela 5) |
+| **Recepção** | Painel do dia, agenda multiprofissional com encaixe e lista de espera, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos, mapa corporal com protocolo e os 7 documentos clínicos | Nada da proposta |
 | **Financeiro** | Caixa do mês, lançamento manual, conciliação com o faturamento, produção do período, pacotes com saldo e baixa automática, estoque com alerta de mínimo e validade, repasse por profissional, plano de contas, recibo e orçamento | Nada da proposta |
-| **Gerente Geral** | Carrega Recepção + Financeiro inteiros | Telas próprias de BI, NPS/recall, perfis e permissões, e a visão consolidada do faturamento (parcela 5) |
+| **Gerente Geral** | Carrega Recepção + Financeiro inteiros **e** as telas da direção: indicadores (ocupação, no-show, produtividade), campanhas (confirmação, NPS e recall), acessos com perfis e permissões, e a visão de leitura do faturamento | Nada da proposta |
 
 ### O que falta
 
-- **Parcela 5 — inteligência** (Gerente), a última: BI com ocupação, no-show e
-  produtividade; NPS e recall; perfis e permissões; visão consolidada lendo o
-  faturamento; e a confirmação automática por WhatsApp, que é campanha e por isso vem
-  com o recall.
-
-> Das cinco frentes da parcela 5, **os perfis de acesso são a única sem fundação
-> nenhuma**: usuário e login não existem em lugar algum do sistema hoje. As outras quatro
-> se apoiam em coisas que já estão de pé (`RelatorioService`, `Profissional`, `Agendamento`).
+Nada da proposta comercial. O que existe daqui em diante é evolução, não entrega
+pendente — e as duas ressalvas registradas logo abaixo, que são decisão comercial.
 
 ### Duas afirmações da proposta que ainda precisam de decisão
 
@@ -64,6 +63,14 @@ está fechada.
 A **página 23** ("Prontuário com mapa corporal e EVA") deixou de ser divergência: a EVA
 saiu na parcela 2 e o mapa corporal saiu na 3 — a afirmação agora é inteiramente
 verdadeira.
+
+E uma terceira, que a parcela 5 criou ao entregar a feature 02: **"confirmação automática
+por WhatsApp"**. O que ficou automático é a RODADA — o sistema descobre quem confirmar,
+escreve a mensagem, respeita a LGPD e não repete ninguém. O **disparo é um clique por
+paciente**, de propósito: o número é o WhatsApp da clínica, e envio em massa automatizado
+por ali leva ao bloqueio do número. Se o cliente entendeu "automática" como "sozinho, sem
+ninguém clicar", a alternativa real é contratar a API oficial do WhatsApp Business — o que
+é decisão comercial, não técnica, e precisa ser dita antes de virar cobrança.
 
 ## Topologia: quatro apps, um por perfil
 
@@ -277,6 +284,45 @@ A migration é **puramente aditiva**: só tabelas novas (`PacotesCatalogo`,
 `PacotesPaciente`, `ConsumosPacote`, `RegrasRepasse`, `RepassesApurados`, `ItensEstoque`,
 `MovimentosEstoque`, `DocumentosFinanceiros`, `ItensDocumentoFinanceiro`).
 
+## Inteligência e acesso — resolvido na parcela 5
+
+Até aqui o Gerente Geral era uma casca: carregava Recepção e Financeiro e não tinha nada
+de seu. A parcela 5 dá a ele as quatro telas que só fazem sentido para a direção — e, de
+quebra, fecha a última metade da feature 02 e a feature 13 inteira.
+
+| Tela | O que responde |
+|---|---|
+| **Indicadores** | Como a clínica está: ocupação, no-show, produtividade por profissional, NPS e a evolução mês a mês |
+| **Faturamento** | Estamos perdendo faturamento, e onde? Taxa de baixa, glosa, envelhecimento das pendências e quebra por convênio — **só leitura** |
+| **Campanhas** | O que estamos fazendo a respeito: confirmação da sessão, pesquisa de satisfação e recall de quem sumiu |
+| **Acessos** | Quem entra na suíte, com qual perfil e o que cada um pode fazer |
+
+Cinco decisões que valem registrar:
+
+- **O Gerente lê o faturamento; não o opera.** Com a Fase 4 cancelada, a alternativa não
+  foi herdar as telas do app congelado, e sim uma tela própria sobre os MESMOS serviços
+  compartilhados. Sendo leitura, não existe risco de duas máquinas disputarem a mesma
+  guia — e o app em produção segue intocado.
+- **"Automática" é a rodada, não o disparo.** O sistema descobre quem contatar, escreve a
+  mensagem, aplica a LGPD e não repete ninguém; o envio continua sendo um clique por
+  paciente. O número é o WhatsApp da clínica, e disparo em massa automatizado por ali
+  termina com o número bloqueado — perder o canal para economizar cliques é mau negócio.
+  Isso está registrado como divergência da proposta em `features-por-modulo.md`.
+- **Confirmar a sessão não é marketing; NPS e recall são.** Avisar o paciente sobre o
+  horário que ele mesmo pediu é transacional e não exige consentimento. As outras duas só
+  saem para quem consentiu — e quem não consentiu **aparece contado** no resultado da
+  rodada, para a clínica ir colher o consentimento no balcão, em vez de sumir da lista.
+- **Número sem base de cálculo aparece como "—", nunca como zero.** Ocupação sem agenda,
+  NPS sem resposta e queda de dor sem par de medidas devolvem "não medido". É a mesma
+  regra do painel de pendências: falha nunca pode ser exibida como sucesso.
+- **Base sem usuário abre o "primeiro acesso" em vez de trancar a porta.** Recepção,
+  Financeiro e Gerente passaram a pedir login; se não há ninguém cadastrado, a tela
+  oferece criar o primeiro usuário (Gerente). O **Faturamento continua sem login** — está
+  congelado e roda num posto só.
+
+A migration (`20260727220000_CampanhasEAcesso`) é **puramente aditiva**: só as tabelas
+novas `ContatosCampanha` e `Usuarios`.
+
 ## Os quatro são instaláveis
 
 Desde a parcela 0, **os quatro apps instalam e rodam sozinhos** — nenhum depende de o
@@ -292,12 +338,13 @@ o inventário está em [Onde estamos](#onde-estamos), e o detalhe feature a feat
 | ~~**1 — Fundação**~~ ✅ | Recepção | `Profissional` + `Sala`; agenda multiprofissional com encaixe e lista de espera; fila em kanban; painel próprio | Features 01 e 03 entregues, 02 sem a confirmação automática — e destrava 05, 09, 12 e 13 |
 | ~~**2 — Cadastro e prontuário**~~ ✅ | Recepção | Pacientes 360º com consentimento LGPD; prontuário com evolução e escala EVA | Features 04 e 05 — **fecha a Fase 1 da proposta** |
 | ~~**3 — Ato clínico**~~ ✅ | Recepção | Mapa corporal com protocolo reutilizável; prescrição com modelos; os 7 documentos clínicos | Features 06 e 07, e 7 dos 12 documentos da página 21 — **fecha a Recepção** |
+| ~~**5 — Inteligência**~~ ✅ | Gerente | BI (ocupação, no-show, produtividade); campanhas de confirmação, NPS e recall; perfis, permissões e login; visão de leitura do faturamento | Features 11, 12 e 13, e a metade que faltava da 02 |
 | ~~**4 — Dinheiro e insumo**~~ ✅ | Financeiro | Pacotes/vouchers com saldo e baixa automática; repasse por profissional; estoque com validade e custo; plano de contas; recibo e orçamento | Features 08, 09 e 10, e os 2 documentos que faltavam da página 21 — **fecha o Financeiro** |
-| **5 — Inteligência** | Gerente | BI (ocupação, no-show, produtividade); NPS, recall e confirmação automática; perfis e permissões; visão consolidada lendo o faturamento | Features 11 e 12, a metade que falta da 13 (a LGPD saiu na parcela 2) e a confirmação automática da 02 |
 
 A coluna "Destrava" é o que justifica a ordem: cada parcela existe porque a seguinte não
 teria onde se apoiar sem ela. A fundação (1) é o caso mais claro — sem `Profissional`,
-metade das features de 4 e 5 fica parada.
+metade das features de 4 e 5 ficava parada. A parcela 5 saiu antes das 3 e 4 justamente
+porque essa dependência já estava paga: ela não precisava de nada que as duas entregam.
 
 ## Instalação numa clínica nova
 

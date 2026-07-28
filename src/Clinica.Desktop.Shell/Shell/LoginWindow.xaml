@@ -1,0 +1,65 @@
+<Window x:Class="Clinica.Desktop.Shell.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Entrar" Width="460" SizeToContent="Height"
+        Icon="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/icone.png"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <StackPanel Margin="28">
+        <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
+               Height="40" HorizontalAlignment="Left" Margin="0,0,0,18"
+               RenderOptions.BitmapScalingMode="HighQuality" ToolTip="Clínica SemDor" />
+
+        <TextBlock x:Name="TxtTitulo" Style="{StaticResource H2}" Margin="0,0,0,4" />
+        <TextBlock x:Name="TxtSubtitulo" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+
+        <!-- ============ Entrar ============ -->
+        <StackPanel x:Name="PainelEntrar">
+            <TextBlock Text="Usuário" Style="{StaticResource Rotulo}" />
+            <TextBox x:Name="TxtLogin" />
+
+            <TextBlock Text="Senha" Style="{StaticResource Rotulo}" />
+            <PasswordBox x:Name="TxtSenha" />
+        </StackPanel>
+
+        <!-- ============ Primeiro acesso ============ -->
+        <StackPanel x:Name="PainelPrimeiroAcesso" Visibility="Collapsed">
+            <TextBlock Text="Seu nome" Style="{StaticResource Rotulo}" />
+            <TextBox x:Name="TxtNovoNome" />
+
+            <TextBlock Text="Usuário (sem espaços)" Style="{StaticResource Rotulo}" />
+            <TextBox x:Name="TxtNovoLogin" />
+
+            <TextBlock Text="Senha" Style="{StaticResource Rotulo}" />
+            <PasswordBox x:Name="TxtNovaSenha" />
+
+            <TextBlock Text="Repita a senha" Style="{StaticResource Rotulo}" />
+            <PasswordBox x:Name="TxtNovaSenhaRepetida" />
+        </StackPanel>
+
+        <!-- ============ Troca obrigatória de senha ============ -->
+        <StackPanel x:Name="PainelTrocarSenha" Visibility="Collapsed">
+            <TextBlock Text="Nova senha" Style="{StaticResource Rotulo}" />
+            <PasswordBox x:Name="TxtTrocaSenha" />
+
+            <TextBlock Text="Repita a nova senha" Style="{StaticResource Rotulo}" />
+            <PasswordBox x:Name="TxtTrocaSenhaRepetida" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+            <Button x:Name="BtnEntrar" Content="Entrar" MinWidth="140"
+                    Click="Confirmar" IsDefault="True" />
+            <Button Content="Sair" MinWidth="100" Margin="10,0,0,0"
+                    Style="{StaticResource BotaoSecundario}" Click="Cancelar" IsCancel="True" />
+        </StackPanel>
+
+        <Border x:Name="BoxErro" Style="{StaticResource AlertaPerigo}" Margin="0,16,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="TxtErro" TextWrapping="Wrap" />
+        </Border>
+
+        <Border x:Name="BoxInfo" Style="{StaticResource AlertaInfo}" Margin="0,16,0,0" Visibility="Collapsed">
+            <TextBlock x:Name="TxtInfo" TextWrapping="Wrap" />
+        </Border>
+    </StackPanel>
+</Window>

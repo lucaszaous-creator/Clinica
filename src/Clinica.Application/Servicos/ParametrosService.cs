@@ -196,6 +196,42 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Indicadores gerenciais (parcela 5) ----
+
+    public const string ChaveJornadaDiariaMinutos = "JornadaDiariaMinutos";
+    public const int JornadaDiariaPadraoMinutos = 480; // 8 h
+
+    /// <summary>
+    /// Jornada diária de um profissional, em minutos — o DENOMINADOR da taxa de
+    /// ocupação. É configurável porque clínica que atende meio período veria 50% de
+    /// ocupação com a agenda cheia, e o número mentiria para baixo todo mês.
+    /// </summary>
+    public async Task<int> ObterJornadaDiariaAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveJornadaDiariaMinutos, ct), out var min) && min >= 1
+            ? min
+            : JornadaDiariaPadraoMinutos;
+
+    public async Task SalvarJornadaDiariaAsync(int minutos, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(
+            ChaveJornadaDiariaMinutos, Math.Clamp(minutos, 1, 24 * 60).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    public const string ChaveDiasInatividadeRecall = "DiasInatividadeRecall";
+
+    /// <summary>Dias sem vir a partir dos quais o paciente entra no recall (padrão 60).</summary>
+    public async Task<int> ObterDiasInatividadeRecallAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveDiasInatividadeRecall, ct), out var dias) && dias >= 1
+            ? dias
+            : CampanhaService.DiasInatividadePadrao;
+
+    public async Task SalvarDiasInatividadeRecallAsync(int dias, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveDiasInatividadeRecall, Math.Max(1, dias).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Numeração sequencial de lote TISS (o padrão exige sequência, não timestamp) ----
 
     public const string ChaveProximoLoteTiss = "TissProximoNumeroLote";

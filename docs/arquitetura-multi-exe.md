@@ -67,6 +67,7 @@ Clinica.Desktop.Shell         (lib)  design system, sidebar, snackbar,
                                      ConexaoStore, janela genérica, bootstrap
 Clinica.Modulo.Recepcao       (lib)  Views + ViewModels da recepção
 Clinica.Modulo.Financeiro     (lib)
+Clinica.Modulo.Gerente        (lib)  BI, campanhas, acessos e a leitura do faturamento
 Clinica.Recepcao.exe    → Shell + Recepcao
 Clinica.Financeiro.exe  → Shell + Financeiro
 Clinica.Gerente.exe     → Shell + TODOS os módulos
@@ -332,6 +333,28 @@ só leitura, não há risco de escrita concorrente com o faturista.
 
 Isso também mantém honesta a promessa da arquitetura: o executável não é dono das telas.
 O Gerente continua sendo uma casca — só que com um módulo de leitura a mais.
+
+**Na parcela 5 esse módulo foi construído**: `src/Clinica.Modulo.Gerente`, com Indicadores
+(BI), Faturamento (leitura sobre `RelatorioService`/`PendenciaService`), Campanhas e
+Acessos. É o único módulo carregado por um executável só — as telas da direção não têm
+por que viajar dentro do instalador da Recepção.
+
+### Login e permissão no shell (parcela 5)
+
+O shell ganhou três peças pequenas e uma regra:
+
+- `SessaoUsuario` — singleton por processo com a fotografia do usuário que entrou (id,
+  nome, perfil, permissões efetivas). É dela que as telas tiram o "operador" gravado na
+  auditoria, em vez de cada uma inventar um nome.
+- `LoginWindow` — entra depois das migrations e antes da `ShellWindow`. Base sem usuário
+  abre o **primeiro acesso** (nasce Gerente): a versão que introduz login não pode
+  trancar a clínica do lado de fora.
+- `ItemMenuModulo.Requer` — permissão exigida por item de menu, com padrão
+  `Permissao.Nenhuma` (= sempre visível). Módulo que não declarar nada continua se
+  comportando como antes; o `ShellViewModel` filtra os itens e some com o grupo que
+  ficar vazio, para não sobrar cabeçalho órfão na sidebar.
+
+O **faturamento não passa por nada disso** — continua sem login, como todo o resto dele.
 
 > A distribuição das features da proposta pelos quatro módulos, com o estado de cada uma,
 > está em [`features-por-modulo.md`](features-por-modulo.md); como o cliente recebe os

@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Clinica.Desktop.Shell.Modulos;
@@ -20,6 +21,14 @@ public sealed partial class ItemMenuModulo : ObservableObject
 
     /// <summary>Nome do módulo dono — preenchido pelo shell ao montar o menu.</summary>
     public string Grupo { get; internal set; } = string.Empty;
+
+    /// <summary>
+    /// Permissão exigida para o item aparecer na sidebar (parcela 5).
+    /// <see cref="Permissao.Nenhuma"/>, que é o padrão, significa "sempre visível" —
+    /// assim um módulo que ainda não declarou permissão nenhuma continua funcionando
+    /// exatamente como antes.
+    /// </summary>
+    public Permissao Requer { get; init; } = Permissao.Nenhuma;
 
     [ObservableProperty]
     private bool _estaAtivo;

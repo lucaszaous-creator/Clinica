@@ -39,6 +39,9 @@ public static class DependencyInjection
         services.AddScoped<EstoqueService>();
         services.AddScoped<DocumentoFinanceiroService>();
         services.AddScoped<DocumentosFinanceirosPdfService>();
+        services.AddScoped<IndicadoresService>();
+        services.AddScoped<CampanhaService>();
+        services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();
         services.AddScoped<TissExportService>();
         services.AddScoped<LoteTissService>();

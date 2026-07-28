@@ -68,11 +68,13 @@ Camadas clássicas, todas em `src/`:
   `docs/design-system/`).
 - **Suíte multi-exe** (`Clinica.Desktop.Shell`, `Clinica.Modulo.*`, `Clinica.Recepcao`,
   `Clinica.Financeiro`, `Clinica.Gerente`) — três executáveis NOVOS, ao lado do faturamento e sem
-  encostar nele. O shell tem o design system, a janela genérica, o contrato de módulo (`IModuloApp`)
-  e a abertura padrão (`SuiteApp`); cada módulo é uma **biblioteca** com suas telas; cada `.exe` é uma
-  casca que só escolhe a lista de módulos — o Gerente Geral carrega todos. **Leia
-  `docs/arquitetura-multi-exe.md` antes de mexer aqui**: fases, débito assumido (design system e log
-  duplicados, agora permanentes) e canais de release.
+  encostar nele. O shell tem o design system, a janela genérica, o contrato de módulo (`IModuloApp`),
+  a abertura padrão (`SuiteApp`) e o login (`LoginWindow` + `SessaoUsuario`); cada módulo é uma
+  **biblioteca** com suas telas; cada `.exe` é uma casca que só escolhe a lista de módulos — o
+  Gerente Geral carrega todos, incluindo o `Clinica.Modulo.Gerente` (BI, campanhas, acessos e a
+  leitura do faturamento), que só ele carrega. **Leia `docs/arquitetura-multi-exe.md` antes de
+  mexer aqui**: fases, débito assumido (design system e log duplicados, agora permanentes) e
+  canais de release.
 - **tests/Clinica.Tests** — xUnit; os testes de regras validam cada fluxograma de convênio de ponta a
   ponta usando repositório fake em memória (sem banco).
 
@@ -164,6 +166,27 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   de pacientes não arrasta imagem. A gravação acontece no Salvar do cadastro, nunca na captura.
 - Ações que alteram faturamento (baixa, estorno, glosa, lote) devem gravar um `EventoAuditoria`
   via `IClinicaRepositorio.RegistrarAuditoriaAsync` no MESMO SaveChanges da ação (atômico).
+  O mesmo vale para ação administrativa de acesso (criar usuário, trocar senha, mudar permissão):
+  permissão que muda sem rastro é pior do que não ter permissão.
+- **Acesso (parcela 5)**: `UsuarioSistema` aponta para o `Profissional` em vez de duplicá-lo; a
+  senha é PBKDF2 com sal por usuário (`Clinica.Domain.HashSenha`) e nunca é gravada em claro. A
+  permissão efetiva é resolvida na LEITURA — `padrão do perfil + extras − negadas` —, então
+  corrigir o padrão de um perfil alcança quem já está cadastrado; negada vence extra. Base sem
+  usuário abre o **primeiro acesso** (nasce Gerente) em vez de trancar todo mundo do lado de fora,
+  e o serviço recusa deixar a base sem ninguém que possa gerenciar acessos. **O faturamento
+  continua sem login** — está congelado.
+- **Campanhas (parcela 5)**: confirmação de sessão, NPS e recall são UMA entidade
+  (`ContatoCampanha`), porque o fato registrado é o mesmo. `Origem` (`AGD:123`, `ATD:987`,
+  `REC:55:2026-07`) é a chave de idempotência, com índice único junto do tipo — rodar a campanha
+  duas vezes não pode mandar a mesma mensagem duas vezes. **Confirmar a própria sessão é
+  transacional** e não exige consentimento; **NPS e recall exigem** `ComunicacaoEMarketing`
+  vigente, e quem não consentiu aparece CONTADO no resultado da rodada em vez de sumir. O envio é
+  um clique por paciente de propósito: o número é o WhatsApp da clínica.
+- **Indicadores (parcela 5)**: ocupação é medida contra os dias em que o profissional TEVE agenda
+  × jornada configurável (`ParametrosService.ChaveJornadaDiariaMinutos`, padrão 480 min) — a
+  clínica não cadastra jornada, e inventar dias úteis daria número mais bonito e menos verdadeiro.
+  Cancelamento avisado não conta como falta. Toda métrica sem base de cálculo devolve `null` e a
+  tela mostra "—": 0% e "não medido" são coisas diferentes.
 - Concorrência otimista via `xmin` (só no Npgsql — testes rodam em SQLite e ficam de fora);
   `ClinicaRepositorio.SalvarAsync` traduz `DbUpdateConcurrencyException` em mensagem amigável.
 - XML TISS gerado passa por `TissValidador.Validar` (estrutura + hash do epílogo); XSD oficial

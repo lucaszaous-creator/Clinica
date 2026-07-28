@@ -1,4 +1,5 @@
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
 using Clinica.Recepcao.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,13 +24,15 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public string Nome => "Recepção";
 
+    // A permiss\u00E3o exigida por item entrou na parcela 5: quem n\u00E3o a tem n\u00E3o v\u00EA o item
+    // na sidebar. Perfis de Recep\u00E7\u00E3o e Profissional j\u00E1 nascem com as daqui.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        new ItemMenuModulo { Chave = ChavePainel, Rotulo = "Painel", Glifo = "\uE80F" },
-        new ItemMenuModulo { Chave = ChaveAgenda, Rotulo = "Agenda", Glifo = "\uE787" },
-        new ItemMenuModulo { Chave = ChaveFila, Rotulo = "Fila de hoje", Glifo = "\uE8FD" },
-        new ItemMenuModulo { Chave = ChavePacientes, Rotulo = "Pacientes", Glifo = "\uE77B" },
-        new ItemMenuModulo { Chave = ChaveEquipe, Rotulo = "Profissionais e salas", Glifo = "\uE716" }
+        new ItemMenuModulo { Chave = ChavePainel, Rotulo = "Painel", Glifo = "\uE80F", Requer = Permissao.VerAgenda },
+        new ItemMenuModulo { Chave = ChaveAgenda, Rotulo = "Agenda", Glifo = "\uE787", Requer = Permissao.VerAgenda },
+        new ItemMenuModulo { Chave = ChaveFila, Rotulo = "Fila de hoje", Glifo = "\uE8FD", Requer = Permissao.VerAgenda },
+        new ItemMenuModulo { Chave = ChavePacientes, Rotulo = "Pacientes", Glifo = "\uE77B", Requer = Permissao.VerProntuario },
+        new ItemMenuModulo { Chave = ChaveEquipe, Rotulo = "Profissionais e salas", Glifo = "\uE716", Requer = Permissao.GerenciarEquipe }
     ];
 
     public void Registrar(IServiceCollection servicos)

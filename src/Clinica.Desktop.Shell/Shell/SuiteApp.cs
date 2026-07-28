@@ -1,6 +1,8 @@
 using System.Windows;
+using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Desktop.Shell.Modulos;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace Clinica.Desktop.Shell;
@@ -124,6 +126,12 @@ public static class SuiteApp
             }
         }
 
+        // Login (parcela 5). Base sem nenhum usuário abre o PRIMEIRO ACESSO em vez de
+        // pedir credencial que ninguém tem — a versão que introduz login não pode
+        // trancar a clínica do lado de fora.
+        if (!await AutenticarAsync(app, host, nomeApp))
+            return null;
+
         var janela = new ShellWindow
         {
             DataContext = new ShellViewModel(titulo, modulos, host.Services)
@@ -135,5 +143,44 @@ public static class SuiteApp
         // o processo ficaria vivo depois de a clínica fechar a janela.
         app.ShutdownMode = ShutdownMode.OnMainWindowClose;
         return host;
+    }
+
+    /// <summary>
+    /// Pede o login e grava a sessão. Devolve false quando o usuário desistiu (e o
+    /// encerramento já foi pedido).
+    ///
+    /// Falha ao CONSULTAR os usuários não tranca ninguém: o banco acabou de migrar com
+    /// sucesso, então o problema é outro, e derrubar a abertura por causa dele deixaria
+    /// o posto parado. A tela de login aparece assim mesmo — errar a senha é um
+    /// problema menor do que não conseguir abrir o app.
+    /// </summary>
+    private static async Task<bool> AutenticarAsync(
+        System.Windows.Application app, IHost host, string nomeApp)
+    {
+        var escopos = host.Services.GetRequiredService<IServiceScopeFactory>();
+
+        bool primeiroAcesso;
+        try
+        {
+            using var scope = escopos.CreateScope();
+            var acesso = scope.ServiceProvider.GetRequiredService<AcessoService>();
+            primeiroAcesso = !await acesso.ExisteUsuarioAtivoAsync();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar($"{nomeApp} — não foi possível verificar os usuários cadastrados", ex);
+            primeiroAcesso = false;
+        }
+
+        var login = new LoginWindow(escopos, nomeApp, primeiroAcesso);
+        if (login.ShowDialog() != true || login.Usuario is null)
+        {
+            host.Dispose();
+            app.Shutdown();
+            return false;
+        }
+
+        host.Services.GetRequiredService<SessaoUsuario>().Entrar(login.Usuario);
+        return true;
     }
 }

@@ -44,6 +44,11 @@ public static class ShellBootstrap
                 // Domínio + aplicação + infraestrutura: idêntico ao faturamento.
                 servicos.AddClinica(connectionString);
 
+                // Quem está usando o app neste processo (parcela 5). Singleton: a sessão
+                // é do processo, não de um scope — e é dela que as telas tiram o
+                // "operador" que vai para a auditoria.
+                servicos.AddSingleton<SessaoUsuario>();
+
                 servicos.AddSingleton<SnackbarService>();
                 servicos.AddSingleton<ISnackbarService>(
                     sp => sp.GetRequiredService<SnackbarService>());
