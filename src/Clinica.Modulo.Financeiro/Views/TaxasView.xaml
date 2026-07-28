@@ -1,0 +1,207 @@
+<UserControl x:Class="Clinica.Financeiro.Views.TaxasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+            <TextBlock Text="Taxas e impostos" Style="{StaticResource H1}" Margin="0,0,0,4" />
+            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                       Text="O que a maquininha e o fisco descontam de cada recebimento. O caixa continua guardando o valor BRUTO — o que o paciente pagou —, e o líquido é calculado a partir daqui." />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ===== Formulário + imposto (coluna esquerda) ===== -->
+        <StackPanel DockPanel.Dock="Left" Width="360" Margin="0,0,16,0">
+
+            <Border Style="{StaticResource Card}">
+                <StackPanel IsEnabled="{Binding PodeEditar}">
+                    <TextBlock Text="{Binding TituloFormulario}" Style="{StaticResource H3}"
+                               Margin="0,0,0,8" />
+
+                    <TextBlock Text="Adquirente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding Adquirente, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="60" />
+
+                    <TextBlock Text="Bandeira (em branco = todas)" Style="{StaticResource Rotulo}"
+                               Margin="0,10,0,4" />
+                    <TextBox Text="{Binding Bandeira}" MaxLength="40" />
+
+                    <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                    <ComboBox ItemsSource="{Binding Modalidades}" SelectedItem="{Binding Modalidade}" />
+
+                    <Grid Margin="0,10,0,0"
+                          Visibility="{Binding EhParcelado, Converter={StaticResource BoolParaVisibilidade}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="De (parcelas)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding ParcelasDe}" MaxLength="2" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Até" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding ParcelasAte}" MaxLength="2" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Taxa (%)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding Percentual, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="6" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Recebe em (dias)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding DiasParaReceber}" MaxLength="3" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Vigente de" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <DatePicker SelectedDate="{Binding VigenteDe}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Até" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <DatePicker SelectedDate="{Binding VigenteAte}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                               Text="A vigência é o que permite renegociar sem reescrever o passado: o recebimento de março continua descontado pelo percentual de março." />
+
+                    <CheckBox Content="Ativa" IsChecked="{Binding Ativa}" Margin="0,10,0,0" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <Button Content="Salvar" Command="{Binding SalvarCommand}" MinWidth="110"
+                                Margin="0,0,8,0" />
+                        <Button Content="Limpar" Command="{Binding LimparCommand}"
+                                Style="{StaticResource BotaoSecundario}" MinWidth="90" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <StackPanel IsEnabled="{Binding PodeEditar}">
+                    <TextBlock Text="Imposto retido" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                               Text="Alíquota descontada do recebimento (ISS, Simples). Em branco = não retém, que é o padrão — cada clínica tem o seu regime e chutar a alíquota erraria a base inteira." />
+
+                    <TextBlock Text="Alíquota (%)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding AliquotaImposto, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="6" />
+
+                    <Button Content="Salvar alíquota" Command="{Binding SalvarImpostoCommand}"
+                            HorizontalAlignment="Left" Margin="0,12,0,0" MinWidth="140" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <!-- ===== Catálogo ===== -->
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Taxas cadastradas" Style="{StaticResource H3}"
+                           Margin="0,0,0,8" />
+
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Nenhuma taxa cadastrada. Sem taxa, o caixa registra só o bruto — e não inventa desconto.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Taxas.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Taxas}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
+                                                <Run Text="recebe " />
+                                                <Run Text="{Binding Prazo, Mode=OneWay}" />
+                                                <Run Text=" · vigência " />
+                                                <Run Text="{Binding Vigencia, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <Border Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border" BasedOn="{StaticResource Badge.Sucesso}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Ativa}" Value="False">
+                                                            <Setter Property="Background"
+                                                                    Value="{StaticResource Brush.Superficie.Hover}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding Situacao}" />
+                                        </Border>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Editar" Style="{StaticResource BotaoPequeno}"
+                                                    Margin="0,0,6,0"
+                                                    IsEnabled="{Binding DataContext.PodeEditar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.EditarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    IsEnabled="{Binding DataContext.PodeEditar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.ExcluirCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

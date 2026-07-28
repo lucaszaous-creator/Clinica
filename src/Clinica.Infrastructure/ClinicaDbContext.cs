@@ -41,6 +41,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<PacotePaciente> PacotesPaciente => Set<PacotePaciente>();
     public DbSet<ConsumoPacote> ConsumosPacote => Set<ConsumoPacote>();
     public DbSet<RegraRepasse> RegrasRepasse => Set<RegraRepasse>();
+    public DbSet<TaxaCartao> TaxasCartao => Set<TaxaCartao>();
     public DbSet<RepasseApurado> RepassesApurados => Set<RepasseApurado>();
     public DbSet<ItemEstoque> ItensEstoque => Set<ItemEstoque>();
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
@@ -587,6 +588,18 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
 
+            // Taxa da maquininha e imposto (parcela 9). O liquido NAO e coluna: e
+            // calculado, para nao haver duas verdades sobre o mesmo dinheiro.
+            e.Property(x => x.Adquirente).HasMaxLength(60);
+            e.Property(x => x.Bandeira).HasMaxLength(40);
+            e.Property(x => x.ModalidadeCartao).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.TaxaPercentual).HasPrecision(6, 2);
+            e.Property(x => x.ValorTaxa).HasPrecision(14, 2);
+            e.Property(x => x.AliquotaImposto).HasPrecision(6, 2);
+            e.Property(x => x.ValorImposto).HasPrecision(14, 2);
+            e.Ignore(x => x.ValorLiquido);
+            e.Ignore(x => x.TemDeducao);
+
             e.HasOne(x => x.Categoria).WithMany()
                 .HasForeignKey(x => x.CategoriaFinanceiraId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Paciente).WithMany()
@@ -682,6 +695,21 @@ public class ClinicaDbContext : DbContext
             e.HasOne(x => x.Profissional).WithMany().HasForeignKey(x => x.ProfissionalId);
 
             e.HasIndex(x => x.ProfissionalId);
+            e.Ignore(x => x.Descricao);
+        });
+
+        b.Entity<TaxaCartao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Adquirente).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Bandeira).HasMaxLength(40);
+            e.Property(x => x.Modalidade).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Percentual).HasPrecision(6, 2);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasIndex(x => x.Ativa);
             e.Ignore(x => x.Descricao);
         });
 

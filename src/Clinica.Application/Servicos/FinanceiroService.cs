@@ -9,14 +9,29 @@ public sealed record ResumoCaixa(
     decimal EntradasRealizadas,
     decimal SaidasRealizadas,
     decimal EntradasPrevistas,
-    decimal SaidasPrevistas)
+    decimal SaidasPrevistas,
+    decimal TaxasDescontadas = 0m,
+    decimal ImpostosRetidos = 0m)
 {
-    /// <summary>O que efetivamente entrou menos o que saiu.</summary>
+    /// <summary>O que efetivamente entrou menos o que saiu. BRUTO — o que o paciente pagou.</summary>
     public decimal SaldoRealizado => EntradasRealizadas - SaidasRealizadas;
 
     /// <summary>Saldo considerando também o que está previsto.</summary>
     public decimal SaldoPrevisto =>
         (EntradasRealizadas + EntradasPrevistas) - (SaidasRealizadas + SaidasPrevistas);
+
+    /// <summary>
+    /// O que a clínica de fato recebe das entradas realizadas: bruto menos a taxa da
+    /// maquininha e o imposto retido. É o número que bate com o extrato da adquirente —
+    /// o bruto nunca bate, e era ele que a tela mostrava sozinho até a parcela 9.
+    /// </summary>
+    public decimal EntradasLiquidas => EntradasRealizadas - TaxasDescontadas - ImpostosRetidos;
+
+    /// <summary>Tudo o que foi descontado do bruto no período.</summary>
+    public decimal TotalDeducoes => TaxasDescontadas + ImpostosRetidos;
+
+    /// <summary>Houve dedução no período — a tela só mostra a linha do líquido quando há.</summary>
+    public bool TemDeducao => TotalDeducoes > 0m;
 }
 
 /// <summary>
@@ -68,12 +83,21 @@ public sealed class FinanceiroService
         string? observacoes = null,
         DateOnly? dataPagamento = null,
         string? operador = null,
+        DeducoesRecebimento? deducoes = null,
+        string? adquirente = null,
+        string? bandeira = null,
+        ModalidadeCartao? modalidadeCartao = null,
+        int? parcelas = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(descricao))
             throw new ArgumentException("A descrição do lançamento é obrigatória.", nameof(descricao));
         if (valor <= 0)
             throw new ArgumentException("O valor deve ser maior que zero — o sinal vem do tipo.", nameof(valor));
+        if (deducoes is { } d && d.Total > valor)
+            throw new InvalidOperationException(
+                "As deduções não podem passar do valor bruto — isso deixaria a clínica "
+                + "recebendo menos que zero por um atendimento.");
 
         var lancamento = new LancamentoFinanceiro
         {
@@ -91,7 +115,20 @@ public sealed class FinanceiroService
             ConvenioCodigo = convenioCodigo,
             Observacoes = observacoes,
             DataPagamento = status == StatusLancamento.Realizado ? (dataPagamento ?? data) : dataPagamento,
-            CriadoPor = operador
+            CriadoPor = operador,
+
+            // As deduções vêm COPIADAS do que o TaxaService calculou na hora da venda —
+            // o catálogo de taxas é renegociado, e o que vale neste recebimento é o
+            // percentual de hoje. O líquido não é gravado: é calculado do bruto.
+            Adquirente = adquirente,
+            Bandeira = bandeira,
+            ModalidadeCartao = modalidadeCartao,
+            Parcelas = parcelas,
+            TaxaPercentual = deducoes?.TaxaPercentual,
+            ValorTaxa = deducoes?.ValorTaxa,
+            AliquotaImposto = deducoes?.AliquotaImposto,
+            ValorImposto = deducoes?.ValorImposto,
+            PrevisaoRecebimento = deducoes?.PrevisaoRecebimento
         };
 
         await _repo.AdicionarLancamentoAsync(lancamento, ct);
@@ -178,11 +215,20 @@ public sealed class FinanceiroService
         decimal Somar(TipoLancamento tipo, StatusLancamento status) =>
             lancamentos.Where(l => l.Tipo == tipo && l.Status == status).Sum(l => l.Valor);
 
+        // A dedução só conta sobre ENTRADA REALIZADA: taxa de maquininha em dinheiro que
+        // ainda não entrou é desconto de receita que não existe, e inflaria o "descontado"
+        // do mês com o que a adquirente ainda nem processou.
+        var entradasRealizadas = lancamentos
+            .Where(l => l.Tipo == TipoLancamento.Entrada && l.Status == StatusLancamento.Realizado)
+            .ToList();
+
         return new ResumoCaixa(
             Somar(TipoLancamento.Entrada, StatusLancamento.Realizado),
             Somar(TipoLancamento.Saida, StatusLancamento.Realizado),
             Somar(TipoLancamento.Entrada, StatusLancamento.Previsto),
-            Somar(TipoLancamento.Saida, StatusLancamento.Previsto));
+            Somar(TipoLancamento.Saida, StatusLancamento.Previsto),
+            entradasRealizadas.Sum(l => l.ValorTaxa ?? 0m),
+            entradasRealizadas.Sum(l => l.ValorImposto ?? 0m));
     }
 
     /// <summary>

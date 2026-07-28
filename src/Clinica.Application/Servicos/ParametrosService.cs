@@ -196,6 +196,40 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Imposto retido (parcela 9) ----
+
+    public const string ChaveAliquotaImposto = "AliquotaImpostoRetido";
+
+    /// <summary>
+    /// Aliquota de imposto retido sobre o recebimento, em percentual (ISS, Simples).
+    /// PADRAO ZERO de proposito: cada clinica tem o seu regime, e chutar uma aliquota
+    /// produziria um liquido errado com aparencia de exato em toda a base. Zero significa
+    /// "nao configurado", e nesse caso nenhum imposto e descontado.
+    ///
+    /// A cultura da leitura e invariante (ponto decimal), nao a do Windows: a mesma base
+    /// e lida por maquinas com virgula e com ponto, e "2,5" lido como 25 multiplicaria o
+    /// imposto por dez.
+    /// </summary>
+    public async Task<decimal> ObterAliquotaImpostoAsync(CancellationToken ct = default)
+        => decimal.TryParse(
+               await _repo.ObterConfiguracaoAsync(ChaveAliquotaImposto, ct),
+               System.Globalization.NumberStyles.Number,
+               System.Globalization.CultureInfo.InvariantCulture,
+               out var aliquota) && aliquota is > 0m and <= 100m
+            ? aliquota
+            : 0m;
+
+    public async Task SalvarAliquotaImpostoAsync(decimal aliquota, CancellationToken ct = default)
+    {
+        if (aliquota is < 0m or > 100m)
+            throw new InvalidOperationException("A aliquota vai de 0 a 100.");
+
+        await _repo.SalvarConfiguracaoAsync(
+            ChaveAliquotaImposto,
+            aliquota.ToString(System.Globalization.CultureInfo.InvariantCulture), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Indicadores gerenciais (parcela 5) ----
 
     public const string ChaveJornadaDiariaMinutos = "JornadaDiariaMinutos";

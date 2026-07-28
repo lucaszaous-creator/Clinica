@@ -25,6 +25,7 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChavePacotes = "pacotes";
     public const string ChaveEstoque = "estoque";
     public const string ChaveRepasses = "repasses";
+    public const string ChaveTaxas = "taxas";
     public const string ChavePlanoContas = "plano-contas";
 
     public string Nome => "Financeiro";
@@ -67,6 +68,11 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChaveTaxas, Rotulo = "Taxas e impostos", Glifo = "\uE9D9",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
             Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8FD",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         }
@@ -82,6 +88,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<PacotesViewModel>();
         servicos.AddTransient<EstoqueViewModel>();
         servicos.AddTransient<RepassesViewModel>();
+        servicos.AddTransient<TaxasViewModel>();
         servicos.AddTransient<PlanoContasViewModel>();
         // Os ViewModels de formulário (venda de pacote, movimento de estoque, regra de
         // repasse) são construídos à mão pelas telas: cada janela abre limpa e precisa
@@ -96,6 +103,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChavePacotes => new PacotesView { DataContext = servicos.GetRequiredService<PacotesViewModel>() },
         ChaveEstoque => new EstoqueView { DataContext = servicos.GetRequiredService<EstoqueViewModel>() },
         ChaveRepasses => new RepassesView { DataContext = servicos.GetRequiredService<RepassesViewModel>() },
+        ChaveTaxas => new TaxasView { DataContext = servicos.GetRequiredService<TaxasViewModel>() },
         ChavePlanoContas => new PlanoContasView { DataContext = servicos.GetRequiredService<PlanoContasViewModel>() },
         _ => null
     };

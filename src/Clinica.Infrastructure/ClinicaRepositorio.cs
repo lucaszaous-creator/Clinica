@@ -794,6 +794,29 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    // ---- Taxas de cartao (parcela 9) ----
+
+    public async Task<IReadOnlyList<TaxaCartao>> TaxasCartaoAsync(
+        bool somenteAtivas = false, CancellationToken ct = default)
+        => await _db.TaxasCartao.AsNoTracking()
+            .Where(t => !somenteAtivas || t.Ativa)
+            .OrderBy(t => t.Adquirente)
+            .ThenBy(t => t.Modalidade)
+            .ThenBy(t => t.ParcelasDe)
+            .ToListAsync(ct);
+
+    public Task<TaxaCartao?> ObterTaxaCartaoAsync(int taxaId, CancellationToken ct = default)
+        => _db.TaxasCartao.FirstOrDefaultAsync(t => t.Id == taxaId, ct);
+
+    public async Task AdicionarTaxaCartaoAsync(TaxaCartao taxa, CancellationToken ct = default)
+        => await _db.TaxasCartao.AddAsync(taxa, ct);
+
+    public async Task RemoverTaxaCartaoAsync(int taxaId, CancellationToken ct = default)
+    {
+        var taxa = await _db.TaxasCartao.FirstOrDefaultAsync(t => t.Id == taxaId, ct);
+        if (taxa is not null) _db.TaxasCartao.Remove(taxa);
+    }
+
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
     {
@@ -994,7 +1017,8 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         ValoresDeLancamentoNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => await _db.Lancamentos.AsNoTracking()
             .Where(l => l.Data >= inicio && l.Data <= fim)
-            .Select(l => new Clinica.Application.Modelos.ValorLancamento(l.Tipo, l.Status, l.Valor))
+            .Select(l => new Clinica.Application.Modelos.ValorLancamento(
+                l.Tipo, l.Status, l.Valor, l.ValorTaxa, l.ValorImposto))
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<int>> CodigosComLancamentoAsync(

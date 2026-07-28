@@ -78,7 +78,42 @@
             </StackPanel>
         </Grid>
 
-        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
+        <!-- Cartão: adquirente, bandeira e parcelas definem a taxa que será descontada.
+             Só aparece quando a forma é cartão — Pix e dinheiro caem inteiros. -->
+        <Grid Margin="0,10,0,0"
+              Visibility="{Binding EhCartao, Converter={StaticResource BoolParaVisibilidade}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="80" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Adquirente" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Adquirente, UpdateSourceTrigger=PropertyChanged}" MaxLength="60" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Bandeira" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Bandeira, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" />
+            </StackPanel>
+            <StackPanel Grid.Column="4">
+                <TextBlock Text="Parcelas" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Parcelas, UpdateSourceTrigger=PropertyChanged}" MaxLength="2" />
+            </StackPanel>
+        </Grid>
+
+        <CheckBox Content="Reter imposto sobre este recebimento"
+                  IsChecked="{Binding ReterImposto}" Margin="0,10,0,0" />
+
+        <!-- O líquido aparece ANTES de gravar. Sem isso, a diferença entre o que a tela
+             mostra e o que a adquirente deposita só apareceria no extrato do mês seguinte. -->
+        <Border Style="{StaticResource AlertaInfo}" Margin="0,10,0,0"
+                Visibility="{Binding TemDeducoes, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding ResumoDeducoes}" TextWrapping="Wrap" />
+        </Border>
+
+        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
         <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
 
         <!-- Feedback inline: é formulário, a mensagem fica na tela enquanto o usuário corrige. -->
