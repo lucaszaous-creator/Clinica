@@ -41,7 +41,7 @@ public class PacoteServiceTests : IDisposable
 
     private async Task<int> CriarPacienteAsync(string nome = "Maria")
     {
-        var p = new Paciente { Nome = nome, Convenio = Convenio.Particular, Sexo = Sexo.Feminino };
+        var p = new Paciente { Nome = nome, Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
         return p.Id;

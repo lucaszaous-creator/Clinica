@@ -63,7 +63,9 @@ public sealed class DocumentoFinanceiroService
 
         var data = dados.Data == default ? DateOnly.FromDateTime(DateTime.Today) : dados.Data;
 
-        var validoAte = dados.Tipo == TipoDocumentoFinanceiro.Orcamento
+        // Tipado explicitamente: com `var`, o compilador não acha tipo comum entre
+        // DateOnly e null (CS0173). Recibo não tem validade; orçamento sempre tem.
+        DateOnly? validoAte = dados.Tipo == TipoDocumentoFinanceiro.Orcamento
             ? dados.ValidoAte ?? data.AddDays(ValidadePadraoOrcamentoDias)
             : null;
 

@@ -5,6 +5,7 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
@@ -46,6 +47,7 @@ public sealed partial class PacotesViewModel : ObservableObject
     private readonly DocumentoFinanceiroService _documentos;
     private readonly DocumentosFinanceirosPdfService _pdfs;
     private readonly ParametrosService _parametros;
+    private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
@@ -70,12 +72,15 @@ public sealed partial class PacotesViewModel : ObservableObject
     public PacotesViewModel(
         PacoteService pacotes, DocumentoFinanceiroService documentos,
         DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
-        ISnackbarService snackbar, IDialogoService dialogo)
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
         _pacotes = pacotes;
         _documentos = documentos;
         _pdfs = pdfs;
         _parametros = parametros;
+        // A venda escolhe o paciente pelo seletor da suíte, que abre escopo próprio a
+        // cada busca — por isso a fábrica, e não o serviço já resolvido.
+        _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
         _ = CarregarAsync();
@@ -196,7 +201,7 @@ public sealed partial class PacotesViewModel : ObservableObject
     [RelayCommand]
     private async Task VenderAsync()
     {
-        var vm = new PacoteVendaViewModel(_pacotes);
+        var vm = new PacoteVendaViewModel(_pacotes, _escopos);
         var janela = new Janelas.PacoteVendaWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
