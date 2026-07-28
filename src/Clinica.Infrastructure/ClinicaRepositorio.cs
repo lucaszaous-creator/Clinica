@@ -849,6 +849,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(m => m.Id)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<MovimentoEstoque>> UltimoConsumoDeSessaoAsync(
+        CancellationToken ct = default)
+    {
+        // Duas consultas de propósito: a primeira acha SÓ o id da última sessão que
+        // gastou insumo (uma coluna, uma linha), a segunda traz os movimentos dela.
+        // Ordenar por data e trazer tudo para depois agrupar em memória arrastaria o
+        // extrato inteiro pela rede — e o banco é remoto.
+        var ultimo = await _db.MovimentosEstoque.AsNoTracking()
+            .Where(m => m.AtendimentoId != null && m.Tipo == TipoMovimentoEstoque.Saida)
+            .OrderByDescending(m => m.Data).ThenByDescending(m => m.Id)
+            .Select(m => m.AtendimentoId)
+            .FirstOrDefaultAsync(ct);
+
+        return ultimo is null ? [] : await MovimentosDoAtendimentoAsync(ultimo.Value, ct);
+    }
+
     public async Task AdicionarMovimentoEstoqueAsync(
         MovimentoEstoque movimento, CancellationToken ct = default)
         => await _db.MovimentosEstoque.AddAsync(movimento, ct);
@@ -964,6 +980,15 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             ? await q.Take(n).ToListAsync(ct)
             : await q.ToListAsync(ct);
     }
+
+    public Task<LancamentoFinanceiro?> UltimoRecebimentoDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => _db.Lancamentos.AsNoTracking()
+            .Where(l => l.PacienteId == pacienteId)
+            .Where(l => l.Tipo == TipoLancamento.Entrada)
+            .Where(l => l.Status == StatusLancamento.Realizado)
+            .OrderByDescending(l => l.Data).ThenByDescending(l => l.Id)
+            .FirstOrDefaultAsync(ct);
 
     public async Task<IReadOnlyList<Clinica.Application.Modelos.ValorLancamento>>
         ValoresDeLancamentoNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)

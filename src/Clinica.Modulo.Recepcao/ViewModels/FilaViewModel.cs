@@ -6,6 +6,7 @@ using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Recepcao.ViewModels;
 
@@ -71,6 +72,10 @@ public sealed partial class FilaViewModel : ObservableObject
 
     private readonly AgendaService _agenda;
     private readonly PainelRecepcaoService _painel;
+
+    /// <summary>Escopo próprio para a janela de fechamento, como nos demais formulários.</summary>
+    private readonly IServiceScopeFactory _escopos;
+
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
     private readonly DispatcherTimer _relogio;
@@ -99,11 +104,12 @@ public sealed partial class FilaViewModel : ObservableObject
     public bool PodeEditarAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
 
     public FilaViewModel(
-        AgendaService agenda, PainelRecepcaoService painel,
+        AgendaService agenda, PainelRecepcaoService painel, IServiceScopeFactory escopos,
         ISnackbarService snackbar, IDialogoService dialogo)
     {
         _agenda = agenda;
         _painel = painel;
+        _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
 
@@ -250,16 +256,39 @@ public sealed partial class FilaViewModel : ObservableObject
             _snackbar.Sucesso($"{c.Paciente} em atendimento.");
         }, "início do atendimento");
 
-    /// <summary>Encerra a sessão: gera o atendimento com os códigos e o retorno do 2º código.</summary>
+    /// <summary>
+    /// Encerra a sessão. Abre a janela de fechamento em vez de concluir direto: a
+    /// conclusão são QUATRO fatos do mesmo ato — a guia nasce, o pacote debita, o insumo
+    /// sai do estoque e o dinheiro entra no caixa —, e por muito tempo só o primeiro
+    /// acontecia. Ver <see cref="FechamentoSessaoService"/>.
+    ///
+    /// A janela é PROPOSTA confirmada, não automação: o balcão vê o que vai acontecer e
+    /// corrige antes. Cancelar lá não conclui nada — o cartão fica onde estava.
+    /// </summary>
     [RelayCommand]
     private async Task FinalizarAsync(CartaoFila? cartao)
-        => await ExecutarAsync(cartao, async c =>
+        => await ExecutarAsync(cartao, c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
-            var resultado = await _agenda.ConfirmarPresencaAsync(c.AgendamentoId);
-            var codigos = resultado.Atendimento.Codigos.Count;
-            _snackbar.Sucesso($"Atendimento de {c.Paciente} concluído — {codigos} código(s) gerado(s).");
+            var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
+            var janela = new Janelas.FechamentoSessaoWindow(vm)
+            {
+                Owner = System.Windows.Application.Current?.MainWindow
+            };
+
+            // Modal: o await fica com a janela, e o recarregar da fila vem do
+            // ExecutarAsync assim que ela fecha — inclusive quando fecha com aviso.
+            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+                return Task.CompletedTask;
+
+            var partes = new List<string> { $"{resultado.Atendimento.Codigos.Count} código(s)" };
+            if (resultado.Consumo is not null) partes.Add("1 sessão do pacote");
+            if (resultado.Movimentos.Count > 0) partes.Add($"{resultado.Movimentos.Count} insumo(s)");
+            if (resultado.Lancamento is not null) partes.Add("entrada no caixa");
+
+            _snackbar.Sucesso($"Sessão de {c.Paciente} concluída — {string.Join(" · ", partes)}.");
+            return Task.CompletedTask;
         }, "conclusão do atendimento");
 
     /// <summary>Volta o cartão uma coluna — clicar errado no kanban é rotina.</summary>

@@ -144,6 +144,22 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   (`ConsumirPorAtendimentoAsync`) debita o pacote **que vence primeiro**, uma vez por
   atendimento, e é chamada pelo fluxo da **Recepção** — nunca pelo `AtendimentoService`,
   que é compartilhado com o faturamento congelado.
+- **Fechamento da sessão** (`FechamentoSessaoService`, parcela 6): concluir o atendimento na
+  Recepção são **quatro fatos do mesmo ato** — a guia nasce, o pacote debita, o insumo sai do
+  estoque e o dinheiro entra no caixa. Por cinco parcelas só o primeiro acontecia: `PacoteService.
+  ConsumirPorAtendimentoAsync` e `EstoqueService.BaixarAsync` estavam prontos, testados e **sem um
+  único chamador em produção**, e a Recepção não conhecia o `FinanceiroService`. Este serviço é a
+  ponte, e mora fora do `AtendimentoService` pelo mesmo motivo de sempre: aquele é compartilhado
+  com o faturamento congelado. A tela (`FechamentoSessaoWindow`, aberta pelo Finalizar da Fila) é
+  **proposta confirmada, nunca automática** — o sistema faz o trabalho (acha o pacote que vence
+  primeiro, lembra o que a última sessão gastou, sugere o valor da última entrada do paciente
+  **com a procedência**), e o clique continua sendo de quem está no balcão; valor errado gravado
+  sozinho vira caixa que não bate e só aparece no fim do mês. Só a conclusão do atendimento
+  derruba a operação: pacote, insumo e caixa que falham viram **aviso** (`ResultadoFechamento.
+  Avisos`) e a janela fica aberta dizendo o quê — desfazer a guia porque o estoque de uma agulha
+  não bateu deixaria a clínica sem a guia de uma sessão que o paciente recebeu. Cobrança **não é
+  sugerida** quando há pacote (sessão comprada já foi paga) nem sem histórico de recebimento do
+  paciente — marcar por padrão criaria receita fantasma para quem é do convênio.
 - **Repasse** (`RepasseService`, parcela 4): quem atendeu vem do **agendamento**
   (`Agendamento.ProfissionalId` + `AtendimentoId`), porque `Atendimento` é do faturamento
   e não guarda profissional. O percentual incide sobre a **receita que entrou**
