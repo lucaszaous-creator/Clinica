@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -120,7 +121,7 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
                 formaPagamento: FormaPagamento,
                 categoriaId: Categoria?.Id,
                 observacoes: string.IsNullOrWhiteSpace(Observacoes) ? null : Observacoes,
-                operador: Environment.UserName);
+                operador: SessaoUsuario.Atual.Operador);
 
             Concluido?.Invoke();
         }

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -82,6 +83,27 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _semProfissionais;
 
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    /// <summary>
+    /// Quem entrou é um profissional COM agenda — então dá para oferecer "só a minha".
+    /// Falso no balcão, onde o usuário não está vinculado a ninguém.
+    /// </summary>
+    [ObservableProperty]
+    private bool _soMinhaAgenda;
+
+    /// <summary>
+    /// Escapatória do filtro acima: o profissional que precisa ver a clínica inteira
+    /// (para encaixar alguém na agenda do colega) marca isto e volta a ver tudo.
+    /// </summary>
+    [ObservableProperty]
+    private bool _mostrarTodosOsProfissionais;
+
     public AgendaViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
@@ -90,6 +112,8 @@ public sealed partial class AgendaViewModel : ObservableObject
         _dialogo = dialogo;
         _ = CarregarAsync();
     }
+
+    partial void OnMostrarTodosOsProfissionaisChanged(bool value) => _ = CarregarAsync();
 
     partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
 
@@ -114,16 +138,30 @@ public sealed partial class AgendaViewModel : ObservableObject
 
             Colunas.Clear();
 
-            foreach (var p in profissionais)
+            // Quem entrou como PROFISSIONAL abre na própria coluna. O usuário aponta
+            // para o Profissional desde a parcela 5, e um fisioterapeuta que abre o app
+            // quer ver a agenda DELE — não caçá-la entre seis colunas. O balcão (sem
+            // profissional vinculado) continua vendo a clínica inteira.
+            var meu = SessaoUsuario.Atual.ProfissionalId;
+            SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
+
+            var visiveis = SoMinhaAgenda && !MostrarTodosOsProfissionais
+                ? profissionais.Where(p => p.Id == meu).ToList()
+                : profissionais;
+
+            foreach (var p in visiveis)
                 Colunas.Add(MontarColuna(p.Id, p.Rotulo, doDia.Where(a => a.ProfissionalId == p.Id)));
 
             // "Sem profissional" só aparece quando existe: é resíduo da agenda antiga
             // (e do faturamento, que marca sem informar quem atende), não uma pessoa.
+            // Filtrando por "minha agenda", ele não é meu — fica de fora.
             var orfaos = doDia.Where(a => a.ProfissionalId is null).ToList();
-            if (orfaos.Count > 0)
+            if (orfaos.Count > 0 && visiveis.Count == profissionais.Count)
                 Colunas.Add(MontarColuna(null, "Sem profissional", orfaos));
 
-            var ocupando = doDia.Count(a => a.OcupaAgenda);
+            var ocupando = visiveis.Count == profissionais.Count
+                ? doDia.Count(a => a.OcupaAgenda)
+                : doDia.Count(a => a.OcupaAgenda && a.ProfissionalId == meu);
             Resumo = $"{ocupando} horário(s) no dia · {Colunas.Count} coluna(s)";
 
             await CarregarEsperaAsync(espera);
@@ -219,6 +257,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task NovoHorarioAsync()
         => await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
         {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
+
             Data = Dia
         });
 
@@ -227,6 +267,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task RemarcarAsync(CartaoAgenda? cartao)
     {
         if (cartao is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
         await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos, cartao.AgendamentoId));
     }
 
@@ -235,6 +277,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task ChamarDaEsperaAsync(LinhaListaEspera? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
         var vm = new AgendamentoEdicaoViewModel(_escopos)
         {
@@ -249,6 +293,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoPedidoEsperaAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
+
         var vm = new ListaEsperaEdicaoViewModel(_escopos);
         var janela = new Janelas.ListaEsperaWindow(vm)
         {
@@ -265,6 +311,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task RemoverDaEsperaAsync(LinhaListaEspera? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
         var motivo = _dialogo.PerguntarTexto(
             "Sair da lista de espera",
@@ -283,13 +331,15 @@ public sealed partial class AgendaViewModel : ObservableObject
     private async Task CancelarAsync(CartaoAgenda? cartao)
     {
         if (cartao is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
         if (!_dialogo.Confirmar("Cancelar horário",
                 $"Cancelar o horário de {cartao.Paciente} ({cartao.Faixa})?")) return;
 
         await ExecutarAsync(async scope =>
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.CancelarAsync(cartao.AgendamentoId, Environment.UserName);
+            await agenda.CancelarAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Horário cancelado.");
         }, "cancelamento do horário");
     }
@@ -299,10 +349,12 @@ public sealed partial class AgendaViewModel : ObservableObject
     {
         if (cartao is null) return;
 
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
+
         await ExecutarAsync(async scope =>
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.MarcarFaltaAsync(cartao.AgendamentoId, Environment.UserName);
+            await agenda.MarcarFaltaAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"{cartao.Paciente} marcado como falta.");
         }, "marcação de falta");
     }
@@ -315,6 +367,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     private void Confirmar(CartaoAgenda? cartao)
     {
         if (cartao is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
         var erro = Whatsapp.Abrir(
             cartao.Telefone, cartao.Paciente,

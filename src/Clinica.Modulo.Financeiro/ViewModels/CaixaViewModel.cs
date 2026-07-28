@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -63,6 +64,24 @@ public sealed partial class CaixaViewModel : ObservableObject
     [ObservableProperty]
     private string _previsto = "—";
 
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    /// <summary>
+    /// Quantas linhas a tela traz por mês. O caixa é lido de cima para baixo (o mais
+    /// recente primeiro) e ninguém rola oitocentas linhas — quem procura um lançamento
+    /// antigo usa o mês certo. Os TOTAIS não dependem deste corte.
+    /// </summary>
+    public const int LimiteLinhas = 300;
+
+    /// <summary>O mês tem mais lançamentos do que a lista está mostrando.</summary>
+    [ObservableProperty]
+    private bool _truncado;
+
     public CaixaViewModel(
         FinanceiroService financeiro, DocumentoFinanceiroService documentos,
         DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
@@ -88,7 +107,10 @@ public sealed partial class CaixaViewModel : ObservableObject
             var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
             var fim = inicio.AddMonths(1).AddDays(-1);
 
-            var lancamentos = await _financeiro.DoPeriodoAsync(inicio, fim);
+            // Corte no banco. Os totais abaixo continuam saindo do mês INTEIRO (vêm da
+            // projeção, não desta lista), então limitar a exibição não falseia o saldo.
+            var lancamentos = await _financeiro.DoPeriodoAsync(inicio, fim, LimiteLinhas);
+            Truncado = lancamentos.Count >= LimiteLinhas;
             Linhas.Clear();
             foreach (var l in lancamentos)
             {
@@ -133,6 +155,8 @@ public sealed partial class CaixaViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoLancamentoAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
+
         var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_financeiro))
         {
             Owner = System.Windows.Application.Current?.MainWindow
@@ -150,9 +174,11 @@ public sealed partial class CaixaViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
+
         try
         {
-            await _financeiro.RealizarAsync(linha.Id, operador: Environment.UserName);
+            await _financeiro.RealizarAsync(linha.Id, operador: SessaoUsuario.Atual.Operador);
             _snackbar.Sucesso("Lançamento realizado.");
             await CarregarAsync();
         }
@@ -172,6 +198,8 @@ public sealed partial class CaixaViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
+
         var motivo = _dialogo.PerguntarTexto(
             "Cancelar lançamento",
             $"Por que \"{linha.Descricao}\" está sendo cancelado? O lançamento sai dos totais mas continua no histórico.");
@@ -179,7 +207,7 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         try
         {
-            await _financeiro.CancelarAsync(linha.Id, motivo, operador: Environment.UserName);
+            await _financeiro.CancelarAsync(linha.Id, motivo, operador: SessaoUsuario.Atual.Operador);
             _snackbar.Sucesso("Lançamento cancelado.");
             await CarregarAsync();
         }
@@ -214,7 +242,7 @@ public sealed partial class CaixaViewModel : ObservableObject
         {
             var documento = await _documentos.EmitirReciboDoLancamentoAsync(
                 linha.Id, string.IsNullOrWhiteSpace(destinatario) ? null : destinatario,
-                Environment.UserName);
+                SessaoUsuario.Atual.Operador);
 
             var pdf = await _pdfs.GerarAsync(documento.Id, await _parametros.ObterPrestadorAsync());
 

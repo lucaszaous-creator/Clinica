@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -235,7 +236,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
 
             var protocolo = await mapas.SalvarComoProtocoloAsync(
                 _pacienteId, nome!, ParaDominio(), ProtocoloDaClinica,
-                descricao: null, operador: Environment.UserName);
+                descricao: null, operador: SessaoUsuario.Atual.Operador);
 
             Protocolos.Add(protocolo);
             ProtocoloSelecionado = protocolo;
@@ -267,7 +268,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
         if (Pontos.Count == 0 && await mapas.DaEvolucaoAsync(evolucaoId) is null) return;
 
         await mapas.SalvarAsync(
-            evolucaoId, ParaDominio(), Observacoes, Environment.UserName);
+            evolucaoId, ParaDominio(), Observacoes, SessaoUsuario.Atual.Operador);
     }
 
     private IReadOnlyList<PontoMapa> ParaDominio()

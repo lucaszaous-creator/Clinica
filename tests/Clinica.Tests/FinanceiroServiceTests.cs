@@ -102,6 +102,53 @@ public class FinanceiroServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Resumo_UsaAProjecaoENaoDependeDoLimiteDaLista()
+    {
+        // A tela do caixa corta a LISTA no banco; os totais têm que continuar sendo do
+        // período inteiro, senão o saldo mentiria assim que o mês passasse do limite.
+        var inicio = new DateOnly(2026, 7, 1);
+        var fim = new DateOnly(2026, 7, 31);
+
+        for (var i = 0; i < 5; i++)
+            await _financeiro.LancarAsync(inicio, TipoLancamento.Entrada, $"Sessão {i}", 100m);
+
+        var listaCurta = await _financeiro.DoPeriodoAsync(inicio, fim, limite: 2);
+        var resumo = await _financeiro.ResumoAsync(inicio, fim);
+
+        listaCurta.Should().HaveCount(2);
+        resumo.EntradasRealizadas.Should().Be(500m, "o total é do mês, não da página");
+    }
+
+    [Fact]
+    public async Task DoPeriodo_SemLimite_TrazTudo()
+    {
+        var inicio = new DateOnly(2026, 7, 1);
+        var fim = new DateOnly(2026, 7, 31);
+
+        for (var i = 0; i < 3; i++)
+            await _financeiro.LancarAsync(inicio, TipoLancamento.Entrada, $"Sessão {i}", 100m);
+
+        (await _financeiro.DoPeriodoAsync(inicio, fim)).Should().HaveCount(3);
+    }
+
+    [Fact]
+    public async Task DoPeriodo_ComLimite_TrazOsMaisRecentesPrimeiro()
+    {
+        var inicio = new DateOnly(2026, 7, 1);
+
+        await _financeiro.LancarAsync(inicio, TipoLancamento.Entrada, "Mais antigo", 100m);
+        await _financeiro.LancarAsync(inicio.AddDays(10), TipoLancamento.Entrada, "Do meio", 100m);
+        await _financeiro.LancarAsync(inicio.AddDays(20), TipoLancamento.Entrada, "Mais recente", 100m);
+
+        var lista = await _financeiro.DoPeriodoAsync(inicio, inicio.AddDays(30), limite: 1);
+
+        // Cortar tem que preservar a ordem da tela (o mais novo no topo), senão o corte
+        // esconderia justamente o que a secretária acabou de lançar.
+        lista.Should().ContainSingle();
+        lista[0].Descricao.Should().Be("Mais recente");
+    }
+
+    [Fact]
     public async Task Cancelamento_PreservaHistoricoEExigeMotivo()
     {
         var lancamento = await _financeiro.LancarAsync(

@@ -397,8 +397,19 @@ public interface IClinicaRepositorio
     Task AdicionarLancamentoAsync(LancamentoFinanceiro lancamento, CancellationToken ct = default);
     Task<LancamentoFinanceiro?> ObterLancamentoAsync(int lancamentoId, CancellationToken ct = default);
 
-    /// <summary>Lançamentos por data de competência, com categoria e paciente carregados.</summary>
+    /// <summary>
+    /// Lançamentos por data de competência, com categoria e paciente carregados.
+    /// <paramref name="limite"/> corta no SQL (nunca <c>Take()</c> depois de
+    /// materializar); null = sem corte.
+    /// </summary>
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, int? limite = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Só (tipo, situação, valor) dos lançamentos do período — a projeção que os totais
+    /// do caixa precisam. Existe para o resumo não repetir a carga completa da lista.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.ValorLancamento>> ValoresDeLancamentoNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
     /// <summary>

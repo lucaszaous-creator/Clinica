@@ -1,5 +1,6 @@
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,6 +30,13 @@ public sealed partial class PacientesViewModel : ObservableObject
     public FichaPacienteViewModel Ficha { get; }
 
     [ObservableProperty] private string _resumo = string.Empty;
+
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     public PacientesViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -62,6 +70,8 @@ public sealed partial class PacientesViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoPacienteAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "cadastrar paciente");
+
         var vm = new PacienteEdicaoViewModel(_escopos);
         var janela = new Janelas.PacienteWindow(vm)
         {

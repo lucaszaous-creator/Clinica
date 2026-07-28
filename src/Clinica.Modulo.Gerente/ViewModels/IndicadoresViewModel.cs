@@ -22,10 +22,10 @@ public sealed partial class IndicadoresViewModel : ObservableObject
     public ObservableCollection<ProdutividadeProfissional> Produtividade { get; } = [];
     public ObservableCollection<MesGerencial> Serie { get; } = [];
 
-    /// <summary>Períodos oferecidos — os três que a direção realmente pede.</summary>
-    public IReadOnlyList<string> Periodos { get; } = ["Este mês", "Últimos 3 meses", "Este ano"];
+    /// <summary>Períodos oferecidos — a lista mora em <see cref="PeriodoGerencial"/>.</summary>
+    public IReadOnlyList<string> Periodos { get; } = PeriodoGerencial.Opcoes;
 
-    [ObservableProperty] private string _periodoSelecionado = "Este mês";
+    [ObservableProperty] private string _periodoSelecionado = PeriodoGerencial.EsteMes;
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -64,8 +64,9 @@ public sealed partial class IndicadoresViewModel : ObservableObject
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
-            var (inicio, fim) = Intervalo();
-            IntervaloFormatado = $"{inicio:dd/MM/yyyy} a {fim:dd/MM/yyyy}";
+            var intervalo = PeriodoGerencial.Intervalo(PeriodoSelecionado, DateOnly.FromDateTime(DateTime.Today));
+            var (inicio, fim) = intervalo;
+            IntervaloFormatado = PeriodoGerencial.Rotular(intervalo);
 
             using var scope = _escopos.CreateScope();
             var indicadores = scope.ServiceProvider.GetRequiredService<IndicadoresService>();
@@ -117,16 +118,5 @@ public sealed partial class IndicadoresViewModel : ObservableObject
         {
             Carregando = false;
         }
-    }
-
-    private (DateOnly Inicio, DateOnly Fim) Intervalo()
-    {
-        var hoje = DateOnly.FromDateTime(DateTime.Today);
-        return PeriodoSelecionado switch
-        {
-            "Últimos 3 meses" => (new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(-2), hoje),
-            "Este ano" => (new DateOnly(hoje.Year, 1, 1), hoje),
-            _ => (new DateOnly(hoje.Year, hoje.Month, 1), hoje)
-        };
     }
 }

@@ -113,8 +113,11 @@
                                                    Foreground="{StaticResource Brush.Texto.Secundario}" />
                                         <TextBlock Grid.Column="3" Text="{Binding Pendentes}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <!-- TaxaBaixa já vem em 0..100 do RelatorioService.
+                                             P1 multiplicaria por 100 de novo e mostraria
+                                             "9.250,0%" no lugar de "92,5%". -->
                                         <TextBlock Grid.Column="4"
-                                                   Text="{Binding TaxaBaixa, StringFormat='{}{0:P1}'}"
+                                                   Text="{Binding TaxaBaixa, StringFormat='{}{0:0.#}%'}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}" />
                                     </Grid>
                                 </Border>

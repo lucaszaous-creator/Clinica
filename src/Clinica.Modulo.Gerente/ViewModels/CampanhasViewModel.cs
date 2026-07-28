@@ -65,16 +65,31 @@ public sealed partial class CampanhasViewModel : ObservableObject
     public ObservableCollection<LinhaContato> Contatos { get; } = [];
 
     public IReadOnlyList<string> Tipos { get; } = ["Todos", "Confirmação", "NPS", "Recall"];
+
+    /// <summary>
+    /// Janelas de tempo da fila.
+    ///
+    /// NÃO usa o <see cref="PeriodoGerencial"/> das outras telas de propósito: lá o
+    /// período termina hoje, porque indicador é sobre o que já aconteceu. Aqui metade
+    /// do trabalho está no FUTURO — a confirmação da sessão de amanhã é o item mais
+    /// importante da tela, e um período que acaba hoje a esconderia.
+    /// </summary>
+    public IReadOnlyList<string> Janelas { get; } =
+        ["Semana que vem", "Últimos 30 dias", "Últimos 3 meses"];
     public IReadOnlyList<string> Situacoes { get; } = ["A enviar", "Todos", "Enviados", "Respondidos"];
 
     [ObservableProperty] private string _tipoSelecionado = "Todos";
     [ObservableProperty] private string _situacaoSelecionada = "A enviar";
+    [ObservableProperty] private string _janelaSelecionada = "Semana que vem";
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
 
     /// <summary>Resultado da última rodada gerada — fica na tela, não é snackbar que some.</summary>
     [ObservableProperty] private string _resultadoRodada = string.Empty;
+
+    /// <summary>O intervalo que a fila está mostrando, no cabeçalho.</summary>
+    [ObservableProperty] private string _intervaloFormatado = string.Empty;
 
     public CampanhasViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar,
@@ -89,6 +104,16 @@ public sealed partial class CampanhasViewModel : ObservableObject
 
     partial void OnTipoSelecionadoChanged(string value) => _ = CarregarAsync();
     partial void OnSituacaoSelecionadaChanged(string value) => _ = CarregarAsync();
+    partial void OnJanelaSelecionadaChanged(string value) => _ = CarregarAsync();
+
+    /// <summary>Intervalo da janela escolhida. Sempre inclui alguns dias à frente.</summary>
+    private (DateOnly Inicio, DateOnly Fim) Intervalo(DateOnly hoje) => JanelaSelecionada switch
+    {
+        "Últimos 30 dias" => (hoje.AddDays(-30), hoje.AddDays(7)),
+        "Últimos 3 meses" => (hoje.AddDays(-90), hoje.AddDays(7)),
+        // O padrão olha para frente: é a fila de trabalho, não o histórico.
+        _ => (hoje.AddDays(-7), hoje.AddDays(7))
+    };
 
     // ------------------------------------------------------------------ leitura
 
@@ -102,10 +127,8 @@ public sealed partial class CampanhasViewModel : ObservableObject
             MensagemEhErro = false;
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
-            // Janela larga: a fila tem que mostrar a confirmação de amanhã e o NPS da
-            // semana passada na mesma tela.
-            var inicio = hoje.AddDays(-90);
-            var fim = hoje.AddDays(30);
+            var (inicio, fim) = Intervalo(hoje);
+            IntervaloFormatado = $"{inicio:dd/MM} a {fim:dd/MM}";
 
             using var scope = _escopos.CreateScope();
             var campanhas = scope.ServiceProvider.GetRequiredService<CampanhaService>();

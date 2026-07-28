@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -110,7 +111,7 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
 
             await _pacotes.VenderAsync(
                 paciente.Id, pacote.Id, DateOnly.FromDateTime(DataCompra), valor,
-                Observacoes, Environment.UserName);
+                Observacoes, SessaoUsuario.Atual.Operador);
 
             Concluido?.Invoke();
         }

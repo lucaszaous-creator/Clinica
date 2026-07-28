@@ -29,7 +29,7 @@
                     <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                             Command="{Binding CarregarCommand}" />
                     <Button Content="Nova regra…" Margin="8,0,0,0"
-                            Command="{Binding NovaRegraCommand}" />
+                            Command="{Binding NovaRegraCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
                 </StackPanel>
             </Grid>
 

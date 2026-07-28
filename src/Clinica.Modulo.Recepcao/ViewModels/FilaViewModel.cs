@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -89,6 +90,13 @@ public sealed partial class FilaViewModel : ObservableObject
 
     [ObservableProperty]
     private string _resumo = string.Empty;
+
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
 
     public FilaViewModel(
         AgendaService agenda, PainelRecepcaoService painel,
@@ -219,6 +227,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task RegistrarChegadaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
             await _agenda.RegistrarChegadaAsync(c.AgendamentoId);
             if (c.TemGuiaPendente)
                 _dialogo.Aviso(
@@ -234,6 +244,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task IniciarAtendimentoAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
             await _agenda.IniciarAtendimentoAsync(c.AgendamentoId);
             _snackbar.Sucesso($"{c.Paciente} em atendimento.");
         }, "início do atendimento");
@@ -243,6 +255,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task FinalizarAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
             var resultado = await _agenda.ConfirmarPresencaAsync(c.AgendamentoId);
             var codigos = resultado.Atendimento.Codigos.Count;
             _snackbar.Sucesso($"Atendimento de {c.Paciente} concluído — {codigos} código(s) gerado(s).");
@@ -253,6 +267,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task VoltarEtapaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
             await _agenda.VoltarEtapaAsync(c.AgendamentoId);
             _snackbar.Info("Cartão devolvido para a coluna anterior.");
         }, "volta de etapa");
@@ -261,7 +277,9 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task MarcarFaltaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            await _agenda.MarcarFaltaAsync(c.AgendamentoId, Environment.UserName);
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
+            await _agenda.MarcarFaltaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"{c.Paciente} marcado como falta.");
         }, "marcação de falta");
 
@@ -269,7 +287,9 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task CancelarAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            await _agenda.CancelarAsync(c.AgendamentoId, Environment.UserName);
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
+            await _agenda.CancelarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"Agendamento de {c.Paciente} cancelado.");
         }, "cancelamento");
 

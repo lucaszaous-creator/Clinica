@@ -175,6 +175,16 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   usuário abre o **primeiro acesso** (nasce Gerente) em vez de trancar todo mundo do lado de fora,
   e o serviço recusa deixar a base sem ninguém que possa gerenciar acessos. **O faturamento
   continua sem login** — está congelado.
+- **A permissão tem DUAS barreiras, e as duas são obrigatórias**: `IsEnabled` no botão (a metade
+  visível, que explica) e `SessaoUsuario.Atual.Exigir(...)` no comando (a que impede). Só
+  desabilitar é enfeite — atalho de teclado passa direto. Comando novo que grava nasce com as
+  duas. `SessaoUsuario.Atual` é estática porque metade dos formulários é construída à mão pela
+  tela e não passa pelo DI; **sem sessão autenticada, `Pode` libera** (tela vazia parece defeito,
+  e no app real o login é obrigatório).
+- **Quem assina a ação é quem fez login**, nunca o usuário do Windows: `SessaoUsuario.Atual.Operador`
+  é o que vai para a auditoria e para o `EnviadoPor` da campanha. `Environment.UserName` só
+  aparece como fallback dentro do próprio `Operador` — no balcão duas pessoas dividem a mesma
+  máquina, e gravar o login do Windows apagaria a diferença entre elas.
 - **Campanhas (parcela 5)**: confirmação de sessão, NPS e recall são UMA entidade
   (`ContatoCampanha`), porque o fato registrado é o mesmo. `Origem` (`AGD:123`, `ATD:987`,
   `REC:55:2026-07`) é a chave de idempotência, com índice único junto do tipo — rodar a campanha

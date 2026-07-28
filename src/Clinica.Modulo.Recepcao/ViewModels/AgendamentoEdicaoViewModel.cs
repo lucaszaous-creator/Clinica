@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
+using Clinica.Desktop.Shell;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
@@ -245,7 +246,7 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     _agendamentoId.Value, dataHora, Observacoes,
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
-                    operador: Environment.UserName,
+                    operador: SessaoUsuario.Atual.Operador,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
                     duracaoMinutos: DuracaoInformada(),
                     manterRecursos: false, encaixe: Encaixe);

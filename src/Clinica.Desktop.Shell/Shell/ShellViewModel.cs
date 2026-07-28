@@ -52,8 +52,9 @@ public sealed partial class ShellViewModel : ObservableObject
         var grupos = new List<GrupoMenuModulo>();
         foreach (var modulo in _modulos)
         {
+            // Pode() já libera quando não há sessão autenticada — a regra mora nela.
             var permitidos = modulo.Itens
-                .Where(i => sessao is null || !sessao.Autenticado || sessao.Pode(i.Requer))
+                .Where(i => sessao?.Pode(i.Requer) != false)
                 .ToList();
 
             // Módulo cujos itens o usuário não pode ver não vira cabeçalho órfão.

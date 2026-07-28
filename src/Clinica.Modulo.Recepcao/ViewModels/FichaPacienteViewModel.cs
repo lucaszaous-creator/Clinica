@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -120,6 +121,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     /// <summary>Avisa a tela dona que o cadastro mudou (para recarregar a lista).</summary>
     public event Action? Alterou;
+
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     public FichaPacienteViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -356,6 +364,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task EditarAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
         if (PacienteId == 0) return;
 
         var vm = new PacienteEdicaoViewModel(_escopos, PacienteId);
@@ -384,6 +394,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     private async Task ExcluirEvolucaoAsync(LinhaEvolucao? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
         if (!_dialogo.ConfirmarPerigo("Excluir do prontuário",
                 $"Apagar a sessão de {linha.Data}? Os anexos dela vão junto, e o prontuário "
                 + "é documento clínico — a exclusão fica registrada na auditoria.")) return;
@@ -392,7 +404,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         {
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.ExcluirAsync(linha.EvolucaoId, Environment.UserName);
+            await prontuario.ExcluirAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Sessão excluída do prontuário.");
             await CarregarAsync();
         }
@@ -406,6 +418,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task AbrirEvolucaoAsync(int? evolucaoId)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
         if (PacienteId == 0) return;
 
         var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
@@ -431,6 +444,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task RegistrarConsentimentoAsync(LinhaConsentimento? linha, bool concedido)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
         if (linha is null || PacienteId == 0) return;
 
         try
@@ -438,7 +453,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<ConsentimentoService>();
             await servico.RegistrarAsync(
-                PacienteId, linha.Finalidade, concedido, operador: Environment.UserName);
+                PacienteId, linha.Finalidade, concedido, operador: SessaoUsuario.Atual.Operador);
 
             _snackbar.Sucesso(concedido ? "Consentimento registrado." : "Recusa registrada.");
             await CarregarAsync();
@@ -454,6 +469,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task RevogarAsync(LinhaConsentimento? linha)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
         if (linha?.RegistroId is not { } registroId) return;
 
         var motivo = _dialogo.PerguntarTexto(
@@ -466,7 +483,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         {
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<ConsentimentoService>();
-            await servico.RevogarAsync(registroId, Environment.UserName, motivo);
+            await servico.RevogarAsync(registroId, SessaoUsuario.Atual.Operador, motivo);
             _snackbar.Info("Consentimento revogado.");
             await CarregarAsync();
         }
@@ -484,6 +501,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoDocumentoAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
         if (PacienteId == 0) return;
 
         var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
@@ -521,6 +540,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task EmitirMontadoAsync(TipoDocumentoClinico tipo)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
         if (PacienteId == 0) return;
 
         try
@@ -529,7 +550,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             using (var scope = _escopos.CreateScope())
             {
                 var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
-                var operador = Environment.UserName;
+                var operador = SessaoUsuario.Atual.Operador;
 
                 emitido = tipo switch
                 {
@@ -605,6 +626,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task CancelarDocumentoAsync(LinhaDocumento? linha)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
         if (linha is null || linha.Cancelado) return;
 
         var motivo = _dialogo.PerguntarTexto(
@@ -618,7 +641,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         {
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
-            await servico.CancelarAsync(linha.DocumentoId, motivo, Environment.UserName);
+            await servico.CancelarAsync(linha.DocumentoId, motivo, SessaoUsuario.Atual.Operador);
 
             _snackbar.Info("Documento cancelado.");
             await CarregarAsync();

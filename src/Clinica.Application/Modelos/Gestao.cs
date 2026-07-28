@@ -172,3 +172,14 @@ public sealed record CandidatoRecall(
     int DiasSemVir,
     bool TemConsentimento,
     bool TemTelefone);
+
+// ==================== Caixa ====================
+
+/// <summary>
+/// Projeção mínima de um lançamento, para somar os totais do caixa sem trazer a linha
+/// inteira (nem a categoria, nem o paciente) do banco.
+/// </summary>
+public sealed record ValorLancamento(
+    TipoLancamento Tipo,
+    StatusLancamento Status,
+    decimal Valor);

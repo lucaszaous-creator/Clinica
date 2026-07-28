@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -72,6 +73,13 @@ public sealed partial class RepassesViewModel : ObservableObject
     private DateOnly Inicio => DateOnly.FromDateTime(new DateTime(Mes.Year, Mes.Month, 1));
 
     private DateOnly Fim => Inicio.AddMonths(1).AddDays(-1);
+
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
     public RepassesViewModel(
         RepasseService repasses, EquipeService equipe,
@@ -179,6 +187,8 @@ public sealed partial class RepassesViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
+
         if (!_dialogo.Confirmar("Apurar repasse",
                 $"Fechar {linha.Valor} para {linha.Profissional} em {PeriodoRotulo}? "
                 + "Isso cria uma SAÍDA PREVISTA no caixa e impede apurar o mesmo período de novo.")) return;
@@ -186,7 +196,7 @@ public sealed partial class RepassesViewModel : ObservableObject
         try
         {
             await _repasses.ApurarAsync(
-                linha.ProfissionalId, Inicio, Fim, categoriaId: null, operador: Environment.UserName);
+                linha.ProfissionalId, Inicio, Fim, categoriaId: null, operador: SessaoUsuario.Atual.Operador);
 
             _snackbar.Sucesso("Repasse apurado e lançado no caixa como saída prevista.");
             await CarregarAsync();
@@ -203,6 +213,8 @@ public sealed partial class RepassesViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
+
         var motivo = _dialogo.PerguntarTexto(
             "Cancelar apuração",
             $"Por que a apuração de {linha.Profissional} ({linha.Periodo}) está sendo cancelada? "
@@ -211,7 +223,7 @@ public sealed partial class RepassesViewModel : ObservableObject
 
         try
         {
-            await _repasses.CancelarApuracaoAsync(linha.Id, motivo, Environment.UserName);
+            await _repasses.CancelarApuracaoAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Apuração cancelada.");
             await CarregarAsync();
         }
@@ -225,6 +237,8 @@ public sealed partial class RepassesViewModel : ObservableObject
     [RelayCommand]
     private async Task NovaRegraAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
+
         var vm = new RegraRepasseViewModel(_repasses, _equipe);
         var janela = new Janelas.RegraRepasseWindow(vm)
         {
@@ -240,6 +254,8 @@ public sealed partial class RepassesViewModel : ObservableObject
     private async Task ExcluirRegraAsync(LinhaRegraRepasse? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
         if (!_dialogo.ConfirmarPerigo("Excluir regra",
                 $"Apagar a regra de {linha.Profissional} ({linha.Regra})? As apurações JÁ FEITAS "
                 + "continuam valendo — elas guardam a própria cópia do cálculo.")) return;
@@ -358,7 +374,7 @@ public sealed partial class RegraRepasseViewModel : ObservableObject
                 VigenteAte = VigenteAte is { } ate ? DateOnly.FromDateTime(ate) : null,
                 Ativa = true,
                 Observacoes = Observacoes
-            }, Environment.UserName);
+            }, SessaoUsuario.Atual.Operador);
 
             Concluido?.Invoke();
         }

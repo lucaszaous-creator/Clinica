@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -44,6 +45,13 @@ public sealed partial class PlanoContasViewModel : ObservableObject
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private string _resumo = "—";
+
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
     public PlanoContasViewModel(FinanceiroService financeiro, ISnackbarService snackbar)
     {
@@ -93,6 +101,8 @@ public sealed partial class PlanoContasViewModel : ObservableObject
     [RelayCommand]
     private async Task AdicionarAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no plano de contas");
+
         try
         {
             await _financeiro.CriarCategoriaAsync(
@@ -115,6 +125,8 @@ public sealed partial class PlanoContasViewModel : ObservableObject
     private async Task AlternarAtivaAsync(LinhaCategoria? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no plano de contas");
 
         try
         {

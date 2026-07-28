@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -48,6 +49,13 @@ public sealed partial class EquipeViewModel : ObservableObject
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
+
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeGerenciarEquipe => SessaoUsuario.Atual.Pode(Permissao.GerenciarEquipe);
 
     public EquipeViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -119,6 +127,8 @@ public sealed partial class EquipeViewModel : ObservableObject
     private async Task ExcluirProfissionalAsync(LinhaProfissional? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe");
         if (!_dialogo.ConfirmarPerigo("Excluir profissional",
                 $"Excluir {linha.Nome}? Só é possível enquanto ele não tem agenda registrada — "
                 + "se já tiver, desative-o em vez de excluir.")) return;
@@ -144,6 +154,8 @@ public sealed partial class EquipeViewModel : ObservableObject
     private async Task ExcluirSalaAsync(LinhaSala? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe");
         if (!_dialogo.ConfirmarPerigo("Excluir sala",
                 $"Excluir a sala {linha.Nome}? Só é possível enquanto ela não tem agenda registrada.")) return;
 
@@ -156,6 +168,7 @@ public sealed partial class EquipeViewModel : ObservableObject
 
     private async Task AbrirProfissionalAsync(int? id)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe");
         var vm = new ProfissionalEdicaoViewModel(_escopos, id);
         var janela = new Janelas.ProfissionalWindow(vm)
         {
@@ -169,6 +182,7 @@ public sealed partial class EquipeViewModel : ObservableObject
 
     private async Task AbrirSalaAsync(int? id)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "mexer no cadastro da equipe");
         var vm = new SalaEdicaoViewModel(_escopos, id);
         var janela = new Janelas.SalaWindow(vm)
         {

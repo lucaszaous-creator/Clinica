@@ -47,9 +47,10 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<ResumoMensal> Meses { get; } = [];
 
-    public IReadOnlyList<string> Periodos { get; } = ["Este mês", "Últimos 3 meses", "Este ano"];
+    /// <summary>Períodos oferecidos — a lista mora em <see cref="PeriodoGerencial"/>.</summary>
+    public IReadOnlyList<string> Periodos { get; } = PeriodoGerencial.Opcoes;
 
-    [ObservableProperty] private string _periodoSelecionado = "Este mês";
+    [ObservableProperty] private string _periodoSelecionado = PeriodoGerencial.EsteMes;
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -84,8 +85,9 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
             MensagemEhErro = false;
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
-            var (inicio, fim) = Intervalo(hoje);
-            IntervaloFormatado = $"{inicio:dd/MM/yyyy} a {fim:dd/MM/yyyy}";
+            var intervalo = PeriodoGerencial.Intervalo(PeriodoSelecionado, hoje);
+            var (inicio, fim) = intervalo;
+            IntervaloFormatado = PeriodoGerencial.Rotular(intervalo);
 
             using var scope = _escopos.CreateScope();
             var relatorios = scope.ServiceProvider.GetRequiredService<RelatorioService>();
@@ -141,11 +143,4 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
             Carregando = false;
         }
     }
-
-    private (DateOnly Inicio, DateOnly Fim) Intervalo(DateOnly hoje) => PeriodoSelecionado switch
-    {
-        "Últimos 3 meses" => (new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(-2), hoje),
-        "Este ano" => (new DateOnly(hoje.Year, 1, 1), hoje),
-        _ => (new DateOnly(hoje.Year, hoje.Month, 1), hoje)
-    };
 }

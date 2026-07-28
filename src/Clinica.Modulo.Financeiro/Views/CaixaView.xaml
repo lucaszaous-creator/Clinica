@@ -29,7 +29,7 @@
                         Style="{StaticResource BotaoSecundario}" Width="40" />
                 <Button Content="Atualizar" Command="{Binding CarregarCommand}"
                         Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
-                <Button Content="Novo lançamento" Command="{Binding NovoLancamentoCommand}" Margin="8,0,0,0" />
+                <Button Content="Novo lançamento" Command="{Binding NovoLancamentoCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" Margin="8,0,0,0" />
             </StackPanel>
         </Grid>
 
@@ -91,6 +91,14 @@
                         <TextBlock Grid.Column="4" Text="Valor" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Grid.Column="5" Text="Ações" Style="{StaticResource Rotulo}" Margin="0" />
                     </Grid>
+                </Border>
+
+                <!-- Lista cortada: o usuário precisa saber que está vendo uma parte,
+                     senão conclui que o lançamento sumiu. Os totais são do mês inteiro. -->
+                <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaInfo}" Margin="16,8"
+                        Visibility="{Binding Truncado, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Mostrando os lançamentos mais recentes deste mês. Os totais acima consideram o mês inteiro." />
                 </Border>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

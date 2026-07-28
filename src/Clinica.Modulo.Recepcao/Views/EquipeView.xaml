@@ -35,7 +35,7 @@
                         <TextBlock Text="Profissionais" Style="{StaticResource H3}" Margin="0"
                                    VerticalAlignment="Center" />
                         <Button Content="Novo profissional" HorizontalAlignment="Right"
-                                Command="{Binding NovoProfissionalCommand}" />
+                                Command="{Binding NovoProfissionalCommand}" IsEnabled="{Binding PodeGerenciarEquipe}" />
                     </Grid>
 
                     <TextBlock Text="Nenhum profissional cadastrado." Margin="0,16">
@@ -106,7 +106,7 @@
                         <TextBlock Text="Salas" Style="{StaticResource H3}" Margin="0"
                                    VerticalAlignment="Center" />
                         <Button Content="Nova sala" HorizontalAlignment="Right"
-                                Command="{Binding NovaSalaCommand}" />
+                                Command="{Binding NovaSalaCommand}" IsEnabled="{Binding PodeGerenciarEquipe}" />
                     </Grid>
 
                     <TextBlock Text="Nenhuma sala cadastrada." Margin="0,16">

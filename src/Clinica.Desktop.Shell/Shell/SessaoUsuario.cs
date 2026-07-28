@@ -15,6 +15,20 @@ namespace Clinica.Desktop.Shell;
 /// </summary>
 public sealed class SessaoUsuario
 {
+    /// <summary>
+    /// A sessão deste processo, acessível sem passar pelo construtor.
+    ///
+    /// Existe porque METADE dos formulários da suíte é construída à mão pela tela que
+    /// os abre (<c>new PacienteEdicaoViewModel(escopos, id)</c>) e nunca passa pelo DI:
+    /// exigir injeção obrigaria a reescrever vinte construtores só para poder perguntar
+    /// "quem está logado?". A instância é a MESMA registrada no host — quem entra
+    /// aponta esta propriedade para si em <see cref="Entrar"/>.
+    ///
+    /// Antes do login (e nos testes) aponta para uma sessão vazia, que libera tudo:
+    /// ver <see cref="Pode"/>.
+    /// </summary>
+    public static SessaoUsuario Atual { get; private set; } = new();
+
     public int UsuarioId { get; private set; }
 
     public string Nome { get; private set; } = string.Empty;
@@ -43,8 +57,35 @@ public sealed class SessaoUsuario
         ? $"{Nome} · {PerfisAcesso.Rotular(Perfil)}"
         : Environment.UserName;
 
+    /// <summary>
+    /// Tem a permissão pedida?
+    ///
+    /// SEM SESSÃO AUTENTICADA, LIBERA. A regra mora aqui, num lugar só, porque a
+    /// alternativa é pior: uma sessão vazia negando tudo esconderia a suíte inteira em
+    /// qualquer caminho que não passe pelo login (teste, tela aberta fora do shell) — e
+    /// tela vazia parece defeito, não segurança. No app real o login é obrigatório,
+    /// então este caso não acontece em produção.
+    /// </summary>
     public bool Pode(Permissao permissao)
-        => permissao == Permissao.Nenhuma || (Permissoes & permissao) == permissao;
+        => !Autenticado
+           || permissao == Permissao.Nenhuma
+           || (Permissoes & permissao) == permissao;
+
+    /// <summary>
+    /// Bloqueia a ação quando falta permissão. As telas já tratam exceção e mostram a
+    /// mensagem inline, então o texto aqui é o que o usuário vai ler.
+    ///
+    /// É a SEGUNDA barreira, de propósito: o botão desabilitado explica; esta impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado ou um comando disparado por
+    /// outro caminho passaria direto.
+    /// </summary>
+    public void Exigir(Permissao permissao, string acao)
+    {
+        if (Pode(permissao)) return;
+
+        throw new InvalidOperationException(
+            $"Seu acesso não permite {acao}. Fale com a direção da clínica.");
+    }
 
     /// <summary>Grava a fotografia do usuário que acabou de entrar.</summary>
     public void Entrar(UsuarioSistema usuario)
@@ -55,5 +96,8 @@ public sealed class SessaoUsuario
         Perfil = usuario.Perfil;
         Permissoes = usuario.Efetivas;
         ProfissionalId = usuario.ProfissionalId;
+
+        // A partir daqui é ESTA instância que responde por "quem está usando o app".
+        Atual = this;
     }
 }

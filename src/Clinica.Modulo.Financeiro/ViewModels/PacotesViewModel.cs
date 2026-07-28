@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -68,6 +69,13 @@ public sealed partial class PacotesViewModel : ObservableObject
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private string _resumo = "—";
+
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
     public PacotesViewModel(
         PacoteService pacotes, DocumentoFinanceiroService documentos,
@@ -150,6 +158,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     [RelayCommand]
     private async Task AdicionarAoCatalogoAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+
         try
         {
             var pacote = new PacoteCatalogo
@@ -162,7 +172,7 @@ public sealed partial class PacotesViewModel : ObservableObject
                 Ativo = true
             };
 
-            await _pacotes.SalvarCatalogoAsync(pacote, Environment.UserName);
+            await _pacotes.SalvarCatalogoAsync(pacote, SessaoUsuario.Atual.Operador);
 
             NovoNome = NovoSessoes = NovoValor = NovaValidadeDias = null;
             _snackbar.Sucesso("Pacote acrescentado ao catálogo.");
@@ -179,6 +189,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     private async Task ExcluirDoCatalogoAsync(LinhaCatalogo? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
         if (!_dialogo.ConfirmarPerigo("Excluir do catálogo",
                 $"Tirar \"{linha.Nome}\" da lista de venda? Os pacotes JÁ VENDIDOS continuam "
                 + "valendo — eles guardam a própria cópia do que foi contratado.")) return;
@@ -201,6 +213,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     [RelayCommand]
     private async Task VenderAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+
         var vm = new PacoteVendaViewModel(_pacotes, _escopos);
         var janela = new Janelas.PacoteVendaWindow(vm)
         {
@@ -217,6 +231,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     private async Task ConsumirAsync(LinhaPacoteVendido? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
         if (!_dialogo.Confirmar("Usar uma sessão",
                 $"Debitar uma sessão de \"{linha.Nome}\" ({linha.Paciente})? Hoje o saldo é: "
                 + $"{linha.Saldo}.")) return;
@@ -224,7 +240,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         try
         {
             await _pacotes.ConsumirAsync(
-                linha.Id, observacao: "Baixa manual pelo Financeiro", operador: Environment.UserName);
+                linha.Id, observacao: "Baixa manual pelo Financeiro", operador: SessaoUsuario.Atual.Operador);
             _snackbar.Sucesso("Sessão debitada.");
             await CarregarAsync();
         }
@@ -240,6 +256,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+
         var motivo = _dialogo.PerguntarTexto(
             "Cancelar pacote",
             $"Por que o pacote \"{linha.Nome}\" de {linha.Paciente} está sendo cancelado? "
@@ -248,7 +266,7 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         try
         {
-            await _pacotes.CancelarAsync(linha.Id, motivo, Environment.UserName);
+            await _pacotes.CancelarAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Pacote cancelado.");
             await CarregarAsync();
         }
@@ -276,7 +294,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         try
         {
             var documento = await _documentos.EmitirOrcamentoDoPacoteAsync(
-                linha.Id, pacienteId: null, destinatario, Environment.UserName);
+                linha.Id, pacienteId: null, destinatario, SessaoUsuario.Atual.Operador);
 
             var pdf = await _pdfs.GerarAsync(documento.Id, await _parametros.ObterPrestadorAsync());
 
