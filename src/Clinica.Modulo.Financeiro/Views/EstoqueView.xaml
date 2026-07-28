@@ -127,7 +127,7 @@
 
                         <Button Content="Cadastrar item" Margin="0,10,0,0"
                                 HorizontalAlignment="Left"
-                                Command="{Binding AdicionarItemCommand}" />
+                                Command="{Binding AdicionarItemCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
                     </StackPanel>
                 </Border>
 

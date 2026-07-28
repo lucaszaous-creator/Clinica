@@ -950,12 +950,26 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => await _db.Lancamentos.FirstOrDefaultAsync(l => l.Id == lancamentoId, ct);
 
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosNoPeriodoAsync(
-        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
-        => await _db.Lancamentos
+        DateOnly inicio, DateOnly fim, int? limite = null, CancellationToken ct = default)
+    {
+        var q = _db.Lancamentos
             .Include(l => l.Categoria)
             .Include(l => l.Paciente)
             .Where(l => l.Data >= inicio && l.Data <= fim)
-            .OrderByDescending(l => l.Data).ThenByDescending(l => l.Id)
+            .OrderByDescending(l => l.Data).ThenByDescending(l => l.Id);
+
+        // O corte vai para o SQL: materializar o período inteiro para depois descartar
+        // é exatamente o que a convenção do projeto proíbe (o banco é remoto).
+        return limite is { } n && n > 0
+            ? await q.Take(n).ToListAsync(ct)
+            : await q.ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.ValorLancamento>>
+        ValoresDeLancamentoNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Data >= inicio && l.Data <= fim)
+            .Select(l => new Clinica.Application.Modelos.ValorLancamento(l.Tipo, l.Status, l.Valor))
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<int>> CodigosComLancamentoAsync(

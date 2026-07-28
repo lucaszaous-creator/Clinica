@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using Clinica.Desktop.Shell.Componentes;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -223,7 +224,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                     Detalhe = i.Detalhe
                 });
 
-            await documentos.SalvarModeloAsync(modelo, Environment.UserName);
+            await documentos.SalvarModeloAsync(modelo, SessaoUsuario.Atual.Operador);
             await CarregarModelosAsync();
             Informar($"Modelo \"{modelo.Nome}\" guardado.");
         }
@@ -258,7 +259,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                 var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
                 var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
 
-                var emitido = await documentos.EmitirAsync(dados, Environment.UserName);
+                var emitido = await documentos.EmitirAsync(dados, SessaoUsuario.Atual.Operador);
                 DocumentoEmitidoId = emitido.Id;
                 numero = emitido.Numero;
 

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
 using Clinica.Application.Modelos;
+using Clinica.Desktop.Shell;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -159,7 +160,7 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
                 Conduta = Conduta,
                 TextoEvolucao = TextoEvolucao,
                 Orientacoes = Orientacoes
-            }, Environment.UserName);
+            }, SessaoUsuario.Atual.Operador);
 
             _evolucaoId = salva.Id;
 
@@ -223,7 +224,7 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
                 _evolucaoId.Value, Path.GetFileName(dialogo.FileName), bytes,
                 ehImagem ? TipoAnexo.Imagem : TipoAnexo.Documento,
                 tipoConteudo: ehImagem ? $"image/{extensao.TrimStart('.')}" : null,
-                operador: Environment.UserName);
+                operador: SessaoUsuario.Atual.Operador);
 
             await RecarregarAnexosAsync(prontuario);
             Mensagem = "Arquivo anexado.";

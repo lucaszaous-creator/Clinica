@@ -148,14 +148,32 @@ public sealed class FinanceiroService
         await _repo.SalvarAsync(ct);
     }
 
+    /// <summary>
+    /// Lançamentos do período, do mais recente para o mais antigo.
+    /// <paramref name="limite"/> corta no BANCO — a tela mostra as primeiras linhas, e
+    /// trazer o período inteiro para descartar em memória é desperdício de rede (mesma
+    /// convenção da busca de pacientes). Null = sem corte, para quem precisa de todos.
+    /// </summary>
     public Task<IReadOnlyList<LancamentoFinanceiro>> DoPeriodoAsync(
-        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
-        => _repo.LancamentosNoPeriodoAsync(inicio, fim, ct);
+        DateOnly inicio, DateOnly fim, int? limite = null, CancellationToken ct = default)
+        => _repo.LancamentosNoPeriodoAsync(inicio, fim, limite, ct);
 
-    /// <summary>Totais do período, ignorando cancelados.</summary>
+    /// <summary>
+    /// Totais do período, ignorando cancelados.
+    ///
+    /// Usa a PROJEÇÃO (tipo, situação, valor) em vez da lista completa: antes esta
+    /// chamada trazia o mês inteiro do banco — com categoria e paciente carregados
+    /// junto — só para somar quatro números, e a tela de Caixa já tinha carregado a
+    /// mesma lista uma linha antes. Eram duas viagens pesadas por atualização, num
+    /// banco remoto.
+    ///
+    /// A soma continua em memória de propósito: o SQLite, onde os testes rodam, não
+    /// traduz <c>Sum</c> sobre <c>decimal</c> (mesmo motivo já documentado no estoque).
+    /// O que muda é o TAMANHO do que vem — três colunas, sem join.
+    /// </summary>
     public async Task<ResumoCaixa> ResumoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
     {
-        var lancamentos = await _repo.LancamentosNoPeriodoAsync(inicio, fim, ct);
+        var lancamentos = await _repo.ValoresDeLancamentoNoPeriodoAsync(inicio, fim, ct);
 
         decimal Somar(TipoLancamento tipo, StatusLancamento status) =>
             lancamentos.Where(l => l.Tipo == tipo && l.Status == status).Sum(l => l.Valor);

@@ -29,7 +29,7 @@
                                    VerticalAlignment="Center" Margin="0" />
                         <Button Content="Novo paciente" HorizontalAlignment="Right"
                                 Style="{StaticResource BotaoPequeno}"
-                                Command="{Binding NovoPacienteCommand}" />
+                                Command="{Binding NovoPacienteCommand}" IsEnabled="{Binding PodeEditarProntuario}" />
                     </Grid>
                     <TextBlock Text="{Binding Seletor.Erro}"
                                Style="{StaticResource TextoSuave}"
@@ -342,7 +342,7 @@
                                            VerticalAlignment="Center" />
                                 <Button Content="Novo documento…" HorizontalAlignment="Right"
                                         Style="{StaticResource BotaoPequeno}"
-                                        Command="{Binding NovoDocumentoCommand}" />
+                                        Command="{Binding NovoDocumentoCommand}" IsEnabled="{Binding PodeEditarProntuario}" />
                             </Grid>
 
                             <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"

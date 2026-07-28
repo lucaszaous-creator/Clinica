@@ -51,7 +51,7 @@
                 </StackPanel>
 
                 <Button Grid.Column="6" Content="Criar categoria" VerticalAlignment="Bottom"
-                        Command="{Binding AdicionarCommand}" />
+                        Command="{Binding AdicionarCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
             </Grid>
         </Border>
 

@@ -135,7 +135,13 @@
                         Style="{StaticResource BotaoSecundario}" Width="40" />
                 <Button Content="Hoje" Command="{Binding HojeCommand}"
                         Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
-                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
+                <!-- Só aparece para quem entrou como profissional: no balcão a agenda
+                     é da clínica inteira e a caixa não teria sentido. -->
+                <CheckBox Content="Ver todos os profissionais"
+                          IsChecked="{Binding MostrarTodosOsProfissionais}"
+                          VerticalAlignment="Center" Margin="16,0,0,0"
+                          Visibility="{Binding SoMinhaAgenda, Converter={StaticResource BoolParaVisibilidade}}" />
+                <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}" IsEnabled="{Binding PodeEditarAgenda}"
                         Margin="8,0,0,0" />
             </StackPanel>
         </Grid>
@@ -163,7 +169,7 @@
                                Text="Quando um horário vaga, é aqui que está quem chamar." />
                     <Button Content="Adicionar à lista" Margin="0,10,0,0"
                             Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding NovoPedidoEsperaCommand}" />
+                            Command="{Binding NovoPedidoEsperaCommand}" IsEnabled="{Binding PodeEditarAgenda}" />
                 </StackPanel>
 
                 <TextBlock Text="Ninguém na lista de espera." Margin="0,12">

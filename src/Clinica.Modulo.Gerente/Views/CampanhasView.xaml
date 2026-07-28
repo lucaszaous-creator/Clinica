@@ -14,13 +14,15 @@
             <StackPanel>
                 <TextBlock Text="Campanhas" Style="{StaticResource H1}" Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
-                           Text="Confirmação de sessão, pesquisa de satisfação e recall de quem parou de vir." />
+                           Text="{Binding IntervaloFormatado, StringFormat='Confirmação, satisfação e recall — mostrando {0}'}" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}" MinWidth="130" />
                 <ComboBox ItemsSource="{Binding Situacoes}" SelectedItem="{Binding SituacaoSelecionada}"
                           MinWidth="130" Margin="8,0,0,0" />
+                <ComboBox ItemsSource="{Binding Janelas}" SelectedItem="{Binding JanelaSelecionada}"
+                          MinWidth="150" Margin="8,0,0,0" />
                 <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0"
                         Style="{StaticResource BotaoSecundario}" />
             </StackPanel>

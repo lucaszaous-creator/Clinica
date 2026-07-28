@@ -79,7 +79,7 @@
 
                         <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
                             <Button Content="Acrescentar ao catálogo"
-                                    Command="{Binding AdicionarAoCatalogoCommand}" />
+                                    Command="{Binding AdicionarAoCatalogoCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
                             <Button Content="Orçamento…" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding OrcarCommand}" />
@@ -131,7 +131,7 @@
                             <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding CarregarCommand}" />
                             <Button Content="Vender pacote…" Margin="8,0,0,0"
-                                    Command="{Binding VenderCommand}" />
+                                    Command="{Binding VenderCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
                         </StackPanel>
                     </Grid>
 

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -54,6 +55,13 @@ public sealed partial class EstoqueViewModel : ObservableObject
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private string _resumo = "—";
     [ObservableProperty] private bool _semAlertas;
+
+    /// <summary>
+    /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
+    /// botão apagado explica por que não dá; a guarda no comando é que impede.
+    /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    /// </summary>
+    public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
     public EstoqueViewModel(EstoqueService estoque, ISnackbarService snackbar, IDialogoService dialogo)
     {
@@ -123,6 +131,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
     [RelayCommand]
     private async Task AdicionarItemAsync()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
+
         try
         {
             decimal minimo = 0m;
@@ -135,7 +145,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
                 Unidade = string.IsNullOrWhiteSpace(NovaUnidade) ? "un" : NovaUnidade!,
                 EstoqueMinimo = minimo,
                 Ativo = true
-            }, Environment.UserName);
+            }, SessaoUsuario.Atual.Operador);
 
             NovoNome = NovoMinimo = null;
             NovaUnidade = "un";
@@ -154,6 +164,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
+
         var vm = new MovimentoEstoqueViewModel(_estoque, linha.Id, linha.Nome);
         var janela = new Janelas.MovimentoEstoqueWindow(vm)
         {
@@ -169,6 +181,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
     private async Task ExcluirItemAsync(LinhaEstoque? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
         if (!_dialogo.ConfirmarPerigo("Excluir item",
                 $"Apagar \"{linha.Nome}\" e TODO o histórico de movimentos dele? "
                 + "Item que já se movimentou normalmente deve ser inativado, não apagado.")) return;
@@ -264,7 +278,7 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
                 Validade = EhEntrada && Validade is { } v ? DateOnly.FromDateTime(v) : null,
                 Lote = Lote,
                 Observacao = Observacao
-            }, Environment.UserName);
+            }, SessaoUsuario.Atual.Operador);
 
             Concluido?.Invoke();
         }
