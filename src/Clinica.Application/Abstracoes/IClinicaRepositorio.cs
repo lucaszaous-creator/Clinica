@@ -218,6 +218,17 @@ public interface IClinicaRepositorio
     Task<ConsentimentoLgpd?> ObterConsentimentoAsync(int consentimentoId, CancellationToken ct = default);
     Task AdicionarConsentimentoAsync(ConsentimentoLgpd consentimento, CancellationToken ct = default);
 
+    /// <summary>
+    /// Quais destes pacientes têm consentimento VIGENTE para a finalidade (o registro
+    /// mais recente concedeu e não foi revogado). Em lote de propósito: as campanhas
+    /// perguntam por dezenas de pacientes de uma vez, e uma consulta por paciente
+    /// transformaria a geração da rodada em dezenas de idas ao banco remoto.
+    /// </summary>
+    Task<IReadOnlyList<int>> PacientesComConsentimentoVigenteAsync(
+        FinalidadeConsentimento finalidade,
+        IReadOnlyCollection<int> pacienteIds,
+        CancellationToken ct = default);
+
     // ---- Auditoria ----
 
     /// <summary>Acrescenta um evento à trilha de auditoria (persistido junto com o SalvarAsync da ação).</summary>
@@ -244,6 +255,58 @@ public interface IClinicaRepositorio
 
     Task<IReadOnlyList<CategoriaFinanceira>> CategoriasFinanceirasAsync(CancellationToken ct = default);
     Task AdicionarCategoriaFinanceiraAsync(CategoriaFinanceira categoria, CancellationToken ct = default);
+
+    // ---- Indicadores gerenciais (parcela 5) ----
+
+    /// <summary>
+    /// Evoluções registradas no período, com o profissional carregado. É o que dá ao BI
+    /// a produtividade CLÍNICA (quantas sessões foram documentadas, e quanto a dor caiu)
+    /// além da produtividade de agenda.
+    /// </summary>
+    Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quando cada paciente veio pela última vez e se já tem horário futuro — por
+    /// PROJEÇÃO, resolvida no banco. É a base do recall, e a pergunta é sobre a base
+    /// inteira: trazer todo paciente com o histórico junto arrastaria a tabela de
+    /// atendimentos pela rede a cada rodada.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.InatividadePaciente>> InatividadeAsync(
+        DateOnly referencia, CancellationToken ct = default);
+
+    // ---- Campanhas: confirmação, NPS e recall (parcela 5) ----
+
+    Task AdicionarContatoAsync(ContatoCampanha contato, CancellationToken ct = default);
+
+    /// <summary>Contato com paciente e agendamento carregados (entidade rastreada, para editar).</summary>
+    Task<ContatoCampanha?> ObterContatoAsync(int contatoId, CancellationToken ct = default);
+
+    /// <summary>Contatos no período (pela data de referência), filtrando por tipo e situação.</summary>
+    Task<IReadOnlyList<ContatoCampanha>> ContatosAsync(
+        TipoContato? tipo, StatusContato? status,
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quais destas origens já viraram contato deste tipo. É a checagem de
+    /// idempotência da campanha: rodar de novo não pode mandar a mesma mensagem duas
+    /// vezes para o mesmo paciente.
+    /// </summary>
+    Task<IReadOnlyList<string>> OrigensDeContatoAsync(
+        TipoContato tipo, IReadOnlyCollection<string> origens, CancellationToken ct = default);
+
+    // ---- Usuários e permissões (parcela 5) ----
+
+    /// <summary>Usuários da suíte (ativos e inativos), com o profissional vinculado carregado.</summary>
+    Task<IReadOnlyList<UsuarioSistema>> UsuariosAsync(CancellationToken ct = default);
+
+    Task<UsuarioSistema?> ObterUsuarioAsync(int usuarioId, CancellationToken ct = default);
+
+    /// <summary>Usuário pelo login já normalizado (minúsculas). Null quando não existe.</summary>
+    Task<UsuarioSistema?> ObterUsuarioPorLoginAsync(string login, CancellationToken ct = default);
+
+    Task AdicionarUsuarioAsync(UsuarioSistema usuario, CancellationToken ct = default);
+    Task RemoverUsuarioAsync(int usuarioId, CancellationToken ct = default);
 
     Task<int> SalvarAsync(CancellationToken ct = default);
 }

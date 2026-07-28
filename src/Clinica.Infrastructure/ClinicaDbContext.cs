@@ -29,6 +29,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<Evolucao> Evolucoes => Set<Evolucao>();
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
+    public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
+    public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -327,6 +329,66 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => new { x.PacienteId, x.Finalidade });
             e.Ignore(x => x.Vigente);
+        });
+
+        // ---------- Campanhas e acesso (parcela 5) ----------
+        // Ambas apontam para o que já existe (paciente, agendamento, profissional) e
+        // nada aponta para elas: o faturamento continua sem saber que existem.
+        b.Entity<ContatoCampanha>(e =>
+        {
+            e.ToTable("ContatosCampanha");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Canal).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Origem).IsRequired().HasMaxLength(60);
+            e.Property(x => x.EnviadoPor).HasMaxLength(80);
+            e.Property(x => x.Comentario).HasMaxLength(1000);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EnviadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.RespondidoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+            e.HasOne(x => x.Agendamento).WithMany()
+                .HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Atendimento).WithMany()
+                .HasForeignKey(x => x.AtendimentoId).OnDelete(DeleteBehavior.SetNull);
+
+            // A idempotência da campanha é uma regra de BANCO, não só de código: duas
+            // máquinas gerando a rodada ao mesmo tempo passariam pela checagem em
+            // memória e mandariam a mensagem duas vezes para o mesmo paciente.
+            e.HasIndex(x => new { x.Tipo, x.Origem }).IsUnique();
+            e.HasIndex(x => new { x.Status, x.Referencia });
+            e.HasIndex(x => x.PacienteId);
+
+            e.Ignore(x => x.Classe);
+            e.Ignore(x => x.Encerrado);
+        });
+
+        b.Entity<UsuarioSistema>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Login).IsRequired().HasMaxLength(60);
+            e.Property(x => x.SenhaHash).IsRequired().HasMaxLength(120);
+            e.Property(x => x.SenhaSalt).IsRequired().HasMaxLength(60);
+            e.Property(x => x.Perfil).HasConversion<string>().HasMaxLength(20);
+            // Permissão vai como INTEIRO: a lista de bits cresce, e gravar por nome
+            // ("VerAgenda, EditarAgenda") quebraria ao renomear qualquer um deles.
+            e.Property(x => x.PermissoesExtras).HasConversion<int>();
+            e.Property(x => x.PermissoesNegadas).HasConversion<int>();
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.UltimoAcessoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.BloqueadoAte).HasColumnType("timestamp without time zone");
+
+            // Desligar o profissional não pode apagar o usuário (nem a auditoria dele).
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.Login).IsUnique();
+
+            e.Ignore(x => x.Efetivas);
         });
 
         b.Entity<EventoAuditoria>(e =>

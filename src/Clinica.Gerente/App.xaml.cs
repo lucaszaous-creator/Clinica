@@ -3,6 +3,7 @@ using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Modulos;
 using Microsoft.Extensions.Hosting;
 using ModuloFinanceiro = Clinica.Financeiro.Modulo.ModuloFinanceiro;
+using ModuloGerente = Clinica.Gerente.Modulo.ModuloGerente;
 using ModuloRecepcao = Clinica.Recepcao.Modulo.ModuloRecepcao;
 
 namespace Clinica.Gerente;
@@ -21,8 +22,12 @@ public partial class App : System.Windows.Application
     private readonly IReadOnlyList<IModuloApp> _modulos =
     [
         new ModuloRecepcao(),
-        new ModuloFinanceiro()
-        // Fase 4: o módulo de Faturamento entra aqui.
+        new ModuloFinanceiro(),
+        // Último de propósito: as telas da direção são as menos usadas no dia a dia, e
+        // a sidebar é lida de cima para baixo na ordem do trabalho.
+        new ModuloGerente()
+        // A Fase 4 (faturamento como módulo) foi CANCELADA: o Gerente lê o faturamento
+        // pela tela própria do ModuloGerente, sem encostar no app em produção.
     ];
 
     protected override async void OnStartup(StartupEventArgs e)

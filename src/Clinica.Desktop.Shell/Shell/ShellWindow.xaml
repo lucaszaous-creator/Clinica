@@ -105,20 +105,29 @@
             <Border DockPanel.Dock="Top" Height="56"
                     Background="{StaticResource Brush.Superficie}"
                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="24,0">
-                    <TextBlock Text="{Binding ModuloAtual}"
+                <Grid Margin="24,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                HorizontalAlignment="Left">
+                        <TextBlock Text="{Binding ModuloAtual}"
+                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                   FontSize="{StaticResource Fonte.Tabela}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="  ›  "
+                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding TituloTela}"
+                                   Foreground="{StaticResource Brush.Texto.Primario}"
+                                   FontWeight="SemiBold"
+                                   FontSize="{StaticResource Fonte.Tabela}"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Quem está usando o app: a ação registrada na auditoria é dele. -->
+                    <TextBlock Text="{Binding UsuarioRotulo}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center"
                                Foreground="{StaticResource Brush.Texto.Secundario}"
-                               FontSize="{StaticResource Fonte.Tabela}"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="  ›  "
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding TituloTela}"
-                               Foreground="{StaticResource Brush.Texto.Primario}"
-                               FontWeight="SemiBold"
-                               FontSize="{StaticResource Fonte.Tabela}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
+                               FontSize="{StaticResource Fonte.Legenda}" />
+                </Grid>
             </Border>
 
             <!-- Tela ativa (a View já vem com DataContext resolvido pelo módulo) -->

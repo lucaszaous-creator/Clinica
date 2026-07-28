@@ -39,7 +39,7 @@ por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
 | # | Feature | Módulo dono | Estado | Parcela |
 |---|---|---|---|---|
 | 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
-| 02 | Agenda multiprofissional | Recepção | 🟡 | 1 |
+| 02 | Agenda multiprofissional | Recepção | ✅ | 1 e 5 |
 | 03 | Fila em kanban | Recepção | ✅ | 1 |
 | 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
@@ -48,18 +48,24 @@ por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
 | 08 | Pacotes, planos e vouchers | Financeiro | ⬜ | 4 |
 | 09 | Caixa, repasses e conciliação | Financeiro | 🟡 | 4 |
 | 10 | Estoque | Financeiro | ⬜ | 4 |
-| 11 | Marketing — NPS e recall | Gerente | ⬜ | 5 |
-| 12 | BI — indicadores | Gerente | 🟡 | 5 |
-| 13 | Permissões e LGPD | Gerente / Recepção | 🟡 | 5 |
+| 11 | Marketing — NPS e recall | Gerente | ✅ | 5 |
+| 12 | BI — indicadores | Gerente | ✅ | 5 |
+| 13 | Permissões e LGPD | Gerente / Recepção | ✅ | 5 |
 | 14 | Faturamento TISS 4.01 | Faturamento | ✅ | — |
 
-**Placar: 5 completas, 4 parciais, 5 inexistentes.**
+**Placar: 9 completas, 1 parcial, 4 inexistentes.**
 
 | Estado | Features |
 |---|---|
-| ✅ Completas | 01 · 03 · 04 · 05 · 14 |
-| 🟡 Parciais | 02 (falta a confirmação automática) · 09 (falta o repasse) · 12 (falta a tela no Gerente) · 13 (LGPD feito, permissões não) |
-| ⬜ Inexistentes | 06 · 07 · 08 · 10 · 11 |
+| ✅ Completas | 01 · 02 · 03 · 04 · 05 · 11 · 12 · 13 · 14 |
+| 🟡 Parciais | 09 (falta o repasse) |
+| ⬜ Inexistentes | 06 · 07 · 08 · 10 |
+
+> A feature 02 fechou na parcela 5, com a rodada de confirmação. **"Automática" aqui é
+> a rodada, não o disparo**: o sistema descobre quem confirmar, escreve a mensagem e não
+> repete ninguém; o envio continua sendo um clique por paciente. O motivo está na
+> [feature 11](#feature-11--marketing--nps-e-recall--️--parcela-5) e a divergência com a
+> proposta está registrada no fim deste documento.
 
 ---
 
@@ -126,7 +132,7 @@ zero.**
 | Grade de horários com remarcação | ✅ | `AgendaView` (Recepção) + `AgendaService.RemarcarAsync` |
 | Visão por profissional ou por sala | ✅ | `Agendamento.ProfissionalId`/`SalaId`, uma coluna por profissional |
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
-| Confirmação **automática** por WhatsApp | ⬜ | O envio de 1 clique existe; automatizar é campanha — vai com a feature 11 (parcela 5) |
+| Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária na tela Campanhas do Gerente (parcela 5) |
 
 > O choque de horário passou a ser por **intervalo e por recurso**: uma sessão de 30 min
 > marcada às 14h colide com outra às 14h30, e o que colide é o profissional ou a sala
@@ -256,34 +262,90 @@ próprias de leitura** sobre os mesmos serviços compartilhados (`PendenciaServi
 `RelatorioService`, `LoteTissService`) — enxerga tudo sem tocar no app em produção, e
 sendo só leitura não há risco de escrita concorrente.
 
-### Feature 12 · BI — indicadores — 🟡 · parcela 5
+Desde a parcela 5 existe o **`Clinica.Modulo.Gerente`** (biblioteca carregada só pelo
+`Clinica.Gerente.exe`), com quatro telas: **Indicadores**, **Faturamento** (leitura),
+**Campanhas** e **Acessos**. Elas ficam fora dos outros apps em vez de aparecerem
+escondidas por permissão — quem instala a Recepção não precisa baixar a tela de BI.
+
+### Feature 12 · BI — indicadores — ✅ · parcela 5
 
 | Item | Estado | Onde |
 |---|---|---|
-| Faturamento e taxa de glosa | ✅ | `RelatorioService` — falta a tela no Gerente |
+| Faturamento e taxa de glosa | ✅ | `RelatorioService` + tela `FaturamentoGerencialView` (leitura) |
 | Envelhecimento e evolução mensal | 🔵 | `FaixaEnvelhecimento`, `ResumoMensal` |
-| Ocupação e no-show | ⬜ | Depende de `Profissional`/`Sala` |
-| Produtividade por profissional | ⬜ | Depende de `Profissional` |
+| Ocupação e no-show | ✅ | `IndicadoresService`, `IndicadoresAgenda` |
+| Produtividade por profissional | ✅ | `ProdutividadeProfissional` — sessões, horas, evoluções e queda média da EVA |
 
-### Feature 11 · Marketing — NPS e recall — ⬜ · parcela 5
+> **A ocupação é medida contra os dias em que o profissional TEVE agenda**, multiplicados
+> pela jornada configurável (`ParametrosService.ChaveJornadaDiariaMinutos`, padrão 8 h).
+> A clínica não cadastra jornada por pessoa, então o indicador responde "nos dias em que
+> abriu a agenda, quanto dela ficou ocupado" — e não "quanto da capacidade instalada foi
+> usada". Inventar dias úteis daria um número mais bonito e menos verdadeiro.
 
-| Item | Estado |
-|---|---|
-| NPS automático pós-consulta | ⬜ |
-| Recall de pacientes inativos | ⬜ |
-| Campanhas por WhatsApp | ⬜ |
+> **Falta de base de cálculo devolve `null`, nunca 0%.** A tela mostra "—". Zero por cento
+> e "não deu para medir" são coisas diferentes, e confundi-las faria a direção decidir em
+> cima de um número que não existe. Vale para ocupação, NPS e queda média da dor.
 
-### Feature 13 · Permissões e LGPD — 🟡 · parcela 5
+> **Cancelamento avisado não conta como falta.** O no-show é sobre os horários que
+> chegaram ao fim (atendidos + faltas): quem desmarcou deu à clínica a chance de reocupar
+> o horário, e somá-lo esconderia o problema que o indicador existe para mostrar.
+
+### Feature 11 · Marketing — NPS e recall — ✅ · parcela 5
+
+| Item | Estado | Onde |
+|---|---|---|
+| NPS automático pós-consulta | ✅ | `CampanhaService.GerarNpsAsync`, `ResumoNps` |
+| Recall de pacientes inativos | ✅ | `CampanhaService.GerarRecallAsync`, `CandidatoRecall` |
+| Campanhas por WhatsApp | ✅ | Tela `CampanhasView` + `Whatsapp` do shell |
+
+> **As três campanhas são UMA entidade** (`ContatoCampanha`): o fato registrado é o
+> mesmo — falamos (ou vamos falar) com este paciente, por este motivo, e ele respondeu
+> isto. Três tabelas quase idênticas dariam três telas, três consultas e três lugares
+> para esquecer de checar o consentimento.
+
+> **A linha da LGPD**: confirmar a PRÓPRIA sessão marcada é transacional (o paciente
+> pediu o horário; avisar sobre ele não é marketing) e não exige consentimento. NPS e
+> recall são comunicação ativa e só saem com `ComunicacaoEMarketing` vigente. Quem não
+> consentiu **não some da lista**: aparece contado no resultado da rodada, para a clínica
+> ir colher o consentimento no balcão.
+
+> **Gerar e enviar são passos separados.** Gerar é a parte automática; enviar é um clique
+> por paciente, porque o número é o WhatsApp da clínica e disparo em massa automatizado
+> por ali termina com o número bloqueado — perder o canal inteiro para economizar cliques
+> é um mau negócio. O que a parcela automatiza é o TRABALHO, não o clique.
+
+> **Rodar a campanha duas vezes não duplica ninguém**: `ContatoCampanha.Origem` é a chave
+> do fato (`AGD:123`, `ATD:987`, `REC:55:2026-07`), com índice único junto do tipo — a
+> regra é do banco, não só do código, porque duas máquinas gerando a rodada ao mesmo
+> tempo passariam pela checagem em memória.
+
+### Feature 13 · Permissões e LGPD — ✅ · parcela 5
 
 | Item | Estado | Onde |
 |---|---|---|
 | Trilha de auditoria imutável | ✅ | `EventoAuditoria`, `RegistrarAuditoriaAsync` |
 | Conformidade LGPD (consentimento) | ✅ | `ConsentimentoService` — entregue na parcela 2, na Recepção |
-| Perfis e permissões finas | ⬜ | `Profissional` já existe; falta usuário, login e perfil |
+| Perfis e permissões finas | ✅ | `UsuarioSistema`, `PerfisAcesso`, `AcessoService`, tela `AcessosView` |
+| Login nos apps da suíte | ✅ | `LoginWindow` + `SessaoUsuario` no shell |
 
 > A metade LGPD saiu antes da hora, junto do cadastro do paciente (parcela 2) — é lá que
-> o consentimento é colhido, no balcão. O que resta para a parcela 5 é o controle de
-> acesso: usuário, login e perfil apontando para o `Profissional` que a parcela 1 criou.
+> o consentimento é colhido, no balcão. A parcela 5 fecha o controle de acesso: usuário,
+> login e perfil **apontando** para o `Profissional` que a parcela 1 criou (e não
+> duplicando a pessoa).
+
+> **O perfil dá o conjunto base; a permissão fina é o delta.** `Efetivas = padrão do
+> perfil + extras − negadas`, resolvido na LEITURA — assim corrigir o padrão de um perfil
+> alcança quem já estava cadastrado. Negada vence extra de propósito: tirar acesso é a
+> decisão que não pode ser anulada por engano de configuração.
+
+> **Base sem usuário abre o "primeiro acesso"** (que nasce Gerente) em vez de pedir
+> credencial que ninguém tem: a versão que introduz login não pode trancar a clínica do
+> lado de fora da própria clínica. E o sistema recusa deixar a base sem ninguém capaz de
+> gerenciar acessos.
+
+> **O app de FATURAMENTO continua sem login.** Está congelado, roda num posto só, e
+> encostar nele é exatamente o que a parcela inteira evita. Isso está documentado, não
+> esquecido — a tela de Acessos diz isso ao usuário.
 
 ---
 
@@ -344,15 +406,28 @@ O documento já foi ao cliente. Estas três precisam de decisão comercial:
 3. **O cronograma não fecha** — mas encolheu. A Fase 1 (1–2 meses) foi fechada com as
    parcelas 1 e 2. O que resta do calendário original é decisão sua; as parcelas deste
    arquivo continuam sendo a ordem técnica correta.
+4. **"Confirmação automática por WhatsApp" (feature 02).** O que a parcela 5 automatiza é
+   a RODADA — descobrir quem confirmar, escrever a mensagem, aplicar a LGPD e não repetir
+   ninguém. O **disparo continua sendo um clique por paciente**, de propósito: o número é
+   o WhatsApp da clínica, e envio em massa automatizado por ali leva ao bloqueio do
+   número. Se o cliente entendeu "automática" como "sozinho, sem ninguém clicar", isso
+   precisa ser dito antes de a expectativa virar cobrança — e a alternativa real é
+   contratar a API oficial do WhatsApp Business, que é decisão comercial, não técnica.
 
 ## Parcelas
 
-As parcelas **0 (instalável)**, **1 (fundação)** e **2 (cadastro e prontuário)** estão
-entregues: os quatro apps instalam sozinhos, e a Recepção já tem painel próprio, agenda
-multiprofissional com encaixe e lista de espera, fila em kanban, cadastro de
-profissionais e salas, Pacientes 360º com foto e consentimento LGPD, e prontuário com
-evolução, escala EVA e anexos. Com isso **a Fase 1 da proposta está fechada**. A próxima
-é a **parcela 3 (ato clínico)**: mapa corporal, prescrição e os documentos impressos.
+As parcelas **0 (instalável)**, **1 (fundação)**, **2 (cadastro e prontuário)** e
+**5 (inteligência)** estão entregues: os quatro apps instalam sozinhos, a Recepção tem
+painel próprio, agenda multiprofissional com encaixe e lista de espera, fila em kanban,
+cadastro de profissionais e salas, Pacientes 360º com foto e consentimento LGPD, e
+prontuário com evolução, escala EVA e anexos; e o Gerente tem BI, campanhas (confirmação,
+NPS e recall), acessos com perfis e a visão de leitura do faturamento. Com isso **a Fase 1
+da proposta está fechada**.
+
+Faltam a **parcela 3 (ato clínico)** — mapa corporal, prescrição e os documentos
+impressos — e a **parcela 4 (dinheiro e insumo)** — pacotes, repasse e estoque. A parcela
+5 saiu antes delas porque não dependia de nenhuma das duas: ela se apoia na fundação da
+parcela 1 (`Profissional`) e no consentimento da parcela 2, que já existiam.
 
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

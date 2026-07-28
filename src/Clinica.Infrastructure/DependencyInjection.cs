@@ -31,6 +31,9 @@ public static class DependencyInjection
         services.AddScoped<AutorizacaoService>();
         services.AddScoped<GlosaService>();
         services.AddScoped<FinanceiroService>();
+        services.AddScoped<IndicadoresService>();
+        services.AddScoped<CampanhaService>();
+        services.AddScoped<AcessoService>();
         services.AddScoped<PrevencaoGlosaService>();
         services.AddScoped<TissExportService>();
         services.AddScoped<LoteTissService>();
