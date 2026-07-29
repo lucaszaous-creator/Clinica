@@ -183,9 +183,12 @@ public sealed partial class FechamentoCaixaViewModel : ObservableObject
 
             // Conferido e "ainda não conferido" têm a mesma cara de calmaria na tela —
             // e são estados diferentes. A tela diz qual é.
-            JaConferido = proposta.JaConferido is { } f
-                ? $"Conferido em {f.ConferidoEm:dd/MM/yyyy HH:mm} por {f.ConferidoPor ?? "—"}: "
-                  + (f.Bateu ? "bateu." : $"diferença de {f.Diferenca:C} — {f.Justificativa}")
+            JaConferido = proposta.JaConferido is { } conferencia
+                ? $"Conferido em {conferencia.ConferidoEm:dd/MM/yyyy HH:mm} "
+                  + $"por {conferencia.ConferidoPor ?? "—"}: "
+                  + (conferencia.Bateu
+                      ? "bateu."
+                      : $"diferença de {conferencia.Diferenca:C} — {conferencia.Justificativa}")
                 : null;
             PodeConferir = proposta.JaConferido is null;
 
