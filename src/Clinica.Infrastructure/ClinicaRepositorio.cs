@@ -1034,6 +1034,106 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.LancamentoDatado>>
+        LancamentosDatadosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            // Cancelado nunca entra no fluxo: não é dinheiro, e somá-lo inflaria tanto a
+            // receita quanto a despesa do mês em que ele foi lançado.
+            .Where(l => l.Status != StatusLancamento.Cancelado)
+            // O OU das três datas é o que faz a linha aparecer no mês certo: um lançamento
+            // com competência em julho e vencimento em agosto pertence aos dois fluxos, e
+            // filtrar por uma data só o faria sumir de um deles.
+            .Where(l => (l.Data >= inicio && l.Data <= fim)
+                     || (l.DataVencimento != null && l.DataVencimento >= inicio && l.DataVencimento <= fim)
+                     || (l.DataPagamento != null && l.DataPagamento >= inicio && l.DataPagamento <= fim))
+            .Select(l => new Clinica.Application.Modelos.LancamentoDatado(
+                l.Data, l.DataVencimento, l.DataPagamento,
+                l.Tipo, l.Status, l.Valor,
+                l.Categoria != null ? l.Categoria.Nome : null))
+            .ToListAsync(ct);
+
+    // ---- Fechamento de caixa (parcela 14) ----
+
+    public Task<IReadOnlyList<Clinica.Application.Modelos.LancamentoEspecie>>
+        LancamentosEmEspecieDoDiaAsync(DateOnly dia, CancellationToken ct = default)
+        => LancamentosEmEspecieNoPeriodoAsync(dia, dia, ct);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.LancamentoEspecie>>
+        LancamentosEmEspecieNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            // Só REALIZADO e só DINHEIRO: previsto não passou pela gaveta, e cartão/PIX
+            // caem na conta dias depois. Somá-los faria a conferência nunca bater — e
+            // conferência que nunca bate treina a clínica a clicar "OK" sem olhar.
+            .Where(l => l.Status == StatusLancamento.Realizado)
+            .Where(l => l.FormaPagamento == FormaPagamento.Dinheiro)
+            .Where(l => (l.DataPagamento ?? l.Data) >= inicio && (l.DataPagamento ?? l.Data) <= fim)
+            .Select(l => new Clinica.Application.Modelos.LancamentoEspecie(
+                l.DataPagamento ?? l.Data, l.Tipo, l.Valor))
+            .ToListAsync(ct);
+
+    public Task<FechamentoCaixa?> FechamentoCaixaDoDiaAsync(DateOnly dia, CancellationToken ct = default)
+        // O ÚLTIMO do dia: reabrir guarda o anterior e grava outro por cima, e o que vale
+        // é sempre o mais recente. Rastreado (sem AsNoTracking) porque a reabertura marca
+        // justamente este.
+        => _db.FechamentosCaixa
+            .Where(f => f.Data == dia)
+            .OrderByDescending(f => f.Id)
+            .FirstOrDefaultAsync(ct);
+
+    public async Task AdicionarFechamentoCaixaAsync(FechamentoCaixa fechamento, CancellationToken ct = default)
+        => await _db.FechamentosCaixa.AddAsync(fechamento, ct);
+
+    public async Task<IReadOnlyList<FechamentoCaixa>> FechamentosCaixaNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.FechamentosCaixa.AsNoTracking()
+            .Where(f => f.Data >= inicio && f.Data <= fim)
+            .OrderByDescending(f => f.Data).ThenByDescending(f => f.Id)
+            .ToListAsync(ct);
+
+    // ---- Contas a pagar e a receber (parcela 12) ----
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
+        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default)
+    {
+        var q = _db.Lancamentos
+            .Include(l => l.Categoria)
+            .Include(l => l.Paciente)
+            .Where(l => l.Status == StatusLancamento.Previsto)
+            .Where(l => l.DataVencimento != null && l.DataVencimento <= ate);
+
+        if (tipo is { } t) q = q.Where(l => l.Tipo == t);
+
+        // Do vencimento mais antigo para o mais novo: é a ordem em que se paga, e a
+        // vencida tem de vir no topo sem que a tela precise reordenar.
+        return await q
+            .OrderBy(l => l.DataVencimento).ThenBy(l => l.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<string>> OrigensRecorrenciaExistentesAsync(
+        IReadOnlyCollection<string> origens, CancellationToken ct = default)
+    {
+        if (origens.Count == 0) return [];
+        return await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.OrigemRecorrencia != null && origens.Contains(l.OrigemRecorrencia))
+            .Select(l => l.OrigemRecorrencia!)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<LancamentoRecorrente>> RecorrentesAsync(
+        bool somenteAtivas = false, CancellationToken ct = default)
+    {
+        var q = _db.Recorrentes.Include(r => r.Categoria).AsQueryable();
+        if (somenteAtivas) q = q.Where(r => r.Ativa);
+        return await q.OrderBy(r => r.Descricao).ToListAsync(ct);
+    }
+
+    public async Task AdicionarRecorrenteAsync(LancamentoRecorrente recorrente, CancellationToken ct = default)
+        => await _db.Recorrentes.AddAsync(recorrente, ct);
+
+    public async Task<LancamentoRecorrente?> ObterRecorrenteAsync(int recorrenteId, CancellationToken ct = default)
+        => await _db.Recorrentes.FirstOrDefaultAsync(r => r.Id == recorrenteId, ct);
+
     public async Task<IReadOnlyList<CategoriaFinanceira>> CategoriasFinanceirasAsync(CancellationToken ct = default)
         => await _db.CategoriasFinanceiras.AsNoTracking()
             .OrderBy(c => c.Ordem).ThenBy(c => c.Nome)

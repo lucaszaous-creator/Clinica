@@ -264,6 +264,74 @@ zero.**
 > A fronteira é regra de projeto: **o dinheiro vive só em `LancamentoFinanceiro`**.
 > `CodigoFaturamento` e `Atendimento` nunca ganham campo de valor.
 
+### Contas a pagar e a receber — ✅ · parcela 12
+
+| Item | Estado | Onde |
+|---|---|---|
+| O que vence esta semana (7/15/30/60/90 dias) | ✅ | `ContasViewModel`, `ContasService.EmAbertoAsync` |
+| Vencidas em destaque, com o prazo em palavras | ✅ | `LinhaConta.De` — "venceu faz 5 dias" |
+| Baixa e reagendamento | ✅ | `FinanceiroService.RealizarAsync`, `ContasService.ReagendarAsync` |
+| Conta fixa (aluguel, luz, contador, software) | ✅ | `LancamentoRecorrente` — 7 periodicidades, com vigência |
+| Geração idempotente das previstas | ✅ | `ContasService.GerarAsync` + índice único em `OrigemRecorrencia` |
+
+> **A recorrência é um MOLDE, não um lançamento.** Ela não entra em total nenhum: quem
+> entra é o lançamento previsto que ela gera, e que dali em diante tem vida própria — a
+> conta de luz nunca vem igual. Se a recorrência fosse "o lançamento que se repete",
+> corrigir março reescreveria janeiro, que já foi pago e conciliado.
+
+> **A série sai sempre do primeiro vencimento mais N períodos**, nunca da ocorrência
+> anterior mais um: encadear faria o aluguel do dia 31 virar aluguel do dia 28 para
+> sempre, por causa de fevereiro.
+
+> **Nada nasce pago.** Tudo vem `Previsto` — o sistema sabe que a conta vence, não que
+> ela foi quitada. E gerar é um CLIQUE, não automático na abertura do app: conta
+> nascendo sozinha é escrita que o balcão não vê acontecer e depois não sabe explicar.
+
+### Fluxo de caixa e resultado por categoria — ✅ · parcela 13
+
+| Item | Estado | Onde |
+|---|---|---|
+| Série mês a mês (3/6/12/24 meses) | ✅ | `FluxoCaixaService.ProjecaoAsync`, `FluxoCaixaViewModel` |
+| Dois gráficos de linha (entradas e resultado) | ✅ | `GraficoLinha` do design system |
+| Para onde foi o dinheiro (quebra por categoria) | ✅ | `FluxoCaixaService.PorCategoriaAsync` |
+| Margem e maior despesa do período | ✅ | `ResumoFluxo` |
+| Exportação CSV | ✅ | `ExportacaoCsv` — ponto e vírgula + BOM |
+
+> **Realizado e previsto nunca viram um número só.** Somados, o mês que fechou e o mês
+> que ainda vai vencer teriam a mesma cara, e a direção decidiria sobre expectativa
+> achando que era medida.
+
+> **A coluna acumulada é VARIAÇÃO no período, não saldo em conta**, e a tela diz isso: a
+> clínica nunca cadastrou saldo inicial, e chamar aquilo de saldo daria um número que ela
+> conferiria com o extrato do banco e que não bateria nunca.
+
+> **A fração da categoria é do total DO MESMO TIPO.** Comparar uma despesa com o total
+> geral daria barras que não somam 100% e não querem dizer nada. E lançamento sem
+> categoria aparece como "Sem categoria" em vez de sumir — dinheiro não classificado é o
+> que a direção precisa ver para mandar classificar.
+
+### Fechamento de caixa (conferência da gaveta) — ✅ · parcela 14
+
+| Item | Estado | Onde |
+|---|---|---|
+| Proposta do dia (o que passou pela gaveta) | ✅ | `FechamentoCaixaService.PrepararAsync` |
+| Conferência com diferença calculada ao digitar | ✅ | `FechamentoCaixaViewModel.RecalcularDiferenca` |
+| Justificativa obrigatória na divergência | ✅ | `FechamentoCaixaService.ConferirAsync` |
+| Dias com dinheiro que ninguém conferiu | ✅ | `FechamentoCaixaService.NaoConferidosAsync` |
+| Reabertura para recontagem, com motivo | ✅ | `ReabrirAsync` — o anterior fica no histórico |
+
+> **Só espécie.** Cartão e PIX não passam pela gaveta — o dinheiro deles cai na conta
+> dias depois. Incluí-los faria a conferência nunca bater, e conferência que nunca bate
+> não é controle: é ruído que treina a clínica a clicar "OK" sem olhar.
+
+> **O valor do sistema é COPIADO no fechamento.** Um lançamento digitado amanhã com a
+> data de ontem não pode reescrever a conferência de ontem, levando junto a justificativa
+> que alguém escreveu.
+
+> **Divergência exige justificativa** — a única regra do serviço que impede em vez de
+> avisar. Sobra também: dinheiro a mais na gaveta costuma ser venda não lançada, que é
+> problema, não sorte.
+
 > **Quem atendeu vem do AGENDAMENTO.** O atendimento é entidade do faturamento congelado
 > e não guarda profissional; o agendamento guarda os dois — o profissional e o
 > atendimento que ele gerou —, e é por essa ponte que a produção de cada um é apurada.
@@ -562,6 +630,9 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **FINANCEIRO** · Faturamento (TISS) | Gerente | ✅ | `FaturamentoTissView` — 5 abas (parcelas 10b–10d) |
 | **FINANCEIRO** · Estoque | Financeiro | ✅ | `EstoqueView` |
 | **FINANCEIRO** · Taxas e impostos | Financeiro | ✅ | `TaxasView` (parcela 9) — 🔵 não estava na sidebar, mas o cliente cobrou |
+| **FINANCEIRO** · Contas a pagar/receber | Financeiro | ✅ | `ContasView` (parcela 12) — 🔵 fora da sidebar da proposta |
+| **FINANCEIRO** · Fluxo de caixa | Financeiro | ✅ | `FluxoCaixaView` (parcela 13) — 🔵 idem |
+| **FINANCEIRO** · Fechamento de caixa | Financeiro | ✅ | `FechamentoCaixaView` (parcela 14) — 🔵 idem |
 | **INTELIGÊNCIA** · Marketing / Recall | Gerente | ✅ | `CampanhasView` |
 | **INTELIGÊNCIA** · Relatórios / BI | Gerente | ✅ | `IndicadoresView` com gráficos e exportação CSV (parcelas 10d e 11) |
 | **INTELIGÊNCIA** · Configurações | Gerente | ✅ | `ConfiguracoesView` (parcela 10a) |
@@ -643,6 +714,15 @@ com alerta de mínimo e validade, repasse por profissional, plano de contas, rec
 orçamento. O Gerente tem BI, campanhas (confirmação, NPS e recall), acessos com perfis e
 a visão de leitura do faturamento. E, desde a parcela 6, concluir uma sessão na Recepção
 atravessa os três módulos de uma vez.
+
+As parcelas **12 a 14** fecharam o que o Financeiro respondia pela metade. Ele sabia o que
+já tinha acontecido e o que estava "previsto", mas não *quando* — não havia data de
+vencimento, e por isso nenhuma tela respondia à pergunta que se faz toda segunda-feira
+("o que vence esta semana?"), nem havia como cadastrar o aluguel uma vez em vez de
+redigitá-lo todo mês (12). Não havia SÉRIE: o Caixa mostrava o extrato do período e a
+Produção o volume, e um mês ruim era indistinguível de três meses caindo (13). E o módulo
+sabia tudo sobre o dinheiro *registrado* e nada sobre o dinheiro *físico* — que é
+exatamente onde ele some numa clínica (14).
 
 A parcela 5 saiu **antes** das 3 e 4 porque não dependia de nenhuma das duas: apoiava-se
 na fundação da parcela 1 (`Profissional`) e no consentimento da parcela 2, que já

@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729063411_ContasARecorrencia")]
+    partial class ContasARecorrencia
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1039,61 +1042,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("PacienteId", "Data");
 
                     b.ToTable("Evolucoes");
-                });
-
-            modelBuilder.Entity("Clinica.Domain.Entities.FechamentoCaixa", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("ConferidoEm")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<string>("ConferidoPor")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<DateOnly>("Data")
-                        .HasColumnType("date");
-
-                    b.Property<string>("Justificativa")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("MotivoReabertura")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("Observacoes")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<int>("QuantidadeLancamentos")
-                        .HasColumnType("integer");
-
-                    b.Property<bool>("Reaberto")
-                        .HasColumnType("boolean");
-
-                    b.Property<decimal>("SaidasEspecie")
-                        .HasPrecision(14, 2)
-                        .HasColumnType("numeric(14,2)");
-
-                    b.Property<decimal>("ValorContado")
-                        .HasPrecision(14, 2)
-                        .HasColumnType("numeric(14,2)");
-
-                    b.Property<decimal>("ValorSistema")
-                        .HasPrecision(14, 2)
-                        .HasColumnType("numeric(14,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Data");
-
-                    b.ToTable("FechamentosCaixa");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.ItemDocumento", b =>

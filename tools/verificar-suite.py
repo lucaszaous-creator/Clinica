@@ -19,7 +19,9 @@ O que confere:
   7. todo `new XViewModel(...)` escrito à mão passa uma quantidade de argumentos que o
      construtor aceita (ver ARMADILHA do construtor abaixo);
   8. todo `new X { ... }` de um tipo com membros `required` inicializa TODOS eles
-     (CS9035) — as classes `Linha*` das listas são cheias deles.
+     (CS9035) — as classes `Linha*` das listas são cheias deles;
+  9. nenhuma variável de PADRÃO (`is { } x`, `out var x`) colide com outra declaração do
+     mesmo nome no mesmo método (CS0136 — ver ARMADILHA do nome de padrão abaixo).
 
 ARMADILHA `Application` (CS0118): dentro de qualquer namespace `Clinica.*`, o nome
 `Application` resolve para o NAMESPACE `Clinica.Application` — nunca para o tipo
@@ -31,6 +33,13 @@ pela tela dona (`new PacienteEdicaoViewModel(escopos, id)`), porque precisa rece
 no construtor e não passa pelo DI. Quando um deles ganha uma dependência nova, o DI se
 vira sozinho e os pontos de construção manual NÃO — e o erro só aparece no build do
 Windows, minutos depois. A checagem 7 compara a aridade dos dois lados.
+
+ARMADILHA do nome de padrão (CS0136): `proposta.X is { } f` declara `f` no escopo do
+MÉTODO, não no do `if`. Um `foreach (var f in ...)` depois, no mesmo método, tenta
+declarar o mesmo nome num escopo interno e o build morre. O que confunde é que dois
+`foreach (var c in ...)` seguidos são escopos IRMÃOS e continuam perfeitamente legais —
+`FluxoCaixaViewModel.ExportarAsync` tem um par assim. Por isso a checagem 9 parte SÓ das
+variáveis de padrão, e não de qualquer nome repetido.
 
 NÃO substitui o build no Windows — substitui a parte dele que dá para conferir aqui.
 
@@ -450,6 +459,108 @@ for cs in _fontes():
             erros.append(
                 f"{rel(cs)}:{linha}: inicializador de {tipo} não preenche "
                 f"{', '.join(faltando)} (CS9035: membro required)")
+
+
+# ---------------------------------------------------------------- checagem 9
+# CS0136: variável de PADRÃO colidindo com outra declaração do mesmo método.
+#
+# Terceira falha de CI desta natureza (as checagens 7 e 8 nasceram das duas anteriores):
+# o erro só aparece no runner Windows, minutos depois do push, e a correção é de um nome.
+#
+# A checagem parte SÓ das variáveis de padrão porque é aí que está a assimetria:
+# `is { } f` entra no escopo do MÉTODO, enquanto `foreach (var f in ...)` entra num escopo
+# próprio. Dois `foreach` com o mesmo nome são irmãos e são legais — acusá-los seria falso
+# positivo, e falso positivo ensina a ignorar o verificador.
+
+PADRAO_VAR = re.compile(
+    r"\bis\s+(?:not\s+)?(?:\{[^{}]*\}|[A-Za-z_][\w.]*(?:<[^<>()]*>)?\??)\s+([a-z_]\w*)\b")
+OUT_VAR = re.compile(r"\bout\s+(?:var|[A-Za-z_][\w.]*\??)\s+([a-z_]\w*)\b")
+CORPO_DE_TIPO = re.compile(r"\b(?:class|record|struct|interface|enum|namespace)\b[^{;=]*$")
+PALAVRAS = {"null", "true", "false", "not", "and", "or"}
+
+
+def _sem_texto(t: str) -> str:
+    """Apaga strings, chars e comentários — chave e aspas dentro deles furam a contagem."""
+    saida = list(t)
+    i, n = 0, len(t)
+    while i < n:
+        c = t[i]
+        if c in '"\'':
+            j = i + 1
+            while j < n and t[j] != c:
+                if t[j] == "\\":
+                    j += 1
+                j += 1
+            for k in range(i, min(j + 1, n)):
+                if t[k] != "\n":
+                    saida[k] = " "
+            i = j + 1
+            continue
+        if c == "/" and i + 1 < n and t[i + 1] == "/":
+            j = t.find("\n", i)
+            j = n if j < 0 else j
+            for k in range(i, j):
+                saida[k] = " "
+            i = j
+            continue
+        if c == "/" and i + 1 < n and t[i + 1] == "*":
+            j = t.find("*/", i)
+            j = n if j < 0 else j + 2
+            for k in range(i, j):
+                if t[k] != "\n":
+                    saida[k] = " "
+            i = j
+            continue
+        i += 1
+    return "".join(saida)
+
+
+def _metodo_de(t: str, pos: int) -> tuple[int, int] | None:
+    """O bloco { } mais interno que contém pos, ou None se for o corpo de um TIPO.
+
+    A guarda do tipo existe porque membro com corpo de EXPRESSÃO (`=> ...;`) não tem
+    chaves: sem ela a busca sobe até o corpo da classe e acusa colisão com o homônimo
+    de qualquer outro método."""
+    pilha: list[int] = []
+    for i, c in enumerate(t):
+        if c == "{":
+            pilha.append(i)
+        elif c == "}":
+            if not pilha:
+                continue
+            a = pilha.pop()
+            if a < pos < i:
+                return None if CORPO_DE_TIPO.search(t[max(0, a - 400):a]) else (a, i)
+    return None
+
+
+for cs in _fontes():
+    bruto = cs.read_text(encoding="utf-8")
+    texto = _sem_texto(bruto)
+    for regex in (PADRAO_VAR, OUT_VAR):
+        for m in regex.finditer(texto):
+            nome = m.group(1)
+            if nome in PALAVRAS:
+                continue
+            escopo = _metodo_de(texto, m.start(1))
+            if escopo is None:
+                continue
+            abre, fecha = escopo
+            corpo = texto[abre:fecha]
+            desloc = m.start(1) - abre
+
+            colide = re.search(
+                rf"foreach\s*\(\s*(?:var|[A-Za-z_][\w.<>,\s]*?)\s+{nome}\s+in\b", corpo) is not None
+            if not colide:
+                colide = any(
+                    abs(o.start() - desloc) > 3
+                    for o in re.finditer(rf"\bvar\s+{nome}\s*=", corpo))
+            if colide:
+                linha = bruto.count("\n", 0, m.start(1)) + 1
+                erros.append(
+                    f"{rel(cs)}:{linha}: a variável de padrão '{nome}' entra no escopo do "
+                    f"método e colide com outra declaração do mesmo nome "
+                    f"(CS0136) — renomeie uma das duas")
 
 
 # ---------------------------------------------------------------------- saída

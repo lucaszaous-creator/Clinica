@@ -86,6 +86,25 @@ public class LancamentoFinanceiro
     /// <summary>Quando efetivamente entrou/saiu. Preenchida ao realizar o lançamento.</summary>
     public DateOnly? DataPagamento { get; set; }
 
+    /// <summary>
+    /// Quando a conta VENCE (parcela 12). Diferente das outras duas datas, e a diferença
+    /// é o dia a dia do financeiro: <see cref="Data"/> é a competência (o mês a que a
+    /// despesa pertence), <see cref="DataPagamento"/> é quando o dinheiro se moveu, e
+    /// esta é a data em que ele PRECISA se mover. Sem ela o módulo não sabia responder
+    /// "o que vence esta semana" — a pergunta que se faz toda segunda-feira.
+    ///
+    /// Null é estado legítimo: venda no balcão paga na hora não vence, ela já aconteceu.
+    /// </summary>
+    public DateOnly? DataVencimento { get; set; }
+
+    /// <summary>
+    /// Ocorrência da conta recorrente que gerou este lançamento
+    /// (<c>REC:{id}:{aaaa-MM-dd}</c>), com índice único. É a chave de idempotência: o
+    /// aluguel de agosto só pode nascer uma vez, mesmo que a geração rode em dois postos
+    /// na mesma manhã. Null em lançamento avulso, que é a maioria.
+    /// </summary>
+    public string? OrigemRecorrencia { get; set; }
+
     public FormaPagamento? FormaPagamento { get; set; }
 
     public int? CategoriaFinanceiraId { get; set; }
@@ -164,6 +183,20 @@ public class LancamentoFinanceiro
 
     /// <summary>Houve alguma dedução — a tela só mostra a linha do líquido quando há.</summary>
     public bool TemDeducao => ValorTaxa is > 0m || ValorImposto is > 0m;
+
+    /// <summary>
+    /// Conta ainda em aberto que já passou do vencimento. Só <see cref="StatusLancamento.Previsto"/>
+    /// vence: o que foi pago não está atrasado, e o cancelado não é devido.
+    /// </summary>
+    public bool EstaVencido(DateOnly hoje) =>
+        Status == StatusLancamento.Previsto && DataVencimento is { } v && v < hoje;
+
+    /// <summary>
+    /// Dias até o vencimento (negativo quando já venceu). Null quando não há vencimento
+    /// — e null não é zero: "não vence" e "vence hoje" são coisas diferentes.
+    /// </summary>
+    public int? DiasAteVencer(DateOnly hoje) =>
+        DataVencimento is { } v ? v.DayNumber - hoje.DayNumber : null;
 
     public string? Observacoes { get; set; }
 

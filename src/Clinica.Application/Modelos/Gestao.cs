@@ -189,3 +189,45 @@ public sealed record ValorLancamento(
     /// <summary>O que sobra depois da maquininha e do fisco.</summary>
     public decimal Liquido => Valor - (ValorTaxa ?? 0m) - (ValorImposto ?? 0m);
 }
+
+/// <summary>
+/// Um movimento em ESPÉCIE de um dia — a projeção que a conferência da gaveta precisa
+/// (parcela 14).
+///
+/// <paramref name="Dia"/> é o dia em que o dinheiro FISICAMENTE se moveu (a data de
+/// pagamento, ou a competência quando ela falta), não a competência: a gaveta é contada
+/// no fim do expediente, e o que importa é o que passou por ela naquele expediente.
+/// </summary>
+public sealed record LancamentoEspecie(DateOnly Dia, TipoLancamento Tipo, decimal Valor);
+
+/// <summary>
+/// Projeção de um lançamento COM as datas e a categoria — o que o fluxo de caixa precisa
+/// e o <see cref="ValorLancamento"/> não tem.
+///
+/// As três datas vêm juntas porque o fluxo escolhe qual delas usar conforme o estado:
+/// realizado se posiciona por <see cref="DataPagamento"/> (o dia em que o dinheiro se
+/// moveu), previsto se posiciona por <see cref="DataVencimento"/> (o dia em que ele
+/// PRECISA se mover), e quem não tem nem uma nem outra cai na competência. Escolher uma
+/// data só faria a projeção mentir metade do tempo.
+///
+/// A categoria vem como NOME e não como id: o fluxo agrupa para exibir, e resolver o
+/// nome depois exigiria uma segunda viagem ao banco por linha.
+/// </summary>
+public sealed record LancamentoDatado(
+    DateOnly Data,
+    DateOnly? DataVencimento,
+    DateOnly? DataPagamento,
+    TipoLancamento Tipo,
+    StatusLancamento Status,
+    decimal Valor,
+    string? Categoria)
+{
+    /// <summary>
+    /// O dia em que este lançamento entra na projeção. Realizado pelo pagamento, previsto
+    /// pelo vencimento, e a competência como último recurso — nunca nulo, porque uma
+    /// linha sem data sumiria do fluxo em silêncio.
+    /// </summary>
+    public DateOnly DataDoFluxo => Status == StatusLancamento.Realizado
+        ? DataPagamento ?? Data
+        : DataVencimento ?? Data;
+}

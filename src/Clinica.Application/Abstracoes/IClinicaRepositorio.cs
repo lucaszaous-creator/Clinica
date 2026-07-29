@@ -453,6 +453,67 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<int>> CodigosComLancamentoAsync(
         IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
 
+    /// <summary>
+    /// Lançamentos do período com as três datas e o NOME da categoria — a projeção que o
+    /// fluxo de caixa precisa (parcela 13). O período é comparado contra a competência OU
+    /// o vencimento OU o pagamento: um lançamento com competência em julho e vencimento
+    /// em agosto pertence ao fluxo dos dois meses, e filtrar por uma data só o faria
+    /// sumir de um deles.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.LancamentoDatado>> LancamentosDatadosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    // ---- Fechamento de caixa (parcela 14) ----
+
+    /// <summary>
+    /// Movimentos em ESPÉCIE já realizados no dia. Só dinheiro vivo: cartão e PIX não
+    /// passam pela gaveta, e incluí-los faria a conferência nunca bater.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.LancamentoEspecie>> LancamentosEmEspecieDoDiaAsync(
+        DateOnly dia, CancellationToken ct = default);
+
+    /// <summary>O mesmo, no período — base dos dias que ninguém conferiu.</summary>
+    Task<IReadOnlyList<Modelos.LancamentoEspecie>> LancamentosEmEspecieNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// O fechamento VIGENTE do dia — o último gravado, porque reabrir para recontagem
+    /// guarda o anterior e grava outro por cima. Rastreado, para a reabertura poder
+    /// marcá-lo.
+    /// </summary>
+    Task<FechamentoCaixa?> FechamentoCaixaDoDiaAsync(DateOnly dia, CancellationToken ct = default);
+
+    Task AdicionarFechamentoCaixaAsync(FechamentoCaixa fechamento, CancellationToken ct = default);
+
+    /// <summary>Fechamentos do período, do mais recente para o mais antigo.</summary>
+    Task<IReadOnlyList<FechamentoCaixa>> FechamentosCaixaNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    // ---- Contas a pagar e a receber (parcela 12) ----
+
+    /// <summary>
+    /// Contas em ABERTO (previstas) com vencimento até a data, da mais antiga para a mais
+    /// nova — a ordem em que se paga. Categoria e paciente vêm carregados, porque a lista
+    /// mostra os dois. Filtra por tipo quando a tela quer só o que se paga ou só o que se
+    /// recebe.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
+        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quais das origens de recorrência informadas já existem. É a checagem de
+    /// idempotência da geração: uma consulta em bloco em vez de uma por ocorrência.
+    /// </summary>
+    Task<IReadOnlyList<string>> OrigensRecorrenciaExistentesAsync(
+        IReadOnlyCollection<string> origens, CancellationToken ct = default);
+
+    Task<IReadOnlyList<LancamentoRecorrente>> RecorrentesAsync(
+        bool somenteAtivas = false, CancellationToken ct = default);
+    Task AdicionarRecorrenteAsync(LancamentoRecorrente recorrente, CancellationToken ct = default);
+
+    /// <summary>Recorrência rastreada, para a tela poder editá-la.</summary>
+    Task<LancamentoRecorrente?> ObterRecorrenteAsync(int recorrenteId, CancellationToken ct = default);
+
     Task<IReadOnlyList<CategoriaFinanceira>> CategoriasFinanceirasAsync(CancellationToken ct = default);
     Task AdicionarCategoriaFinanceiraAsync(CategoriaFinanceira categoria, CancellationToken ct = default);
 

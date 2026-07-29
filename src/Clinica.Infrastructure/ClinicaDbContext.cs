@@ -23,6 +23,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<EventoAuditoria> Auditoria => Set<EventoAuditoria>();
     public DbSet<CategoriaFinanceira> CategoriasFinanceiras => Set<CategoriaFinanceira>();
     public DbSet<LancamentoFinanceiro> Lancamentos => Set<LancamentoFinanceiro>();
+    public DbSet<LancamentoRecorrente> Recorrentes => Set<LancamentoRecorrente>();
+    public DbSet<FechamentoCaixa> FechamentosCaixa => Set<FechamentoCaixa>();
     public DbSet<Profissional> Profissionais => Set<Profissional>();
     public DbSet<Sala> Salas => Set<Sala>();
     public DbSet<ListaEspera> ListaEspera => Set<ListaEspera>();
@@ -600,6 +602,10 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.ValorLiquido);
             e.Ignore(x => x.TemDeducao);
 
+            // Contas a pagar e a receber (parcela 12). "Vencido" tambem nao e coluna:
+            // ele depende de HOJE, e uma coluna gravada estaria mentindo amanha de manha.
+            e.Property(x => x.OrigemRecorrencia).HasMaxLength(60);
+
             e.HasOne(x => x.Categoria).WithMany()
                 .HasForeignKey(x => x.CategoriaFinanceiraId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Paciente).WithMany()
@@ -613,6 +619,57 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.Status);
             // Conciliação: achar rápido o lançamento de uma guia.
             e.HasIndex(x => x.CodigoFaturamentoId);
+            // "O que vence esta semana" é a consulta mais frequente do módulo.
+            e.HasIndex(x => x.DataVencimento);
+            // Idempotencia da geracao de contas recorrentes: o aluguel de agosto so pode
+            // nascer uma vez, mesmo com dois postos abrindo o app na mesma manha. O
+            // filtro deixa os avulsos (origem nula) de fora do unico.
+            e.HasIndex(x => x.OrigemRecorrencia)
+                .IsUnique()
+                .HasFilter(null);
+        });
+
+        b.Entity<LancamentoRecorrente>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Periodicidade).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.FormaPagamento).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Categoria).WithMany()
+                .HasForeignKey(x => x.CategoriaFinanceiraId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.Ativa);
+            e.Ignore(x => x.PeriodicidadeTexto);
+        });
+
+        b.Entity<FechamentoCaixa>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ValorSistema).HasPrecision(14, 2);
+            e.Property(x => x.ValorContado).HasPrecision(14, 2);
+            e.Property(x => x.SaidasEspecie).HasPrecision(14, 2);
+            e.Property(x => x.Justificativa).HasMaxLength(500);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.MotivoReabertura).HasMaxLength(500);
+            e.Property(x => x.ConferidoPor).HasMaxLength(80);
+            e.Property(x => x.ConferidoEm).HasColumnType("timestamp without time zone");
+
+            // Data NAO e unica: reabrir para recontagem guarda o fechamento anterior e
+            // grava outro por cima. O que vale e o de maior Id.
+            e.HasIndex(x => x.Data);
+
+            // Esperado, Diferenca, Bateu e Situacao sao CALCULADOS. Gravar a diferenca
+            // daria duas verdades sobre a mesma contagem no dia em que divergissem.
+            e.Ignore(x => x.Esperado);
+            e.Ignore(x => x.Diferenca);
+            e.Ignore(x => x.Bateu);
+            e.Ignore(x => x.Situacao);
         });
 
         // ---------- Dinheiro e insumo (parcela 4) ----------
