@@ -340,6 +340,15 @@ public interface IClinicaRepositorio
 
     Task RemoverTaxaCartaoAsync(int taxaId, CancellationToken ct = default);
 
+    // ---- Custo de transacao, visao da direcao (parcela 17) ----
+
+    /// <summary>
+    /// Entradas REALIZADAS do periodo com o que foi descontado delas. So realizada: taxa
+    /// de recebimento que ainda nao aconteceu e desconto de receita que nao existe.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.RecebimentoComDeducao>> RecebimentosComDeducaoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
     // ---- Recebiveis de cartao (parcela 16) ----
 
     /// <summary>

@@ -1,0 +1,261 @@
+<UserControl x:Class="Clinica.Gerente.Views.CustoTransacaoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Taxas e impostos" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="Quanto a maquininha e o fisco custaram. O Financeiro cadastra as taxas; aqui se vê o que elas comeram — e se a taxa que a clínica de fato paga bate com a que foi contratada." />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <TextBlock Text="Meses" Style="{StaticResource Rotulo}"
+                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox ItemsSource="{Binding Janelas}" SelectedItem="{Binding MesesJanela}"
+                          Width="80" Margin="0,0,12,0" />
+                <Button Content="Exportar" Style="{StaticResource BotaoSecundario}"
+                        Margin="0,0,8,0" Command="{Binding ExportarCommand}" />
+                <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding CarregarCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ===== Faixa ===== -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="ENTROU (BRUTO)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Bruto}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Periodo}" Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="MAQUININHA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Taxa}" Style="{StaticResource CardKpi.Valor}" />
+                    <!-- O percentual embaixo é o que transforma o número em decisão:
+                         "R$ 14.200" não diz nada; "3,9% de tudo que entrou" diz. -->
+                    <TextBlock Text="{Binding PercentualTaxa}"
+                               Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="4" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="IMPOSTO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Imposto}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding PercentualImposto}"
+                               Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="6" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="SOBROU (LÍQUIDO)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Style="{StaticResource CardKpi.Variacao}">
+                        <Run Text="deduções: " />
+                        <Run Text="{Binding PercentualDeducoes, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Evolução mensal" Style="{StaticResource H3}" Margin="0,0,0,8" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="DEDUÇÕES (% DO FATURAMENTO)"
+                                           Style="{StaticResource Rotulo}" Margin="0" />
+                                <!-- Mês sem faturamento INTERROMPE a linha: desenhado como
+                                     0% inventaria um mês perfeito. -->
+                                <ctrl:GraficoLinha Pontos="{Binding SeriePercentual}" Height="120"
+                                                   Cor="{StaticResource Brush.Erro}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="DEDUÇÕES (R$)" Style="{StaticResource Rotulo}"
+                                           Margin="0" />
+                                <ctrl:GraficoLinha Pontos="{Binding SerieDeducoes}" Height="120"
+                                                   ComecaDoZero="True"
+                                                   Cor="{StaticResource Brush.Acento}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="{Binding MaisCara}" Style="{StaticResource TextoSuave}"
+                                   Margin="0,12,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== Por adquirente: efetiva contra tabela ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <DockPanel>
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                            <TextBlock Text="Por origem do recebimento" Style="{StaticResource H3}"
+                                       Margin="0,0,0,4" />
+                            <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                                       Text="A taxa EFETIVA é o que foi descontado sobre o que passou; a de tabela é a contratada. Elas divergem quando a clínica parcela mais do que imagina — e é essa diferença que se leva à renegociação." />
+                        </StackPanel>
+
+                        <TextBlock DockPanel.Dock="Top" Text="Nenhum recebimento no período.">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Adquirentes.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <ItemsControl ItemsSource="{Binding Adquirentes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,0,0,14">
+                                        <Grid>
+                                            <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding ValorRotulo}"
+                                                       HorizontalAlignment="Right"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       FontSize="{StaticResource Fonte.Legenda}" />
+                                        </Grid>
+                                        <ProgressBar Style="{StaticResource BarraDado}" Margin="0,6,0,0"
+                                                     Value="{Binding Fracao, Mode=OneWay}" />
+                                        <!-- Vermelho só quando o efetivo passou do TETO da
+                                             tabela: é o único caso em que há o que cobrar
+                                             da adquirente. -->
+                                        <TextBlock Text="{Binding Comparacao}" Margin="0,4,0,0"
+                                                   TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock"
+                                                       BasedOn="{StaticResource TextoSuave}">
+                                                    <Setter Property="FontSize"
+                                                            Value="{StaticResource Fonte.Legenda}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AcimaDaTabela}"
+                                                                     Value="True">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Erro}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
+                </Border>
+
+                <!-- ===== Mês a mês ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Mês a mês"
+                                   Style="{StaticResource H3}" Margin="0,0,0,8" />
+
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="90" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Mês" Style="{StaticResource Rotulo}" />
+                            <TextBlock Grid.Column="1" Text="Bruto" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                            <TextBlock Grid.Column="2" Text="Maquininha" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                            <TextBlock Grid.Column="3" Text="Imposto" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                            <TextBlock Grid.Column="4" Text="Líquido" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                            <TextBlock Grid.Column="5" Text="Deduções" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Meses}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1" Padding="0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="90" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0" Text="{Binding Mes}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Bruto}"
+                                                       TextAlignment="Right" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Taxa}"
+                                                       TextAlignment="Right"
+                                                       Style="{StaticResource TextoSuave}" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Imposto}"
+                                                       TextAlignment="Right"
+                                                       Style="{StaticResource TextoSuave}" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Liquido}"
+                                                       TextAlignment="Right" FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="5" Text="{Binding Percentual}"
+                                                       TextAlignment="Right" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

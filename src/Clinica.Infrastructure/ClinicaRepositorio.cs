@@ -817,6 +817,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (taxa is not null) _db.TaxasCartao.Remove(taxa);
     }
 
+    // ---- Custo de transacao, visao da direcao (parcela 17) ----
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.RecebimentoComDeducao>>
+        RecebimentosComDeducaoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Tipo == TipoLancamento.Entrada)
+            .Where(l => l.Status == StatusLancamento.Realizado)
+            // Pelo dia do PAGAMENTO: o custo de maquininha pertence ao mes da venda.
+            .Where(l => (l.DataPagamento ?? l.Data) >= inicio && (l.DataPagamento ?? l.Data) <= fim)
+            .Select(l => new Clinica.Application.Modelos.RecebimentoComDeducao(
+                l.DataPagamento ?? l.Data, l.Valor, l.ValorTaxa, l.ValorImposto, l.Adquirente))
+            .ToListAsync(ct);
+
     // ---- Recebiveis de cartao (parcela 16) ----
 
     public async Task<IReadOnlyList<LancamentoFinanceiro>> RecebiveisEmAbertoAsync(

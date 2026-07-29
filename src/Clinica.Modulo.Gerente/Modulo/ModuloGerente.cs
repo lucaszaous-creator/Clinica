@@ -22,6 +22,7 @@ public sealed class ModuloGerente : IModuloApp
 {
     public const string ChaveIndicadores = "indicadores";
     public const string ChaveFaturamento = "faturamento-gerencial";
+    public const string ChaveCusto = "custo-transacao";
     public const string ChaveCampanhas = "campanhas";
     public const string ChaveAcessos = "acessos";
     public const string ChaveConfiguracoes = "configuracoes";
@@ -37,6 +38,11 @@ public sealed class ModuloGerente : IModuloApp
         {
             Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveCusto, Rotulo = "Custo de taxas e impostos", Glifo = "\uE9F9",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
         {
@@ -65,6 +71,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<IndicadoresViewModel>();
         servicos.AddTransient<FaturamentoGerencialViewModel>();
         servicos.AddTransient<FaturamentoTissViewModel>();
+        servicos.AddTransient<CustoTransacaoViewModel>();
         servicos.AddTransient<CampanhasViewModel>();
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
@@ -81,6 +88,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveFaturamento => new FaturamentoTissView
         {
             DataContext = servicos.GetRequiredService<FaturamentoTissViewModel>()
+        },
+        ChaveCusto => new CustoTransacaoView
+        {
+            DataContext = servicos.GetRequiredService<CustoTransacaoViewModel>()
         },
         ChaveCampanhas => new CampanhasView
         {

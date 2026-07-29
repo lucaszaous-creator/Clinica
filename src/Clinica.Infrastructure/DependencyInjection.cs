@@ -40,6 +40,7 @@ public static class DependencyInjection
         // O TributoService vem ANTES: o TaxaService o recebe para abrir o imposto
         // por tributo em vez de devolver uma aliquota unica e cega.
         services.AddScoped<RecebiveisService>();
+        services.AddScoped<CustoTransacaoService>();
         services.AddScoped<TributoService>();
         services.AddScoped<TaxaService>();
         services.AddScoped<PacoteService>();
