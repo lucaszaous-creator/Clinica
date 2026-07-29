@@ -326,6 +326,19 @@ public interface IClinicaRepositorio
         int? profissionalId = null, CancellationToken ct = default);
 
     Task<RepasseApurado?> ObterRepasseApuradoAsync(int repasseId, CancellationToken ct = default);
+
+    // ---- Taxas de cartao e imposto (parcela 9) ----
+
+    /// <summary>Catalogo de taxas da maquininha.</summary>
+    Task<IReadOnlyList<TaxaCartao>> TaxasCartaoAsync(
+        bool somenteAtivas = false, CancellationToken ct = default);
+
+    /// <summary>Taxa rastreada, para a tela poder edita-la.</summary>
+    Task<TaxaCartao?> ObterTaxaCartaoAsync(int taxaId, CancellationToken ct = default);
+
+    Task AdicionarTaxaCartaoAsync(TaxaCartao taxa, CancellationToken ct = default);
+
+    Task RemoverTaxaCartaoAsync(int taxaId, CancellationToken ct = default);
     Task AdicionarRepasseApuradoAsync(RepasseApurado repasse, CancellationToken ct = default);
 
     /// <summary>
@@ -475,6 +488,14 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ContatoCampanha>> ContatosAsync(
         TipoContato? tipo, StatusContato? status,
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Histórico de contatos de UM paciente, do mais recente para o mais antigo — a
+    /// aba de CRM da ficha. O corte vai no SQL: quem abre a ficha quer as últimas
+    /// conversas, não a carteira inteira de mensagens desde a instalação.
+    /// </summary>
+    Task<IReadOnlyList<ContatoCampanha>> ContatosDoPacienteAsync(
+        int pacienteId, int limite = 20, CancellationToken ct = default);
 
     /// <summary>
     /// Quais destas origens já viraram contato deste tipo. É a checagem de

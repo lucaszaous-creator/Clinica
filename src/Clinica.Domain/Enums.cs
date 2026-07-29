@@ -91,3 +91,39 @@ public enum StatusGlosa
     Reapresentada, // reenviada após a glosa
     Recuperada     // aceita após reapresentação
 }
+
+/// <summary>
+/// Como o paciente chegou à clínica (CRM). Serve à pergunta que a direção faz no fim do
+/// mês: "de onde vem gente nova?" — sem ela, campanha e indicação disputam o mesmo
+/// crédito e ninguém sabe o que financiar.
+///
+/// Não há "Não informado" no enum de propósito: o campo é anulável, e null significa
+/// exatamente "ninguém perguntou". Um valor de enum para isso empataria "não perguntamos"
+/// com "perguntamos e ele não soube dizer", que são fatos diferentes.
+/// </summary>
+public enum OrigemPaciente
+{
+    /// <summary>Indicação de outro paciente, de um profissional ou de terceiro.</summary>
+    Indicacao,
+
+    /// <summary>Encaminhado por médico ou outro serviço de saúde.</summary>
+    Encaminhamento,
+
+    /// <summary>Achou a clínica na internet (busca, site, mapa).</summary>
+    Internet,
+
+    /// <summary>Veio das redes sociais da clínica.</summary>
+    RedesSociais,
+
+    /// <summary>Passou em frente e entrou; fachada, placa, vizinhança.</summary>
+    Fachada,
+
+    /// <summary>Veio pelo convênio (lista de credenciados da operadora).</summary>
+    Convenio,
+
+    /// <summary>Campanha da própria clínica (recall, NPS, promoção).</summary>
+    Campanha,
+
+    /// <summary>Perguntado, e a resposta não cabe nas anteriores.</summary>
+    Outro
+}

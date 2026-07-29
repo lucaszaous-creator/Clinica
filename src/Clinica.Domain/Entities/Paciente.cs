@@ -40,6 +40,20 @@ public class Paciente
     public string? Observacoes { get; set; }
 
     /// <summary>
+    /// Como o paciente chegou à clínica (CRM). Null = não perguntado — que é diferente de
+    /// "Outro": a clínica só sabe o que perguntou, e um padrão preenchido sozinho
+    /// inventaria a origem da carteira inteira já cadastrada.
+    /// </summary>
+    public OrigemPaciente? Origem { get; set; }
+
+    /// <summary>
+    /// Quem indicou, quando a origem foi indicação. Texto livre de propósito: quem
+    /// indica pode ser outro paciente, um médico de fora ou uma academia do bairro, e
+    /// obrigar a escolher numa lista faria a recepção deixar em branco.
+    /// </summary>
+    public string? IndicadoPor { get; set; }
+
+    /// <summary>
     /// Miniatura JPEG quadrada (~160px) do retrato. Fica na própria linha do paciente
     /// porque é pequena e alimenta os avatares da lista; a foto cheia mora em
     /// <see cref="Foto"/> (tabela à parte, carregada sob demanda).

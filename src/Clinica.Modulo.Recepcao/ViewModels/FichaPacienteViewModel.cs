@@ -13,7 +13,12 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Recepcao.ViewModels;
 
-/// <summary>Uma linha do prontuário na ficha.</summary>
+/// <summary>
+/// Uma sessão do prontuário numa lista. Usada pela ficha do paciente E pela tela de
+/// Prontuário — o <see cref="De"/> existe para as duas nunca divergirem no que mostram:
+/// duas descrições da mesma sessão em telas diferentes é defeito que ninguém reporta e
+/// todo mundo estranha.
+/// </summary>
 public sealed class LinhaEvolucao
 {
     public required int EvolucaoId { get; init; }
@@ -24,6 +29,29 @@ public sealed class LinhaEvolucao
     public required bool Melhorou { get; init; }
     public required bool Piorou { get; init; }
     public required string Anexos { get; init; }
+
+    public static LinhaEvolucao De(Evolucao e, int anexos) => new()
+    {
+        EvolucaoId = e.Id,
+        Data = e.Data.ToString("dd/MM/yyyy"),
+        Profissional = e.Profissional?.Rotulo ?? "—",
+        Eva = e.TemParEva ? $"EVA {e.EvaAntes} → {e.EvaDepois}" : "EVA não medida",
+        Resumo = Resumir(e),
+        Melhorou = e.VariacaoEva > 0,
+        Piorou = e.VariacaoEva < 0,
+        Anexos = anexos == 0 ? string.Empty : $"{anexos} anexo(s)"
+    };
+
+    /// <summary>
+    /// A primeira linha que existir, cortada. A queixa vem antes da conduta porque é o
+    /// que identifica a sessão na lista: "lombalgia" acha o dia; "agulhamento" não.
+    /// </summary>
+    private static string Resumir(Evolucao e)
+    {
+        var texto = e.QueixaPrincipal ?? e.TextoEvolucao ?? e.Conduta ?? e.Orientacoes ?? string.Empty;
+        texto = texto.Replace('\n', ' ').Replace('\r', ' ').Trim();
+        return texto.Length <= 120 ? texto : texto[..117] + "…";
+    }
 }
 
 /// <summary>Situação de uma finalidade de consentimento LGPD.</summary>
@@ -37,6 +65,35 @@ public sealed class LinhaConsentimento
 
     /// <summary>Id do registro atual — necessário para revogar.</summary>
     public int? RegistroId { get; init; }
+}
+
+/// <summary>Um contato de campanha no histórico de CRM da ficha.</summary>
+public sealed class LinhaContato
+{
+    public required string Tipo { get; init; }
+    public required string Data { get; init; }
+    public required string Situacao { get; init; }
+    public required string Detalhe { get; init; }
+
+    public static LinhaContato De(ContatoCampanha c) => new()
+    {
+        Tipo = c.Tipo switch
+        {
+            TipoContato.ConfirmacaoSessao => "Confirmação de sessão",
+            TipoContato.Nps => "Pesquisa de satisfação (NPS)",
+            TipoContato.Recall => "Recall",
+            _ => c.Tipo.ToString()
+        },
+        Data = c.Referencia.ToString("dd/MM/yyyy"),
+        Situacao = c.Status.ToString(),
+        // A nota do NPS é o que a direção quer ver de relance; nos outros tipos, quem
+        // disparou. Mostrar "—" seria desperdiçar a linha.
+        Detalhe = c.Nota is { } nota
+            ? $"nota {nota}/10"
+            : c.EnviadoEm is { } enviado
+                ? $"enviado em {enviado:dd/MM/yyyy} por {c.EnviadoPor ?? "?"}"
+                : "ainda não enviado"
+    };
 }
 
 /// <summary>Um alerta de elegibilidade na ficha.</summary>
@@ -63,6 +120,23 @@ public sealed class LinhaDocumento
 
     /// <summary>Cancelar duas vezes não existe — o botão desliga depois do primeiro.</summary>
     public bool PodeCancelar => !Cancelado;
+
+    /// <summary>
+    /// Mesma razão do <see cref="LinhaEvolucao.De"/>: a ficha e a tela de Prescrições
+    /// listam o mesmo documento, e a situação ("Cancelado em…") não pode ser escrita
+    /// duas vezes em lugares diferentes.
+    /// </summary>
+    public static LinhaDocumento De(DocumentoClinico d) => new()
+    {
+        DocumentoId = d.Id,
+        Numero = d.Numero,
+        Tipo = TipoDocumentoInfo.Rotular(d.Tipo),
+        Data = d.Data.ToString("dd/MM/yyyy"),
+        Profissional = d.Profissional?.Rotulo ?? "—",
+        Codigo = d.CodigoVerificacao,
+        Cancelado = d.Cancelado,
+        Situacao = d.Cancelado ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}" : "Válido"
+    };
 }
 
 /// <summary>
@@ -115,9 +189,17 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _elegibilidadeNaoVerificada;
 
+    // ===== CRM =====
+
+    /// <summary>De onde o paciente veio. "Não perguntado" é um estado legítimo.</summary>
+    [ObservableProperty] private string _origem = "Não perguntado";
+
     [ObservableProperty] private bool _temPaciente;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
+
+    /// <summary>Últimas conversas da clínica com este paciente (confirmação, NPS, recall).</summary>
+    public ObservableCollection<LinhaContato> Contatos { get; } = [];
 
     /// <summary>Avisa a tela dona que o cadastro mudou (para recarregar a lista).</summary>
     public event Action? Alterou;
@@ -179,6 +261,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             await CarregarProntuarioAsync(scope);
             await CarregarConsentimentosAsync(scope);
             await CarregarDocumentosAsync(scope);
+            await CarregarCrmAsync(scope);
             await CarregarElegibilidadeAsync(scope);
         }
         catch (Exception ex)
@@ -207,6 +290,22 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
                 : p.Carteirinha!;
         Observacoes = p.Observacoes ?? string.Empty;
 
+        // Origem em branco é "ninguém perguntou", e a ficha diz isso com todas as letras
+        // em vez de deixar o campo vazio: campo vazio parece defeito, e a recepção só vai
+        // colher o dado se souber que ele falta.
+        Origem = p.Origem switch
+        {
+            null => "Não perguntado",
+            OrigemPaciente.Indicacao when !string.IsNullOrWhiteSpace(p.IndicadoPor)
+                => $"Indicação de {p.IndicadoPor}",
+            OrigemPaciente.Indicacao => "Indicação",
+            OrigemPaciente.Encaminhamento => "Encaminhamento médico",
+            OrigemPaciente.RedesSociais => "Redes sociais",
+            OrigemPaciente.Fachada => "Passou em frente",
+            OrigemPaciente.Convenio => "Lista do convênio",
+            var o => o.ToString()!
+        };
+
         var codigos = p.Atendimentos.SelectMany(a => a.Codigos).ToList();
         TotalSessoes = p.Atendimentos.Count.ToString();
         GuiasEmAberto = codigos.Count(c => c.DataBaixa is null).ToString();
@@ -232,27 +331,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         foreach (var e in evolucoes)
         {
             var anexos = await prontuario.AnexosAsync(e.Id);
-            Prontuario.Add(new LinhaEvolucao
-            {
-                EvolucaoId = e.Id,
-                Data = e.Data.ToString("dd/MM/yyyy"),
-                Profissional = e.Profissional?.Rotulo ?? "—",
-                Eva = e.TemParEva ? $"EVA {e.EvaAntes} → {e.EvaDepois}" : "EVA não medida",
-                Resumo = PrimeiraLinha(e),
-                Melhorou = e.VariacaoEva > 0,
-                Piorou = e.VariacaoEva < 0,
-                Anexos = anexos.Count == 0 ? string.Empty : $"{anexos.Count} anexo(s)"
-            });
+            Prontuario.Add(LinhaEvolucao.De(e, anexos.Count));
         }
 
         AplicarEvolucaoDaDor(await prontuario.EvolucaoDaDorAsync(PacienteId));
-    }
-
-    private static string PrimeiraLinha(Evolucao e)
-    {
-        var texto = e.QueixaPrincipal ?? e.TextoEvolucao ?? e.Conduta ?? e.Orientacoes ?? string.Empty;
-        texto = texto.Replace('\n', ' ').Replace('\r', ' ').Trim();
-        return texto.Length <= 120 ? texto : texto[..117] + "…";
     }
 
     private void AplicarEvolucaoDaDor(EvolucaoDaDor dor)
@@ -300,25 +382,34 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Fecha o ciclo do marketing: a campanha sai no Gerente e o resultado dela aparece
+    /// aqui, no balcão, onde alguém vai atender essa pessoa e precisa saber o que já foi
+    /// falado com ela. Falhar aqui não derruba a ficha — é histórico, não o conteúdo.
+    /// </summary>
+    private async Task CarregarCrmAsync(IServiceScope scope)
+    {
+        Contatos.Clear();
+        try
+        {
+            var campanhas = scope.ServiceProvider.GetRequiredService<CampanhaService>();
+            foreach (var c in await campanhas.DoPacienteAsync(PacienteId))
+                Contatos.Add(LinhaContato.De(c));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — histórico de campanhas não pôde ser lido", ex);
+        }
+    }
+
     private async Task CarregarDocumentosAsync(IServiceScope scope)
     {
         var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
         Documentos.Clear();
         foreach (var d in await servico.DoPacienteAsync(PacienteId))
-            Documentos.Add(new LinhaDocumento
-            {
-                DocumentoId = d.Id,
-                Numero = d.Numero,
-                Tipo = TipoDocumentoInfo.Rotular(d.Tipo),
-                Data = d.Data.ToString("dd/MM/yyyy"),
-                Profissional = d.Profissional?.Rotulo ?? "—",
-                Codigo = d.CodigoVerificacao,
-                Cancelado = d.Cancelado,
-                Situacao = d.Cancelado
-                    ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
-                    : "Válido"
-            });
+            Documentos.Add(LinhaDocumento.De(d));
     }
 
     private static string Descrever(ConsentimentoLgpd? registro) => registro switch

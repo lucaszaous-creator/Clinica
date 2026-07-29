@@ -38,6 +38,7 @@ public sealed class LinhaCaixa
 public sealed partial class CaixaViewModel : ObservableObject
 {
     private readonly FinanceiroService _financeiro;
+    private readonly TaxaService _taxas;
     private readonly DocumentoFinanceiroService _documentos;
     private readonly DocumentosFinanceirosPdfService _pdfs;
     private readonly ParametrosService _parametros;
@@ -65,6 +66,21 @@ public sealed partial class CaixaViewModel : ObservableObject
     private string _previsto = "—";
 
     /// <summary>
+    /// O que a clinica de fato recebe: bruto menos a taxa da maquininha e o imposto
+    /// retido. E o numero que bate com o extrato da adquirente — o bruto nunca bate.
+    /// </summary>
+    [ObservableProperty]
+    private string _liquido = "—";
+
+    /// <summary>Quanto saiu em taxa e imposto no periodo.</summary>
+    [ObservableProperty]
+    private string _deducoes = "—";
+
+    /// <summary>Houve deducao no periodo — sem ela a faixa nao mostra a linha do liquido.</summary>
+    [ObservableProperty]
+    private bool _temDeducoes;
+
+    /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
     /// botão apagado explica por que não dá; a guarda no comando é que impede.
     /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
@@ -83,11 +99,13 @@ public sealed partial class CaixaViewModel : ObservableObject
     private bool _truncado;
 
     public CaixaViewModel(
-        FinanceiroService financeiro, DocumentoFinanceiroService documentos,
+        FinanceiroService financeiro, TaxaService taxas,
+        DocumentoFinanceiroService documentos,
         DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
         ISnackbarService snackbar, IDialogoService dialogo)
     {
         _financeiro = financeiro;
+        _taxas = taxas;
         _documentos = documentos;
         _pdfs = pdfs;
         _parametros = parametros;
@@ -135,6 +153,9 @@ public sealed partial class CaixaViewModel : ObservableObject
             Saidas = $"{resumo.SaidasRealizadas:C}";
             Saldo = $"{resumo.SaldoRealizado:C}";
             Previsto = $"{resumo.SaldoPrevisto:C}";
+            Liquido = $"{resumo.EntradasLiquidas:C}";
+            Deducoes = $"{resumo.TotalDeducoes:C}";
+            TemDeducoes = resumo.TemDeducao;
         }
         catch (Exception ex)
         {
@@ -157,7 +178,7 @@ public sealed partial class CaixaViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
 
-        var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_financeiro))
+        var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_financeiro, _taxas))
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };

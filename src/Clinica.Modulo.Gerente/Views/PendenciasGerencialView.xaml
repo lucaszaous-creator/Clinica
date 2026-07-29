@@ -1,0 +1,161 @@
+<UserControl x:Class="Clinica.Gerente.Views.PendenciasGerencialView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="0,16,0,0">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Guias pendentes de baixa" Style="{StaticResource H3}" Margin="0" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" />
+            </StackPanel>
+            <Button Content="Atualizar" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Style="{StaticResource BotaoSecundario}" Command="{Binding CarregarCommand}" />
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- O semáforo em números: é a leitura que a direção faz de longe. -->
+        <UniformGrid DockPanel.Dock="Top" Columns="3" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="ATRASADAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Vermelhas}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Semaforo.Vermelho}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <StackPanel>
+                    <TextBlock Text="VENCEM AGORA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Amarelas}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Semaforo.Amarelo}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="EM DIA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Verdes}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Semaforo.Verde}" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
+
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="1" Text="PACIENTE / GUIA" Style="{StaticResource Rotulo}"
+                               Margin="10,0,0,0" />
+                    <TextBlock Grid.Column="2" Text="PREVISTA" Style="{StaticResource Rotulo}" Margin="0" />
+                    <TextBlock Grid.Column="3" Text="SITUAÇÃO" Style="{StaticResource Rotulo}" Margin="0" />
+                </Grid>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Pendencias}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="6" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- A barra do semáforo. Cor é reforço, não a única
+                                             pista: o texto da situação diz o mesmo, para
+                                             quem não distingue vermelho de verde. -->
+                                        <Border Grid.Column="0" CornerRadius="3" Margin="0,2">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background"
+                                                            Value="{StaticResource Brush.Semaforo.Verde}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding EhAmarela}" Value="True">
+                                                            <Setter Property="Background"
+                                                                    Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding EhVermelha}" Value="True">
+                                                            <Setter Property="Background"
+                                                                    Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+
+                                        <StackPanel Grid.Column="1" Margin="10,0,0,0"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" />
+                                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
+                                                <Run Text="{Binding Convenio, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Guia, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Observacao}"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       TextWrapping="Wrap" FontStyle="Italic" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2" Text="{Binding Prevista}"
+                                                   VerticalAlignment="Center" />
+
+                                        <TextBlock Grid.Column="3" Text="{Binding Atraso}"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding EhVermelha}" Value="True">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Anotar" Style="{StaticResource BotaoPequeno}"
+                                                    Margin="0,0,6,0"
+                                                    IsEnabled="{Binding DataContext.PodeBaixar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.AnotarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Dar baixa"
+                                                    IsEnabled="{Binding DataContext.PodeBaixar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.BaixarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource BotaoPequeno}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

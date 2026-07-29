@@ -114,6 +114,57 @@ public class LancamentoFinanceiro
     /// <summary>Código do convênio no catálogo, quando criado pela clínica.</summary>
     public string? ConvenioCodigo { get; set; }
 
+    // ---------- Taxa da maquininha e imposto (parcela 9) ----------
+    //
+    // Regra que manda aqui: o VALOR do lançamento continua sendo o BRUTO — o que o
+    // paciente pagou. Taxa e imposto são deduções registradas ao lado, e o líquido é
+    // CALCULADO. Guardar o líquido como campo daria duas verdades sobre o mesmo dinheiro,
+    // e no dia em que divergissem ninguém saberia qual acreditar.
+
+    /// <summary>Quem processou o cartão. Null nas outras formas de pagamento.</summary>
+    public string? Adquirente { get; set; }
+
+    public string? Bandeira { get; set; }
+
+    public ModalidadeCartao? ModalidadeCartao { get; set; }
+
+    /// <summary>Número de parcelas no crédito parcelado.</summary>
+    public int? Parcelas { get; set; }
+
+    /// <summary>
+    /// Percentual aplicado, guardado como PROCEDÊNCIA do valor da taxa. A taxa da
+    /// maquininha é renegociada; sem isto, ninguém saberia de onde saiu o desconto de
+    /// um recebimento de seis meses atrás.
+    /// </summary>
+    public decimal? TaxaPercentual { get; set; }
+
+    /// <summary>
+    /// Quanto a adquirente reteve, em dinheiro, COPIADO na hora da venda. É o valor que
+    /// vale — mudar a taxa do catálogo não reescreve o que já foi descontado.
+    /// </summary>
+    public decimal? ValorTaxa { get; set; }
+
+    /// <summary>Alíquota de imposto retido (ISS/Simples), quando houver.</summary>
+    public decimal? AliquotaImposto { get; set; }
+
+    /// <summary>Imposto retido em dinheiro, também copiado na emissão.</summary>
+    public decimal? ValorImposto { get; set; }
+
+    /// <summary>
+    /// Quando o dinheiro efetivamente cai. Diferente de <see cref="DataPagamento"/>: o
+    /// paciente pagou hoje no crédito, e a clínica recebe em 30 dias. É o que sustenta
+    /// o "a receber" do caixa.
+    /// </summary>
+    public DateOnly? PrevisaoRecebimento { get; set; }
+
+    /// <summary>
+    /// O que sobra de verdade: bruto menos taxa menos imposto. Calculado, nunca gravado.
+    /// </summary>
+    public decimal ValorLiquido => Valor - (ValorTaxa ?? 0m) - (ValorImposto ?? 0m);
+
+    /// <summary>Houve alguma dedução — a tela só mostra a linha do líquido quando há.</summary>
+    public bool TemDeducao => ValorTaxa is > 0m || ValorImposto is > 0m;
+
     public string? Observacoes { get; set; }
 
     public DateTime CriadoEm { get; set; } = DateTime.Now;

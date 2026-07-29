@@ -33,41 +33,61 @@
             </StackPanel>
         </Grid>
 
-        <!-- Indicadores -->
+        <!-- Indicadores. O liquido so aparece quando houve desconto: sem cartao nem
+             imposto, bruto e liquido sao o mesmo numero e a coluna seria ruido. -->
         <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,16">
-            <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}"
-                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="ENTRADAS" Style="{StaticResource Rotulo}" Margin="0" />
-                    <TextBlock Text="{Binding Entradas}" FontSize="{StaticResource Fonte.H2}"
-                               FontWeight="Bold" Foreground="{StaticResource Brush.Sucesso}" />
+                    <TextBlock Text="ENTRADAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Entradas}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Sucesso}" />
                 </StackPanel>
             </Border>
-            <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}"
-                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="SAÍDAS" Style="{StaticResource Rotulo}" Margin="0" />
-                    <TextBlock Text="{Binding Saidas}" FontSize="{StaticResource Fonte.H2}"
-                               FontWeight="Bold" Foreground="{StaticResource Brush.Erro}" />
+                    <TextBlock Text="SAÍDAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Saidas}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Erro}" />
                 </StackPanel>
             </Border>
-            <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}"
-                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="SALDO REALIZADO" Style="{StaticResource Rotulo}" Margin="0" />
-                    <TextBlock Text="{Binding Saldo}" FontSize="{StaticResource Fonte.H2}"
-                               FontWeight="Bold" Foreground="{StaticResource Brush.Texto.Primario}" />
+                    <TextBlock Text="SALDO REALIZADO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Saldo}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
                 </StackPanel>
             </Border>
-            <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}"
-                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}" Padding="16">
+            <Border Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <TextBlock Text="SALDO COM PREVISTO" Style="{StaticResource Rotulo}" Margin="0" />
-                    <TextBlock Text="{Binding Previsto}" FontSize="{StaticResource Fonte.H2}"
-                               FontWeight="Bold" Foreground="{StaticResource Brush.Acento}" />
+                    <TextBlock Text="SALDO COM PREVISTO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Previsto}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Acento}" />
                 </StackPanel>
             </Border>
         </UniformGrid>
+
+        <!-- Recebido de verdade, depois da maquininha e do fisco. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16"
+                Visibility="{Binding TemDeducoes, Converter={StaticResource BoolParaVisibilidade}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="RECEBIDO LIQUIDO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Text="E este numero que bate com o extrato da adquirente. O bruto acima e o que o paciente pagou." />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="TAXAS E IMPOSTOS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Deducoes}" Style="{StaticResource CardKpi.Valor}"
+                               Foreground="{StaticResource Brush.Erro}" />
+                </StackPanel>
+            </Grid>
+        </Border>
 
         <!-- Lançamentos -->
         <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}"

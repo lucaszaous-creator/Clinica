@@ -7,11 +7,19 @@
 **Módulos são os quatro apps:** Faturamento · Recepção · Financeiro · Gerente Geral.
 Os 14 itens numerados da proposta são **features**, e cada uma precisa de um módulo dono.
 
+⚠️ **A proposta tem DUAS listas, e por muito tempo este documento só conhecia uma.** Além
+das 14 features numeradas, os mockups mostram uma **sidebar de 15 itens** — que é o que o
+cliente vê e cobra. As duas listas não coincidem: a sidebar tem Telemedicina e Portal do
+paciente, que não são features numeradas; e não tem "Taxas e impostos", que o cliente
+cobrou assim mesmo. A conferência da sidebar está em
+[A SIDEBAR da proposta × o que existe](#a-sidebar-da-proposta--o-que-existe).
+
 ## Como ler
 
 | Estado | Significado |
 |---|---|
 | ✅ | Pronto e em produção |
+| ❌ | **Fora de escopo** por decisão do cliente — sai do material comercial |
 | 🟡 | Existe, mas não como a proposta promete |
 | ⬜ | Vendido e **ainda não existe** |
 | 🔵 | Existe e **não** está na proposta (nasceu depois) |
@@ -514,6 +522,8 @@ As pontes que existem hoje, e o sentido de cada uma:
 | Quem atendeu, para repasse e produtividade | Recepção → Financeiro, Gerente | `Agendamento.ProfissionalId` + `AtendimentoId` |
 | Pendência de guia no cartão de quem chega hoje | Faturamento → Recepção | `PainelRecepcaoService.PendenciasDoDiaAsync` |
 | Leitura consolidada do faturamento | Faturamento → Gerente | `FaturamentoGerencialView` (só leitura) |
+| Pendências, glosas, NC e lotes na direção | Faturamento → Gerente | `FaturamentoTissView` — 5 abas sobre os serviços compartilhados (parcelas 10b–10d) |
+| Configuração da clínica editável fora do app congelado | Gerente → todos | `ConfiguracoesView` sobre `ParametrosService` (parcela 10a) |
 
 Três regras que valem para qualquer ponte nova:
 
@@ -531,17 +541,48 @@ Três regras que valem para qualquer ponte nova:
 > de eventos que ninguém aqui vai operar. A concorrência de escrita continua protegida pelo
 > `xmin`.
 
+## A SIDEBAR da proposta × o que existe
+
+⚠️ **A falha de levantamento que originou as parcelas 7 a 11.** Este documento foi montado a
+partir das **14 features numeradas** da proposta. Os mockups têm uma **sidebar de 15 itens**
+que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via na arte.
+
+| Item da sidebar | Módulo dono | Estado | Onde |
+|---|---|---|---|
+| **GESTÃO** · Início | Recepção | ✅ | `PainelView` |
+| **GESTÃO** · Agenda | Recepção | ✅ | `AgendaView` |
+| **GESTÃO** · Recepção / Check-in | Recepção | ✅ | `FilaView` (kanban) |
+| **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
+| **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
+| **PACIENTE** · Prescrições | Recepção | ✅ | `PrescricoesView` — idem |
+| **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
+| **PACIENTE** · Portal do paciente | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
+| **FINANCEIRO** · Pacotes / Sessões | Financeiro | ✅ | `PacotesView` |
+| **FINANCEIRO** · Financeiro | Financeiro | ✅ | `CaixaView` + Conciliação, Produção, Repasses |
+| **FINANCEIRO** · Faturamento (TISS) | Gerente | ✅ | `FaturamentoTissView` — 5 abas (parcelas 10b–10d) |
+| **FINANCEIRO** · Estoque | Financeiro | ✅ | `EstoqueView` |
+| **FINANCEIRO** · Taxas e impostos | Financeiro | ✅ | `TaxasView` (parcela 9) — 🔵 não estava na sidebar, mas o cliente cobrou |
+| **INTELIGÊNCIA** · Marketing / Recall | Gerente | ✅ | `CampanhasView` |
+| **INTELIGÊNCIA** · Relatórios / BI | Gerente | ✅ | `IndicadoresView` com gráficos e exportação CSV (parcelas 10d e 11) |
+| **INTELIGÊNCIA** · Configurações | Gerente | ✅ | `ConfiguracoesView` (parcela 10a) |
+
+**Os grupos são temáticos, não por módulo.** `ItemMenuModulo.Grupo` (`GrupoSidebar`) decide
+onde o item aparece; `ModuloNome` diz quem sabe construir a tela. São duas coisas que só
+pareciam uma: antes da parcela 7 o cabeçalho era o nome do módulo carregado, e o Gerente —
+que carrega os três — via "Recepção / Financeiro / Direção". Uma sidebar que explica a
+arquitetura para quem só quer saber onde mexe no paciente.
+
 ## O que ainda NÃO existe
 
-Levantado no código, não na memória. Nenhum destes tem linha escrita:
+Levantado no código, não na memória:
 
-| Falta | Módulo dono | Consequência hoje |
+| Falta | Módulo dono | Situação |
 |---|---|---|
-| Taxa de cartão / maquininha | Financeiro | `LancamentoFinanceiro` só tem valor bruto: sem adquirente, bandeira, taxa, líquido nem previsão de recebimento |
-| Impostos (ISS, Simples, retenção) | Financeiro | Nada modelado |
-| Tela de Configurações na suíte | Gerente | As chaves do `ParametrosService` (jornada, recall, prazos, prestador) só são editáveis pelo app de faturamento **congelado** |
-| Tela de Relatórios / exportação | Gerente | `RelatorioService` só é lido pelo faturamento e pela visão gerencial; não há exportação |
-| CRM (origem do paciente, indicação, funil) | Recepção | Não há de onde o paciente veio; o histórico de `ContatoCampanha` não aparece na ficha |
+| ~~Telemedicina~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Precisa sair da arte da sidebar no material comercial |
+| ~~Portal do paciente~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Idem |
+| Assinatura ICP-Brasil na prescrição | Recepção | Depende de certificado digital — decisão comercial (ver feature 07) |
+| NFS-e no fechamento | Financeiro | Depende de integração fiscal municipal — decisão comercial |
+| Gerar lote TISS pelo Gerente | Gerente | **Decisão de projeto, não pendência**: o número do lote é sequência do faturamento, e dois apps gerando em paralelo produziriam dois com o mesmo número |
 
 ## Divergências da proposta
 
@@ -561,14 +602,30 @@ O documento já foi ao cliente. Estas precisam de decisão comercial:
    número. Se o cliente entendeu "automática" como "sozinho, sem ninguém clicar", isso
    precisa ser dito antes de a expectativa virar cobrança — e a alternativa real é
    contratar a API oficial do WhatsApp Business, que é decisão comercial, não técnica.
-5. **O cronograma não fecha** — mas encolheu. A Fase 1 (1–2 meses) foi fechada com as
+5. ~~**Telemedicina e Portal do paciente**~~ — **RESOLVIDA (jul/2026): estão FORA DE
+   ESCOPO** por decisão do cliente. Apareciam na ARTE da sidebar dos mockups e não entre
+   as 14 features numeradas; nunca existiram em linha nenhuma do repositório e nunca foram
+   catalogados aqui como pendência — falha deste documento. São dois PRODUTOS, não duas
+   telas (vídeo/WebRTC e aplicação web com login de paciente), e nenhum cabe num app WPF de
+   balcão. **Ação pendente do lado comercial**: os dois itens precisam sair da arte da
+   sidebar antes de o deck ir a outro cliente, senão a promessa se repete.
+6. **O cronograma não fecha** — mas encolheu. A Fase 1 (1–2 meses) foi fechada com as
    parcelas 1 e 2, e a 3 fecha o ato clínico. O que resta do calendário original é
    decisão sua; as parcelas deste arquivo continuam sendo a ordem técnica correta.
 
 ## Parcelas
 
-As **sete parcelas estão entregues** — 0 (instalável), 1 (fundação), 2 (cadastro e
-prontuário), 3 (ato clínico), 4 (dinheiro e insumo), 5 (inteligência) e 6 (integração).
+As **onze parcelas estão entregues** — 0 (instalável), 1 (fundação), 2 (cadastro e
+prontuário), 3 (ato clínico), 4 (dinheiro e insumo), 5 (inteligência), 6 (integração),
+7 (moldura e navegação), 8 (prontuário/prescrições/CRM), 9 (taxas e impostos),
+10 (Configurações, faturamento no Gerente, exportação) e 11 (gráficos).
+
+As parcelas 7 a 11 nasceram de uma comparação do cliente entre os mockups e o sistema
+rodando. Três achados sustentaram todas elas: este documento catalogava 14 features e
+ignorava os 15 itens da sidebar; a moldura boa (sidebar recolhível, busca global,
+breadcrumb) estava presa no app congelado e nunca foi para a suíte; e **não havia um único
+gráfico** em 16 telas — o que o deck mostra como rosca, barras e linhas estava como tabela
+de texto.
 
 A **parcela 6 não trouxe feature nova**: ligou o que já existia. As parcelas 1 a 5
 construíram serviços e telas módulo a módulo, e o que ficou faltando foi o fio entre eles —

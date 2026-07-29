@@ -182,4 +182,10 @@ public sealed record CandidatoRecall(
 public sealed record ValorLancamento(
     TipoLancamento Tipo,
     StatusLancamento Status,
-    decimal Valor);
+    decimal Valor,
+    decimal? ValorTaxa = null,
+    decimal? ValorImposto = null)
+{
+    /// <summary>O que sobra depois da maquininha e do fisco.</summary>
+    public decimal Liquido => Valor - (ValorTaxa ?? 0m) - (ValorImposto ?? 0m);
+}

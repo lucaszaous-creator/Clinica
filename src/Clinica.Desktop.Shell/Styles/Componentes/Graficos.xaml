@@ -1,0 +1,54 @@
+<!--
+  Gráficos do design system.
+
+  Desenhados com as primitivas do WPF e os tokens da marca, sem biblioteca de terceiros:
+  os quatro apps se auto-atualizam por Velopack, e uma dependência de UI nova é risco
+  desproporcional a uma barra e uma linha. O que a suíte precisa é ocupação por
+  profissional e evolução mensal — não é visualização científica.
+
+  A BARRA espera a fração já normalizada (0 a 1) pelo ViewModel, como a ocupação do
+  painel da recepção já fazia. Normalizar na tela exigiria conhecer o máximo da série
+  dentro do DataTemplate, que é onde ele não está.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Conteúdo adiado (template) resolve o StaticResource só quando a tela abre: sem
+         mesclar os tokens aqui, o app sobe e quebra ao abrir o gráfico. -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <!-- Trilho fino de dado. Sem borda e sem relevo: é medida, não controle. -->
+    <Style x:Key="BarraDado" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Minimum" Value="0" />
+        <Setter Property="Maximum" Value="1" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <!--
+      Uma linha de barra rotulada: nome à esquerda, número à direita, barra embaixo.
+      Espera Rotulo (string), ValorRotulo (string) e Fracao (0..1).
+
+      O número vem ESCRITO ao lado da barra de propósito: barra sozinha responde "quem é
+      maior", e a direção também precisa de "quanto" — e quem não distingue as cores lê
+      o número.
+    -->
+    <DataTemplate x:Key="ItemBarraRotulada">
+        <StackPanel Margin="0,0,0,12">
+            <Grid>
+                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding ValorRotulo}" HorizontalAlignment="Right"
+                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                           FontSize="{StaticResource Fonte.Legenda}" />
+            </Grid>
+            <ProgressBar Style="{StaticResource BarraDado}" Margin="0,6,0,0"
+                         Value="{Binding Fracao, Mode=OneWay}" />
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

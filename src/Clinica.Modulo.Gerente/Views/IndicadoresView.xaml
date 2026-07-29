@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Gerente.Views.IndicadoresView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -20,7 +21,10 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <ComboBox ItemsSource="{Binding Periodos}" SelectedItem="{Binding PeriodoSelecionado}"
                           MinWidth="150" />
-                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0"
+                        Style="{StaticResource BotaoSecundario}" />
+                <!-- CSV e não PDF: a direção leva o número para a planilha dela. -->
+                <Button Content="Exportar" Command="{Binding ExportarCommand}" Margin="8,0,0,0" />
             </StackPanel>
         </Grid>
 
@@ -31,6 +35,24 @@
                     <TextBlock Text="ATENDIDOS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso}" />
+                    <!-- Some quando não há mês anterior: seta sem base é invenção. -->
+                    <TextBlock Text="{Binding VariacaoAtendidos}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Variacao}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding VariacaoAtendidos}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding VariacaoAtendidosBoa}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding VariacaoAtendidosBoa}" Value="False">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
@@ -38,6 +60,24 @@
                     <TextBlock Text="FALTAS (NO-SHOW)" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding NoShowFormatado}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro}" />
+                    <!-- Em PONTOS, não em % de %: "subiu 50%" sobre 4% confunde. -->
+                    <TextBlock Text="{Binding VariacaoNoShow}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Variacao}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding VariacaoNoShow}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding VariacaoNoShowBoa}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding VariacaoNoShowBoa}" Value="False">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
@@ -142,9 +182,42 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
+                        <!-- Ocupação em barras: a pergunta é "quem está cheio", e a
+                             comparação entre profissionais some numa tabela de números. -->
+                        <TextBlock Text="Ocupação por profissional" Style="{StaticResource H3}"
+                                   Margin="16,20,16,8" />
+                        <ItemsControl ItemsSource="{Binding BarrasOcupacao}"
+                                      ItemTemplate="{StaticResource ItemBarraRotulada}"
+                                      Margin="16,0,16,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   Margin="16,0,16,0" FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="A barra cheia é a MAIOR ocupação do período, não 100%: numa clínica que nunca passa de 60% todas as barras ficariam curtas e iguais, e a comparação — que é a pergunta — sumiria. O número ao lado diz o valor absoluto." />
+
                         <!-- Série mensal, logo abaixo: a leitura é "e como isso vem evoluindo?" -->
                         <TextBlock Text="Evolução mensal" Style="{StaticResource H3}" Margin="16,20,16,8" />
 
+                        <Grid Margin="16,0,16,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="ATENDIMENTOS" Style="{StaticResource Rotulo}" Margin="0" />
+                                <ctrl:GraficoLinha Pontos="{Binding SerieAtendidos}" Height="120"
+                                                   Cor="{StaticResource Brush.Acento}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="NO-SHOW (%)" Style="{StaticResource Rotulo}" Margin="0" />
+                                <ctrl:GraficoLinha Pontos="{Binding SerieNoShow}" Height="120"
+                                                   Cor="{StaticResource Brush.Erro}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Os meses continuam escritos embaixo do gráfico: a linha mostra
+                             a forma, e a direção também precisa do número exato. -->
                         <ItemsControl ItemsSource="{Binding Serie}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>

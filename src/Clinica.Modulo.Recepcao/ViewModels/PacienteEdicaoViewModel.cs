@@ -33,6 +33,10 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
 
     public IReadOnlyList<Sexo> Sexos { get; } = [Sexo.Feminino, Sexo.Masculino];
 
+    /// <summary>Origens oferecidas, com o vazio na frente ("nao perguntado").</summary>
+    public IReadOnlyList<OrigemPaciente?> Origens { get; } =
+        [null, .. Enum.GetValues<OrigemPaciente>().Cast<OrigemPaciente?>()];
+
     [ObservableProperty] private string _nome = string.Empty;
     [ObservableProperty] private string? _documento;
     [ObservableProperty] private string? _telefone;
@@ -44,6 +48,22 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
     [ObservableProperty] private EntradaModalidade? _modalidadePreferida;
     [ObservableProperty] private bool _possuiApp;
     [ObservableProperty] private string? _observacoes;
+
+    // ===== CRM: de onde veio =====
+
+    /// <summary>
+    /// Null = ninguem perguntou. E por isso a lista comeca com a opcao vazia em vez de
+    /// ja vir preenchida: origem chutada e pior que origem em branco — a direcao decide
+    /// onde investir em cima desse numero.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EhIndicacao))]
+    private OrigemPaciente? _origem;
+
+    [ObservableProperty] private string? _indicadoPor;
+
+    /// <summary>O campo "quem indicou" so vale para a origem Indicacao.</summary>
+    public bool EhIndicacao => Origem == OrigemPaciente.Indicacao;
 
     [ObservableProperty] private string _titulo = "Novo paciente";
     [ObservableProperty] private string _mensagem = string.Empty;
@@ -103,6 +123,8 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
                                   ?? ModalidadePreferida;
             PossuiApp = p.PossuiApp;
             Observacoes = p.Observacoes;
+            Origem = p.Origem;
+            IndicadoPor = p.IndicadoPor;
             Miniatura = p.FotoMiniatura;
         }
         catch (Exception ex)
@@ -195,6 +217,10 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             paciente.ModalidadePreferidaCodigo = ModalidadePreferida?.Codigo;
             paciente.PossuiApp = PossuiApp;
             paciente.Observacoes = Limpar(Observacoes);
+            paciente.Origem = Origem;
+            // Quem indicou so faz sentido com a origem "Indicacao": guardar o nome preso
+            // a outra origem deixaria um dado orfao que ninguem sabe ler depois.
+            paciente.IndicadoPor = Origem == OrigemPaciente.Indicacao ? Limpar(IndicadoPor) : null;
 
             if (_id is null)
                 await pacientes.SalvarNovoAsync(paciente);

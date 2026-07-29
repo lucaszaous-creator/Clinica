@@ -15,12 +15,22 @@ O que confere:
   4. todo `x:Class` tem o code-behind correspondente com a classe declarada;
   5. todo `<ProjectReference>` aponta para um .csproj existente, e todo .csproj da
      suíte está no Clinica.sln;
-  6. nenhum uso do tipo `Application` sem qualificar (ver ARMADILHA abaixo).
+  6. nenhum uso do tipo `Application` sem qualificar (ver ARMADILHA abaixo);
+  7. todo `new XViewModel(...)` escrito à mão passa uma quantidade de argumentos que o
+     construtor aceita (ver ARMADILHA do construtor abaixo);
+  8. todo `new X { ... }` de um tipo com membros `required` inicializa TODOS eles
+     (CS9035) — as classes `Linha*` das listas são cheias deles.
 
 ARMADILHA `Application` (CS0118): dentro de qualquer namespace `Clinica.*`, o nome
 `Application` resolve para o NAMESPACE `Clinica.Application` — nunca para o tipo
 `System.Windows.Application`. `public partial class App : Application` compila em
 qualquer outro projeto WPF do mundo e falha aqui. Sempre `System.Windows.Application`.
+
+ARMADILHA do construtor (CS7036): metade dos ViewModels de formulário é construída À MÃO
+pela tela dona (`new PacienteEdicaoViewModel(escopos, id)`), porque precisa receber o id
+no construtor e não passa pelo DI. Quando um deles ganha uma dependência nova, o DI se
+vira sozinho e os pontos de construção manual NÃO — e o erro só aparece no build do
+Windows, minutos depois. A checagem 7 compara a aridade dos dois lados.
 
 NÃO substitui o build no Windows — substitui a parte dele que dá para conferir aqui.
 
@@ -267,6 +277,181 @@ for proj in PROJETOS:
                         f"Clinica.{nome} (CS0118) — use '{correcao}'")
 
 
+# ------------------------------------------- 7. aridade dos construtores de ViewModel
+#
+# Só a ARIDADE, não os tipos: sem compilador não há como resolver sobrecarga, e o que
+# quebra na prática é a tela que continua passando os argumentos antigos depois de o
+# ViewModel ganhar uma dependência. Tipo trocado o build pega; contagem errada, também —
+# mas esta roda em dois segundos e aqui.
+
+CTOR_VM = re.compile(r"public\s+(\w+ViewModel)\s*\(([^)]*)\)\s*(?::[^\{]*)?\{", re.S)
+CHAMADA_VM = re.compile(r"new\s+(?:\w+\.)*(\w+ViewModel)\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)")
+
+
+def _dividir(texto: str) -> list[str]:
+    """Quebra a lista de argumentos na vírgula de nível zero (genéricos e chamadas aninhadas)."""
+    partes, nivel, atual = [], 0, ""
+    for ch in texto:
+        if ch in "(<":
+            nivel += 1
+        elif ch in ")>":
+            nivel -= 1
+        if ch == "," and nivel == 0:
+            partes.append(atual)
+            atual = ""
+        else:
+            atual += ch
+    partes.append(atual)
+    return [x.strip() for x in partes if x.strip()]
+
+
+def _fontes() -> list[Path]:
+    return [
+        cs
+        for proj in PROJETOS
+        for cs in sorted((RAIZ / proj).rglob("*.cs"))
+        if "obj" not in cs.parts and "bin" not in cs.parts
+    ]
+
+
+assinaturas: dict[str, tuple[int, int]] = {}
+for cs in _fontes():
+    for m in CTOR_VM.finditer(cs.read_text(encoding="utf-8")):
+        params = _dividir(m.group(2))
+        opcionais = sum(1 for x in params if "=" in x)
+        assinaturas[m.group(1)] = (len(params) - opcionais, len(params))
+
+for cs in _fontes():
+    for n, linha in enumerate(cs.read_text(encoding="utf-8").splitlines(), 1):
+        codigo = linha.split("//", 1)[0]
+        for m in CHAMADA_VM.finditer(codigo):
+            nome, args = m.group(1), m.group(2).strip()
+            if nome not in assinaturas:
+                continue
+            quantos = len(_dividir(args))
+            minimo, maximo = assinaturas[nome]
+            if not minimo <= quantos <= maximo:
+                erros.append(
+                    f"{rel(cs)}:{n}: new {nome}(...) passa {quantos} argumento(s); o "
+                    f"construtor aceita de {minimo} a {maximo} (CS7036)")
+
+
+# ------------------------------------------- 8. membros `required` não inicializados
+#
+# As classes de linha das listas (LinhaEvolucao, LinhaPendencia, LinhaTaxa…) declaram os
+# campos como `required` justamente para o compilador cobrar. Quando uma ganha um campo
+# novo, a fábrica que a monta precisa preenchê-lo — e esquecer disso é CS9035, que sem
+# Windows só aparece no CI.
+#
+# O padrão dominante aqui é a fábrica `public static Linha X De(...) => new() { … }`, com
+# `new()` TIPADO PELO ALVO: o tipo não aparece ao lado do `new`, vem da assinatura. Por
+# isso a varredura casa os dois formatos e lê o corpo contando chaves — o corpo tem
+# `switch` com chaves dentro, e um `[^{}]*` pararia na primeira.
+
+MEMBRO_REQUIRED = re.compile(r"public\s+required\s+[\w\?<>,\[\]\. ]+?\s+(\w+)\s*\{")
+DECL_CLASSE = re.compile(r"\bclass\s+(\w+)")
+# `new Tipo {` … ou `static Tipo Fabrica(...) => new() {`
+NEW_EXPLICITO = re.compile(r"\bnew\s+(\w+)\s*\{")
+NEW_ALVO = re.compile(r"\bstatic\s+(\w+)\s+\w+\s*\([^)]*\)\s*=>\s*new\s*\(\s*\)\s*\{")
+
+
+def _corpo_chaves(texto: str, abre: int) -> str:
+    """Do `{` em `abre` até a chave que o fecha, contando aninhamento."""
+    nivel, i = 0, abre
+    while i < len(texto):
+        if texto[i] == "{":
+            nivel += 1
+        elif texto[i] == "}":
+            nivel -= 1
+            if nivel == 0:
+                return texto[abre + 1 : i]
+        i += 1
+    return ""
+
+
+ULTIMO_NOME = re.compile(r"(\w+)\s*$")
+
+
+def _atribuidos(corpo: str) -> set[str]:
+    """
+    Nomes atribuídos no NÍVEL ZERO do inicializador (switch e lambda aninhados ficam de
+    fora). Comentários saem antes: entre um campo e outro há linhas de `//` explicando a
+    decisão, e elas entrariam no nome lido. Do trecho antes do `=` vale só o ÚLTIMO
+    identificador — que é o do campo.
+    """
+    corpo = "\n".join(l.split("//", 1)[0] for l in corpo.splitlines())
+
+    nomes, nivel, atual = set(), 0, ""
+    for i, ch in enumerate(corpo):
+        if ch in "{([":
+            nivel += 1
+        elif ch in "})]":
+            nivel -= 1
+        elif ch == "," and nivel == 0:
+            atual = ""
+            continue
+        elif ch == "=" and nivel == 0:
+            # Não confundir com ==, =>, !=, <=, >=.
+            anterior = corpo[i - 1] if i else " "
+            seguinte = corpo[i + 1] if i + 1 < len(corpo) else " "
+            if anterior in "=!<>" or seguinte in "=>":
+                atual += ch
+                continue
+            if (m := ULTIMO_NOME.search(atual)) is not None:
+                nomes.add(m.group(1))
+            atual = ""
+            continue
+        atual += ch
+    return nomes
+
+
+# Dois módulos têm uma classe `LinhaContato` cada, com campos diferentes. Sem compilador
+# não há como resolver o nome; então vale o tipo declarado NO MESMO ARQUIVO e, na falta
+# dele, só quando o nome é único na suíte inteira. Ambíguo é PULADO — checagem que chuta
+# produz falso positivo, e falso positivo ensina a ignorar o verificador.
+por_arquivo: dict[tuple[str, str], set[str]] = {}
+por_nome: dict[str, list[set[str]]] = {}
+
+for cs in _fontes():
+    texto = cs.read_text(encoding="utf-8")
+    for m in DECL_CLASSE.finditer(texto):
+        abre = texto.find("{", m.end())
+        if abre < 0:
+            continue
+        nomes = set(MEMBRO_REQUIRED.findall(_corpo_chaves(texto, abre)))
+        if not nomes:
+            continue
+        por_arquivo[(str(cs), m.group(1))] = nomes
+        por_nome.setdefault(m.group(1), []).append(nomes)
+
+
+def _requeridos_de(arquivo: str, tipo: str) -> set[str] | None:
+    if (arquivo, tipo) in por_arquivo:
+        return por_arquivo[(arquivo, tipo)]
+    definicoes = por_nome.get(tipo, [])
+    return definicoes[0] if len(definicoes) == 1 else None
+
+
+for cs in _fontes():
+    texto = cs.read_text(encoding="utf-8")
+    achados: list[tuple[int, str]] = []
+    for m in NEW_EXPLICITO.finditer(texto):
+        achados.append((m.end() - 1, m.group(1)))
+    for m in NEW_ALVO.finditer(texto):
+        achados.append((m.end() - 1, m.group(1)))
+
+    for abre, tipo in achados:
+        esperados = _requeridos_de(str(cs), tipo)
+        if esperados is None:
+            continue
+        faltando = sorted(esperados - _atribuidos(_corpo_chaves(texto, abre)))
+        if faltando:
+            linha = texto.count("\n", 0, abre) + 1
+            erros.append(
+                f"{rel(cs)}:{linha}: inicializador de {tipo} não preenche "
+                f"{', '.join(faltando)} (CS9035: membro required)")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
@@ -277,4 +462,7 @@ if erros:
         print(f"  - {e}")
     sys.exit(1)
 
-print(f"OK — {len(arvores)} XAML e {len(csprojs())} projetos da suíte verificados.")
+print(
+    f"OK — {len(arvores)} XAML, {len(csprojs())} projetos e "
+    f"{len(assinaturas)} construtores de ViewModel verificados."
+)

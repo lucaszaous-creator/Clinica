@@ -127,6 +127,25 @@
             </StackPanel>
         </Grid>
 
+        <!-- CRM: de onde o paciente veio. Em branco = ninguém perguntou, que é diferente
+             de "Outro" — a direção decide onde investir em cima deste número. -->
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Como conheceu a clínica" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                <ComboBox ItemsSource="{Binding Origens}" SelectedItem="{Binding Origem}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Quem indicou" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                <TextBox Text="{Binding IndicadoPor}" MaxLength="120"
+                         IsEnabled="{Binding EhIndicacao}" />
+            </StackPanel>
+        </Grid>
+
         <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
         <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
 

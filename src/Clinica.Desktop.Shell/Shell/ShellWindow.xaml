@@ -2,10 +2,16 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:modulos="clr-namespace:Clinica.Desktop.Shell.Modulos"
-        Title="{Binding Titulo}" Height="760" Width="1280"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="{Binding Titulo}" Height="760" Width="1280" MinHeight="560" MinWidth="960"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Brush.Fundo}"
-        FontFamily="Segoe UI">
+        FontFamily="Segoe UI"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+
+    <Window.InputBindings>
+        <KeyBinding Key="B" Modifiers="Control" Command="{Binding AlternarMenuCommand}" />
+    </Window.InputBindings>
 
     <Window.Resources>
         <!-- Item da sidebar: fundo/texto mudam quando EstaAtivo. -->
@@ -43,26 +49,87 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <!-- Some quando a sidebar recolhe: rótulo do item e cabeçalho do grupo. -->
+        <Style x:Key="SomeAoRecolher" TargetType="FrameworkElement">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DataContext.MenuRecolhido,
+                                       RelativeSource={RelativeSource AncestorType=Window}}"
+                             Value="True">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="248" />
+            <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ==================== SIDEBAR ==================== -->
-        <Border Grid.Column="0" Background="{StaticResource Brush.Sidebar.Fundo}"
+        <!-- ==================== SIDEBAR (248 ↔ 56, Ctrl+B) ==================== -->
+        <Border Grid.Column="0" Width="248"
+                Background="{StaticResource Brush.Sidebar.Fundo}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,1,0">
-            <DockPanel>
-                <!-- Marca -->
-                <Border DockPanel.Dock="Top" Padding="20,20,20,16">
-                    <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
-                           Height="30" HorizontalAlignment="Left" />
-                </Border>
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Width" To="56"
+                                                         Duration="{StaticResource Duracao.Normal}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Width" To="248"
+                                                         Duration="{StaticResource Duracao.Normal}">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
 
-                <!-- Grupos de módulos -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <DockPanel>
+                <!-- Marca: logo inteira aberta, só o símbolo recolhida. -->
+                <Grid DockPanel.Dock="Top" Height="66">
+                    <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
+                           Height="30" HorizontalAlignment="Left" Margin="20,0,0,0"
+                           VerticalAlignment="Center"
+                           Style="{StaticResource SomeAoRecolher}" />
+                    <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/simbolo-cor.png"
+                           Height="26" HorizontalAlignment="Left" Margin="15,0,0,0"
+                           VerticalAlignment="Center">
+                        <Image.Style>
+                            <Style TargetType="Image">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Image.Style>
+                    </Image>
+                </Grid>
+
+                <!-- Seções temáticas da proposta (GESTÃO · PACIENTE · FINANCEIRO · INTELIGÊNCIA) -->
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <ItemsControl ItemsSource="{Binding Grupos}" Margin="0,4,0,16">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type modulos:GrupoMenuModulo}">
@@ -71,21 +138,29 @@
                                                Margin="20,0,20,6"
                                                FontSize="{StaticResource Fonte.Legenda}"
                                                FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                               Style="{StaticResource SomeAoRecolher}" />
                                     <ItemsControl ItemsSource="{Binding Itens}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type modulos:ItemMenuModulo}">
+                                                <!-- Recolhida, o rótulo vira tooltip: ícone sozinho
+                                                     não diz o que é para quem chegou hoje. -->
                                                 <Button Style="{StaticResource ItemSidebar}"
                                                         Command="{Binding DataContext.NavegarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding}">
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="{Binding Rotulo}"
+                                                        ToolTipService.IsEnabled="{Binding DataContext.MenuRecolhido,
+                                                                                   RelativeSource={RelativeSource AncestorType=Window}}">
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding Glifo}"
                                                                    FontFamily="{StaticResource FonteIcones}"
                                                                    FontSize="14" Width="22"
                                                                    VerticalAlignment="Center" />
                                                         <TextBlock Text="{Binding Rotulo}"
-                                                                   VerticalAlignment="Center" />
+                                                                   VerticalAlignment="Center"
+                                                                   TextTrimming="CharacterEllipsis"
+                                                                   Style="{StaticResource SomeAoRecolher}" />
                                                     </StackPanel>
                                                 </Button>
                                             </DataTemplate>
@@ -101,13 +176,78 @@
 
         <!-- ==================== CONTEÚDO ==================== -->
         <DockPanel Grid.Column="1">
-            <!-- Topbar com breadcrumb -->
             <Border DockPanel.Dock="Top" Height="56"
                     Background="{StaticResource Brush.Superficie}"
                     BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
-                <Grid Margin="24,0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                                HorizontalAlignment="Left">
+                <DockPanel Margin="16,0,24,0">
+
+                    <!-- Recolher/expandir -->
+                    <Button DockPanel.Dock="Left" Style="{StaticResource BotaoIcone}"
+                            Command="{Binding AlternarMenuCommand}"
+                            ToolTip="Recolher/expandir menu (Ctrl+B)"
+                            VerticalAlignment="Center" Margin="0,0,8,0">
+                        <TextBlock Text="&#xE700;" Style="{StaticResource Icone}" />
+                    </Button>
+
+                    <!-- Quem está usando: a ação registrada na auditoria é dele. -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                VerticalAlignment="Center" Margin="16,0,0,0">
+                        <ctrl:Avatar Nome="{Binding UsuarioRotulo}" Tamanho="28"
+                                     VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBlock Text="{Binding UsuarioRotulo}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{StaticResource Brush.Texto.Primario}"
+                                   FontSize="{StaticResource Fonte.Tabela}" />
+                    </StackPanel>
+
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding DataHoje}"
+                               VerticalAlignment="Center" Margin="16,0,0,0"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               FontSize="{StaticResource Fonte.Legenda}" />
+
+                    <!-- Pesquisa global: paleta de seções. Enter vai na primeira. -->
+                    <Grid DockPanel.Dock="Right" Width="280" VerticalAlignment="Center"
+                          Margin="16,0,0,0">
+                        <TextBox x:Name="PesquisaGlobal" Style="{StaticResource CampoPesquisa}"
+                                 ctrl:Ajudantes.Placeholder="Ir para… (Ctrl+F)"
+                                 Text="{Binding TextoPesquisa, UpdateSourceTrigger=PropertyChanged}">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding NavegarResultadoCommand}" />
+                                <KeyBinding Key="Escape" Command="{Binding FecharPesquisaCommand}" />
+                            </TextBox.InputBindings>
+                        </TextBox>
+
+                        <Popup IsOpen="{Binding PesquisaAberta}" PlacementTarget="{Binding ElementName=PesquisaGlobal}"
+                               Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                               HorizontalOffset="0" VerticalOffset="4">
+                            <Border Background="{StaticResource Brush.Superficie}"
+                                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                    CornerRadius="{StaticResource Raio.Medio}" Padding="4"
+                                    MinWidth="{Binding ActualWidth, ElementName=PesquisaGlobal}">
+                                <ItemsControl ItemsSource="{Binding ResultadosPesquisa}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type modulos:ItemMenuModulo}">
+                                            <Button Style="{StaticResource ItemSidebar}"
+                                                    Command="{Binding DataContext.NavegarResultadoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Glifo}"
+                                                               FontFamily="{StaticResource FonteIcones}"
+                                                               FontSize="14" Width="22"
+                                                               VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Rotulo}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Border>
+                        </Popup>
+                    </Grid>
+
+                    <!-- Breadcrumb: seção › tela -->
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="{Binding ModuloAtual}"
                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                    FontSize="{StaticResource Fonte.Tabela}"
@@ -121,13 +261,7 @@
                                    FontSize="{StaticResource Fonte.Tabela}"
                                    VerticalAlignment="Center" />
                     </StackPanel>
-
-                    <!-- Quem está usando o app: a ação registrada na auditoria é dele. -->
-                    <TextBlock Text="{Binding UsuarioRotulo}"
-                               HorizontalAlignment="Right" VerticalAlignment="Center"
-                               Foreground="{StaticResource Brush.Texto.Secundario}"
-                               FontSize="{StaticResource Fonte.Legenda}" />
-                </Grid>
+                </DockPanel>
             </Border>
 
             <!-- Tela ativa (a View já vem com DataContext resolvido pelo módulo) -->

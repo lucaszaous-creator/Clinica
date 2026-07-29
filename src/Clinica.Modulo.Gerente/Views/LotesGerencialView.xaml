@@ -1,0 +1,99 @@
+<UserControl x:Class="Clinica.Gerente.Views.LotesGerencialView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="0,16,0,0">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Lotes TISS" Style="{StaticResource H3}" Margin="0" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" />
+            </StackPanel>
+            <Button Content="Atualizar" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Style="{StaticResource BotaoSecundario}" Command="{Binding CarregarCommand}" />
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,12">
+            <TextBlock TextWrapping="Wrap"
+                       Text="Somente leitura. Gerar, enviar e registrar retorno continuam no app de faturamento: o número do lote é uma sequência, e dois apps gerando em paralelo produziriam dois lotes com o mesmo número — a operadora recusa o segundo, e o erro só apareceria semanas depois." />
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Nenhum lote gerado ainda.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Lotes.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Lotes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Numero}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Guias}"
+                                                       Style="{StaticResource TextoSuave}" Margin="0,2,0,0" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Margin="8,0" VerticalAlignment="Center">
+                                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0">
+                                                <Run Text="gerado em " />
+                                                <Run Text="{Binding Geracao, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Envio, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Retorno}"
+                                                       Style="{StaticResource TextoSuave}" Margin="0,2,0,0" />
+                                        </StackPanel>
+
+                                        <!-- Lote parado é dinheiro numa gaveta digital. -->
+                                        <Border Grid.Column="2" VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border" BasedOn="{StaticResource Badge.Sucesso}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Parado}" Value="True">
+                                                            <Setter Property="Background"
+                                                                    Value="{StaticResource Brush.Aviso.Suave}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <TextBlock Text="{Binding Situacao}" />
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

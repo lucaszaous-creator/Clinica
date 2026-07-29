@@ -1,0 +1,153 @@
+<UserControl x:Class="Clinica.Gerente.Views.ConfiguracoesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+            <TextBlock Text="Configurações" Style="{StaticResource H1}" Margin="0,0,0,4" />
+            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                       Text="O que vale para a clínica inteira. Cada bloco salva sozinho — são assuntos diferentes, e um botão único gravaria o que ninguém olhou." />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel IsEnabled="{Binding PodeEditar}">
+
+                <!-- ===== Clínica / prestador ===== -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="A clínica" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
+                                   Text="Sai impresso na capa de lote, na guia TISS e em todo documento que o paciente leva. Errado aqui é errado no papel." />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Razão social" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding RazaoSocial}" MaxLength="120" />
+
+                                <TextBlock Text="CNPJ" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                                <TextBox Text="{Binding Cnpj}" MaxLength="20" />
+
+                                <TextBlock Text="Endereço" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                                <TextBox Text="{Binding Endereco}" MaxLength="200" />
+
+                                <TextBlock Text="E-mail" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                                <TextBox Text="{Binding Email}" MaxLength="120" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Nome fantasia" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding NomeFantasia}" MaxLength="120" />
+
+                                <TextBlock Text="CNES" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                                <TextBox Text="{Binding Cnes}" MaxLength="20" />
+
+                                <TextBlock Text="Telefone" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                                <TextBox Text="{Binding Telefone}" MaxLength="30" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Button Content="Salvar dados da clínica" Command="{Binding SalvarPrestadorCommand}"
+                                HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== Operação e marketing ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Operação e marketing" Style="{StaticResource H3}" Margin="0,0,0,12" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Jornada diária (minutos)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding JornadaDiariaMinutos}" MaxLength="4" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Text="É o DENOMINADOR da taxa de ocupação. Clínica de meio período veria 50% com a agenda cheia se ficasse nos 480 padrão." />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Recall: dias sem vir" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding DiasInatividadeRecall}" MaxLength="4" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Text="A partir de quantos dias parado o paciente entra na lista de recall." />
+                            </StackPanel>
+                        </Grid>
+
+                        <Button Content="Salvar operação" Command="{Binding SalvarOperacaoCommand}"
+                                HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== Faturamento ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,24">
+                    <StackPanel>
+                        <TextBlock Text="Regras de faturamento" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
+                                   Text="Valem para o app de faturamento, que continua sendo quem fatura. Editar aqui evita ter de sentar naquele posto só para mudar um prazo." />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Alerta de consulta (dias)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding JanelaAlertaConsulta}" MaxLength="3" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Recurso de glosa (dias)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding PrazoRecursoGlosa}" MaxLength="3" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="4">
+                                <TextBlock Text="Prazo de decisão (dias)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding IntervaloRodadaPendencias}" MaxLength="3" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0"
+                                   Text="O prazo de decisão conta a partir de a guia VIRAR pendente (a data prevista de faturamento), não do atendimento: o 2º código só existe 24 h depois, e contar do atendimento cobraria decisão sobre uma guia que ninguém tinha como tirar." />
+
+                        <CheckBox Content="A rodada de pendências também cobra consultas a renovar"
+                                  IsChecked="{Binding RodadaAplicaConsultas}" Margin="0,12,0,0" />
+                        <CheckBox Content="A rodada de pendências também cobra carteirinhas vencidas"
+                                  IsChecked="{Binding RodadaAplicaCarteirinhas}" Margin="0,8,0,0" />
+
+                        <Button Content="Salvar faturamento" Command="{Binding SalvarFaturamentoCommand}"
+                                HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>
