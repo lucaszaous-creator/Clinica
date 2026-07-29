@@ -340,6 +340,16 @@ public interface IClinicaRepositorio
 
     Task RemoverTaxaCartaoAsync(int taxaId, CancellationToken ct = default);
 
+    // ---- Rentabilidade por convenio (parcela 19) ----
+
+    /// <summary>
+    /// Lancamentos vinculados as guias informadas (nao cancelados). E o encontro dos dois
+    /// modulos por convenio: o faturamento sabe quantas guias sairam, o financeiro sabe
+    /// quanto entrou, e ate a parcela 19 os dois numeros nunca se cruzavam.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDeCodigosAsync(
+        IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
+
     // ---- Custo de transacao, visao da direcao (parcela 17) ----
 
     /// <summary>

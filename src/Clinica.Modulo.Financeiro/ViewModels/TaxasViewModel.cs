@@ -22,11 +22,20 @@ public sealed class LinhaTributo
     /// <summary>Vigente HOJE — é o que de fato está sendo descontado agora.</summary>
     public required bool ValendoAgora { get; init; }
 
+    /// <summary>
+    /// Retido na fonte por um convênio, não recolhido pela clínica. A lista distingue os
+    /// dois porque o que a clínica faz com cada um é diferente: o retido já saiu.
+    /// </summary>
+    public required string Origem { get; init; }
+
     public static LinhaTributo De(Tributo t, DateOnly hoje) => new()
     {
         TributoId = t.Id,
         Descricao = t.Descricao,
         Nome = t.Nome,
+        Origem = t.RetidoNaFonte
+            ? $"retido na fonte por {t.ConvenioCodigo}"
+            : "recolhido pela clínica",
         Vigencia = t.Vigencia,
         Situacao = t.Ativo ? "Ativo" : "Inativo",
         Ativo = t.Ativo,
@@ -113,6 +122,13 @@ public sealed partial class TaxasViewModel : ObservableObject
     [ObservableProperty] private string? _nomeTributo;
     [ObservableProperty] private string? _percentualTributo;
     [ObservableProperty] private string? _baseTributo = "100";
+
+    /// <summary>
+    /// Convênio que RETÉM este tributo na fonte (parcela 18). Vazio = tributo próprio da
+    /// clínica. Texto livre com o código do catálogo, como o resto do sistema referencia
+    /// convênio.
+    /// </summary>
+    [ObservableProperty] private string? _convenioTributo;
     [ObservableProperty] private DateTime? _tributoVigenteDe;
     [ObservableProperty] private DateTime? _tributoVigenteAte;
     [ObservableProperty] private bool _tributoAtivo = true;
@@ -386,6 +402,7 @@ public sealed partial class TaxasViewModel : ObservableObject
                 Nome = string.IsNullOrWhiteSpace(NomeTributo) ? Sigla! : NomeTributo!,
                 Percentual = percentual,
                 BasePercentual = baseCalculo,
+                ConvenioCodigo = ConvenioTributo,
                 VigenteDe = TributoVigenteDe is { } de ? DateOnly.FromDateTime(de) : null,
                 VigenteAte = TributoVigenteAte is { } ate ? DateOnly.FromDateTime(ate) : null,
                 Ativo = TributoAtivo
@@ -419,6 +436,7 @@ public sealed partial class TaxasViewModel : ObservableObject
             NomeTributo = t.Nome;
             PercentualTributo = t.Percentual.ToString("0.####");
             BaseTributo = t.BasePercentual.ToString("0.####");
+            ConvenioTributo = t.ConvenioCodigo;
             TributoVigenteDe = t.VigenteDe?.ToDateTime(TimeOnly.MinValue);
             TributoVigenteAte = t.VigenteAte?.ToDateTime(TimeOnly.MinValue);
             TributoAtivo = t.Ativo;
@@ -468,7 +486,7 @@ public sealed partial class TaxasViewModel : ObservableObject
     private void LimparTributo()
     {
         EditandoTributoId = 0;
-        Sigla = NomeTributo = PercentualTributo = null;
+        Sigla = NomeTributo = PercentualTributo = ConvenioTributo = null;
         BaseTributo = "100";
         TributoVigenteDe = TributoVigenteAte = null;
         TributoAtivo = true;

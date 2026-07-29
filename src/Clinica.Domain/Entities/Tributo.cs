@@ -37,6 +37,25 @@ public class Tributo
     /// </summary>
     public decimal BasePercentual { get; set; } = 100m;
 
+    /// <summary>
+    /// Convênio que RETÉM este tributo na fonte (parcela 18). Null = tributo próprio da
+    /// clínica, que ela mesma recolhe.
+    ///
+    /// A operadora que paga serviço de PJ retém IRRF, CSLL/PIS/COFINS e às vezes o ISS
+    /// antes de depositar: a guia vale R$ 1.000 e caem R$ 943,50. Até a parcela 18 o
+    /// sistema registrava os R$ 1.000 e não sabia da diferença — o mesmo defeito que a
+    /// parcela 9 corrigiu para a maquininha, intocado no convênio, que é justamente onde
+    /// esta clínica fatura mais.
+    ///
+    /// **A retenção SUBSTITUI os tributos gerais nesse recebimento**, não se soma a eles:
+    /// os dois representam o mesmo imposto, e somá-los contaria duas vezes. Se o convênio
+    /// retém uns e a clínica recolhe outros, cadastre todos como linhas do convênio.
+    /// </summary>
+    public string? ConvenioCodigo { get; set; }
+
+    /// <summary>É retenção na fonte de um convênio, não tributo recolhido pela clínica.</summary>
+    public bool RetidoNaFonte => !string.IsNullOrWhiteSpace(ConvenioCodigo);
+
     public DateOnly? VigenteDe { get; set; }
 
     public DateOnly? VigenteAte { get; set; }

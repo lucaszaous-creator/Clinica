@@ -47,7 +47,16 @@ public sealed record GuiaSemLancamento(
     DateOnly DataBaixa,
     string? NumeroGuiaReal,
     Convenio Convenio,
-    TipoCodigo Tipo);
+    TipoCodigo Tipo)
+{
+    /// <summary>
+    /// Código do convênio no catálogo (parcela 18). É por ele que a RETENÇÃO na fonte é
+    /// resolvida: <see cref="Convenio"/> é a família de REGRA de faturamento, e duas
+    /// operadoras diferentes podem compartilhar a mesma família e reter percentuais
+    /// diferentes.
+    /// </summary>
+    public string? ConvenioCodigo { get; init; }
+}
 
 /// <summary>
 /// Caixa da clínica: entradas, saídas e a conciliação com o faturamento.
@@ -260,7 +269,13 @@ public sealed class FinanceiroService
                 c.DataBaixa!.Value,
                 c.NumeroGuiaReal,
                 c.Atendimento.Paciente.Convenio,
-                c.Tipo))
+                c.Tipo)
+            {
+                // Sem código no catálogo (paciente antigo), cai na família — é o que o
+                // resto do sistema já faz para resolver nome e regra do convênio.
+                ConvenioCodigo = c.Atendimento.Paciente.ConvenioCodigo
+                                 ?? c.Atendimento.Paciente.Convenio.ToString()
+            })
             .OrderBy(g => g.DataBaixa)
             .ToList();
     }
@@ -268,6 +283,16 @@ public sealed class FinanceiroService
     /// <summary>
     /// Cria a receita a partir de uma guia já efetivada, deixando o vínculo gravado
     /// para que ela não apareça de novo na conciliação.
+    ///
+    /// <paramref name="deducoes"/> carrega a RETENÇÃO NA FONTE do convênio (parcela 18).
+    /// A operadora que paga serviço de PJ retém IRRF, CSLL/PIS/COFINS e às vezes o ISS
+    /// antes de depositar: a guia vale R$ 1.000 e caem R$ 943,50. Até a parcela 18 o
+    /// sistema gravava os R$ 1.000 e não sabia da diferença — o mesmo defeito que a
+    /// parcela 9 corrigiu para a maquininha, intocado justamente no convênio, que é onde
+    /// esta clínica fatura mais.
+    ///
+    /// O valor do lançamento continua sendo o BRUTO da guia, como em todo o resto do
+    /// módulo: a retenção é dedução ao lado, e o líquido é calculado.
     /// </summary>
     public async Task<LancamentoFinanceiro> LancarReceitaDaGuiaAsync(
         GuiaSemLancamento guia,
@@ -275,6 +300,7 @@ public sealed class FinanceiroService
         StatusLancamento status = StatusLancamento.Previsto,
         int? categoriaId = null,
         string? operador = null,
+        DeducoesRecebimento? deducoes = null,
         CancellationToken ct = default)
         => await LancarAsync(
             data: guia.DataBaixa,
@@ -288,7 +314,11 @@ public sealed class FinanceiroService
             atendimentoId: guia.AtendimentoId,
             codigoFaturamentoId: guia.CodigoId,
             convenio: guia.Convenio,
+            // O CÓDIGO vai junto da família (parcela 18): a análise por convênio precisa
+            // separar duas operadoras que compartilham a mesma regra de faturamento.
+            convenioCodigo: guia.ConvenioCodigo,
             operador: operador,
+            deducoes: deducoes,
             ct: ct);
 
     public Task<IReadOnlyList<CategoriaFinanceira>> CategoriasAsync(CancellationToken ct = default)

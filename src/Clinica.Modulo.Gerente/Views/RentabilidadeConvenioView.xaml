@@ -1,0 +1,217 @@
+<UserControl x:Class="Clinica.Gerente.Views.RentabilidadeConvenioView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Rentabilidade por convênio" Style="{StaticResource H1}"
+                           Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="Qual operadora vale a pena. O faturamento sabe quantas guias saíram e o financeiro sabe quanto entrou — é o encontro dos dois que revela quem paga pouco, quem paga tarde e quem glosa muito." />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <TextBlock Text="Meses" Style="{StaticResource Rotulo}"
+                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox ItemsSource="{Binding Janelas}" SelectedItem="{Binding MesesJanela}"
+                          Width="80" Margin="0,0,12,0" />
+                <Button Content="Exportar" Style="{StaticResource BotaoSecundario}"
+                        Margin="0,0,8,0" Command="{Binding ExportarCommand}" />
+                <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding CarregarCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ===== Faixa ===== -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="GUIAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Guias}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Periodo}" Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="RECEBIDO (BRUTO)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Bruto}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="4" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="RETIDO NA FONTE" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Retido}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding PercentualRetido}"
+                               Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="6" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="SOBROU (LÍQUIDO)" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="8" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="GLOSA" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TaxaGlosa}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="das guias efetivadas"
+                               Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                    <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap" />
+                    <!-- A comparação só aparece com DUAS operadoras medidas: comparar uma
+                         consigo mesma não diz nada. -->
+                    <TextBlock Text="{Binding MelhorEPior}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               FontWeight="SemiBold" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                               Text="O LÍQUIDO POR GUIA é o único número comparável entre operadoras: faturar mais não quer dizer nada se foi preciso o triplo de atendimentos. O PRAZO conta da baixa da guia até o dinheiro cair — quem paga 10% a mais em 90 dias pode ser pior que quem paga menos em 30." />
+                </StackPanel>
+
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="100" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="90" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Convênio" Style="{StaticResource Rotulo}" />
+                    <TextBlock Grid.Column="1" Text="Guias" Style="{StaticResource Rotulo}"
+                               TextAlignment="Right" />
+                    <TextBlock Grid.Column="2" Text="Bruto" Style="{StaticResource Rotulo}"
+                               TextAlignment="Right" />
+                    <TextBlock Grid.Column="3" Text="Retido" Style="{StaticResource Rotulo}"
+                               TextAlignment="Right" />
+                    <TextBlock Grid.Column="4" Text="Líquido" Style="{StaticResource Rotulo}"
+                               TextAlignment="Right" />
+                    <TextBlock Grid.Column="5" Text="Por guia" Style="{StaticResource Rotulo}"
+                               TextAlignment="Right" />
+                    <TextBlock Grid.Column="6" Text="Prazo" Style="{StaticResource Rotulo}"
+                               TextAlignment="Right" />
+                </Grid>
+
+                <TextBlock DockPanel.Dock="Top" Text="Nenhuma guia no período.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Convenios.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Convenios}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                    <StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="70" />
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="90" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
+                                                       FontWeight="SemiBold" TextWrapping="Wrap"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Guias}"
+                                                       TextAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Bruto}"
+                                                       TextAlignment="Right" VerticalAlignment="Center"
+                                                       Style="{StaticResource TextoSuave}" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Retido}"
+                                                       TextAlignment="Right" VerticalAlignment="Center"
+                                                       Style="{StaticResource TextoSuave}" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Liquido}"
+                                                       TextAlignment="Right" VerticalAlignment="Center"
+                                                       FontWeight="SemiBold" />
+                                            <!-- O número que responde "vale a pena?" -->
+                                            <TextBlock Grid.Column="5" Text="{Binding PorGuia}"
+                                                       TextAlignment="Right" VerticalAlignment="Center"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="6" Text="{Binding Prazo}"
+                                                       TextAlignment="Right" VerticalAlignment="Center"
+                                                       Style="{StaticResource TextoSuave}" />
+                                        </Grid>
+
+                                        <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
+                                                     Value="{Binding Fracao, Mode=OneWay}" />
+
+                                        <!-- Guia efetivada sem receita é trabalho feito e não
+                                             cobrado: vermelho, porque é ação, não informação. -->
+                                        <TextBlock Text="{Binding Pendencias}" Margin="0,4,0,0"
+                                                   TextWrapping="Wrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock"
+                                                       BasedOn="{StaticResource TextoSuave}">
+                                                    <Setter Property="FontSize"
+                                                            Value="{StaticResource Fonte.Legenda}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding TemPendencia}"
+                                                                     Value="True">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Erro}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

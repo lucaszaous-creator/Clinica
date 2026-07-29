@@ -817,6 +817,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (taxa is not null) _db.TaxasCartao.Remove(taxa);
     }
 
+    // ---- Rentabilidade por convenio (parcela 19) ----
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDeCodigosAsync(
+        IReadOnlyCollection<int> codigoIds, CancellationToken ct = default)
+    {
+        if (codigoIds.Count == 0) return [];
+        return await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.CodigoFaturamentoId != null
+                     && codigoIds.Contains(l.CodigoFaturamentoId.Value)
+                     && l.Status != StatusLancamento.Cancelado)
+            .ToListAsync(ct);
+    }
+
     // ---- Custo de transacao, visao da direcao (parcela 17) ----
 
     public async Task<IReadOnlyList<Clinica.Application.Modelos.RecebimentoComDeducao>>

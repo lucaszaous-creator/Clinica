@@ -231,6 +231,26 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   adquirente tem várias taxas e um número só teria de escolher uma modalidade. A fração da
   barra é do custo de **maquininha**, não do faturamento: senão "(sem maquininha)" levaria
   a maior fatia sendo que custa zero.
+- **Retenção na fonte por convênio** (parcela 18): a operadora que paga serviço de PJ
+  **retém** IRRF, CSLL/PIS/COFINS e às vezes o ISS antes de depositar — a guia vale
+  R$ 1.000 e caem R$ 943,50. `Tributo.ConvenioCodigo` preenchido significa retido na fonte
+  por aquele convênio (reaproveita a entidade porque é o mesmo fato; só muda quem recolhe).
+  A retenção **substitui** os tributos gerais naquele recebimento, nunca se soma: os dois
+  são o mesmo imposto, e somá-los conta duas vezes — o erro clássico da planilha de
+  convênio. Sem retenção cadastrada o convênio cai nos tributos gerais (mudar isso faria a
+  receita de convênio parar de sofrer imposto da noite para o dia), e retenção de convênio
+  **não vaza** para recebimento que não é dele. O detalhe copiado diz "(retido na fonte)"
+  porque retido já saiu e recolhido ainda vai sair. `GuiaSemLancamento.ConvenioCodigo`
+  existe porque `Convenio` é a família de REGRA: duas operadoras podem compartilhá-la e
+  reter percentuais diferentes.
+- **Rentabilidade por convênio** (`RentabilidadeConvenioService`, parcela 19): o encontro
+  dos dois módulos. **Líquido por guia** é a leitura central — o único número comparável
+  entre operadoras que pagam valores e volumes diferentes, e por isso a "menos rentável" é
+  apurada por guia e não pelo total (que apontaria sempre a de menor volume). O **prazo
+  médio** só conta o que JÁ foi pago: incluir o previsto mediria uma promessa, e quem
+  atrasa teria o melhor número. O agrupamento é pelo **código**, não pelo nome exibido —
+  duas operadoras da mesma família fora do catálogo resolvem para o mesmo nome padrão e
+  seriam fundidas. O período é o do **atendimento**, não o do recebimento.
 - **Repasse** (`RepasseService`, parcela 4): quem atendeu vem do **agendamento**
   (`Agendamento.ProfissionalId` + `AtendimentoId`), porque `Atendimento` é do faturamento
   e não guarda profissional. O percentual incide sobre a **receita que entrou**
