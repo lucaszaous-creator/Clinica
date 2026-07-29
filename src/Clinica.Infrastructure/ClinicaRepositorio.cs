@@ -1034,6 +1034,50 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    // ---- Contas a pagar e a receber (parcela 12) ----
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
+        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default)
+    {
+        var q = _db.Lancamentos
+            .Include(l => l.Categoria)
+            .Include(l => l.Paciente)
+            .Where(l => l.Status == StatusLancamento.Previsto)
+            .Where(l => l.DataVencimento != null && l.DataVencimento <= ate);
+
+        if (tipo is { } t) q = q.Where(l => l.Tipo == t);
+
+        // Do vencimento mais antigo para o mais novo: é a ordem em que se paga, e a
+        // vencida tem de vir no topo sem que a tela precise reordenar.
+        return await q
+            .OrderBy(l => l.DataVencimento).ThenBy(l => l.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<string>> OrigensRecorrenciaExistentesAsync(
+        IReadOnlyCollection<string> origens, CancellationToken ct = default)
+    {
+        if (origens.Count == 0) return [];
+        return await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.OrigemRecorrencia != null && origens.Contains(l.OrigemRecorrencia))
+            .Select(l => l.OrigemRecorrencia!)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<LancamentoRecorrente>> RecorrentesAsync(
+        bool somenteAtivas = false, CancellationToken ct = default)
+    {
+        var q = _db.Recorrentes.Include(r => r.Categoria).AsQueryable();
+        if (somenteAtivas) q = q.Where(r => r.Ativa);
+        return await q.OrderBy(r => r.Descricao).ToListAsync(ct);
+    }
+
+    public async Task AdicionarRecorrenteAsync(LancamentoRecorrente recorrente, CancellationToken ct = default)
+        => await _db.Recorrentes.AddAsync(recorrente, ct);
+
+    public async Task<LancamentoRecorrente?> ObterRecorrenteAsync(int recorrenteId, CancellationToken ct = default)
+        => await _db.Recorrentes.FirstOrDefaultAsync(r => r.Id == recorrenteId, ct);
+
     public async Task<IReadOnlyList<CategoriaFinanceira>> CategoriasFinanceirasAsync(CancellationToken ct = default)
         => await _db.CategoriasFinanceiras.AsNoTracking()
             .OrderBy(c => c.Ordem).ThenBy(c => c.Nome)

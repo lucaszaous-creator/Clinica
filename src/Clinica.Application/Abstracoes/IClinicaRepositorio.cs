@@ -453,6 +453,31 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<int>> CodigosComLancamentoAsync(
         IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
 
+    // ---- Contas a pagar e a receber (parcela 12) ----
+
+    /// <summary>
+    /// Contas em ABERTO (previstas) com vencimento até a data, da mais antiga para a mais
+    /// nova — a ordem em que se paga. Categoria e paciente vêm carregados, porque a lista
+    /// mostra os dois. Filtra por tipo quando a tela quer só o que se paga ou só o que se
+    /// recebe.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
+        DateOnly ate, TipoLancamento? tipo = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quais das origens de recorrência informadas já existem. É a checagem de
+    /// idempotência da geração: uma consulta em bloco em vez de uma por ocorrência.
+    /// </summary>
+    Task<IReadOnlyList<string>> OrigensRecorrenciaExistentesAsync(
+        IReadOnlyCollection<string> origens, CancellationToken ct = default);
+
+    Task<IReadOnlyList<LancamentoRecorrente>> RecorrentesAsync(
+        bool somenteAtivas = false, CancellationToken ct = default);
+    Task AdicionarRecorrenteAsync(LancamentoRecorrente recorrente, CancellationToken ct = default);
+
+    /// <summary>Recorrência rastreada, para a tela poder editá-la.</summary>
+    Task<LancamentoRecorrente?> ObterRecorrenteAsync(int recorrenteId, CancellationToken ct = default);
+
     Task<IReadOnlyList<CategoriaFinanceira>> CategoriasFinanceirasAsync(CancellationToken ct = default);
     Task AdicionarCategoriaFinanceiraAsync(CategoriaFinanceira categoria, CancellationToken ct = default);
 

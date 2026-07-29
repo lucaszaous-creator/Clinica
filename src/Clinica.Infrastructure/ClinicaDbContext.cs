@@ -23,6 +23,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<EventoAuditoria> Auditoria => Set<EventoAuditoria>();
     public DbSet<CategoriaFinanceira> CategoriasFinanceiras => Set<CategoriaFinanceira>();
     public DbSet<LancamentoFinanceiro> Lancamentos => Set<LancamentoFinanceiro>();
+    public DbSet<LancamentoRecorrente> Recorrentes => Set<LancamentoRecorrente>();
     public DbSet<Profissional> Profissionais => Set<Profissional>();
     public DbSet<Sala> Salas => Set<Sala>();
     public DbSet<ListaEspera> ListaEspera => Set<ListaEspera>();
@@ -600,6 +601,10 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.ValorLiquido);
             e.Ignore(x => x.TemDeducao);
 
+            // Contas a pagar e a receber (parcela 12). "Vencido" tambem nao e coluna:
+            // ele depende de HOJE, e uma coluna gravada estaria mentindo amanha de manha.
+            e.Property(x => x.OrigemRecorrencia).HasMaxLength(60);
+
             e.HasOne(x => x.Categoria).WithMany()
                 .HasForeignKey(x => x.CategoriaFinanceiraId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Paciente).WithMany()
@@ -613,6 +618,33 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.Status);
             // Conciliação: achar rápido o lançamento de uma guia.
             e.HasIndex(x => x.CodigoFaturamentoId);
+            // "O que vence esta semana" é a consulta mais frequente do módulo.
+            e.HasIndex(x => x.DataVencimento);
+            // Idempotencia da geracao de contas recorrentes: o aluguel de agosto so pode
+            // nascer uma vez, mesmo com dois postos abrindo o app na mesma manha. O
+            // filtro deixa os avulsos (origem nula) de fora do unico.
+            e.HasIndex(x => x.OrigemRecorrencia)
+                .IsUnique()
+                .HasFilter(null);
+        });
+
+        b.Entity<LancamentoRecorrente>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Periodicidade).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.FormaPagamento).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Categoria).WithMany()
+                .HasForeignKey(x => x.CategoriaFinanceiraId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.Ativa);
+            e.Ignore(x => x.PeriodicidadeTexto);
         });
 
         // ---------- Dinheiro e insumo (parcela 4) ----------

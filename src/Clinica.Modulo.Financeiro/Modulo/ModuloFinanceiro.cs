@@ -7,19 +7,21 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Financeiro.Modulo;
 
 /// <summary>
-/// Módulo Financeiro: Caixa (entradas/saídas), Conciliação (guias efetivadas que ainda
-/// não viraram receita), Produção (volume do faturamento), Pacotes (o que a clínica
-/// vende), Estoque (insumos), Repasses (o que cada profissional tem a receber) e o
-/// Plano de contas.
+/// Módulo Financeiro: Caixa (entradas/saídas), Contas a pagar e a receber (o que vence),
+/// Conciliação (guias efetivadas que ainda não viraram receita), Produção (volume do
+/// faturamento), Pacotes (o que a clínica vende), Estoque (insumos), Repasses (o que cada
+/// profissional tem a receber), Taxas e impostos, e o Plano de contas.
 ///
 /// A ordem é a do dia de trabalho: primeiro o dinheiro que entra e sai (Caixa), depois o
-/// que ainda não entrou (Conciliação), o volume (Produção), o que foi vendido (Pacotes),
-/// o que se gasta (Estoque), o que se paga (Repasses) e, por último, o cadastro que
-/// classifica tudo — que se mexe raramente.
+/// que ainda VAI entrar ou sair e quando (Contas), o que já foi efetivado no convênio e
+/// não entrou (Conciliação), o volume (Produção), o que foi vendido (Pacotes), o que se
+/// gasta (Estoque), o que se paga (Repasses), o que descontam de cada recebimento (Taxas)
+/// e, por último, o cadastro que classifica tudo — que se mexe raramente.
 /// </summary>
 public sealed class ModuloFinanceiro : IModuloApp
 {
     public const string ChaveCaixa = "caixa";
+    public const string ChaveContas = "contas";
     public const string ChaveConciliacao = "conciliacao";
     public const string ChaveProducao = "producao";
     public const string ChavePacotes = "pacotes";
@@ -44,6 +46,11 @@ public sealed class ModuloFinanceiro : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveCaixa, Rotulo = "Financeiro", Glifo = "\uE8C7",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveContas, Rotulo = "Contas a pagar/receber", Glifo = "\uE8F1",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
@@ -83,6 +90,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<CaixaViewModel>();
         // Transient de propósito: cada janela de lançamento abre com o formulário limpo.
         servicos.AddTransient<LancamentoEdicaoViewModel>();
+        servicos.AddTransient<ContasViewModel>();
         servicos.AddTransient<ConciliacaoViewModel>();
         servicos.AddTransient<ProducaoViewModel>();
         servicos.AddTransient<PacotesViewModel>();
@@ -98,6 +106,7 @@ public sealed class ModuloFinanceiro : IModuloApp
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChaveCaixa => new CaixaView { DataContext = servicos.GetRequiredService<CaixaViewModel>() },
+        ChaveContas => new ContasView { DataContext = servicos.GetRequiredService<ContasViewModel>() },
         ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
         ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
         ChavePacotes => new PacotesView { DataContext = servicos.GetRequiredService<PacotesViewModel>() },
