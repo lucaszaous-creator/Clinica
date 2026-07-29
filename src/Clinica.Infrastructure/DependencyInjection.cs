@@ -37,10 +37,11 @@ public static class DependencyInjection
         services.AddScoped<ContasService>();
         services.AddScoped<FluxoCaixaService>();
         services.AddScoped<FechamentoCaixaService>();
-        // O TributoService vem ANTES: o TaxaService o recebe para abrir o imposto
-        // por tributo em vez de devolver uma aliquota unica e cega.
         services.AddScoped<RecebiveisService>();
         services.AddScoped<CustoTransacaoService>();
+        services.AddScoped<RentabilidadeConvenioService>();
+        // O TributoService vem ANTES do TaxaService: este o recebe para abrir o imposto
+        // por tributo (e a retencao por convenio) em vez de uma aliquota unica e cega.
         services.AddScoped<TributoService>();
         services.AddScoped<TaxaService>();
         services.AddScoped<PacoteService>();
