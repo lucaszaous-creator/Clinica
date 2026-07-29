@@ -605,6 +605,9 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.DetalheImposto).HasMaxLength(300);
             e.Ignore(x => x.ValorLiquido);
             e.Ignore(x => x.TemDeducao);
+            // Recebivel em aberto e o atraso sao CALCULADOS — o segundo depende de HOJE,
+            // e gravado estaria mentindo amanha de manha.
+            e.Ignore(x => x.RecebivelEmAberto);
 
             // Contas a pagar e a receber (parcela 12). "Vencido" tambem nao e coluna:
             // ele depende de HOJE, e uma coluna gravada estaria mentindo amanha de manha.
@@ -625,6 +628,10 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.CodigoFaturamentoId);
             // "O que vence esta semana" é a consulta mais frequente do módulo.
             e.HasIndex(x => x.DataVencimento);
+            // "O que a maquininha ainda deve depositar" (parcela 16). O indice e sobre a
+            // previsao porque a consulta filtra por ela; o confirmado entra so como
+            // condicao, e nunca sozinho.
+            e.HasIndex(x => x.PrevisaoRecebimento);
             // Idempotencia da geracao de contas recorrentes: o aluguel de agosto so pode
             // nascer uma vez, mesmo com dois postos abrindo o app na mesma manha. O
             // filtro deixa os avulsos (origem nula) de fora do unico.

@@ -1,0 +1,190 @@
+<UserControl x:Class="Clinica.Financeiro.Views.RecebiveisView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Recebíveis de cartão" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="O que a maquininha ainda deve depositar — e o que ela deveria ter depositado e não depositou. Dinheiro de cartão que não caiu não aparece em nenhum outro lugar do sistema." />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <TextBlock Text="Horizonte" Style="{StaticResource Rotulo}"
+                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox ItemsSource="{Binding Horizontes}" SelectedItem="{Binding HorizonteDias}"
+                          Width="80" Margin="0,0,12,0" />
+                <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding CarregarCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ===== Faixa de totais ===== -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="A RECEBER" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding AVencer}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="líquido, já descontada a taxa"
+                               Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="ATRASADO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <!-- Vermelho só quando há atraso: é a única linha desta tela que pede
+                         ação, e o resto é só esperar. -->
+                    <TextBlock Text="{Binding Atrasado}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TemAtraso}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="4" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="TOTAL" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="6" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="PRÓXIMO DEPÓSITO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding Proximo}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <TextBlock Text="Depósitos previstos" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                    <StackPanel Orientation="Horizontal" IsEnabled="{Binding PodeEditar}">
+                        <TextBlock Text="Caiu em" Style="{StaticResource Rotulo}"
+                                   VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <DatePicker SelectedDate="{Binding DataCredito}" Width="150" />
+                        <TextBlock Style="{StaticResource TextoSuave}" VerticalAlignment="Center"
+                                   Margin="10,0,0,0" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="A data do extrato, não a de hoje: conferir na segunda um depósito que caiu na sexta viraria três dias de atraso que não houve." />
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock DockPanel.Dock="Top"
+                           Text="Nenhum recebimento de cartão pendente. Vendas em dinheiro e Pix entram inteiras e na hora — não há o que esperar.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Depositos.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Depositos}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="130" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock FontWeight="SemiBold">
+                                                <Run Text="{Binding Adquirente, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Previsao, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <!-- O prazo em palavras, como nas contas:
+                                                 ninguém calcula "20/10 menos hoje". -->
+                                            <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                                       Margin="0,2,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock"
+                                                           BasedOn="{StaticResource TextoSuave}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Atrasado}"
+                                                                         Value="True">
+                                                                <Setter Property="Foreground"
+                                                                        Value="{StaticResource Brush.Erro}" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Bruto}"
+                                                   VerticalAlignment="Center" TextAlignment="Right"
+                                                   Margin="6,0" Style="{StaticResource TextoSuave}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Taxa}"
+                                                   VerticalAlignment="Center" TextAlignment="Right"
+                                                   Margin="6,0" Style="{StaticResource TextoSuave}" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Liquido}"
+                                                   VerticalAlignment="Center" TextAlignment="Right"
+                                                   Margin="6,0" FontWeight="SemiBold" />
+
+                                        <Button Grid.Column="4" Content="Caiu" VerticalAlignment="Center"
+                                                Style="{StaticResource BotaoPequeno}"
+                                                IsEnabled="{Binding DataContext.PodeEditar,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.ConfirmarCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

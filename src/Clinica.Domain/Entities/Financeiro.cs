@@ -188,6 +188,37 @@ public class LancamentoFinanceiro
     public DateOnly? PrevisaoRecebimento { get; set; }
 
     /// <summary>
+    /// Quando o dinheiro da adquirente CAIU DE FATO na conta (parcela 16).
+    ///
+    /// A previsão sozinha não controlava nada: ela era gravada desde a parcela 9 e
+    /// ninguém a lia, então a clínica não tinha como saber que a Stone devia ter
+    /// depositado no dia 10 e não depositou. É a confirmação que transforma a previsão em
+    /// conciliação — e o atraso em alarme.
+    ///
+    /// Null enquanto não caiu. A data real fica separada da prevista de propósito: quando
+    /// a adquirente atrasa, as duas divergem, e sobrescrever a previsão apagaria
+    /// justamente a prova de que houve atraso.
+    /// </summary>
+    public DateOnly? RecebimentoConfirmadoEm { get; set; }
+
+    /// <summary>
+    /// Recebimento de cartão que ainda não caiu. Só cartão tem previsão — dinheiro e Pix
+    /// entram inteiros e na hora, e cobrá-los aqui encheria a lista de linhas que não têm
+    /// o que esperar.
+    /// </summary>
+    public bool RecebivelEmAberto =>
+        PrevisaoRecebimento is not null
+        && RecebimentoConfirmadoEm is null
+        && Status != StatusLancamento.Cancelado;
+
+    /// <summary>
+    /// A adquirente passou da data e não depositou. É a única linha desta tela que pede
+    /// ação: o resto é só esperar.
+    /// </summary>
+    public bool RecebimentoAtrasado(DateOnly hoje) =>
+        RecebivelEmAberto && PrevisaoRecebimento is { } p && p < hoje;
+
+    /// <summary>
     /// O que sobra de verdade: bruto menos taxa menos imposto. Calculado, nunca gravado.
     /// </summary>
     public decimal ValorLiquido => Valor - (ValorTaxa ?? 0m) - (ValorImposto ?? 0m);

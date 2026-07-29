@@ -340,6 +340,20 @@ public interface IClinicaRepositorio
 
     Task RemoverTaxaCartaoAsync(int taxaId, CancellationToken ct = default);
 
+    // ---- Recebiveis de cartao (parcela 16) ----
+
+    /// <summary>
+    /// Recebimentos de cartao ainda nao creditados, com previsao ate a data. A previsao
+    /// era gravada desde a parcela 9 e nenhuma tela a lia — dado gravado sem leitor passa
+    /// no CI e nao faz nada na clinica.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> RecebiveisEmAbertoAsync(
+        DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>Lancamentos por id, RASTREADOS — a confirmacao do deposito escreve neles.</summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosPorIdAsync(
+        IReadOnlyCollection<int> ids, CancellationToken ct = default);
+
     // ---- Regime tributario (parcela 15) ----
 
     /// <summary>Catalogo de tributos (ISS, PIS, COFINS, IRPJ, CSLL, Simples).</summary>

@@ -9,7 +9,8 @@ namespace Clinica.Financeiro.Modulo;
 /// <summary>
 /// Módulo Financeiro: Caixa (entradas e saídas), Contas a pagar e a receber (o que vence),
 /// Fluxo de caixa (a série dos meses e para onde o dinheiro vai), Fechamento de caixa (a
-/// conferência da gaveta), Conciliação (guias efetivadas que ainda não viraram receita),
+/// conferência da gaveta), Recebíveis de cartão (o que a maquininha ainda deve
+/// depositar), Conciliação (guias efetivadas que ainda não viraram receita),
 /// Produção (volume do faturamento), Pacotes (o que a clínica vende), Estoque (insumos),
 /// Repasses (o que cada profissional tem a receber), Taxas e impostos, e o Plano de contas.
 ///
@@ -26,6 +27,7 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveContas = "contas";
     public const string ChaveFluxo = "fluxo-caixa";
     public const string ChaveFechamento = "fechamento-caixa";
+    public const string ChaveRecebiveis = "recebiveis";
     public const string ChaveConciliacao = "conciliacao";
     public const string ChaveProducao = "producao";
     public const string ChavePacotes = "pacotes";
@@ -69,6 +71,11 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChaveRecebiveis, Rotulo = "Receb\u00EDveis de cart\u00E3o", Glifo = "\uE896",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveConciliacao, Rotulo = "Concilia\u00e7\u00e3o", Glifo = "\uE8AB",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
@@ -107,6 +114,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<ContasViewModel>();
         servicos.AddTransient<FluxoCaixaViewModel>();
         servicos.AddTransient<FechamentoCaixaViewModel>();
+        servicos.AddTransient<RecebiveisViewModel>();
         servicos.AddTransient<ConciliacaoViewModel>();
         servicos.AddTransient<ProducaoViewModel>();
         servicos.AddTransient<PacotesViewModel>();
@@ -125,6 +133,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveContas => new ContasView { DataContext = servicos.GetRequiredService<ContasViewModel>() },
         ChaveFluxo => new FluxoCaixaView { DataContext = servicos.GetRequiredService<FluxoCaixaViewModel>() },
         ChaveFechamento => new FechamentoCaixaView { DataContext = servicos.GetRequiredService<FechamentoCaixaViewModel>() },
+        ChaveRecebiveis => new RecebiveisView { DataContext = servicos.GetRequiredService<RecebiveisViewModel>() },
         ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
         ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
         ChavePacotes => new PacotesView { DataContext = servicos.GetRequiredService<PacotesViewModel>() },

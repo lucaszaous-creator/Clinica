@@ -817,6 +817,26 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (taxa is not null) _db.TaxasCartao.Remove(taxa);
     }
 
+    // ---- Recebiveis de cartao (parcela 16) ----
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> RecebiveisEmAbertoAsync(
+        DateOnly ate, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Status != StatusLancamento.Cancelado)
+            .Where(l => l.PrevisaoRecebimento != null && l.PrevisaoRecebimento <= ate)
+            .Where(l => l.RecebimentoConfirmadoEm == null)
+            .OrderBy(l => l.PrevisaoRecebimento).ThenBy(l => l.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosPorIdAsync(
+        IReadOnlyCollection<int> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return [];
+        // RASTREADOS de proposito (sem AsNoTracking): a confirmacao do deposito escreve
+        // nestas entidades.
+        return await _db.Lancamentos.Where(l => ids.Contains(l.Id)).ToListAsync(ct);
+    }
+
     // ---- Regime tributario (parcela 15) ----
 
     public async Task<IReadOnlyList<Tributo>> TributosAsync(
