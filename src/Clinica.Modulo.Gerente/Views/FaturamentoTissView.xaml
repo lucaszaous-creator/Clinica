@@ -14,5 +14,11 @@
         <TabItem Header="Pendências">
             <views:PendenciasGerencialView DataContext="{Binding Pendencias}" />
         </TabItem>
+        <TabItem Header="Glosas">
+            <views:GlosasGerencialView DataContext="{Binding Glosas}" />
+        </TabItem>
+        <TabItem Header="Não conformidades">
+            <views:NaoConformidadesGerencialView DataContext="{Binding NaoConformidades}" />
+        </TabItem>
     </TabControl>
 </UserControl>

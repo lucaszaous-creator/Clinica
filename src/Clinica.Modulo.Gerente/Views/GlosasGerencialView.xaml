@@ -1,0 +1,128 @@
+<UserControl x:Class="Clinica.Gerente.Views.GlosasGerencialView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="0,16,0,0">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Glosas" Style="{StaticResource H3}" Margin="0" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <CheckBox Content="Só em aberto" IsChecked="{Binding SomenteEmAberto}"
+                          VerticalAlignment="Center" Margin="0,0,12,0" />
+                <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding CarregarCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0,0,0,8"
+                           Text="Glosa é faturamento recusado — dinheiro já trabalhado e não recebido. O prazo de recurso decide se ainda dá para brigar: passado ele, não é pendência, é prejuízo consumado." />
+
+                <TextBlock DockPanel.Dock="Top" Text="Nenhuma glosa no filtro atual.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Glosas.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Glosas}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" />
+                                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
+                                                <Run Text="{Binding Convenio, Mode=OneWay}" />
+                                                <Run Text=" · guia " />
+                                                <Run Text="{Binding Guia, Mode=OneWay}" />
+                                                <Run Text=" · glosada em " />
+                                                <Run Text="{Binding DataGlosa, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Motivo}"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       TextWrapping="Wrap" FontStyle="Italic" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                    Margin="8,0">
+                                            <TextBlock Text="{Binding Situacao}" />
+                                            <!-- Prazo vencido em vermelho: é a diferença entre
+                                                 caso a perseguir e prejuízo já consumado. -->
+                                            <TextBlock Text="{Binding Prazo}" Margin="0,2,0,0">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock"
+                                                           BasedOn="{StaticResource TextoSuave}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding PrazoVencido}"
+                                                                         Value="True">
+                                                                <Setter Property="Foreground"
+                                                                        Value="{StaticResource Brush.Erro}" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Reapresentar" Style="{StaticResource BotaoPequeno}"
+                                                    Margin="0,0,6,0"
+                                                    Visibility="{Binding PodeReapresentar,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}"
+                                                    IsEnabled="{Binding DataContext.PodeAgir,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.ReapresentarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Recuperada" Style="{StaticResource BotaoPequeno}"
+                                                    Visibility="{Binding PodeRecuperar,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}"
+                                                    IsEnabled="{Binding DataContext.PodeAgir,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.RecuperarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

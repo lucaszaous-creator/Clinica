@@ -1,0 +1,93 @@
+<UserControl x:Class="Clinica.Gerente.Views.NaoConformidadesGerencialView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="0,16,0,0">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Não conformidades" Style="{StaticResource H3}" Margin="0" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" />
+            </StackPanel>
+            <Button Content="Atualizar" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Style="{StaticResource BotaoSecundario}" Command="{Binding CarregarCommand}" />
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0,0,0,8"
+                           Text="Cada linha é uma sessão que a clínica prestou e decidiu não faturar. A justificativa vem por extenso de propósito: o PADRÃO delas é o que interessa — dez NCs por 'paciente não trouxe o documento' é problema de processo no balcão, não dez acidentes." />
+
+                <TextBlock DockPanel.Dock="Top" Text="Nenhuma guia em não conformidade.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Itens.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Itens}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" />
+                                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
+                                                <Run Text="{Binding Convenio, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Guia, Mode=OneWay}" />
+                                                <Run Text=" · prevista " />
+                                                <Run Text="{Binding Prevista, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Justificativa}"
+                                                       TextWrapping="Wrap" Margin="0,4,0,0"
+                                                       FontStyle="Italic" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Quando}"
+                                                   VerticalAlignment="Center"
+                                                   Style="{StaticResource TextoSuave}" />
+
+                                        <Button Grid.Column="2" Content="Reabrir"
+                                                Style="{StaticResource BotaoPequeno}"
+                                                VerticalAlignment="Center"
+                                                IsEnabled="{Binding DataContext.PodeAgir,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.ReabrirCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

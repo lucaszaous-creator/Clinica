@@ -7,7 +7,8 @@ namespace Clinica.Gerente.ViewModels;
 /// <summary>
 /// O item "Faturamento (TISS)" da sidebar, que a proposta mostra como UM lugar. Por
 /// dentro são assuntos diferentes, e por isso abas: a visão consolidada (quanto foi
-/// faturado, quanto glosou) e a fila de guias pendentes de baixa.
+/// faturado, quanto glosou), a fila de guias pendentes de baixa, as glosas com o prazo de
+/// recurso e as não conformidades.
 ///
 /// Abas e não itens de menu separados porque a proposta comercial tem UM item aqui, e
 /// quebrar em quatro entradas encheria a sidebar da direção com o vocabulário do
@@ -25,10 +26,18 @@ public sealed partial class FaturamentoTissViewModel : ObservableObject
     /// <summary>Fila de guias pendentes, com o semáforo e a baixa.</summary>
     public PendenciasGerencialViewModel Pendencias { get; }
 
+    /// <summary>Faturamento recusado, com o prazo de recurso à vista.</summary>
+    public GlosasGerencialViewModel Glosas { get; }
+
+    /// <summary>O que a clínica prestou e decidiu não faturar — e por quê.</summary>
+    public NaoConformidadesGerencialViewModel NaoConformidades { get; }
+
     public FaturamentoTissViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
         Visao = new FaturamentoGerencialViewModel(escopos);
         Pendencias = new PendenciasGerencialViewModel(escopos, snackbar, dialogo);
+        Glosas = new GlosasGerencialViewModel(escopos, snackbar, dialogo);
+        NaoConformidades = new NaoConformidadesGerencialViewModel(escopos, snackbar, dialogo);
     }
 }
