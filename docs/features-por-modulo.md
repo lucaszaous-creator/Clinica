@@ -19,6 +19,7 @@ cobrou assim mesmo. A conferência da sidebar está em
 | Estado | Significado |
 |---|---|
 | ✅ | Pronto e em produção |
+| ❌ | **Fora de escopo** por decisão do cliente — sai do material comercial |
 | 🟡 | Existe, mas não como a proposta promete |
 | ⬜ | Vendido e **ainda não existe** |
 | 🔵 | Existe e **não** está na proposta (nasceu depois) |
@@ -554,8 +555,8 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
 | **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
 | **PACIENTE** · Prescrições | Recepção | ✅ | `PrescricoesView` — idem |
-| **PACIENTE** · Telemedicina | — | ⬜ | **nunca existiu**; ver "Divergências" |
-| **PACIENTE** · Portal do paciente | — | ⬜ | **nunca existiu**; ver "Divergências" |
+| **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
+| **PACIENTE** · Portal do paciente | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
 | **FINANCEIRO** · Pacotes / Sessões | Financeiro | ✅ | `PacotesView` |
 | **FINANCEIRO** · Financeiro | Financeiro | ✅ | `CaixaView` + Conciliação, Produção, Repasses |
 | **FINANCEIRO** · Faturamento (TISS) | Gerente | ✅ | `FaturamentoTissView` — 5 abas (parcelas 10b–10d) |
@@ -577,8 +578,8 @@ Levantado no código, não na memória:
 
 | Falta | Módulo dono | Situação |
 |---|---|---|
-| Telemedicina | — | Não é tela: é vídeo (WebRTC) e agenda de sessão remota. Escopo não vendido nas 14 features |
-| Portal do paciente | — | Não é tela: é aplicação web com login de paciente. Idem |
+| ~~Telemedicina~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Precisa sair da arte da sidebar no material comercial |
+| ~~Portal do paciente~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Idem |
 | Assinatura ICP-Brasil na prescrição | Recepção | Depende de certificado digital — decisão comercial (ver feature 07) |
 | NFS-e no fechamento | Financeiro | Depende de integração fiscal municipal — decisão comercial |
 | Gerar lote TISS pelo Gerente | Gerente | **Decisão de projeto, não pendência**: o número do lote é sequência do faturamento, e dois apps gerando em paralelo produziriam dois com o mesmo número |
@@ -601,12 +602,13 @@ O documento já foi ao cliente. Estas precisam de decisão comercial:
    número. Se o cliente entendeu "automática" como "sozinho, sem ninguém clicar", isso
    precisa ser dito antes de a expectativa virar cobrança — e a alternativa real é
    contratar a API oficial do WhatsApp Business, que é decisão comercial, não técnica.
-5. **Telemedicina e Portal do paciente aparecem na ARTE da sidebar** dos mockups e **não**
-   entre as 14 features numeradas. Não existem em nenhuma linha do repositório e nunca
-   foram catalogados como pendência — falha deste documento, corrigida agora. São dois
-   PRODUTOS, não duas telas: telemedicina exige vídeo (WebRTC) e o portal é uma aplicação
-   web com login de paciente, nenhum dos dois cabendo num app WPF de balcão. Precisam sair
-   do material comercial ou virar parcela própria, com prazo e preço próprios.
+5. ~~**Telemedicina e Portal do paciente**~~ — **RESOLVIDA (jul/2026): estão FORA DE
+   ESCOPO** por decisão do cliente. Apareciam na ARTE da sidebar dos mockups e não entre
+   as 14 features numeradas; nunca existiram em linha nenhuma do repositório e nunca foram
+   catalogados aqui como pendência — falha deste documento. São dois PRODUTOS, não duas
+   telas (vídeo/WebRTC e aplicação web com login de paciente), e nenhum cabe num app WPF de
+   balcão. **Ação pendente do lado comercial**: os dois itens precisam sair da arte da
+   sidebar antes de o deck ir a outro cliente, senão a promessa se repete.
 6. **O cronograma não fecha** — mas encolheu. A Fase 1 (1–2 meses) foi fechada com as
    parcelas 1 e 2, e a 3 fecha o ato clínico. O que resta do calendário original é
    decisão sua; as parcelas deste arquivo continuam sendo a ordem técnica correta.
