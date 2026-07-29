@@ -23,7 +23,7 @@ dotnet test tests/Clinica.Tests/Clinica.Tests.csproj --filter "FullyQualifiedNam
 # Rodar o app (apenas Windows — WPF)
 dotnet run --project src/Clinica.Desktop
 
-# Verificação estática da suíte multi-exe (roda em qualquer sistema)
+# Verificação estática da suíte multi-exe (roda em qualquer sistema) — RODE ANTES DE TODO PUSH
 python3 tools/verificar-suite.py
 
 # Migrations (usa a env var CLINICA_DB como connection string)
@@ -160,6 +160,17 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   não bateu deixaria a clínica sem a guia de uma sessão que o paciente recebeu. Cobrança **não é
   sugerida** quando há pacote (sessão comprada já foi paga) nem sem histórico de recebimento do
   paciente — marcar por padrão criaria receita fantasma para quem é do convênio.
+- **Taxa de cartão e imposto** (`TaxaService`, parcela 9): o **valor do lançamento continua
+  sendo o BRUTO** — o que o paciente pagou. Taxa e imposto são deduções ao lado, e o líquido
+  é CALCULADO (`LancamentoFinanceiro.ValorLiquido`); gravar o líquido daria duas verdades
+  sobre o mesmo dinheiro. `TaxaCartao` tem **vigência**, como a regra de repasse: a
+  adquirente renegocia, e o que vale no recebimento de março é o percentual de março — por
+  isso o valor da taxa é **copiado** na venda, nunca referenciado. A regra mais **específica**
+  ganha (bandeira vence o adquirente genérico), senão a clínica cadastraria a exceção e
+  continuaria vendo o número da regra geral. **Sem taxa cadastrada não se inventa desconto**:
+  o lançamento fica só com o bruto, que é a verdade disponível. A alíquota de imposto nasce
+  **zero** — cada clínica tem seu regime, e chutar erraria a base inteira — e é lida com
+  ponto decimal invariante ("2,5" lido como 25 multiplicaria o imposto por dez).
 - **Repasse** (`RepasseService`, parcela 4): quem atendeu vem do **agendamento**
   (`Agendamento.ProfissionalId` + `AtendimentoId`), porque `Atendimento` é do faturamento
   e não guarda profissional. O percentual incide sobre a **receita que entrou**
@@ -244,6 +255,34 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   Só ficam mudos: o próprio logger, decodificação de quadro da webcam (30x/s) e cancelamento
   esperado. **Falha nunca pode ser exibida como sucesso** — se a checagem não rodou, a tela
   mostra um terceiro estado ("não verificado"), como o painel faz com a rodada de pendências.
+- **A sidebar da suíte é agrupada por TEMA, não por módulo** (parcela 7). `ItemMenuModulo`
+  tem duas coisas que só parecem uma: `Grupo` (`GrupoSidebar` — GESTÃO · PACIENTE ·
+  FINANCEIRO · INTELIGÊNCIA) é **onde o item aparece**, e `ModuloNome` é **quem sabe
+  construir a tela**. Antes o cabeçalho era o nome do módulo carregado, e o Gerente — que
+  carrega os três — via "Recepção / Financeiro / Direção": uma sidebar que explica a
+  arquitetura para quem só quer saber onde mexe no paciente. Item novo declara o `Grupo`.
+  Quando um item da proposta cobre vários assuntos (é o caso de "Faturamento (TISS)"), use
+  **sub-abas** dentro dele em vez de criar entradas novas — a proposta tem um item ali.
+- **O verificador é a única barreira local contra erro de compilação WPF.** `Clinica.Desktop`
+  e a suíte só compilam no Windows, então `tools/verificar-suite.py` cobre o que dá para
+  conferir aqui: XAML, chaves do design system, pack URIs, dicionário que usa token sem
+  mesclá-lo (quebra em runtime, não no build), **aridade de `new XViewModel(...)` escrito à
+  mão** (checagem 7) e **membro `required` não inicializado** (checagem 8). As duas últimas
+  nasceram de falhas de CI reais: metade dos VMs de formulário é construída à mão pela tela
+  dona, então dependência nova num VM quebra os chamadores e o DI não avisa. **Rode-o antes
+  de todo push.** O que ele não pega — `using` faltando, tipo trocado — continua sendo do
+  build do PR; não invente heurística para isso.
+- **Gráfico é desenhado com os tokens, sem biblioteca** (`Controls/Graficos.cs`,
+  `Componentes/Graficos.xaml`). Os quatro apps se auto-atualizam por Velopack e uma
+  dependência de UI nova é risco desproporcional. Duas regras do desenho: **valor nulo
+  interrompe a linha** (um mês sem horário fechado desenhado como 0% inventaria um mês
+  perfeito) e **o eixo ancora no zero** (escala que começa no menor valor transforma
+  variação de 2% num despencar visual). A fração das barras vem **normalizada do
+  ViewModel** — o DataTemplate não enxerga os irmãos da série.
+- **CSV para o Excel em português** (`Componentes/ExportacaoCsv.cs`): separador **ponto e
+  vírgula** e **BOM UTF-8**. Com vírgula o arquivo abre com tudo numa coluna só; sem BOM,
+  "Ocupação" vira "OcupaÃ§Ã£o". Métrica sem base de cálculo exporta "—", igual à tela —
+  trocar por 0 faria a planilha calcular média sobre um número que não existe.
 - **Escolher paciente é um componente só**: `SeletorPacienteViewModel` (VM) +
   `ItemPacienteSeletor` (`Styles/Componentes/Pacientes.xaml`). Ele já resolve limite no SQL
   (`BuscarPacientesAsync(termo, limite)` — nunca `Take()` depois de materializar), agrupamento

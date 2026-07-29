@@ -1,6 +1,42 @@
 # Layout e navegação
 
-## Shell
+⚠️ **Há DOIS shells**, e este documento descrevia só um. O do app de faturamento
+(`Clinica.Desktop/MainWindow.xaml`, congelado) e o da suíte
+(`Clinica.Desktop.Shell/Shell/ShellWindow.xaml`, que serve Recepção, Financeiro e Gerente).
+Até a parcela 7 a moldura rica existia só no congelado — sidebar recolhível, busca global e
+breadcrumb —, e foi exatamente isso que o cliente notou ao comparar o sistema com os
+mockups. As duas agora se equivalem; as diferenças que restam estão anotadas abaixo.
+
+## Shell da SUÍTE (Recepção · Financeiro · Gerente) — parcela 7
+
+```
+┌──────────┬──────────────────────────────────────────┐
+│ Sidebar  │ Topbar (56px): ☰ · seção › tela · busca  │
+│ 248/56px │            · data · avatar + usuário     │
+│ agrupada ├──────────────────────────────────────────┤
+│ por TEMA │ Conteúdo da tela (margem 24px)           │
+└──────────┴──────────────────────────────────────────┘
+```
+
+- **Grupos TEMÁTICOS, não por módulo.** `GrupoSidebar` (GESTÃO · PACIENTE · FINANCEIRO ·
+  INTELIGÊNCIA) decide onde o item aparece; `ItemMenuModulo.ModuloNome` diz quem constrói a
+  tela. São duas coisas que só pareciam uma — antes o cabeçalho era o nome do módulo, e o
+  Gerente (que carrega os três) via "Recepção / Financeiro / Direção": uma sidebar que
+  explica a arquitetura para quem só quer saber onde mexe no paciente.
+- **Recolhível** 248↔56px (Ctrl+B, 150ms). Recolhe sozinha abaixo de 1100px e volta acima
+  de 1200 — em 1366×768, o monitor do balcão, a sidebar aberta come a grade da agenda.
+  Recolhida, o rótulo vira tooltip: ícone sozinho não diz o que é para quem chegou hoje.
+- **Topbar**: botão de recolher, breadcrumb `SEÇÃO › Tela`, busca global (Ctrl+F) como
+  paleta de seções, data de hoje e o `Avatar` com o nome de quem está logado.
+- **A busca é só de SEÇÕES.** Buscar paciente daqui exigiria o shell saber qual tela de qual
+  módulo abre uma ficha, e o shell não conhece tela nenhuma — quem busca paciente é o
+  `SeletorPacienteViewModel`, dentro das telas.
+- **Sub-abas** (`TabControl`, estilo de `Navegacao.xaml`) quando um item de menu da proposta
+  cobre vários assuntos. É o caso de "Faturamento (TISS)" no Gerente: cinco abas sob UM item,
+  porque a proposta tem um item ali e quebrar em cinco entradas encheria a sidebar da direção
+  com o vocabulário do faturamento.
+
+## Shell do FATURAMENTO (congelado)
 
 ```
 ┌──────────┬──────────────────────────────────────────┐
