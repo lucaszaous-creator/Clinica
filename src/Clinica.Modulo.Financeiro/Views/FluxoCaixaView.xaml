@@ -1,0 +1,274 @@
+<UserControl x:Class="Clinica.Financeiro.Views.FluxoCaixaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="Fluxo de caixa" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="A série dos meses e para onde o dinheiro está indo. Um mês ruim pode ser azar; três meses caindo é um problema — e é a série que mostra a diferença." />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <TextBlock Text="Meses" Style="{StaticResource Rotulo}"
+                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox ItemsSource="{Binding Janelas}" SelectedItem="{Binding MesesJanela}"
+                          Width="80" Margin="0,0,12,0" />
+                <Button Content="Exportar" Style="{StaticResource BotaoSecundario}"
+                        Margin="0,0,8,0" Command="{Binding ExportarCommand}" />
+                <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding CarregarCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ===== Faixa do período ===== -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="ENTRADAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TotalEntradas}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Periodo}" Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="SAÍDAS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TotalSaidas}" Style="{StaticResource CardKpi.Valor}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="4" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="RESULTADO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <!-- Vermelho quando o período fecha negativo. Quem decide se o número
+                         é bom é a TELA, não o componente — aqui "menos" é sempre ruim. -->
+                    <TextBlock Text="{Binding Resultado}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ResultadoNegativo}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="6" Style="{StaticResource CardKpi}">
+                <StackPanel>
+                    <TextBlock Text="MARGEM" Style="{StaticResource CardKpi.Rotulo}" />
+                    <!-- "—" quando não houve receita: 0% diria "não sobrou nada", que é
+                         diagnóstico diferente de "não teve receita para sobrar". -->
+                    <TextBlock Text="{Binding Margem}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="do que entrou, quanto sobrou"
+                               Style="{StaticResource CardKpi.Variacao}" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <!-- ===== Gráficos ===== -->
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Evolução mensal" Style="{StaticResource H3}" Margin="0,0,0,8" />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="ENTRADAS" Style="{StaticResource Rotulo}" Margin="0" />
+                                <ctrl:GraficoLinha Pontos="{Binding SerieEntradas}" Height="120"
+                                                   Cor="{StaticResource Brush.Acento}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="RESULTADO (entradas − saídas)"
+                                           Style="{StaticResource Rotulo}" Margin="0" />
+                                <!-- Este começa do ZERO de propósito: resultado é a única
+                                     série da suíte em que o zero é uma fronteira de
+                                     verdade — acima dele a clínica ganhou, abaixo perdeu.
+                                     Escalar pelo mínimo esconderia o cruzamento. -->
+                                <ctrl:GraficoLinha Pontos="{Binding SerieResultado}" Height="120"
+                                                   ComecaDoZero="True"
+                                                   Cor="{StaticResource Brush.Acento}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="{Binding MaiorSaida}" Style="{StaticResource TextoSuave}"
+                                   Margin="0,12,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!-- ===== Tabela mês a mês ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Mês a mês"
+                                   Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}"
+                                   TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Text="O acumulado é a VARIAÇÃO no período consultado, não o saldo em conta: a clínica nunca cadastrou saldo inicial, e chamar isso de saldo daria um número que não bate com o extrato do banco." />
+
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Mês" Style="{StaticResource Rotulo}" />
+                            <TextBlock Grid.Column="1" Text="Entradas" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                            <TextBlock Grid.Column="2" Text="Saídas" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                            <TextBlock Grid.Column="3" Text="Resultado" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                            <TextBlock Grid.Column="4" Text="Previsto" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                            <TextBlock Grid.Column="5" Text="Acumulado" Style="{StaticResource Rotulo}"
+                                       TextAlignment="Right" />
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding Meses}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1" Padding="0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="80" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0" Text="{Binding Mes}"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Entradas}"
+                                                       TextAlignment="Right" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Saidas}"
+                                                       TextAlignment="Right" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Resultado}"
+                                                       TextAlignment="Right">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding NoVermelho}"
+                                                                         Value="True">
+                                                                <Setter Property="Foreground"
+                                                                        Value="{StaticResource Brush.Erro}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <TextBlock Grid.Column="4" Text="{Binding Previsto}"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       TextAlignment="Right" />
+                                            <TextBlock Grid.Column="5" Text="{Binding Acumulado}"
+                                                       TextAlignment="Right" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
+                </Border>
+
+                <!-- ===== Para onde foi o dinheiro ===== -->
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="De onde veio"
+                                       Style="{StaticResource H3}" Margin="0,0,0,8" />
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="Nenhuma entrada classificada no período.">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Entradas.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding Entradas}"
+                                          ItemTemplate="{StaticResource ItemBarraRotulada}" />
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBlock Text="Para onde foi" Style="{StaticResource H3}"
+                                           Margin="0" VerticalAlignment="Center" />
+                                <CheckBox Content="Incluir previsto" HorizontalAlignment="Right"
+                                          VerticalAlignment="Center"
+                                          IsChecked="{Binding IncluirPrevisto}" />
+                            </Grid>
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="Nenhuma saída no período.">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Saidas.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ItemsControl ItemsSource="{Binding Saidas}"
+                                          ItemTemplate="{StaticResource ItemBarraRotulada}" />
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

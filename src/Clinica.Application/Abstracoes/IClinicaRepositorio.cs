@@ -453,6 +453,16 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<int>> CodigosComLancamentoAsync(
         IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
 
+    /// <summary>
+    /// Lançamentos do período com as três datas e o NOME da categoria — a projeção que o
+    /// fluxo de caixa precisa (parcela 13). O período é comparado contra a competência OU
+    /// o vencimento OU o pagamento: um lançamento com competência em julho e vencimento
+    /// em agosto pertence ao fluxo dos dois meses, e filtrar por uma data só o faria
+    /// sumir de um deles.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.LancamentoDatado>> LancamentosDatadosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
     // ---- Contas a pagar e a receber (parcela 12) ----
 
     /// <summary>

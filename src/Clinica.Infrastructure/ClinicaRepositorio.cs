@@ -1034,6 +1034,24 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.LancamentoDatado>>
+        LancamentosDatadosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            // Cancelado nunca entra no fluxo: não é dinheiro, e somá-lo inflaria tanto a
+            // receita quanto a despesa do mês em que ele foi lançado.
+            .Where(l => l.Status != StatusLancamento.Cancelado)
+            // O OU das três datas é o que faz a linha aparecer no mês certo: um lançamento
+            // com competência em julho e vencimento em agosto pertence aos dois fluxos, e
+            // filtrar por uma data só o faria sumir de um deles.
+            .Where(l => (l.Data >= inicio && l.Data <= fim)
+                     || (l.DataVencimento != null && l.DataVencimento >= inicio && l.DataVencimento <= fim)
+                     || (l.DataPagamento != null && l.DataPagamento >= inicio && l.DataPagamento <= fim))
+            .Select(l => new Clinica.Application.Modelos.LancamentoDatado(
+                l.Data, l.DataVencimento, l.DataPagamento,
+                l.Tipo, l.Status, l.Valor,
+                l.Categoria != null ? l.Categoria.Nome : null))
+            .ToListAsync(ct);
+
     // ---- Contas a pagar e a receber (parcela 12) ----
 
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
