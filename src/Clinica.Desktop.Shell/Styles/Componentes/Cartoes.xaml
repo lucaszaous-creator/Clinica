@@ -28,6 +28,21 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
         <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
+    <!--
+      Linha de variação sob o valor ("▲ 33% vs jun"). Cinza por padrão: quem decide se a
+      variação é BOA é a tela, não o componente — mais atendimentos é bom, mais no-show é
+      ruim, e o mesmo "▲" muda de cor conforme a métrica.
+
+      Sem base de comparação, o VM devolve null e a linha NÃO aparece. Seta sem base seria
+      pior que nada: "▲ 0%" num mês sem mês anterior é invenção com aparência de medida.
+    -->
+    <Style x:Key="CardKpi.Variacao" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="Margin" Value="0,4,0,0" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
     <Style x:Key="CardKpi.Rotulo" TargetType="TextBlock">
         <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />

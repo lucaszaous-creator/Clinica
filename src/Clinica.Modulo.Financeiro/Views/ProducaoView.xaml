@@ -24,43 +24,31 @@
 
         <!-- ============ Indicadores ============ -->
         <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,16">
-            <Border Background="{StaticResource Brush.Superficie}"
-                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                    CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="CÓDIGOS NO PERÍODO" Style="{StaticResource Rotulo}" Margin="0" />
-                    <TextBlock Text="{Binding TotalCodigos}" FontSize="{StaticResource Fonte.H1}"
-                               FontWeight="Bold"
+                    <TextBlock Text="CÓDIGOS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TotalCodigos}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Texto.Primario}" />
                 </StackPanel>
             </Border>
-            <Border Background="{StaticResource Brush.Superficie}"
-                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                    CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="EFETIVADOS" Style="{StaticResource Rotulo}" Margin="0" />
-                    <TextBlock Text="{Binding TotalBaixados}" FontSize="{StaticResource Fonte.H1}"
-                               FontWeight="Bold"
+                    <TextBlock Text="EFETIVADOS" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TotalBaixados}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso}" />
                 </StackPanel>
             </Border>
-            <Border Background="{StaticResource Brush.Superficie}"
-                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                    CornerRadius="{StaticResource Raio.Grande}" Padding="16" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                 <StackPanel>
-                    <TextBlock Text="PENDENTES" Style="{StaticResource Rotulo}" Margin="0" />
-                    <TextBlock Text="{Binding TotalPendentes}" FontSize="{StaticResource Fonte.H1}"
-                               FontWeight="Bold"
+                    <TextBlock Text="PENDENTES" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TotalPendentes}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Aviso}" />
                 </StackPanel>
             </Border>
-            <Border Background="{StaticResource Brush.Superficie}"
-                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                    CornerRadius="{StaticResource Raio.Grande}" Padding="16">
+            <Border Style="{StaticResource CardKpi}">
                 <StackPanel>
-                    <TextBlock Text="TAXA DE EFETIVAÇÃO" Style="{StaticResource Rotulo}" Margin="0" />
-                    <TextBlock Text="{Binding TaxaBaixaFormatada}" FontSize="{StaticResource Fonte.H1}"
-                               FontWeight="Bold"
+                    <TextBlock Text="TAXA DE EFETIVAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock Text="{Binding TaxaBaixaFormatada}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Acento}" />
                 </StackPanel>
             </Border>
@@ -81,11 +69,11 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="140" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Mês" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Grid.Column="1" Text="Códigos" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Grid.Column="2" Text="Efetivados" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Grid.Column="3" Text="Pendentes" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Grid.Column="4" Text="Taxa" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="0" Text="Mês" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Grid.Column="1" Text="Códigos" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Grid.Column="2" Text="Efetivados" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Grid.Column="3" Text="Pendentes" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Grid.Column="4" Text="Taxa" Style="{StaticResource CardKpi.Rotulo}" />
                     </Grid>
                 </Border>
 

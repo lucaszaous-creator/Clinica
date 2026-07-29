@@ -40,6 +40,18 @@ public sealed partial class IndicadoresViewModel : ObservableObject
     [ObservableProperty]
     private bool _temSerie;
 
+    // ===== Variacao contra o mes anterior (parcela 11) =====
+    //
+    // Null = SEM BASE DE COMPARACAO, e a linha nao aparece. Seta sem base seria pior que
+    // nada: "0% vs mes anterior" num periodo que nao tem mes anterior e invencao com
+    // aparencia de medida — o mesmo motivo pelo qual as metricas mostram "—" e nao 0%.
+
+    [ObservableProperty] private string? _variacaoAtendidos;
+    [ObservableProperty] private bool _variacaoAtendidosBoa;
+
+    [ObservableProperty] private string? _variacaoNoShow;
+    [ObservableProperty] private bool _variacaoNoShowBoa;
+
     /// <summary>Períodos oferecidos — a lista mora em <see cref="PeriodoGerencial"/>.</summary>
     public IReadOnlyList<string> Periodos { get; } = PeriodoGerencial.Opcoes;
 
@@ -90,6 +102,8 @@ public sealed partial class IndicadoresViewModel : ObservableObject
             SerieNoShow.Add(new PontoGrafico(m.Rotulo, m.Fechados == 0 ? null : m.TaxaNoShow));
         }
         TemSerie = Serie.Count > 1;
+
+        MontarVariacoes();
 
         BarrasOcupacao.Clear();
         var comOcupacao = Produtividade
@@ -163,6 +177,45 @@ public sealed partial class IndicadoresViewModel : ObservableObject
             Mensagem = $"Nao foi possivel exportar: {ex.Message}";
             MensagemEhErro = true;
         }
+    }
+
+    /// <summary>
+    /// Compara o ultimo mes fechado com o anterior. Quem decide se subir e BOM e cada
+    /// metrica, nao o componente: mais atendimento e bom, mais falta e ruim, e o mesmo
+    /// "subiu" pinta de verde num caso e de vermelho no outro.
+    /// </summary>
+    private void MontarVariacoes()
+    {
+        VariacaoAtendidos = VariacaoNoShow = null;
+
+        if (Serie.Count < 2) return;
+
+        var atual = Serie[^1];
+        var anterior = Serie[^2];
+
+        if (anterior.Atendidos > 0)
+        {
+            var delta = (atual.Atendidos - anterior.Atendidos) * 100.0 / anterior.Atendidos;
+            VariacaoAtendidos = Descrever(delta, anterior.Rotulo);
+            VariacaoAtendidosBoa = delta >= 0;
+        }
+
+        // No-show ja e percentual: a variacao dele e em PONTOS, nao em porcentagem de
+        // porcentagem. "Subiu 50%" sobre 4% confunde; "subiu 2 pontos" nao.
+        if (anterior.Fechados > 0 && atual.Fechados > 0)
+        {
+            var pontos = atual.TaxaNoShow - anterior.TaxaNoShow;
+            var seta = pontos > 0 ? "\u25B2" : pontos < 0 ? "\u25BC" : "\u2192";
+            VariacaoNoShow = $"{seta} {Math.Abs(pontos):0.#} ponto(s) vs {anterior.Rotulo}";
+            // Aqui subir e RUIM.
+            VariacaoNoShowBoa = pontos <= 0;
+        }
+    }
+
+    private static string Descrever(double delta, string referencia)
+    {
+        var seta = delta > 0 ? "\u25B2" : delta < 0 ? "\u25BC" : "\u2192";
+        return $"{seta} {Math.Abs(delta):0.#}% vs {referencia}";
     }
 
     partial void OnPeriodoSelecionadoChanged(string value) => _ = CarregarAsync();

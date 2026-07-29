@@ -35,6 +35,24 @@
                     <TextBlock Text="ATENDIDOS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Sucesso}" />
+                    <!-- Some quando não há mês anterior: seta sem base é invenção. -->
+                    <TextBlock Text="{Binding VariacaoAtendidos}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Variacao}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding VariacaoAtendidos}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding VariacaoAtendidosBoa}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding VariacaoAtendidosBoa}" Value="False">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
@@ -42,6 +60,24 @@
                     <TextBlock Text="FALTAS (NO-SHOW)" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding NoShowFormatado}" Style="{StaticResource CardKpi.Valor}"
                                Foreground="{StaticResource Brush.Erro}" />
+                    <!-- Em PONTOS, não em % de %: "subiu 50%" sobre 4% confunde. -->
+                    <TextBlock Text="{Binding VariacaoNoShow}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Variacao}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding VariacaoNoShow}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding VariacaoNoShowBoa}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding VariacaoNoShowBoa}" Value="False">
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
