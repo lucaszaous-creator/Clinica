@@ -20,5 +20,8 @@
         <TabItem Header="Não conformidades">
             <views:NaoConformidadesGerencialView DataContext="{Binding NaoConformidades}" />
         </TabItem>
+        <TabItem Header="Lotes">
+            <views:LotesGerencialView DataContext="{Binding Lotes}" />
+        </TabItem>
     </TabControl>
 </UserControl>

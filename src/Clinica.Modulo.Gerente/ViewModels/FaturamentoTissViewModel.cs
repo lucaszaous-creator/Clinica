@@ -32,6 +32,9 @@ public sealed partial class FaturamentoTissViewModel : ObservableObject
     /// <summary>O que a clínica prestou e decidiu não faturar — e por quê.</summary>
     public NaoConformidadesGerencialViewModel NaoConformidades { get; }
 
+    /// <summary>Lotes gerados e enviados. Só leitura — a sequência do número é do faturamento.</summary>
+    public LotesGerencialViewModel Lotes { get; }
+
     public FaturamentoTissViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
@@ -39,5 +42,6 @@ public sealed partial class FaturamentoTissViewModel : ObservableObject
         Pendencias = new PendenciasGerencialViewModel(escopos, snackbar, dialogo);
         Glosas = new GlosasGerencialViewModel(escopos, snackbar, dialogo);
         NaoConformidades = new NaoConformidadesGerencialViewModel(escopos, snackbar, dialogo);
+        Lotes = new LotesGerencialViewModel(escopos);
     }
 }

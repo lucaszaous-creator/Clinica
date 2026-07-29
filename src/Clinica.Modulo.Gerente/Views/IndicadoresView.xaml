@@ -21,7 +21,10 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <ComboBox ItemsSource="{Binding Periodos}" SelectedItem="{Binding PeriodoSelecionado}"
                           MinWidth="150" />
-                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0"
+                        Style="{StaticResource BotaoSecundario}" />
+                <!-- CSV e não PDF: a direção leva o número para a planilha dela. -->
+                <Button Content="Exportar" Command="{Binding ExportarCommand}" Margin="8,0,0,0" />
             </StackPanel>
         </Grid>
 

@@ -18,23 +18,33 @@ public static class ImpressaoPdf
     /// Pergunta onde salvar, grava e abre. Devolve null quando deu tudo certo (ou
     /// quando o usuário desistiu do diálogo) e a mensagem de erro quando não deu.
     /// </summary>
-    public static async Task<string?> SalvarEAbrirAsync(byte[] pdf, string nomeSugerido)
+    public static Task<string?> SalvarEAbrirAsync(byte[] pdf, string nomeSugerido)
+        => SalvarEAbrirAsync(pdf, nomeSugerido, "PDF (*.pdf)|*.pdf", ".pdf");
+
+    /// <summary>
+    /// A mesma coisa para qualquer arquivo — a exportação CSV dos relatórios usa esta.
+    /// O que se compartilha aqui não é o formato, é a REGRA: falha de abrir não pode ser
+    /// confundida com falha de gerar, porque o arquivo já está gravado e mandar refazer
+    /// seria mentir sobre o que aconteceu.
+    /// </summary>
+    public static async Task<string?> SalvarEAbrirAsync(
+        byte[] conteudo, string nomeSugerido, string filtro, string extensao)
     {
         var dialogo = new Microsoft.Win32.SaveFileDialog
         {
             FileName = nomeSugerido,
-            Filter = "PDF (*.pdf)|*.pdf",
-            DefaultExt = ".pdf"
+            Filter = filtro,
+            DefaultExt = extensao
         };
         if (dialogo.ShowDialog() != true) return null;
 
         try
         {
-            await File.WriteAllBytesAsync(dialogo.FileName, pdf);
+            await File.WriteAllBytesAsync(dialogo.FileName, conteudo);
         }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar("Recepção — PDF não pôde ser gravado", ex);
+            Clinica.Application.Diagnostico.Registrar("Suíte — arquivo não pôde ser gravado", ex);
             return $"Não foi possível salvar o arquivo: {ex.Message}";
         }
 
@@ -44,9 +54,9 @@ public static class ImpressaoPdf
         }
         catch (Exception ex)
         {
-            // Degradação com rastro: o documento está gravado, só o leitor não abriu.
-            Clinica.Application.Diagnostico.Registrar("Recepção — PDF não pôde ser aberto", ex);
-            return $"O documento foi salvo em {dialogo.FileName}, mas o leitor de PDF não abriu.";
+            // Degradação com rastro: o arquivo está gravado, só o programa não abriu.
+            Clinica.Application.Diagnostico.Registrar("Suíte — arquivo não pôde ser aberto", ex);
+            return $"O arquivo foi salvo em {dialogo.FileName}, mas não foi possível abri-lo.";
         }
 
         return null;

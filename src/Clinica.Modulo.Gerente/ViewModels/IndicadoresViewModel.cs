@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell.Componentes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -104,6 +105,63 @@ public sealed partial class IndicadoresViewModel : ObservableObject
                 p.Nome,
                 $"{valor:0.#}% · {p.Atendidos} atendido(s)",
                 maior <= 0 ? 0 : valor / maior));
+        }
+    }
+
+    /// <summary>
+    /// Exporta o que esta tela mostra, em CSV. CSV e nao PDF porque a direcao leva o
+    /// numero para a planilha dela — gerar PDF exigiria montar layout para um dado que
+    /// vai ser reprocessado de qualquer jeito.
+    ///
+    /// Metrica sem base de calculo sai como "—", igual a tela: trocar por 0 na exportacao
+    /// faria a planilha calcular media em cima de um numero que nao existe, e o erro
+    /// sairia da nossa mao no primeiro copiar-e-colar.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportarAsync()
+    {
+        try
+        {
+            var linhas = new List<IReadOnlyList<string>>();
+
+            foreach (var m in Serie)
+                linhas.Add(new[]
+                {
+                    "Mes", m.Rotulo,
+                    m.Atendidos.ToString(),
+                    m.Faltas.ToString(),
+                    m.Cancelados.ToString(),
+                    m.Fechados == 0 ? "\u2014" : $"{m.TaxaNoShow:0.#}",
+                    m.OcupacaoPercentual is { } o ? $"{o:0.#}" : "\u2014"
+                });
+
+            foreach (var p in Produtividade)
+                linhas.Add(new[]
+                {
+                    "Profissional", p.Nome,
+                    p.Atendidos.ToString(),
+                    p.Faltas.ToString(),
+                    p.Cancelados.ToString(),
+                    p.Fechados == 0 ? "\u2014" : $"{p.TaxaNoShow:0.#}",
+                    p.OcupacaoPercentual is { } o ? $"{o:0.#}" : "\u2014"
+                });
+
+            var csv = ExportacaoCsv.Montar(
+                ["Tipo", "Nome", "Atendidos", "Faltas", "Cancelados", "No-show %", "Ocupacao %"],
+                linhas);
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                csv, $"indicadores-{DateTime.Today:yyyy-MM-dd}.csv",
+                "CSV (*.csv)|*.csv", ".csv");
+
+            Mensagem = erro ?? string.Empty;
+            MensagemEhErro = erro is not null;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — indicadores nao puderam ser exportados", ex);
+            Mensagem = $"Nao foi possivel exportar: {ex.Message}";
+            MensagemEhErro = true;
         }
     }
 
