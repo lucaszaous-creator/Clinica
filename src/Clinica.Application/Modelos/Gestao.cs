@@ -191,6 +191,20 @@ public sealed record ValorLancamento(
 }
 
 /// <summary>
+/// Um recebimento com o que foi descontado dele — a projeção que a visão de custo de
+/// transação precisa (parcela 17).
+///
+/// <paramref name="Dia"/> é o dia em que o dinheiro entrou (pagamento, ou competência
+/// quando ela falta): o custo de maquininha pertence ao mês da VENDA, não ao do depósito.
+/// </summary>
+public sealed record RecebimentoComDeducao(
+    DateOnly Dia,
+    decimal Valor,
+    decimal? ValorTaxa,
+    decimal? ValorImposto,
+    string? Adquirente);
+
+/// <summary>
 /// Um movimento em ESPÉCIE de um dia — a projeção que a conferência da gaveta precisa
 /// (parcela 14).
 ///

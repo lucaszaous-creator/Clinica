@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260729125902_RegimeTributario")]
+    partial class RegimeTributario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1326,9 +1329,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<DateOnly?>("PrevisaoRecebimento")
                         .HasColumnType("date");
 
-                    b.Property<DateOnly?>("RecebimentoConfirmadoEm")
-                        .HasColumnType("date");
-
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1377,8 +1377,6 @@ namespace Clinica.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("PacienteId");
-
-                    b.HasIndex("PrevisaoRecebimento");
 
                     b.HasIndex("Status");
 

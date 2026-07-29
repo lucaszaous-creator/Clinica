@@ -9,6 +9,31 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
+/// <summary>Um tributo do regime, como aparece na lista.</summary>
+public sealed class LinhaTributo
+{
+    public required int TributoId { get; init; }
+    public required string Descricao { get; init; }
+    public required string Nome { get; init; }
+    public required string Vigencia { get; init; }
+    public required string Situacao { get; init; }
+    public required bool Ativo { get; init; }
+
+    /// <summary>Vigente HOJE — é o que de fato está sendo descontado agora.</summary>
+    public required bool ValendoAgora { get; init; }
+
+    public static LinhaTributo De(Tributo t, DateOnly hoje) => new()
+    {
+        TributoId = t.Id,
+        Descricao = t.Descricao,
+        Nome = t.Nome,
+        Vigencia = t.Vigencia,
+        Situacao = t.Ativo ? "Ativo" : "Inativo",
+        Ativo = t.Ativo,
+        ValendoAgora = t.VigenteEm(hoje)
+    };
+}
+
 /// <summary>Uma taxa do catálogo, como aparece na lista.</summary>
 public sealed class LinhaTaxa
 {
@@ -80,8 +105,50 @@ public sealed partial class TaxasViewModel : ObservableObject
 
     public string TituloFormulario => EditandoId == 0 ? "Nova taxa" : "Editar taxa";
 
-    // ---- Imposto ----
+    // ---- Regime tributário (parcela 15) ----
+    public ObservableCollection<LinhaTributo> Tributos { get; } = [];
+
+    [ObservableProperty] private int _editandoTributoId;
+    [ObservableProperty] private string? _sigla;
+    [ObservableProperty] private string? _nomeTributo;
+    [ObservableProperty] private string? _percentualTributo;
+    [ObservableProperty] private string? _baseTributo = "100";
+    [ObservableProperty] private DateTime? _tributoVigenteDe;
+    [ObservableProperty] private DateTime? _tributoVigenteAte;
+    [ObservableProperty] private bool _tributoAtivo = true;
+
+    /// <summary>O que sai de cada real recebido hoje, somando os tributos vigentes.</summary>
+    [ObservableProperty] private string _cargaHoje = "—";
+
+    /// <summary>
+    /// Explica QUAL mecanismo está valendo. Enquanto não houver tributo cadastrado, a
+    /// alíquota única da parcela 9 continua sendo aplicada — e a tela precisa dizer isso,
+    /// senão o campo de baixo parece um resto de tela que não faz nada.
+    /// </summary>
+    [ObservableProperty] private string _origemDaCarga = string.Empty;
+
+    public string TituloTributo => EditandoTributoId == 0 ? "Novo tributo" : "Editar tributo";
+
+    // ---- Imposto (alíquota única — legado da parcela 9) ----
     [ObservableProperty] private string? _aliquotaImposto;
+
+    // ---- Simulador (parcela 15) ----
+    [ObservableProperty] private string? _simValor = "200";
+    [ObservableProperty] private string? _simAdquirente;
+    [ObservableProperty] private string? _simBandeira;
+    [ObservableProperty] private FormaPagamento _simForma = FormaPagamento.CartaoCredito;
+    [ObservableProperty] private string? _simParcelas = "1";
+    [ObservableProperty] private bool _simReterImposto = true;
+    [ObservableProperty] private string? _simResultado;
+    [ObservableProperty] private bool _simSemTaxa;
+
+    public IReadOnlyList<FormaPagamento> FormasSimulacao { get; } =
+    [
+        FormaPagamento.Dinheiro,
+        FormaPagamento.Pix,
+        FormaPagamento.CartaoDebito,
+        FormaPagamento.CartaoCredito
+    ];
 
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -99,6 +166,7 @@ public sealed partial class TaxasViewModel : ObservableObject
     }
 
     partial void OnEditandoIdChanged(int value) => OnPropertyChanged(nameof(TituloFormulario));
+    partial void OnEditandoTributoIdChanged(int value) => OnPropertyChanged(nameof(TituloTributo));
 
     [RelayCommand]
     public async Task CarregarAsync()
@@ -120,6 +188,27 @@ public sealed partial class TaxasViewModel : ObservableObject
             // Zero é "não configurado" e o campo fica VAZIO, não "0" — um zero digitado e
             // um zero padrão parecem iguais na tela e não são a mesma decisão.
             AliquotaImposto = aliquota > 0m ? aliquota.ToString("0.##") : null;
+
+            var tributos = scope.ServiceProvider.GetRequiredService<TributoService>();
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+            Tributos.Clear();
+            foreach (var t in await tributos.CatalogoAsync())
+                Tributos.Add(LinhaTributo.De(t, hoje));
+
+            var carga = await tributos.AliquotaTotalAsync(hoje);
+            CargaHoje = carga > 0m ? $"{carga:0.####}%" : "—";
+
+            // Qual mecanismo está valendo. Sem esta linha, quem cadastra o primeiro
+            // tributo não entende por que o campo da alíquota única parou de ter efeito.
+            var vigentes = Tributos.Count(t => t.ValendoAgora);
+            OrigemDaCarga = vigentes > 0
+                ? $"{vigentes} tributo(s) vigente(s) hoje. A alíquota única abaixo está desligada."
+                : aliquota > 0m
+                    ? "Nenhum tributo cadastrado — vale a alíquota única abaixo."
+                    : "Nenhum tributo e nenhuma alíquota: não se retém imposto.";
+
+            await SimularAsync();
         }
         catch (Exception ex)
         {
@@ -252,6 +341,195 @@ public sealed partial class TaxasViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar("Financeiro — taxa não pôde ser excluída", ex);
             Erro(ex.Message);
+        }
+    }
+
+    // ==================== Regime tributário (parcela 15) ====================
+
+    [RelayCommand]
+    private async Task SalvarTributoAsync()
+    {
+        Mensagem = null;
+        MensagemEhErro = false;
+
+        if (string.IsNullOrWhiteSpace(Sigla))
+        {
+            Erro("Informe a sigla do tributo (ISS, PIS, COFINS, IRPJ, CSLL, SIMPLES).");
+            return;
+        }
+        if (!Valores.TentarLerDecimal(PercentualTributo, out var percentual))
+        {
+            Erro("Informe a alíquota do tributo (ex.: 3 ou 0,65).");
+            return;
+        }
+        // Base vazia = 100%, que é o caso normal. Exigir o número em toda linha faria a
+        // clínica digitar "100" cinco vezes para cadastrar um regime do Simples.
+        var baseCalculo = 100m;
+        if (!string.IsNullOrWhiteSpace(BaseTributo)
+            && !Valores.TentarLerDecimal(BaseTributo, out baseCalculo))
+        {
+            Erro("A base de cálculo vai de 0 a 100 (ex.: 32 no IRPJ do Lucro Presumido).");
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar tributo");
+
+            using var scope = _escopos.CreateScope();
+            var tributos = scope.ServiceProvider.GetRequiredService<TributoService>();
+
+            await tributos.SalvarAsync(new Tributo
+            {
+                Id = EditandoTributoId,
+                Sigla = Sigla!,
+                Nome = string.IsNullOrWhiteSpace(NomeTributo) ? Sigla! : NomeTributo!,
+                Percentual = percentual,
+                BasePercentual = baseCalculo,
+                VigenteDe = TributoVigenteDe is { } de ? DateOnly.FromDateTime(de) : null,
+                VigenteAte = TributoVigenteAte is { } ate ? DateOnly.FromDateTime(ate) : null,
+                Ativo = TributoAtivo
+            }, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Sucesso(EditandoTributoId == 0 ? "Tributo cadastrado." : "Tributo atualizado.");
+            LimparTributo();
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — tributo não pôde ser salvo", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task EditarTributoAsync(LinhaTributo? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var tributos = scope.ServiceProvider.GetRequiredService<TributoService>();
+            var t = (await tributos.CatalogoAsync()).FirstOrDefault(x => x.Id == linha.TributoId);
+            if (t is null) return;
+
+            EditandoTributoId = t.Id;
+            Sigla = t.Sigla;
+            NomeTributo = t.Nome;
+            PercentualTributo = t.Percentual.ToString("0.####");
+            BaseTributo = t.BasePercentual.ToString("0.####");
+            TributoVigenteDe = t.VigenteDe?.ToDateTime(TimeOnly.MinValue);
+            TributoVigenteAte = t.VigenteAte?.ToDateTime(TimeOnly.MinValue);
+            TributoAtivo = t.Ativo;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — tributo não pôde ser aberto", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Excluir só serve para o que foi cadastrado errado. Tributo que já reteve alguma
+    /// coisa deve ser ENCERRADO pela vigência: o lançamento guardou o valor copiado, mas
+    /// apagar a regra apaga a explicação de por que a retenção daquele mês foi aquela.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExcluirTributoAsync(LinhaTributo? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "excluir tributo");
+
+            if (!_dialogo.ConfirmarPerigo("Excluir tributo",
+                    $"Apagar {linha.Descricao}? Se ele já reteve imposto de algum recebimento, "
+                    + "prefira ENCERRAR pela vigência: os lançamentos guardam o valor retido, "
+                    + "mas apagar a regra apaga a explicação de por que a retenção foi aquela.")) return;
+
+            using var scope = _escopos.CreateScope();
+            var tributos = scope.ServiceProvider.GetRequiredService<TributoService>();
+            await tributos.ExcluirAsync(linha.TributoId);
+
+            _snackbar.Info("Tributo excluído.");
+            if (EditandoTributoId == linha.TributoId) LimparTributo();
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — tributo não pôde ser excluído", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private void LimparTributo()
+    {
+        EditandoTributoId = 0;
+        Sigla = NomeTributo = PercentualTributo = null;
+        BaseTributo = "100";
+        TributoVigenteDe = TributoVigenteAte = null;
+        TributoAtivo = true;
+    }
+
+    // ==================== Simulador (parcela 15) ====================
+
+    /// <summary>
+    /// "Se eu passar R$ 200 no crédito 3x na Cielo, quanto sobra e quando cai?"
+    ///
+    /// É a pergunta do balcão e a da negociação com a adquirente, e até aqui só dava para
+    /// respondê-la lançando uma venda de verdade. Não grava nada — usa o mesmo
+    /// <see cref="TaxaService.CalcularAsync"/> da venda real, para o número simulado ser o
+    /// mesmo que vai acontecer. Refazer a conta aqui com uma fórmula própria produziria
+    /// dois resultados diferentes para a mesma pergunta.
+    /// </summary>
+    [RelayCommand]
+    private async Task SimularAsync()
+    {
+        try
+        {
+            SimResultado = null;
+            SimSemTaxa = false;
+
+            if (!Valores.TentarLerDecimal(SimValor, out var bruto) || bruto <= 0m) return;
+            if (!int.TryParse(SimParcelas, out var parcelas) || parcelas < 1) parcelas = 1;
+
+            using var scope = _escopos.CreateScope();
+            var taxas = scope.ServiceProvider.GetRequiredService<TaxaService>();
+
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var d = await taxas.CalcularAsync(
+                bruto, hoje, SimForma, SimAdquirente, SimBandeira, parcelas, SimReterImposto);
+
+            var liquido = bruto - d.Total;
+            var partes = new List<string> { $"Bruto {bruto:C}" };
+
+            if (d.ValorTaxa is { } taxa)
+                partes.Add($"taxa {taxa:C} ({d.TaxaPercentual:0.##}%)");
+            else if (TaxaService.ModalidadeDe(SimForma, parcelas) is not null)
+            {
+                // Sem taxa cadastrada não se inventa desconto — mas a tela DIZ que não
+                // achou, senão o líquido igual ao bruto passaria por taxa zero.
+                partes.Add("sem taxa cadastrada para esta combinação");
+                SimSemTaxa = true;
+            }
+
+            if (d.ValorImposto is { } imposto)
+                partes.Add($"imposto {imposto:C} ({d.DetalheImposto})");
+
+            partes.Add($"→ líquido {liquido:C}");
+
+            if (d.PrevisaoRecebimento is { } previsao)
+                partes.Add($"cai em {previsao:dd/MM/yyyy}");
+
+            SimResultado = string.Join(" · ", partes);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — simulação falhou", ex);
+            SimResultado = $"Não foi possível simular: {ex.Message}";
         }
     }
 

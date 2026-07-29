@@ -201,6 +201,36 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   que impede em vez de avisar, e vale também para sobra (dinheiro a mais costuma ser venda
   não lançada). Reabrir **não apaga**: o fechamento anterior fica marcado com o motivo e o
   dia volta a pendente; `FechamentoCaixa.Data` não é único e o que vale é o de maior `Id`.
+- **Regime tributário** (`TributoService`, parcela 15): substitui a alíquota única da
+  parcela 9, que respondia "quanto saiu" e não "**de quê**" — a clínica no Presumido tem
+  cinco guias — e não tinha vigência, então o reajuste do ISS mudava o mês já declarado.
+  `Tributo.BasePercentual` existe porque nem todo tributo incide sobre a receita inteira:
+  no Presumido o IRPJ de 15% incide sobre 32% e a **efetiva é 4,8%**; sem o campo a clínica
+  digitaria 15% e triplicaria o imposto. Cada tributo é **arredondado ao centavo
+  separadamente** (arredondar só no fim não bate com a soma do detalhe, e é o detalhe que
+  vai ao contador). `Descricao` e `DetalheImposto` são formatados em **pt-BR fixo, não na
+  cultura da máquina**: eles são GRAVADOS, e dois postos escreveriam "0,65%" e "0.65%" na
+  mesma coluna — não contradiz a regra invariante do `ParametrosService`, que **lê** número
+  que precisa voltar a ser número. A chave `AliquotaImpostoRetido` segue como **fallback**
+  enquanto não houver tributo cadastrado: o valor já está na base do cliente, e zerá-lo
+  faria um mês inteiro sair sem imposto sem ninguém perceber.
+- **Recebíveis de cartão** (`RecebiveisService`, parcela 16): `PrevisaoRecebimento` era
+  gravada desde a parcela 9 e **nenhuma tela a lia** — terceira ocorrência do mesmo defeito
+  no projeto. A conciliação é por **depósito, não por venda** (a adquirente deposita o lote
+  do dia; conferir venda a venda contra um extrato de um valor só nunca fecharia).
+  `RecebimentoConfirmadoEm` fica **separada** da previsão: quando a adquirente atrasa as
+  duas divergem, e sobrescrever a previsão apagaria a prova do atraso. A data do crédito é
+  **informada**, nunca `Today` — conferir na segunda um depósito que caiu na sexta viraria
+  três dias de atraso que não houve. O líquido do depósito é bruto menos **taxa, sem
+  imposto**: o imposto é recolhido depois, por guia, e descontá-lo aqui faria o número não
+  bater com o extrato, que é o único uso da tela.
+- **Custo de transação** (`CustoTransacaoService`, parcela 17): a visão da direção. A
+  leitura que só existe aqui é a **taxa efetiva contra a de tabela** — a tabela diz 3,1%, e
+  se a clínica parcela mais do que imagina o efetivo é 3,9%; é a diferença que dá argumento
+  na renegociação. A tabela vem como **faixa** (menor e maior vigente), porque uma
+  adquirente tem várias taxas e um número só teria de escolher uma modalidade. A fração da
+  barra é do custo de **maquininha**, não do faturamento: senão "(sem maquininha)" levaria
+  a maior fatia sendo que custa zero.
 - **Repasse** (`RepasseService`, parcela 4): quem atendeu vem do **agendamento**
   (`Agendamento.ProfissionalId` + `AtendimentoId`), porque `Atendimento` é do faturamento
   e não guarda profissional. O percentual incide sobre a **receita que entrou**

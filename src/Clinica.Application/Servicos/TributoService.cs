@@ -1,0 +1,172 @@
+using Clinica.Application.Abstracoes;
+using Clinica.Domain.Entities;
+
+namespace Clinica.Application.Servicos;
+
+/// <summary>
+/// O imposto de um recebimento, aberto por tributo.
+///
+/// <paramref name="Detalhe"/> é a PROCEDÊNCIA copiada para o lançamento ("ISS 3% + PIS
+/// 0,65%"), pelo mesmo motivo de a taxa de cartão copiar o percentual: o catálogo é
+/// renegociado, e sem a procedência ninguém saberia de onde saiu a retenção de um
+/// recebimento de seis meses atrás.
+/// </summary>
+public sealed record ImpostoApurado(decimal Aliquota, decimal Valor, string? Detalhe)
+{
+    public static readonly ImpostoApurado Nenhum = new(0m, 0m, null);
+
+    public bool Houve => Valor > 0m;
+}
+
+/// <summary>
+/// Regime tributário da clínica (parcela 15).
+///
+/// A parcela 9 resolveu o imposto com UMA alíquota global, e resolveu mal por dois
+/// motivos que só aparecem no escritório do contador: um número somado responde "quanto
+/// saiu" e não "de quê" (a clínica no Presumido tem cinco guias), e uma alíquota sem
+/// vigência muda o passado no dia em que o município reajusta o ISS.
+///
+/// Compatibilidade: a chave `ParametrosService.ChaveAliquotaImposto` continua valendo
+/// como FALLBACK enquanto não houver nenhum tributo cadastrado. O valor já está gravado
+/// na base do cliente, e trocar o mecanismo zerando a retenção faria a clínica emitir um
+/// mês inteiro sem imposto sem perceber. Cadastrou o primeiro tributo, os tributos mandam.
+/// </summary>
+public sealed class TributoService
+{
+    private readonly IClinicaRepositorio _repo;
+    private readonly ParametrosService? _parametros;
+
+    public TributoService(IClinicaRepositorio repo, ParametrosService? parametros = null)
+    {
+        _repo = repo;
+        _parametros = parametros;
+    }
+
+    public Task<IReadOnlyList<Tributo>> CatalogoAsync(
+        bool somenteAtivos = false, CancellationToken ct = default)
+        => _repo.TributosAsync(somenteAtivos, ct);
+
+    /// <summary>Os tributos que valem no dia — a base de qualquer cálculo.</summary>
+    public async Task<IReadOnlyList<Tributo>> VigentesEmAsync(
+        DateOnly dia, CancellationToken ct = default)
+        => (await _repo.TributosAsync(somenteAtivos: true, ct))
+            .Where(t => t.VigenteEm(dia))
+            .OrderBy(t => t.Sigla)
+            .ToList();
+
+    public async Task<Tributo> SalvarAsync(
+        Tributo dados, string? operador = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(dados.Sigla))
+            throw new InvalidOperationException("Informe a sigla do tributo (ISS, PIS, COFINS…).");
+        if (dados.Percentual is < 0m or > 100m)
+            throw new InvalidOperationException("A alíquota vai de 0 a 100.");
+        if (dados.BasePercentual is <= 0m or > 100m)
+            throw new InvalidOperationException(
+                "A base de cálculo vai de 0 a 100 — 100 quando o tributo incide sobre a receita inteira.");
+        if (dados.VigenteDe is { } de && dados.VigenteAte is { } ate && de > ate)
+            throw new InvalidOperationException("A vigência começa antes de terminar.");
+
+        var tributo = dados.Id == 0
+            ? null
+            : await _repo.ObterTributoAsync(dados.Id, ct)
+              ?? throw new InvalidOperationException("Tributo não encontrado.");
+
+        if (tributo is null)
+        {
+            tributo = new Tributo { CriadoPor = operador };
+            await _repo.AdicionarTributoAsync(tributo, ct);
+        }
+
+        tributo.Sigla = dados.Sigla.Trim().ToUpperInvariant();
+        tributo.Nome = string.IsNullOrWhiteSpace(dados.Nome) ? tributo.Sigla : dados.Nome.Trim();
+        tributo.Percentual = dados.Percentual;
+        tributo.BasePercentual = dados.BasePercentual;
+        tributo.VigenteDe = dados.VigenteDe;
+        tributo.VigenteAte = dados.VigenteAte;
+        tributo.Ativo = dados.Ativo;
+        tributo.Observacoes = string.IsNullOrWhiteSpace(dados.Observacoes) ? null : dados.Observacoes.Trim();
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Acao = dados.Id == 0 ? "TributoCriado" : "TributoAtualizado",
+            Detalhe = tributo.Descricao + $" · {tributo.Vigencia}",
+            Operador = operador ?? Environment.UserName
+        }, ct);
+        await _repo.SalvarAsync(ct);
+        return tributo;
+    }
+
+    /// <summary>
+    /// Excluir só serve para o que foi cadastrado errado. Tributo que já reteve alguma
+    /// coisa deve ser ENCERRADO pela vigência: o lançamento guardou o valor copiado, mas
+    /// apagar a regra apaga a explicação de por que a retenção daquele mês foi aquela.
+    /// </summary>
+    public async Task ExcluirAsync(int tributoId, CancellationToken ct = default)
+    {
+        await _repo.RemoverTributoAsync(tributoId, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
+    /// Quanto de imposto sai de um recebimento, e de quê.
+    ///
+    /// Cada tributo é arredondado ao centavo SEPARADAMENTE, e a alíquota devolvida é a
+    /// soma das efetivas. Arredondar só no fim daria um total que não bate com a soma das
+    /// linhas do detalhe — e é o detalhe que a clínica leva para o contador.
+    /// </summary>
+    public async Task<ImpostoApurado> ApurarAsync(
+        decimal valorBruto, DateOnly dia, CancellationToken ct = default)
+    {
+        if (valorBruto <= 0m) return ImpostoApurado.Nenhum;
+
+        var vigentes = await VigentesEmAsync(dia, ct);
+
+        if (vigentes.Count == 0)
+        {
+            // Fallback da parcela 9: a base do cliente já tem a alíquota única gravada, e
+            // trocar o mecanismo zerando a retenção faria a clínica emitir um mês inteiro
+            // sem imposto sem perceber.
+            var antiga = _parametros is null ? 0m : await _parametros.ObterAliquotaImpostoAsync(ct);
+            if (antiga <= 0m) return ImpostoApurado.Nenhum;
+
+            return new ImpostoApurado(
+                antiga, Arredondar(valorBruto * antiga / 100m),
+                // pt-BR fixo pelo mesmo motivo do Tributo.Descricao: este texto é gravado.
+                string.Format(new System.Globalization.CultureInfo("pt-BR"),
+                    "Alíquota única {0:0.##}%", antiga));
+        }
+
+        var total = 0m;
+        var aliquota = 0m;
+        var partes = new List<string>(vigentes.Count);
+
+        foreach (var t in vigentes)
+        {
+            var efetiva = t.AliquotaEfetiva;
+            if (efetiva <= 0m) continue;
+
+            aliquota += efetiva;
+            total += Arredondar(valorBruto * efetiva / 100m);
+            partes.Add(t.Descricao);
+        }
+
+        return partes.Count == 0
+            ? ImpostoApurado.Nenhum
+            : new ImpostoApurado(aliquota, total, string.Join(" + ", partes));
+    }
+
+    /// <summary>
+    /// Alíquota efetiva total do dia, para a tela mostrar "hoje sai X% de cada recebimento".
+    /// </summary>
+    public async Task<decimal> AliquotaTotalAsync(DateOnly dia, CancellationToken ct = default)
+    {
+        var vigentes = await VigentesEmAsync(dia, ct);
+        if (vigentes.Count > 0) return vigentes.Sum(t => t.AliquotaEfetiva);
+
+        return _parametros is null ? 0m : await _parametros.ObterAliquotaImpostoAsync(ct);
+    }
+
+    private static decimal Arredondar(decimal valor)
+        => Math.Round(valor, 2, MidpointRounding.AwayFromZero);
+}

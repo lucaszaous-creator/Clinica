@@ -128,6 +128,7 @@ public sealed class FinanceiroService
             ValorTaxa = deducoes?.ValorTaxa,
             AliquotaImposto = deducoes?.AliquotaImposto,
             ValorImposto = deducoes?.ValorImposto,
+            DetalheImposto = deducoes?.DetalheImposto,
             PrevisaoRecebimento = deducoes?.PrevisaoRecebimento
         };
 

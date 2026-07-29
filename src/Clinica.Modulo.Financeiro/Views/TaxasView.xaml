@@ -20,7 +20,18 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- ===== Formulário + imposto (coluna esquerda) ===== -->
+        <!--
+          Três assuntos na mesma entrada do menu, em SUB-ABAS: a taxa que a adquirente
+          cobra, o regime tributário da clínica e o simulador. A convenção do projeto é
+          usar sub-abas em vez de criar entradas novas na sidebar quando o item cobre
+          vários assuntos — a proposta tem um item aqui, não três.
+        -->
+        <TabControl Background="Transparent" BorderThickness="0">
+
+        <TabItem Header="Maquininha">
+        <DockPanel Margin="0,12,0,0">
+
+        <!-- ===== Formulário da taxa (coluna esquerda) ===== -->
         <StackPanel DockPanel.Dock="Left" Width="360" Margin="0,0,16,0">
 
             <Border Style="{StaticResource Card}">
@@ -104,21 +115,6 @@
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                <StackPanel IsEnabled="{Binding PodeEditar}">
-                    <TextBlock Text="Imposto retido" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                               Text="Alíquota descontada do recebimento (ISS, Simples). Em branco = não retém, que é o padrão — cada clínica tem o seu regime e chutar a alíquota erraria a base inteira." />
-
-                    <TextBlock Text="Alíquota (%)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                    <TextBox Text="{Binding AliquotaImposto, UpdateSourceTrigger=PropertyChanged}"
-                             MaxLength="6" />
-
-                    <Button Content="Salvar alíquota" Command="{Binding SalvarImpostoCommand}"
-                            HorizontalAlignment="Left" Margin="0,12,0,0" MinWidth="140" />
-                </StackPanel>
-            </Border>
         </StackPanel>
 
         <!-- ===== Catálogo ===== -->
@@ -203,5 +199,295 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
+        </DockPanel>
+        </TabItem>
+
+        <!-- ===================== Regime tributário ===================== -->
+        <TabItem Header="Regime tributário">
+        <DockPanel Margin="0,12,0,0">
+
+            <StackPanel DockPanel.Dock="Left" Width="360" Margin="0,0,16,0">
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel IsEnabled="{Binding PodeEditar}">
+                        <TextBlock Text="{Binding TituloTributo}" Style="{StaticResource H3}"
+                                   Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                                   Text="Um tributo por linha, como o contador informa. A clínica no Simples cadastra um; no Lucro Presumido, cinco — e é essa separação que permite conferir guia por guia no fim do mês." />
+
+                        <TextBlock Text="Sigla" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding Sigla, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="20" />
+
+                        <TextBlock Text="Nome (opcional)" Style="{StaticResource Rotulo}"
+                                   Margin="0,10,0,4" />
+                        <TextBox Text="{Binding NomeTributo}" MaxLength="100" />
+
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Alíquota (%)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding PercentualTributo, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="8" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Base (%)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding BaseTributo}" MaxLength="8" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                                   Text="A base é 100% quando o tributo incide sobre a receita inteira. No Lucro Presumido o IRPJ entra como 15% sobre base 32% — o sistema faz a conta e aplica 4,8%." />
+
+                        <Grid Margin="0,10,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Vigente de" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <DatePicker SelectedDate="{Binding TributoVigenteDe}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Até" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <DatePicker SelectedDate="{Binding TributoVigenteAte}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                                   Text="Reajuste do ISS entra como uma linha NOVA, com a data em que passou a valer. O mês já declarado continua sendo calculado pela alíquota daquele mês." />
+
+                        <CheckBox Content="Ativo" IsChecked="{Binding TributoAtivo}" Margin="0,10,0,0" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="Salvar" Command="{Binding SalvarTributoCommand}"
+                                    MinWidth="110" Margin="0,0,8,0" />
+                            <Button Content="Limpar" Command="{Binding LimparTributoCommand}"
+                                    Style="{StaticResource BotaoSecundario}" MinWidth="90" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <StackPanel IsEnabled="{Binding PodeEditar}">
+                        <TextBlock Text="Alíquota única (modo antigo)" Style="{StaticResource H3}"
+                                   Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                                   Text="Só é aplicada enquanto NÃO houver nenhum tributo cadastrado acima. Continua aqui porque a clínica já pode ter um valor gravado, e desligá-lo sem aviso faria um mês inteiro sair sem imposto." />
+
+                        <TextBlock Text="Alíquota (%)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Text="{Binding AliquotaImposto, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="6" />
+
+                        <Button Content="Salvar alíquota" Command="{Binding SalvarImpostoCommand}"
+                                HorizontalAlignment="Left" Margin="0,12,0,0" MinWidth="140" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <Border Style="{StaticResource Card}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                        <TextBlock Text="Tributos cadastrados" Style="{StaticResource H3}"
+                                   Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}">
+                            <Run Text="Sai hoje de cada recebimento: " />
+                            <Run Text="{Binding CargaHoje, Mode=OneWay}" FontWeight="SemiBold" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding OrigemDaCarga}" Style="{StaticResource TextoSuave}"
+                                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Nenhum tributo cadastrado. Enquanto não houver, vale a alíquota única ao lado.">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Tributos.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Tributos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
+                                                    <Run Text="{Binding Nome, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Vigencia, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <!-- "Valendo agora" é o que responde à pergunta
+                                                 real: o cadastro tem o histórico inteiro, e
+                                                 sem a marca não dá para saber qual linha
+                                                 está descontando hoje. -->
+                                            <Border Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource Badge.Sucesso}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding ValendoAgora}" Value="False">
+                                                                <Setter Property="Background"
+                                                                        Value="{StaticResource Brush.Superficie.Hover}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock>
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="fora de vigência" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding ValendoAgora}" Value="True">
+                                                                    <Setter Property="Text" Value="valendo agora" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </Border>
+
+                                            <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <Button Content="Editar" Style="{StaticResource BotaoPequeno}"
+                                                        Margin="0,0,6,0"
+                                                        IsEnabled="{Binding DataContext.PodeEditar,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Command="{Binding DataContext.EditarTributoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                        IsEnabled="{Binding DataContext.PodeEditar,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Command="{Binding DataContext.ExcluirTributoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </DockPanel>
+        </TabItem>
+
+        <!-- ===================== Simulador ===================== -->
+        <TabItem Header="Simulador">
+        <DockPanel Margin="0,12,0,0">
+            <Border DockPanel.Dock="Top" Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="Quanto sobra e quando cai" Style="{StaticResource H3}"
+                               Margin="0,0,0,4" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               Margin="0,0,0,12"
+                               Text="A pergunta do balcão e a da negociação com a adquirente. Usa exatamente a mesma conta da venda real — não grava nada, e o número simulado é o que vai acontecer." />
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="180" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Valor" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding SimValor, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="14" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Forma" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <ComboBox ItemsSource="{Binding FormasSimulacao}"
+                                      SelectedItem="{Binding SimForma}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="Adquirente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding SimAdquirente, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="60" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="6">
+                            <TextBlock Text="Bandeira" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding SimBandeira, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="40" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="8">
+                            <TextBlock Text="Parcelas" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding SimParcelas, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="2" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                        <CheckBox Content="Reter imposto" IsChecked="{Binding SimReterImposto}"
+                                  VerticalAlignment="Center" Margin="0,0,16,0" />
+                        <Button Content="Simular" Command="{Binding SimularCommand}" MinWidth="110" />
+                    </StackPanel>
+
+                    <Border Margin="0,14,0,0">
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SimResultado}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding SimResultado}" TextWrapping="Wrap" />
+                    </Border>
+
+                    <!-- Sem taxa cadastrada não se inventa desconto — mas a tela DIZ que
+                         não achou, senão o líquido igual ao bruto passaria por taxa zero. -->
+                    <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0"
+                            Visibility="{Binding SimSemTaxa, Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock TextWrapping="Wrap"
+                                   Text="Não há taxa cadastrada para essa combinação, então o líquido acima está SEM desconto de maquininha. Cadastre a taxa na aba anterior para o número ficar real." />
+                    </Border>
+                </StackPanel>
+            </Border>
+            <Border />
+        </DockPanel>
+        </TabItem>
+
+        </TabControl>
     </DockPanel>
 </UserControl>

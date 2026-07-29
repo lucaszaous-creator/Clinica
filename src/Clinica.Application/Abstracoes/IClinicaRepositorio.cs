@@ -339,6 +339,42 @@ public interface IClinicaRepositorio
     Task AdicionarTaxaCartaoAsync(TaxaCartao taxa, CancellationToken ct = default);
 
     Task RemoverTaxaCartaoAsync(int taxaId, CancellationToken ct = default);
+
+    // ---- Custo de transacao, visao da direcao (parcela 17) ----
+
+    /// <summary>
+    /// Entradas REALIZADAS do periodo com o que foi descontado delas. So realizada: taxa
+    /// de recebimento que ainda nao aconteceu e desconto de receita que nao existe.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.RecebimentoComDeducao>> RecebimentosComDeducaoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    // ---- Recebiveis de cartao (parcela 16) ----
+
+    /// <summary>
+    /// Recebimentos de cartao ainda nao creditados, com previsao ate a data. A previsao
+    /// era gravada desde a parcela 9 e nenhuma tela a lia — dado gravado sem leitor passa
+    /// no CI e nao faz nada na clinica.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> RecebiveisEmAbertoAsync(
+        DateOnly ate, CancellationToken ct = default);
+
+    /// <summary>Lancamentos por id, RASTREADOS — a confirmacao do deposito escreve neles.</summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosPorIdAsync(
+        IReadOnlyCollection<int> ids, CancellationToken ct = default);
+
+    // ---- Regime tributario (parcela 15) ----
+
+    /// <summary>Catalogo de tributos (ISS, PIS, COFINS, IRPJ, CSLL, Simples).</summary>
+    Task<IReadOnlyList<Tributo>> TributosAsync(
+        bool somenteAtivos = false, CancellationToken ct = default);
+
+    /// <summary>Tributo rastreado, para a tela poder edita-lo.</summary>
+    Task<Tributo?> ObterTributoAsync(int tributoId, CancellationToken ct = default);
+
+    Task AdicionarTributoAsync(Tributo tributo, CancellationToken ct = default);
+
+    Task RemoverTributoAsync(int tributoId, CancellationToken ct = default);
     Task AdicionarRepasseApuradoAsync(RepasseApurado repasse, CancellationToken ct = default);
 
     /// <summary>

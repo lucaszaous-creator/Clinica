@@ -817,6 +817,61 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (taxa is not null) _db.TaxasCartao.Remove(taxa);
     }
 
+    // ---- Custo de transacao, visao da direcao (parcela 17) ----
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.RecebimentoComDeducao>>
+        RecebimentosComDeducaoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Tipo == TipoLancamento.Entrada)
+            .Where(l => l.Status == StatusLancamento.Realizado)
+            // Pelo dia do PAGAMENTO: o custo de maquininha pertence ao mes da venda.
+            .Where(l => (l.DataPagamento ?? l.Data) >= inicio && (l.DataPagamento ?? l.Data) <= fim)
+            .Select(l => new Clinica.Application.Modelos.RecebimentoComDeducao(
+                l.DataPagamento ?? l.Data, l.Valor, l.ValorTaxa, l.ValorImposto, l.Adquirente))
+            .ToListAsync(ct);
+
+    // ---- Recebiveis de cartao (parcela 16) ----
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> RecebiveisEmAbertoAsync(
+        DateOnly ate, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Status != StatusLancamento.Cancelado)
+            .Where(l => l.PrevisaoRecebimento != null && l.PrevisaoRecebimento <= ate)
+            .Where(l => l.RecebimentoConfirmadoEm == null)
+            .OrderBy(l => l.PrevisaoRecebimento).ThenBy(l => l.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosPorIdAsync(
+        IReadOnlyCollection<int> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return [];
+        // RASTREADOS de proposito (sem AsNoTracking): a confirmacao do deposito escreve
+        // nestas entidades.
+        return await _db.Lancamentos.Where(l => ids.Contains(l.Id)).ToListAsync(ct);
+    }
+
+    // ---- Regime tributario (parcela 15) ----
+
+    public async Task<IReadOnlyList<Tributo>> TributosAsync(
+        bool somenteAtivos = false, CancellationToken ct = default)
+        => await _db.Tributos.AsNoTracking()
+            .Where(t => !somenteAtivos || t.Ativo)
+            .OrderBy(t => t.Sigla)
+            .ThenBy(t => t.VigenteDe)
+            .ToListAsync(ct);
+
+    public Task<Tributo?> ObterTributoAsync(int tributoId, CancellationToken ct = default)
+        => _db.Tributos.FirstOrDefaultAsync(t => t.Id == tributoId, ct);
+
+    public async Task AdicionarTributoAsync(Tributo tributo, CancellationToken ct = default)
+        => await _db.Tributos.AddAsync(tributo, ct);
+
+    public async Task RemoverTributoAsync(int tributoId, CancellationToken ct = default)
+    {
+        var tributo = await _db.Tributos.FirstOrDefaultAsync(t => t.Id == tributoId, ct);
+        if (tributo is not null) _db.Tributos.Remove(tributo);
+    }
+
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
     {

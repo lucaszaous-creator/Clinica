@@ -170,11 +170,53 @@ public class LancamentoFinanceiro
     public decimal? ValorImposto { get; set; }
 
     /// <summary>
+    /// De QUÊ é o imposto, copiado na emissão: "ISS 3% + PIS 0,65% + COFINS 3%"
+    /// (parcela 15). A alíquota somada responde "quanto saiu" e não "de quê" — e "de quê"
+    /// é a pergunta que o contador faz no fim do mês, quando precisa separar as guias.
+    ///
+    /// Copiado, e não montado na leitura, pela mesma razão do valor da taxa: as alíquotas
+    /// têm vigência, e remontar o texto hoje descreveria a retenção de março com os
+    /// números de setembro.
+    /// </summary>
+    public string? DetalheImposto { get; set; }
+
+    /// <summary>
     /// Quando o dinheiro efetivamente cai. Diferente de <see cref="DataPagamento"/>: o
     /// paciente pagou hoje no crédito, e a clínica recebe em 30 dias. É o que sustenta
     /// o "a receber" do caixa.
     /// </summary>
     public DateOnly? PrevisaoRecebimento { get; set; }
+
+    /// <summary>
+    /// Quando o dinheiro da adquirente CAIU DE FATO na conta (parcela 16).
+    ///
+    /// A previsão sozinha não controlava nada: ela era gravada desde a parcela 9 e
+    /// ninguém a lia, então a clínica não tinha como saber que a Stone devia ter
+    /// depositado no dia 10 e não depositou. É a confirmação que transforma a previsão em
+    /// conciliação — e o atraso em alarme.
+    ///
+    /// Null enquanto não caiu. A data real fica separada da prevista de propósito: quando
+    /// a adquirente atrasa, as duas divergem, e sobrescrever a previsão apagaria
+    /// justamente a prova de que houve atraso.
+    /// </summary>
+    public DateOnly? RecebimentoConfirmadoEm { get; set; }
+
+    /// <summary>
+    /// Recebimento de cartão que ainda não caiu. Só cartão tem previsão — dinheiro e Pix
+    /// entram inteiros e na hora, e cobrá-los aqui encheria a lista de linhas que não têm
+    /// o que esperar.
+    /// </summary>
+    public bool RecebivelEmAberto =>
+        PrevisaoRecebimento is not null
+        && RecebimentoConfirmadoEm is null
+        && Status != StatusLancamento.Cancelado;
+
+    /// <summary>
+    /// A adquirente passou da data e não depositou. É a única linha desta tela que pede
+    /// ação: o resto é só esperar.
+    /// </summary>
+    public bool RecebimentoAtrasado(DateOnly hoje) =>
+        RecebivelEmAberto && PrevisaoRecebimento is { } p && p < hoje;
 
     /// <summary>
     /// O que sobra de verdade: bruto menos taxa menos imposto. Calculado, nunca gravado.

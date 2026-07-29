@@ -44,6 +44,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ConsumoPacote> ConsumosPacote => Set<ConsumoPacote>();
     public DbSet<RegraRepasse> RegrasRepasse => Set<RegraRepasse>();
     public DbSet<TaxaCartao> TaxasCartao => Set<TaxaCartao>();
+    public DbSet<Tributo> Tributos => Set<Tributo>();
     public DbSet<RepasseApurado> RepassesApurados => Set<RepasseApurado>();
     public DbSet<ItemEstoque> ItensEstoque => Set<ItemEstoque>();
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
@@ -599,8 +600,14 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.ValorTaxa).HasPrecision(14, 2);
             e.Property(x => x.AliquotaImposto).HasPrecision(6, 2);
             e.Property(x => x.ValorImposto).HasPrecision(14, 2);
+            // De QUE e o imposto, copiado na emissao (parcela 15). A aliquota somada
+            // responde "quanto saiu" e nao "de que" — e "de que" e o que o contador pede.
+            e.Property(x => x.DetalheImposto).HasMaxLength(300);
             e.Ignore(x => x.ValorLiquido);
             e.Ignore(x => x.TemDeducao);
+            // Recebivel em aberto e o atraso sao CALCULADOS — o segundo depende de HOJE,
+            // e gravado estaria mentindo amanha de manha.
+            e.Ignore(x => x.RecebivelEmAberto);
 
             // Contas a pagar e a receber (parcela 12). "Vencido" tambem nao e coluna:
             // ele depende de HOJE, e uma coluna gravada estaria mentindo amanha de manha.
@@ -621,6 +628,10 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => x.CodigoFaturamentoId);
             // "O que vence esta semana" é a consulta mais frequente do módulo.
             e.HasIndex(x => x.DataVencimento);
+            // "O que a maquininha ainda deve depositar" (parcela 16). O indice e sobre a
+            // previsao porque a consulta filtra por ela; o confirmado entra so como
+            // condicao, e nunca sozinho.
+            e.HasIndex(x => x.PrevisaoRecebimento);
             // Idempotencia da geracao de contas recorrentes: o aluguel de agosto so pode
             // nascer uma vez, mesmo com dois postos abrindo o app na mesma manha. O
             // filtro deixa os avulsos (origem nula) de fora do unico.
@@ -768,6 +779,28 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => x.Ativa);
             e.Ignore(x => x.Descricao);
+        });
+
+        b.Entity<Tributo>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Sigla).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
+            // Quatro casas na aliquota: no Presumido a efetiva do IRPJ e 4,8% e a da CSLL
+            // 2,88% — duas casas arredondariam o segundo para 2,88 e o terceiro para cima.
+            e.Property(x => x.Percentual).HasPrecision(7, 4);
+            e.Property(x => x.BasePercentual).HasPrecision(7, 4);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasIndex(x => x.Ativo);
+
+            // Efetiva, descricao e vigencia sao CALCULADAS — gravar a efetiva daria duas
+            // verdades sobre a mesma aliquota no dia em que a base mudasse.
+            e.Ignore(x => x.AliquotaEfetiva);
+            e.Ignore(x => x.Descricao);
+            e.Ignore(x => x.Vigencia);
         });
 
         b.Entity<RepasseApurado>(e =>
