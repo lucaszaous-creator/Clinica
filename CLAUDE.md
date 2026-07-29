@@ -171,6 +171,36 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   o lançamento fica só com o bruto, que é a verdade disponível. A alíquota de imposto nasce
   **zero** — cada clínica tem seu regime, e chutar erraria a base inteira — e é lida com
   ponto decimal invariante ("2,5" lido como 25 multiplicaria o imposto por dez).
+- **Contas a pagar e a receber** (`ContasService`, parcela 12): `LancamentoFinanceiro` tem
+  **três datas e elas não são a mesma coisa** — `Data` é a competência, `DataPagamento` é
+  quando o dinheiro se moveu e `DataVencimento` é quando ele PRECISA se mover. Sem a
+  terceira o módulo não respondia "o que vence esta semana". `LancamentoRecorrente` é um
+  **molde, não um lançamento**: ele não entra em total nenhum, quem entra é a conta prevista
+  que ele gera e que dali em diante tem vida própria (a luz nunca vem igual; se a
+  recorrência fosse "o lançamento que se repete", corrigir março reescreveria janeiro, já
+  pago e conciliado). A série sai sempre do **primeiro vencimento mais N períodos**, nunca
+  da ocorrência anterior mais um — encadear faria o aluguel do dia 31 virar aluguel do dia
+  28 para sempre por causa de fevereiro. A geração é **idempotente** por
+  `OrigemRecorrencia` (`REC:{id}:{aaaa-MM-dd}`, índice único), roda por **clique** e nunca
+  automaticamente na abertura, e **nada nasce pago**: tudo vem `Previsto`, porque o sistema
+  sabe que a conta vence, não que ela foi quitada.
+- **Fluxo de caixa** (`FluxoCaixaService`, parcela 13): **realizado e previsto nunca viram
+  um número só** — somados, o mês que fechou e o que ainda vai vencer teriam a mesma cara.
+  Cada lançamento entra no mês pela data que corresponde ao seu estado (`LancamentoDatado.
+  DataDoFluxo`): realizado pelo pagamento, previsto pelo vencimento, competência como
+  último recurso. O acumulado é **variação no período, não saldo em conta** — a clínica
+  nunca cadastrou saldo inicial, e chamá-lo de saldo daria um número que não bate com o
+  extrato. A fração da categoria é do total **do mesmo tipo**, e lançamento sem categoria
+  aparece como "Sem categoria" em vez de sumir.
+- **Fechamento de caixa** (`FechamentoCaixaService`, parcela 14): a conferência da gaveta
+  conta **só espécie** — cartão e PIX caem na conta dias depois, e incluí-los faria a
+  conferência nunca bater, o que treina a clínica a clicar "OK" sem olhar. `ValorSistema` e
+  `SaidasEspecie` são **copiados no fechamento**, não recalculados: lançamento digitado
+  amanhã com a data de ontem reescreveria a conferência de ontem e levaria junto a
+  justificativa. **Divergência exige justificativa escrita** — é a única regra do serviço
+  que impede em vez de avisar, e vale também para sobra (dinheiro a mais costuma ser venda
+  não lançada). Reabrir **não apaga**: o fechamento anterior fica marcado com o motivo e o
+  dia volta a pendente; `FechamentoCaixa.Data` não é único e o que vale é o de maior `Id`.
 - **Repasse** (`RepasseService`, parcela 4): quem atendeu vem do **agendamento**
   (`Agendamento.ProfissionalId` + `AtendimentoId`), porque `Atendimento` é do faturamento
   e não guarda profissional. O percentual incide sobre a **receita que entrou**
