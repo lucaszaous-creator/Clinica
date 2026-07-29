@@ -817,6 +817,28 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (taxa is not null) _db.TaxasCartao.Remove(taxa);
     }
 
+    // ---- Regime tributario (parcela 15) ----
+
+    public async Task<IReadOnlyList<Tributo>> TributosAsync(
+        bool somenteAtivos = false, CancellationToken ct = default)
+        => await _db.Tributos.AsNoTracking()
+            .Where(t => !somenteAtivos || t.Ativo)
+            .OrderBy(t => t.Sigla)
+            .ThenBy(t => t.VigenteDe)
+            .ToListAsync(ct);
+
+    public Task<Tributo?> ObterTributoAsync(int tributoId, CancellationToken ct = default)
+        => _db.Tributos.FirstOrDefaultAsync(t => t.Id == tributoId, ct);
+
+    public async Task AdicionarTributoAsync(Tributo tributo, CancellationToken ct = default)
+        => await _db.Tributos.AddAsync(tributo, ct);
+
+    public async Task RemoverTributoAsync(int tributoId, CancellationToken ct = default)
+    {
+        var tributo = await _db.Tributos.FirstOrDefaultAsync(t => t.Id == tributoId, ct);
+        if (tributo is not null) _db.Tributos.Remove(tributo);
+    }
+
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosDosAtendimentosAsync(
         IReadOnlyCollection<int> atendimentoIds, CancellationToken ct = default)
     {

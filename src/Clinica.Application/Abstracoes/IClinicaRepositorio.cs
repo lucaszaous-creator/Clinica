@@ -339,6 +339,19 @@ public interface IClinicaRepositorio
     Task AdicionarTaxaCartaoAsync(TaxaCartao taxa, CancellationToken ct = default);
 
     Task RemoverTaxaCartaoAsync(int taxaId, CancellationToken ct = default);
+
+    // ---- Regime tributario (parcela 15) ----
+
+    /// <summary>Catalogo de tributos (ISS, PIS, COFINS, IRPJ, CSLL, Simples).</summary>
+    Task<IReadOnlyList<Tributo>> TributosAsync(
+        bool somenteAtivos = false, CancellationToken ct = default);
+
+    /// <summary>Tributo rastreado, para a tela poder edita-lo.</summary>
+    Task<Tributo?> ObterTributoAsync(int tributoId, CancellationToken ct = default);
+
+    Task AdicionarTributoAsync(Tributo tributo, CancellationToken ct = default);
+
+    Task RemoverTributoAsync(int tributoId, CancellationToken ct = default);
     Task AdicionarRepasseApuradoAsync(RepasseApurado repasse, CancellationToken ct = default);
 
     /// <summary>

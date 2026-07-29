@@ -18,6 +18,13 @@ public sealed record DeducoesRecebimento(
     public static readonly DeducoesRecebimento Nenhuma =
         new(null, null, null, null, null, null);
 
+    /// <summary>
+    /// De quê é o imposto ("ISS 3% + PIS 0,65%"), copiado da apuração (parcela 15). A
+    /// alíquota somada responde "quanto saiu" e não "de quê" — e "de quê" é a pergunta
+    /// que o contador faz.
+    /// </summary>
+    public string? DetalheImposto { get; init; }
+
     public decimal Total => (ValorTaxa ?? 0m) + (ValorImposto ?? 0m);
 }
 
@@ -46,11 +53,16 @@ public sealed class TaxaService
 {
     private readonly IClinicaRepositorio _repo;
     private readonly ParametrosService? _parametros;
+    private readonly TributoService? _tributos;
 
-    public TaxaService(IClinicaRepositorio repo, ParametrosService? parametros = null)
+    public TaxaService(
+        IClinicaRepositorio repo,
+        ParametrosService? parametros = null,
+        TributoService? tributos = null)
     {
         _repo = repo;
         _parametros = parametros;
+        _tributos = tributos;
     }
 
     // ==================== Catálogo ====================
@@ -168,20 +180,40 @@ public sealed class TaxaService
         }
 
         decimal? aliquota = null, valorImposto = null;
+        string? detalheImposto = null;
         if (reterImposto)
         {
-            var configurada = _parametros is null
-                ? 0m
-                : await _parametros.ObterAliquotaImpostoAsync(ct);
-            if (configurada > 0m)
+            // A apuração vem do TributoService desde a parcela 15: ele abre o imposto por
+            // tributo e cai na alíquota única antiga quando não há nenhum cadastrado.
+            // Sem ele injetado (testes que só exercitam a taxa), vale o caminho antigo.
+            if (_tributos is not null)
             {
-                aliquota = configurada;
-                valorImposto = Arredondar(valorBruto * configurada / 100m);
+                var apurado = await _tributos.ApurarAsync(valorBruto, data, ct);
+                if (apurado.Houve)
+                {
+                    aliquota = apurado.Aliquota;
+                    valorImposto = apurado.Valor;
+                    detalheImposto = apurado.Detalhe;
+                }
+            }
+            else
+            {
+                var configurada = _parametros is null
+                    ? 0m
+                    : await _parametros.ObterAliquotaImpostoAsync(ct);
+                if (configurada > 0m)
+                {
+                    aliquota = configurada;
+                    valorImposto = Arredondar(valorBruto * configurada / 100m);
+                }
             }
         }
 
         return new DeducoesRecebimento(
-            taxaPercentual, valorTaxa, aliquota, valorImposto, previsao, procedencia);
+            taxaPercentual, valorTaxa, aliquota, valorImposto, previsao, procedencia)
+        {
+            DetalheImposto = detalheImposto
+        };
     }
 
     /// <summary>

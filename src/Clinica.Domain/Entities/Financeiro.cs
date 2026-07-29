@@ -170,6 +170,17 @@ public class LancamentoFinanceiro
     public decimal? ValorImposto { get; set; }
 
     /// <summary>
+    /// De QUÊ é o imposto, copiado na emissão: "ISS 3% + PIS 0,65% + COFINS 3%"
+    /// (parcela 15). A alíquota somada responde "quanto saiu" e não "de quê" — e "de quê"
+    /// é a pergunta que o contador faz no fim do mês, quando precisa separar as guias.
+    ///
+    /// Copiado, e não montado na leitura, pela mesma razão do valor da taxa: as alíquotas
+    /// têm vigência, e remontar o texto hoje descreveria a retenção de março com os
+    /// números de setembro.
+    /// </summary>
+    public string? DetalheImposto { get; set; }
+
+    /// <summary>
     /// Quando o dinheiro efetivamente cai. Diferente de <see cref="DataPagamento"/>: o
     /// paciente pagou hoje no crédito, e a clínica recebe em 30 dias. É o que sustenta
     /// o "a receber" do caixa.
