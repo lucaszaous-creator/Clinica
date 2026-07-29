@@ -335,6 +335,32 @@ zero.**
 > tributo cadastrado. O valor já está na base do cliente, e trocar o mecanismo zerando a
 > retenção faria a clínica emitir um mês inteiro sem imposto sem perceber.
 
+### Retenção na fonte por convênio — ✅ · parcela 18
+
+| Item | Estado | Onde |
+|---|---|---|
+| Retenção por operadora (IRRF, CSLL/PIS/COFINS, ISS) | ✅ | `Tributo.ConvenioCodigo`, `TributoService.ApurarAsync` |
+| Prévia da retenção antes de lançar | ✅ | botão "Reter?" na `ConciliacaoView` |
+| Retenção aplicada à receita da guia | ✅ | `FinanceiroService.LancarReceitaDaGuiaAsync` |
+
+> **A operadora retém antes de depositar.** A guia vale R$ 1.000 e caem R$ 943,50. Até a
+> parcela 18 o sistema gravava os R$ 1.000 e não sabia da diferença — o mesmo defeito que a
+> parcela 9 corrigiu para a maquininha, intocado justamente no convênio, que é onde esta
+> clínica fatura mais.
+
+> **A retenção SUBSTITUI os tributos gerais naquele recebimento**, não se soma a eles. Os
+> dois representam o mesmo imposto, e somá-los contaria duas vezes: é o erro que mais
+> aparece em planilha de clínica de convênio. Se a operadora retém uns e a clínica recolhe
+> outros, cadastre todos como linhas do convênio.
+
+> **Sem retenção cadastrada, o convênio cai nos tributos gerais** — o comportamento de
+> antes. Mudar isso faria a receita de convênio parar de sofrer imposto da noite para o
+> dia, em toda base que já existe. E a retenção de um convênio nunca vaza para recebimento
+> que não é dele: a da Unimed não incide sobre o particular pago em dinheiro.
+
+> **O detalhe copiado diz "(retido na fonte)".** Não é decoração: retido já saiu, recolhido
+> ainda vai sair, e sem a marca o contador recolheria de novo o que a operadora já reteve.
+
 ### Recebíveis de cartão — ✅ · parcela 16
 
 | Item | Estado | Onde |
@@ -517,6 +543,33 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 
 > **A dedução aparece como percentual do faturamento.** "Foram R$ 14.200 em taxa" é um
 > número grande sem referência; "9,4% de tudo o que entrou" é uma decisão.
+
+### Rentabilidade por convênio — ✅ · parcela 19
+
+| Item | Estado | Onde |
+|---|---|---|
+| Faturado, recebido, retido e líquido por operadora | ✅ | `RentabilidadeConvenioService.PorConvenioAsync` |
+| **Líquido por guia** | ✅ | `RentabilidadeConvenio.LiquidoPorGuia` |
+| Prazo médio de pagamento | ✅ | da baixa da guia ao dinheiro no caixa |
+| Guias efetivadas sem receita lançada | ✅ | `SemReceita` — a fila da conciliação por convênio |
+| Taxa de glosa e exportação CSV | ✅ | `ResumoRentabilidade.TaxaGlosa`, `ExportacaoCsv` |
+
+> **O faturamento sabia quantas guias saíram e o financeiro sabia quanto entrou** — os dois
+> números nunca se encontravam por convênio, e é o encontro deles que revela quem paga
+> pouco, quem paga tarde e quem glosa muito.
+
+> **Líquido por guia é o único número comparável** entre operadoras que pagam valores e
+> volumes diferentes. "A Unimed faturou mais" não diz nada se ela precisou de três vezes
+> mais atendimentos — por isso a "menos rentável" do resumo é apurada por guia, não pelo
+> total, que apontaria sempre a de menor volume.
+
+> **O prazo só conta o que JÁ foi pago.** Incluir o previsto mediria uma promessa, e a
+> operadora que atrasa teria o melhor número — o oposto do que a métrica existe para
+> mostrar.
+
+> **O agrupamento é pelo CÓDIGO, não pelo nome exibido.** Duas operadoras da mesma família
+> que ainda não estejam no catálogo resolvem para o mesmo nome padrão, e agrupar por ele as
+> fundiria — apagando a distinção que a retenção da parcela 18 usa.
 
 ### Feature 11 · Marketing — NPS e recall — ✅ · parcela 5
 
@@ -703,6 +756,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **FINANCEIRO** · Fechamento de caixa | Financeiro | ✅ | `FechamentoCaixaView` (parcela 14) — 🔵 idem |
 | **FINANCEIRO** · Recebíveis de cartão | Financeiro | ✅ | `RecebiveisView` (parcela 16) — 🔵 idem |
 | **INTELIGÊNCIA** · Custo de taxas e impostos | Gerente | ✅ | `CustoTransacaoView` (parcela 17) — 🔵 idem |
+| **INTELIGÊNCIA** · Rentabilidade por convênio | Gerente | ✅ | `RentabilidadeConvenioView` (parcela 19) — 🔵 idem |
 | **INTELIGÊNCIA** · Marketing / Recall | Gerente | ✅ | `CampanhasView` |
 | **INTELIGÊNCIA** · Relatórios / BI | Gerente | ✅ | `IndicadoresView` com gráficos e exportação CSV (parcelas 10d e 11) |
 | **INTELIGÊNCIA** · Configurações | Gerente | ✅ | `ConfiguracoesView` (parcela 10a) |
