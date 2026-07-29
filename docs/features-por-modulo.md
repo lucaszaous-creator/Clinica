@@ -310,6 +310,51 @@ zero.**
 > categoria aparece como "Sem categoria" em vez de sumir — dinheiro não classificado é o
 > que a direção precisa ver para mandar classificar.
 
+### Regime tributário — ✅ · parcela 15
+
+| Item | Estado | Onde |
+|---|---|---|
+| Vários tributos (ISS, PIS, COFINS, IRPJ, CSLL, Simples) | ✅ | `Tributo`, `TributoService` |
+| Base de cálculo (Lucro Presumido) | ✅ | `Tributo.AliquotaEfetiva` = alíquota × base |
+| Vigência por tributo | ✅ | `VigenteEm(dia)` — reajuste não reescreve o mês declarado |
+| Detalhe da retenção no lançamento | ✅ | `LancamentoFinanceiro.DetalheImposto`, copiado na emissão |
+| Simulador de recebimento | ✅ | aba "Simulador" da `TaxasView` |
+
+> **Uma alíquota só não separa nada.** A clínica no Lucro Presumido paga cinco tributos —
+> cinco guias, cinco vencimentos, cinco linhas na apuração. O número somado da parcela 9
+> respondia "quanto saiu" e não "de quê", que é a pergunta que o contador faz.
+
+> **A base de cálculo existe porque nem todo tributo incide sobre a receita inteira.** No
+> Presumido o IRPJ de 15% incide sobre 32% e a efetiva é 4,8%. Sem o campo, a clínica faria
+> a conta de cabeça e digitaria 15% — o número que ela conhece —, triplicando o imposto.
+
+> **Cada tributo é arredondado ao centavo separadamente**: arredondar só no fim daria um
+> total que não bate com a soma das linhas do detalhe, e é o detalhe que vai ao contador.
+
+> **A alíquota única da parcela 9 continua valendo como fallback** enquanto não houver
+> tributo cadastrado. O valor já está na base do cliente, e trocar o mecanismo zerando a
+> retenção faria a clínica emitir um mês inteiro sem imposto sem perceber.
+
+### Recebíveis de cartão — ✅ · parcela 16
+
+| Item | Estado | Onde |
+|---|---|---|
+| O que a maquininha ainda deve depositar | ✅ | `RecebiveisService.EsperadosAsync` |
+| Depósito atrasado (o alarme) | ✅ | `AtrasadosAsync` |
+| Confirmação do crédito, em lote | ✅ | `ConfirmarAsync` + `RecebimentoConfirmadoEm` |
+
+> **`PrevisaoRecebimento` era gravada desde a parcela 9 e nenhuma tela a lia.** Terceira
+> ocorrência do mesmo defeito no projeto (o pacote que debitava, o insumo que baixava):
+> dado gravado sem leitor passa no CI e não faz nada na clínica.
+
+> **A conciliação é por DEPÓSITO, não por venda.** A adquirente deposita o lote do dia;
+> conferir venda a venda contra um extrato que traz um valor só nunca fecharia.
+
+> **A data real fica separada da prevista.** Quando a adquirente atrasa as duas divergem, e
+> sobrescrever a previsão apagaria a prova do atraso. E a data do crédito é **informada**,
+> nunca assumida como hoje: conferir na segunda um depósito que caiu na sexta viraria três
+> dias de atraso que não houve.
+
 ### Fechamento de caixa (conferência da gaveta) — ✅ · parcela 14
 
 | Item | Estado | Onde |
@@ -449,6 +494,29 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 > **Cancelamento avisado não conta como falta.** O no-show é sobre os horários que
 > chegaram ao fim (atendidos + faltas): quem desmarcou deu à clínica a chance de reocupar
 > o horário, e somá-lo esconderia o problema que o indicador existe para mostrar.
+
+### Custo de taxas e impostos — ✅ · parcela 17
+
+| Item | Estado | Onde |
+|---|---|---|
+| Quanto a maquininha e o fisco custaram | ✅ | `CustoTransacaoService.ResumoAsync` |
+| Taxa **efetiva** contra a de **tabela** | ✅ | `PorAdquirenteAsync` + `FaixaDeTabelaAsync` |
+| Série mensal com gráfico | ✅ | `SerieAsync`, `GraficoLinha` |
+| Exportação CSV | ✅ | `ExportacaoCsv` |
+
+> **O Financeiro cadastra; a direção mede.** São perguntas diferentes: lá é "qual é a taxa
+> da Cielo"; aqui é "quanto ela comeu". Por isso o item se chama **Custo de taxas e
+> impostos** — o Gerente carrega os dois módulos, e dois itens de mesmo nome em seções
+> diferentes da mesma sidebar confundiriam quem só quer saber onde mexer.
+
+> **A taxa efetiva contra a de tabela é a leitura que só existe aqui.** A tabela diz 3,1%;
+> se a clínica parcela mais do que imagina, o efetivo do ano é 3,9%. É a diferença entre as
+> duas que dá argumento na renegociação. A tabela vem como **faixa** (menor e maior
+> vigente), porque uma adquirente tem várias taxas — um número só teria de escolher uma
+> modalidade, e a comparação com o efetivo, que mistura todas, seria enganosa.
+
+> **A dedução aparece como percentual do faturamento.** "Foram R$ 14.200 em taxa" é um
+> número grande sem referência; "9,4% de tudo o que entrou" é uma decisão.
 
 ### Feature 11 · Marketing — NPS e recall — ✅ · parcela 5
 
@@ -633,6 +701,8 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **FINANCEIRO** · Contas a pagar/receber | Financeiro | ✅ | `ContasView` (parcela 12) — 🔵 fora da sidebar da proposta |
 | **FINANCEIRO** · Fluxo de caixa | Financeiro | ✅ | `FluxoCaixaView` (parcela 13) — 🔵 idem |
 | **FINANCEIRO** · Fechamento de caixa | Financeiro | ✅ | `FechamentoCaixaView` (parcela 14) — 🔵 idem |
+| **FINANCEIRO** · Recebíveis de cartão | Financeiro | ✅ | `RecebiveisView` (parcela 16) — 🔵 idem |
+| **INTELIGÊNCIA** · Custo de taxas e impostos | Gerente | ✅ | `CustoTransacaoView` (parcela 17) — 🔵 idem |
 | **INTELIGÊNCIA** · Marketing / Recall | Gerente | ✅ | `CampanhasView` |
 | **INTELIGÊNCIA** · Relatórios / BI | Gerente | ✅ | `IndicadoresView` com gráficos e exportação CSV (parcelas 10d e 11) |
 | **INTELIGÊNCIA** · Configurações | Gerente | ✅ | `ConfiguracoesView` (parcela 10a) |
