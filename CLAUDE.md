@@ -297,11 +297,13 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   e a suíte só compilam no Windows, então `tools/verificar-suite.py` cobre o que dá para
   conferir aqui: XAML, chaves do design system, pack URIs, dicionário que usa token sem
   mesclá-lo (quebra em runtime, não no build), **aridade de `new XViewModel(...)` escrito à
-  mão** (checagem 7) e **membro `required` não inicializado** (checagem 8). As duas últimas
-  nasceram de falhas de CI reais: metade dos VMs de formulário é construída à mão pela tela
-  dona, então dependência nova num VM quebra os chamadores e o DI não avisa. **Rode-o antes
-  de todo push.** O que ele não pega — `using` faltando, tipo trocado — continua sendo do
-  build do PR; não invente heurística para isso.
+  mão** (checagem 7), **membro `required` não inicializado** (checagem 8) e **variável de
+  padrão colidindo com outra declaração do mesmo método** (checagem 9). As três nasceram de
+  falhas de CI reais. A 9 tem uma assimetria que engana: `is { } f` entra no escopo do
+  MÉTODO, enquanto `foreach (var f in ...)` entra num escopo próprio — por isso dois
+  `foreach` com o mesmo nome são irmãos e legais, e a checagem parte só das variáveis de
+  padrão. **Rode-o antes de todo push.** O que ele não pega — `using` faltando, tipo
+  trocado — continua sendo do build do PR; não invente heurística para isso.
 - **Gráfico é desenhado com os tokens, sem biblioteca** (`Controls/Graficos.cs`,
   `Componentes/Graficos.xaml`). Os quatro apps se auto-atualizam por Velopack e uma
   dependência de UI nova é risco desproporcional. Duas regras do desenho: **valor nulo
