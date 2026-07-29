@@ -1,0 +1,289 @@
+<UserControl x:Class="Clinica.Financeiro.Views.FechamentoCaixaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+            <TextBlock Text="Fechamento de caixa" Style="{StaticResource H1}" Margin="0,0,0,4" />
+            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                       Text="A conferência da gaveta: o que o sistema diz que entrou em dinheiro vivo contra o que foi contado. Só espécie — cartão e PIX caem na conta dias depois e não passam pela gaveta." />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ===== Contagem do dia (coluna esquerda) ===== -->
+        <ScrollViewer DockPanel.Dock="Left" Width="380" Margin="0,0,16,0"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <Border Style="{StaticResource Card}">
+                    <StackPanel>
+                        <TextBlock Text="Conferir o dia" Style="{StaticResource H3}" Margin="0,0,0,8" />
+
+                        <TextBlock Text="Dia" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <DatePicker SelectedDate="{Binding Dia}" />
+
+                        <Grid Margin="0,14,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Entrou em espécie"
+                                       Style="{StaticResource TextoSuave}" />
+                            <TextBlock Grid.Column="1" Text="{Binding EntradasEspecie}" />
+                        </Grid>
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Saiu em espécie"
+                                       Style="{StaticResource TextoSuave}" />
+                            <TextBlock Grid.Column="1" Text="{Binding SaidasEspecie}" />
+                        </Grid>
+
+                        <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0"
+                                Margin="0,8,0,0" Padding="0,8,0,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="A gaveta deveria ter"
+                                           FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="{Binding Esperado}"
+                                           FontWeight="Bold" />
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Text="{Binding Lancamentos}" Style="{StaticResource TextoSuave}"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" />
+
+                        <!-- Conferido e "ainda não conferido" têm a mesma cara de calmaria.
+                             A tela diz qual é. -->
+                        <Border Margin="0,12,0,0">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding JaConferido}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding JaConferido}" TextWrapping="Wrap" />
+                        </Border>
+
+                        <StackPanel Margin="0,14,0,0">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding PodeConferir}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
+
+                            <StackPanel IsEnabled="{Binding PodeEditar}">
+                                <TextBlock Text="Contado na gaveta" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding ValorContado, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="14" />
+
+                                <!-- A diferença aparece ENQUANTO se digita: é o momento em
+                                     que a gaveta ainda está aberta na frente da pessoa e dá
+                                     para recontar. Descobrir a falta só depois de salvar
+                                     transformaria a correção numa reabertura. -->
+                                <TextBlock Text="{Binding DiferencaPrevia}" Margin="0,6,0,0"
+                                           TextWrapping="Wrap">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding TemDiferenca}" Value="True">
+                                                    <Setter Property="Foreground"
+                                                            Value="{StaticResource Brush.Erro}" />
+                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+
+                                <!-- A justificativa só aparece quando há o que explicar:
+                                     pedi-la sempre viraria ritual, e campo de ritual é
+                                     preenchido com um ponto final. -->
+                                <StackPanel Margin="0,10,0,0"
+                                            Visibility="{Binding TemDiferenca,
+                                                         Converter={StaticResource BoolParaVisibilidade}}">
+                                    <TextBlock Text="O que aconteceu?" Style="{StaticResource Rotulo}"
+                                               Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding Justificativa, UpdateSourceTrigger=PropertyChanged}"
+                                             AcceptsReturn="True" TextWrapping="Wrap" Height="70"
+                                             MaxLength="500" VerticalScrollBarVisibility="Auto" />
+                                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                                               Text="Obrigatória. Diferença aceita em silêncio é o mesmo que caixa não conferido." />
+                                </StackPanel>
+
+                                <Button Content="Conferir caixa" Command="{Binding ConferirCommand}"
+                                        HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="140" />
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Dias não conferidos"
+                                   Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   Margin="0,0,0,8" />
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}"
+                                   TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}"
+                                   Margin="0,0,0,8"
+                                   Text="Dia em que ninguém pagou em dinheiro não entra aqui: cobrar conferência de gaveta vazia treinaria a clínica a fechar no automático." />
+
+                        <ItemsControl ItemsSource="{Binding NaoConferidos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1" Padding="0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Data}" FontWeight="SemiBold" />
+                                                <TextBlock Style="{StaticResource TextoSuave}"
+                                                           FontSize="{StaticResource Fonte.Legenda}">
+                                                    <Run Text="{Binding Esperado, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Detalhe, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" Content="Conferir"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource BotaoPequeno}"
+                                                    Command="{Binding DataContext.IrParaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ===== Histórico ===== -->
+        <Border Style="{StaticResource Card}">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <TextBlock Text="Conferências dos últimos 60 dias" Style="{StaticResource H3}"
+                               Margin="0" VerticalAlignment="Center" />
+                    <Button Content="Atualizar" HorizontalAlignment="Right" VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding CarregarCommand}" />
+                </Grid>
+
+                <TextBlock DockPanel.Dock="Top" Text="Nenhuma conferência registrada ainda.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Historico.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Historico}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock FontWeight="SemiBold">
+                                                <Run Text="{Binding Data, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Situacao, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Detalhe}"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       TextWrapping="Wrap" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Esperado}"
+                                                   VerticalAlignment="Center" TextAlignment="Right"
+                                                   Margin="6,0" Style="{StaticResource TextoSuave}" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Contado}"
+                                                   VerticalAlignment="Center" TextAlignment="Right"
+                                                   Margin="6,0" />
+
+                                        <!-- Divergência em vermelho. Reaberto NÃO é vermelho:
+                                             é um dia esperando recontagem, não um problema
+                                             de dinheiro. -->
+                                        <TextBlock Grid.Column="3" Text="{Binding Diferenca}"
+                                                   VerticalAlignment="Center" TextAlignment="Right"
+                                                   Margin="6,0">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Divergiu}"
+                                                                     Value="True">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Erro}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <Button Grid.Column="4" Content="Reabrir"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource BotaoPequeno}"
+                                                Visibility="{Binding PodeReabrir,
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                IsEnabled="{Binding DataContext.PodeEditar,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.ReabrirCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

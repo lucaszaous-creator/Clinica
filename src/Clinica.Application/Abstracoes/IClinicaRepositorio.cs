@@ -463,6 +463,32 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Modelos.LancamentoDatado>> LancamentosDatadosNoPeriodoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
+    // ---- Fechamento de caixa (parcela 14) ----
+
+    /// <summary>
+    /// Movimentos em ESPÉCIE já realizados no dia. Só dinheiro vivo: cartão e PIX não
+    /// passam pela gaveta, e incluí-los faria a conferência nunca bater.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.LancamentoEspecie>> LancamentosEmEspecieDoDiaAsync(
+        DateOnly dia, CancellationToken ct = default);
+
+    /// <summary>O mesmo, no período — base dos dias que ninguém conferiu.</summary>
+    Task<IReadOnlyList<Modelos.LancamentoEspecie>> LancamentosEmEspecieNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// O fechamento VIGENTE do dia — o último gravado, porque reabrir para recontagem
+    /// guarda o anterior e grava outro por cima. Rastreado, para a reabertura poder
+    /// marcá-lo.
+    /// </summary>
+    Task<FechamentoCaixa?> FechamentoCaixaDoDiaAsync(DateOnly dia, CancellationToken ct = default);
+
+    Task AdicionarFechamentoCaixaAsync(FechamentoCaixa fechamento, CancellationToken ct = default);
+
+    /// <summary>Fechamentos do período, do mais recente para o mais antigo.</summary>
+    Task<IReadOnlyList<FechamentoCaixa>> FechamentosCaixaNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
     // ---- Contas a pagar e a receber (parcela 12) ----
 
     /// <summary>

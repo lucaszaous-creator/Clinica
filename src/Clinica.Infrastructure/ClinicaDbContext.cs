@@ -24,6 +24,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<CategoriaFinanceira> CategoriasFinanceiras => Set<CategoriaFinanceira>();
     public DbSet<LancamentoFinanceiro> Lancamentos => Set<LancamentoFinanceiro>();
     public DbSet<LancamentoRecorrente> Recorrentes => Set<LancamentoRecorrente>();
+    public DbSet<FechamentoCaixa> FechamentosCaixa => Set<FechamentoCaixa>();
     public DbSet<Profissional> Profissionais => Set<Profissional>();
     public DbSet<Sala> Salas => Set<Sala>();
     public DbSet<ListaEspera> ListaEspera => Set<ListaEspera>();
@@ -645,6 +646,30 @@ public class ClinicaDbContext : DbContext
 
             e.HasIndex(x => x.Ativa);
             e.Ignore(x => x.PeriodicidadeTexto);
+        });
+
+        b.Entity<FechamentoCaixa>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ValorSistema).HasPrecision(14, 2);
+            e.Property(x => x.ValorContado).HasPrecision(14, 2);
+            e.Property(x => x.SaidasEspecie).HasPrecision(14, 2);
+            e.Property(x => x.Justificativa).HasMaxLength(500);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.MotivoReabertura).HasMaxLength(500);
+            e.Property(x => x.ConferidoPor).HasMaxLength(80);
+            e.Property(x => x.ConferidoEm).HasColumnType("timestamp without time zone");
+
+            // Data NAO e unica: reabrir para recontagem guarda o fechamento anterior e
+            // grava outro por cima. O que vale e o de maior Id.
+            e.HasIndex(x => x.Data);
+
+            // Esperado, Diferenca, Bateu e Situacao sao CALCULADOS. Gravar a diferenca
+            // daria duas verdades sobre a mesma contagem no dia em que divergissem.
+            e.Ignore(x => x.Esperado);
+            e.Ignore(x => x.Diferenca);
+            e.Ignore(x => x.Bateu);
+            e.Ignore(x => x.Situacao);
         });
 
         // ---------- Dinheiro e insumo (parcela 4) ----------

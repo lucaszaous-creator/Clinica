@@ -7,23 +7,25 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Financeiro.Modulo;
 
 /// <summary>
-/// Módulo Financeiro: Caixa (entradas/saídas), Contas a pagar e a receber (o que vence),
-/// Fluxo de caixa (a série dos meses e para onde o dinheiro vai), Conciliação (guias efetivadas que ainda não viraram receita), Produção (volume do
-/// faturamento), Pacotes (o que a clínica vende), Estoque (insumos), Repasses (o que cada
-/// profissional tem a receber), Taxas e impostos, e o Plano de contas.
+/// Módulo Financeiro: Caixa (entradas e saídas), Contas a pagar e a receber (o que vence),
+/// Fluxo de caixa (a série dos meses e para onde o dinheiro vai), Fechamento de caixa (a
+/// conferência da gaveta), Conciliação (guias efetivadas que ainda não viraram receita),
+/// Produção (volume do faturamento), Pacotes (o que a clínica vende), Estoque (insumos),
+/// Repasses (o que cada profissional tem a receber), Taxas e impostos, e o Plano de contas.
 ///
 /// A ordem é a do dia de trabalho: primeiro o dinheiro que entra e sai (Caixa), depois o
-/// que ainda VAI entrar ou sair e quando (Contas), a tendência (Fluxo), o que já foi
-/// efetivado no convênio e
-/// não entrou (Conciliação), o volume (Produção), o que foi vendido (Pacotes), o que se
-/// gasta (Estoque), o que se paga (Repasses), o que descontam de cada recebimento (Taxas)
-/// e, por último, o cadastro que classifica tudo — que se mexe raramente.
+/// que ainda VAI entrar ou sair e quando (Contas), a tendência ao longo dos meses (Fluxo),
+/// a conferência da gaveta no fim do expediente (Fechamento), o que já foi efetivado no
+/// convênio e não entrou (Conciliação), o volume (Produção), o que foi vendido (Pacotes),
+/// o que se gasta (Estoque), o que se paga (Repasses), o que descontam de cada recebimento
+/// (Taxas) e, por último, o cadastro que classifica tudo — que se mexe raramente.
 /// </summary>
 public sealed class ModuloFinanceiro : IModuloApp
 {
     public const string ChaveCaixa = "caixa";
     public const string ChaveContas = "contas";
     public const string ChaveFluxo = "fluxo-caixa";
+    public const string ChaveFechamento = "fechamento-caixa";
     public const string ChaveConciliacao = "conciliacao";
     public const string ChaveProducao = "producao";
     public const string ChavePacotes = "pacotes";
@@ -58,6 +60,11 @@ public sealed class ModuloFinanceiro : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveFluxo, Rotulo = "Fluxo de caixa", Glifo = "\uEB05",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveFechamento, Rotulo = "Fechamento de caixa", Glifo = "\uE8AE",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
@@ -99,6 +106,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<LancamentoEdicaoViewModel>();
         servicos.AddTransient<ContasViewModel>();
         servicos.AddTransient<FluxoCaixaViewModel>();
+        servicos.AddTransient<FechamentoCaixaViewModel>();
         servicos.AddTransient<ConciliacaoViewModel>();
         servicos.AddTransient<ProducaoViewModel>();
         servicos.AddTransient<PacotesViewModel>();
@@ -116,6 +124,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveCaixa => new CaixaView { DataContext = servicos.GetRequiredService<CaixaViewModel>() },
         ChaveContas => new ContasView { DataContext = servicos.GetRequiredService<ContasViewModel>() },
         ChaveFluxo => new FluxoCaixaView { DataContext = servicos.GetRequiredService<FluxoCaixaViewModel>() },
+        ChaveFechamento => new FechamentoCaixaView { DataContext = servicos.GetRequiredService<FechamentoCaixaViewModel>() },
         ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
         ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
         ChavePacotes => new PacotesView { DataContext = servicos.GetRequiredService<PacotesViewModel>() },

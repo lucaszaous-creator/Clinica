@@ -191,6 +191,16 @@ public sealed record ValorLancamento(
 }
 
 /// <summary>
+/// Um movimento em ESPÉCIE de um dia — a projeção que a conferência da gaveta precisa
+/// (parcela 14).
+///
+/// <paramref name="Dia"/> é o dia em que o dinheiro FISICAMENTE se moveu (a data de
+/// pagamento, ou a competência quando ela falta), não a competência: a gaveta é contada
+/// no fim do expediente, e o que importa é o que passou por ela naquele expediente.
+/// </summary>
+public sealed record LancamentoEspecie(DateOnly Dia, TipoLancamento Tipo, decimal Valor);
+
+/// <summary>
 /// Projeção de um lançamento COM as datas e a categoria — o que o fluxo de caixa precisa
 /// e o <see cref="ValorLancamento"/> não tem.
 ///

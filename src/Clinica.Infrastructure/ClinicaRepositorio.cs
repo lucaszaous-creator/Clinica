@@ -1052,6 +1052,44 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 l.Categoria != null ? l.Categoria.Nome : null))
             .ToListAsync(ct);
 
+    // ---- Fechamento de caixa (parcela 14) ----
+
+    public Task<IReadOnlyList<Clinica.Application.Modelos.LancamentoEspecie>>
+        LancamentosEmEspecieDoDiaAsync(DateOnly dia, CancellationToken ct = default)
+        => LancamentosEmEspecieNoPeriodoAsync(dia, dia, ct);
+
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.LancamentoEspecie>>
+        LancamentosEmEspecieNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            // Só REALIZADO e só DINHEIRO: previsto não passou pela gaveta, e cartão/PIX
+            // caem na conta dias depois. Somá-los faria a conferência nunca bater — e
+            // conferência que nunca bate treina a clínica a clicar "OK" sem olhar.
+            .Where(l => l.Status == StatusLancamento.Realizado)
+            .Where(l => l.FormaPagamento == FormaPagamento.Dinheiro)
+            .Where(l => (l.DataPagamento ?? l.Data) >= inicio && (l.DataPagamento ?? l.Data) <= fim)
+            .Select(l => new Clinica.Application.Modelos.LancamentoEspecie(
+                l.DataPagamento ?? l.Data, l.Tipo, l.Valor))
+            .ToListAsync(ct);
+
+    public Task<FechamentoCaixa?> FechamentoCaixaDoDiaAsync(DateOnly dia, CancellationToken ct = default)
+        // O ÚLTIMO do dia: reabrir guarda o anterior e grava outro por cima, e o que vale
+        // é sempre o mais recente. Rastreado (sem AsNoTracking) porque a reabertura marca
+        // justamente este.
+        => _db.FechamentosCaixa
+            .Where(f => f.Data == dia)
+            .OrderByDescending(f => f.Id)
+            .FirstOrDefaultAsync(ct);
+
+    public async Task AdicionarFechamentoCaixaAsync(FechamentoCaixa fechamento, CancellationToken ct = default)
+        => await _db.FechamentosCaixa.AddAsync(fechamento, ct);
+
+    public async Task<IReadOnlyList<FechamentoCaixa>> FechamentosCaixaNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.FechamentosCaixa.AsNoTracking()
+            .Where(f => f.Data >= inicio && f.Data <= fim)
+            .OrderByDescending(f => f.Data).ThenByDescending(f => f.Id)
+            .ToListAsync(ct);
+
     // ---- Contas a pagar e a receber (parcela 12) ----
 
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosComVencimentoAteAsync(
