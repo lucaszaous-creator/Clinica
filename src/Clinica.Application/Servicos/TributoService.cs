@@ -16,6 +16,12 @@ public sealed record ImpostoApurado(decimal Aliquota, decimal Valor, string? Det
     public static readonly ImpostoApurado Nenhum = new(0m, 0m, null);
 
     public bool Houve => Valor > 0m;
+
+    /// <summary>
+    /// Foi RETIDO pela operadora, não recolhido pela clínica (parcela 18). Muda o que a
+    /// clínica faz com o número: retido já saiu, recolhido ainda vai sair.
+    /// </summary>
+    public bool RetidoNaFonte { get; init; }
 }
 
 /// <summary>
@@ -46,13 +52,42 @@ public sealed class TributoService
         bool somenteAtivos = false, CancellationToken ct = default)
         => _repo.TributosAsync(somenteAtivos, ct);
 
-    /// <summary>Os tributos que valem no dia — a base de qualquer cálculo.</summary>
+    /// <summary>
+    /// Os tributos que valem no dia — a base de qualquer cálculo.
+    ///
+    /// Com <paramref name="convenioCodigo"/>, procura primeiro a RETENÇÃO cadastrada para
+    /// aquele convênio; achando, é ela que vale e os tributos gerais NÃO entram. Os dois
+    /// representam o mesmo imposto — a operadora reteve o que a clínica deveria recolher —
+    /// e somá-los contaria duas vezes, que é o erro que mais aparece em planilha de
+    /// clínica que fatura convênio.
+    ///
+    /// Sem retenção cadastrada, o convênio cai nos tributos gerais: é o comportamento de
+    /// antes da parcela 18, e mudá-lo faria a receita de convênio parar de sofrer imposto
+    /// da noite para o dia, em toda base que já existe.
+    /// </summary>
     public async Task<IReadOnlyList<Tributo>> VigentesEmAsync(
-        DateOnly dia, CancellationToken ct = default)
-        => (await _repo.TributosAsync(somenteAtivos: true, ct))
+        DateOnly dia, string? convenioCodigo = null, CancellationToken ct = default)
+    {
+        var vigentes = (await _repo.TributosAsync(somenteAtivos: true, ct))
             .Where(t => t.VigenteEm(dia))
+            .ToList();
+
+        if (!string.IsNullOrWhiteSpace(convenioCodigo))
+        {
+            var doConvenio = vigentes
+                .Where(t => string.Equals(t.ConvenioCodigo, convenioCodigo, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(t => t.Sigla)
+                .ToList();
+            if (doConvenio.Count > 0) return doConvenio;
+        }
+
+        // Tributo de convênio nunca vaza para recebimento que não é daquele convênio: a
+        // retenção da Unimed não incide sobre o particular pago em dinheiro.
+        return vigentes
+            .Where(t => !t.RetidoNaFonte)
             .OrderBy(t => t.Sigla)
             .ToList();
+    }
 
     public async Task<Tributo> SalvarAsync(
         Tributo dados, string? operador = null, CancellationToken ct = default)
@@ -82,6 +117,9 @@ public sealed class TributoService
         tributo.Nome = string.IsNullOrWhiteSpace(dados.Nome) ? tributo.Sigla : dados.Nome.Trim();
         tributo.Percentual = dados.Percentual;
         tributo.BasePercentual = dados.BasePercentual;
+        tributo.ConvenioCodigo = string.IsNullOrWhiteSpace(dados.ConvenioCodigo)
+            ? null
+            : dados.ConvenioCodigo.Trim();
         tributo.VigenteDe = dados.VigenteDe;
         tributo.VigenteAte = dados.VigenteAte;
         tributo.Ativo = dados.Ativo;
@@ -116,11 +154,12 @@ public sealed class TributoService
     /// linhas do detalhe — e é o detalhe que a clínica leva para o contador.
     /// </summary>
     public async Task<ImpostoApurado> ApurarAsync(
-        decimal valorBruto, DateOnly dia, CancellationToken ct = default)
+        decimal valorBruto, DateOnly dia, string? convenioCodigo = null,
+        CancellationToken ct = default)
     {
         if (valorBruto <= 0m) return ImpostoApurado.Nenhum;
 
-        var vigentes = await VigentesEmAsync(dia, ct);
+        var vigentes = await VigentesEmAsync(dia, convenioCodigo, ct);
 
         if (vigentes.Count == 0)
         {
@@ -151,17 +190,28 @@ public sealed class TributoService
             partes.Add(t.Descricao);
         }
 
-        return partes.Count == 0
-            ? ImpostoApurado.Nenhum
-            : new ImpostoApurado(aliquota, total, string.Join(" + ", partes));
+        if (partes.Count == 0) return ImpostoApurado.Nenhum;
+
+        // "Retido na fonte" é informação de CAIXA, não decoração: esse dinheiro não sai
+        // pela clínica no vencimento da guia — ele já não entrou. Sem a marca, o contador
+        // recolheria de novo o que a operadora já reteve.
+        var detalhe = vigentes[0].RetidoNaFonte
+            ? $"{string.Join(" + ", partes)} (retido na fonte)"
+            : string.Join(" + ", partes);
+
+        return new ImpostoApurado(aliquota, total, detalhe)
+        {
+            RetidoNaFonte = vigentes[0].RetidoNaFonte
+        };
     }
 
     /// <summary>
     /// Alíquota efetiva total do dia, para a tela mostrar "hoje sai X% de cada recebimento".
     /// </summary>
-    public async Task<decimal> AliquotaTotalAsync(DateOnly dia, CancellationToken ct = default)
+    public async Task<decimal> AliquotaTotalAsync(
+        DateOnly dia, string? convenioCodigo = null, CancellationToken ct = default)
     {
-        var vigentes = await VigentesEmAsync(dia, ct);
+        var vigentes = await VigentesEmAsync(dia, convenioCodigo, ct);
         if (vigentes.Count > 0) return vigentes.Sum(t => t.AliquotaEfetiva);
 
         return _parametros is null ? 0m : await _parametros.ObterAliquotaImpostoAsync(ct);

@@ -153,11 +153,16 @@ public sealed class TaxaService
     /// <summary>
     /// Deduções de um recebimento. Só o cartão tem taxa de adquirente; o imposto, quando
     /// configurado, incide em qualquer forma de recebimento.
+    ///
+    /// <paramref name="convenioCodigo"/> muda QUAL imposto incide (parcela 18): havendo
+    /// retenção cadastrada para o convênio, é ela que vale — a operadora já reteve o que a
+    /// clínica recolheria, e somar os dois contaria o mesmo imposto duas vezes.
     /// </summary>
     public async Task<DeducoesRecebimento> CalcularAsync(
         decimal valorBruto, DateOnly data, FormaPagamento? forma,
         string? adquirente = null, string? bandeira = null, int parcelas = 1,
-        bool reterImposto = false, CancellationToken ct = default)
+        bool reterImposto = false, string? convenioCodigo = null,
+        CancellationToken ct = default)
     {
         if (valorBruto <= 0m) return DeducoesRecebimento.Nenhuma;
 
@@ -188,7 +193,7 @@ public sealed class TaxaService
             // Sem ele injetado (testes que só exercitam a taxa), vale o caminho antigo.
             if (_tributos is not null)
             {
-                var apurado = await _tributos.ApurarAsync(valorBruto, data, ct);
+                var apurado = await _tributos.ApurarAsync(valorBruto, data, convenioCodigo, ct);
                 if (apurado.Houve)
                 {
                     aliquota = apurado.Aliquota;

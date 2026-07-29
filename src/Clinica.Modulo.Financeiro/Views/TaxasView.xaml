@@ -247,6 +247,14 @@
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
                                    Text="A base é 100% quando o tributo incide sobre a receita inteira. No Lucro Presumido o IRPJ entra como 15% sobre base 32% — o sistema faz a conta e aplica 4,8%." />
 
+                        <TextBlock Text="Retido na fonte por (código do convênio)"
+                                   Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                        <TextBox Text="{Binding ConvenioTributo, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="40" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                                   Text="Em branco = tributo que a clínica recolhe. Preenchido = a operadora retém antes de depositar (IRRF, CSLL/PIS/COFINS, ISS). A retenção do convênio SUBSTITUI os tributos gerais naquele recebimento — os dois são o mesmo imposto, e somá-los contaria duas vezes." />
+
                         <Grid Margin="0,10,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -344,6 +352,8 @@
                                                     <Run Text="{Binding Nome, Mode=OneWay}" />
                                                     <Run Text=" · " />
                                                     <Run Text="{Binding Vigencia, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Origem, Mode=OneWay}" />
                                                 </TextBlock>
                                             </StackPanel>
 

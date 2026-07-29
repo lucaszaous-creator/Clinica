@@ -88,17 +88,31 @@
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                                    VerticalAlignment="Center" />
 
-                                        <StackPanel Grid.Column="4" Orientation="Horizontal"
-                                                    VerticalAlignment="Center">
-                                            <TextBox Width="110"
-                                                     Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}"
-                                                     VerticalContentAlignment="Center" />
-                                            <Button Content="Lançar"
-                                                    Style="{StaticResource BotaoPequeno}"
-                                                    Margin="8,0,0,0"
-                                                    Command="{Binding DataContext.LancarCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
+                                        <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBox Width="110"
+                                                         Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}"
+                                                         VerticalContentAlignment="Center" />
+                                                <Button Content="Reter?"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        Margin="6,0,0,0"
+                                                        Command="{Binding DataContext.PreverCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Lançar"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        Margin="6,0,0,0"
+                                                        Command="{Binding DataContext.LancarCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                            <!-- A retenção da operadora aparece ANTES de gravar:
+                                                 é aí que dá para conferir contra o demonstrativo.
+                                                 Descobri-la depois viraria estorno. -->
+                                            <TextBlock Text="{Binding Retencao}" TextWrapping="Wrap"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
                                         </StackPanel>
                                     </Grid>
                                 </Border>

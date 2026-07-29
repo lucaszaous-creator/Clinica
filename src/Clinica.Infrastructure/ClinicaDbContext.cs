@@ -794,13 +794,20 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CriadoPor).HasMaxLength(80);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
 
-            e.HasIndex(x => x.Ativo);
+            // Retencao na fonte por convenio (parcela 18): a operadora retem antes de
+            // depositar, e o retido SUBSTITUI o tributo geral naquele recebimento — somar
+            // os dois contaria o mesmo imposto duas vezes.
+            e.Property(x => x.ConvenioCodigo).HasMaxLength(40);
 
-            // Efetiva, descricao e vigencia sao CALCULADAS — gravar a efetiva daria duas
+            e.HasIndex(x => x.Ativo);
+            e.HasIndex(x => x.ConvenioCodigo);
+
+            // Efetiva, descricao, vigencia e "retido" sao CALCULADAS — gravar a efetiva daria duas
             // verdades sobre a mesma aliquota no dia em que a base mudasse.
             e.Ignore(x => x.AliquotaEfetiva);
             e.Ignore(x => x.Descricao);
             e.Ignore(x => x.Vigencia);
+            e.Ignore(x => x.RetidoNaFonte);
         });
 
         b.Entity<RepasseApurado>(e =>
