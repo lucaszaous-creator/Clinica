@@ -100,6 +100,19 @@ public class Agendamento
     /// </summary>
     public bool Encaixe { get; set; }
 
+    /// <summary>
+    /// Sessões marcadas de uma vez (o pacote de 10) compartilham esta chave.
+    ///
+    /// É o que permite tratar a série como um bloco depois — cancelar as que sobraram
+    /// quando o paciente desiste no meio, por exemplo. Null = horário avulso, que
+    /// continua sendo a maioria; nenhum agendamento antigo precisa dela, e o
+    /// faturamento congelado nunca a lê.
+    ///
+    /// Guardada como TEXTO e não como número: ela nasce no cliente (um Guid), e uma
+    /// sequência do banco exigiria uma ida a mais só para descobrir o número da série.
+    /// </summary>
+    public string? SerieId { get; set; }
+
     /// <summary>Check-in no balcão: o paciente chegou. Base do tempo de espera.</summary>
     public DateTime? ChegadaEm { get; set; }
 

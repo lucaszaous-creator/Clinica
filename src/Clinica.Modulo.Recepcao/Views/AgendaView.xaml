@@ -88,6 +88,15 @@
                                 Command="{Binding DataContext.QuemChamarCommand,
                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
+                        <!-- Só aparece em sessão marcada em série: cancelar o resto do
+                             pacote de uma vez, quando o paciente desiste no meio. -->
+                        <Button Content="Cancelar série" Style="{StaticResource BotaoAcaoGridPerigo}"
+                                Margin="0,4,4,0"
+                                Visibility="{Binding EhSerie,
+                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                Command="{Binding DataContext.CancelarSerieCommand,
+                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
                     </WrapPanel>
                 </StackPanel>
             </Border>

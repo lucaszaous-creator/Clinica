@@ -145,6 +145,12 @@ public interface IClinicaRepositorio
     Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default);
     Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sessoes marcadas de uma vez (o pacote de dez), na ordem em que acontecem.
+    /// RASTREADAS: cancelar a serie escreve nelas.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosDaSerieAsync(string serieId, CancellationToken ct = default);
     Task RemoverAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
 
     // ---- Equipe: profissionais e salas (fundação da recepção) ----

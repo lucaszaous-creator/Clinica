@@ -18,6 +18,11 @@ public sealed class CartaoAgenda
     /// <summary>De quem é a coluna — é o que a lista de espera pergunta ao vagar.</summary>
     public required int? ProfissionalId { get; init; }
 
+    /// <summary>Marcado em série (pacote de dez). Null = horário avulso.</summary>
+    public required string? SerieId { get; init; }
+
+    public bool EhSerie => !string.IsNullOrWhiteSpace(SerieId);
+
     public required string Faixa { get; init; }
     public required string Paciente { get; init; }
     public string? Telefone { get; init; }
@@ -230,6 +235,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             {
                 AgendamentoId = a.Id,
                 ProfissionalId = profissionalId,
+                SerieId = a.SerieId,
                 Faixa = $"{a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
                 Paciente = a.Paciente?.Nome ?? "(paciente removido)",
                 Telefone = a.Paciente?.Telefone,
@@ -410,6 +416,30 @@ public sealed partial class AgendaViewModel : ObservableObject
         // A confirmação não muda a agenda do dia aberto, mas pode ter registrado
         // resposta de quem vem amanhã — recarregar mantém a tela honesta.
         await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Cancela o que ainda está marcado da série — o "o paciente desistiu no meio do
+    /// tratamento". Sessão já atendida não é tocada: ela é fato, e apagá-la da agenda
+    /// esconderia um atendimento que aconteceu.
+    /// </summary>
+    [RelayCommand]
+    private async Task CancelarSerieAsync(CartaoAgenda? cartao)
+    {
+        if (cartao?.SerieId is not { } serieId) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
+
+        if (!_dialogo.ConfirmarPerigo("Cancelar a série",
+                $"Cancelar TODAS as sessões ainda marcadas da série de {cartao.Paciente}? "
+                + "As que já foram atendidas continuam no histórico.")) return;
+
+        await ExecutarAsync(async scope =>
+        {
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            var quantas = await agenda.CancelarSerieAsync(serieId, SessaoUsuario.Atual.Operador);
+            _snackbar.Info($"{quantas} sessão(ões) da série canceladas.");
+        }, "cancelamento da série");
     }
 
     /// <summary>Coloca um paciente na lista de espera.</summary>

@@ -417,6 +417,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(a => a.DataHora)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosDaSerieAsync(
+        string serieId, CancellationToken ct = default)
+        // RASTREADOS (sem AsNoTracking): cancelar a serie escreve nestas entidades.
+        => await _db.Agendamentos
+            .Include(a => a.Paciente)
+            .Include(a => a.Profissional)
+            .Where(a => a.SerieId == serieId)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+
     public async Task RemoverAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
     {
         var ag = await _db.Agendamentos.FirstOrDefaultAsync(a => a.Id == agendamentoId, ct);

@@ -74,3 +74,21 @@ public sealed record ResumoDiaRecepcao(
         }
     }
 }
+
+/// <summary>Uma data que a série não conseguiu marcar, e por quê.</summary>
+public sealed record SessaoRecusada(DateTime Quando, string Motivo);
+
+/// <summary>
+/// O resultado de marcar em série: o que entrou na agenda e o que ficou de fora.
+///
+/// As duas listas vêm juntas de propósito. Recusar as dez sessões porque a de 25/12 caiu
+/// em feriado devolveria a recepção ao trabalho manual; marcar nove e dizer qual não deu
+/// é exatamente o que ela faria à mão — e agora sabe quais faltam sem conferir uma a uma.
+/// </summary>
+public sealed record SerieAgendada(
+    string SerieId,
+    IReadOnlyList<Clinica.Domain.Entities.Agendamento> Marcados,
+    IReadOnlyList<SessaoRecusada> Recusados)
+{
+    public bool TudoMarcado => Recusados.Count == 0;
+}

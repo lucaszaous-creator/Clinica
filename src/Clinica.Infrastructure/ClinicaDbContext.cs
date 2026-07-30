@@ -232,6 +232,8 @@ public class ClinicaDbContext : DbContext
 
             // Fundação da recepção: recursos disputados e carimbos do kanban. Todos
             // opcionais — desligar um profissional não pode apagar a agenda dele.
+            e.Property(a => a.SerieId).HasMaxLength(40);
+            e.HasIndex(a => a.SerieId);
             e.Property(a => a.ChegadaEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.InicioAtendimentoEm).HasColumnType("timestamp without time zone");
             e.HasOne(a => a.Profissional).WithMany()
