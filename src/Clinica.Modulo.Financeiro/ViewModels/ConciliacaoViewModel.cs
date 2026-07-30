@@ -28,6 +28,15 @@ public sealed partial class LinhaConciliacao : ObservableObject
     /// </summary>
     [ObservableProperty]
     private string? _retencao;
+
+    /// <summary>
+    /// DE ONDE veio o valor proposto (parcela 20): "tabela: Unimed · Acupuntura — R$ 145,00".
+    /// Um campo que se preenche sozinho sem explicar é pior que um campo vazio — a pessoa
+    /// confirma sem conferir, e o erro entra no caixa com aparência de conferido.
+    /// Null quando não há tabela para este convênio: aí o valor é digitado, como sempre foi.
+    /// </summary>
+    [ObservableProperty]
+    private string? _procedencia;
 }
 
 /// <summary>
@@ -39,6 +48,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
 {
     private readonly FinanceiroService _financeiro;
     private readonly TaxaService _taxas;
+    private readonly PrecoConvenioService _precos;
     private readonly ISnackbarService _snackbar;
 
     public ObservableCollection<LinhaConciliacao> Linhas { get; } = [];
@@ -53,10 +63,12 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
     private string _resumo = string.Empty;
 
     public ConciliacaoViewModel(
-        FinanceiroService financeiro, TaxaService taxas, ISnackbarService snackbar)
+        FinanceiroService financeiro, TaxaService taxas, PrecoConvenioService precos,
+        ISnackbarService snackbar)
     {
         _financeiro = financeiro;
         _taxas = taxas;
+        _precos = precos;
         _snackbar = snackbar;
         _ = CarregarAsync();
     }
@@ -75,6 +87,14 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             var guias = await _financeiro.GuiasSemLancamentoAsync(inicio, fim);
             Linhas.Clear();
             foreach (var g in guias)
+            {
+                // A TABELA DE PREÇO cadastrada no Gerente (parcela 20) preenche o valor.
+                // É proposta, não imposição: quem confirma é quem está conferindo o
+                // demonstrativo, porque a operadora pode ter pago menos (glosa parcial) ou
+                // um valor negociado fora da tabela. Sem tabela, o campo fica vazio para
+                // ser digitado — como sempre foi; o sistema não inventa valor de mercado.
+                var proposto = await _precos.ProporAsync(g);
+
                 Linhas.Add(new LinhaConciliacao
                 {
                     Guia = g,
@@ -82,12 +102,20 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
                     Paciente = g.Paciente,
                     Convenio = g.Convenio.ToString(),
                     NumeroGuia = g.NumeroGuiaReal ?? "—",
-                    Tipo = g.Tipo.ToString()
+                    Tipo = g.Tipo.ToString(),
+                    Valor = proposto.Houve ? proposto.Valor.ToString("0.##") : string.Empty,
+                    Procedencia = proposto.Houve ? proposto.Procedencia : null
                 });
+            }
 
+            var comTabela = Linhas.Count(l => l.Procedencia is not null);
             Resumo = Linhas.Count == 0
                 ? "Nenhuma guia pendente de lançamento neste mês."
-                : $"{Linhas.Count} guia(s) efetivada(s) sem receita lançada.";
+                : comTabela == Linhas.Count
+                    ? $"{Linhas.Count} guia(s) efetivada(s) sem receita lançada — valor proposto pela tabela."
+                    : comTabela == 0
+                        ? $"{Linhas.Count} guia(s) efetivada(s) sem receita lançada. Sem tabela de preço cadastrada: informe o valor."
+                        : $"{Linhas.Count} guia(s) efetivada(s) sem receita lançada · {Linhas.Count - comTabela} sem preço na tabela.";
         }
         catch (Exception ex)
         {

@@ -243,6 +243,16 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   porque retido já saiu e recolhido ainda vai sair. `GuiaSemLancamento.ConvenioCodigo`
   existe porque `Convenio` é a família de REGRA: duas operadoras podem compartilhá-la e
   reter percentuais diferentes.
+- **Tabela de preço por convênio** (`PrecoConvenioService`, parcela 20): cadastrada no
+  **Gerente** e lida pela conciliação do **Financeiro** — quem negocia tabela é a direção,
+  quem concilia guia é o balcão; mesmo banco, sem sincronização. A mais **específica** ganha
+  (especialidade vence o genérico do tipo), tem **vigência** (reajuste é linha nova; a guia
+  de março segue valendo o preço de março) e o valor é **copiado** no lançamento. **Sem
+  preço cadastrado não se inventa valor** — o campo fica vazio para digitar, e chutar um
+  valor de mercado daria receita errada com aparência de exata. É **proposta, não
+  imposição**: a operadora pode ter pago menos (glosa parcial), e a linha mostra a
+  PROCEDÊNCIA do número, porque campo que se preenche sozinho sem explicar faz a pessoa
+  confirmar sem conferir. A proposta usa a data da **baixa da guia**, não a de hoje.
 - **Rentabilidade por convênio** (`RentabilidadeConvenioService`, parcela 19): o encontro
   dos dois módulos. **Líquido por guia** é a leitura central — o único número comparável
   entre operadoras que pagam valores e volumes diferentes, e por isso a "menos rentável" é

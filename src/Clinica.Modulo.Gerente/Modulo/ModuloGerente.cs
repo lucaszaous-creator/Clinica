@@ -24,6 +24,7 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveFaturamento = "faturamento-gerencial";
     public const string ChaveCusto = "custo-transacao";
     public const string ChaveRentabilidade = "rentabilidade-convenio";
+    public const string ChavePrecos = "precos-convenio";
     public const string ChaveCampanhas = "campanhas";
     public const string ChaveAcessos = "acessos";
     public const string ChaveConfiguracoes = "configuracoes";
@@ -39,6 +40,11 @@ public sealed class ModuloGerente : IModuloApp
         {
             Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFaturamento
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChavePrecos, Rotulo = "Tabela de pre\u00E7o (conv\u00EAnios)", Glifo = "\uE8EF",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
         {
@@ -77,6 +83,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<IndicadoresViewModel>();
         servicos.AddTransient<FaturamentoGerencialViewModel>();
         servicos.AddTransient<FaturamentoTissViewModel>();
+        servicos.AddTransient<PrecosConvenioViewModel>();
         servicos.AddTransient<CustoTransacaoViewModel>();
         servicos.AddTransient<RentabilidadeConvenioViewModel>();
         servicos.AddTransient<CampanhasViewModel>();
@@ -95,6 +102,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveFaturamento => new FaturamentoTissView
         {
             DataContext = servicos.GetRequiredService<FaturamentoTissViewModel>()
+        },
+        ChavePrecos => new PrecosConvenioView
+        {
+            DataContext = servicos.GetRequiredService<PrecosConvenioViewModel>()
         },
         ChaveCusto => new CustoTransacaoView
         {
