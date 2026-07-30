@@ -152,6 +152,12 @@
                         Style="{StaticResource BotaoSecundario}" Width="40" />
                 <Button Content="Hoje" Command="{Binding HojeCommand}"
                         Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                <!-- Dia ou semana. No modo semana as colunas passam a ser os DIAS: é a
+                     forma de responder "quando ele tem vaga?", que no modo dia se
+                     responde clicando de dia em dia até achar. -->
+                <CheckBox Content="Ver a semana" IsChecked="{Binding ModoSemana}"
+                          VerticalAlignment="Center" Margin="16,0,0,0" />
+
                 <!-- Só aparece para quem entrou como profissional: no balcão a agenda
                      é da clínica inteira e a caixa não teria sentido. -->
                 <CheckBox Content="Ver todos os profissionais"

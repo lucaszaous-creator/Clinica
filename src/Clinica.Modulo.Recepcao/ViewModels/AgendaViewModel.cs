@@ -79,6 +79,16 @@ public sealed partial class AgendaViewModel : ObservableObject
     public ObservableCollection<LinhaListaEspera> Espera { get; } = [];
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
+
+    /// <summary>
+    /// Semana em vez de dia. As colunas deixam de ser os profissionais e passam a ser os
+    /// DIAS: é a forma de responder "quando ele tem vaga?", que no modo dia se responde
+    /// clicando de dia em dia até achar.
+    ///
+    /// Os cartões e os botões são os mesmos — muda só o que cada coluna agrupa.
+    /// </summary>
+    [ObservableProperty] private bool _modoSemana;
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _resumo = string.Empty;
 
@@ -153,6 +163,14 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     partial void OnMostrarTodosOsProfissionaisChanged(bool value) => _ = CarregarAsync();
 
+    partial void OnModoSemanaChanged(bool value)
+    {
+        // Sair do foco do horário: "quem chamar para as 14h" é pergunta do modo dia.
+        SugestaoPara = null;
+        SugestaoProfissionalId = null;
+        _ = CarregarAsync();
+    }
+
     partial void OnDiaChanged(DateTime value)
     {
         // Trocar de dia desfaz o foco: "quem chamar para as 14h de ontem" não é pergunta.
@@ -181,6 +199,13 @@ public sealed partial class AgendaViewModel : ObservableObject
             SemProfissionais = profissionais.Count == 0;
 
             Colunas.Clear();
+
+            if (ModoSemana)
+            {
+                await MontarSemanaAsync(agenda, profissionais);
+                await CarregarEsperaAsync(espera);
+                return;
+            }
 
             // Quem entrou como PROFISSIONAL abre na própria coluna. O usuário aponta
             // para o Profissional desde a parcela 5, e um fisioterapeuta que abre o app
@@ -221,6 +246,51 @@ public sealed partial class AgendaViewModel : ObservableObject
             Carregando = false;
         }
     }
+
+    /// <summary>
+    /// A semana da data escolhida, uma coluna por dia (segunda a domingo).
+    ///
+    /// Começa na SEGUNDA e não no dia escolhido: a clínica pensa a semana em bloco, e
+    /// uma grade que começasse na quarta faria o mesmo dia aparecer em posições
+    /// diferentes conforme o dia em que se abre a tela.
+    ///
+    /// O filtro "só a minha agenda" continua valendo — quem entrou como profissional vê
+    /// a semana DELE, que é a pergunta que ele faz.
+    /// </summary>
+    private async Task MontarSemanaAsync(
+        AgendaService agenda, IReadOnlyList<Profissional> profissionais)
+    {
+        var meu = SessaoUsuario.Atual.ProfissionalId;
+        SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
+        var soMeu = SoMinhaAgenda && !MostrarTodosOsProfissionais;
+
+        var segunda = Dia.Date.AddDays(-(int)((Dia.DayOfWeek + 6) % 7));
+        var ocupando = 0;
+
+        for (var i = 0; i < 7; i++)
+        {
+            var quando = segunda.AddDays(i);
+            var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(quando));
+
+            var recorte = soMeu
+                ? doDia.Where(a => a.ProfissionalId == meu).ToList()
+                : doDia.ToList();
+
+            ocupando += recorte.Count(a => a.OcupaAgenda);
+
+            // A coluna do dia não tem "um profissional": o cartão já diz de quem é, e
+            // amarrá-la a alguém faria o botão de chamar da lista de espera oferecer o
+            // profissional errado.
+            Colunas.Add(MontarColuna(
+                null,
+                $"{Dias[i]} {quando:dd/MM}",
+                recorte));
+        }
+
+        Resumo = $"{ocupando} horário(s) na semana de {segunda:dd/MM} a {segunda.AddDays(6):dd/MM}";
+    }
+
+    private static readonly string[] Dias = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 
     private static ColunaAgenda MontarColuna(
         int? profissionalId, string nome, IEnumerable<Agendamento> agendamentos)
@@ -585,11 +655,13 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
     }
 
+    // Em modo semana os botões andam de SETE em sete: avançar um dia numa grade que
+    // mostra a semana inteira não mudaria quase nada na tela.
     [RelayCommand]
-    private void DiaAnterior() => Dia = Dia.AddDays(-1);
+    private void DiaAnterior() => Dia = Dia.AddDays(ModoSemana ? -7 : -1);
 
     [RelayCommand]
-    private void ProximoDia() => Dia = Dia.AddDays(1);
+    private void ProximoDia() => Dia = Dia.AddDays(ModoSemana ? 7 : 1);
 
     [RelayCommand]
     private void Hoje() => Dia = DateTime.Today;
