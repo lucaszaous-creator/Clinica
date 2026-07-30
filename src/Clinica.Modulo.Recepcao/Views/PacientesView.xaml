@@ -493,7 +493,7 @@
                     </Border>
 
                     <!-- ===== Consentimentos LGPD ===== -->
-                    <Border Style="{StaticResource Card}" Margin="0,12,0,24">
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
                         <StackPanel>
                             <TextBlock Text="Consentimentos (LGPD)" Style="{StaticResource H3}" />
                             <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
@@ -548,6 +548,35 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ===== Direitos do titular (LGPD, art. 18) =====
+                         Colher e revogar consentimento a clínica já sabia. Estes são os
+                         outros dois pedidos que o paciente pode fazer e que ela é obrigada
+                         a atender: me dê o que vocês têm sobre mim, e apaguem meus dados. -->
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,24">
+                        <StackPanel>
+                            <TextBlock Text="Direitos do titular" Style="{StaticResource H3}" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10"
+                                       Text="Pedido de acesso e pedido de eliminação (LGPD, art. 18). O prontuário NÃO se apaga: a guarda é obrigação legal do profissional de saúde e a lei a preserva (art. 16, II) — anonimizar tira a identificação e mantém o histórico." />
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Exportar meus dados"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        MinWidth="170"
+                                        Command="{Binding ExportarDadosCommand}" />
+                                <Button Content="Anonimizar cadastro" Margin="8,0,0,0"
+                                        Style="{StaticResource BotaoPerigo}"
+                                        MinWidth="170"
+                                        IsEnabled="{Binding PodeAnonimizar}"
+                                        Command="{Binding AnonimizarCommand}" />
+                            </StackPanel>
+
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0"
+                                       Text="Anonimizar não tem volta e por isso pede permissão própria — o balcão exporta, a direção elimina." />
                         </StackPanel>
                     </Border>
                 </StackPanel>

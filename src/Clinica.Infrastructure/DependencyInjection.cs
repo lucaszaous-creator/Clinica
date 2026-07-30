@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();
         services.AddScoped<ConsentimentoService>();
+        services.AddScoped<TitularDadosService>();
         services.AddScoped<ElegibilidadeService>();
         services.AddScoped<ConsultaService>();
         services.AddScoped<AutorizacaoService>();
