@@ -863,6 +863,29 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await _db.Lancamentos.Where(l => ids.Contains(l.Id)).ToListAsync(ct);
     }
 
+    // ---- Tabela de preco por convenio (parcela 20) ----
+
+    public async Task<IReadOnlyList<PrecoConvenio>> PrecosConvenioAsync(
+        bool somenteAtivos = false, CancellationToken ct = default)
+        => await _db.PrecosConvenio.AsNoTracking()
+            .Where(p => !somenteAtivos || p.Ativo)
+            .OrderBy(p => p.ConvenioCodigo)
+            .ThenBy(p => p.Tipo)
+            .ThenBy(p => p.Especialidade)
+            .ToListAsync(ct);
+
+    public Task<PrecoConvenio?> ObterPrecoConvenioAsync(int precoId, CancellationToken ct = default)
+        => _db.PrecosConvenio.FirstOrDefaultAsync(p => p.Id == precoId, ct);
+
+    public async Task AdicionarPrecoConvenioAsync(PrecoConvenio preco, CancellationToken ct = default)
+        => await _db.PrecosConvenio.AddAsync(preco, ct);
+
+    public async Task RemoverPrecoConvenioAsync(int precoId, CancellationToken ct = default)
+    {
+        var preco = await _db.PrecosConvenio.FirstOrDefaultAsync(p => p.Id == precoId, ct);
+        if (preco is not null) _db.PrecosConvenio.Remove(preco);
+    }
+
     // ---- Regime tributario (parcela 15) ----
 
     public async Task<IReadOnlyList<Tributo>> TributosAsync(

@@ -373,6 +373,23 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosPorIdAsync(
         IReadOnlyCollection<int> ids, CancellationToken ct = default);
 
+    // ---- Tabela de preco por convenio (parcela 20) ----
+
+    /// <summary>
+    /// Tabela de preco por convenio: quanto cada operadora paga por tipo de guia. Cadastrada
+    /// no Gerente (quem negocia tabela e a direcao) e lida pela conciliacao do Financeiro
+    /// (quem concilia guia e o balcao) — mesmo banco, sem sincronizacao.
+    /// </summary>
+    Task<IReadOnlyList<PrecoConvenio>> PrecosConvenioAsync(
+        bool somenteAtivos = false, CancellationToken ct = default);
+
+    /// <summary>Preco rastreado, para a tela poder edita-lo.</summary>
+    Task<PrecoConvenio?> ObterPrecoConvenioAsync(int precoId, CancellationToken ct = default);
+
+    Task AdicionarPrecoConvenioAsync(PrecoConvenio preco, CancellationToken ct = default);
+
+    Task RemoverPrecoConvenioAsync(int precoId, CancellationToken ct = default);
+
     // ---- Regime tributario (parcela 15) ----
 
     /// <summary>Catalogo de tributos (ISS, PIS, COFINS, IRPJ, CSLL, Simples).</summary>

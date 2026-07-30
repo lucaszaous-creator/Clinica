@@ -45,6 +45,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<RegraRepasse> RegrasRepasse => Set<RegraRepasse>();
     public DbSet<TaxaCartao> TaxasCartao => Set<TaxaCartao>();
     public DbSet<Tributo> Tributos => Set<Tributo>();
+    public DbSet<PrecoConvenio> PrecosConvenio => Set<PrecoConvenio>();
     public DbSet<RepasseApurado> RepassesApurados => Set<RepasseApurado>();
     public DbSet<ItemEstoque> ItensEstoque => Set<ItemEstoque>();
     public DbSet<MovimentoEstoque> MovimentosEstoque => Set<MovimentoEstoque>();
@@ -808,6 +809,26 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.Descricao);
             e.Ignore(x => x.Vigencia);
             e.Ignore(x => x.RetidoNaFonte);
+        });
+
+        b.Entity<PrecoConvenio>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ConvenioCodigo).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.Especialidade).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Observacoes).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            // A consulta da conciliacao filtra por convenio + tipo.
+            e.HasIndex(x => new { x.ConvenioCodigo, x.Tipo });
+            e.HasIndex(x => x.Ativo);
+
+            // Descricao e vigencia sao CALCULADAS.
+            e.Ignore(x => x.Descricao);
+            e.Ignore(x => x.Vigencia);
         });
 
         b.Entity<RepasseApurado>(e =>

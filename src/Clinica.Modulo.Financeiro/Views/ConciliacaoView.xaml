@@ -106,11 +106,18 @@
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                             </StackPanel>
+                                            <!-- DE ONDE veio o valor (parcela 20). Campo que se
+                                                 preenche sozinho sem explicar é pior que campo
+                                                 vazio: a pessoa confirma sem conferir. -->
+                                            <TextBlock Text="{Binding Procedencia}" TextWrapping="Wrap"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
                                             <!-- A retenção da operadora aparece ANTES de gravar:
                                                  é aí que dá para conferir contra o demonstrativo.
                                                  Descobri-la depois viraria estorno. -->
                                             <TextBlock Text="{Binding Retencao}" TextWrapping="Wrap"
-                                                       Margin="0,4,0,0"
+                                                       Margin="0,2,0,0"
                                                        FontSize="{StaticResource Fonte.Legenda}"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}" />
                                         </StackPanel>

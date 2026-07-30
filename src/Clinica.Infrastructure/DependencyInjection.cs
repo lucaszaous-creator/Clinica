@@ -40,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<RecebiveisService>();
         services.AddScoped<CustoTransacaoService>();
         services.AddScoped<RentabilidadeConvenioService>();
+        services.AddScoped<PrecoConvenioService>();
         // O TributoService vem ANTES do TaxaService: este o recebe para abrir o imposto
         // por tributo (e a retencao por convenio) em vez de uma aliquota unica e cega.
         services.AddScoped<TributoService>();
