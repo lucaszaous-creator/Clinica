@@ -247,6 +247,49 @@ zero.**
 
 ---
 
+### Central de documentos — as nove folhas — ✅ · parcela 24
+
+| Item | Estado | Onde |
+|---|---|---|
+| Catálogo das nove folhas, com o que cada uma exige | ✅ | `CentralDocumentosService.Catalogo` |
+| Receituário · Atestado · Declaração · Solicitação de exames | ✅ | abre a `DocumentoWindow` com o tipo pré-selecionado |
+| Relatório de evolução · Anamnese · Consentimento | ✅ | `DocumentoClinicoService.Emitir*Async` (montadas do prontuário) |
+| Recibo de pagamento | ✅ | nasce no Caixa; o cartão navega até lá (`NavegacaoSuite`) |
+| Orçamento **livre**, sem depender de pacote | ✅ | `OrcamentoWindow` → `DocumentoFinanceiroService.EmitirAsync` |
+| Fechamento do período, **na suíte** | ✅ | `CentralDocumentosService.GerarFechamentoPeriodoAsync` |
+| Lista unificada do que já saiu (clínico + financeiro) | ✅ | `EmitidasAsync` · `DocumentosClinicosNoPeriodoAsync` |
+| Segunda via e cancelamento com motivo | ✅ | `DocumentosViewModel.Reimprimir` / `Cancelar` |
+
+> **As nove existiam e nenhuma estava no mesmo lugar.** Quatro saíam de uma janela dentro
+> da ficha do paciente, três só do botão certo na aba certa dessa ficha, o recibo do Caixa,
+> o orçamento só de dentro de um pacote vendido — e o fechamento do período **só do app de
+> faturamento**, que está congelado e que a suíte nem abre. Quem foi treinado no mockup
+> procurava "Documentos" e não achava: não faltava capacidade, faltava porta.
+
+> **Duas capacidades estavam sem porta nenhuma.** `DocumentoFinanceiroService.EmitirAsync`
+> aceitava linhas quaisquer desde a parcela 4 e nenhuma tela o chamava; `FechamentoPdfService`
+> só era chamado pelo app congelado. É a variante mais discreta do defeito recorrente do
+> projeto — o teste passa, o CI fica verde, e a clínica pega o bloquinho de papel.
+
+> **A tela não reimplementa emissão nenhuma.** Abre a janela que já existe ou chama o
+> serviço dono da folha. Reescrever aqui daria dois caminhos para o mesmo papel, e só um
+> receberia a próxima correção.
+
+> **Cada cartão diz o que FALTA** em vez de deixar o botão aceso e só depois avisar.
+> Descobrir o requisito errando é o que faz a pessoa desistir da tela.
+
+> **O recibo continua nascendo no Caixa.** Ele comprova dinheiro que JÁ entrou e fica
+> apontando para o lançamento; emiti-lo de outro lugar deixaria sair dois recibos do mesmo
+> pagamento. Sem o módulo Financeiro carregado no executável, o botão fica desabilitado
+> dizendo isso.
+
+> **Cancelada aparece marcada, nunca sumindo**, e o **fechamento do período não tem segunda
+> via**: ele não é gravado, é conferência montada na hora a partir das guias, então a lista
+> devolve vazio para ele de propósito.
+
+> **O rótulo segue o mockup, não o enum.** A cliente chama de "Receituário" e "Solicitação
+> de exames"; o enum chama de "Receita" e "Pedido de exame".
+
 ## Módulo FINANCEIRO — `Clinica.Modulo.Financeiro`
 
 ### Feature 09 · Caixa, repasses e conciliação — ✅ · parcela 4
