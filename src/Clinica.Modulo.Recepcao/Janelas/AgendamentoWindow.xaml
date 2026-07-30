@@ -125,6 +125,24 @@
             </StackPanel>
         </Border>
 
+        <!-- Carteirinha, cota e consentimento do paciente escolhido. Aviso, nunca
+             impedimento: quem decide atender é a clínica. Mas marcar dez sessões para
+             quem está com a cota estourada é combinar dez glosas de antemão. -->
+        <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
+                Visibility="{Binding TemAvisoElegibilidade,
+                             Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="Antes de marcar" FontWeight="SemiBold" />
+                <ItemsControl ItemsSource="{Binding Elegibilidade}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
         <CheckBox Content="Marcar como encaixe (atender por cima do horário ocupado)"
                   IsChecked="{Binding Encaixe}" Margin="0,12,0,0" />
 

@@ -14,6 +14,10 @@ namespace Clinica.Recepcao.ViewModels;
 public sealed partial class CartaoFila : ObservableObject
 {
     public required int AgendamentoId { get; init; }
+
+    /// <summary>De quem é a sessão — é o que a conferência de elegibilidade pergunta.</summary>
+    public required int PacienteId { get; init; }
+
     public required string Horario { get; init; }
     public required string Paciente { get; init; }
     public required string Modalidade { get; init; }
@@ -168,6 +172,7 @@ public sealed partial class FilaViewModel : ObservableObject
                 var cartao = new CartaoFila
                 {
                     AgendamentoId = a.Id,
+                    PacienteId = a.PacienteId,
                     Horario = a.DataHora.ToString("HH:mm"),
                     Paciente = a.Paciente?.Nome ?? "(paciente removido)",
                     Modalidade = a.ModalidadePrevista.ToString(),
@@ -236,14 +241,53 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
             await _agenda.RegistrarChegadaAsync(c.AgendamentoId);
+
+            // O check-in é o ÚLTIMO momento barato: o paciente está no balcão, e
+            // carteirinha vencida ou cota estourada ainda dá para resolver com um
+            // telefonema. Depois da sessão, a mesma informação só vira glosa.
+            var elegibilidade = await ConferirElegibilidadeAsync(c);
+
+            var recados = new List<string>();
             if (c.TemGuiaPendente)
-                _dialogo.Aviso(
-                    "Guia pendente",
-                    $"{c.Paciente} tem guia pendente de baixa. Aproveite que ele está no "
-                    + "balcão para pedir o documento — depois a cobrança vira telefonema.");
+                recados.Add("Tem GUIA PENDENTE de baixa — aproveite que ele está aqui e peça "
+                            + "o documento; depois a cobrança vira telefonema.");
+            recados.AddRange(elegibilidade);
+
+            if (recados.Count > 0)
+                _dialogo.Aviso($"Atenção — {c.Paciente}", string.Join("\n\n", recados));
             else
                 _snackbar.Sucesso($"{c.Paciente} chegou.");
         }, "chegada");
+
+    /// <summary>
+    /// Conferência de elegibilidade do paciente que acabou de chegar.
+    ///
+    /// É chamada UMA vez, no check-in, e não para os trinta cartões do dia: a conferência
+    /// custa quatro consultas por paciente, e rodá-la a cada abertura da fila tornaria a
+    /// tela lenta para entregar um aviso que só importa quando alguém chega.
+    ///
+    /// Falha aqui NÃO derruba a chegada: o paciente chegou, e isso já está gravado. O que
+    /// se perde é o aviso — e o aviso perdido fica no log, nunca disfarçado de "tudo certo".
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ConferirElegibilidadeAsync(CartaoFila cartao)
+    {
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var elegibilidade = scope.ServiceProvider.GetRequiredService<ElegibilidadeService>();
+
+            var resultado = await elegibilidade.ConferirAsync(
+                cartao.PacienteId, DateOnly.FromDateTime(Dia));
+
+            return resultado.Alertas.Select(a => a.Descricao).ToList();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — elegibilidade não pôde ser conferida no check-in", ex);
+            return ["Não foi possível conferir carteirinha e cota agora — confira na ficha."];
+        }
+    }
 
     /// <summary>O profissional chamou: fim da espera, começo da sessão.</summary>
     [RelayCommand]

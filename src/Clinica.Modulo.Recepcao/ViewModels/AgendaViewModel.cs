@@ -388,6 +388,30 @@ public sealed partial class AgendaViewModel : ObservableObject
         await CarregarAsync();
     }
 
+    /// <summary>
+    /// A rodada de confirmação das sessões de amanhã.
+    ///
+    /// A capacidade existia desde a parcela 5 e morava só no Gerente Geral — mas quem
+    /// confirma as sessões de amanhã é quem está no balcão. É a mesma rodada, o mesmo
+    /// serviço e a mesma chave de idempotência: rodar aqui e lá no mesmo dia não manda
+    /// duas mensagens para o mesmo paciente.
+    /// </summary>
+    [RelayCommand]
+    private async Task ConfirmarSessoesAsync()
+    {
+        var vm = new ConfirmacoesViewModel(_escopos);
+        var janela = new Janelas.ConfirmacoesWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        janela.ShowDialog();
+
+        // A confirmação não muda a agenda do dia aberto, mas pode ter registrado
+        // resposta de quem vem amanhã — recarregar mantém a tela honesta.
+        await CarregarAsync();
+    }
+
     /// <summary>Coloca um paciente na lista de espera.</summary>
     [RelayCommand]
     private async Task NovoPedidoEsperaAsync()
