@@ -220,6 +220,16 @@ public sealed class AgendaService
                     $"O paciente já tem horário às {a.DataHora:HH:mm}.",
                     a.DataHora, a.FimPrevisto)));
 
+        // Agenda fechada (férias, feriado, folga, sala em manutenção). Vem por último
+        // porque é o choque menos frequente — mas é o único que não tem outro paciente
+        // do outro lado, e por isso precisava existir: sem ele, o que segurava a
+        // marcação em cima da folga era a memória de quem está no balcão.
+        var bloqueios = await _repo.BloqueiosNoPeriodoAsync(dataHora, fim, ct);
+        conflitos.AddRange(bloqueios
+            .Where(b => b.AlcancaRecurso(profissionalId, salaId))
+            .Select(b => new ConflitoAgenda(
+                RecursoAgenda.Bloqueio, b.Id, b.Descricao, b.Inicio, b.Fim)));
+
         return conflitos;
     }
 
@@ -233,15 +243,22 @@ public sealed class AgendaService
         int? pacienteId, int? ignorarAgendamentoId, bool encaixe, CancellationToken ct)
     {
         if (encaixe) return;
-        if (profissionalId is null && salaId is null) return;
+
+        // Sem profissional e sem sala não há recurso disputado — mas o bloqueio DA
+        // CLÍNICA (feriado) vale mesmo assim, e por isso a conferência não pode mais
+        // sair aqui como saía antes.
+        var soBloqueioDaClinica = profissionalId is null && salaId is null;
 
         var conflitos = await ConflitosAsync(
             dataHora, duracaoMinutos, profissionalId, salaId,
             pacienteId: pacienteId, ignorarAgendamentoId: ignorarAgendamentoId, ct: ct);
 
         // Choque com o próprio paciente é aviso da tela, não impedimento: ele pode ter
-        // dois procedimentos seguidos. O que trava é recurso disputado.
-        var impeditivos = conflitos.Where(c => c.Recurso != RecursoAgenda.Paciente).ToList();
+        // dois procedimentos seguidos. O que trava é recurso disputado — e agenda fechada.
+        var impeditivos = conflitos
+            .Where(c => c.Recurso != RecursoAgenda.Paciente)
+            .Where(c => !soBloqueioDaClinica || c.Recurso == RecursoAgenda.Bloqueio)
+            .ToList();
         if (impeditivos.Count == 0) return;
 
         throw new InvalidOperationException(

@@ -157,3 +157,86 @@ public class ListaEspera
         };
     }
 }
+
+/// <summary>
+/// Um período em que a agenda NÃO aceita marcação: férias, feriado, congresso, folga.
+///
+/// Até existir isto, a única coisa que segurava a marcação em cima da folga do
+/// profissional era a memória de quem estava no balcão — e memória de balcão falha
+/// justamente no dia cheio. O choque de horário já era detectado entre agendamentos; o
+/// que faltava era a agenda saber que aquele intervalo não existe.
+///
+/// **Sem profissional e sem sala = a clínica inteira** (feriado). Com profissional, é a
+/// agenda dele; com sala, é a sala em manutenção. Um bloqueio pode ter os dois, e aí vale
+/// para aquele profissional naquela sala — o caso raro, mas que não custa nada permitir.
+///
+/// Ele NÃO apaga o que já estava marcado: bloquear o Natal depois de alguém ter marcado
+/// no dia 25 não pode fazer a sessão sumir do sistema sem ninguém avisar o paciente. A
+/// tela mostra quem já está marcado dentro do bloqueio, para a recepção remarcar.
+/// </summary>
+public class BloqueioAgenda
+{
+    public int Id { get; set; }
+
+    /// <summary>De quem é a indisponibilidade. Null = de todo mundo (feriado).</summary>
+    public int? ProfissionalId { get; set; }
+    public Profissional? Profissional { get; set; }
+
+    /// <summary>Sala indisponível (manutenção, reforma). Null = qualquer sala.</summary>
+    public int? SalaId { get; set; }
+    public Sala? Sala { get; set; }
+
+    public DateTime Inicio { get; set; }
+
+    public DateTime Fim { get; set; }
+
+    /// <summary>Por que a agenda está fechada. Obrigatório: bloqueio sem motivo vira mistério.</summary>
+    public string Motivo { get; set; } = string.Empty;
+
+    public DateTime CriadoEm { get; set; } = DateTime.Now;
+
+    public string? CriadoPor { get; set; }
+
+    /// <summary>Vale para a clínica inteira — não é de um profissional nem de uma sala.</summary>
+    public bool DaClinica => ProfissionalId is null && SalaId is null;
+
+    /// <summary>
+    /// O intervalo informado esbarra neste bloqueio?
+    ///
+    /// Fim exclusivo dos dois lados: uma sessão que termina exatamente quando o bloqueio
+    /// começa não colide — senão marcar até as 12h com bloqueio a partir das 12h seria
+    /// recusado, e ninguém entenderia por quê.
+    /// </summary>
+    public bool ColideCom(DateTime inicio, DateTime fim) => inicio < Fim && fim > Inicio;
+
+    /// <summary>
+    /// Este bloqueio se aplica ao recurso que está sendo marcado?
+    ///
+    /// O da clínica se aplica a todo mundo. O do profissional só a ele — inclusive quando
+    /// a marcação não informa profissional, caso em que não há como saber de quem é o
+    /// horário e o bloqueio não impede.
+    /// </summary>
+    public bool AlcancaRecurso(int? profissionalId, int? salaId)
+    {
+        if (DaClinica) return true;
+        if (ProfissionalId is { } p && profissionalId == p) return true;
+        return SalaId is { } s && salaId == s;
+    }
+
+    /// <summary>Descrição pronta para a tela e para a mensagem de recusa.</summary>
+    public string Descricao
+    {
+        get
+        {
+            var alvo = DaClinica
+                ? "A clínica"
+                : Profissional?.Rotulo ?? (Sala?.Nome is { } sala ? $"A sala {sala}" : "O recurso");
+
+            var quando = Inicio.Date == Fim.Date
+                ? $"{Inicio:dd/MM} das {Inicio:HH:mm} às {Fim:HH:mm}"
+                : $"de {Inicio:dd/MM HH:mm} a {Fim:dd/MM HH:mm}";
+
+            return $"{alvo} está indisponível {quando} — {Motivo}.";
+        }
+    }
+}

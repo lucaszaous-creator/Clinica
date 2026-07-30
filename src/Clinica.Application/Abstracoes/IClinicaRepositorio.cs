@@ -183,6 +183,25 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<ListaEspera>> ListaEsperaAsync(
         bool somenteAguardando = true, CancellationToken ct = default);
 
+    // ---- Bloqueio de agenda (ferias, feriado, folga) ----
+
+    /// <summary>
+    /// Bloqueios que alcancam o intervalo informado. A consulta e feita a cada marcacao,
+    /// entao ela corta pelo periodo no banco em vez de trazer o historico inteiro.
+    /// </summary>
+    Task<IReadOnlyList<BloqueioAgenda>> BloqueiosNoPeriodoAsync(
+        DateTime inicio, DateTime fim, CancellationToken ct = default);
+
+    /// <summary>Bloqueios cadastrados, do mais proximo para o mais distante.</summary>
+    Task<IReadOnlyList<BloqueioAgenda>> BloqueiosAsync(
+        DateTime? aPartirDe = null, CancellationToken ct = default);
+
+    Task AdicionarBloqueioAsync(BloqueioAgenda bloqueio, CancellationToken ct = default);
+
+    Task<BloqueioAgenda?> ObterBloqueioAsync(int bloqueioId, CancellationToken ct = default);
+
+    Task RemoverBloqueioAsync(int bloqueioId, CancellationToken ct = default);
+
     // ---- Prontuário ----
 
     Task AdicionarEvolucaoAsync(Evolucao evolucao, CancellationToken ct = default);

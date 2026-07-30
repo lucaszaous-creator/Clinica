@@ -10,7 +10,16 @@ public enum RecursoAgenda
     Sala,
 
     /// <summary>O próprio paciente já tem horário nesse intervalo.</summary>
-    Paciente
+    Paciente,
+
+    /// <summary>
+    /// A agenda está fechada nesse intervalo: férias, feriado, folga, sala em manutenção.
+    ///
+    /// Diferente dos outros três, aqui não há agendamento do outro lado — o
+    /// <see cref="ConflitoAgenda.AgendamentoId"/> carrega o id do BLOQUEIO. Quem lê o
+    /// choque usa a descrição, que já vem escrita; o id serve para achar o registro.
+    /// </summary>
+    Bloqueio
 }
 
 /// <summary>
