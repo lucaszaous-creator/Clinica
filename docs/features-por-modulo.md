@@ -287,6 +287,41 @@ zero.**
 > ela foi quitada. E gerar é um CLIQUE, não automático na abertura do app: conta
 > nascendo sozinha é escrita que o balcão não vê acontecer e depois não sabe explicar.
 
+### Inadimplência — "quem me deve" — ✅ · parcela 23
+
+| Item | Estado | Onde |
+|---|---|---|
+| Conta a receber com DONO | ✅ | `ContasService.LancarContaAsync(..., pacienteId)` |
+| Seletor de paciente no formulário (só em "A receber") | ✅ | `ContasView.xaml` + `ContasViewModel.Seletor` |
+| Devedores agrupados, somados e ordenados | ✅ | `InadimplenciaService.PorPacienteAsync` |
+| Envelhecimento por faixa, com VALOR | ✅ | `ResumoAsync` → `FaixaInadimplencia` |
+| Cobrança por WhatsApp, um clique por paciente | ✅ | `MensagemDeCobranca` + `Whatsapp.Abrir` |
+| Baixa da conta a partir da lista | ✅ | `ReceberAsync` → `FinanceiroService.RealizarAsync` |
+| Exportação em CSV | ✅ | `InadimplenciaViewModel.ExportarAsync` |
+
+> **A conta vencida já existia — e não tinha dono.** Desde a parcela 12 a conta a receber
+> vencida aparecia na lista de Contas, uma linha por lançamento, misturada com o que a
+> clínica tem a PAGAR; e `LancarContaAsync` não tinha `pacienteId`. Ninguém consegue cobrar
+> assim: para saber que o mesmo paciente tem três sessões em aberto era preciso ler a lista
+> inteira e somar de cabeça.
+
+> **Só conta de PACIENTE entra.** Entrada prevista vencida sem paciente — reembolso de
+> convênio, venda de produto, aporte — é a receber, não inadimplência. Cobrar quem não deve
+> custa mais do que a sessão em aberto.
+
+> **A situação é CALCULADA, nunca gravada.** Não existe campo "inadimplente" no cadastro, e
+> não deve existir: paciente marcado assim continua marcado depois de pagar, e quem lê a
+> ficha dois meses depois trata como caloteiro alguém que quitou.
+
+> **A ordem padrão é o mais ANTIGO, não o maior valor.** A chance de receber cai com o
+> tempo, e o caso de seis meses precisa de decisão — acordo, ou parar de contar com o
+> dinheiro —, não de mais um lembrete. Quem tem pouco tempo de cobrança troca a ordem.
+
+> **A mensagem é lembrete, não ameaça, e não leva dado clínico.** Quem está em atraso quase
+> sempre esqueceu; um texto duro custa o paciente inteiro para recuperar uma sessão; e o
+> telefone pode não ser só do paciente. **Cobrança não exige consentimento de marketing** —
+> é transacional, como a confirmação da própria sessão; NPS e recall continuam exigindo.
+
 ### Fluxo de caixa e resultado por categoria — ✅ · parcela 13
 
 | Item | Estado | Onde |
@@ -497,6 +532,69 @@ Desde a parcela 5 existe o **`Clinica.Modulo.Gerente`** (biblioteca carregada s�
 `Clinica.Gerente.exe`), com quatro telas: **Indicadores**, **Faturamento** (leitura),
 **Campanhas** e **Acessos**. Elas ficam fora dos outros apps em vez de aparecerem
 escondidas por permissão — quem instala a Recepção não precisa baixar a tela de BI.
+
+### Painel da direção — ✅ · parcela 22
+
+| Item | Estado | Onde |
+|---|---|---|
+| Abertura própria do Gerente Geral | ✅ | `ItemMenuModulo.Inicial` + `ShellViewModel` |
+| Dinheiro do mês com variação | ✅ | `PainelDirecaoService.MontarAsync` |
+| Contas a pagar vencidas · paciente devendo | ✅ | `AssuntoDirecao.ContasVencidas` / `PacientesDevendo` |
+| Depósito de cartão atrasado | ✅ | `RecebiveisService.ResumoAsync` |
+| Gaveta não conferida | ✅ | `FechamentoCaixaService.NaoConferidosAsync` |
+| Guia baixada sem receita | ✅ | `FinanceiroService.GuiasSemLancamentoAsync` |
+| Pendência de faturamento vencida | ✅ | `RodadaPendenciasService.ObterStatusAsync` |
+| Glosa dentro e fora do prazo de recurso | ✅ | `PendenciaService.GlosasARecorrerAsync` |
+| Cada alerta LEVA ao assunto | ✅ | `NavegacaoSuite` + `ChavesSuite` |
+
+> **O Gerente abria no painel da RECEPÇÃO.** Ele carrega os três módulos, e o shell abria
+> no primeiro item do primeiro deles: quem manda na clínica entrava no sistema e via a fila
+> do balcão. Informação correta, dona errada. Reordenar os módulos resolveria desmontando a
+> sidebar, que já está na ordem do dia de trabalho — daí `Inicial`.
+
+> **O painel não calcula nada.** Cada número vem do serviço que já é dono dele. Painel que
+> recalcula por conta própria vira a segunda verdade sobre o mesmo dinheiro, e quando as
+> duas divergem ninguém sabe qual está certa.
+
+> **A comparação é com o MESMO TRECHO do mês anterior.** No dia 5, cinco dias contra trinta
+> apontariam queda de 80% todo começo de mês, e a direção aprenderia a ignorar a seta — o
+> pior destino de um indicador. Sem base de comparação, nada de seta.
+
+> **Cada bloco falha sozinho.** Erro na leitura das contas não derruba o painel nem, muito
+> pior, aparece como "nada vencido": o bloco entra em `NaoVerificados` e a tela diz qual
+> leitura não rodou.
+
+> **Conta a pagar e paciente devendo são alertas SEPARADOS.** Somá-los daria um número sem
+> significado: um se resolve pagando, o outro cobrando.
+
+### Auditoria — a trilha que ninguém lia — ✅ · parcela 21
+
+| Item | Estado | Onde |
+|---|---|---|
+| Consulta filtrada (ação, operador, detalhe, período) | ✅ | `AuditoriaService.ConsultarAsync` |
+| Filtro e corte no SQL | ✅ | `ClinicaRepositorio.ConsultarAuditoriaAsync` |
+| Contagem por ação e por operador | ✅ | `ResumoAsync` |
+| Trilha de uma guia · de um paciente | ✅ | `DaGuiaAsync` / `DoPacienteAsync` |
+| Exportação em CSV | ✅ | `AuditoriaViewModel.ExportarAsync` |
+
+> **Estava gravado e ninguém lia.** `EventoAuditoria` é escrito por praticamente tudo o que
+> mexe em dinheiro ou permissão — baixa, estorno, glosa, lote, lançamento, conta, tributo,
+> preço, usuário, senha — e nenhuma tela o lia. Quarta ocorrência do mesmo defeito no
+> projeto, e a mais grave: as outras três eram dinheiro que ninguém via; esta é a resposta
+> para "quem fez isso?", que é o que se pergunta justamente quando algo deu errado.
+
+> **Somente leitura, e isso é decisão.** Registro de auditoria que se pode editar ou apagar
+> não é auditoria, é rascunho. Não há exclusão no serviço nem na tela, e não deve haver.
+
+> **O dia final entra inteiro** — senão um evento das 14h de hoje ficaria fora de um filtro
+> que pede "até hoje", e a pessoa concluiria que a ação não foi registrada.
+
+> **Bater no limite é avisado.** Um "300 eventos" que na verdade são 300 de 4.000 faria a
+> direção concluir que o período teve pouca movimentação.
+
+> **Fica sob `VerAuditoria`, não sob `GerenciarUsuarios`.** Ler a trilha e mexer em
+> permissão são coisas diferentes; amarrar as duas obrigaria a dar poder de criar usuário a
+> quem só precisa conferir o que aconteceu.
 
 ### Feature 12 · BI — indicadores — ✅ · parcela 5
 

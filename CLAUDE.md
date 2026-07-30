@@ -261,6 +261,55 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   atrasa teria o melhor número. O agrupamento é pelo **código**, não pelo nome exibido —
   duas operadoras da mesma família fora do catálogo resolvem para o mesmo nome padrão e
   seriam fundidas. O período é o do **atendimento**, não o do recebimento.
+- **Tabela de preço por convênio** (`PrecoConvenioService`, parcela 20): o valor da guia é
+  cadastrado no **Gerente** e refletido no Financeiro (a Conciliação já abre com o valor
+  preenchido e a **procedência** escrita ao lado). A regra mais **específica** ganha —
+  especialidade declarada vence a genérica, depois a vigência mais recente —, senão a
+  clínica cadastraria a exceção e continuaria vendo o preço geral. Sem preço cadastrado o
+  campo fica **vazio**, não zero: chutar um valor viraria receita inventada.
+- **Auditoria** (`AuditoriaService`, parcela 21): `EventoAuditoria` era gravado por
+  praticamente tudo o que mexe em dinheiro ou permissão e **nenhuma tela o lia** — quarta
+  ocorrência do defeito "dado gravado sem leitor" (o pacote que debitava, o insumo que
+  baixava, a previsão de recebimento) e a mais grave, porque esta é a resposta para "quem
+  fez isso?". A trilha é **somente leitura, e isso é decisão**: registro de auditoria que
+  se pode editar ou apagar não é auditoria, é rascunho — não há exclusão no serviço nem na
+  tela. A ação casa por **prefixo** ("Conta" acha ContaCriada e ContaReagendada); o dia
+  final entra **inteiro** (`TimeOnly.MaxValue`), senão um evento das 14h ficaria fora de um
+  filtro que pede "até hoje"; o resumo conta sobre o **resultado do filtro**, não sobre a
+  base; e **bater no limite é avisado**, porque "300 eventos" que são 300 de 4.000 faria a
+  direção concluir que o período teve pouca movimentação. Fica sob `Permissao.VerAuditoria`,
+  não sob `GerenciarUsuarios`: ler a trilha e mexer em permissão são coisas diferentes.
+- **Painel da direção** (`PainelDirecaoService`, parcela 22): o Gerente carrega os três
+  módulos e abria no primeiro item do primeiro deles — o painel da **Recepção**. Daí
+  `ItemMenuModulo.Inicial` (reordenar os módulos desmontaria a sidebar, que já está na
+  ordem do dia de trabalho) e `NavegacaoSuite`, pela qual uma tela pede ao shell para abrir
+  outra por chave; `ChavesSuite` guarda só as chaves que **atravessam módulo** — nenhum
+  módulo passa a conhecer o outro, o que se evita é repetir `"fechamento-caixa"` à mão do
+  outro lado, onde renomear a seção compila e só falha na clínica. O painel **não calcula
+  nada**: cada número vem do serviço dono dele (a pendência vem do
+  `RodadaPendenciasService`, que já resolve prazo e carência — recontar daria outro número
+  para a mesma guia). A comparação é com o **mesmo trecho do mês anterior**: no dia 5,
+  cinco dias contra trinta apontariam queda de 80% todo começo de mês, e a direção
+  aprenderia a ignorar a seta. **Cada bloco falha sozinho** (`NaoVerificados`), porque um
+  painel que diz "nada vencido" por causa de uma consulta quebrada é pior do que um painel
+  que não abre. Cada alerta **leva** ao assunto, e o botão fica desabilitado quando o
+  destino não existe para quem está usando.
+- **Inadimplência** (`InadimplenciaService`, parcela 23): a conta a receber vencida existia
+  desde a parcela 12, mas dissolvida na lista de Contas — uma linha por lançamento,
+  misturada com o que a clínica tem a **pagar** —, e `LancarContaAsync` **não tinha
+  `pacienteId`**: a dívida não tinha dono. Só conta de **paciente** entra (a receber sem
+  paciente é reembolso de convênio ou venda de produto, e cobrar quem não deve custa mais
+  que a sessão em aberto). A situação é **calculada, nunca gravada** — campo "inadimplente"
+  no cadastro continuaria lá depois de o paciente pagar, como a situação do pacote. A ordem
+  padrão é o **mais antigo**, não o maior valor: a chance de receber cai com o tempo, e o
+  caso de seis meses precisa de decisão, não de mais um lembrete. **Não há pagamento
+  parcial** — receber passa pelo `FinanceiroService`, que é quem grava dinheiro. Todas as
+  faixas de envelhecimento aparecem, **mesmo vazias** (aging sem a faixa de 90+ se lê como
+  "não há dívida velha"). A mensagem de cobrança é **lembrete, não ameaça**, e não leva dado
+  clínico — o telefone pode não ser só do paciente; e **cobrança não exige consentimento de
+  marketing**, é transacional como a confirmação da própria sessão. No painel da direção,
+  conta a pagar e paciente devendo são alertas **separados**: somá-los daria um número sem
+  significado, porque um se resolve pagando e o outro cobrando.
 - **Repasse** (`RepasseService`, parcela 4): quem atendeu vem do **agendamento**
   (`Agendamento.ProfissionalId` + `AtendimentoId`), porque `Atendimento` é do faturamento
   e não guarda profissional. O percentual incide sobre a **receita que entrou**
@@ -353,6 +402,9 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   arquitetura para quem só quer saber onde mexe no paciente. Item novo declara o `Grupo`.
   Quando um item da proposta cobre vários assuntos (é o caso de "Faturamento (TISS)"), use
   **sub-abas** dentro dele em vez de criar entradas novas — a proposta tem um item ali.
+  A abertura do app é o item com `Inicial = true` (parcela 22), não o primeiro da lista;
+  navegação entre módulos passa por `NavegacaoSuite` + `ChavesSuite` — chave que só um
+  módulo usa continua sendo `const` do módulo dono, porque não é contrato de ninguém.
 - **O verificador é a única barreira local contra erro de compilação WPF.** `Clinica.Desktop`
   e a suíte só compilam no Windows, então `tools/verificar-suite.py` cobre o que dá para
   conferir aqui: XAML, chaves do design system, pack URIs, dicionário que usa token sem
