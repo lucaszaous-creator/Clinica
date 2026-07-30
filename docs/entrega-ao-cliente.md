@@ -8,8 +8,9 @@
 
 ## Onde estamos
 
-**As seis parcelas estão entregues.** A 3 fechou a Recepção, a 4 fechou o Financeiro e a
-5 tirou o Gerente Geral da condição de casca que só carregava os outros.
+**As vinte e cinco parcelas estão entregues.** A 3 fechou a Recepção, a 4 fechou o
+Financeiro, a 5 tirou o Gerente Geral da condição de casca que só carregava os outros — e
+da 12 em diante o Financeiro e a direção ganharam o que respondiam pela metade.
 
 | Parcela | Estado |
 |---|---|
@@ -19,6 +20,13 @@
 | 3 — Ato clínico | ✅ entregue |
 | 4 — Dinheiro e insumo | ✅ entregue |
 | 5 — Inteligência | ✅ entregue |
+| 6 — Integração (o fio entre os módulos) | ✅ entregue |
+| 7 a 11 — Moldura, CRM, taxas, Configurações e gráficos | ✅ entregues |
+| 12 a 14 — Contas, fluxo de caixa e fechamento da gaveta | ✅ entregues |
+| 15 a 17 — Regime tributário, recebíveis de cartão e custo de transação | ✅ entregues |
+| 18 a 20 — Retenção, rentabilidade e tabela de preço por convênio | ✅ entregues |
+| 21 a 24 — Auditoria, painel da direção, inadimplência e central de documentos | ✅ entregues |
+| 25 — As capacidades que existiam sem porta | ✅ entregue |
 
 > A parcela 5 saiu **fora da ordem** de propósito: ela não dependia da 3 nem da 4. O que
 > ela precisava — `Profissional` (parcela 1) e o consentimento LGPD (parcela 2) — já
@@ -42,14 +50,19 @@ está fechada.
 | App | O que já entrega | O que ainda falta |
 |---|---|---|
 | **Faturamento** | Tudo: motor de regras, 2º código, lotes TISS, glosa e recurso, PDFs. **Em produção.** | Nada — está **congelado** de propósito |
-| **Recepção** | Painel do dia, agenda multiprofissional com encaixe e lista de espera, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos, mapa corporal com protocolo e os 7 documentos clínicos | Nada da proposta |
-| **Financeiro** | Caixa do mês, lançamento manual, conciliação com o faturamento, produção do período, pacotes com saldo e baixa automática, estoque com alerta de mínimo e validade, repasse por profissional, plano de contas, recibo e orçamento | Nada da proposta |
-| **Gerente Geral** | Carrega Recepção + Financeiro inteiros **e** as telas da direção: indicadores (ocupação, no-show, produtividade), campanhas (confirmação, NPS e recall), acessos com perfis e permissões, e a visão de leitura do faturamento | Nada da proposta |
+| **Recepção** | Painel do dia, agenda multiprofissional com encaixe, lista de espera que diz **quem chamar** quando um horário vaga, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos, mapa corporal com protocolo, os 7 documentos clínicos e a central com as 9 folhas (incluindo a conferência pelo código impresso) | Nada da proposta |
+| **Financeiro** | Caixa do mês, lançamento manual, conciliação com o faturamento, produção do período, contas a pagar/receber com conta fixa, fluxo de caixa mês a mês, fechamento da gaveta, recebíveis de cartão, taxas e regime tributário, "quem me deve", pacotes com saldo e devolução de sessão, estoque com alerta e **custo por sessão**, repasse por profissional, plano de contas, recibo e orçamento | Nada da proposta |
+| **Gerente Geral** | Carrega Recepção + Financeiro inteiros **e** as telas da direção: painel de abertura com os alertas do dia, indicadores (ocupação, no-show, produtividade), custo de taxas e impostos, rentabilidade e tabela de preço por convênio, auditoria, campanhas (confirmação, NPS e recall), acessos com perfis e permissões, e a visão de leitura do faturamento | Nada da proposta |
 
 ### O que falta
 
 Nada da proposta comercial. O que existe daqui em diante é evolução, não entrega
 pendente — e as duas ressalvas registradas logo abaixo, que são decisão comercial.
+
+A lista da evolução levantada no código (agendamento em série, apuração mensal por
+tributo, metas, LGPD além do consentimento e conciliação bancária) está no fim de
+[`features-por-modulo.md`](features-por-modulo.md#o-que-ainda-não-existe). **Nenhuma delas
+foi vendida** — estão registradas para não serem redescobertas do zero.
 
 ### Duas afirmações da proposta que ainda precisam de decisão
 
@@ -340,6 +353,12 @@ o inventário está em [Onde estamos](#onde-estamos), e o detalhe feature a feat
 | ~~**3 — Ato clínico**~~ ✅ | Recepção | Mapa corporal com protocolo reutilizável; prescrição com modelos; os 7 documentos clínicos | Features 06 e 07, e 7 dos 12 documentos da página 21 — **fecha a Recepção** |
 | ~~**5 — Inteligência**~~ ✅ | Gerente | BI (ocupação, no-show, produtividade); campanhas de confirmação, NPS e recall; perfis, permissões e login; visão de leitura do faturamento | Features 11, 12 e 13, e a metade que faltava da 02 |
 | ~~**4 — Dinheiro e insumo**~~ ✅ | Financeiro | Pacotes/vouchers com saldo e baixa automática; repasse por profissional; estoque com validade e custo; plano de contas; recibo e orçamento | Features 08, 09 e 10, e os 2 documentos que faltavam da página 21 — **fecha o Financeiro** |
+| ~~**6 — Integração**~~ ✅ | Recepção → todos | Concluir a sessão passa a debitar o pacote, baixar o insumo e lançar o caixa | O fio entre os módulos: os serviços existiam e **ninguém os chamava** |
+| ~~**7 a 11**~~ ✅ | Todos | Moldura da suíte (sidebar por tema, busca, breadcrumb), prontuário/prescrições/CRM na sidebar, taxas e impostos, Configurações fora do app congelado, gráficos e exportação CSV | Nasceram da comparação do cliente entre os mockups e o sistema rodando |
+| ~~**12 a 17**~~ ✅ | Financeiro | Contas a pagar/receber com conta fixa; fluxo de caixa mês a mês; fechamento da gaveta; regime tributário; recebíveis de cartão; custo de transação na direção | O módulo sabia o que aconteceu, não *quando* — e nada sobre o dinheiro FÍSICO |
+| ~~**18 a 20**~~ ✅ | Gerente + Financeiro | Retenção na fonte por convênio; rentabilidade por operadora; tabela de preço cadastrada na direção e usada no balcão | O encontro do que o faturamento produz com o que o financeiro recebe |
+| ~~**21 a 24**~~ ✅ | Gerente + Recepção | Auditoria (a trilha que ninguém lia); painel da direção; inadimplência; central das 9 folhas | Quatro dados que o sistema gravava e nenhuma tela mostrava |
+| ~~**25 — Capacidades sem porta**~~ ✅ | Todos | Custo por sessão; devolver sessão ao pacote; desfazer confirmação de depósito; quem chamar da lista de espera; conferir documento pelo código; apagar modelo e protocolo | Seis serviços prontos e testados que **nenhuma tela chamava** — nenhuma feature nova |
 
 A coluna "Destrava" é o que justifica a ordem: cada parcela existe porque a seguinte não
 teria onde se apoiar sem ela. A fundação (1) é o caso mais claro — sem `Profissional`,

@@ -45,6 +45,40 @@ public sealed class LinhaRecebivel
     }
 }
 
+/// <summary>Um depósito que já caiu, com as duas datas — a prevista e a real.</summary>
+public sealed class LinhaConfirmado
+{
+    public required string Adquirente { get; init; }
+    public required string Creditado { get; init; }
+    public required string Liquido { get; init; }
+    public required string Detalhe { get; init; }
+    public required bool Atrasou { get; init; }
+    public required IReadOnlyList<int> LancamentoIds { get; init; }
+
+    public static LinhaConfirmado De(DepositoConfirmado d)
+    {
+        // O atraso é o que sobra da confirmação: as duas datas ficam gravadas separadas
+        // justamente para ele continuar visível depois de o dinheiro entrar.
+        var atraso = d.DiasDeAtraso switch
+        {
+            null => "sem previsão registrada",
+            0 => "caiu no dia previsto",
+            < 0 => $"caiu {-d.DiasDeAtraso} dia(s) adiantado",
+            _ => $"caiu {d.DiasDeAtraso} dia(s) depois do previsto"
+        };
+
+        return new LinhaConfirmado
+        {
+            Adquirente = d.Adquirente,
+            Creditado = d.Creditado.ToString("dd/MM/yyyy"),
+            Liquido = d.Liquido.ToString("C"),
+            Detalhe = $"{d.Quantidade} venda(s) · {atraso}",
+            Atrasou = d.DiasDeAtraso > 0,
+            LancamentoIds = d.LancamentoIds
+        };
+    }
+}
+
 /// <summary>
 /// Recebíveis de cartão (parcela 16).
 ///
@@ -69,6 +103,9 @@ public sealed partial class RecebiveisViewModel : ObservableObject
 
     public ObservableCollection<LinhaRecebivel> Depositos { get; } = [];
 
+    /// <summary>Os que já caíram — a lista de onde a confirmação errada é desfeita.</summary>
+    public ObservableCollection<LinhaConfirmado> Confirmados { get; } = [];
+
     public IReadOnlyList<int> Horizontes { get; } = [15, 30, 60, 90];
 
     [ObservableProperty] private int _horizonteDias = 60;
@@ -82,6 +119,11 @@ public sealed partial class RecebiveisViewModel : ObservableObject
     [ObservableProperty] private string _proximo = "—";
     [ObservableProperty] private bool _temAtraso;
     [ObservableProperty] private string _resumo = string.Empty;
+
+    /// <summary>Janela dos já creditados: quem procura confirmação errada procura recente.</summary>
+    [ObservableProperty] private int _diasConfirmados = 30;
+
+    [ObservableProperty] private string _resumoConfirmados = string.Empty;
 
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -131,6 +173,19 @@ public sealed partial class RecebiveisViewModel : ObservableObject
                 : r.TemAtraso
                     ? $"{Depositos.Count} depósito(s) previsto(s) · {r.QuantidadeAtrasada} venda(s) que a adquirente JÁ DEVIA TER DEPOSITADO."
                     : $"{Depositos.Count} depósito(s) previsto(s), nenhum atrasado.";
+
+            var confirmados = await recebiveis.ConfirmadosAsync(
+                hoje.AddDays(-Math.Max(DiasConfirmados, 0)), hoje);
+
+            Confirmados.Clear();
+            foreach (var d in confirmados)
+                Confirmados.Add(LinhaConfirmado.De(d));
+
+            var atrasaram = confirmados.Count(d => d.DiasDeAtraso > 0);
+            ResumoConfirmados = confirmados.Count == 0
+                ? $"Nenhum depósito confirmado nos últimos {DiasConfirmados} dias."
+                : $"{confirmados.Count} depósito(s) confirmado(s) nos últimos {DiasConfirmados} dias"
+                  + (atrasaram > 0 ? $" · {atrasaram} caiu(íram) depois do previsto." : ".");
         }
         catch (Exception ex)
         {
@@ -178,6 +233,46 @@ public sealed partial class RecebiveisViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Financeiro — recebimento não pôde ser confirmado", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Devolve o depósito à espera — para quando alguém confirmou o dia errado.
+    ///
+    /// `DesfazerConfirmacaoAsync` existia desde a parcela 16 e não tinha porta: quem
+    /// marcava "caiu" na data errada ficava com um atraso que não houve gravado para
+    /// sempre, e com o dinheiro sumido da lista do que ainda falta cair.
+    ///
+    /// Não apaga nada: só limpa a data do crédito e o recebível volta a ser esperado.
+    /// </summary>
+    [RelayCommand]
+    private async Task DesfazerAsync(LinhaConfirmado? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "desfazer recebimento");
+
+            if (!_dialogo.ConfirmarPerigo("Desfazer confirmação",
+                    $"Devolver {linha.Liquido} de {linha.Adquirente} (creditado em {linha.Creditado}) "
+                    + "para a lista do que a adquirente ainda deve depositar? "
+                    + "O lançamento continua no caixa — só a data do crédito é apagada.")) return;
+
+            using var scope = _escopos.CreateScope();
+            var recebiveis = scope.ServiceProvider.GetRequiredService<RecebiveisService>();
+
+            var n = await recebiveis.DesfazerConfirmacaoAsync(
+                linha.LancamentoIds, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info($"{n} recebimento(s) devolvido(s) à espera.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — confirmação de recebimento não pôde ser desfeita", ex);
             Erro(ex.Message);
         }
     }

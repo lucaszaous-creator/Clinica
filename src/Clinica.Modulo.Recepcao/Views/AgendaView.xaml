@@ -80,6 +80,14 @@
                                 Command="{Binding DataContext.CancelarCommand,
                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
+                        <!-- Aponta a lista de espera para ESTE horário: quem serve para
+                             ele, respeitando turno, janela de datas e profissional
+                             pedido. Cancelar e marcar falta já fazem isso sozinhos. -->
+                        <Button Content="Quem chamar?" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                Margin="0,4,4,0"
+                                Command="{Binding DataContext.QuemChamarCommand,
+                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
                     </WrapPanel>
                 </StackPanel>
             </Border>
@@ -163,16 +171,28 @@
         <Border DockPanel.Dock="Right" Style="{StaticResource Card}" Width="300" Margin="16,0,0,0">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                    <TextBlock Text="Lista de espera" Style="{StaticResource H3}" Margin="0" />
+                    <!-- O título diz o que a lista está mostrando: filtrada por um
+                         horário ou inteira. Filtro invisível é filtro que engana. -->
+                    <TextBlock Text="{Binding TituloEspera}" Style="{StaticResource H3}" Margin="0" />
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0"
                                Text="Quando um horário vaga, é aqui que está quem chamar." />
+
+                    <Button Content="Ver a lista inteira" Margin="0,8,0,0"
+                            HorizontalAlignment="Left"
+                            Style="{StaticResource BotaoSecundario}"
+                            Visibility="{Binding TemSugestao, Converter={StaticResource BoolParaVisibilidade}}"
+                            Command="{Binding VerListaInteiraCommand}" />
+
                     <Button Content="Adicionar à lista" Margin="0,10,0,0"
                             Style="{StaticResource BotaoSecundario}"
                             Command="{Binding NovoPedidoEsperaCommand}" IsEnabled="{Binding PodeEditarAgenda}" />
                 </StackPanel>
 
-                <TextBlock Text="Ninguém na lista de espera." Margin="0,12">
+                <!-- O texto muda com o filtro: "ninguém espera" e "ninguém serve para
+                     este horário" são respostas diferentes, e trocá-las faria a recepção
+                     parar de oferecer a lista a quem liga. -->
+                <TextBlock Text="{Binding EsperaVazia}" TextWrapping="Wrap" Margin="0,12">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
                             <Setter Property="Visibility" Value="Collapsed" />

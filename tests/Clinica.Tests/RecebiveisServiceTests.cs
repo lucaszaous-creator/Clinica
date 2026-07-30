@@ -316,6 +316,80 @@ public class RecebiveisServiceTests : IDisposable
         (await _recebiveis.DesfazerConfirmacaoAsync([venda.Id])).Should().Be(0);
     }
 
+    // ---------------- Os que já caíram (parcela 25) ----------------
+
+    /// <summary>
+    /// A lista dos confirmados existe para o desfazer ter porta: até a parcela 25,
+    /// `DesfazerConfirmacaoAsync` era testado e nenhuma tela podia chamá-lo, porque
+    /// nenhuma consulta devolvia o depósito já creditado.
+    /// </summary>
+    [Fact]
+    public async Task Confirmados_AgrupamPorDepositoEGuardamAsDuasDatas()
+    {
+        await CriarTaxaAsync("Stone", 3m, dias: 30, ModalidadeCartao.CreditoAVista);
+        var primeira = await VenderNoCreditoAsync(100m, Hoje);
+        var segunda = await VenderNoCreditoAsync(200m, Hoje);
+
+        // A adquirente atrasou dois dias: a previsão era Hoje+30 e o crédito caiu em +32.
+        await _recebiveis.ConfirmarAsync([primeira.Id, segunda.Id], Hoje.AddDays(32));
+
+        var confirmados = await _recebiveis.ConfirmadosAsync(Hoje, Hoje.AddDays(60));
+
+        confirmados.Should().ContainSingle();
+        confirmados[0].Adquirente.Should().Be("Stone");
+        confirmados[0].Creditado.Should().Be(Hoje.AddDays(32));
+        confirmados[0].Previsto.Should().Be(Hoje.AddDays(30));
+        confirmados[0].Quantidade.Should().Be(2);
+        confirmados[0].Liquido.Should().Be(291m);
+
+        // A previsão NÃO é sobrescrita pela confirmação: é ela que prova o atraso.
+        confirmados[0].DiasDeAtraso.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Confirmados_NaoTrazemOQueAindaNaoCaiu()
+    {
+        await CriarTaxaAsync("Stone", 3m, dias: 30, ModalidadeCartao.CreditoAVista);
+        var caiu = await VenderNoCreditoAsync(100m, Hoje);
+        await VenderNoCreditoAsync(500m, Hoje);
+
+        await _recebiveis.ConfirmarAsync([caiu.Id], Hoje.AddDays(30));
+
+        var confirmados = await _recebiveis.ConfirmadosAsync(Hoje, Hoje.AddDays(60));
+
+        confirmados.Should().ContainSingle();
+        confirmados[0].Bruto.Should().Be(100m);
+    }
+
+    [Fact]
+    public async Task Confirmados_RecortamPelaDataDoCredito_NaoPelaDaVenda()
+    {
+        await CriarTaxaAsync("Stone", 3m, dias: 30, ModalidadeCartao.CreditoAVista);
+        var venda = await VenderNoCreditoAsync(100m, Hoje);
+
+        await _recebiveis.ConfirmarAsync([venda.Id], Hoje.AddDays(30));
+
+        // Quem procura o depósito está com o extrato na mão, e o extrato traz o dia em
+        // que o dinheiro caiu — não o dia da venda.
+        (await _recebiveis.ConfirmadosAsync(Hoje, Hoje.AddDays(10))).Should().BeEmpty();
+        (await _recebiveis.ConfirmadosAsync(Hoje.AddDays(29), Hoje.AddDays(31)))
+            .Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Desfazer_TiraODepositoDaListaDosConfirmados()
+    {
+        await CriarTaxaAsync("Stone", 3m, dias: 30, ModalidadeCartao.CreditoAVista);
+        var venda = await VenderNoCreditoAsync(100m, Hoje);
+        await _recebiveis.ConfirmarAsync([venda.Id], Hoje.AddDays(30));
+
+        var confirmado = (await _recebiveis.ConfirmadosAsync(Hoje, Hoje.AddDays(60))).Single();
+        await _recebiveis.DesfazerConfirmacaoAsync(confirmado.LancamentoIds, "ana");
+
+        (await _recebiveis.ConfirmadosAsync(Hoje, Hoje.AddDays(60))).Should().BeEmpty();
+        (await _recebiveis.EsperadosAsync(Hoje.AddDays(60))).Should().ContainSingle();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

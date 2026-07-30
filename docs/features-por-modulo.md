@@ -137,7 +137,16 @@ zero.**
 | Grade de horários com remarcação | ✅ | `AgendaView` (Recepção) + `AgendaService.RemarcarAsync` |
 | Visão por profissional ou por sala | ✅ | `Agendamento.ProfissionalId`/`SalaId`, uma coluna por profissional |
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
+| **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
 | Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária na tela Campanhas do Gerente (parcela 5) |
+
+> **A lista de espera passou a responder ao horário, e não só a existir.** Até a parcela 25
+> ela mostrava todo mundo que espera, e a recepção cruzava turno, janela de datas e
+> profissional de cabeça — no minuto em que o telefone toca. `CandidatosParaAsync` fazia
+> esse cruzamento desde a parcela 1 e nenhuma tela o chamava. Agora cancelar um horário (ou
+> marcar falta) já aponta a lista para ele, e o botão "Quem chamar?" faz o mesmo a pedido.
+> A lista filtrada **diz que está filtrada** — título e texto do vazio mudam, porque
+> "ninguém espera" e "ninguém serve para este horário" são respostas diferentes.
 
 > O choque de horário passou a ser por **intervalo e por recurso**: uma sessão de 30 min
 > marcada às 14h colide com outra às 14h30, e o que colide é o profissional ou a sala
@@ -208,6 +217,7 @@ zero.**
 |---|---|---|
 | Mapa corporal interativo | ✅ | `MapaCorporalViewModel` + as duas figuras (frente e costas) na `EvolucaoWindow` |
 | Protocolo reutilizável entre sessões | ✅ | `ProtocoloCorporal`, `MapaCorporalService.AplicarProtocoloAsync` |
+| **Apagar um protocolo** | ✅ | `ExcluirProtocoloAsync` — as sessões salvas com ele não mudam (parcela 25) |
 | Vinculado à evolução clínica | ✅ | `MapaCorporal.EvolucaoId` — 1:1 com a sessão, e some com ela |
 | Repetir o mapa da sessão anterior | 🔵 | `MapaCorporalService.PontosDaSessaoAnteriorAsync` |
 
@@ -229,7 +239,7 @@ zero.**
 
 | Item | Estado | Onde |
 |---|---|---|
-| Modelos de receita e orientação | ✅ | `ModeloDocumento`, aplicados e criados na `DocumentoWindow` |
+| Modelos de receita e orientação | ✅ | `ModeloDocumento`, aplicados, criados e **apagados** na `DocumentoWindow` (parcela 25) |
 | Impressão com a marca SemDor | ✅ | `DocumentosClinicosPdfService` (usa `MarcaSemDor`) |
 | Carimbo do profissional e código de conferência | ✅ | nome + registro no conselho, e `DocumentoClinico.CodigoVerificacao` |
 | Assinatura digital com certificado (ICP-Brasil) | ⬜ | **não entregue** — ver abaixo |
@@ -245,6 +255,13 @@ zero.**
 > modelo"), e não de uma tela de cadastro: ninguém senta para cadastrar modelos antes de
 > precisar deles. Guardar com um nome já usado corrige o modelo em vez de criar um gêmeo.
 
+> **Modelo e protocolo se APAGAM mesmo** (parcela 25) — e essa é a diferença deles para o
+> documento emitido, que só se cancela com motivo. Modelo e protocolo não registram nada
+> que aconteceu: são atalhos. E apagá-los não toca no passado, porque aplicar um modelo (ou
+> um protocolo) **copia** o conteúdo para o documento e para a sessão, nunca aponta para
+> ele. Sem essa porta a lista só crescia: o modelo criado com o nome errado ficava no combo
+> para sempre. Os dois botões perguntam antes — ficam ao lado do "Aplicar".
+
 ---
 
 ### Central de documentos — as nove folhas — ✅ · parcela 24
@@ -259,6 +276,7 @@ zero.**
 | Fechamento do período, **na suíte** | ✅ | `CentralDocumentosService.GerarFechamentoPeriodoAsync` |
 | Lista unificada do que já saiu (clínico + financeiro) | ✅ | `EmitidasAsync` · `DocumentosClinicosNoPeriodoAsync` |
 | Segunda via e cancelamento com motivo | ✅ | `DocumentosViewModel.Reimprimir` / `Cancelar` |
+| **Conferir o papel pelo código impresso** | ✅ | `DocumentoClinicoService.PorCodigoAsync` (parcela 25) |
 
 > **As nove existiam e nenhuma estava no mesmo lugar.** Quatro saíam de uma janela dentro
 > da ficha do paciente, três só do botão certo na aba certa dessa ficha, o recibo do Caixa,
@@ -289,6 +307,15 @@ zero.**
 
 > **O rótulo segue o mockup, não o enum.** A cliente chama de "Receituário" e "Solicitação
 > de exames"; o enum chama de "Receita" e "Pedido de exame".
+
+> ⚠️ **O código impresso não levava a lugar nenhum (corrigido na parcela 25).** Todo
+> documento sai com um código de conferência, e é ele que o sistema oferece **no lugar do
+> certificado ICP-Brasil**: "confira no sistema da clínica". Só que `PorCodigoAsync` existia
+> desde a parcela 3 e **nenhuma tela o recebia** — quem chegava com o atestado na mão (a
+> empresa, a escola, o próprio paciente) não tinha onde digitar. O que substitui a
+> assinatura não pode ser justamente o que ninguém consegue usar. O cartão "Conferir um
+> papel" responde tipo, número, paciente, data e situação, marca em vermelho o **cancelado**
+> e o **código que não existe**, e oferece a segunda via.
 
 ## Módulo FINANCEIRO — `Clinica.Modulo.Financeiro`
 
@@ -446,6 +473,7 @@ zero.**
 | O que a maquininha ainda deve depositar | ✅ | `RecebiveisService.EsperadosAsync` |
 | Depósito atrasado (o alarme) | ✅ | `AtrasadosAsync` |
 | Confirmação do crédito, em lote | ✅ | `ConfirmarAsync` + `RecebimentoConfirmadoEm` |
+| **Desfazer a confirmação lançada errada** | ✅ | aba "Já caíram" → `ConfirmadosAsync` + `DesfazerConfirmacaoAsync` (parcela 25) |
 
 > **`PrevisaoRecebimento` era gravada desde a parcela 9 e nenhuma tela a lia.** Terceira
 > ocorrência do mesmo defeito no projeto (o pacote que debitava, o insumo que baixava):
@@ -458,6 +486,13 @@ zero.**
 > sobrescrever a previsão apagaria a prova do atraso. E a data do crédito é **informada**,
 > nunca assumida como hoje: conferir na segunda um depósito que caiu na sexta viraria três
 > dias de atraso que não houve.
+
+> ⚠️ **E o desfazer nasceu sem porta.** `DesfazerConfirmacaoAsync` era testado desde a
+> parcela 16 e nenhuma tela o chamava: quem marcasse "caiu" na data errada ficava com um
+> atraso que não houve gravado para sempre — e com o dinheiro sumido da lista do que ainda
+> falta cair, que é a única coisa que esta tela existe para vigiar. A aba "Já caíram" mostra
+> as **duas datas** (é para isso que elas são campos separados) e devolve o depósito à
+> espera; o lançamento continua no caixa, só a data do crédito é apagada.
 
 ### Fechamento de caixa (conferência da gaveta) — ✅ · parcela 14
 
@@ -504,6 +539,7 @@ zero.**
 | Saldo de sessões por paciente | ✅ | `PacotePaciente.SaldoSessoes`, `PacoteService.DoPacienteAsync` |
 | Vouchers e planos recorrentes | ✅ | `TipoPacote` — plano sem número de sessões é livre dentro da validade |
 | Baixa ao atender | ✅ | `PacoteService.ConsumirPorAtendimentoAsync`, **chamado** pelo `FechamentoSessaoService` (parcela 6) |
+| **Devolver uma sessão ao saldo** | ✅ | `ConsumosPacoteWindow` → `PacoteService.CancelarConsumoAsync` (parcela 25) |
 | Catálogo do que está à venda | 🔵 | `PacoteCatalogo`, com preço e validade padrão |
 | Orçamento do pacote em PDF | 🔵 | `DocumentoFinanceiroService.EmitirOrcamentoDoPacoteAsync` |
 
@@ -530,6 +566,13 @@ zero.**
 > testado sem chamador passa no CI e não faz nada no balcão; a parcela 6 ligou o fio
 > (`FechamentoSessaoService`) e o ✅ passou a ser verdade.
 
+> ⚠️ **E devolver UMA sessão não tinha porta até a parcela 25.** `CancelarConsumoAsync`
+> existia e era testado desde a parcela 4; a tela só sabia cancelar o pacote INTEIRO. Na
+> clínica, a sessão debitada por engano (o paciente não veio, a baixa automática pegou o
+> pacote errado) só se resolvia cancelando tudo e revendendo — ou não se resolvia. A janela
+> "Sessões…" lista os consumos e devolve o escolhido: **cancelando com motivo**, nunca
+> apagando, porque a linha é o que encerra o "o paciente diz que sobrou uma sessão".
+
 > Cuidado para não confundir com `AutorizacaoSessoes`, que é **cota do convênio** — outra
 > coisa. Pacote é venda da clínica.
 
@@ -540,6 +583,15 @@ zero.**
 | Entrada e baixa por sessão | ✅ | `EstoqueService.EntrarAsync`/`BaixarAsync`; a baixa POR SESSÃO entrou no fechamento da Recepção (parcela 6) |
 | Alerta de mínimo e validade | ✅ | `AbaixoDoMinimoAsync`, `ValidadesAsync` (janela de 60 dias) |
 | Custo por atendimento | ✅ | `CustoDoAtendimentoAsync`, com custo médio das entradas |
+| **Custo por sessão na tela** | ✅ | aba "Custo por sessão" da `EstoqueView` → `CustosDeSessaoAsync` (parcela 25) |
+
+> ⚠️ **E o custo continuou sem leitor por mais dezenove parcelas.** A parcela 6 ligou a
+> baixa por sessão justamente para o "custo por atendimento" parar de responder zero — e
+> `CustoDoAtendimentoAsync` seguiu sem **nenhuma tela** que o chamasse até a parcela 25.
+> É a variante mais discreta do defeito da casa: o número passou a ser calculável e
+> continuou invisível. Agora a aba mostra sessão a sessão, com média e a mais cara; e
+> **só entra saída ligada a um atendimento** — a baixa digitada à mão na tela de movimento
+> não pertence a sessão nenhuma, e rateá-la daria a cada uma um custo que ela não teve.
 
 > ⚠️ **Mesma correção de rota do pacote.** `BaixarAsync` aceitava `atendimentoId` desde a
 > parcela 4, mas nenhuma tela o passava: toda saída era digitada à mão na tela de
@@ -946,6 +998,14 @@ Levantado no código, não na memória:
 | Assinatura ICP-Brasil na prescrição | Recepção | Depende de certificado digital — decisão comercial (ver feature 07) |
 | NFS-e no fechamento | Financeiro | Depende de integração fiscal municipal — decisão comercial |
 | Gerar lote TISS pelo Gerente | Gerente | **Decisão de projeto, não pendência**: o número do lote é sequência do faturamento, e dois apps gerando em paralelo produziriam dois com o mesmo número |
+| **Agendamento em série** | Recepção | Fora da proposta e a maior lacuna do dia a dia: o Financeiro vende pacote de 10 sessões e a agenda marca **uma por vez**. Precisa de entidade e migration — parcela própria |
+| **Apuração mensal por tributo** | Gerente | `TributoService` separa ISS/PIS/COFINS/IRPJ/CSLL no lançamento, mas toda tela consolida `Imposto` como **um número só**. Falta a leitura "quanto de cada guia neste mês" |
+| **Metas** (faturamento, ocupação) | Gerente | O painel compara com o mês anterior; não há alvo. A direção vê variação, não desempenho contra o que decidiu |
+| **LGPD além do consentimento** | Recepção | Há colher e revogar; não há exportar os dados do paciente nem anonimizar depois da retenção |
+| **Conciliação bancária (OFX)** | Financeiro | O extrato do banco ainda é conferido a olho contra a tela de recebíveis |
+
+> As cinco últimas **não estão na proposta comercial** — são evolução levantada no código
+> (jul/2026), não dívida com o cliente. Estão aqui para não serem redescobertas do zero.
 
 ## Divergências da proposta
 
@@ -978,10 +1038,14 @@ O documento já foi ao cliente. Estas precisam de decisão comercial:
 
 ## Parcelas
 
-As **onze parcelas estão entregues** — 0 (instalável), 1 (fundação), 2 (cadastro e
+As **vinte e cinco parcelas estão entregues** — 0 (instalável), 1 (fundação), 2 (cadastro e
 prontuário), 3 (ato clínico), 4 (dinheiro e insumo), 5 (inteligência), 6 (integração),
 7 (moldura e navegação), 8 (prontuário/prescrições/CRM), 9 (taxas e impostos),
-10 (Configurações, faturamento no Gerente, exportação) e 11 (gráficos).
+10 (Configurações, faturamento no Gerente, exportação), 11 (gráficos), 12 (contas a pagar e
+receber), 13 (fluxo de caixa), 14 (fechamento de caixa), 15 (regime tributário),
+16 (recebíveis de cartão), 17 (custo de transação), 18 (retenção por convênio),
+19 (rentabilidade por convênio), 20 (tabela de preço), 21 (auditoria), 22 (painel da
+direção), 23 (inadimplência), 24 (central de documentos) e 25 (as capacidades sem porta).
 
 As parcelas 7 a 11 nasceram de uma comparação do cliente entre os mockups e o sistema
 rodando. Três achados sustentaram todas elas: este documento catalogava 14 features e
@@ -1019,6 +1083,16 @@ exatamente onde ele some numa clínica (14).
 A parcela 5 saiu **antes** das 3 e 4 porque não dependia de nenhuma das duas: apoiava-se
 na fundação da parcela 1 (`Profissional`) e no consentimento da parcela 2, que já
 existiam.
+
+A **parcela 25 não trouxe feature nova** — como a 6, ligou o que já existia. Seis
+capacidades estavam prontas, testadas e **sem um único chamador em produção**: o custo por
+sessão (que a parcela 6 destravou e ninguém lia), devolver uma sessão ao pacote, desfazer a
+confirmação de depósito, sugerir quem chamar para o horário que vagou, conferir o documento
+pelo código impresso e apagar modelo/protocolo. É a quinta rodada do mesmo defeito no
+projeto, e a mais discreta: as outras eram **dado gravado sem leitor**, esta é **serviço
+testado sem porta**. Vale a mesma lição, agora escrita como regra: antes de dar uma feature
+por pronta, **procure o chamador em produção** — CI verde não prova que a clínica alcança
+a função.
 
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

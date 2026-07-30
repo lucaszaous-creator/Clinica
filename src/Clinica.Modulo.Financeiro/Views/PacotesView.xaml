@@ -176,6 +176,15 @@
                                                         Command="{Binding DataContext.ConsumirCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
+                                                <!-- As sessões já debitadas, e a porta para
+                                                     devolver ao saldo a que foi debitada
+                                                     por engano. Vale para pacote cancelado
+                                                     também: a conferência é do histórico. -->
+                                                <Button Content="Sessões…" Margin="8,0,0,0"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        Command="{Binding DataContext.VerSessoesCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
                                                 <Button Content="Cancelar" Margin="8,0,0,0"
                                                         Style="{StaticResource BotaoAcaoGridPerigo}"
                                                         IsEnabled="{Binding Ativo}"

@@ -39,6 +39,33 @@ public sealed record CustoDoAtendimento(
     IReadOnlyList<string> Itens);
 
 /// <summary>
+/// O custo de insumo de uma sessão, com data e paciente — a linha da tela.
+///
+/// É o mesmo número do <see cref="CustoDoAtendimento"/> visto pelo período: lá se
+/// pergunta "quanto custou ESTA sessão", aqui "quanto custa uma sessão nesta clínica".
+/// </summary>
+public sealed record CustoDeSessao(
+    int AtendimentoId,
+    DateOnly Data,
+    string? Paciente,
+    decimal Custo,
+    IReadOnlyList<string> Itens);
+
+/// <summary>
+/// O que o período gastou de insumo, e quanto sai uma sessão em média.
+///
+/// A média é anulável de propósito: período sem nenhuma baixa por sessão não tem média
+/// zero, tem média NENHUMA — e a tela mostra "—". É a mesma regra dos indicadores: 0%
+/// e "não deu para medir" são coisas diferentes, e confundi-las faria a direção
+/// concluir que a sessão sai de graça quando na verdade ninguém baixou insumo.
+/// </summary>
+public sealed record ResumoCustoSessoes(
+    int Sessoes,
+    decimal Total,
+    decimal? MedioPorSessao,
+    CustoDeSessao? MaisCara);
+
+/// <summary>
 /// Estoque de insumos (feature 10): entrada, baixa por sessão, alerta de mínimo e de
 /// validade, e custo por atendimento.
 ///
@@ -306,10 +333,72 @@ public sealed class EstoqueService
         var movimentos = await _repo.MovimentosDoAtendimentoAsync(atendimentoId, ct);
         var medios = await CustosMediosAsync(ct);
 
+        var (total, itens) = Precificar(
+            movimentos.Where(m => m.Tipo != TipoMovimentoEstoque.Entrada), medios);
+
+        return new CustoDoAtendimento(atendimentoId, total, itens);
+    }
+
+    /// <summary>
+    /// O custo de insumo sessão a sessão no período, da mais recente para a mais antiga.
+    ///
+    /// Só entra saída COM atendimento: a baixa digitada à mão na tela de movimento não
+    /// pertence a sessão nenhuma, e rateá-la entre as sessões do período daria a cada uma
+    /// um custo que ela não teve.
+    /// </summary>
+    public async Task<IReadOnlyList<CustoDeSessao>> CustosDeSessaoAsync(
+        DateOnly de, DateOnly ate, CancellationToken ct = default)
+    {
+        var movimentos = await _repo.ConsumosDeSessaoNoPeriodoAsync(de, ate, ct);
+        if (movimentos.Count == 0) return [];
+
+        var medios = await CustosMediosAsync(ct);
+
+        return movimentos
+            .GroupBy(m => m.AtendimentoId!.Value)
+            .Select(g =>
+            {
+                var (custo, itens) = Precificar(g, medios);
+                return new CustoDeSessao(
+                    g.Key,
+                    g.Max(m => m.Data),
+                    g.Select(m => m.Paciente?.Nome).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)),
+                    custo,
+                    itens);
+            })
+            .OrderByDescending(c => c.Data)
+            .ThenByDescending(c => c.AtendimentoId)
+            .ToList();
+    }
+
+    /// <summary>Total, média e a sessão mais cara do período.</summary>
+    public async Task<ResumoCustoSessoes> ResumoCustoSessoesAsync(
+        DateOnly de, DateOnly ate, CancellationToken ct = default)
+    {
+        var sessoes = await CustosDeSessaoAsync(de, ate, ct);
+        if (sessoes.Count == 0) return new ResumoCustoSessoes(0, 0m, null, null);
+
+        var total = sessoes.Sum(s => s.Custo);
+
+        return new ResumoCustoSessoes(
+            sessoes.Count,
+            total,
+            Math.Round(total / sessoes.Count, 2),
+            sessoes.OrderByDescending(s => s.Custo).First());
+    }
+
+    /// <summary>
+    /// Dá preço às saídas: usa o custo do próprio movimento quando ele existe e o médio
+    /// do item quando não. Item sem preço nenhum NÃO some da lista — entra com custo
+    /// zero, para a falta de cadastro ficar visível em vez de baratear a sessão.
+    /// </summary>
+    private static (decimal Custo, IReadOnlyList<string> Itens) Precificar(
+        IEnumerable<MovimentoEstoque> saidas, IReadOnlyDictionary<int, decimal> medios)
+    {
         decimal total = 0m;
         var itens = new List<string>();
 
-        foreach (var m in movimentos.Where(m => m.Tipo != TipoMovimentoEstoque.Entrada))
+        foreach (var m in saidas)
         {
             var unitario = m.CustoUnitario
                            ?? (medios.TryGetValue(m.ItemEstoqueId, out var medio) ? medio : 0m);
@@ -318,7 +407,7 @@ public sealed class EstoqueService
             itens.Add($"{m.Item?.Nome ?? "item"} — {m.Quantidade:0.##} {m.Item?.Unidade ?? string.Empty}".Trim());
         }
 
-        return new CustoDoAtendimento(atendimentoId, Math.Round(total, 2), itens);
+        return (Math.Round(total, 2), itens);
     }
 
     private static string? Limpar(string? valor)

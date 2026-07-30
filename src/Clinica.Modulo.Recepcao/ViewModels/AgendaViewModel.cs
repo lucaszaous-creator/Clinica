@@ -14,6 +14,10 @@ namespace Clinica.Recepcao.ViewModels;
 public sealed class CartaoAgenda
 {
     public required int AgendamentoId { get; init; }
+
+    /// <summary>De quem é a coluna — é o que a lista de espera pergunta ao vagar.</summary>
+    public required int? ProfissionalId { get; init; }
+
     public required string Faixa { get; init; }
     public required string Paciente { get; init; }
     public string? Telefone { get; init; }
@@ -104,6 +108,35 @@ public sealed partial class AgendaViewModel : ObservableObject
     [ObservableProperty]
     private bool _mostrarTodosOsProfissionais;
 
+    /// <summary>
+    /// Horário que acabou de vagar. Enquanto ele existe, a lista de espera mostra só
+    /// quem serve para ele — é a pergunta do minuto seguinte a um cancelamento.
+    /// </summary>
+    [ObservableProperty] private DateTime? _sugestaoPara;
+
+    [ObservableProperty] private int? _sugestaoProfissionalId;
+
+    /// <summary>O que a lista está mostrando, escrito — filtro invisível é filtro que engana.</summary>
+    [ObservableProperty] private string _tituloEspera = "Lista de espera";
+
+    /// <summary>
+    /// O que dizer quando a lista sai vazia. "Ninguém espera" e "ninguém serve para este
+    /// horário" são respostas diferentes: trocá-las faria a recepção deixar de oferecer
+    /// a lista a quem liga.
+    /// </summary>
+    [ObservableProperty] private string _esperaVazia = "Ninguém na lista de espera.";
+
+    /// <summary>Há um horário em foco: a tela oferece voltar à lista inteira.</summary>
+    public bool TemSugestao => SugestaoPara is not null;
+
+    partial void OnSugestaoParaChanged(DateTime? value)
+    {
+        OnPropertyChanged(nameof(TemSugestao));
+        TituloEspera = value is { } horario
+            ? $"Quem chamar para {horario:dd/MM HH:mm}"
+            : "Lista de espera";
+    }
+
     public AgendaViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
@@ -115,7 +148,13 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     partial void OnMostrarTodosOsProfissionaisChanged(bool value) => _ = CarregarAsync();
 
-    partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
+    partial void OnDiaChanged(DateTime value)
+    {
+        // Trocar de dia desfaz o foco: "quem chamar para as 14h de ontem" não é pergunta.
+        SugestaoPara = null;
+        SugestaoProfissionalId = null;
+        _ = CarregarAsync();
+    }
 
     [RelayCommand]
     public async Task CarregarAsync()
@@ -190,6 +229,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             cartoes.Add(new CartaoAgenda
             {
                 AgendamentoId = a.Id,
+                ProfissionalId = profissionalId,
                 Faixa = $"{a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
                 Paciente = a.Paciente?.Nome ?? "(paciente removido)",
                 Telefone = a.Paciente?.Telefone,
@@ -213,9 +253,25 @@ public sealed partial class AgendaViewModel : ObservableObject
         };
     }
 
+    /// <summary>
+    /// A lista de espera do painel lateral. Quando um horário acabou de vagar, ela deixa
+    /// de ser "todo mundo que espera" e passa a ser **quem serve para AQUELE horário** —
+    /// respeitando a janela de datas, o turno e o profissional que cada pedido escolheu.
+    ///
+    /// <c>CandidatosParaAsync</c> existia desde a parcela 1 e nenhuma tela o chamava: a
+    /// recepção via a lista inteira e tinha de cruzar preferência por preferência de
+    /// cabeça, justamente no minuto em que o telefone precisa ser atendido.
+    /// </summary>
     private async Task CarregarEsperaAsync(ListaEsperaService espera)
     {
-        var pedidos = await espera.AguardandoAsync();
+        var pedidos = SugestaoPara is { } horario
+            ? await espera.CandidatosParaAsync(horario, SugestaoProfissionalId)
+            : await espera.AguardandoAsync();
+
+        EsperaVazia = SugestaoPara is { } alvo
+            ? $"Ninguém da lista serve para {alvo:dd/MM HH:mm} — turno, janela de datas ou "
+              + "profissional pedido não batem."
+            : "Ninguém na lista de espera.";
 
         Espera.Clear();
         foreach (var p in pedidos)
@@ -284,11 +340,52 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         var vm = new AgendamentoEdicaoViewModel(_escopos)
         {
-            Data = Dia,
+            Data = SugestaoPara?.Date ?? Dia,
             Titulo = $"Chamar {linha.Paciente} da lista de espera",
             PedidoListaEsperaId = linha.PedidoId
         };
+
+        // Quando a lista está apontada para um horário, o formulário já abre nele: é o
+        // horário que a recepção acabou de ver vagar, e redigitá-lo é o passo em que a
+        // hora sai errada.
+        if (SugestaoPara is { } horario) vm.Hora = horario.ToString("HH:mm");
+
         await AbrirFormularioAsync(vm);
+    }
+
+    /// <summary>
+    /// Aponta a lista de espera para um horário: quem serve para ELE, na ordem de chamada.
+    ///
+    /// O primeiro da lista é o primeiro a ligar. Quem não escolheu profissional serve
+    /// para qualquer coluna; quem escolheu só aparece na dele.
+    /// </summary>
+    [RelayCommand]
+    private async Task QuemChamarAsync(CartaoAgenda? cartao)
+    {
+        if (cartao is null) return;
+
+        SugestaoPara = cartao.DataHora;
+        SugestaoProfissionalId = cartao.ProfissionalId;
+
+        await CarregarAsync();
+
+        // Lista vazia aqui é resposta, não falha: ninguém que espera serve para este
+        // horário, e a recepção precisa saber disso antes de começar a ligar.
+        if (Espera.Count == 0)
+        {
+            Mensagem = $"Ninguém da lista de espera serve para {cartao.DataHora:dd/MM HH:mm} "
+                       + "(turno, janela de datas ou profissional pedido).";
+            MensagemEhErro = false;
+        }
+    }
+
+    /// <summary>Tira o foco do horário e volta a mostrar todo mundo que espera.</summary>
+    [RelayCommand]
+    private async Task VerListaInteiraAsync()
+    {
+        SugestaoPara = null;
+        SugestaoProfissionalId = null;
+        await CarregarAsync();
     }
 
     /// <summary>Coloca um paciente na lista de espera.</summary>
@@ -342,6 +439,10 @@ public sealed partial class AgendaViewModel : ObservableObject
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
             await agenda.CancelarAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
+
+            // O horário acabou de vagar: a pergunta seguinte é sempre "quem eu chamo?",
+            // e a lista já responde antes de alguém precisar perguntar.
+            ApontarEsperaPara(cartao);
             _snackbar.Info("Horário cancelado.");
         }, "cancelamento do horário");
     }
@@ -357,8 +458,24 @@ public sealed partial class AgendaViewModel : ObservableObject
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
             await agenda.MarcarFaltaAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
+
+            ApontarEsperaPara(cartao);
             _snackbar.Info($"{cartao.Paciente} marcado como falta.");
         }, "marcação de falta");
+    }
+
+    /// <summary>
+    /// Aponta a lista de espera para o horário que este cartão ocupava.
+    ///
+    /// Só vale para horário de HOJE em diante: sugerir quem chamar para uma falta de
+    /// terça-feira passada seria oferecer um horário que já não existe.
+    /// </summary>
+    private void ApontarEsperaPara(CartaoAgenda cartao)
+    {
+        if (cartao.DataHora < DateTime.Now) return;
+
+        SugestaoPara = cartao.DataHora;
+        SugestaoProfissionalId = cartao.ProfissionalId;
     }
 
     /// <summary>
@@ -389,6 +506,11 @@ public sealed partial class AgendaViewModel : ObservableObject
         };
 
         if (janela.ShowDialog() != true) return;
+
+        // Marcou: o horário deixou de estar vago, e a lista volta a ser a lista inteira.
+        SugestaoPara = null;
+        SugestaoProfissionalId = null;
+
         _snackbar.Sucesso("Agenda atualizada.");
         await CarregarAsync();
     }

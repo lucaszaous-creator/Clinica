@@ -376,6 +376,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <ComboBox Grid.Column="0" ItemsSource="{Binding Protocolos}"
                                       SelectedItem="{Binding ProtocoloSelecionado}"
@@ -383,6 +384,12 @@
                             <Button Grid.Column="1" Content="Aplicar" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPequeno}"
                                     Command="{Binding AplicarProtocoloCommand}" />
+                            <!-- Protocolo é atalho, não prontuário: apaga-se mesmo. As
+                                 sessões salvas com ele não mudam — aplicar COPIA os
+                                 pontos, nunca aponta para o protocolo. -->
+                            <Button Grid.Column="2" Content="Apagar" Margin="8,0,0,0"
+                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                    Command="{Binding ExcluirProtocoloCommand}" />
                         </Grid>
 
                         <Grid Margin="0,8,0,0">
