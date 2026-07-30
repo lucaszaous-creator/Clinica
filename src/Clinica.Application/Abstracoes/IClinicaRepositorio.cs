@@ -479,6 +479,20 @@ public interface IClinicaRepositorio
     /// <summary>Eventos de auditoria, do mais recente ao mais antigo (limitado).</summary>
     Task<IReadOnlyList<EventoAuditoria>> EventosAuditoriaAsync(int limite = 200, CancellationToken ct = default);
 
+    /// <summary>
+    /// Trilha filtrada (parcela 21). O filtro vai todo para o SQL: esta e a tabela que mais
+    /// cresce no sistema — toda acao de dinheiro escreve nela — e materializa-la para
+    /// filtrar em memoria e o que a convencao do projeto proibe.
+    /// </summary>
+    Task<IReadOnlyList<EventoAuditoria>> ConsultarAuditoriaAsync(
+        Modelos.FiltroAuditoria filtro, CancellationToken ct = default);
+
+    /// <summary>
+    /// As acoes distintas ja registradas, para o filtro oferecer a lista em vez de exigir
+    /// que a pessoa saiba escrever "ContasRecorrentesGeradas" de cabeca.
+    /// </summary>
+    Task<IReadOnlyList<string>> AcoesDeAuditoriaAsync(CancellationToken ct = default);
+
     // ---- Financeiro ----
 
     Task AdicionarLancamentoAsync(LancamentoFinanceiro lancamento, CancellationToken ct = default);

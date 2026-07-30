@@ -16,7 +16,8 @@ namespace Clinica.Gerente.Modulo;
 ///
 /// A ordem é a da pergunta que a direção faz: "como a clínica está" (indicadores),
 /// "estamos perdendo faturamento?" (faturamento), "o que estamos fazendo a respeito"
-/// (campanhas) e, por último, quem pode o quê — que se mexe raramente.
+/// (campanhas), "quem fez isso?" (auditoria) e, por último, quem pode o quê — que se
+/// mexe raramente.
 /// </summary>
 public sealed class ModuloGerente : IModuloApp
 {
@@ -26,6 +27,7 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveRentabilidade = "rentabilidade-convenio";
     public const string ChavePrecos = "precos-convenio";
     public const string ChaveCampanhas = "campanhas";
+    public const string ChaveAuditoria = "auditoria";
     public const string ChaveAcessos = "acessos";
     public const string ChaveConfiguracoes = "configuracoes";
 
@@ -33,9 +35,9 @@ public sealed class ModuloGerente : IModuloApp
 
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        // O faturamento entra na se\u00E7\u00E3o FINANCEIRO, junto do caixa e dos pacotes: para
-        // quem usa, \u00E9 tudo dinheiro da cl\u00EDnica. Que a tela venha do m\u00F3dulo da Dire\u00E7\u00E3o \u00E9
-        // detalhe de arquitetura, e arquitetura n\u00E3o organiza menu.
+        // O faturamento entra na seção FINANCEIRO, junto do caixa e dos pacotes: para
+        // quem usa, é tudo dinheiro da clínica. Que a tela venha do módulo da Direção é
+        // detalhe de arquitetura, e arquitetura não organiza menu.
         new ItemMenuModulo
         {
             Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7",
@@ -66,6 +68,16 @@ public sealed class ModuloGerente : IModuloApp
             Chave = ChaveIndicadores, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
+        // Auditoria vem ANTES de Acessos de propósito: "quem fez o quê" é a pergunta que
+        // se faz toda semana, e "quem pode o quê" a que se mexe raramente. E fica sob a
+        // própria permissão (VerAuditoria), não sob GerenciarUsuarios: ler a trilha e mexer
+        // em permissão são coisas diferentes, e amarrar as duas obrigaria a dar poder de
+        // criar usuário a quem só precisa conferir o que aconteceu.
+        new ItemMenuModulo
+        {
+            Chave = ChaveAuditoria, Rotulo = "Auditoria", Glifo = "\uE81C",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria
+        },
         new ItemMenuModulo
         {
             Chave = ChaveAcessos, Rotulo = "Acessos", Glifo = "\uE72E",
@@ -87,6 +99,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<CustoTransacaoViewModel>();
         servicos.AddTransient<RentabilidadeConvenioViewModel>();
         servicos.AddTransient<CampanhasViewModel>();
+        servicos.AddTransient<AuditoriaViewModel>();
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
         // UsuarioEdicaoViewModel é construído à mão pela tela: precisa receber o id do
@@ -118,6 +131,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveCampanhas => new CampanhasView
         {
             DataContext = servicos.GetRequiredService<CampanhasViewModel>()
+        },
+        ChaveAuditoria => new AuditoriaView
+        {
+            DataContext = servicos.GetRequiredService<AuditoriaViewModel>()
         },
         ChaveAcessos => new AcessosView
         {

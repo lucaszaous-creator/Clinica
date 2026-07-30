@@ -1071,6 +1071,61 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Take(limite)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<EventoAuditoria>> ConsultarAuditoriaAsync(
+        Clinica.Application.Modelos.FiltroAuditoria filtro, CancellationToken ct = default)
+    {
+        var q = _db.Auditoria.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(filtro.Acao))
+        {
+            // PREFIXO na acao: "Conta" acha ContaCriada e ContaReagendada. As acoes sao
+            // nomes compostos por familia, e o prefixo e a forma natural de pedir a familia.
+            var acao = filtro.Acao.Trim();
+            q = q.Where(e => e.Acao.StartsWith(acao));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.Operador))
+        {
+            var operador = filtro.Operador.Trim();
+            q = q.Where(e => e.Operador.Contains(operador));
+        }
+
+        if (!string.IsNullOrWhiteSpace(filtro.Termo))
+        {
+            var termo = filtro.Termo.Trim();
+            q = q.Where(e => e.Detalhe != null && e.Detalhe.Contains(termo));
+        }
+
+        // DataHora e DateTime (hora de parede); o filtro vem em DateOnly, e o dia final
+        // entra INTEIRO — senao um evento das 14h de hoje ficaria fora de um filtro que
+        // pede "ate hoje".
+        if (filtro.Inicio is { } inicio)
+        {
+            var de = inicio.ToDateTime(TimeOnly.MinValue);
+            q = q.Where(e => e.DataHora >= de);
+        }
+        if (filtro.Fim is { } fim)
+        {
+            var ate = fim.ToDateTime(TimeOnly.MaxValue);
+            q = q.Where(e => e.DataHora <= ate);
+        }
+
+        if (filtro.PacienteId is { } paciente) q = q.Where(e => e.PacienteId == paciente);
+        if (filtro.CodigoId is { } codigo) q = q.Where(e => e.CodigoId == codigo);
+
+        return await q
+            .OrderByDescending(e => e.DataHora).ThenByDescending(e => e.Id)
+            .Take(filtro.Limite > 0 ? filtro.Limite : 300)
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<string>> AcoesDeAuditoriaAsync(CancellationToken ct = default)
+        => await _db.Auditoria.AsNoTracking()
+            .Select(e => e.Acao)
+            .Distinct()
+            .OrderBy(a => a)
+            .ToListAsync(ct);
+
     // ---- Financeiro ----
 
     public async Task AdicionarLancamentoAsync(LancamentoFinanceiro lancamento, CancellationToken ct = default)
