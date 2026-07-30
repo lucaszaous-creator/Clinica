@@ -264,7 +264,9 @@ public sealed partial class AgendaViewModel : ObservableObject
         SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
         var soMeu = SoMinhaAgenda && !MostrarTodosOsProfissionais;
 
-        var segunda = Dia.Date.AddDays(-(int)((Dia.DayOfWeek + 6) % 7));
+        // O casting vem ANTES da conta: `DayOfWeek + 6` continua sendo DayOfWeek (soma de
+        // enum com int devolve o enum), e o resto de divisão não existe para enum.
+        var segunda = Dia.Date.AddDays(-(((int)Dia.DayOfWeek + 6) % 7));
         var ocupando = 0;
 
         for (var i = 0; i < 7; i++)
