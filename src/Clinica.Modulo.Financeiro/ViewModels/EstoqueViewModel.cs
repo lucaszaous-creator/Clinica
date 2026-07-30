@@ -64,11 +64,6 @@ public sealed partial class EstoqueViewModel : ObservableObject
     [ObservableProperty] private string _custoResumo = string.Empty;
     [ObservableProperty] private bool _semCusto;
 
-    // ---- Cadastro rápido (item novo é linha curta: nome, unidade, mínimo) ----
-    [ObservableProperty] private string? _novoNome;
-    [ObservableProperty] private string? _novaUnidade = "un";
-    [ObservableProperty] private string? _novoMinimo;
-
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -209,35 +204,38 @@ public sealed partial class EstoqueViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Cadastro e edição do item saem da PÁGINA e vão para uma janela.
+    ///
+    /// A tela de lista existe para responder "como está o estoque"; o formulário de
+    /// cadastro ocupava a lateral em todas as visitas para uma tarefa que acontece
+    /// poucas vezes por mês — e empurrava a lista, que é o motivo da visita, para um
+    /// terço da largura. É o mesmo desenho da tela de Pacientes do faturamento: a lista
+    /// e um botão.
+    /// </summary>
     [RelayCommand]
-    private async Task AdicionarItemAsync()
+    private async Task NovoItemAsync() => await AbrirItemAsync(null);
+
+    [RelayCommand]
+    private async Task EditarItemAsync(LinhaEstoque? linha)
+    {
+        if (linha is null) return;
+        await AbrirItemAsync(linha.Id);
+    }
+
+    private async Task AbrirItemAsync(int? itemId)
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
 
-        try
+        var vm = new ItemEstoqueEdicaoViewModel(_estoque, itemId);
+        var janela = new Janelas.ItemEstoqueWindow(vm)
         {
-            decimal minimo = 0m;
-            if (!string.IsNullOrWhiteSpace(NovoMinimo) && !decimal.TryParse(NovoMinimo, out minimo))
-                throw new InvalidOperationException("O mínimo tem de ser um número.");
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
 
-            await _estoque.SalvarItemAsync(new ItemEstoque
-            {
-                Nome = NovoNome ?? string.Empty,
-                Unidade = string.IsNullOrWhiteSpace(NovaUnidade) ? "un" : NovaUnidade!,
-                EstoqueMinimo = minimo,
-                Ativo = true
-            }, SessaoUsuario.Atual.Operador);
-
-            NovoNome = NovoMinimo = null;
-            NovaUnidade = "un";
-            _snackbar.Sucesso("Item cadastrado.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Financeiro — item de estoque não pôde ser salvo", ex);
-            Erro(ex.Message);
-        }
+        if (janela.ShowDialog() != true) return;
+        _snackbar.Sucesso(itemId is null ? "Item cadastrado." : "Item atualizado.");
+        await CarregarAsync();
     }
 
     [RelayCommand]
@@ -278,6 +276,104 @@ public sealed partial class EstoqueViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar("Financeiro — item de estoque não pôde ser excluído", ex);
             Erro(ex.Message);
+        }
+    }
+
+    private void Erro(string texto)
+    {
+        Mensagem = texto;
+        MensagemEhErro = true;
+    }
+}
+
+/// <summary>
+/// Cadastro do item de estoque, na janela: nome, unidade, mínimo e se está ativo.
+///
+/// Serve para criar e para CORRIGIR. Antes da mudança de UX o formulário só criava —
+/// item cadastrado com o nome errado ou sem mínimo ficava assim para sempre, porque a
+/// única alternativa era excluir (levando junto todo o histórico de movimentos) e
+/// cadastrar de novo.
+/// </summary>
+public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
+{
+    private readonly EstoqueService _estoque;
+    private readonly int? _itemId;
+
+    public string Titulo => _itemId is null ? "Item novo" : "Editar item";
+
+    [ObservableProperty] private string? _nome;
+    [ObservableProperty] private string? _unidade = "un";
+    [ObservableProperty] private string? _minimo;
+    [ObservableProperty] private bool _ativo = true;
+
+    [ObservableProperty] private string _mensagem = string.Empty;
+    [ObservableProperty] private bool _mensagemEhErro;
+    [ObservableProperty] private bool _salvando;
+
+    public event Action? Concluido;
+
+    public ItemEstoqueEdicaoViewModel(EstoqueService estoque, int? itemId = null)
+    {
+        _estoque = estoque;
+        _itemId = itemId;
+        if (itemId is not null) _ = CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        try
+        {
+            if (await _estoque.ObterItemAsync(_itemId!.Value) is not { } item) return;
+
+            Nome = item.Nome;
+            Unidade = item.Unidade;
+            // Mínimo zero é "sem mínimo": mostrar "0" faria a clínica achar que há um
+            // alerta configurado quando não há.
+            Minimo = item.EstoqueMinimo > 0 ? item.EstoqueMinimo.ToString("0.##") : null;
+            Ativo = item.Ativo;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — item de estoque não pôde ser carregado", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task SalvarAsync()
+    {
+        Mensagem = string.Empty;
+        MensagemEhErro = false;
+
+        try
+        {
+            Salvando = true;
+
+            decimal minimo = 0m;
+            if (!string.IsNullOrWhiteSpace(Minimo) && !decimal.TryParse(Minimo, out minimo))
+                throw new InvalidOperationException("O mínimo tem de ser um número.");
+
+            await _estoque.SalvarItemAsync(new ItemEstoque
+            {
+                Id = _itemId ?? 0,
+                Nome = Nome ?? string.Empty,
+                Unidade = string.IsNullOrWhiteSpace(Unidade) ? "un" : Unidade!,
+                EstoqueMinimo = minimo,
+                Ativo = Ativo
+            }, SessaoUsuario.Atual.Operador);
+
+            Concluido?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — item de estoque não pôde ser salvo", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            Salvando = false;
         }
     }
 

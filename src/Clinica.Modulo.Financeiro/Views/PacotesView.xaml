@@ -39,47 +39,13 @@
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,10"
                                    Text="O que está à venda. A venda copia estes dados — mudar o preço aqui não reescreve o que alguém já comprou." />
 
-                        <TextBlock Text="Nome" Style="{StaticResource Rotulo}" />
-                        <TextBox Text="{Binding NovoNome, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
-
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Tipo" Style="{StaticResource Rotulo}" />
-                                <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding NovoTipo}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Sessões" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding NovoSessoes, UpdateSourceTrigger=PropertyChanged}"
-                                         MaxLength="4" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,8,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="8" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Valor" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding NovoValor, UpdateSourceTrigger=PropertyChanged}"
-                                         MaxLength="12" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Validade (dias)" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding NovaValidadeDias, UpdateSourceTrigger=PropertyChanged}"
-                                         MaxLength="4" />
-                            </StackPanel>
-                        </Grid>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,10">
-                            <Button Content="Acrescentar ao catálogo"
-                                    Command="{Binding AdicionarAoCatalogoCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
+                        <!-- Lista e botões: cadastrar pacote é raro (a clínica define a
+                             tabela uma vez), e o formulário ocupava dois terços da coluna
+                             do catálogo em todas as visitas. -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <Button Content="Novo pacote"
+                                    Command="{Binding NovoPacoteCommand}"
+                                    IsEnabled="{Binding PodeEditarFinanceiro}" />
                             <Button Content="Orçamento…" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding OrcarCommand}" />

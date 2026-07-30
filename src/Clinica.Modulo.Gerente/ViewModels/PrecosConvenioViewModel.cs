@@ -63,30 +63,9 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
 
     public ObservableCollection<LinhaPreco> Precos { get; } = [];
 
-    /// <summary>Convênios do catálogo, para o combo não pedir o código de cabeça.</summary>
-    public ObservableCollection<ConvenioCadastro> Convenios { get; } = [];
-
-    public IReadOnlyList<TipoCodigo> Tipos { get; } = Enum.GetValues<TipoCodigo>();
-
-    /// <summary>Null = vale para qualquer especialidade, que é o caso comum.</summary>
-    public IReadOnlyList<Especialidade?> Especialidades { get; } =
-        [null, .. Enum.GetValues<Especialidade>().Cast<Especialidade?>()];
-
-    // ---- Formulário ----
-    [ObservableProperty] private int _editandoId;
-    [ObservableProperty] private ConvenioCadastro? _convenio;
-    [ObservableProperty] private TipoCodigo _tipo = TipoCodigo.Acupuntura;
-    [ObservableProperty] private Especialidade? _especialidade;
-    [ObservableProperty] private string? _valor;
-    [ObservableProperty] private DateTime? _vigenteDe;
-    [ObservableProperty] private DateTime? _vigenteAte;
-    [ObservableProperty] private bool _ativo = true;
-
     [ObservableProperty] private string _resumo = string.Empty;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
-
-    public string TituloFormulario => EditandoId == 0 ? "Novo preço" : "Editar preço";
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
@@ -100,8 +79,6 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
-    partial void OnEditandoIdChanged(int value) => OnPropertyChanged(nameof(TituloFormulario));
-
     [RelayCommand]
     public async Task CarregarAsync()
     {
@@ -112,13 +89,8 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var precos = scope.ServiceProvider.GetRequiredService<PrecoConvenioService>();
-            var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
-
-            Convenios.Clear();
-            foreach (var c in await catalogo.ListarAsync())
-                if (c.Ativo) Convenios.Add(c);
 
             Precos.Clear();
             foreach (var p in await precos.CatalogoAsync())
@@ -136,82 +108,39 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Cadastro e edição saem da página e vão para a janela: a tela é a TABELA, que é o
+    /// que a direção vem conferir. O formulário fixo tomava 360px da largura em todas as
+    /// visitas para uma tarefa que acontece na negociação com a operadora — e o cadastro
+    /// tem quatro campos com regra própria (especialidade, vigência), que num painel
+    /// espremido ficavam sem espaço para a explicação que cada um precisa.
+    /// </summary>
     [RelayCommand]
-    private async Task SalvarAsync()
-    {
-        Mensagem = null;
-        MensagemEhErro = false;
-
-        if (Convenio is null)
-        {
-            Erro("Escolha o convênio.");
-            return;
-        }
-        if (!Valores.TentarLerDecimal(Valor, out var valor) || valor <= 0m)
-        {
-            Erro("Informe quanto a operadora paga por esta guia (ex.: 145,00).");
-            return;
-        }
-
-        try
-        {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar preço de convênio");
-
-            using var scope = _escopos.CreateScope();
-            var precos = scope.ServiceProvider.GetRequiredService<PrecoConvenioService>();
-
-            await precos.SalvarAsync(new PrecoConvenio
-            {
-                Id = EditandoId,
-                ConvenioCodigo = Convenio.Codigo,
-                Tipo = Tipo,
-                Especialidade = Especialidade,
-                Valor = valor,
-                VigenteDe = VigenteDe is { } de ? DateOnly.FromDateTime(de) : null,
-                VigenteAte = VigenteAte is { } ate ? DateOnly.FromDateTime(ate) : null,
-                Ativo = Ativo
-            }, SessaoUsuario.Atual.Operador);
-
-            _snackbar.Sucesso(EditandoId == 0
-                ? "Preço cadastrado — a conciliação já vai propor esse valor."
-                : "Preço atualizado. Vale para as guias novas; o que já foi lançado não muda.");
-            Limpar();
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Gerente — preço não pôde ser salvo", ex);
-            Erro(ex.Message);
-        }
-    }
+    private async Task NovoPrecoAsync() => await AbrirAsync(0);
 
     [RelayCommand]
     private async Task EditarAsync(LinhaPreco? linha)
     {
         if (linha is null) return;
+        await AbrirAsync(linha.PrecoId);
+    }
 
-        try
-        {
-            using var scope = _escopos.CreateScope();
-            var precos = scope.ServiceProvider.GetRequiredService<PrecoConvenioService>();
-            var p = (await precos.CatalogoAsync()).FirstOrDefault(x => x.Id == linha.PrecoId);
-            if (p is null) return;
+    private async Task AbrirAsync(int precoId)
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar preço de convênio");
 
-            EditandoId = p.Id;
-            Convenio = Convenios.FirstOrDefault(c =>
-                string.Equals(c.Codigo, p.ConvenioCodigo, StringComparison.OrdinalIgnoreCase));
-            Tipo = p.Tipo;
-            Especialidade = p.Especialidade;
-            Valor = p.Valor.ToString("0.##");
-            VigenteDe = p.VigenteDe?.ToDateTime(TimeOnly.MinValue);
-            VigenteAte = p.VigenteAte?.ToDateTime(TimeOnly.MinValue);
-            Ativo = p.Ativo;
-        }
-        catch (Exception ex)
+        var vm = new PrecoEdicaoViewModel(_escopos, precoId);
+        var janela = new Janelas.PrecoConvenioWindow(vm)
         {
-            Clinica.Application.Diagnostico.Registrar("Gerente — preço não pôde ser aberto", ex);
-            Erro(ex.Message);
-        }
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true) return;
+
+        _snackbar.Sucesso(precoId == 0
+            ? "Preço cadastrado — a conciliação já vai propor esse valor."
+            : "Preço atualizado. Vale para as guias novas; o que já foi lançado não muda.");
+        await CarregarAsync();
     }
 
     /// <summary>
@@ -239,7 +168,6 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
             await precos.ExcluirAsync(linha.PrecoId);
 
             _snackbar.Info("Preço excluído.");
-            if (EditandoId == linha.PrecoId) Limpar();
             await CarregarAsync();
         }
         catch (Exception ex)
@@ -249,16 +177,138 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    private void Limpar()
+    private void Erro(string mensagem)
     {
-        EditandoId = 0;
-        Convenio = null;
-        Tipo = TipoCodigo.Acupuntura;
-        Especialidade = null;
-        Valor = null;
-        VigenteDe = VigenteAte = null;
-        Ativo = true;
+        Mensagem = mensagem;
+        MensagemEhErro = true;
+    }
+}
+
+/// <summary>
+/// O preço de uma guia, na janela — cadastro e correção.
+///
+/// Duas regras moram aqui e precisam de espaço para serem ditas: a **especialidade**
+/// declarada VENCE o genérico do tipo (senão a clínica cadastraria a exceção e a
+/// conciliação continuaria propondo o valor da regra geral), e o **reajuste entra como
+/// linha nova** com a data em que passou a valer — a guia de março segue sendo proposta
+/// pelo preço de março, e o que já foi lançado no caixa nunca muda.
+/// </summary>
+public sealed partial class PrecoEdicaoViewModel : ObservableObject
+{
+    private readonly IServiceScopeFactory _escopos;
+    private readonly int _precoId;
+
+    public ObservableCollection<ConvenioCadastro> Convenios { get; } = [];
+
+    public IReadOnlyList<TipoCodigo> Tipos { get; } = Enum.GetValues<TipoCodigo>();
+
+    /// <summary>Null = vale para qualquer especialidade, que é o caso comum.</summary>
+    public IReadOnlyList<Especialidade?> Especialidades { get; } =
+        [null, .. Enum.GetValues<Especialidade>().Cast<Especialidade?>()];
+
+    public string Titulo => _precoId == 0 ? "Preço novo" : "Editar preço";
+
+    [ObservableProperty] private ConvenioCadastro? _convenio;
+    [ObservableProperty] private TipoCodigo _tipo = TipoCodigo.Acupuntura;
+    [ObservableProperty] private Especialidade? _especialidade;
+    [ObservableProperty] private string? _valor;
+    [ObservableProperty] private DateTime? _vigenteDe;
+    [ObservableProperty] private DateTime? _vigenteAte;
+    [ObservableProperty] private bool _ativo = true;
+
+    [ObservableProperty] private string? _mensagem;
+    [ObservableProperty] private bool _mensagemEhErro;
+    [ObservableProperty] private bool _salvando;
+
+    public event Action? Concluido;
+
+    public PrecoEdicaoViewModel(IServiceScopeFactory escopos, int precoId)
+    {
+        _escopos = escopos;
+        _precoId = precoId;
+        _ = CarregarAsync();
+    }
+
+    private async Task CarregarAsync()
+    {
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
+
+            Convenios.Clear();
+            foreach (var c in await catalogo.ListarAsync())
+                if (c.Ativo) Convenios.Add(c);
+
+            if (_precoId == 0) return;
+
+            var precos = scope.ServiceProvider.GetRequiredService<PrecoConvenioService>();
+            if ((await precos.CatalogoAsync()).FirstOrDefault(x => x.Id == _precoId) is not { } p) return;
+
+            Convenio = Convenios.FirstOrDefault(c =>
+                string.Equals(c.Codigo, p.ConvenioCodigo, StringComparison.OrdinalIgnoreCase));
+            Tipo = p.Tipo;
+            Especialidade = p.Especialidade;
+            Valor = p.Valor.ToString("0.##");
+            VigenteDe = p.VigenteDe?.ToDateTime(TimeOnly.MinValue);
+            VigenteAte = p.VigenteAte?.ToDateTime(TimeOnly.MinValue);
+            Ativo = p.Ativo;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — preço não pôde ser aberto", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task SalvarAsync()
+    {
+        Mensagem = null;
+        MensagemEhErro = false;
+
+        if (Convenio is null)
+        {
+            Erro("Escolha o convênio.");
+            return;
+        }
+        if (!Valores.TentarLerDecimal(Valor, out var valor) || valor <= 0m)
+        {
+            Erro("Informe quanto a operadora paga por esta guia (ex.: 145,00).");
+            return;
+        }
+
+        try
+        {
+            Salvando = true;
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar preço de convênio");
+
+            using var scope = _escopos.CreateScope();
+            var precos = scope.ServiceProvider.GetRequiredService<PrecoConvenioService>();
+
+            await precos.SalvarAsync(new PrecoConvenio
+            {
+                Id = _precoId,
+                ConvenioCodigo = Convenio.Codigo,
+                Tipo = Tipo,
+                Especialidade = Especialidade,
+                Valor = valor,
+                VigenteDe = VigenteDe is { } de ? DateOnly.FromDateTime(de) : null,
+                VigenteAte = VigenteAte is { } ate ? DateOnly.FromDateTime(ate) : null,
+                Ativo = Ativo
+            }, SessaoUsuario.Atual.Operador);
+
+            Concluido?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — preço não pôde ser salvo", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            Salvando = false;
+        }
     }
 
     private void Erro(string mensagem)

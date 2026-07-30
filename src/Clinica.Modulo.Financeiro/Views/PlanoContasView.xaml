@@ -23,46 +23,22 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.2*" />
-                    <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="2*" />
-                    <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="12" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="Código" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding NovoCodigo, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" />
-                </StackPanel>
-
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="Nome" Style="{StaticResource Rotulo}" />
-                    <TextBox Text="{Binding NovoNome, UpdateSourceTrigger=PropertyChanged}" MaxLength="80" />
-                </StackPanel>
-
-                <StackPanel Grid.Column="4">
-                    <TextBlock Text="Tipo" Style="{StaticResource Rotulo}" />
-                    <ComboBox MinWidth="120" ItemsSource="{Binding Tipos}" SelectedItem="{Binding NovoTipo}" />
-                </StackPanel>
-
-                <Button Grid.Column="6" Content="Criar categoria" VerticalAlignment="Bottom"
-                        Command="{Binding AdicionarCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
-            </Grid>
-        </Border>
-
         <Border Style="{StaticResource Card}">
             <DockPanel>
                 <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                     <TextBlock Text="Categorias" Style="{StaticResource H3}" Margin="0"
                                VerticalAlignment="Center" />
-                    <Button Content="Atualizar" HorizontalAlignment="Right"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding CarregarCommand}" />
+                    <!-- Lista e um botão: criar categoria acontece na implantação e raramente
+                         depois, e o formulário fixo tomava a primeira faixa da tela todos os
+                         dias por causa disso. -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Nova categoria" Margin="0,0,8,0"
+                                Command="{Binding NovaCategoriaCommand}"
+                                IsEnabled="{Binding PodeEditarFinanceiro}" />
+                        <Button Content="Atualizar"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding CarregarCommand}" />
+                    </StackPanel>
                 </Grid>
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto">

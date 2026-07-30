@@ -35,12 +35,6 @@ public sealed partial class PlanoContasViewModel : ObservableObject
 
     public ObservableCollection<LinhaCategoria> Categorias { get; } = [];
 
-    public IReadOnlyList<TipoLancamento> Tipos { get; } = Enum.GetValues<TipoLancamento>();
-
-    [ObservableProperty] private string? _novoCodigo;
-    [ObservableProperty] private string? _novoNome;
-    [ObservableProperty] private TipoLancamento _novoTipo = TipoLancamento.Entrada;
-
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -98,26 +92,25 @@ public sealed partial class PlanoContasViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Criar categoria saiu da página e virou janela: a tela é a LISTA, e o cadastro é
+    /// tarefa de implantação — acontece uma vez e some. O formulário fixo tomava a
+    /// primeira faixa da tela todos os dias por causa dele.
+    /// </summary>
     [RelayCommand]
-    private async Task AdicionarAsync()
+    private async Task NovaCategoriaAsync()
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no plano de contas");
 
-        try
+        var vm = new CategoriaEdicaoViewModel(_financeiro, ordemSugerida: Categorias.Count);
+        var janela = new Janelas.CategoriaWindow(vm)
         {
-            await _financeiro.CriarCategoriaAsync(
-                NovoCodigo ?? string.Empty, NovoNome ?? string.Empty, NovoTipo,
-                ordem: Categorias.Count);
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
 
-            NovoCodigo = NovoNome = null;
-            _snackbar.Sucesso("Categoria criada.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Financeiro — categoria não pôde ser criada", ex);
-            Erro(ex.Message);
-        }
+        if (janela.ShowDialog() != true) return;
+        _snackbar.Sucesso("Categoria criada.");
+        await CarregarAsync();
     }
 
     /// <summary>Liga/desliga a categoria. Inativa some dos combos e continua no histórico.</summary>
@@ -147,5 +140,63 @@ public sealed partial class PlanoContasViewModel : ObservableObject
     {
         Mensagem = texto;
         MensagemEhErro = true;
+    }
+}
+
+/// <summary>
+/// Categoria nova, na janela: código, nome e tipo.
+///
+/// O CÓDIGO só existe aqui — depois de criado ele não se edita em lugar nenhum, porque é
+/// a referência estável que os lançamentos já gravados apontam. Trocá-lo desligaria o
+/// histórico da categoria em silêncio.
+/// </summary>
+public sealed partial class CategoriaEdicaoViewModel : ObservableObject
+{
+    private readonly FinanceiroService _financeiro;
+    private readonly int _ordemSugerida;
+
+    public IReadOnlyList<TipoLancamento> Tipos { get; } = Enum.GetValues<TipoLancamento>();
+
+    [ObservableProperty] private string? _codigo;
+    [ObservableProperty] private string? _nome;
+    [ObservableProperty] private TipoLancamento _tipo = TipoLancamento.Entrada;
+
+    [ObservableProperty] private string _mensagem = string.Empty;
+    [ObservableProperty] private bool _mensagemEhErro;
+    [ObservableProperty] private bool _salvando;
+
+    public event Action? Concluido;
+
+    public CategoriaEdicaoViewModel(FinanceiroService financeiro, int ordemSugerida)
+    {
+        _financeiro = financeiro;
+        _ordemSugerida = ordemSugerida;
+    }
+
+    [RelayCommand]
+    private async Task SalvarAsync()
+    {
+        Mensagem = string.Empty;
+        MensagemEhErro = false;
+
+        try
+        {
+            Salvando = true;
+
+            await _financeiro.CriarCategoriaAsync(
+                Codigo ?? string.Empty, Nome ?? string.Empty, Tipo, ordem: _ordemSugerida);
+
+            Concluido?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — categoria não pôde ser criada", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Salvando = false;
+        }
     }
 }

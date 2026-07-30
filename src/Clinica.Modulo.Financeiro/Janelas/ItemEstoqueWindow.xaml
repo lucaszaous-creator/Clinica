@@ -1,0 +1,63 @@
+<Window x:Class="Clinica.Financeiro.Janelas.ItemEstoqueWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Item do estoque" Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="24">
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Agulha, moxa, ventosa, algodão. O saldo não se digita aqui: ele é a soma dos movimentos, e quem o move é o botão Movimentar da lista." />
+
+        <TextBlock Text="Nome" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Unidade" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Unidade, UpdateSourceTrigger=PropertyChanged}" MaxLength="10" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Estoque mínimo" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Minimo, UpdateSourceTrigger=PropertyChanged}" MaxLength="10" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                   Text="Sem mínimo, o item não entra no alerta de reposição — deixe em branco quando não fizer sentido vigiar." />
+
+        <CheckBox Content="Ativo" IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                   Text="Item que a clínica parou de usar deve ser INATIVADO, não excluído: excluir leva junto todo o histórico de movimentos dele." />
+
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Salvar item" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="140"
+                    ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>
