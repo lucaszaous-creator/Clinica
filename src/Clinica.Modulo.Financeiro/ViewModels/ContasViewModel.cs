@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -136,6 +137,15 @@ public sealed partial class ContasViewModel : ObservableObject
     [ObservableProperty] private CategoriaFinanceira? _categoria;
 
     /// <summary>
+    /// De QUEM é a conta a receber (parcela 23). Aparece só no modo "A receber": conta a
+    /// pagar não tem paciente, e o campo ali só atrapalharia o lançamento mais comum.
+    ///
+    /// Sem ele a dívida existia mas não tinha dono, e a tela de inadimplência ficaria
+    /// vazia para sempre — a mesma armadilha do dado gravado sem leitor, ao contrário.
+    /// </summary>
+    public SeletorPacienteViewModel Seletor { get; }
+
+    /// <summary>
     /// O outro lado do par de rádios. É propriedade do VM, e não um conversor no XAML,
     /// porque o rádio precisa de leitura E escrita: um conversor de mão única deixaria
     /// "A receber" marcado sem nunca mudar o tipo, que é o pior defeito possível num
@@ -178,6 +188,7 @@ public sealed partial class ContasViewModel : ObservableObject
         _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
+        Seletor = new SeletorPacienteViewModel(escopos);
         _ = CarregarAsync();
     }
 
@@ -274,7 +285,12 @@ public sealed partial class ContasViewModel : ObservableObject
                 valor,
                 DateOnly.FromDateTime(venc),
                 categoriaId: Categoria?.Id,
-                operador: SessaoUsuario.Atual.Operador);
+                operador: SessaoUsuario.Atual.Operador,
+                // Só na conta a RECEBER: paciente numa conta a pagar não faz sentido, e o
+                // seletor fica escondido nesse modo — mas o modo pode ter sido trocado
+                // depois de escolher alguém, e gravar o paciente num aluguel deixaria a
+                // inadimplência apontando para quem não deve nada.
+                pacienteId: EhSaida ? null : Seletor.Selecionado?.Id);
 
             _snackbar.Sucesso(EhSaida ? "Conta a pagar registrada." : "Conta a receber registrada.");
             LimparConta();
@@ -493,6 +509,7 @@ public sealed partial class ContasViewModel : ObservableObject
         Vencimento = DateTime.Today;
         EhSaida = true;
         Categoria = null;
+        Seletor.Limpar();
     }
 
     [RelayCommand]

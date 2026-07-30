@@ -124,6 +124,26 @@
                                          IsChecked="{Binding EhEntrada}" />
                         </StackPanel>
 
+                        <!-- Só no modo "A receber": conta a pagar não tem paciente, e o
+                             campo ali atrapalharia o lançamento mais comum. É este campo
+                             que dá dono à dívida — sem ele a tela de inadimplência ficaria
+                             vazia para sempre. -->
+                        <StackPanel Margin="0,10,0,0"
+                                    Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="De quem é (opcional)" Style="{StaticResource Rotulo}"
+                                       Margin="0,0,0,4" />
+                            <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="80" />
+                            <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
+                                       TextWrapping="Wrap" Margin="0,4,0,0"
+                                       FontSize="{StaticResource Fonte.Legenda}" />
+                            <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                                     SelectedItem="{Binding Seletor.Selecionado}"
+                                     ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                                     MaxHeight="150" Margin="0,6,0,0"
+                                     BorderThickness="0" Background="Transparent" />
+                        </StackPanel>
+
                         <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                             <Button Content="Registrar" Command="{Binding LancarContaCommand}"
                                     MinWidth="110" Margin="0,0,8,0" />

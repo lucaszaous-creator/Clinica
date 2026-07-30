@@ -219,6 +219,7 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
     private static (string Chave, string Rotulo) Destino(AssuntoDirecao assunto) => assunto switch
     {
         AssuntoDirecao.ContasVencidas => (ChavesSuite.Contas, "Ver contas"),
+        AssuntoDirecao.PacientesDevendo => (ChavesSuite.Inadimplencia, "Ver quem deve"),
         AssuntoDirecao.DepositoAtrasado => (ChavesSuite.Recebiveis, "Ver recebíveis"),
         AssuntoDirecao.CaixaNaoConferido => (ChavesSuite.FechamentoCaixa, "Conferir caixa"),
         AssuntoDirecao.GuiasSemReceita => (ChavesSuite.Conciliacao, "Ver conciliação"),

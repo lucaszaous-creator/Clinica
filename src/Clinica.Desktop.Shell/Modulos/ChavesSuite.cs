@@ -21,6 +21,9 @@ public static class ChavesSuite
     /// <summary>Contas a pagar/receber (Financeiro).</summary>
     public const string Contas = "contas";
 
+    /// <summary>Quem me deve — inadimplência por paciente (Financeiro).</summary>
+    public const string Inadimplencia = "inadimplencia";
+
     /// <summary>Recebíveis de cartão (Financeiro).</summary>
     public const string Recebiveis = "recebiveis";
 

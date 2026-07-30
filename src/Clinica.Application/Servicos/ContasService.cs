@@ -118,6 +118,11 @@ public sealed class ContasService
         string? observacoes = null,
         string? operador = null,
         string? origemRecorrencia = null,
+        // De QUEM é a conta a receber (parcela 23). Sem isto a dívida existia mas não
+        // tinha dono, e "quem me deve?" não tinha como ser respondido: a conta vencida
+        // aparecia dissolvida na lista, sem ligação com o paciente que a contraiu.
+        // Opcional porque conta a PAGAR não tem paciente nenhum.
+        int? pacienteId = null,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(descricao))
@@ -140,6 +145,7 @@ public sealed class ContasService
             FormaPagamento = formaPagamento,
             Observacoes = observacoes,
             OrigemRecorrencia = origemRecorrencia,
+            PacienteId = pacienteId,
             CriadoPor = operador
         };
 
