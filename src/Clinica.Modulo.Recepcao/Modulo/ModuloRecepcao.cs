@@ -22,6 +22,7 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChavePacientes = "pacientes-recepcao";
     public const string ChaveProntuario = "prontuario";
     public const string ChavePrescricoes = "prescricoes";
+    public const string ChaveDocumentos = ChavesSuite.Documentos;
     public const string ChaveEquipe = "equipe";
 
     public string Nome => "Recepção";
@@ -64,6 +65,16 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
+        // As nove folhas do mockup num lugar só (parcela 24). Existiam todas e nenhuma
+        // estava no mesmo lugar: quatro dentro da ficha do paciente, três no botão certo
+        // da aba certa dessa ficha, o recibo no Caixa, o orçamento só dentro de um pacote
+        // vendido e o fechamento do período só no app de faturamento. Quem foi treinado no
+        // mockup procurava "Documentos" e não achava.
+        new ItemMenuModulo
+        {
+            Chave = ChaveDocumentos, Rotulo = "Documentos", Glifo = "\uE8B7",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
         // Cadastro da equipe \u00E9 gest\u00E3o da cl\u00EDnica, n\u00E3o do paciente: quem mexe aqui est\u00E1
         // organizando quem atende e onde, n\u00E3o atendendo algu\u00E9m.
         new ItemMenuModulo
@@ -77,6 +88,7 @@ public sealed class ModuloRecepcao : IModuloApp
     {
         servicos.AddTransient<PainelViewModel>();
         servicos.AddTransient<AgendaViewModel>();
+        servicos.AddTransient<DocumentosViewModel>();
         servicos.AddTransient<FilaViewModel>();
         servicos.AddTransient<PacientesViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
@@ -95,6 +107,7 @@ public sealed class ModuloRecepcao : IModuloApp
         ChavePacientes => new PacientesView { DataContext = servicos.GetRequiredService<PacientesViewModel>() },
         ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },
         ChavePrescricoes => new PrescricoesView { DataContext = servicos.GetRequiredService<PrescricoesViewModel>() },
+        ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },
         ChaveEquipe => new EquipeView { DataContext = servicos.GetRequiredService<EquipeViewModel>() },
         _ => null
     };

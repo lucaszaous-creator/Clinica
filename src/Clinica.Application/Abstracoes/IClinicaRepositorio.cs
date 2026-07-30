@@ -255,6 +255,18 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Documentos clínicos emitidos no período (parcela 24), com paciente e profissional
+    /// carregados. Cancelado ENTRA na lista, marcado: documento não se apaga neste sistema,
+    /// e esconder o cancelado faria a lista mentir sobre o que o paciente levou para casa.
+    ///
+    /// Faltava para responder "que papéis saíram este mês?" — até aqui só dava para
+    /// perguntar paciente por paciente, e ninguém sabe de antemão qual paciente procurar.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> DocumentosClinicosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, TipoDocumentoClinico? tipo = null,
+        int? pacienteId = null, CancellationToken ct = default);
+
     /// <summary>Próximo sequencial do ano para numerar o documento (<c>2026/0001</c>).</summary>
     Task<int> ProximoNumeroDocumentoAsync(int ano, CancellationToken ct = default);
 
