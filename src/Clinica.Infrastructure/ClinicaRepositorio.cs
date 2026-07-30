@@ -873,6 +873,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(l => l.PrevisaoRecebimento).ThenBy(l => l.Id)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<LancamentoFinanceiro>> RecebiveisConfirmadosAsync(
+        DateOnly de, DateOnly ate, CancellationToken ct = default)
+        => await _db.Lancamentos.AsNoTracking()
+            .Where(l => l.Status != StatusLancamento.Cancelado)
+            .Where(l => l.RecebimentoConfirmadoEm != null
+                        && l.RecebimentoConfirmadoEm >= de
+                        && l.RecebimentoConfirmadoEm <= ate)
+            .OrderByDescending(l => l.RecebimentoConfirmadoEm).ThenBy(l => l.Id)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosPorIdAsync(
         IReadOnlyCollection<int> ids, CancellationToken ct = default)
     {
@@ -980,6 +990,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(m => m.Item)
             .Where(m => m.AtendimentoId == atendimentoId)
             .OrderBy(m => m.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<MovimentoEstoque>> ConsumosDeSessaoNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        => await _db.MovimentosEstoque.AsNoTracking()
+            .Include(m => m.Item)
+            .Include(m => m.Paciente)
+            .Where(m => m.AtendimentoId != null && m.Tipo != TipoMovimentoEstoque.Entrada)
+            .Where(m => m.Data >= inicio && m.Data <= fim)
+            .OrderByDescending(m => m.Data).ThenByDescending(m => m.Id)
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<MovimentoEstoque>> UltimoConsumoDeSessaoAsync(

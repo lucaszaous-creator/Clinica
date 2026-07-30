@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using Clinica.Desktop.Shell.Componentes;
@@ -232,6 +233,48 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — modelo de documento não pôde ser guardado", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Apaga o modelo escolhido.
+    ///
+    /// Modelo NÃO é documento: ele não registra nada que aconteceu — é rascunho de apoio,
+    /// e por isso se apaga mesmo (o documento emitido, esse, só se cancela com motivo).
+    /// Sem esta porta, a lista só crescia: o modelo criado com o nome errado, ou o da
+    /// conduta que a clínica deixou de usar, ficava no combo para sempre.
+    ///
+    /// Os documentos já emitidos a partir dele não mudam: a emissão COPIA o conteúdo.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExcluirModeloAsync()
+    {
+        if (ModeloSelecionado is not { } modelo) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
+
+            // O botão fica ao lado do "Aplicar modelo": sem a pergunta, o clique errado
+            // apaga o modelo que a clínica usa todo dia.
+            if (!dialogo.ConfirmarPerigo("Apagar modelo",
+                    $"Apagar o modelo \"{modelo.Nome}\"? "
+                    + "Os documentos já emitidos com ele NÃO mudam — a emissão copia o conteúdo."))
+                return;
+
+            var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+            await documentos.ExcluirModeloAsync(modelo.Id);
+
+            ModeloSelecionado = null;
+            await CarregarModelosAsync();
+            Informar($"Modelo \"{modelo.Nome}\" apagado. Os documentos já emitidos com ele não mudam.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — modelo de documento não pôde ser apagado", ex);
             Erro(ex.Message);
         }
     }

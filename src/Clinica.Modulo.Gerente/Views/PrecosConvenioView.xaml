@@ -88,7 +88,7 @@
                                TextWrapping="Wrap" />
                 </StackPanel>
 
-                <TextBlock DockPanel.Dock="Top"
+                <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
                            Text="Nenhum preço cadastrado. Sem tabela, a conciliação continua pedindo o valor digitado — o sistema não inventa um valor de mercado.">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">

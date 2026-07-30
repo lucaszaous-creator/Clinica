@@ -36,6 +36,12 @@ public static class SuiteApp
         // Degradação deliberada nas camadas sem UI também deixa rastro em arquivo.
         LogSuite.Instalar();
 
+        // Nenhuma janela da suíte pode nascer maior que a tela — nem a principal, nem os
+        // diálogos que crescem com o conteúdo. Vale para as que existem e para as que
+        // vierem: é um handler de classe, não uma linha por janela.
+        // Qualificado: dentro de Clinica.* um nome curto pode cair noutro namespace.
+        Clinica.Desktop.Controls.AjusteJanela.Instalar();
+
         // Erro não tratado nunca derruba o app (mesma rede de segurança do faturamento).
         app.DispatcherUnhandledException += (_, args) =>
         {

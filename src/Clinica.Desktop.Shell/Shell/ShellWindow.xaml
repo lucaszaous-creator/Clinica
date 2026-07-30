@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:modulos="clr-namespace:Clinica.Desktop.Shell.Modulos"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
-        Title="{Binding Titulo}" Height="760" Width="1280" MinHeight="560" MinWidth="960"
+        Title="{Binding Titulo}" Height="690" Width="1280" MinHeight="560" MinWidth="960"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Brush.Fundo}"
         FontFamily="Segoe UI"
@@ -155,7 +155,7 @@
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding Glifo}"
                                                                    FontFamily="{StaticResource FonteIcones}"
-                                                                   FontSize="14" Width="22"
+                                                                   FontSize="{StaticResource Fonte.Corpo}" Width="22"
                                                                    VerticalAlignment="Center" />
                                                         <TextBlock Text="{Binding Rotulo}"
                                                                    VerticalAlignment="Center"
@@ -234,7 +234,7 @@
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Glifo}"
                                                                FontFamily="{StaticResource FonteIcones}"
-                                                               FontSize="14" Width="22"
+                                                               FontSize="{StaticResource Fonte.Corpo}" Width="22"
                                                                VerticalAlignment="Center" />
                                                     <TextBlock Text="{Binding Rotulo}" VerticalAlignment="Center" />
                                                 </StackPanel>

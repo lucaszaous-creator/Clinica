@@ -90,6 +90,22 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
+    // ---- Conferência pelo código impresso (parcela 25) ----
+    [ObservableProperty] private string? _codigo;
+
+    /// <summary>O que o código achou, já escrito. Nulo = ninguém conferiu nada ainda.</summary>
+    [ObservableProperty] private string? _conferido;
+
+    /// <summary>Documento cancelado ou código que não existe — os dois pedem destaque.</summary>
+    [ObservableProperty] private bool _conferidoCancelado;
+
+    private int? _conferidoId;
+
+    /// <summary>Só há segunda via quando o código achou mesmo um documento.</summary>
+    public bool TemConferido => _conferidoId is not null;
+
+    partial void OnConferidoChanged(string? value) => OnPropertyChanged(nameof(TemConferido));
+
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEmitir => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
@@ -242,6 +258,83 @@ public sealed partial class DocumentosViewModel : ObservableObject
             ? $"CANCELADA — {e.MotivoCancelamento}"
             : $"código {e.CodigoVerificacao}"
     };
+
+    // ==================== Conferência pelo código (parcela 25) ====================
+
+    /// <summary>
+    /// Confere o papel pelo código impresso nele.
+    ///
+    /// Todo documento clínico sai com um <c>CodigoVerificacao</c> — e é ele que o sistema
+    /// oferece no lugar da assinatura ICP-Brasil: "confira no sistema da clínica". Só que
+    /// <c>PorCodigoAsync</c> existia desde a parcela 3 e **nenhuma tela o recebia**: quem
+    /// chegava com o atestado na mão (a empresa, a escola, o próprio paciente) não tinha
+    /// onde digitar o código. O que substitui a assinatura não pode ser o que ninguém
+    /// consegue usar.
+    ///
+    /// Não é área pública: quem confere é a recepção, com o papel na frente.
+    /// </summary>
+    [RelayCommand]
+    private async Task ConferirAsync()
+    {
+        Conferido = null;
+        ConferidoCancelado = false;
+        _conferidoId = null;
+
+        var codigo = Codigo?.Trim();
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            Mensagem = "Digite o código impresso no rodapé do documento.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            Mensagem = null;
+            MensagemEhErro = false;
+
+            using var scope = _escopos.CreateScope();
+            var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+
+            var achado = await documentos.PorCodigoAsync(codigo);
+
+            if (achado is null)
+            {
+                // "Não confere" é resposta, não erro de sistema — e é a resposta que a
+                // conferência existe para dar.
+                Conferido = $"Nenhum documento com o código \"{codigo}\". "
+                            + "Confira a digitação; se estiver certa, o papel não saiu deste sistema.";
+                ConferidoCancelado = true;
+                return;
+            }
+
+            _conferidoId = achado.Id;
+            ConferidoCancelado = achado.Cancelado;
+
+            var quem = achado.Paciente?.Nome ?? "(paciente removido)";
+            var situacao = achado.Cancelado
+                ? $"CANCELADO em {achado.CanceladoEm:dd/MM/yyyy} — {achado.MotivoCancelamento}"
+                : "válido";
+
+            Conferido = $"{CentralDocumentosService.RotularClinico(achado.Tipo)} {achado.Numero} · "
+                        + $"{quem} · emitido em {achado.Data.ToString("dd/MM/yyyy", Brasil)} · {situacao}";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — documento não pôde ser conferido pelo código", ex);
+            Mensagem = $"Não foi possível conferir o código: {ex.Message}";
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>Segunda via do documento que acabou de ser conferido.</summary>
+    [RelayCommand]
+    private async Task ReimprimirConferidoAsync()
+    {
+        if (_conferidoId is not { } id) return;
+        await ImprimirClinicoAsync(id, $"Documento-{id}.pdf", $"#{id}");
+    }
 
     // ==================== Gerar ====================
 

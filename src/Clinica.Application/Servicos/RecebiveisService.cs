@@ -23,6 +23,27 @@ public sealed record DepositoEsperado(
     public bool Atrasado(DateOnly hoje) => Previsao < hoje;
 }
 
+/// <summary>
+/// Um depósito que já caiu: o mesmo lote, visto depois da confirmação.
+///
+/// Ele guarda as DUAS datas — a prevista e a real —, que é justamente o motivo de
+/// <c>RecebimentoConfirmadoEm</c> ser campo separado da previsão. Sobrescrever a
+/// previsão apagaria a prova do atraso, e é o atraso que dá conversa com a adquirente.
+/// </summary>
+public sealed record DepositoConfirmado(
+    string Adquirente,
+    DateOnly Creditado,
+    DateOnly? Previsto,
+    decimal Bruto,
+    decimal Taxa,
+    decimal Liquido,
+    int Quantidade,
+    IReadOnlyList<int> LancamentoIds)
+{
+    /// <summary>Dias entre o prometido e o pago. Negativo = caiu adiantado.</summary>
+    public int? DiasDeAtraso => Previsto is { } p ? Creditado.DayNumber - p.DayNumber : null;
+}
+
 /// <summary>Totais do que a clínica tem para receber das maquininhas.</summary>
 public sealed record ResumoRecebiveis(
     decimal LiquidoAVencer,
@@ -156,6 +177,38 @@ public sealed class RecebiveisService
         }, ct);
         await _repo.SalvarAsync(ct);
         return confirmados;
+    }
+
+    /// <summary>
+    /// Depósitos que já caíram, agrupados como caíram — por adquirente e dia do crédito.
+    ///
+    /// Existe para a confirmação poder ser DESFEITA: quem marcou o dia errado precisa
+    /// achar o lote, e sem esta leitura o <see cref="DesfazerConfirmacaoAsync"/> não tinha
+    /// como ser chamado de tela nenhuma. A previsão vai junto, mais antiga do lote, para
+    /// o atraso continuar visível depois de pago.
+    /// </summary>
+    public async Task<IReadOnlyList<DepositoConfirmado>> ConfirmadosAsync(
+        DateOnly de, DateOnly ate, CancellationToken ct = default)
+    {
+        var creditados = await _repo.RecebiveisConfirmadosAsync(de, ate, ct);
+
+        return creditados
+            .GroupBy(l => (
+                Adquirente: string.IsNullOrWhiteSpace(l.Adquirente) ? "(não informado)" : l.Adquirente!,
+                Creditado: l.RecebimentoConfirmadoEm!.Value))
+            .Select(g => new DepositoConfirmado(
+                g.Key.Adquirente,
+                g.Key.Creditado,
+                g.Where(l => l.PrevisaoRecebimento is not null)
+                    .Min(l => l.PrevisaoRecebimento),
+                g.Sum(l => l.Valor),
+                g.Sum(l => l.ValorTaxa ?? 0m),
+                g.Sum(l => l.Valor - (l.ValorTaxa ?? 0m)),
+                g.Count(),
+                g.Select(l => l.Id).ToList()))
+            .OrderByDescending(d => d.Creditado)
+            .ThenBy(d => d.Adquirente)
+            .ToList();
     }
 
     /// <summary>

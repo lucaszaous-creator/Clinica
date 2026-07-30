@@ -86,6 +86,9 @@
             </Border>
         </Grid>
 
+        <TabControl Background="Transparent" BorderThickness="0">
+
+        <TabItem Header="Previstos">
         <Border Style="{StaticResource Card}">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
@@ -106,7 +109,7 @@
                     </StackPanel>
                 </Grid>
 
-                <TextBlock DockPanel.Dock="Top"
+                <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
                            Text="Nenhum recebimento de cartão pendente. Vendas em dinheiro e Pix entram inteiras e na hora — não há o que esperar.">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
@@ -186,5 +189,79 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
+        </TabItem>
+
+        <!-- ===== Já caíram: a porta do desfazer (parcela 25) ===== -->
+        <TabItem Header="Já caíram">
+            <Border Style="{StaticResource Card}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <TextBlock Text="Depósitos confirmados" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   Text="As duas datas ficam gravadas separadas — a prevista e a real —, e é por isso que o atraso continua visível depois de o dinheiro entrar. Confirmação lançada no dia errado se desfaz aqui: o lançamento continua no caixa, só a data do crédito é apagada." />
+                        <TextBlock Text="{Binding ResumoConfirmados}" Margin="0,8,0,0"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.Acento}" />
+                    </StackPanel>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Confirmados}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock FontWeight="SemiBold">
+                                                    <Run Text="{Binding Adquirente, Mode=OneWay}" />
+                                                    <Run Text=" · caiu em " />
+                                                    <Run Text="{Binding Creditado, Mode=OneWay}" />
+                                                </TextBlock>
+                                                <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                                           Margin="0,2,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock"
+                                                               BasedOn="{StaticResource TextoSuave}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Atrasou}"
+                                                                             Value="True">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Aviso}" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" Text="{Binding Liquido}"
+                                                       VerticalAlignment="Center" TextAlignment="Right"
+                                                       Margin="6,0" FontWeight="SemiBold" />
+
+                                            <Button Grid.Column="2" Content="Desfazer" VerticalAlignment="Center"
+                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    IsEnabled="{Binding DataContext.PodeEditar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.DesfazerCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </TabItem>
+
+        </TabControl>
     </DockPanel>
 </UserControl>

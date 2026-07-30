@@ -251,6 +251,34 @@ public sealed partial class PacotesViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Abre as sessões já debitadas do pacote — e é de lá que uma delas volta ao saldo.
+    ///
+    /// Até a parcela 25 a tela só sabia cancelar o pacote INTEIRO: a sessão debitada por
+    /// engano (o paciente não veio, a baixa automática pegou o pacote errado) não tinha
+    /// como ser desfeita, embora <c>CancelarConsumoAsync</c> existisse e fosse testado
+    /// desde a parcela 4.
+    /// </summary>
+    [RelayCommand]
+    private async Task VerSessoesAsync(LinhaPacoteVendido? linha)
+    {
+        if (linha is null) return;
+
+        var vm = new ConsumosPacoteViewModel(
+            _pacotes, _dialogo, linha.Id, $"{linha.Nome} — {linha.Paciente}");
+
+        var janela = new Janelas.ConsumosPacoteWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        janela.ShowDialog();
+
+        // Só recarrega se alguma sessão voltou ao saldo: espiar a lista não pode custar
+        // uma consulta à toa.
+        if (vm.Mudou) await CarregarAsync();
+    }
+
     [RelayCommand]
     private async Task CancelarPacoteAsync(LinhaPacoteVendido? linha)
     {

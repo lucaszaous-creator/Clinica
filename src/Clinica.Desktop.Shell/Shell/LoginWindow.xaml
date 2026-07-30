@@ -6,6 +6,10 @@
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
+    <!-- O formulário inteiro rola: com a escala do Windows em 150% ou 175% um
+         diálogo de 600px vira 900px físicos, e sem isto os botões do rodapé
+         ficam atrás da barra de tarefas. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="28">
         <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
                Height="40" HorizontalAlignment="Left" Margin="0,0,0,18"
@@ -62,4 +66,5 @@
             <TextBlock x:Name="TxtInfo" TextWrapping="Wrap" />
         </Border>
     </StackPanel>
+    </ScrollViewer>
 </Window>

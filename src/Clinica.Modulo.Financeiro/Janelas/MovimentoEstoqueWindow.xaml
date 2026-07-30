@@ -1,7 +1,7 @@
 <Window x:Class="Clinica.Financeiro.Janelas.MovimentoEstoqueWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Movimentar estoque" Width="560" Height="560"
+        Title="Movimentar estoque" Width="560" Height="560" MinWidth="480" MinHeight="420"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -30,6 +30,9 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
+        <!-- O miolo rola; título e botões ficam parados. Em escala do Windows a 150% um
+             formulário de 500px vira 750px físicos, e sem isto o Salvar sai da tela. -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -103,5 +106,6 @@
                        FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
                        Text="Perda exige motivo escrito — perda sem motivo vira estoque que não bate. Saída maior que o saldo é recusada: estoque negativo não existe no mundo." />
         </StackPanel>
+        </ScrollViewer>
     </DockPanel>
 </Window>

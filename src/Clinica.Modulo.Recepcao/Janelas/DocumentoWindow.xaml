@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
-        Title="Documento clínico" Width="860" Height="780"
+        Title="Documento clínico" Width="860" Height="680" MinWidth="700" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -70,6 +70,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <ComboBox Grid.Column="0" ItemsSource="{Binding Modelos}"
                                       SelectedItem="{Binding ModeloSelecionado}"
@@ -77,6 +78,12 @@
                             <Button Grid.Column="1" Content="Aplicar modelo" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPequeno}"
                                     Command="{Binding AplicarModeloCommand}" />
+                            <!-- Modelo é rascunho de apoio, não registro do que aconteceu:
+                                 apaga-se mesmo. O documento emitido com ele não muda —
+                                 a emissão copia o conteúdo. -->
+                            <Button Grid.Column="2" Content="Apagar" Margin="8,0,0,0"
+                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                    Command="{Binding ExcluirModeloCommand}" />
                         </Grid>
 
                         <Grid Margin="0,8,0,0">

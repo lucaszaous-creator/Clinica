@@ -385,6 +385,17 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<LancamentoFinanceiro>> LancamentosPorIdAsync(
         IReadOnlyCollection<int> ids, CancellationToken ct = default);
 
+    /// <summary>
+    /// Recebimentos de cartao JA creditados, pela data real do credito — o que a tela
+    /// precisa para desfazer uma confirmacao lancada no dia errado.
+    ///
+    /// O corte e pela data do CREDITO e nao pela previsao: quem procura o deposito
+    /// confirmado esta com o extrato na mao, e o extrato traz o dia em que o dinheiro
+    /// caiu.
+    /// </summary>
+    Task<IReadOnlyList<LancamentoFinanceiro>> RecebiveisConfirmadosAsync(
+        DateOnly de, DateOnly ate, CancellationToken ct = default);
+
     // ---- Tabela de preco por convenio (parcela 20) ----
 
     /// <summary>
@@ -448,6 +459,15 @@ public interface IClinicaRepositorio
     /// <summary>Movimentos de saída ligados a um atendimento — o custo daquela sessão.</summary>
     Task<IReadOnlyList<MovimentoEstoque>> MovimentosDoAtendimentoAsync(
         int atendimentoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Saídas do período que TÊM atendimento — o custo de insumo sessão a sessão.
+    ///
+    /// Filtra no banco em vez de trazer o extrato inteiro para peneirar em memória: a
+    /// maior parte dos movimentos é entrada de compra, e nenhuma delas interessa aqui.
+    /// </summary>
+    Task<IReadOnlyList<MovimentoEstoque>> ConsumosDeSessaoNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
     /// <summary>
     /// Saídas da última sessão que baixou insumo — a sugestão de consumo do fechamento

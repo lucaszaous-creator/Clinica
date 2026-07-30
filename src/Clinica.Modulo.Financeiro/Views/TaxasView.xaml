@@ -123,7 +123,7 @@
                 <TextBlock DockPanel.Dock="Top" Text="Taxas cadastradas" Style="{StaticResource H3}"
                            Margin="0,0,0,8" />
 
-                <TextBlock DockPanel.Dock="Top"
+                <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
                            Text="Nenhuma taxa cadastrada. Sem taxa, o caixa registra só o bruto — e não inventa desconto.">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
@@ -318,7 +318,7 @@
                                    FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                     </StackPanel>
 
-                    <TextBlock DockPanel.Dock="Top"
+                    <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
                                Text="Nenhum tributo cadastrado. Enquanto não houver, vale a alíquota única ao lado.">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">

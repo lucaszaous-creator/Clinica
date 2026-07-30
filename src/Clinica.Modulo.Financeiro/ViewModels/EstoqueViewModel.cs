@@ -30,6 +30,15 @@ public sealed class LinhaValidade
     public required bool Vencido { get; init; }
 }
 
+/// <summary>Quanto uma sessão gastou de insumo — a linha da aba de custo.</summary>
+public sealed class LinhaCustoSessao
+{
+    public required string Data { get; init; }
+    public required string Paciente { get; init; }
+    public required string Custo { get; init; }
+    public required string Itens { get; init; }
+}
+
 /// <summary>
 /// Estoque de insumos (feature 10): saldo, alerta de reposição e de validade.
 ///
@@ -44,6 +53,16 @@ public sealed partial class EstoqueViewModel : ObservableObject
 
     public ObservableCollection<LinhaEstoque> Itens { get; } = [];
     public ObservableCollection<LinhaValidade> Validades { get; } = [];
+    public ObservableCollection<LinhaCustoSessao> CustosSessao { get; } = [];
+
+    // ---- Custo por sessão (parcela 25) ----
+    [ObservableProperty] private DateTime _custoInicio = DateTime.Today.AddDays(-30);
+    [ObservableProperty] private DateTime _custoFim = DateTime.Today;
+    [ObservableProperty] private string _custoTotal = "—";
+    [ObservableProperty] private string _custoMedio = "—";
+    [ObservableProperty] private string _custoSessoes = "—";
+    [ObservableProperty] private string _custoResumo = string.Empty;
+    [ObservableProperty] private bool _semCusto;
 
     // ---- Cadastro rápido (item novo é linha curta: nome, unidade, mínimo) ----
     [ObservableProperty] private string? _novoNome;
@@ -116,6 +135,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
             Resumo = SemAlertas
                 ? $"{saldos.Count} item(ns) no estoque — nada abaixo do mínimo nem vencendo."
                 : $"{faltando} item(ns) para repor · {validades.Count} lote(s) vencendo ou vencidos.";
+
+            await CarregarCustosAsync();
         }
         catch (Exception ex)
         {
@@ -125,6 +146,66 @@ public sealed partial class EstoqueViewModel : ObservableObject
         finally
         {
             Carregando = false;
+        }
+    }
+
+    partial void OnCustoInicioChanged(DateTime value) => _ = CarregarCustosAsync();
+
+    partial void OnCustoFimChanged(DateTime value) => _ = CarregarCustosAsync();
+
+    /// <summary>
+    /// Quanto custou cada sessão em insumo, no período.
+    ///
+    /// `CustoDoAtendimentoAsync` existia desde a parcela 4 e **nenhuma tela o lia**: a
+    /// parcela 6 ligou a baixa por sessão justamente para este número deixar de responder
+    /// zero, e ele continuou sem porta. Serviço testado sem chamador passa no CI e não faz
+    /// nada na clínica — é o defeito que mais se repete neste projeto.
+    /// </summary>
+    [RelayCommand]
+    private async Task CarregarCustosAsync()
+    {
+        try
+        {
+            var de = DateOnly.FromDateTime(CustoInicio);
+            var ate = DateOnly.FromDateTime(CustoFim);
+
+            if (ate < de)
+            {
+                Erro("A data final do custo é anterior à inicial.");
+                return;
+            }
+
+            var sessoes = await _estoque.CustosDeSessaoAsync(de, ate);
+            var resumo = await _estoque.ResumoCustoSessoesAsync(de, ate);
+
+            CustosSessao.Clear();
+            foreach (var s in sessoes)
+                CustosSessao.Add(new LinhaCustoSessao
+                {
+                    Data = s.Data.ToString("dd/MM/yyyy"),
+                    Paciente = string.IsNullOrWhiteSpace(s.Paciente) ? "(paciente não informado)" : s.Paciente!,
+                    Custo = s.Custo.ToString("C"),
+                    Itens = s.Itens.Count == 0 ? "—" : string.Join(" · ", s.Itens)
+                });
+
+            CustoSessoes = resumo.Sessoes.ToString();
+            CustoTotal = resumo.Total.ToString("C");
+            // "—" e não "R$ 0,00": período sem baixa por sessão não tem média zero, tem
+            // média nenhuma — e uma sessão de graça é justamente o que o número não diz.
+            CustoMedio = resumo.MedioPorSessao is { } medio ? medio.ToString("C") : "—";
+            SemCusto = resumo.Sessoes == 0;
+
+            CustoResumo = SemCusto
+                ? "Nenhuma sessão baixou insumo neste período. A baixa por sessão sai do "
+                  + "fechamento do atendimento, na Recepção."
+                : $"{resumo.Sessoes} sessão(ões) com insumo · mais cara: "
+                  + $"{resumo.MaisCara!.Custo:C} em {resumo.MaisCara.Data:dd/MM/yyyy}.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — custo por sessão não pôde ser lido", ex);
+            Erro($"Não foi possível ler o custo por sessão: {ex.Message}");
         }
     }
 

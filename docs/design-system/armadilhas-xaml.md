@@ -53,9 +53,11 @@ python3 tools/verificar-suite.py
 ```
 
 Ele cobre XAML bem-formado, `{StaticResource}` sem chave, pack URI quebrado, `x:Class` sem
-code-behind, `x:Key` repetido, evento sem handler, `Style` duplicado (MC3024) e o
+code-behind, `x:Key` repetido, evento sem handler, `Style` duplicado (MC3024), o
 `Application` sem qualificar (CS0118 — dentro de `Clinica.*` esse nome é o namespace
-`Clinica.Application`, não o tipo do WPF). Ainda **não** cobre `Clinica.Desktop`, que entra
+`Clinica.Application`, não o tipo do WPF), **janela maior que a tela do balcão ou sem
+rolagem no miolo** e **cor/tamanho de fonte escritos à mão** em vez das chaves do design
+system. Ainda **não** cobre `Clinica.Desktop`, que entra
 quando o faturamento virar módulo (Fase 4).
 
 Para o faturamento, por enquanto, as checagens continuam manuais. Nenhuma delas substitui o

@@ -5,6 +5,9 @@
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
+    <!-- Rola como os demais diálogos: a pergunta pode ser longa (é o motivo escrito de
+         um cancelamento) e a escala do Windows a 175% multiplica tudo. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
         <TextBlock x:Name="TxtTitulo" Style="{StaticResource DialogoTitulo}" />
         <TextBlock x:Name="TxtPergunta" Style="{StaticResource TextoSuave}"
@@ -23,4 +26,5 @@
                     Click="Confirmar" />
         </StackPanel>
     </StackPanel>
+    </ScrollViewer>
 </Window>

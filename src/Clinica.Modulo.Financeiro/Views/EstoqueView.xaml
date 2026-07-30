@@ -30,8 +30,11 @@
                 <ColumnDefinition Width="380" />
             </Grid.ColumnDefinitions>
 
+            <TabControl Grid.Column="0" Background="Transparent" BorderThickness="0">
+
             <!-- ============ Itens e saldo ============ -->
-            <Border Grid.Column="0" Style="{StaticResource Card}">
+            <TabItem Header="Itens">
+            <Border Style="{StaticResource Card}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBlock Text="Itens" Style="{StaticResource H3}" Margin="0"
@@ -96,6 +99,98 @@
                     </ScrollViewer>
                 </DockPanel>
             </Border>
+            </TabItem>
+
+            <!-- ============ Custo por sessão (parcela 25) ============ -->
+            <TabItem Header="Custo por sessão">
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+
+                        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock Text="Quanto custa uma sessão" Style="{StaticResource H3}" Margin="0" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0"
+                                       Text="Só entra saída ligada a um atendimento — a baixa digitada à mão não pertence a sessão nenhuma, e rateá-la daria a cada sessão um custo que ela não teve. A baixa por sessão sai do fechamento do atendimento, na Recepção." />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                <TextBlock Text="De" Style="{StaticResource Rotulo}"
+                                           VerticalAlignment="Center" Margin="0,0,6,0" />
+                                <DatePicker SelectedDate="{Binding CustoInicio}" Width="130" />
+                                <TextBlock Text="até" Style="{StaticResource Rotulo}"
+                                           VerticalAlignment="Center" Margin="10,0,6,0" />
+                                <DatePicker SelectedDate="{Binding CustoFim}" Width="130" />
+                                <Button Content="Atualizar" Margin="10,0,0,0"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        Command="{Binding CarregarCustosCommand}" />
+                            </StackPanel>
+
+                            <Grid Margin="0,12,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Sessões" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding CustoSessoes}" Style="{StaticResource H2}" Margin="0" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Custo médio" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding CustoMedio}" Style="{StaticResource H2}" Margin="0" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Total no período" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding CustoTotal}" Style="{StaticResource H2}" Margin="0" />
+                                </StackPanel>
+                            </Grid>
+
+                            <TextBlock Text="{Binding CustoResumo}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                        </StackPanel>
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding CustosSessao}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:LinhaCustoSessao}">
+                                        <Border Padding="0,10"
+                                                BorderBrush="{StaticResource Brush.Borda}"
+                                                BorderThickness="0,0,0,1">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Data}" FontWeight="SemiBold"
+                                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                        <TextBlock Text="{Binding Paciente}" Margin="10,0,0,0"
+                                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Itens}" Margin="0,2,0,0"
+                                                               TextWrapping="Wrap"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Column="1" Text="{Binding Custo}"
+                                                           VerticalAlignment="Center" FontWeight="SemiBold"
+                                                           Margin="12,0,0,0"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </TabItem>
+
+            </TabControl>
 
             <!-- ============ Alertas e cadastro ============ -->
             <DockPanel Grid.Column="2">

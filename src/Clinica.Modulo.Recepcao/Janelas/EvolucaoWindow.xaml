@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:modelos="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application"
         xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
-        Title="Sessão do prontuário" Width="1160" Height="800"
+        Title="Sessão do prontuário" Width="1160" Height="680" MinWidth="900" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -87,7 +87,8 @@
             <Border Width="20" Height="20" CornerRadius="{StaticResource Raio.Pilula}"
                     Background="{StaticResource Brush.Acento}"
                     BorderBrush="{StaticResource Brush.Texto.Invertido}" BorderThickness="1.5">
-                <TextBlock Text="{Binding Numero}" FontSize="10" FontWeight="Bold"
+                <TextBlock Text="{Binding Numero}" FontWeight="Bold"
+                           FontSize="{StaticResource Fonte.Legenda}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{StaticResource Brush.Texto.Invertido}" />
             </Border>
@@ -376,6 +377,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <ComboBox Grid.Column="0" ItemsSource="{Binding Protocolos}"
                                       SelectedItem="{Binding ProtocoloSelecionado}"
@@ -383,6 +385,12 @@
                             <Button Grid.Column="1" Content="Aplicar" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPequeno}"
                                     Command="{Binding AplicarProtocoloCommand}" />
+                            <!-- Protocolo é atalho, não prontuário: apaga-se mesmo. As
+                                 sessões salvas com ele não mudam — aplicar COPIA os
+                                 pontos, nunca aponta para o protocolo. -->
+                            <Button Grid.Column="2" Content="Apagar" Margin="8,0,0,0"
+                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                    Command="{Binding ExcluirProtocoloCommand}" />
                         </Grid>
 
                         <Grid Margin="0,8,0,0">

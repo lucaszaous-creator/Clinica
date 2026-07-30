@@ -338,6 +338,23 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   campo — total guardado é como o estoque para de bater. A **validade fica no movimento
   de entrada** (o lote), não no item, senão o lote que vence primeiro some. Saída maior
   que o saldo é recusada e perda exige motivo escrito.
+- **Capacidade sem porta** (parcela 25): a quinta rodada do defeito recorrente do projeto,
+  e a mais discreta — não é dado gravado sem leitor, é **serviço testado que nenhuma tela
+  chama**. Seis capacidades estavam assim, todas com teste verde: o custo por sessão
+  (`CustoDoAtendimentoAsync`, que a parcela 6 destravou e ninguém lia), devolver uma sessão
+  ao pacote (`CancelarConsumoAsync`), desfazer a confirmação de depósito
+  (`DesfazerConfirmacaoAsync`), sugerir quem chamar para o horário que vagou
+  (`CandidatosParaAsync`), conferir o documento pelo código impresso (`PorCodigoAsync`) e
+  apagar modelo/protocolo. **Antes de dar por pronta uma feature, procure o chamador em
+  produção** — `dotnet test` verde e CI verde não provam que a clínica alcança a função.
+  Regras que a parcela fixou: no custo por sessão **só entra saída COM atendimento** (a
+  baixa digitada à mão não é de sessão nenhuma, e rateá-la daria a cada uma um custo que
+  não teve) e **média sem base é nula, nunca zero**; a lista de espera filtrada **diz que
+  está filtrada** (título e texto do vazio mudam — "ninguém espera" e "ninguém serve para
+  este horário" são respostas diferentes); a conferência por código é **o que este sistema
+  oferece no lugar do ICP-Brasil**, então não podia continuar sem tela onde digitar; e
+  **modelo e protocolo se apagam mesmo** — não são registro do que aconteceu, e as sessões
+  e documentos feitos com eles não mudam porque aplicar **copia**, nunca referencia.
 - **Recibo e orçamento** (`DocumentoFinanceiroService`, parcela 4): mesmas regras do
   documento clínico — numerados por ano e por tipo (`REC 2026/0001`), não se apagam,
   cancelam-se com motivo, e os **valores ficam gravados na emissão**. O recibo aponta

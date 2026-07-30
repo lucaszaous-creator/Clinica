@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -211,6 +212,49 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
 
         Substituir(pontos);
         Informar($"Protocolo \"{protocolo.Nome}\" aplicado. Ajuste e salve a sessão.");
+    }
+
+    /// <summary>
+    /// Apaga o protocolo escolhido.
+    ///
+    /// Protocolo não é prontuário: é um atalho para marcar pontos, e por isso se apaga
+    /// mesmo. As SESSÕES já salvas com ele não mudam uma vírgula — aplicar um protocolo
+    /// COPIA os pontos, nunca aponta para ele. Se fosse referência, apagar aqui esvaziaria
+    /// o mapa de sessões passadas, que é registro do que aconteceu.
+    ///
+    /// Sem esta porta a lista só crescia: protocolo criado com o nome errado, ou a
+    /// combinação que a clínica deixou de usar, ficava no combo para sempre.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExcluirProtocoloAsync()
+    {
+        if (ProtocoloSelecionado is not { } protocolo) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
+
+            // Apagar é destrutivo e o botão fica ao lado do "Aplicar": sem a pergunta,
+            // um clique errado leva embora o protocolo da clínica inteira.
+            if (!dialogo.ConfirmarPerigo("Apagar protocolo",
+                    $"Apagar o protocolo \"{protocolo.Nome}\"? "
+                    + "As sessões já salvas com ele NÃO mudam — os pontos foram copiados para cada uma."))
+                return;
+
+            var mapas = scope.ServiceProvider.GetRequiredService<MapaCorporalService>();
+            await mapas.ExcluirProtocoloAsync(protocolo.Id, SessaoUsuario.Atual.Operador);
+
+            Protocolos.Remove(protocolo);
+            ProtocoloSelecionado = null;
+            Informar($"Protocolo \"{protocolo.Nome}\" apagado. As sessões já salvas com ele não mudam.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — protocolo corporal não pôde ser apagado", ex);
+            Erro(ex.Message);
+        }
     }
 
     /// <summary>Guarda o que está desenhado como protocolo reutilizável.</summary>
