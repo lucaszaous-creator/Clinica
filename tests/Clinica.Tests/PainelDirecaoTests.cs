@@ -57,7 +57,8 @@ public class PainelDirecaoTests : IDisposable
             new RecebiveisService(_repo),
             new FechamentoCaixaService(_repo),
             new RodadaPendenciasService(_repo, pendencias, parametros),
-            pendencias);
+            pendencias,
+            new InadimplenciaService(_repo, _financeiro));
     }
 
     private Task EntradaAsync(DateOnly dia, decimal valor,
@@ -191,6 +192,66 @@ public class PainelDirecaoTests : IDisposable
             a => a.Assunto == AssuntoDirecao.ContasVencidas).Subject;
         alerta.Gravidade.Should().Be(GravidadeDirecao.Perigo);
         alerta.Detalhe.Should().Contain("3.200,00");
+    }
+
+    [Fact]
+    public async Task ContaAPagarEPacienteDevendo_SaoAlertasSEPARADOS()
+    {
+        var maria = new Paciente { Nome = "Maria" };
+        await _repo.AdicionarPacienteAsync(maria);
+        await _repo.SalvarAsync();
+
+        await _contas.LancarContaAsync(
+            TipoLancamento.Saida, "Aluguel", 3_200m, Hoje.AddDays(-5), operador: "ana");
+        await _contas.LancarContaAsync(
+            TipoLancamento.Entrada, "Sessão", 300m, Hoje.AddDays(-5),
+            operador: "ana", pacienteId: maria.Id);
+
+        var p = await _painel.MontarAsync(Hoje);
+
+        // "R$ 3.500 vencidos" misturando o aluguel que a clínica não pagou com a sessão
+        // que o paciente não pagou é um número sem significado: um se resolve pagando, o
+        // outro cobrando.
+        var aPagar = p.Alertas.Single(a => a.Assunto == AssuntoDirecao.ContasVencidas);
+        aPagar.Detalhe.Should().Contain("3.200,00");
+        aPagar.Detalhe.Should().NotContain("3.500");
+
+        var devendo = p.Alertas.Single(a => a.Assunto == AssuntoDirecao.PacientesDevendo);
+        devendo.Titulo.Should().Contain("1 paciente");
+        devendo.Detalhe.Should().Contain("300,00");
+        p.PacientesDevendo.Should().Be(1);
+        p.TotalDevidoPorPacientes.Should().Be(300m);
+    }
+
+    [Fact]
+    public async Task PacienteDevendo_AteNoventaDiasEAviso_AcimaEPerigo()
+    {
+        var maria = new Paciente { Nome = "Maria" };
+        await _repo.AdicionarPacienteAsync(maria);
+        await _repo.SalvarAsync();
+
+        await _contas.LancarContaAsync(
+            TipoLancamento.Entrada, "Sessão", 300m, Hoje.AddDays(-20),
+            operador: "ana", pacienteId: maria.Id);
+
+        var recente = await _painel.MontarAsync(Hoje);
+        recente.Alertas.Single(a => a.Assunto == AssuntoDirecao.PacientesDevendo)
+            .Gravidade.Should().Be(GravidadeDirecao.Aviso);
+
+        var joao = new Paciente { Nome = "João" };
+        await _repo.AdicionarPacienteAsync(joao);
+        await _repo.SalvarAsync();
+        await _contas.LancarContaAsync(
+            TipoLancamento.Entrada, "Sessão", 900m, Hoje.AddDays(-200),
+            operador: "ana", pacienteId: joao.Id);
+
+        // Acima de 90 dias a cobrança deixa de ser lembrete e passa a ser decisão —
+        // acordo, ou parar de contar com o dinheiro. Marcar as duas com a mesma cor faria
+        // a clínica tratar as duas do mesmo jeito.
+        var velha = await _painel.MontarAsync(Hoje);
+        var alerta = velha.Alertas.Single(a => a.Assunto == AssuntoDirecao.PacientesDevendo);
+        alerta.Gravidade.Should().Be(GravidadeDirecao.Perigo);
+        alerta.Detalhe.Should().Contain("mais de 90 dias");
     }
 
     [Fact]

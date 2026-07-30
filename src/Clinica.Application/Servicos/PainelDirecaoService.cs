@@ -20,6 +20,7 @@ public enum GravidadeDirecao
 public enum AssuntoDirecao
 {
     ContasVencidas,
+    PacientesDevendo,
     DepositoAtrasado,
     CaixaNaoConferido,
     GuiasSemReceita,
@@ -51,6 +52,8 @@ public sealed record PainelDirecao(
     ResumoRecebiveis Recebiveis,
     int DiasCaixaNaoConferido,
     decimal EspecieNaoConferida,
+    int PacientesDevendo,
+    decimal TotalDevidoPorPacientes,
     int GuiasSemReceita,
     int PendenciasVencidas,
     int PendenciasEmAberto,
@@ -127,6 +130,7 @@ public sealed class PainelDirecaoService
     private readonly FechamentoCaixaService _fechamento;
     private readonly RodadaPendenciasService _rodada;
     private readonly PendenciaService _pendencias;
+    private readonly InadimplenciaService _inadimplencia;
 
     public PainelDirecaoService(
         IClinicaRepositorio repo,
@@ -135,7 +139,8 @@ public sealed class PainelDirecaoService
         RecebiveisService recebiveis,
         FechamentoCaixaService fechamento,
         RodadaPendenciasService rodada,
-        PendenciaService pendencias)
+        PendenciaService pendencias,
+        InadimplenciaService inadimplencia)
     {
         _repo = repo;
         _financeiro = financeiro;
@@ -144,6 +149,7 @@ public sealed class PainelDirecaoService
         _fechamento = fechamento;
         _rodada = rodada;
         _pendencias = pendencias;
+        _inadimplencia = inadimplencia;
     }
 
     public async Task<PainelDirecao> MontarAsync(DateOnly hoje, CancellationToken ct = default)
@@ -169,22 +175,63 @@ public sealed class PainelDirecaoService
             naoVerificados.Add("Dinheiro do mês");
         }
 
-        // ---- Contas vencidas ----
+        // ---- Contas A PAGAR vencidas ----
+        //
+        // Só o que a clínica DEVE. `ResumoContas.TotalVencido` soma os dois lados, e num
+        // alerta isso daria um número sem significado: "R$ 8.000 vencidos" misturando o
+        // aluguel que a clínica não pagou com a sessão que o paciente não pagou são dois
+        // problemas opostos — um se resolve pagando, o outro cobrando.
         var contas = new ResumoContas(0m, 0m, 0m, 0m, 0);
         try
         {
             contas = await _contas.ResumoAsync(hoje, hoje.AddDays(HorizonteDias), ct);
-            if (contas.TemVencido)
+            var aPagar = await _contas.VencidasAsync(hoje, TipoLancamento.Saida, ct);
+
+            if (aPagar.Count > 0)
                 alertas.Add(new AlertaDirecao(
                     AssuntoDirecao.ContasVencidas,
-                    $"{contas.QuantidadeVencida} conta(s) vencida(s)",
-                    $"{Moeda(contas.TotalVencido)} já passou do vencimento e continua em aberto.",
+                    $"{aPagar.Count} conta(s) a pagar vencida(s)",
+                    $"{Moeda(contas.APagarVencido)} já passou do vencimento e continua em aberto.",
                     GravidadeDirecao.Perigo));
         }
         catch (Exception ex)
         {
             Diagnostico.Registrar("Painel da direção — contas em aberto não puderam ser lidas", ex);
-            naoVerificados.Add("Contas a pagar/receber");
+            naoVerificados.Add("Contas a pagar");
+        }
+
+        // ---- Paciente devendo ----
+        var pacientesDevendo = 0;
+        var totalDevido = 0m;
+        try
+        {
+            var resumo = await _inadimplencia.ResumoAsync(hoje, ct);
+            pacientesDevendo = resumo.Pacientes;
+            totalDevido = resumo.Total;
+
+            if (pacientesDevendo > 0)
+            {
+                // Dívida velha muda o assunto: até 90 dias é lembrete, acima disso é
+                // decisão (acordo, ou parar de contar com o dinheiro). Marcar as duas com
+                // a mesma cor faria a clínica tratar as duas do mesmo jeito.
+                var velha = resumo.Faixas
+                    .FirstOrDefault(f => f.Faixa == FaixasInadimplencia.Acima90);
+                var temVelha = velha is { Pacientes: > 0 };
+
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.PacientesDevendo,
+                    $"{pacientesDevendo} paciente(s) devendo",
+                    $"{Moeda(totalDevido)} em contas de paciente vencidas"
+                    + (temVelha
+                        ? $", das quais {Moeda(velha!.Valor)} com mais de 90 dias — aí já não é lembrete, é decisão."
+                        : "."),
+                    temVelha ? GravidadeDirecao.Perigo : GravidadeDirecao.Aviso));
+            }
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — inadimplência não pôde ser lida", ex);
+            naoVerificados.Add("Inadimplência");
         }
 
         // ---- Depósito de cartão atrasado ----
@@ -314,6 +361,7 @@ public sealed class PainelDirecaoService
             entradas, saidas, entradasAnterior,
             contas, recebiveis,
             diasCaixa, especieNaoConferida,
+            pacientesDevendo, totalDevido,
             guiasSemReceita,
             pendenciasVencidas, pendenciasAbertas,
             glosasVencidas, glosasAVencer,
