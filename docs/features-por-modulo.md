@@ -138,7 +138,11 @@ zero.**
 | Visão por profissional ou por sala | ✅ | `Agendamento.ProfissionalId`/`SalaId`, uma coluna por profissional |
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
-| Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária na tela Campanhas do Gerente (parcela 5) |
+| Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26) |
+| **Bloqueio de agenda** (férias, feriado, folga) | ✅ | `BloqueioAgendaService`, `BloqueioWindow` (parcela 26) |
+| **Agendamento em série** (o pacote de dez) | ✅ | `AgendaService.AgendarSerieAsync`/`CancelarSerieAsync` (parcela 26) |
+| **Visão de semana** | ✅ | `AgendaViewModel.ModoSemana` — o dia continua sendo o padrão (parcela 26) |
+| Elegibilidade antes de marcar | ✅ | `ElegibilidadeService` no agendamento e no check-in da Fila (parcela 26) |
 
 > **A lista de espera passou a responder ao horário, e não só a existir.** Até a parcela 25
 > ela mostrava todo mundo que espera, e a recepção cruzava turno, janela de datas e
@@ -177,6 +181,7 @@ zero.**
 | Histórico de sessões e guias | ✅ | `FichaPacienteViewModel` (Recepção): sessões, guias em aberto, última sessão |
 | Validação de elegibilidade | ✅ | `ElegibilidadeService` |
 | LGPD: consentimento registrado | ✅ | `ConsentimentoService`, `ConsentimentoLgpd` |
+| **LGPD: acesso e eliminação a pedido do titular** | ✅ | `TitularDadosService` — cartão "Direitos do titular" na ficha (parcela 26) |
 
 > A tela é **master-detail**: lista à esquerda, ficha à direita. O balcão trabalha com o
 > paciente na frente — navegar para outra seção custaria um clique e o contexto a cada
@@ -187,7 +192,18 @@ zero.**
 > estourada hoje só aparecem na hora de faturar, quando a sessão já aconteceu e o
 > prejuízo é certo. O `ElegibilidadeService` junta o que já existia espalhado
 > (`Paciente.CarteirinhaVencida`, `AutorizacaoService`, consentimento) e responde no
-> balcão. Ele **informa, nunca impede** — quem decide é a clínica.
+> balcão. Ele **informa, nunca impede** — quem decide é a clínica. Desde a parcela 26 ele
+> responde também **onde a decisão é tomada**: ao marcar o horário e no check-in da fila.
+
+> **Bloquear a agenda não desmarca ninguém.** Fechar o Natal depois de alguém ter marcado
+> no dia 25 devolve a lista de quem está marcado, para a recepção remarcar. Sessão que
+> some do sistema sem ninguém avisar o paciente é pior do que o choque de horário.
+
+> **A série sai da PRIMEIRA data mais N períodos**, nunca da anterior mais um: encadear
+> faria uma sessão adiada empurrar todas as seguintes, e o paciente perderia o horário
+> fixo — que é exatamente o motivo de marcar em série. Data que esbarra em choque ou em
+> agenda fechada é **PULADA e dita**, e a janela fica aberta: a recepção resolve com o
+> paciente ainda na frente dela, em vez de descobrir o buraco na semana seguinte.
 
 ### Feature 05 · Prontuário — evolução + EVA — ✅ · parcela 2
 
@@ -825,6 +841,7 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 |---|---|---|
 | Trilha de auditoria imutável | ✅ | `EventoAuditoria`, `RegistrarAuditoriaAsync` |
 | Conformidade LGPD (consentimento) | ✅ | `ConsentimentoService` — entregue na parcela 2, na Recepção |
+| Direitos do titular: acesso e eliminação | ✅ | `TitularDadosService` — exportar e anonimizar, na ficha do paciente (parcela 26) |
 | Perfis e permissões finas | ✅ | `UsuarioSistema`, `PerfisAcesso`, `AcessoService`, tela `AcessosView` |
 | Login nos apps da suíte | ✅ | `LoginWindow` + `SessaoUsuario` no shell |
 
@@ -1093,6 +1110,19 @@ projeto, e a mais discreta: as outras eram **dado gravado sem leitor**, esta é 
 testado sem porta**. Vale a mesma lição, agora escrita como regra: antes de dar uma feature
 por pronta, **procure o chamador em produção** — CI verde não prova que a clínica alcança
 a função.
+
+A **parcela 26 é a primeira desde a 6 a olhar um módulo inteiro em vez de um assunto**: a
+Recepção, que é onde o dia da clínica começa. Seis buracos, todos do mesmo tipo — a
+capacidade existia em algum canto do sistema, mas não no lugar onde a decisão é tomada. A
+elegibilidade respondia na ficha e não na hora de marcar; a rodada de confirmação morava só
+no Gerente, embora quem liga para o paciente seja o balcão; férias e feriado não existiam
+para a agenda, que continuava aceitando marcação no dia 25; o pacote de dez sessões era
+vendido pelo Financeiro e marcado à mão, um horário por vez; a agenda só respondia "como
+está hoje", nunca "quando cabe"; e a LGPD parava no consentimento, sem os dois pedidos que
+o paciente pode fazer e a clínica é obrigada a atender. Nenhum deles aparecia como ⬜ no
+quadro — todos eram ✅ **em outro lugar**. É a variante do defeito recorrente que o quadro
+de features não pega: **feature entregue longe de onde ela é usada equivale a feature que
+não existe.**
 
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).
