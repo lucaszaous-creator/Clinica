@@ -645,6 +645,25 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<DocumentoClinico>> DocumentosClinicosNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, TipoDocumentoClinico? tipo = null,
+        int? pacienteId = null, CancellationToken ct = default)
+    {
+        var q = _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Paciente)
+            .Include(d => d.Profissional)
+            .Where(d => d.Data >= inicio && d.Data <= fim);
+
+        if (tipo is { } t) q = q.Where(d => d.Tipo == t);
+        if (pacienteId is { } p) q = q.Where(d => d.PacienteId == p);
+
+        // Sem os itens: a lista mostra número, tipo, paciente e data. Quem quer o conteúdo
+        // pede a reimpressão, e aí o PDF carrega o documento inteiro.
+        return await q
+            .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
+            .ToListAsync(ct);
+    }
+
     public async Task<int> ProximoNumeroDocumentoAsync(int ano, CancellationToken ct = default)
     {
         // Contar serve porque documento não se apaga: cancelar mantém a linha (e o número).

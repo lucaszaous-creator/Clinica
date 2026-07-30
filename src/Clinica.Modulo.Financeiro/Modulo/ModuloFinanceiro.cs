@@ -23,7 +23,7 @@ namespace Clinica.Financeiro.Modulo;
 /// </summary>
 public sealed class ModuloFinanceiro : IModuloApp
 {
-    public const string ChaveCaixa = "caixa";
+    public const string ChaveCaixa = ChavesSuite.Caixa;
     public const string ChaveContas = ChavesSuite.Contas;
     public const string ChaveInadimplencia = ChavesSuite.Inadimplencia;
     public const string ChaveFluxo = "fluxo-caixa";

@@ -18,6 +18,12 @@ public static class ChavesSuite
     /// <summary>Painel da direção — a abertura do Gerente Geral.</summary>
     public const string PainelDirecao = "painel-direcao";
 
+    /// <summary>Caixa — entradas e saídas (Financeiro). O recibo nasce de um lançamento dele.</summary>
+    public const string Caixa = "caixa";
+
+    /// <summary>Central de documentos — as nove folhas (Recepção).</summary>
+    public const string Documentos = "documentos";
+
     /// <summary>Contas a pagar/receber (Financeiro).</summary>
     public const string Contas = "contas";
 
