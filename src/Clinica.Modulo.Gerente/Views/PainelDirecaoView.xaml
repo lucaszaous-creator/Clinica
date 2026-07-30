@@ -1,0 +1,228 @@
+<UserControl x:Class="Clinica.Gerente.Views.PainelDirecaoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="24">
+
+            <!-- ===== Cabeçalho ===== -->
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="{Binding Saudacao}" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding DataFormatada}" Style="{StaticResource TextoSuave}"
+                               Margin="0" />
+                </StackPanel>
+
+                <Button Grid.Column="1" Content="Atualizar" Command="{Binding CarregarCommand}"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="100"
+                        VerticalAlignment="Top" />
+            </Grid>
+
+            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- Falha de leitura NUNCA aparece como sucesso: um painel que diz "nada
+                 vencido" porque a consulta quebrou é pior do que um painel que não abre. -->
+            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                    Visibility="{Binding TemNaoVerificado, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding NaoVerificados}" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- ===== Dinheiro do mês ===== -->
+            <Grid Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="ENTROU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Text="{Binding EntradasMes}" Style="{StaticResource CardKpi.Valor}"
+                                   Foreground="{StaticResource Brush.Sucesso}" />
+                        <!-- A comparação é com o MESMO TRECHO do mês anterior. No dia 5,
+                             cinco dias contra trinta apontariam queda de 80% todo começo
+                             de mês, e a direção aprenderia a ignorar a seta. -->
+                        <TextBlock Text="{Binding VariacaoEntradas}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Variacao}">
+                                    <Style.Triggers>
+                                        <!-- Sem base de comparação, nada de seta. -->
+                                        <DataTrigger Binding="{Binding TemVariacao}" Value="False">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding VariacaoPositiva}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding VariacaoPositiva}" Value="False">
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="SAIU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Text="{Binding SaidasMes}" Style="{StaticResource CardKpi.Valor}"
+                                   Foreground="{StaticResource Brush.Erro}" />
+                        <TextBlock Text="pago e conciliado" Style="{StaticResource CardKpi.Variacao}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+                    <StackPanel>
+                        <TextBlock Text="SALDO DO MÊS" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Text="{Binding SaldoMes}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SaldoNegativo}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <!-- "Variação no período", não "saldo em conta": a clínica nunca
+                             cadastrou saldo inicial, e chamar isto de saldo daria um
+                             número que não bate com o extrato. -->
+                        <TextBlock Text="entrou menos saiu, realizado"
+                                   Style="{StaticResource CardKpi.Variacao}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ===== Os quatro números que a direção cobra ===== -->
+            <Grid Margin="0,0,0,20">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="CONTAS VENCIDAS" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Text="{Binding ContasVencidas}" Style="{StaticResource CardKpi.Valor}" />
+                        <TextBlock Text="{Binding ContasVencidasDetalhe}"
+                                   Style="{StaticResource CardKpi.Variacao}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="SEM DEPÓSITO" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Text="{Binding DepositoAtrasado}" Style="{StaticResource CardKpi.Valor}" />
+                        <TextBlock Text="{Binding DepositoAtrasadoDetalhe}"
+                                   Style="{StaticResource CardKpi.Variacao}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="2" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <StackPanel>
+                        <TextBlock Text="GUIAS NO PRAZO VENCIDO" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Text="{Binding PendenciasFaturamento}"
+                                   Style="{StaticResource CardKpi.Valor}" />
+                        <TextBlock Text="{Binding PendenciasDetalhe}"
+                                   Style="{StaticResource CardKpi.Variacao}" />
+                    </StackPanel>
+                </Border>
+
+                <Border Grid.Column="3" Style="{StaticResource CardKpi}">
+                    <StackPanel>
+                        <TextBlock Text="A RECEBER (PREVISTO)" Style="{StaticResource CardKpi.Rotulo}" />
+                        <TextBlock Text="{Binding AReceberPrevisto}"
+                                   Style="{StaticResource CardKpi.Valor}" />
+                        <TextBlock Text="{Binding AReceberDetalhe}"
+                                   Style="{StaticResource CardKpi.Variacao}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- ===== O que exige ação hoje ===== -->
+            <TextBlock Text="O que exige ação hoje" Style="{StaticResource H3}" Margin="0,0,0,4" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                       Text="Em ordem de peso: primeiro o que já é prejuízo, depois o que ainda dá para evitar. Cada linha leva à tela do assunto." />
+
+            <Border Style="{StaticResource AlertaSucesso}"
+                    Visibility="{Binding SemAlerta, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock TextWrapping="Wrap"
+                           Text="Nada exige ação hoje: nenhuma conta vencida, nenhum depósito atrasado, a gaveta conferida e nenhuma guia fora do prazo de decisão." />
+            </Border>
+
+            <ItemsControl ItemsSource="{Binding Alertas}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,0,10" Padding="14,12"
+                                CornerRadius="{StaticResource Raio.Medio}"
+                                BorderThickness="1,1,1,1">
+                            <Border.Style>
+                                <!-- A cor vem da GRAVIDADE, por trigger. Mandar do
+                                     ViewModel a chave do estilo não funcionaria:
+                                     StaticResource resolve no XAML, não a partir de uma
+                                     string. -->
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Info.Suave}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Gravidade}" Value="Perigo">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding Gravidade}" Value="Aviso">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                    <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                               Margin="0,4,0,0"
+                                               FontSize="{StaticResource Fonte.Legenda}" />
+                                </StackPanel>
+
+                                <!-- Desabilitado quando o destino não existe para quem
+                                     está usando (módulo não carregado, permissão
+                                     faltando): botão que não faz nada é pior do que
+                                     botão ausente. -->
+                                <Button Grid.Column="1" Content="{Binding DestinoRotulo}"
+                                        Command="{Binding IrCommand}"
+                                        IsEnabled="{Binding PodeIr}"
+                                        Style="{StaticResource BotaoPequeno}"
+                                        VerticalAlignment="Center" MinWidth="120" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

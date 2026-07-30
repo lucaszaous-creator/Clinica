@@ -90,8 +90,29 @@ public sealed partial class ShellViewModel : ObservableObject
             .Select(g => new GrupoMenuModulo(GruposSidebar.Rotulo(g.Key), g.ToList()))
             .ToList();
 
-        // Abre no primeiro item disponível.
-        if (Itens.Count > 0) Navegar(Itens[0]);
+        // Uma tela pode pedir para abrir outra (o painel da direção leva ao assunto do
+        // alerta). Ligado aqui porque é este objeto que sabe navegar.
+        NavegacaoSuite.Ligar(IrPara);
+
+        // Abre no item marcado como inicial; sem ele — ou sem permissão para vê-lo —, no
+        // primeiro disponível, como sempre. Existe porque o Gerente Geral carrega os três
+        // módulos e abria no painel da RECEPÇÃO: quem manda na clínica entrava no sistema
+        // e via a fila do balcão.
+        var abertura = Itens.FirstOrDefault(i => i.Inicial) ?? Itens.FirstOrDefault();
+        if (abertura is not null) Navegar(abertura);
+    }
+
+    /// <summary>
+    /// Navega por CHAVE, atendendo <see cref="NavegacaoSuite"/>. Devolve false quando o
+    /// destino não está na sidebar desta pessoa — módulo não carregado neste executável,
+    /// ou permissão que ela não tem.
+    /// </summary>
+    private bool IrPara(string chave, bool apenasConferir)
+    {
+        var item = Itens.FirstOrDefault(i => i.Chave == chave);
+        if (item is null) return false;
+        if (!apenasConferir) Navegar(item);
+        return true;
     }
 
     [RelayCommand]
