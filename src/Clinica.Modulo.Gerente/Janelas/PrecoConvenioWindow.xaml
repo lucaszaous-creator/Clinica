@@ -1,0 +1,72 @@
+<Window x:Class="Clinica.Gerente.Janelas.PrecoConvenioWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Preço por convênio" Width="540" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="24">
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Quanto a operadora paga por esta guia. É PROPOSTA para a conciliação do Financeiro, não imposição: a operadora pode ter pago menos (glosa parcial), e a linha mostra de onde veio o número." />
+
+        <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
+        <ComboBox ItemsSource="{Binding Convenios}" SelectedItem="{Binding Convenio}"
+                  DisplayMemberPath="Nome" />
+
+        <TextBlock Text="Tipo de guia" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}" />
+
+        <TextBlock Text="Especialidade (em branco = todas)" Style="{StaticResource Rotulo}"
+                   Margin="0,12,0,0" />
+        <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding Especialidade}" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                   Text="Preencha só quando o valor depender da especialidade. Um preço com especialidade VENCE o genérico do tipo — senão a exceção ficaria cadastrada e a conciliação continuaria propondo o valor da regra geral." />
+
+        <TextBlock Text="Valor da guia" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}" MaxLength="14" />
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Vigente de" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding VigenteDe}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Até" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding VigenteAte}" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                   Text="Reajuste da operadora entra como uma linha NOVA, com a data em que passou a valer. A guia de março continua sendo proposta pelo valor de março, e o que já foi lançado no caixa nunca muda." />
+
+        <CheckBox Content="Ativo" IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
+
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Salvar preço" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="140"
+                    ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

@@ -55,15 +55,6 @@ public sealed partial class PacotesViewModel : ObservableObject
     public ObservableCollection<LinhaCatalogo> Catalogo { get; } = [];
     public ObservableCollection<LinhaPacoteVendido> Vendidos { get; } = [];
 
-    public IReadOnlyList<TipoPacote> Tipos { get; } = Enum.GetValues<TipoPacote>();
-
-    // ---- Formulário do catálogo (inline: cadastrar pacote é raro e curto) ----
-    [ObservableProperty] private string? _novoNome;
-    [ObservableProperty] private TipoPacote _novoTipo = TipoPacote.Sessoes;
-    [ObservableProperty] private string? _novoSessoes;
-    [ObservableProperty] private string? _novoValor;
-    [ObservableProperty] private string? _novaValidadeDias;
-
     [ObservableProperty] private LinhaCatalogo? _catalogoSelecionado;
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _mensagem = string.Empty;
@@ -155,34 +146,25 @@ public sealed partial class PacotesViewModel : ObservableObject
 
     // ==================== Catálogo ====================
 
+    /// <summary>
+    /// O cadastro do catálogo saiu da página e virou janela. A tela responde "o que a
+    /// clínica vende e quem tem saldo"; definir a tabela de pacotes é tarefa de
+    /// implantação, e o formulário fixo tomava dois terços da coluna do catálogo.
+    /// </summary>
     [RelayCommand]
-    private async Task AdicionarAoCatalogoAsync()
+    private async Task NovoPacoteAsync()
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
 
-        try
+        var vm = new PacoteCatalogoEdicaoViewModel(_pacotes);
+        var janela = new Janelas.PacoteCatalogoWindow(vm)
         {
-            var pacote = new PacoteCatalogo
-            {
-                Nome = NovoNome ?? string.Empty,
-                Tipo = NovoTipo,
-                SessoesIncluidas = LerInteiro(NovoSessoes, "as sessões"),
-                Valor = LerDecimal(NovoValor, "o valor") ?? 0m,
-                ValidadeDias = LerInteiro(NovaValidadeDias, "a validade"),
-                Ativo = true
-            };
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
 
-            await _pacotes.SalvarCatalogoAsync(pacote, SessaoUsuario.Atual.Operador);
-
-            NovoNome = NovoSessoes = NovoValor = NovaValidadeDias = null;
-            _snackbar.Sucesso("Pacote acrescentado ao catálogo.");
-            await CarregarAsync();
-        }
-        catch (Exception ex)
-        {
-            Clinica.Application.Diagnostico.Registrar("Financeiro — pacote do catálogo não pôde ser salvo", ex);
-            Erro(ex.Message);
-        }
+        if (janela.ShowDialog() != true) return;
+        _snackbar.Sucesso("Pacote acrescentado ao catálogo.");
+        await CarregarAsync();
     }
 
     [RelayCommand]
@@ -346,6 +328,75 @@ public sealed partial class PacotesViewModel : ObservableObject
         }
     }
 
+    private void Erro(string texto)
+    {
+        Mensagem = texto;
+        MensagemEhErro = true;
+    }
+}
+
+/// <summary>
+/// Pacote do catálogo, na janela: o que a clínica vende.
+///
+/// Vale lembrar por que o cadastro é separado da venda: a venda **copia** estes dados.
+/// Mudar o preço aqui em novembro não reescreve o que o paciente comprou em março — o
+/// vínculo com o catálogo fica só como procedência.
+/// </summary>
+public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
+{
+    private readonly PacoteService _pacotes;
+
+    public IReadOnlyList<TipoPacote> Tipos { get; } = Enum.GetValues<TipoPacote>();
+
+    [ObservableProperty] private string? _nome;
+    [ObservableProperty] private TipoPacote _tipo = TipoPacote.Sessoes;
+    [ObservableProperty] private string? _sessoes;
+    [ObservableProperty] private string? _valor;
+    [ObservableProperty] private string? _validadeDias;
+
+    [ObservableProperty] private string _mensagem = string.Empty;
+    [ObservableProperty] private bool _mensagemEhErro;
+    [ObservableProperty] private bool _salvando;
+
+    public event Action? Concluido;
+
+    public PacoteCatalogoEdicaoViewModel(PacoteService pacotes) => _pacotes = pacotes;
+
+    [RelayCommand]
+    private async Task SalvarAsync()
+    {
+        Mensagem = string.Empty;
+        MensagemEhErro = false;
+
+        try
+        {
+            Salvando = true;
+
+            await _pacotes.SalvarCatalogoAsync(new PacoteCatalogo
+            {
+                Nome = Nome ?? string.Empty,
+                Tipo = Tipo,
+                SessoesIncluidas = LerInteiro(Sessoes, "as sessões"),
+                Valor = LerDecimal(Valor, "o valor") ?? 0m,
+                ValidadeDias = LerInteiro(ValidadeDias, "a validade"),
+                Ativo = true
+            }, SessaoUsuario.Atual.Operador);
+
+            Concluido?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — pacote do catálogo não pôde ser salvo", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Salvando = false;
+        }
+    }
+
     private static int? LerInteiro(string? texto, string oQue)
     {
         if (string.IsNullOrWhiteSpace(texto)) return null;
@@ -358,11 +409,5 @@ public sealed partial class PacotesViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(texto)) return null;
         if (decimal.TryParse(texto, out var valor)) return valor;
         throw new InvalidOperationException($"Não entendi {oQue}: use um número como 250,00.");
-    }
-
-    private void Erro(string texto)
-    {
-        Mensagem = texto;
-        MensagemEhErro = true;
     }
 }

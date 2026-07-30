@@ -1,0 +1,92 @@
+<Window x:Class="Clinica.Financeiro.Janelas.RecorrenteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Conta fixa" Width="540" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="24">
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Aluguel, luz, contador, mensalidade de software. O molde não entra em total nenhum: quem entra é a conta prevista que ele gera, e que dali em diante tem vida própria — a luz nunca vem igual." />
+
+        <TextBlock Text="Descrição" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}" MaxLength="200" />
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Valor" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}" MaxLength="14" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Repete" Style="{StaticResource Rotulo}" />
+                <!-- Só na criação: a periodicidade ancora a série inteira, e mudá-la
+                     depois faria a próxima ocorrência não bater com as já geradas. -->
+                <ComboBox ItemsSource="{Binding Periodicidades}" SelectedItem="{Binding Periodicidade}"
+                          IsEnabled="{Binding EhNova}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="1º vencimento" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding PrimeiroVencimento}" IsEnabled="{Binding EhNova}" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Até (opcional)" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding UltimoVencimento}" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                   Text="A série sai sempre do 1º vencimento mais N períodos, nunca da ocorrência anterior mais um — encadear faria o aluguel do dia 31 virar aluguel do dia 28 para sempre por causa de fevereiro. Contrato com prazo põe a data final e a série se encerra sozinha." />
+
+        <TextBlock Text="Categoria" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}"
+                  DisplayMemberPath="Nome" />
+
+        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+            <RadioButton Content="A pagar" IsChecked="{Binding EhSaida}"
+                         GroupName="TipoRecorrente" Margin="0,0,16,0"
+                         IsEnabled="{Binding EhNova}" />
+            <RadioButton Content="A receber" GroupName="TipoRecorrente"
+                         IsChecked="{Binding EhEntrada}" IsEnabled="{Binding EhNova}" />
+        </StackPanel>
+
+        <CheckBox Content="Ativa" IsChecked="{Binding Ativa}" Margin="0,12,0,0" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                   Text="Desativada para de gerar, mas o que já foi gerado permanece: contas de meses passados não somem porque o contrato acabou." />
+
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Salvar conta fixa" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="160"
+                    ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

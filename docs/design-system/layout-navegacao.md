@@ -57,7 +57,20 @@ mockups. As duas agora se equivalem; as diferenças que restam estão anotadas a
 ## Grid de página
 
 - Margem externa 24px (`Margem.Pagina`); espaçamento entre cartões 16px; dentro de cartões, escala de 8.
-- Formulário + lista: coluna fixa 340–380px à esquerda + `*` para a lista.
+- **Cadastro é BOTÃO, não coluna** (jul/2026): tela de cadastro é uma LISTA com um botão
+  ("Novo item", "Nova conta", "Novo preço"), e o formulário abre em janela — o mesmo
+  desenho da tela de Pacientes do faturamento. Seis telas tinham o formulário grudado na
+  lista (Estoque, Plano de contas, Pacotes, Contas, Taxas/Tributos e Preços por convênio)
+  e ele ocupava 360px em TODAS as visitas por uma tarefa que acontece na implantação ou
+  quando o contrato muda. Na janela o campo ainda ganha espaço para explicar sua regra —
+  base de cálculo, vigência, especialidade —, que espremida na lateral virava rótulo seco.
+- **A janela de cadastro segue um molde só**: `ScrollViewer` > `StackPanel Margin="24"`,
+  título `DialogoTitulo`, campos, `AlertaPerigo` para a mensagem inline, e o par
+  Cancelar (`IsCancel`) + ação primária (`IsDefault`) com
+  `ctrl:Ajudantes.EstaCarregando="{Binding Salvando}"`. Quem fecha é o ViewModel, pelo
+  evento `Concluido`; a janela não conhece serviço.
+- Formulário + lista (quando a tela É o formulário — conferência da gaveta, simulador):
+  coluna fixa 340–380px à esquerda + `*` para a lista.
 - **Painel de apoio** (lista de espera, filtros, resumo — o que acompanha a tela sem ser o
   formulário dela): **320px**, à direita. São duas famílias de largura de propósito: o
   formulário precisa caber rótulo + campo; o painel de apoio precisa tirar o mínimo da

@@ -83,205 +83,74 @@
             </Border>
         </Grid>
 
-        <!-- ===== Formulários (coluna esquerda) ===== -->
-        <ScrollViewer DockPanel.Dock="Left" Width="360" Margin="0,0,16,0"
-                      VerticalScrollBarVisibility="Auto">
-            <StackPanel>
+        <!-- ===== Contas fixas (lista; o cadastro é o botão) ===== -->
+        <Border DockPanel.Dock="Left" Style="{StaticResource Card}" Width="320" Margin="0,0,16,0">
+            <DockPanel>
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+                    <TextBlock Text="Contas fixas" Style="{StaticResource H3}" Margin="0"
+                               VerticalAlignment="Center" />
+                    <Button Content="Nova conta fixa" HorizontalAlignment="Right"
+                            Style="{StaticResource BotaoPequeno}"
+                            Command="{Binding NovaRecorrenteCommand}"
+                            IsEnabled="{Binding PodeEditar}" />
+                </Grid>
 
-                <Border Style="{StaticResource Card}">
-                    <StackPanel IsEnabled="{Binding PodeEditar}">
-                        <TextBlock Text="Nova conta" Style="{StaticResource H3}" Margin="0,0,0,8" />
+                <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
+                           Text="Nenhuma conta fixa. Enquanto não houver, o aluguel continua sendo redigitado todo mês.">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Recorrentes.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
 
-                        <TextBlock Text="Descrição" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                        <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}"
-                                 MaxLength="200" />
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Recorrentes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
 
-                        <Grid Margin="0,10,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Valor" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}"
-                                         MaxLength="14" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Vencimento" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <DatePicker SelectedDate="{Binding Vencimento}" />
-                            </StackPanel>
-                        </Grid>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
+                                                <Run Text="{Binding Valor, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Ritmo, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Situacao, Mode=OneWay}" />
+                                            </TextBlock>
+                                            <TextBlock Text="{Binding Vigencia}"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}" />
+                                        </StackPanel>
 
-                        <TextBlock Text="Categoria" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
-                        <ComboBox ItemsSource="{Binding Categorias}" SelectedItem="{Binding Categoria}"
-                                  DisplayMemberPath="Nome" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                            <RadioButton Content="A pagar" IsChecked="{Binding EhSaida}"
-                                         GroupName="TipoConta" Margin="0,0,16,0" />
-                            <RadioButton Content="A receber" GroupName="TipoConta"
-                                         IsChecked="{Binding EhEntrada}" />
-                        </StackPanel>
-
-                        <!-- Só no modo "A receber": conta a pagar não tem paciente, e o
-                             campo ali atrapalharia o lançamento mais comum. É este campo
-                             que dá dono à dívida — sem ele a tela de inadimplência ficaria
-                             vazia para sempre. -->
-                        <StackPanel Margin="0,10,0,0"
-                                    Visibility="{Binding EhEntrada, Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="De quem é (opcional)" Style="{StaticResource Rotulo}"
-                                       Margin="0,0,0,4" />
-                            <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                                     MaxLength="80" />
-                            <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
-                                       TextWrapping="Wrap" Margin="0,4,0,0"
-                                       FontSize="{StaticResource Fonte.Legenda}" />
-                            <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                                     SelectedItem="{Binding Seletor.Selecionado}"
-                                     ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                                     MaxHeight="150" Margin="0,6,0,0"
-                                     BorderThickness="0" Background="Transparent" />
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <Button Content="Registrar" Command="{Binding LancarContaCommand}"
-                                    MinWidth="110" Margin="0,0,8,0" />
-                            <Button Content="Limpar" Command="{Binding LimparContaCommand}"
-                                    Style="{StaticResource BotaoSecundario}" MinWidth="90" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel IsEnabled="{Binding PodeEditar}">
-                        <TextBlock Text="{Binding TituloRecorrente}" Style="{StaticResource H3}"
-                                   Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Aluguel, luz, contador, mensalidade de software. O molde não entra em total nenhum: quem entra é a conta prevista que ele gera, e que dali em diante tem vida própria — a luz nunca vem igual." />
-
-                        <TextBlock Text="Descrição" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                        <TextBox Text="{Binding DescricaoRecorrente, UpdateSourceTrigger=PropertyChanged}"
-                                 MaxLength="200" />
-
-                        <Grid Margin="0,10,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="Valor" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <TextBox Text="{Binding ValorRecorrente, UpdateSourceTrigger=PropertyChanged}"
-                                         MaxLength="14" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Repete" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <ComboBox ItemsSource="{Binding Periodicidades}"
-                                          SelectedItem="{Binding Periodicidade}" />
-                            </StackPanel>
-                        </Grid>
-
-                        <Grid Margin="0,10,0,0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="12" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Text="1º vencimento" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <DatePicker SelectedDate="{Binding PrimeiroVencimento}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Text="Até (opcional)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <DatePicker SelectedDate="{Binding UltimoVencimento}" />
-                            </StackPanel>
-                        </Grid>
-
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
-                                   Text="Contrato com prazo põe a data final e a série se encerra sozinha, sem depender de alguém lembrar de desativar." />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                            <RadioButton Content="A pagar" IsChecked="{Binding RecorrenteEhSaida}"
-                                         GroupName="TipoRecorrente" Margin="0,0,16,0" />
-                            <RadioButton Content="A receber" GroupName="TipoRecorrente"
-                                         IsChecked="{Binding RecorrenteEhEntrada}" />
-                        </StackPanel>
-
-                        <CheckBox Content="Ativa" IsChecked="{Binding RecorrenteAtiva}" Margin="0,10,0,0" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <Button Content="Salvar" Command="{Binding SalvarRecorrenteCommand}"
-                                    MinWidth="110" Margin="0,0,8,0" />
-                            <Button Content="Limpar" Command="{Binding LimparRecorrenteCommand}"
-                                    Style="{StaticResource BotaoSecundario}" MinWidth="90" />
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Contas fixas cadastradas"
-                                   Style="{StaticResource H3}" Margin="0,0,0,8" />
-
-                        <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
-                                   Text="Nenhuma conta fixa. Enquanto não houver, o aluguel continua sendo redigitado todo mês.">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Recorrentes.Count}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-
-                        <ItemsControl ItemsSource="{Binding Recorrentes}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1" Padding="0,8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
-                                                           TextWrapping="Wrap" />
-                                                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
-                                                    <Run Text="{Binding Valor, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Ritmo, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Situacao, Mode=OneWay}" />
-                                                </TextBlock>
-                                                <TextBlock Text="{Binding Vigencia}"
-                                                           Style="{StaticResource TextoSuave}"
-                                                           FontSize="{StaticResource Fonte.Legenda}" />
-                                            </StackPanel>
-
-                                            <Button Grid.Column="1" Content="Editar" VerticalAlignment="Center"
-                                                    Style="{StaticResource BotaoPequeno}"
-                                                    IsEnabled="{Binding DataContext.PodeEditar,
-                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    Command="{Binding DataContext.EditarRecorrenteCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </DockPanel>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
+                                        <Button Grid.Column="1" Content="Editar" VerticalAlignment="Center"
+                                                Style="{StaticResource BotaoPequeno}"
+                                                IsEnabled="{Binding DataContext.PodeEditar,
+                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                Command="{Binding DataContext.EditarRecorrenteCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
 
         <!-- ===== Lista do que vence ===== -->
         <Border Style="{StaticResource Card}">
@@ -299,6 +168,10 @@
                         <ComboBox ItemsSource="{Binding Horizontes}"
                                   SelectedItem="{Binding HorizonteDias}"
                                   Width="80" Margin="0,0,12,0" />
+                        <!-- Lista e um botão: registrar conta é a ação, não a tela. -->
+                        <Button Content="Nova conta" Margin="0,0,8,0"
+                                IsEnabled="{Binding PodeEditar}"
+                                Command="{Binding NovaContaCommand}" />
                         <Button Content="Gerar fixas" Style="{StaticResource BotaoSecundario}"
                                 Margin="0,0,8,0"
                                 IsEnabled="{Binding PodeEditar}"

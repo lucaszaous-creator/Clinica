@@ -1,0 +1,45 @@
+<Window x:Class="Clinica.Financeiro.Janelas.CategoriaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Categoria do plano de contas" Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="24">
+        <TextBlock Text="Categoria nova" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="É a classificação que responde &quot;para onde foi o dinheiro&quot; no fluxo de caixa. Sem categoria o lançamento não some do total — aparece como &quot;Sem categoria&quot;." />
+
+        <TextBlock Text="Código" Style="{StaticResource Rotulo}" />
+        <TextBox Text="{Binding Codigo, UpdateSourceTrigger=PropertyChanged}" MaxLength="40" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0"
+                   Text="NÃO muda depois de criado: é a referência que os lançamentos já gravados apontam. Nome, ordem e ativa mudam à vontade." />
+
+        <TextBlock Text="Nome" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="80" />
+
+        <TextBlock Text="Tipo" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}" />
+
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button Content="Criar categoria" Command="{Binding SalvarCommand}"
+                    IsDefault="True" MinWidth="150"
+                    ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>
