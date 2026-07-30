@@ -71,7 +71,7 @@
         </Grid>
 
         <!-- ===== Envelhecimento (coluna direita) ===== -->
-        <Border DockPanel.Dock="Right" Style="{StaticResource Card}" Width="300"
+        <Border DockPanel.Dock="Right" Style="{StaticResource Card}" Width="320"
                 Margin="16,0,0,0" VerticalAlignment="Top">
             <StackPanel>
                 <TextBlock Text="Idade da dívida" Style="{StaticResource H3}" Margin="0,0,0,4" />
@@ -151,7 +151,7 @@
 
                                             <StackPanel Grid.Column="0" Margin="0,0,12,0">
                                                 <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                           FontSize="15" TextWrapping="Wrap" />
+                                                           FontSize="{StaticResource Fonte.Corpo}" TextWrapping="Wrap" />
                                                 <TextBlock Text="{Binding Resumo}"
                                                            FontSize="{StaticResource Fonte.Legenda}"
                                                            Margin="0,2,0,0" TextWrapping="Wrap" />
@@ -161,7 +161,7 @@
                                             </StackPanel>
 
                                             <TextBlock Grid.Column="1" Text="{Binding Total}"
-                                                       FontWeight="Bold" FontSize="18"
+                                                       FontWeight="Bold" FontSize="{StaticResource Fonte.H3}"
                                                        VerticalAlignment="Center"
                                                        Margin="0,0,12,0" />
 

@@ -226,7 +226,7 @@
                         <TextBlock DockPanel.Dock="Top" Text="Contas fixas cadastradas"
                                    Style="{StaticResource H3}" Margin="0,0,0,8" />
 
-                        <TextBlock DockPanel.Dock="Top"
+                        <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
                                    Text="Nenhuma conta fixa. Enquanto não houver, o aluguel continua sendo redigitado todo mês.">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">

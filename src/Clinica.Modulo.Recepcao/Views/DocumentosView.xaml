@@ -136,7 +136,7 @@
                                         <TextBlock Text="{Binding Grupo}"
                                                    Style="{StaticResource CardKpi.Rotulo}" />
                                         <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
-                                                   FontSize="14" TextWrapping="Wrap"
+                                                   FontSize="{StaticResource Fonte.Corpo}" TextWrapping="Wrap"
                                                    Margin="0,2,0,4" />
                                         <TextBlock Text="{Binding Descricao}"
                                                    Style="{StaticResource TextoSuave}"

@@ -109,7 +109,7 @@
                     </StackPanel>
                 </Grid>
 
-                <TextBlock DockPanel.Dock="Top"
+                <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
                            Text="Nenhum recebimento de cartão pendente. Vendas em dinheiro e Pix entram inteiras e na hora — não há o que esperar.">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">

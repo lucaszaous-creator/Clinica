@@ -94,7 +94,7 @@
         </Border>
 
         <!-- ===== Contagens (coluna direita) ===== -->
-        <ScrollViewer DockPanel.Dock="Right" Width="300" Margin="16,0,0,0"
+        <ScrollViewer DockPanel.Dock="Right" Width="320" Margin="16,0,0,0"
                       VerticalScrollBarVisibility="Auto">
             <StackPanel>
                 <Border Style="{StaticResource Card}">

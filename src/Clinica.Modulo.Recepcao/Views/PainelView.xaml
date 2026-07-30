@@ -14,7 +14,7 @@
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel>
                 <TextBlock Text="Painel da recepção" Style="{StaticResource H1}" Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0"
                            Text="Como está o dia no balcão: quem chegou, quem espera e quanto cada profissional tem na agenda." />
             </StackPanel>
 

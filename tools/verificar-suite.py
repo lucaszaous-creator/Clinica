@@ -21,7 +21,19 @@ O que confere:
   8. todo `new X { ... }` de um tipo com membros `required` inicializa TODOS eles
      (CS9035) — as classes `Linha*` das listas são cheias deles;
   9. nenhuma variável de PADRÃO (`is { } x`, `out var x`) colide com outra declaração do
-     mesmo nome no mesmo método (CS0136 — ver ARMADILHA do nome de padrão abaixo).
+     mesmo nome no mesmo método (CS0136 — ver ARMADILHA do nome de padrão abaixo);
+ 10. nenhuma janela nasce maior que a tela do balcão (1366×768), e toda janela alta ou
+     que cresce com o conteúdo tem rolagem (ver ARMADILHA da janela abaixo);
+ 11. nenhuma view ou janela escreve cor em hexadecimal ou tamanho de fonte em número —
+     os dois saem do design system, senão a tela deixa de acompanhar o tema.
+
+ARMADILHA da janela: o monitor da clínica é 1366×768, e descontadas a barra de tarefas e
+a barra de título sobram ~696px de conteúdo. Uma janela declarada com 760 ou 800 de
+altura NASCE com o rodapé — onde ficam Salvar e Cancelar — atrás da barra de tarefas. Pior
+com a escala do Windows em 150%/175% (comum em notebook), que multiplica tudo: um diálogo
+de 600px vira 900px físicos. Existe uma rede de segurança em runtime
+(`AjusteJanela.Instalar`, chamada no `SuiteApp`), mas ela é o último recurso — o tamanho
+declarado tem de caber sozinho, e o miolo tem de rolar.
 
 ARMADILHA `Application` (CS0118): dentro de qualquer namespace `Clinica.*`, o nome
 `Application` resolve para o NAMESPACE `Clinica.Application` — nunca para o tipo
@@ -561,6 +573,95 @@ for cs in _fontes():
                     f"{rel(cs)}:{linha}: a variável de padrão '{nome}' entra no escopo do "
                     f"método e colide com outra declaração do mesmo nome "
                     f"(CS0136) — renomeie uma das duas")
+
+
+# ------------------------------------------- 10. janela maior que a tela do balcão
+# O monitor da clínica é 1366×768. Descontadas a barra de tarefas (~40px) e a barra de
+# título da janela (~32px), sobram ~696px de conteúdo. Janela declarada mais alta que
+# isso NASCE com o rodapé — onde ficam Salvar e Cancelar — atrás da barra de tarefas.
+#
+# Não é hipótese: o app de faturamento carrega desde cedo um `AjustarParaTela` cujo
+# comentário diz o sintoma ("a última coluna das tabelas ficava passando da tela"), e a
+# suíte foi construída sem ele. O ajuste agora existe (`AjusteJanela`, ligado no
+# `SuiteApp`), mas ele é a rede de segurança: o tamanho declarado tem de caber sozinho,
+# senão toda abertura no balcão começa com a janela sendo redimensionada na cara do
+# usuário.
+#
+# ⚠️ A checagem NÃO exige MaxHeight em quem usa SizeToContent: altura fixa em XAML não
+# conhece o monitor. Quem cresce com o conteúdo precisa é de ROLAGEM — é isso que se
+# confere aqui.
+ALTURA_UTIL = 768 - 40  # área útil do monitor do balcão
+MOLDURA = 32            # barra de título
+
+def _nome(el: ET.Element) -> str:
+    """Nome do elemento sem o namespace do XAML."""
+    return el.tag.split("}")[-1]
+
+
+for arq, raiz in arvores.items():
+    if _nome(raiz) != "Window":
+        continue
+
+    def numero(atributo: str) -> float | None:
+        valor = raiz.get(atributo)
+        try:
+            return float(valor) if valor else None
+        except ValueError:
+            return None
+
+    altura = numero("Height")
+    if altura is not None and altura + MOLDURA > ALTURA_UTIL:
+        erros.append(
+            f"{rel(arq)}: Height={altura:.0f} + barra de título passa da área útil de "
+            f"1366×768 ({ALTURA_UTIL}px) — a janela nasce com o rodapé atrás da barra "
+            f"de tarefas")
+
+    largura = numero("Width")
+    if largura is not None and largura > 1366:
+        erros.append(f"{rel(arq)}: Width={largura:.0f} é maior que o monitor do balcão (1366)")
+
+    # Diálogo que cresce com o conteúdo (ou é alto) precisa de rolagem: com a escala do
+    # Windows em 150%/175% — comum em notebook — um formulário de 600px vira 900px
+    # físicos, e sem ScrollViewer o que sobra é cortado, não rolado.
+    #
+    # `ListBox`/`ListView`/`DataGrid` contam como rolagem: o template deles já traz um
+    # ScrollViewer, e é assim que a venda de pacote (lista de pacientes ocupando o miolo)
+    # se vira sem um ScrollViewer escrito à mão.
+    ROLAM = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
+    cresce = (raiz.get("SizeToContent") or "").find("Height") >= 0
+    alto = altura is not None and altura >= 400
+    if (cresce or alto) and not any(_nome(e) in ROLAM for e in raiz.iter()):
+        erros.append(
+            f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "
+            f"ScrollViewer — em escala 150% o rodapé sai da tela cortado")
+
+
+# ------------------------------------------ 11. cor e tamanho de fonte fora dos tokens
+# O design system existe para a suíte inteira mudar de aparência num lugar só. Cor em
+# hexadecimal e tamanho de fonte em número escapam disso em silêncio: a tela continua
+# bonita hoje e deixa de acompanhar o tema amanhã.
+#
+# Só as VIEWS e JANELAS entram — o próprio design system (Styles/) é onde os números
+# podem morar.
+COR_CRUA = re.compile(r'(Foreground|Background|BorderBrush|Fill|Stroke)="(#[0-9A-Fa-f]{3,8})"')
+FONTE_CRUA = re.compile(r'FontSize="(\d+(?:\.\d+)?)"')
+
+for arq in xamls():
+    if "Styles" in arq.parts:
+        continue
+    texto = arq.read_text(encoding="utf-8")
+
+    for m in COR_CRUA.finditer(texto):
+        linha = texto.count("\n", 0, m.start()) + 1
+        erros.append(
+            f"{rel(arq)}:{linha}: {m.group(1)}=\"{m.group(2)}\" escrito à mão — use uma "
+            f"chave Brush.* do design system")
+
+    for m in FONTE_CRUA.finditer(texto):
+        linha = texto.count("\n", 0, m.start()) + 1
+        erros.append(
+            f"{rel(arq)}:{linha}: FontSize=\"{m.group(1)}\" numérico — use uma chave "
+            f"Fonte.* do design system")
 
 
 # ---------------------------------------------------------------------- saída

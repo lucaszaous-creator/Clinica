@@ -1,7 +1,7 @@
 <Window x:Class="Clinica.Recepcao.Janelas.FechamentoSessaoWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Concluir atendimento" Width="620" Height="700"
+        Title="Concluir atendimento" Width="620" Height="660" MinWidth="520" MinHeight="480"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 

@@ -4,10 +4,14 @@
         Title="Foto do paciente" Width="620" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
         Background="{StaticResource Brush.Fundo}">
+    <!-- O formulário inteiro rola: com a escala do Windows em 150% ou 175% um
+         diálogo de 600px vira 900px físicos, e sem isto os botões do rodapé
+         ficam atrás da barra de tarefas. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
         <TextBlock Text="Foto do paciente" Style="{StaticResource H2}" Margin="0,0,0,2" />
         <TextBlock x:Name="TxtPaciente" Style="{StaticResource TextoSuave}" Margin="0,0,0,4" />
-        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,16"
+        <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}" Margin="0,0,0,16"
                    Text="Enquadre o rosto no círculo, com o paciente de frente e boa luz. A área mostrada é exatamente a que será gravada." />
 
         <!-- ===== Visor: o recorte quadrado do preview é o mesmo que vai para o banco ===== -->
@@ -54,4 +58,5 @@
             </StackPanel>
         </DockPanel>
     </StackPanel>
+    </ScrollViewer>
 </Window>

@@ -9,6 +9,10 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </Window.Resources>
 
+    <!-- O formulário inteiro rola: com a escala do Windows em 150% ou 175% um
+         diálogo de 600px vira 900px físicos, e sem isto os botões do rodapé
+         ficam atrás da barra de tarefas. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
         <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
 
@@ -98,4 +102,5 @@
                     IsDefault="True" MinWidth="160" />
         </StackPanel>
     </StackPanel>
+    </ScrollViewer>
 </Window>
