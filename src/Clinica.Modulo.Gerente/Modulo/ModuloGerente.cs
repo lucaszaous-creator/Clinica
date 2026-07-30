@@ -21,8 +21,9 @@ namespace Clinica.Gerente.Modulo;
 /// </summary>
 public sealed class ModuloGerente : IModuloApp
 {
+    public const string ChavePainel = ChavesSuite.PainelDirecao;
     public const string ChaveIndicadores = "indicadores";
-    public const string ChaveFaturamento = "faturamento-gerencial";
+    public const string ChaveFaturamento = ChavesSuite.FaturamentoTiss;
     public const string ChaveCusto = "custo-transacao";
     public const string ChaveRentabilidade = "rentabilidade-convenio";
     public const string ChavePrecos = "precos-convenio";
@@ -35,6 +36,15 @@ public sealed class ModuloGerente : IModuloApp
 
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
+        // Inicial: sem isto o shell abre no primeiro item do primeiro módulo, e o Gerente
+        // Geral — que carrega os três — abria no painel da RECEPÇÃO. Quem manda na clínica
+        // entrava no sistema e via a fila do balcão. Reordenar os módulos resolveria o
+        // mesmo problema desmontando a sidebar, que já está na ordem do dia de trabalho.
+        new ItemMenuModulo
+        {
+            Chave = ChavePainel, Rotulo = "Painel da direção", Glifo = "\uF246",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores, Inicial = true
+        },
         // O faturamento entra na seção FINANCEIRO, junto do caixa e dos pacotes: para
         // quem usa, é tudo dinheiro da clínica. Que a tela venha do módulo da Direção é
         // detalhe de arquitetura, e arquitetura não organiza menu.
@@ -92,6 +102,7 @@ public sealed class ModuloGerente : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
+        servicos.AddTransient<PainelDirecaoViewModel>();
         servicos.AddTransient<IndicadoresViewModel>();
         servicos.AddTransient<FaturamentoGerencialViewModel>();
         servicos.AddTransient<FaturamentoTissViewModel>();
@@ -108,6 +119,10 @@ public sealed class ModuloGerente : IModuloApp
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
+        ChavePainel => new PainelDirecaoView
+        {
+            DataContext = servicos.GetRequiredService<PainelDirecaoViewModel>()
+        },
         ChaveIndicadores => new IndicadoresView
         {
             DataContext = servicos.GetRequiredService<IndicadoresViewModel>()

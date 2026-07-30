@@ -82,6 +82,18 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// </summary>
     public Permissao Requer { get; init; } = Permissao.Nenhuma;
 
+    /// <summary>
+    /// Este item é a tela de ABERTURA do app, quando visível (parcela 22).
+    ///
+    /// Sem ele o shell abre no primeiro item do primeiro módulo carregado — e o Gerente
+    /// Geral, que carrega os três, abria no painel da RECEPÇÃO: quem manda na clínica
+    /// entrava no sistema e via a fila do balcão. Resolver isso reordenando os módulos
+    /// reordenaria a sidebar inteira, que já está na ordem do dia de trabalho.
+    ///
+    /// Quem não tem a permissão do item marcado cai no primeiro visível, como antes.
+    /// </summary>
+    public bool Inicial { get; init; }
+
     [ObservableProperty]
     private bool _estaAtivo;
 }

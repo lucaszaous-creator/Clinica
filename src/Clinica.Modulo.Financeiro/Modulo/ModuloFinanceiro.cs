@@ -24,11 +24,11 @@ namespace Clinica.Financeiro.Modulo;
 public sealed class ModuloFinanceiro : IModuloApp
 {
     public const string ChaveCaixa = "caixa";
-    public const string ChaveContas = "contas";
+    public const string ChaveContas = ChavesSuite.Contas;
     public const string ChaveFluxo = "fluxo-caixa";
-    public const string ChaveFechamento = "fechamento-caixa";
-    public const string ChaveRecebiveis = "recebiveis";
-    public const string ChaveConciliacao = "conciliacao";
+    public const string ChaveFechamento = ChavesSuite.FechamentoCaixa;
+    public const string ChaveRecebiveis = ChavesSuite.Recebiveis;
+    public const string ChaveConciliacao = ChavesSuite.Conciliacao;
     public const string ChaveProducao = "producao";
     public const string ChavePacotes = "pacotes";
     public const string ChaveEstoque = "estoque";
