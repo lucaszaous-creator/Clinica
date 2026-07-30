@@ -544,6 +544,32 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 > **A dedução aparece como percentual do faturamento.** "Foram R$ 14.200 em taxa" é um
 > número grande sem referência; "9,4% de tudo o que entrou" é uma decisão.
 
+### Tabela de preço por convênio — ✅ · parcela 20
+
+| Item | Estado | Onde |
+|---|---|---|
+| Cadastro por convênio, tipo de guia e especialidade | ✅ | `PrecoConvenio`, tela `PrecosConvenioView` (Gerente) |
+| Vigência por linha | ✅ | reajuste entra como linha nova |
+| Valor proposto na conciliação | ✅ | `PrecoConvenioService.ProporAsync` → `ConciliacaoViewModel` (Financeiro) |
+| Procedência do número na linha | ✅ | "tabela: Unimed · Acupuntura — R$ 145,00" |
+
+> **Cadastrada na direção, usada no balcão.** Quem negocia tabela com a operadora é a
+> direção; quem concilia guia é o balcão. Mesmo banco, sem sincronização nem cópia — o
+> Financeiro lê a mesma tabela que o Gerente escreve.
+
+> **O valor da guia era digitado à mão.** Um R$ 45 no lugar de R$ 145 não é recusado por
+> ninguém, e a diferença só apareceria numa conferência que a clínica não faz. Com a tabela,
+> a conciliação deixa de ser digitação e passa a ser CONFERÊNCIA contra o demonstrativo.
+
+> **É proposta, não imposição.** A operadora pode ter pago menos (glosa parcial) ou um valor
+> negociado fora da tabela. E a linha mostra **de onde veio o número**: campo que se preenche
+> sozinho sem explicar é pior que campo vazio — a pessoa confirma sem conferir, e o erro
+> entra no caixa com aparência de conferido.
+
+> **Sem preço cadastrado não se inventa valor.** O campo fica vazio para ser digitado, como
+> sempre foi. E o **valor é copiado** no lançamento: reajustar a tabela não reescreve o que a
+> operadora já pagou.
+
 ### Rentabilidade por convênio — ✅ · parcela 19
 
 | Item | Estado | Onde |
@@ -757,6 +783,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **FINANCEIRO** · Recebíveis de cartão | Financeiro | ✅ | `RecebiveisView` (parcela 16) — 🔵 idem |
 | **INTELIGÊNCIA** · Custo de taxas e impostos | Gerente | ✅ | `CustoTransacaoView` (parcela 17) — 🔵 idem |
 | **INTELIGÊNCIA** · Rentabilidade por convênio | Gerente | ✅ | `RentabilidadeConvenioView` (parcela 19) — 🔵 idem |
+| **FINANCEIRO** · Tabela de preço (convênios) | Gerente | ✅ | `PrecosConvenioView` (parcela 20) — 🔵 idem |
 | **INTELIGÊNCIA** · Marketing / Recall | Gerente | ✅ | `CampanhasView` |
 | **INTELIGÊNCIA** · Relatórios / BI | Gerente | ✅ | `IndicadoresView` com gráficos e exportação CSV (parcelas 10d e 11) |
 | **INTELIGÊNCIA** · Configurações | Gerente | ✅ | `ConfiguracoesView` (parcela 10a) |
