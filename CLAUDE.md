@@ -310,6 +310,23 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   marketing**, é transacional como a confirmação da própria sessão. No painel da direção,
   conta a pagar e paciente devendo são alertas **separados**: somá-los daria um número sem
   significado, porque um se resolve pagando e o outro cobrando.
+- **Central de documentos** (`CentralDocumentosService`, parcela 24): as nove folhas do
+  mockup existiam todas e **nenhuma estava no mesmo lugar** — quatro numa janela dentro da
+  ficha do paciente, três no botão certo da aba certa dessa ficha, o recibo no Caixa, o
+  orçamento só de dentro de um pacote vendido e o fechamento do período só no app
+  congelado. Não faltava capacidade, faltava porta; e havia duas capacidades **sem porta
+  nenhuma** (`DocumentoFinanceiroService.EmitirAsync`, que aceita linhas quaisquer desde a
+  parcela 4, e `FechamentoPdfService`) — a variante mais discreta do defeito "dado gravado
+  sem leitor": o CI fica verde e a clínica pega o bloquinho de papel. A tela **não
+  reimplementa emissão nenhuma**: abre a janela que já existe ou chama o serviço dono da
+  folha. `FolhaCatalogo.Exigencia` é o que faz cada cartão dizer **o que falta** em vez de
+  deixar o botão aceso e avisar depois — descobrir o requisito errando é o que faz a pessoa
+  desistir da tela. O **recibo continua nascendo no Caixa** (aponta para o lançamento; de
+  outro lugar sairiam dois recibos do mesmo pagamento) e o cartão navega até lá. Cancelada
+  **aparece marcada, nunca sumindo**; filtro de folha desconhecida devolve **nada, não
+  tudo**; e o fechamento do período **não tem segunda via** — não é gravado, é conferência
+  montada na hora, então a lista devolve vazio para ele de propósito. O rótulo segue o
+  **mockup**, não o enum ("Receituário", não "Receita").
 - **Repasse** (`RepasseService`, parcela 4): quem atendeu vem do **agendamento**
   (`Agendamento.ProfissionalId` + `AtendimentoId`), porque `Atendimento` é do faturamento
   e não guarda profissional. O percentual incide sobre a **receita que entrou**
