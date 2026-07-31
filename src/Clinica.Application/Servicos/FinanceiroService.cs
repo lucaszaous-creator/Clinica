@@ -56,6 +56,25 @@ public sealed record GuiaSemLancamento(
     /// diferentes.
     /// </summary>
     public string? ConvenioCodigo { get; init; }
+
+    /// <summary>
+    /// Situação da glosa desta guia (parcela 27). A guia glosada NÃO some da conciliação
+    /// — aparece MARCADA, como o documento cancelado na central: sumir faria a linha
+    /// desaparecer sem explicação, e o balcão gastaria a tarde procurando a guia que ele
+    /// viu ontem. Marcada, ela diz por que não deve virar receita.
+    /// </summary>
+    public StatusGlosa Glosa { get; init; } = StatusGlosa.SemGlosa;
+
+    public DateOnly? DataGlosa { get; init; }
+
+    public string? MotivoGlosa { get; init; }
+
+    /// <summary>
+    /// O convênio recusou e ainda não aceitou de volta: lançar receita daqui é contar
+    /// dinheiro que foi negado. É AVISO, não impedimento — a clínica pode estar certa de
+    /// que vai recuperar no recurso, e quem decide é ela.
+    /// </summary>
+    public bool GlosaEmAberto => Glosa is StatusGlosa.Glosada or StatusGlosa.Reapresentada;
 }
 
 /// <summary>
@@ -274,7 +293,14 @@ public sealed class FinanceiroService
                 // Sem código no catálogo (paciente antigo), cai na família — é o que o
                 // resto do sistema já faz para resolver nome e regra do convênio.
                 ConvenioCodigo = c.Atendimento.Paciente.ConvenioCodigo
-                                 ?? c.Atendimento.Paciente.Convenio.ToString()
+                                 ?? c.Atendimento.Paciente.Convenio.ToString(),
+
+                // A glosa vem junto (parcela 27): sem ela, a conciliação convidava o
+                // balcão a lançar receita de uma guia que o convênio já tinha recusado —
+                // e a linha era idêntica à de uma guia paga.
+                Glosa = c.Glosa,
+                DataGlosa = c.DataGlosa,
+                MotivoGlosa = c.MotivoGlosa
             })
             .OrderBy(g => g.DataBaixa)
             .ToList();

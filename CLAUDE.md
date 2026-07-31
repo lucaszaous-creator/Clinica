@@ -355,6 +355,47 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   oferece no lugar do ICP-Brasil**, então não podia continuar sem tela onde digitar; e
   **modelo e protocolo se apagam mesmo** — não são registro do que aconteceu, e as sessões
   e documentos feitos com eles não mudam porque aplicar **copia**, nunca referencia.
+- **Como os quatro módulos se falam** (parcela 27): eles compartilham o BANCO, não
+  mensagens — não há fila, evento nem sincronização; o que um grava o outro lê, e a
+  ligação é sempre uma CHAVE ESTRANGEIRA. O circuito completo:
+  **Recepção → Faturamento**: `FechamentoSessaoService` → `AtendimentoService.LancarAsync`
+  cria `Atendimento` + `CodigoFaturamento` pelas regras do convênio; o app congelado lê a
+  mesma base. Volta pelo `PainelRecepcaoService` (guias pendentes só dos pacientes de
+  HOJE) e pela NC que reabre quando o paciente volta.
+  **Faturamento → Financeiro**: `FinanceiroService.GuiasSemLancamentoAsync` (guia baixada
+  sem receita) alimenta a Conciliação; `LancarReceitaDaGuiaAsync` grava
+  `LancamentoFinanceiro.CodigoFaturamentoId`, e é esse campo que fecha o elo — a guia sai
+  da lista porque passou a ter receita, não porque alguém a marcou.
+  **Financeiro → Gerente**: `RentabilidadeConvenioService`, `CustoTransacaoService` e o
+  `PainelDirecaoService`, que não calcula nada — cada número vem do serviço dono dele.
+  **Gerente → todos**: cada alerta do painel LEVA à tela dona, por `NavegacaoSuite` +
+  `ChavesSuite`. A **dependência tem um sentido só**: o faturamento continua funcionando
+  sem saber que o financeiro existe, e é por isso que as pontes (`FechamentoSessaoService`,
+  `ReceitaGlosadaService`) moram FORA dos serviços compartilhados — dar efeito colateral
+  novo ao `AtendimentoService` mudaria o comportamento de um app em produção.
+- **A glosa que voltava para ninguém** (`ReceitaGlosadaService`, parcela 27): o elo que
+  faltava era o de VOLTA. `GlosaService` mexia só no `CodigoFaturamento` e a palavra
+  "Glosa" não aparecia em um único arquivo do módulo Financeiro: o convênio recusava a
+  guia e o dinheiro **continuava no fluxo de caixa, no previsto e na rentabilidade**.
+  **Receita fantasma é a pior espécie de número errado, porque tem cara de número exato.**
+  As regras: a glosa **não apaga o lançamento** (fato datado — sai do total, não do
+  histórico); **só o PREVISTO se cancela**, porque o REALIZADO é dinheiro que entrou na
+  conta e cancelá-lo faria o caixa parar de bater com o extrato (estorno da operadora é
+  uma SAÍDA, com a data dele); e a guia **volta sozinha para a conciliação** — cancelado o
+  vínculo ela deixa de ter receita ativa e reaparece em `GuiasSemLancamentoAsync`, que é o
+  caminho de volta funcionando sem uma linha de código para isso. Na conciliação a guia
+  glosada **aparece marcada, nunca sumindo** (mesma regra da central de documentos), e
+  lançar receita dela pede confirmação em vez de ser proibido: a clínica pode estar certa
+  de que recupera no recurso — ela só precisava saber.
+- **O que os outros módulos mandam ao balcão** (parcela 27): `ElegibilidadeService` alargou
+  o contrato de propósito, e o critério é um só — **entra ali o que se resolve com o
+  paciente presente e fica caro depois**. Por isso chegaram a **conta vencida**
+  (Financeiro, via `InadimplenciaService`) e a **guia glosada em aberto** (Faturamento):
+  as duas estavam gravadas havia parcelas e só eram lidas por quem não atende ninguém. O
+  atraso só alarma a partir de `AtrasoMinimoParaAvisarDias` (5) porque a conta de ontem
+  costuma estar em trânsito, e **alerta que dispara para todo mundo é alerta que ninguém
+  lê**; a dívida é sempre **amarela** — vermelho neste serviço significa "a guia vai ser
+  recusada", e dívida é assunto de conversa, não impedimento de atender.
 - **A Recepção no balcão** (parcela 26): seis buracos do módulo que fatura o dia.
   **Elegibilidade ANTES** (`ElegibilidadeService` no check-in da Fila e no agendamento):
   carteirinha vencida e cota estourada só apareciam na hora de faturar, quando a sessão
