@@ -29,6 +29,13 @@ public sealed partial class ProducaoViewModel : ObservableObject
     [ObservableProperty]
     private bool _carregando;
 
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, tela vazia por erro fica idêntica
+    /// a tela vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty]
+    private bool _naoVerificado;
+
     [ObservableProperty]
     private int _totalCodigos;
 
@@ -56,6 +63,7 @@ public sealed partial class ProducaoViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var meses = await _relatorios.ComparativoMensalAsync(hoje, JanelaMeses);
 
@@ -71,6 +79,7 @@ public sealed partial class ProducaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             _snackbar.Erro($"Não foi possível carregar a produção: {ex.Message}");
         }
         finally

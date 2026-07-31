@@ -57,6 +57,12 @@ public sealed partial class ResultadoViewModel : ObservableObject
     [ObservableProperty] private DateTime _mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     [ObservableProperty] private bool _carregando;
 
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, tela vazia por erro fica idêntica
+    /// a tela vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
+
     // ---- Resultado ----
     [ObservableProperty] private string _receita = "—";
     [ObservableProperty] private string _deducoes = "—";
@@ -94,6 +100,7 @@ public sealed partial class ResultadoViewModel : ObservableObject
     public async Task CarregarAsync()
     {
         Carregando = true;
+            NaoVerificado = false;
         Mensagem = null;
         MensagemEhErro = false;
 
@@ -147,6 +154,7 @@ public sealed partial class ResultadoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Financeiro — resultado do mês não pôde ser lido", ex);
             ResultadoNaoVerificado = true;

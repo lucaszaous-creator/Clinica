@@ -56,6 +56,12 @@ public sealed partial class MetasViewModel : ObservableObject
     [ObservableProperty] private bool _carregando;
 
     /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, tela vazia por erro fica idêntica
+    /// a tela vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
+
+    /// <summary>
     /// A apuração do mês corrente falhou. Terceiro estado obrigatório: lista sem
     /// realizado por consulta quebrada se lê como "não fizemos nada este mês".
     /// </summary>
@@ -80,6 +86,7 @@ public sealed partial class MetasViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = null;
             MensagemEhErro = false;
             ApuracaoNaoVerificada = false;
@@ -102,6 +109,7 @@ public sealed partial class MetasViewModel : ObservableObject
                 }
                 catch (Exception ex)
                 {
+            NaoVerificado = true;
                     Clinica.Application.Diagnostico.Registrar(
                         "Gerente — apuração das metas do mês falhou", ex);
                     ApuracaoNaoVerificada = true;

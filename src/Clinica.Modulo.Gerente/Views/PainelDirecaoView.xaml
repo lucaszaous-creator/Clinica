@@ -1,12 +1,14 @@
 <UserControl x:Class="Clinica.Gerente.Views.PainelDirecaoView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="24">
 
@@ -225,4 +227,13 @@
             </ItemsControl>
         </StackPanel>
     </ScrollViewer>
+
+    <!-- Só o CARREGAMENTO. A falha desta tela é reportada por BLOCO (TemNaoVerificado
+         + NaoVerificados, parcela 22): cada indicador falha sozinho, e um aviso de tela
+         inteira esconderia os blocos que carregaram bem — seria mais grosseiro do que o
+         que o serviço já entrega. -->
+    <ctrl:EstadoDaTela Vazio="False"
+                       Carregando="{Binding Carregando}"
+                       TextoCarregando="Montando o painel da direção…" />
+    </Grid>
 </UserControl>

@@ -8,6 +8,7 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="24">
 
         <!-- ============ Cabeçalho ============ -->
@@ -252,4 +253,11 @@
             </DockPanel>
         </Border>
     </DockPanel>
+    <ctrl:EstadoDaTela
+                       Vazio="False"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       TextoCarregando="Calculando os indicadores…"
+                       TextoNaoVerificado="Não foi possível montar esta tela. Os números não estão zerados — eles não puderam ser lidos." />
+    </Grid>
 </UserControl>
