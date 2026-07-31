@@ -100,7 +100,10 @@ public sealed class RetencaoPacienteService
                     && DateOnly.FromDateTime(a.DataHora) >= hoje))
                 continue;
 
-            var contatos = await _repo.ContatosDoPacienteAsync(p.Id, ct);
+            // O limite é do repositório (padrão 20 contatos); aqui só interessa saber se
+            // ALGUM recall saiu depois da última sessão, e o recall mais recente está
+            // sempre no topo dessa lista.
+            var contatos = await _repo.ContatosDoPacienteAsync(p.Id, ct: ct);
 
             resultado.Add(new PacienteSumido(
                 p.Id,
