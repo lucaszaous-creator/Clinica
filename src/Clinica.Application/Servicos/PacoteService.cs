@@ -336,6 +336,19 @@ public sealed class PacoteService
     public Task<PacotePaciente?> ObterAsync(int pacoteId, CancellationToken ct = default)
         => _repo.ObterPacotePacienteAsync(pacoteId, ct);
 
+    /// <summary>
+    /// Descreve pacotes já carregados, sem ir ao banco.
+    ///
+    /// Serve a quem leu os pacotes em bloco (a lista de retenção lê os de dezenas de
+    /// pacientes numa consulta só) e ainda precisa da regra de situação e saldo. A regra
+    /// continua morando aqui: reimplementá-la do outro lado daria duas respostas para a
+    /// mesma pergunta, e a situação do pacote é CALCULADA — divergir nela é divergir
+    /// sobre se o paciente ainda tem sessão paga para usar.
+    /// </summary>
+    public IReadOnlyList<SaldoPacote> Descrever(
+        IEnumerable<PacotePaciente> pacotes, DateOnly hoje)
+        => pacotes.Select(p => Descrever(p, hoje)).ToList();
+
     private static SaldoPacote Descrever(PacotePaciente p, DateOnly hoje)
         => new(
             p.Id, p.PacienteId, p.Paciente?.Nome, p.Nome, p.Tipo, p.Situacao(hoje),

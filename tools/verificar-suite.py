@@ -709,6 +709,98 @@ for (projeto, ns, tipo), arquivos in sorted(_tipos.items()):
             f"{' e '.join(sorted(arquivos))} — CS0101 no build")
 
 
+# --------------------------------------------------------------- checagem 13
+# COMANDO LIGADO NO XAML QUE NÃO EXISTE EM VIEWMODEL NENHUM.
+#
+# É a falha mais silenciosa da suíte, e nenhuma das outras redes a pega: o XAML compila,
+# o botão aparece bonito na tela, e o clique não faz nada. O WPF resolve `{Binding}` em
+# tempo de execução e engole o erro num canal de trace que ninguém lê.
+#
+# Acontece sozinho: `[RelayCommand]` gera `SalvarCommand` a partir de `SalvarAsync`, então
+# renomear o método para `GravarAsync` renomeia o comando e deixa o XAML apontando para o
+# nome antigo. O compilador fica verde nos dois lados.
+#
+# A checagem é DELIBERADAMENTE frouxa quanto a QUEM é o dono: ela não tenta descobrir qual
+# ViewModel é o DataContext de cada tela — isso exigiria resolver `DataContext` em runtime,
+# herança de contexto e `d:DataContext`, e erraria. Ela junta todos os comandos que existem
+# na suíte e acusa o que não existe em lugar NENHUM. Assim não há falso positivo: um nome
+# que não existe em nenhum ViewModel não pode estar certo em tela nenhuma.
+COMANDO_LIGADO = re.compile(r"\{Binding\s+(?:Path=)?(\w+Command)\b")
+RELAY_COMMAND = re.compile(
+    r"\[RelayCommand[^\]]*\]\s*(?:/// .*\n\s*)*"          # o atributo (e doc no meio)
+    r"(?:public|private|protected|internal)?\s*"
+    r"(?:static\s+)?(?:async\s+)?[\w<>?\[\], .]+?\s+(\w+)\s*\(", re.M)
+COMANDO_EXPLICITO = re.compile(r"(?:ICommand|RelayCommand|AsyncRelayCommand)[\w<>?]*\s+(\w+Command)\b")
+
+_comandos: set[str] = set()
+
+for arq in RAIZ.joinpath("src").rglob("*.cs"):
+    if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
+        continue
+
+    texto = arq.read_text(encoding="utf-8", errors="ignore")
+
+    # [RelayCommand] sobre `Salvar`/`SalvarAsync` gera a propriedade `SalvarCommand`:
+    # o gerador tira o sufixo `Async` e acrescenta `Command`.
+    for m in RELAY_COMMAND.finditer(texto):
+        nome = m.group(1)
+        base = nome[:-5] if nome.endswith("Async") else nome
+        _comandos.add(f"{base}Command")
+
+    # Comandos escritos à mão (o faturamento tem alguns).
+    _comandos.update(COMANDO_EXPLICITO.findall(texto))
+
+
+def _comandos_do_arquivo(caminho: Path) -> set[str]:
+    """Comandos declarados num .cs específico."""
+    texto = caminho.read_text(encoding="utf-8", errors="ignore")
+    achados: set[str] = set()
+    for m in RELAY_COMMAND.finditer(texto):
+        nome = m.group(1)
+        achados.add(f"{nome[:-5] if nome.endswith('Async') else nome}Command")
+    achados.update(COMANDO_EXPLICITO.findall(texto))
+    return achados
+
+
+for arq in RAIZ.joinpath("src").rglob("*.xaml"):
+    if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
+        continue
+
+    texto = arq.read_text(encoding="utf-8", errors="ignore")
+
+    # `XView.xaml` ↔ `ViewModels/XViewModel.cs` é convenção de 53 em 53 telas da suíte,
+    # e onde ela vale dá para exigir que o comando exista NO DONO — que é o que pega o
+    # caso mais comum: renomear `ExportarAsync` e esquecer o XAML. Sem isso a checagem
+    # só acusaria nomes inexistentes na suíte inteira, e `ExportarCommand` existe em
+    # outras dez telas.
+    dono = arq.parent.parent / "ViewModels" / (arq.stem + "Model.cs")
+    if arq.name.endswith("View.xaml") and dono.exists():
+        # Uma View pode hospedar o VM de outra tela (o painel embute cartões), então o
+        # universo do dono é somado ao dos VMs que ele expõe como propriedade.
+        proprios = _comandos_do_arquivo(dono)
+        texto_dono = dono.read_text(encoding="utf-8", errors="ignore")
+        for outro in re.findall(r"\b(\w+ViewModel)\s+\w+\s*\{\s*get", texto_dono):
+            for cand in RAIZ.joinpath("src").rglob(f"{outro}.cs"):
+                if "/obj/" not in cand.as_posix():
+                    proprios |= _comandos_do_arquivo(cand)
+
+        for m in COMANDO_LIGADO.finditer(texto):
+            if m.group(1) not in proprios:
+                erros.append(
+                    f"{rel(arq)}: liga '{m.group(1)}', que {dono.stem} não declara — "
+                    f"o botão aparece e o clique não faz nada "
+                    f"(o WPF engole o erro em runtime)")
+        continue
+
+    # Janelas e dicionários não seguem a convenção de nome (muitas usam code-behind ou o
+    # VM de outra tela). Para elas fica o critério frouxo: existe em ALGUM ViewModel?
+    for m in COMANDO_LIGADO.finditer(texto):
+        if m.group(1) not in _comandos:
+            erros.append(
+                f"{rel(arq)}: liga '{m.group(1)}', que não existe em ViewModel nenhum — "
+                f"o botão aparece e o clique não faz nada (o WPF engole o erro em runtime)")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 using Clinica.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -141,7 +142,79 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default)
-        => await _db.Pacientes.Include(p => p.Atendimentos).ToListAsync(ct);
+        => await _db.Pacientes.AsNoTracking().Include(p => p.Atendimentos).ToListAsync(ct);
+
+    /// <summary>
+    /// Uma linha por paciente já atendido, agregada NO BANCO.
+    ///
+    /// O `GroupBy` sai em SQL (`MAX(data)`, `COUNT(*)`), e o `join` com pacientes traz
+    /// só as três colunas que a lista mostra. Quem antes fazia isso em memória arrastava
+    /// pacientes e atendimentos inteiros pela rede para usar dois números por pessoa.
+    /// </summary>
+    public async Task<IReadOnlyList<ResumoAtendimentosPaciente>> ResumoAtendimentosPorPacienteAsync(
+        CancellationToken ct = default)
+        => await _db.Atendimentos.AsNoTracking()
+            .GroupBy(a => a.PacienteId)
+            .Select(g => new { PacienteId = g.Key, Ultima = g.Max(a => a.Data), Total = g.Count() })
+            .Join(_db.Pacientes.AsNoTracking(),
+                r => r.PacienteId, p => p.Id,
+                (r, p) => new ResumoAtendimentosPaciente(
+                    p.Id, p.Nome, p.Telefone, r.Ultima, r.Total))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<int>> PacientesComAgendamentoFuturoAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly dia, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        // `DataHora` é DateTime e o corte é por DIA: comparar contra a meia-noite do dia
+        // mantém a sessão marcada para hoje mais tarde dentro do resultado.
+        var corte = dia.ToDateTime(TimeOnly.MinValue);
+
+        return await _db.Agendamentos.AsNoTracking()
+            .Where(a => pacienteIds.Contains(a.PacienteId)
+                        && a.Status == StatusAgendamento.Agendado
+                        && a.DataHora >= corte)
+            .Select(a => a.PacienteId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<int>> PacientesJaContatadosAsync(
+        IReadOnlyDictionary<int, DateOnly> desdeQuandoPorPaciente,
+        TipoContato tipo, CancellationToken ct = default)
+    {
+        if (desdeQuandoPorPaciente.Count == 0) return [];
+
+        var ids = desdeQuandoPorPaciente.Keys.ToList();
+
+        // O corte por paciente é diferente (cada um tem a sua última sessão), e traduzir
+        // isso para SQL exigiria um OR por pessoa. Traz-se então o par (paciente, data)
+        // do conjunto — que é pequeno, um contato por paciente por rodada — e o corte
+        // acontece aqui. Continua sendo UMA consulta.
+        var contatos = await _db.Contatos.AsNoTracking()
+            .Where(c => ids.Contains(c.PacienteId) && c.Tipo == tipo)
+            .Select(c => new { c.PacienteId, c.Referencia })
+            .ToListAsync(ct);
+
+        return contatos
+            .Where(c => desdeQuandoPorPaciente.TryGetValue(c.PacienteId, out var desde)
+                        && c.Referencia >= desde)
+            .Select(c => c.PacienteId)
+            .Distinct()
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<PacotePaciente>> PacotesDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        return await _db.PacotesPaciente.AsNoTracking()
+            .Include(p => p.Consumos)
+            .Where(p => pacienteIds.Contains(p.PacienteId))
+            .ToListAsync(ct);
+    }
 
     public Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default)
         => _db.Codigos.FirstOrDefaultAsync(c => c.Id == codigoId, ct);
@@ -431,7 +504,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<Paciente>> PacientesComConsultasAsync(CancellationToken ct = default)
-        => await _db.Pacientes.Include(p => p.Consultas).OrderBy(p => p.Nome).ToListAsync(ct);
+        => await _db.Pacientes.AsNoTracking()
+            // Leitura pura (aba Consultas e pendências do painel): sem rastreamento o
+            // EF não precisa guardar milhares de pacientes no change tracker, o que
+            // também tira custo do SaveChanges seguinte no mesmo escopo.
+            .Include(p => p.Consultas).OrderBy(p => p.Nome).ToListAsync(ct);
 
     // ---- Agenda ----
 
@@ -486,9 +563,29 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarProfissionalAsync(Profissional profissional, CancellationToken ct = default)
         => await _db.Profissionais.AddAsync(profissional, ct);
 
+    /// <summary>
+    /// O profissional já deixou rastro em algum lugar?
+    ///
+    /// A guarda existe para o `EquipeService` poder dizer "desative em vez de excluir,
+    /// para não apagar o histórico" — mas ela só olhava agenda e lista de espera, e o
+    /// histórico de um profissional é bem maior que isso. Faltavam sete tabelas, entre
+    /// elas três em que a exclusão apagaria dado que ninguém tem como recuperar:
+    /// evolução e documento clínico (prontuário, cuja guarda é obrigação legal),
+    /// repasse apurado (o que já foi pago a ele) e a meta acordada para o mês.
+    ///
+    /// O usuário de sistema entra na conta pelo motivo oposto: não é histórico, é
+    /// ACESSO — apagar o profissional deixaria um login apontando para ninguém.
+    /// </summary>
     public async Task<bool> ProfissionalEmUsoAsync(int profissionalId, CancellationToken ct = default)
         => await _db.Agendamentos.AnyAsync(a => a.ProfissionalId == profissionalId, ct)
-           || await _db.ListaEspera.AnyAsync(l => l.ProfissionalId == profissionalId, ct);
+           || await _db.ListaEspera.AnyAsync(l => l.ProfissionalId == profissionalId, ct)
+           || await _db.Evolucoes.AnyAsync(e => e.ProfissionalId == profissionalId, ct)
+           || await _db.DocumentosClinicos.AnyAsync(d => d.ProfissionalId == profissionalId, ct)
+           || await _db.RepassesApurados.AnyAsync(r => r.ProfissionalId == profissionalId, ct)
+           || await _db.RegrasRepasse.AnyAsync(r => r.ProfissionalId == profissionalId, ct)
+           || await _db.Metas.AnyAsync(m => m.ProfissionalId == profissionalId, ct)
+           || await _db.BloqueiosAgenda.AnyAsync(b => b.ProfissionalId == profissionalId, ct)
+           || await _db.Usuarios.AnyAsync(u => u.ProfissionalId == profissionalId, ct);
 
     public async Task RemoverProfissionalAsync(int profissionalId, CancellationToken ct = default)
     {
@@ -508,8 +605,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarSalaAsync(Sala sala, CancellationToken ct = default)
         => await _db.Salas.AddAsync(sala, ct);
 
+    /// <summary>
+    /// A sala já foi usada? Bloqueio conta: uma reforma marcada na sala é registro de
+    /// agenda tanto quanto um atendimento, e apagar a sala levaria o bloqueio junto.
+    /// </summary>
     public async Task<bool> SalaEmUsoAsync(int salaId, CancellationToken ct = default)
-        => await _db.Agendamentos.AnyAsync(a => a.SalaId == salaId, ct);
+        => await _db.Agendamentos.AnyAsync(a => a.SalaId == salaId, ct)
+           || await _db.BloqueiosAgenda.AnyAsync(b => b.SalaId == salaId, ct);
 
     public async Task RemoverSalaAsync(int salaId, CancellationToken ct = default)
     {
@@ -1626,5 +1728,36 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 "Outro computador alterou este registro enquanto você editava. " +
                 "Atualize a tela (F5) para ver a versão mais recente e repita a operação.", ex);
         }
+        catch (DbUpdateException ex) when (Traduzir(ex) is { } amigavel)
+        {
+            throw new InvalidOperationException(amigavel, ex);
+        }
+    }
+
+    /// <summary>
+    /// Traduz a falha de gravação para o que se pode fazer a respeito, ou devolve `null`
+    /// para deixá-la subir como está.
+    ///
+    /// O texto mora em <see cref="MensagensDeErro"/>, que é testado sozinho: a ordem das
+    /// regras de duplicidade é o que mais erra ali, e mensagem plausível e errada é pior
+    /// que o texto cru do Postgres — ninguém desconfia dela.
+    /// </summary>
+    private static string? Traduzir(DbUpdateException ex)
+    {
+        if (ex.GetBaseException() is Npgsql.PostgresException pg)
+        {
+            if (pg.SqlState == "23505")                      // unique_violation
+                return MensagensDeErro.Duplicidade(pg.ConstraintName);
+
+            if (pg.SqlState == "23503")                      // foreign_key_violation
+                return MensagensDeErro.VinculoQuebrado;
+        }
+
+        // O banco é remoto e a internet do consultório oscila: este é o caso mais comum.
+        if (ex.GetBaseException() is System.Net.Sockets.SocketException or TimeoutException
+            || ex.GetBaseException() is Npgsql.NpgsqlException { IsTransient: true })
+            return MensagensDeErro.SemConexao;
+
+        return null;
     }
 }

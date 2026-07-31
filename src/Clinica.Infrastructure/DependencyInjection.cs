@@ -11,7 +11,7 @@ public static class DependencyInjection
     /// <summary>Registra DbContext, repositório, motor de regras e serviços de aplicação.</summary>
     public static IServiceCollection AddClinica(this IServiceCollection services, string connectionString)
     {
-        services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString));
+        services.AddDbContext<ClinicaDbContext>(o => o.UseNpgsql(connectionString, ConfigurarNpgsql));
         services.AddScoped<IClinicaRepositorio, ClinicaRepositorio>();
         services.AddSingleton(new RegistroRegras());
         services.AddScoped<AtendimentoService>();
@@ -80,5 +80,39 @@ public static class DependencyInjection
         services.AddScoped<ModalidadeCatalogoService>();
         services.AddScoped<EspecialidadeCatalogoService>();
         return services;
+    }
+
+    /// <summary>
+    /// Resiliência de rede — a clínica trabalha contra um Postgres REMOTO (Neon), pela
+    /// internet do consultório.
+    /// </summary>
+    /// <remarks>
+    /// Sem isto, uma oscilação de meio segundo no wi-fi vira `NpgsqlException` na cara de
+    /// quem está com o paciente na frente, e a secretária refaz o lançamento — quando
+    /// refaz. O padrão do EF é não tentar de novo NENHUMA vez.
+    ///
+    /// Duas decisões:
+    ///
+    /// - **Só falha transitória é repetida.** `EnableRetryOnFailure` do Npgsql sabe
+    ///   distinguir queda de conexão de erro de dados; violação de índice único (guia já
+    ///   lançada, recorrência já gerada) continua estourando na primeira vez, como deve.
+    /// - **O timeout é generoso, não infinito.** Sem limite, um relatório pesado numa
+    ///   conexão ruim deixa a tela pendurada para sempre e o usuário fecha o app no
+    ///   gerenciador de tarefas; com limite, ele recebe um erro e tenta de novo.
+    ///
+    /// O retry é seguro aqui porque **não há transação explícita em lugar nenhum do
+    /// projeto** — é a incompatibilidade clássica do `EnableRetryOnFailure`, e a
+    /// checagem foi feita antes de ligá-lo. Quem introduzir `BeginTransaction` precisa
+    /// passar a usar a estratégia de execução (`Database.CreateExecutionStrategy`).
+    /// </remarks>
+    private static void ConfigurarNpgsql(Npgsql.EntityFrameworkCore.PostgreSQL
+        .Infrastructure.NpgsqlDbContextOptionsBuilder o)
+    {
+        o.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+
+        o.CommandTimeout(60);
     }
 }

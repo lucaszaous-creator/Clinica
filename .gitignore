@@ -13,6 +13,10 @@ obj/
 [Rr]elease/
 artifacts/
 
+## Compilação-sombra dos projetos WPF (tools/compilar-sombra.py).
+## Projetos e .g.cs gerados + reference assemblies baixadas do NuGet.
+.sombra/
+
 ## SQLite (caso usado em testes locais)
 *.db
 *.db-shm

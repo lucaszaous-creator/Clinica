@@ -75,48 +75,62 @@ public sealed class RetencaoPacienteService
     /// A base é o ATENDIMENTO, não o agendamento: agendamento cancelado não é visita, e
     /// contar por ele diria que o paciente veio no dia em que ele desmarcou.
     /// </summary>
+    /// <remarks>
+    /// A leitura é feita em QUATRO consultas, e não em uma mais três por paciente.
+    ///
+    /// A primeira versão carregava a tabela de pacientes inteira com a de atendimentos
+    /// junto e, para cada pessoa, ia ao banco buscar agendamento futuro, contatos e
+    /// pacotes. Numa base de dois mil pacientes são seis mil idas a um Postgres REMOTO —
+    /// a tela demoraria minutos e a direção concluiria que ela não funciona. O agrupamento
+    /// agora sai do banco, e as três perguntas seguintes são feitas de uma vez só para o
+    /// conjunto JÁ FILTRADO, que é pequeno por definição.
+    /// </remarks>
     public async Task<IReadOnlyList<PacienteSumido>> SumidosAsync(
         DateOnly hoje, int? diasMinimos = null, CancellationToken ct = default)
     {
         var janela = Math.Max(diasMinimos ?? DiasParaConsiderarSumido, 1);
         var corte = hoje.AddDays(-janela);
 
-        var pacientes = await _repo.PacientesComAtendimentosAsync(ct);
+        // 1ª consulta: uma linha por paciente atendido, agregada no banco.
+        var resumos = (await _repo.ResumoAtendimentosPorPacienteAsync(ct))
+            .Where(r => r.UltimaSessao <= corte)
+            .ToList();
 
-        var resultado = new List<PacienteSumido>();
+        if (resumos.Count == 0) return [];
 
-        foreach (var p in pacientes)
-        {
-            if (p.Atendimentos.Count == 0) continue;
+        var ids = resumos.Select(r => r.PacienteId).ToList();
 
-            var ultima = p.Atendimentos.Max(a => a.Data);
-            if (ultima > corte) continue;
+        // 2ª: quem já voltou. Tem horário marcado à frente — por mais tempo que faça
+        // desde a última sessão, ele não está perdido, só ainda não veio.
+        var jaVoltaram = (await _repo.PacientesComAgendamentoFuturoAsync(ids, hoje, ct))
+            .ToHashSet();
 
-            // Já voltou: tem horário marcado à frente. Por mais tempo que faça desde a
-            // última sessão, ele não está perdido — só ainda não veio.
-            var futuros = await _repo.AgendamentosDoPacienteAsync(p.Id, ct);
-            if (futuros.Any(a =>
-                    a.Status == StatusAgendamento.Agendado
-                    && DateOnly.FromDateTime(a.DataHora) >= hoje))
-                continue;
+        var candidatos = resumos.Where(r => !jaVoltaram.Contains(r.PacienteId)).ToList();
+        if (candidatos.Count == 0) return [];
 
-            // O limite é do repositório (padrão 20 contatos); aqui só interessa saber se
-            // ALGUM recall saiu depois da última sessão, e o recall mais recente está
-            // sempre no topo dessa lista.
-            var contatos = await _repo.ContatosDoPacienteAsync(p.Id, ct: ct);
+        var restantes = candidatos.Select(r => r.PacienteId).ToList();
 
-            resultado.Add(new PacienteSumido(
-                p.Id,
-                p.Nome,
-                p.Telefone,
-                ultima,
-                hoje.DayNumber - ultima.DayNumber,
-                p.Atendimentos.Count,
-                await TemPacoteAbertoAsync(p.Id, hoje, ct),
-                // Já chamado por recall depois da última sessão: a lista mostra, para a
-                // clínica não repetir a mesma mensagem e queimar o contato.
-                contatos.Any(c => c.Tipo == TipoContato.Recall && c.Referencia >= ultima)));
-        }
+        // 3ª: quem já recebeu recall DEPOIS da própria última sessão — a lista mostra,
+        // para a clínica não repetir a mesma mensagem e queimar o contato.
+        var jaChamados = (await _repo.PacientesJaContatadosAsync(
+                candidatos.ToDictionary(r => r.PacienteId, r => r.UltimaSessao),
+                TipoContato.Recall, ct))
+            .ToHashSet();
+
+        // 4ª: pacotes em aberto de todos eles.
+        var comPacote = await PacientesComPacoteAbertoAsync(restantes, hoje, ct);
+
+        var resultado = candidatos
+            .Select(r => new PacienteSumido(
+                r.PacienteId,
+                r.Nome,
+                r.Telefone,
+                r.UltimaSessao,
+                hoje.DayNumber - r.UltimaSessao.DayNumber,
+                r.TotalSessoes,
+                comPacote.Contains(r.PacienteId),
+                jaChamados.Contains(r.PacienteId)))
+            .ToList();
 
         return resultado
             // Quem era frequente primeiro: é o que mais dói perder, e o que mais responde
@@ -127,24 +141,37 @@ public sealed class RetencaoPacienteService
             .ToList();
     }
 
-    private async Task<bool> TemPacoteAbertoAsync(
-        int pacienteId, DateOnly hoje, CancellationToken ct)
+    /// <summary>
+    /// Quais dos pacientes informados têm pacote em aberto — numa consulta só.
+    ///
+    /// A leitura em si continua sendo a do `PacoteService`: quem sabe o que é "ativo com
+    /// saldo" é ele, e reimplementar a regra aqui criaria duas respostas para a mesma
+    /// pergunta. O que mudou é a origem dos dados, que vem em bloco em vez de uma
+    /// consulta por pessoa.
+    /// </summary>
+    private async Task<HashSet<int>> PacientesComPacoteAbertoAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly hoje, CancellationToken ct)
     {
         try
         {
-            var saldos = await _pacotes.DoPacienteAsync(pacienteId, hoje, ct);
-            // Ativo com saldo, ou livre (sem contagem) e ainda válido: os dois são
-            // sessão comprada e não usada.
-            return saldos.Any(s => s.Ativo
-                                   && (s.SaldoSessoes is null || s.SaldoSessoes > 0));
+            var pacotes = await _repo.PacotesDosPacientesAsync(pacienteIds, ct);
+
+            return pacotes
+                .GroupBy(p => p.PacienteId)
+                .Where(g => _pacotes.Descrever(g, hoje)
+                    // Ativo com saldo, ou livre (sem contagem) e ainda válido: os dois
+                    // são sessão comprada e não usada.
+                    .Any(s => s.Ativo && (s.SaldoSessoes is null || s.SaldoSessoes > 0)))
+                .Select(g => g.Key)
+                .ToHashSet();
         }
         catch (Exception ex)
         {
             // Degradação com rastro: o pacote é destaque da linha, não a razão dela
-            // existir — perder essa informação não pode tirar o paciente da lista.
+            // existir — perder essa informação não pode tirar ninguém da lista.
             Diagnostico.Registrar(
                 "Retenção — saldo de pacote não pôde ser lido para a lista de sumidos", ex);
-            return false;
+            return [];
         }
     }
 }

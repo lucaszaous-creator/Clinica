@@ -1,3 +1,4 @@
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Abstracoes;
@@ -24,6 +25,37 @@ public interface IClinicaRepositorio
 
     /// <summary>Pacientes com seus atendimentos carregados (usado para calcular renovação de consulta).</summary>
     Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Uma linha por paciente que já foi atendido: quando foi a última sessão e quantas
+    /// foram no total, agrupadas NO BANCO.
+    ///
+    /// Existe para não repetir o que a leitura de retenção fazia: carregar toda a tabela
+    /// de pacientes com toda a de atendimentos para, no fim, usar duas agregações por
+    /// pessoa. Numa base de alguns milhares de pacientes isso é o banco inteiro na
+    /// memória do cliente — e o banco é remoto.
+    /// </summary>
+    Task<IReadOnlyList<ResumoAtendimentosPaciente>> ResumoAtendimentosPorPacienteAsync(
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Dos pacientes informados, quais têm agendamento ainda de pé a partir de
+    /// <paramref name="dia"/>. Uma consulta para o conjunto, não uma por pessoa.
+    /// </summary>
+    Task<IReadOnlyList<int>> PacientesComAgendamentoFuturoAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly dia, CancellationToken ct = default);
+
+    /// <summary>
+    /// Dos pacientes informados, quais já receberam contato do tipo indicado com
+    /// referência igual ou posterior à data da última sessão de cada um.
+    /// </summary>
+    Task<IReadOnlyList<int>> PacientesJaContatadosAsync(
+        IReadOnlyDictionary<int, DateOnly> desdeQuandoPorPaciente,
+        TipoContato tipo, CancellationToken ct = default);
+
+    /// <summary>Pacotes dos pacientes informados, numa consulta só.</summary>
+    Task<IReadOnlyList<PacotePaciente>> PacotesDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
 
     Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default);
 
