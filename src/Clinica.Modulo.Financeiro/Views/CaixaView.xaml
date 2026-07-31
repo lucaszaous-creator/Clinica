@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Financeiro.Views.CaixaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -8,6 +9,8 @@
     </UserControl.Resources>
 
     <DockPanel Margin="24">
+      <Grid>
+
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel>
@@ -201,5 +204,13 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
-    </DockPanel>
+          </Grid>
+        <ctrl:EstadoDaTela Itens="{Binding Linhas}"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           Glifo="&#xE8C7;"
+                           TextoCarregando="Lendo o caixa do mês…"
+                           Titulo="Nenhum lançamento neste mês"
+                           Descricao="Receita de guia entra pela Conciliação, já vinculada." />
+</DockPanel>
 </UserControl>

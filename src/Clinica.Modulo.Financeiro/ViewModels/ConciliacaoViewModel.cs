@@ -123,6 +123,13 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
     [ObservableProperty]
     private bool _carregando;
 
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada, e o aviso some junto com o snackbar em 4 segundos.
+    /// </summary>
+    [ObservableProperty]
+    private bool _naoVerificado;
+
     [ObservableProperty]
     private string _resumo = string.Empty;
 
@@ -158,6 +165,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
             var fim = inicio.AddMonths(1).AddDays(-1);
 
@@ -196,6 +204,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             _snackbar.Erro($"Não foi possível carregar a conciliação: {ex.Message}");
         }
         finally
