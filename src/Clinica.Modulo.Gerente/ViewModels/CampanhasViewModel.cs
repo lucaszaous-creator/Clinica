@@ -82,6 +82,12 @@ public sealed partial class CampanhasViewModel : ObservableObject
     [ObservableProperty] private string _situacaoSelecionada = "A enviar";
     [ObservableProperty] private string _janelaSelecionada = "Semana que vem";
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -123,6 +129,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
@@ -143,6 +150,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Gerente — campanhas não puderam ser carregadas", ex);
             Mensagem = $"Não foi possível carregar as campanhas: {ex.Message}";
             MensagemEhErro = true;

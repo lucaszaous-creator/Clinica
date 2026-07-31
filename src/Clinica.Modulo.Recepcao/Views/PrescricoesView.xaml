@@ -8,6 +8,7 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="24">
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -172,4 +173,12 @@
             </DockPanel>
         </Grid>
     </DockPanel>
+    <ctrl:EstadoDaTela Itens="{Binding Documentos}"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       Glifo="&#xE8A5;"
+                       TextoCarregando="Lendo as prescrições…"
+                       Titulo="Nenhuma prescrição emitida"
+                       Descricao="Receita, atestado e pedido de exame exigem o profissional que assina." />
+    </Grid>
 </UserControl>

@@ -1,12 +1,14 @@
 <UserControl x:Class="Clinica.Gerente.Views.AcessosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="24">
 
         <!-- ============ Cabeçalho ============ -->
@@ -119,4 +121,12 @@
             </DockPanel>
         </Border>
     </DockPanel>
+    <ctrl:EstadoDaTela Itens="{Binding Usuarios}"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       Glifo="&#xE77B;"
+                       TextoCarregando="Lendo os usuários…"
+                       Titulo="Nenhum usuário cadastrado"
+                       Descricao="A base sem usuário abre o primeiro acesso, que nasce Gerente." />
+    </Grid>
 </UserControl>

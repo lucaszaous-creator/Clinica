@@ -87,6 +87,12 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [ObservableProperty] private bool _semPapel;
     [ObservableProperty] private bool _carregando;
 
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
+
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -199,6 +205,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
     {
         if (Carregando) return;
         Carregando = true;
+            NaoVerificado = false;
         try
         {
             Mensagem = null;
@@ -225,6 +232,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — central de documentos não pôde ser carregada", ex);
             Mensagem = $"Não foi possível ler os documentos: {ex.Message}";

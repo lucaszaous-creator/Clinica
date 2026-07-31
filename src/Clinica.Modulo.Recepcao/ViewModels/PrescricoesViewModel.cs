@@ -34,6 +34,12 @@ public sealed partial class PrescricoesViewModel : ObservableObject
     public ObservableCollection<LinhaDocumento> Documentos { get; } = [];
 
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -75,6 +81,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = null;
             MensagemEhErro = false;
             Paciente = Seletor.Selecionado?.Nome ?? string.Empty;
@@ -87,6 +94,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — documentos não puderam ser carregados", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;

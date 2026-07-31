@@ -49,6 +49,12 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     [ObservableProperty] private string _resumoSessoes = string.Empty;
 
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -137,6 +143,7 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = null;
             MensagemEhErro = false;
             Paciente = Seletor.Selecionado?.Nome ?? string.Empty;
@@ -167,6 +174,7 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — prontuário não pôde ser carregado", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
