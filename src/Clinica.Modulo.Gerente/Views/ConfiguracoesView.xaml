@@ -147,6 +147,38 @@
                                 HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
                     </StackPanel>
                 </Border>
+
+                <!-- ===== Backup da base (parcela 35) =====
+                     A capacidade existia desde a parcela 34 e nenhuma tela a chamava:
+                     backup no código e nenhum no disco. -->
+                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Backup da clínica" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                   Text="Uma cópia de tudo: pacientes, prontuário, agenda, financeiro, estoque e acessos. Guarde FORA desta máquina — pendrive ou nuvem. Cópia que fica no mesmo computador do banco não é plano B." />
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Gerar backup" Command="{Binding FazerBackupCommand}"
+                                    MinWidth="150" />
+                            <Button Content="Conferir um backup" Command="{Binding ConferirBackupCommand}"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    Margin="12,0,0,0" MinWidth="170" />
+                        </StackPanel>
+
+                        <TextBlock Text="{Binding ResumoBackup}" TextWrapping="Wrap" Margin="0,12,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="Conferir abre o arquivo e conta o que há dentro dele, sem alterar nada. Faça isso de vez em quando: backup que ninguém sabe se prestou só se descobre no dia em que ele é necessário — que é o único dia em que não dá para descobrir." />
+
+                        <Border Style="{StaticResource AlertaInfo}" Margin="0,12,0,0">
+                            <TextBlock TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="Para RESTAURAR um backup, fale com o suporte. A restauração substitui a base inteira, só entra numa base vazia e é feita junto com quem acompanha a operação — por isso ela não tem botão aqui." />
+                        </Border>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

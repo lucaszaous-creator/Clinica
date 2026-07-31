@@ -2,6 +2,8 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Infrastructure;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -174,6 +176,126 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     /// Recarregar depois de salvar não é zelo: o serviço aplica limites (clamp), e a tela
     /// tem de mostrar o que ficou GRAVADO, não o que foi digitado.
     /// </summary>
+
+    // ==================== Backup da base (parcela 35) ====================
+    //
+    // O BackupService existia desde a parcela 34 e NENHUMA TELA O CHAMAVA — o defeito que
+    // este repositório documenta como recorrente, cometido na parcela anterior. Sem esta
+    // porta a clínica tem backup no código e nenhum no disco.
+    //
+    // Mora em Configurações e não em tela própria porque é ato de manutenção, feito uma
+    // vez por semana pela direção, e não trabalho do dia.
+
+    [ObservableProperty] private string _resumoBackup = string.Empty;
+
+    /// <summary>
+    /// Gera o backup completo e deixa o usuário escolher onde gravar.
+    /// </summary>
+    /// <remarks>
+    /// O destino é escolhido de propósito, e não fixado numa pasta: cópia que fica na
+    /// mesma máquina do banco não é cópia de segurança — o pendrive ou a nuvem é que
+    /// fazem dela um plano B de verdade. A tela diz isso ao lado do botão.
+    /// </remarks>
+    [RelayCommand]
+    private async Task FazerBackupAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "gerar o backup da base");
+
+            ResumoBackup = "Lendo a base…";
+
+            using var scope = _escopos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<BackupService>();
+
+            ManifestoBackup? manifesto = null;
+
+            var caminho = await ImpressaoPdf.SalvarAsync(
+                async saida => manifesto = await servico.GerarAsync(saida),
+                ImpressaoPdf.NomeSeguro($"backup-clinica-{DateTime.Today:yyyy-MM-dd}.json"),
+                "Backup da clínica (*.json)|*.json", ".json");
+
+            if (caminho is null)
+            {
+                ResumoBackup = string.Empty;
+                return;
+            }
+
+            ResumoBackup = manifesto is null
+                ? $"Backup gravado em {caminho}."
+                : $"{manifesto.TotalLinhas:N0} registro(s) de {manifesto.TotalTabelas} tabela(s) "
+                  + $"gravados em {caminho}.";
+
+            _snackbar.Sucesso("Backup gerado.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — backup não pôde ser gerado", ex);
+            Erro(ex.Message);
+            ResumoBackup = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Confere um arquivo de backup sem restaurar nada.
+    /// </summary>
+    /// <remarks>
+    /// É o que faz o backup valer alguma coisa. Arquivo que ninguém sabe se prestou é o
+    /// mesmo que não ter backup — e a clínica só descobriria no dia em que precisasse
+    /// dele, que é o único dia em que não dá para descobrir.
+    /// </remarks>
+    [RelayCommand]
+    private async Task ConferirBackupAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "conferir um backup");
+
+            var caminho = ImpressaoPdf.Escolher(
+                "Backup da clínica (*.json)|*.json", "Escolha o backup para conferir");
+            if (caminho is null) return;
+
+            ResumoBackup = "Conferindo…";
+
+            using var scope = _escopos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<BackupService>();
+
+            await using var entrada = System.IO.File.OpenRead(caminho);
+            var m = await servico.ConferirAsync(entrada);
+
+            // Backup vazio é tecnicamente válido e praticamente inútil: a diferença
+            // precisa estar escrita, senão a direção guarda um arquivo que não serve.
+            ResumoBackup = m.Vazio
+                ? $"ATENÇÃO: o arquivo abriu, tem {m.TotalTabelas} tabela(s) e NENHUM registro. "
+                  + "Ele não serve para restaurar a clínica."
+                : $"Backup de {m.GeradoEm:dd/MM/yyyy HH:mm} — {m.TotalLinhas:N0} registro(s) "
+                  + $"em {m.TotalTabelas} tabela(s). "
+                  + $"Pacientes: {m.Tabela("Pacientes")?.Linhas ?? 0:N0} · "
+                  + $"Evoluções: {m.Tabela("Evolucoes")?.Linhas ?? 0:N0} · "
+                  + $"Lançamentos: {m.Tabela("Lancamentos")?.Linhas ?? 0:N0}.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — backup não pôde ser conferido", ex);
+            Erro(ex.Message);
+            ResumoBackup = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// A tela NÃO restaura.
+    /// </summary>
+    /// <remarks>
+    /// `BackupService.RestaurarAsync` existe, é testado e só entra em base vazia — mas
+    /// restaurar é ato de implantação ou de desastre, feito com alguém que sabe o que
+    /// está fazendo, e não um botão ao lado de "salvar jornada diária". Um clique errado
+    /// aqui não tem volta, e a proteção certa para isso não é uma caixa de confirmação:
+    /// é não haver botão.
+    /// </remarks>
+    private const string SobreRestauracao =
+        "Para RESTAURAR um backup, fale com o suporte: a restauração só entra numa base "
+        + "vazia e é feita junto com quem acompanha a operação.";
+
     private async Task ExecutarAsync(Func<ParametrosService, Task<string>> acao)
     {
         Mensagem = null;

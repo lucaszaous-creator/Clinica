@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Gerente.Views.RetencaoView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -41,16 +42,11 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
-                Visibility="{Binding NaoVerificado, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock TextWrapping="Wrap"
-                       Text="Não foi possível montar a lista. Ela está vazia por falha de leitura, não porque ninguém sumiu." />
-        </Border>
-
         <Border Background="{StaticResource Brush.Superficie}"
                 BorderBrush="{StaticResource Brush.Borda}"
                 BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <Grid>
+              <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding Sumidos}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -100,7 +96,15 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-            </ScrollViewer>
+              </ScrollViewer>
+                <ctrl:EstadoDaTela Itens="{Binding Sumidos}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE77B;"
+                                   TextoCarregando="Procurando quem parou de vir…"
+                                   Titulo="Ninguém sem vir há mais tempo que a janela escolhida"
+                                   Descricao="Quem já tem horário marcado à frente não entra: ele voltou, só ainda não veio." />
+            </Grid>
         </Border>
     </DockPanel>
 </UserControl>

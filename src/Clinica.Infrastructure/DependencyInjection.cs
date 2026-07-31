@@ -79,6 +79,11 @@ public static class DependencyInjection
         services.AddScoped<ConvenioCatalogoService>();
         services.AddScoped<ModalidadeCatalogoService>();
         services.AddScoped<EspecialidadeCatalogoService>();
+        // Pix: lógica pura, sem estado e sem banco — mas registrado como scoped
+        // junto dos outros para as telas o pedirem do mesmo jeito que pedem o resto.
+        services.AddScoped<PixService>();
+        // Backup e restauração da base inteira (parcela 34).
+        services.AddScoped<BackupService>();
         return services;
     }
 
