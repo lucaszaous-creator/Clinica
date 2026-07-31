@@ -61,6 +61,56 @@
         </Setter>
     </Style>
 
+    <!-- ===== Senha =====
+         O design system nunca teve estilo de PasswordBox: TODO campo de senha da suíte
+         (login, primeiro acesso, troca de senha, cadastro de usuário) saía com o visual
+         padrão do WPF — borda cinza fina, 2px mais baixo que o campo ao lado e sem anel
+         de foco. Numa tela com dois campos empilhados, a diferença de altura e de borda
+         é o que faz o formulário parecer torto.
+
+         É o MESMO template do TextBox, com as mesmas medidas. O que muda é só o que o
+         PasswordBox não tem: `Text` (então não há placeholder por gatilho de texto vazio,
+         porque a senha nunca deve sugerir conteúdo) e o PART_ContentHost, que aqui é o
+         host de senha. Duplicar o template é a saída: `BasedOn` não atravessa tipos
+         diferentes, e um ControlTemplate de TextBox não se aplica a PasswordBox. -->
+    <Style TargetType="PasswordBox">
+        <Setter Property="Padding" Value="{StaticResource Padding.Campo}" />
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CaretBrush" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="PasswordBox">
+                    <Border x:Name="b" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Raio.Pequeno}">
+                        <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                            <Setter TargetName="b" Property="BorderThickness" Value="2" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource Brush.Borda.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="b" Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
+                            <Setter Property="Opacity" Value="0.7" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Campo de pesquisa (ícone de lupa à esquerda) -->
     <Style x:Key="CampoPesquisa" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
         <Setter Property="Template">
