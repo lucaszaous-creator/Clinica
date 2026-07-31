@@ -42,6 +42,31 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     [ObservableProperty] private string? _telefone;
     [ObservableProperty] private string? _email;
 
+    /// <summary>Chave Pix e cidade: os dois campos que o código Pix exige e não existiam.</summary>
+    [ObservableProperty] private string? _chavePix;
+    [ObservableProperty] private string? _cidade;
+
+    /// <summary>
+    /// O tipo deduzido da chave, mostrado ao lado dela.
+    ///
+    /// CPF e celular têm os mesmos onze dígitos, e é o único caso em que a dedução pode
+    /// errar — mostrar o resultado aqui faz o erro aparecer no CADASTRO, e não no
+    /// extrato do mês que vem.
+    /// </summary>
+    public string TipoChavePixRotulo => string.IsNullOrWhiteSpace(ChavePix)
+        ? "Sem chave cadastrada — o sistema não consegue gerar código Pix."
+        : PixService.Classificar(ChavePix) switch
+        {
+            TipoChavePix.Cpf => "Reconhecida como CPF.",
+            TipoChavePix.Cnpj => "Reconhecida como CNPJ.",
+            TipoChavePix.Email => "Reconhecida como e-mail.",
+            TipoChavePix.Telefone => "Reconhecida como telefone.",
+            TipoChavePix.Aleatoria => "Reconhecida como chave aleatória.",
+            _ => "Formato não reconhecido — confira antes de usar."
+        };
+
+    partial void OnChavePixChanged(string? value) => OnPropertyChanged(nameof(TipoChavePixRotulo));
+
     // ---- Agenda e indicadores ----
     [ObservableProperty] private string? _jornadaDiariaMinutos;
 
@@ -92,6 +117,8 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             Endereco = prestador.Endereco;
             Telefone = prestador.Telefone;
             Email = prestador.Email;
+            ChavePix = prestador.ChavePix;
+            Cidade = prestador.Cidade;
 
             JornadaDiariaMinutos = (await p.ObterJornadaDiariaAsync()).ToString();
             DiasInatividadeRecall = (await p.ObterDiasInatividadeRecallAsync()).ToString();
@@ -133,6 +160,8 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             atual.Endereco = Limpar(Endereco);
             atual.Telefone = Limpar(Telefone);
             atual.Email = Limpar(Email);
+            atual.ChavePix = Limpar(ChavePix);
+            atual.Cidade = Limpar(Cidade);
 
             await p.SalvarPrestadorAsync(atual);
             return "Dados da clínica salvos.";

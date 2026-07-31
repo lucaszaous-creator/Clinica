@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Recepcao.Views.PainelView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
              Background="{StaticResource Brush.Fundo}">
 
@@ -44,6 +45,7 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
+        <Grid>
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
 
@@ -303,5 +305,15 @@
                 </Border>
             </StackPanel>
         </ScrollViewer>
+
+        <!-- O painel carrega como uma unidade: números aparecendo em tempos diferentes
+             confundem mais do que a espera. Vazio="False" porque painel sempre tem
+             número — o que ele pode ter é falha de leitura, e aí NÃO pode mostrar zero. -->
+        <ctrl:EstadoDaTela Vazio="False"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           TextoCarregando="Montando o painel do dia…"
+                           TextoNaoVerificado="Não foi possível montar o painel. Os números não estão zerados — eles não puderam ser lidos." />
+        </Grid>
     </DockPanel>
 </UserControl>

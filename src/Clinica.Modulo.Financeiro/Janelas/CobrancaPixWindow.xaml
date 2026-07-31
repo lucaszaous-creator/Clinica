@@ -1,0 +1,76 @@
+<Window x:Class="Clinica.Financeiro.Janelas.CobrancaPixWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Cobrar por Pix" Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="640">
+    <StackPanel Margin="24">
+        <TextBlock Text="Cobrar por Pix" Style="{StaticResource DialogoTitulo}" />
+
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,14"
+                   Text="O código é gerado aqui, sem passar por banco nenhum. Ele NÃO confirma pagamento: quem confere se o dinheiro caiu continua sendo quem olha o extrato." />
+
+        <Grid Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Valor (R$)" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Referência (opcional)" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Referencia, UpdateSourceTrigger=PropertyChanged}"
+                         MaxLength="25" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,14"
+                   Text="A referência é o que permite casar este Pix com a sessão no extrato. Sem ela, o extrato traz só o nome de quem pagou." />
+
+        <Button Content="Gerar código" Command="{Binding GerarCommand}"
+                HorizontalAlignment="Left" MinWidth="150" />
+
+        <!-- O código só aparece depois de gerado: campo vazio com cara de código
+             pronto faria alguém copiar nada e mandar ao paciente. -->
+        <StackPanel Margin="0,16,0,0"
+                    Visibility="{Binding TemCodigo, Converter={StaticResource BoolParaVisibilidade}}">
+
+            <TextBlock Text="Pix copia e cola" Style="{StaticResource Rotulo}" />
+            <TextBox Text="{Binding CopiaECola, Mode=OneWay}" IsReadOnly="True"
+                     TextWrapping="Wrap" MaxHeight="120"
+                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
+
+            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                <Button Content="Copiar" Command="{Binding CopiarCommand}" MinWidth="120" />
+                <TextBlock Text="{Binding Procedencia}" VerticalAlignment="Center"
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="12,0,0,0"
+                           TextWrapping="Wrap" MaxWidth="330" />
+            </StackPanel>
+        </StackPanel>
+
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,14,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+            <Button Content="Fechar" IsCancel="True" Style="{StaticResource BotaoSecundario}"
+                    MinWidth="110" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

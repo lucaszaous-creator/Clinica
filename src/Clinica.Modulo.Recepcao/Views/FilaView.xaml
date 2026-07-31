@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Recepcao.Views.FilaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
              Background="{StaticResource Brush.Fundo}">
 
@@ -159,6 +160,7 @@
 
         <!-- ============ Quadro: quatro colunas ============ -->
         <Grid>
+          <Grid x:Name="quadro">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="16" />
@@ -232,6 +234,15 @@
                     </ScrollViewer>
                 </DockPanel>
             </Border>
+          </Grid>
+
+          <!-- Um estado para o quadro todo: as quatro colunas vêm da mesma consulta. -->
+          <ctrl:EstadoDaTela Vazio="{Binding QuadroVazio}"
+                             Carregando="{Binding Carregando}"
+                             Glifo="&#xE77B;"
+                             TextoCarregando="Montando a fila do dia…"
+                             Titulo="Ninguém marcado para hoje"
+                             Descricao="Cancelados e faltas não entram no quadro: ele mostra o fluxo de quem vem hoje." />
         </Grid>
     </DockPanel>
 </UserControl>
