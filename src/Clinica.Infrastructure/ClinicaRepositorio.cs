@@ -155,6 +155,36 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Codigos)
             .FirstOrDefaultAsync(a => a.Id == atendimentoId, ct);
 
+    public async Task<IReadOnlyList<Paciente>> AniversariantesAsync(
+        DateOnly dia, int janelaDias = 0, CancellationToken ct = default)
+    {
+        // Dia e mes, nunca a data inteira: o ano de nascimento nao tem nada a ver com a
+        // pergunta. A janela e resolvida em memoria de proposito — sao poucos dias e a
+        // virada de ano/mes em SQL exigiria aritmetica que nao vale a complexidade.
+        var dias = Enumerable.Range(0, Math.Max(janelaDias, 0) + 1)
+            .Select(d => dia.AddDays(d))
+            .Select(d => (d.Month, d.Day))
+            .ToHashSet();
+
+        var meses = dias.Select(d => d.Month).Distinct().ToList();
+
+        var candidatos = await _db.Pacientes.AsNoTracking()
+            .Where(p => p.DataNascimento != null && meses.Contains(p.DataNascimento.Value.Month))
+            .ToListAsync(ct);
+
+        return candidatos
+            .Where(p => dias.Contains((p.DataNascimento!.Value.Month, p.DataNascimento.Value.Day)))
+            .OrderBy(p => p.Nome)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId)
+            .OrderByDescending(a => a.DataHora)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default)
     {
         var query = _db.Pacientes.AsQueryable();
@@ -919,7 +949,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             // Pelo dia do PAGAMENTO: o custo de maquininha pertence ao mes da venda.
             .Where(l => (l.DataPagamento ?? l.Data) >= inicio && (l.DataPagamento ?? l.Data) <= fim)
             .Select(l => new Clinica.Application.Modelos.RecebimentoComDeducao(
-                l.DataPagamento ?? l.Data, l.Valor, l.ValorTaxa, l.ValorImposto, l.Adquirente))
+                l.DataPagamento ?? l.Data, l.Valor, l.ValorTaxa, l.ValorImposto, l.Adquirente)
+            {
+                ConvenioCodigo = l.ConvenioCodigo
+            })
             .ToListAsync(ct);
 
     // ---- Recebiveis de cartao (parcela 16) ----
@@ -973,6 +1006,36 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     {
         var preco = await _db.PrecosConvenio.FirstOrDefaultAsync(p => p.Id == precoId, ct);
         if (preco is not null) _db.PrecosConvenio.Remove(preco);
+    }
+
+    // ---- Metas da direcao (parcela 28) ----
+
+    public async Task<IReadOnlyList<MetaMensal>> MetasDoAnoAsync(
+        int ano, CancellationToken ct = default)
+        => await _db.Metas.AsNoTracking()
+            .Include(m => m.Profissional)
+            .Where(m => m.Ano == ano)
+            .OrderBy(m => m.Mes)
+            .ThenBy(m => m.Indicador)
+            .ToListAsync(ct);
+
+    public Task<MetaMensal?> ObterMetaAsync(
+        int ano, int mes, IndicadorMeta indicador, int? profissionalId,
+        CancellationToken ct = default)
+        => _db.Metas.FirstOrDefaultAsync(
+            m => m.Ano == ano && m.Mes == mes && m.Indicador == indicador
+                 && m.ProfissionalId == profissionalId, ct);
+
+    public Task<MetaMensal?> ObterMetaPorIdAsync(int metaId, CancellationToken ct = default)
+        => _db.Metas.FirstOrDefaultAsync(m => m.Id == metaId, ct);
+
+    public async Task AdicionarMetaAsync(MetaMensal meta, CancellationToken ct = default)
+        => await _db.Metas.AddAsync(meta, ct);
+
+    public async Task RemoverMetaAsync(int metaId, CancellationToken ct = default)
+    {
+        var meta = await _db.Metas.FirstOrDefaultAsync(m => m.Id == metaId, ct);
+        if (meta is not null) _db.Metas.Remove(meta);
     }
 
     // ---- Regime tributario (parcela 15) ----
@@ -1095,14 +1158,25 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         // linha de SQL. Movimento de insumo é volume baixo (alguns por dia); a projeção
         // já evita o que era caro, que era arrastar o extrato inteiro.
         var movimentos = await _db.MovimentosEstoque.AsNoTracking()
-            .Select(m => new { m.ItemEstoqueId, m.Tipo, m.Quantidade })
+            .Select(m => new { m.ItemEstoqueId, m.Tipo, m.Quantidade, m.AjusteParaCima })
             .ToListAsync(ct);
 
         return movimentos
             .GroupBy(m => m.ItemEstoqueId)
             .ToDictionary(
                 g => g.Key,
-                g => g.Sum(m => m.Tipo == TipoMovimentoEstoque.Entrada ? m.Quantidade : -m.Quantidade));
+                // O AJUSTE de inventário (parcela 30) soma ou subtrai conforme a direção
+                // gravada: a contagem física tanto acha a mais quanto a menos, e a
+                // quantidade continua positiva em todos os tipos para o saldo nunca
+                // depender de um Math.Abs esquecido em algum canto.
+                g => g.Sum(m => m.Tipo switch
+                {
+                    TipoMovimentoEstoque.Entrada => m.Quantidade,
+                    TipoMovimentoEstoque.Ajuste => m.AjusteParaCima == true
+                        ? m.Quantidade
+                        : -m.Quantidade,
+                    _ => -m.Quantidade
+                }));
     }
 
     // ---- Recibo e orçamento ----

@@ -31,6 +31,7 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveAuditoria = "auditoria";
     public const string ChaveAcessos = "acessos";
     public const string ChaveConfiguracoes = "configuracoes";
+    public const string ChaveMetas = "metas";
 
     public string Nome => "Direção";
 
@@ -78,6 +79,13 @@ public sealed class ModuloGerente : IModuloApp
             Chave = ChaveIndicadores, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
+        // Metas fica ao lado dos relatorios de proposito: e a mesma pergunta vista dos
+        // dois lados — o BI diz o que aconteceu, a meta diz o que deveria ter acontecido.
+        new ItemMenuModulo
+        {
+            Chave = ChaveMetas, Rotulo = "Metas", Glifo = "\uE7C1",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
+        },
         // Auditoria vem ANTES de Acessos de propósito: "quem fez o quê" é a pergunta que
         // se faz toda semana, e "quem pode o quê" a que se mexe raramente. E fica sob a
         // própria permissão (VerAuditoria), não sob GerenciarUsuarios: ler a trilha e mexer
@@ -113,6 +121,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<AuditoriaViewModel>();
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
+        servicos.AddTransient<MetasViewModel>();
         // UsuarioEdicaoViewModel é construído à mão pela tela: precisa receber o id do
         // usuário no construtor, como os demais formulários da suíte.
     }
@@ -158,6 +167,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveConfiguracoes => new ConfiguracoesView
         {
             DataContext = servicos.GetRequiredService<ConfiguracoesViewModel>()
+        },
+        ChaveMetas => new MetasView
+        {
+            DataContext = servicos.GetRequiredService<MetasViewModel>()
         },
         _ => null
     };

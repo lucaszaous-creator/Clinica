@@ -202,7 +202,16 @@ public sealed record RecebimentoComDeducao(
     decimal Valor,
     decimal? ValorTaxa,
     decimal? ValorImposto,
-    string? Adquirente);
+    string? Adquirente)
+{
+    /// <summary>
+    /// Operadora do recebimento (parcela 28). Entra como propriedade e não como parâmetro
+    /// posicional para não quebrar quem já constrói o registro — e existe porque a
+    /// RETENÇÃO é por convênio: apurar o mês sem ela somaria o imposto que a clínica
+    /// recolhe com o que a operadora já reteve, contando duas vezes o mesmo tributo.
+    /// </summary>
+    public string? ConvenioCodigo { get; init; }
+}
 
 /// <summary>
 /// Um movimento em ESPÉCIE de um dia — a projeção que a conferência da gaveta precisa

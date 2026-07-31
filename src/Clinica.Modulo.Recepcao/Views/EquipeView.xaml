@@ -247,14 +247,29 @@
                                                 </TextBlock>
                                             </StackPanel>
 
-                                            <Button Grid.Column="1" Content="Reabrir"
-                                                    VerticalAlignment="Center" Margin="12,0,0,0"
-                                                    Style="{StaticResource BotaoPequeno}"
-                                                    IsEnabled="{Binding DataContext.PodeGerenciarEquipe,
-                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    Command="{Binding DataContext.ExcluirBloqueioCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                        VerticalAlignment="Center" Margin="12,0,0,0">
+                                                <!-- Só aparece quando há sessão marcada dentro:
+                                                     bloquear continua NÃO desmarcando ninguém, e
+                                                     era a recepção que remarcava uma a uma. Num
+                                                     mês de férias são trinta — e quem tem trinta
+                                                     para remarcar empurra o problema. -->
+                                                <Button Content="Empurrar sessões"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        Margin="0,0,8,0"
+                                                        Visibility="{Binding TemConflito,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.RemarcarBloqueioCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Reabrir"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        IsEnabled="{Binding DataContext.PodeGerenciarEquipe,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Command="{Binding DataContext.ExcluirBloqueioCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

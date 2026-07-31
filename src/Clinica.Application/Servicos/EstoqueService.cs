@@ -253,6 +253,58 @@ public sealed class EstoqueService
     /// negativo não existe no mundo, e aceitar o número esconde o erro de contagem em
     /// vez de mostrá-lo.
     /// </summary>
+    /// <summary>
+    /// Acerto de INVENTÁRIO: a contagem física não bateu com o saldo do sistema
+    /// (parcela 30).
+    ///
+    /// Recebe a quantidade CONTADA, não a diferença — quem está com a caixa na mão conta
+    /// "tenho 37", e obrigá-lo a calcular "então ajusta 4 para baixo" é pedir a conta que
+    /// o sistema sabe fazer e a pessoa erra.
+    ///
+    /// Três regras:
+    ///
+    /// 1. **O motivo é obrigatório.** Diferença de inventário sem explicação é
+    ///    indistinguível de erro de digitação seis meses depois — e é o mesmo raciocínio
+    ///    da perda, que já exige motivo desde a parcela 4.
+    /// 2. **Não é perda.** Perda afirma que alguém quebrou, venceu ou extraviou; a
+    ///    contagem que acha A MAIS não é perda nenhuma, e forçar tudo em `Perda` faria o
+    ///    custo médio do insumo parar de valer.
+    /// 3. **Contagem igual ao saldo não vira movimento.** Registrar um ajuste de zero
+    ///    sujaria o extrato com linhas que não mudam nada.
+    /// </summary>
+    public async Task<MovimentoEstoque?> AjustarInventarioAsync(
+        int itemId, decimal quantidadeContada, string motivo,
+        string? operador = null, DateOnly? data = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new InvalidOperationException(
+                "Escreva por que a contagem não bateu. Diferença de inventário sem motivo "
+                + "é indistinguível de erro de digitação seis meses depois.");
+
+        if (quantidadeContada < 0m)
+            throw new InvalidOperationException("A contagem não pode ser negativa.");
+
+        var item = await _repo.ObterItemEstoqueAsync(itemId, ct)
+            ?? throw new InvalidOperationException("Item de estoque não encontrado.");
+
+        var saldos = await _repo.SaldosEstoqueAsync(ct);
+        var saldo = saldos.TryGetValue(itemId, out var atual) ? atual : 0m;
+
+        var diferenca = quantidadeContada - saldo;
+        if (diferenca == 0m) return null;
+
+        return await MovimentarAsync(new MovimentoEstoque
+        {
+            ItemEstoqueId = item.Id,
+            Tipo = TipoMovimentoEstoque.Ajuste,
+            Quantidade = Math.Abs(diferenca),
+            AjusteParaCima = diferenca > 0m,
+            Data = data ?? DateOnly.FromDateTime(DateTime.Today),
+            Observacao = $"Inventário: contado {quantidadeContada:0.##} {item.Unidade}, "
+                         + $"sistema tinha {saldo:0.##} — {motivo.Trim()}"
+        }, operador, ct);
+    }
+
     public async Task<MovimentoEstoque> MovimentarAsync(
         MovimentoEstoque dados, string? operador = null, CancellationToken ct = default)
     {
@@ -262,7 +314,12 @@ public sealed class EstoqueService
         if (dados.Quantidade <= 0)
             throw new InvalidOperationException("A quantidade deve ser maior que zero.");
 
-        if (dados.Tipo != TipoMovimentoEstoque.Entrada)
+        // Ajuste PARA CIMA é entrada de saldo: não se compara com o que existe hoje, é
+        // justamente o que está faltando no sistema.
+        var tiraSaldo = dados.Tipo != TipoMovimentoEstoque.Entrada
+                        && !(dados.Tipo == TipoMovimentoEstoque.Ajuste && dados.AjusteParaCima == true);
+
+        if (tiraSaldo)
         {
             var saldos = await _repo.SaldosEstoqueAsync(ct);
             var saldo = saldos.TryGetValue(item.Id, out var atual) ? atual : 0m;
@@ -277,6 +334,9 @@ public sealed class EstoqueService
             ItemEstoqueId = item.Id,
             Tipo = dados.Tipo,
             Quantidade = dados.Quantidade,
+            AjusteParaCima = dados.Tipo == TipoMovimentoEstoque.Ajuste
+                ? dados.AjusteParaCima ?? false
+                : null,
             CustoUnitario = dados.Tipo == TipoMovimentoEstoque.Entrada ? dados.CustoUnitario : null,
             Data = dados.Data == default ? DateOnly.FromDateTime(DateTime.Today) : dados.Data,
             Validade = dados.Tipo == TipoMovimentoEstoque.Entrada ? dados.Validade : null,

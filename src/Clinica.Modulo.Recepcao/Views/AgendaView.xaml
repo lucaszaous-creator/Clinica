@@ -88,6 +88,14 @@
                                 Command="{Binding DataContext.QuemChamarCommand,
                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
+                        <!-- O papel que o paciente leva. Sem valor e sem diagnóstico:
+                             existe para o horário não ser esquecido, e papel avulso não
+                             é lugar de dado clínico. -->
+                        <Button Content="Comprovante" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                Margin="0,4,4,0"
+                                Command="{Binding DataContext.ComprovanteCommand,
+                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
                         <!-- Só aparece em sessão marcada em série: cancelar o resto do
                              pacote de uma vez, quando o paciente desiste no meio. -->
                         <Button Content="Cancelar série" Style="{StaticResource BotaoAcaoGridPerigo}"
@@ -169,6 +177,11 @@
                 <Button Content="Confirmar amanhã…" Margin="8,0,0,0"
                         Style="{StaticResource BotaoSecundario}"
                         Command="{Binding ConfirmarSessoesCommand}" />
+                <!-- A folha que o profissional leva para a sala. Toda clínica imprime
+                     essa folha; nesta, a secretária copiava a agenda num bloco. -->
+                <Button Content="Imprimir folha" Margin="8,0,0,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding ImprimirAgendaCommand}" />
                 <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}" IsEnabled="{Binding PodeEditarAgenda}"
                         Margin="8,0,0,0" />
             </StackPanel>

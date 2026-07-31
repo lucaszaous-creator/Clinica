@@ -172,6 +172,24 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [ObservableProperty] private byte[]? _foto;
 
     [ObservableProperty] private string _totalSessoes = "—";
+
+    // ---- Padrão de falta (parcela 28) ----
+
+    /// <summary>
+    /// Quantas vezes o paciente faltou. A agenda registra `Faltou` desde a parcela 1 e os
+    /// indicadores calculam a taxa da CLÍNICA — a do paciente nunca foi lida por ninguém.
+    /// Quem está no balcão decidindo se dá o horário das 18h de terça (o mais disputado)
+    /// para alguém que faltou três vezes não tinha como saber.
+    /// </summary>
+    [ObservableProperty] private string _faltas = "—";
+
+    /// <summary>Cancelamento avisado, contado SEPARADO: quem desmarcou deu chance de reocupar.</summary>
+    [ObservableProperty] private string _cancelamentos = "—";
+
+    /// <summary>Padrão de falta digno de atenção. Aviso, nunca impedimento.</summary>
+    [ObservableProperty] private bool _faltaReincidente;
+
+    [ObservableProperty] private string _avisoFaltas = string.Empty;
     [ObservableProperty] private string _guiasEmAberto = "—";
     [ObservableProperty] private string _ultimaSessao = "—";
 
@@ -269,6 +287,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             await CarregarDocumentosAsync(scope);
             await CarregarCrmAsync(scope);
             await CarregarElegibilidadeAsync(scope);
+            await CarregarFaltasAsync(scope);
         }
         catch (Exception ex)
         {
@@ -364,6 +383,51 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             : "—";
         AlivioMedio = $"{dor.AlivioMedioPorSessao:0.#} por sessão";
         ResumoEva = $"{dor.SessoesComMedida} de {dor.SessoesRegistradas} sessão(ões) com EVA medida.";
+    }
+
+    /// <summary>
+    /// Padrão de falta do paciente. Isolado do resto: se falhar, a ficha continua
+    /// mostrando tudo o mais — o histórico de falta é informação de apoio, não a razão
+    /// de a tela existir.
+    ///
+    /// Cancelamento avisado aparece SEPARADO das faltas: quem desmarcou deu à clínica a
+    /// chance de reocupar o horário, e misturar os dois esconderia exatamente o
+    /// comportamento que o número existe para mostrar.
+    /// </summary>
+    private async Task CarregarFaltasAsync(IServiceScope scope)
+    {
+        try
+        {
+            var servico = scope.ServiceProvider.GetRequiredService<RelacionamentoService>();
+            var h = await servico.FaltasDoPacienteAsync(PacienteId);
+
+            Faltas = h.Faltas == 0
+                ? "nenhuma"
+                : h.TaxaPercentual is { } taxa
+                    ? $"{h.Faltas} ({taxa:0.#}%)"
+                    : h.Faltas.ToString();
+
+            Cancelamentos = h.Cancelamentos == 0 ? "nenhum" : h.Cancelamentos.ToString();
+            FaltaReincidente = h.Reincidente;
+
+            AvisoFaltas = h.Reincidente
+                ? $"Faltou {h.Faltas} vez(es)"
+                  + (h.UltimaFalta is { } ultima ? $", a última em {ultima:dd/MM/yyyy}" : string.Empty)
+                  + ". Vale confirmar a sessão na véspera antes de dar a ele um horário disputado."
+                : string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — histórico de falta não pôde ser lido", ex);
+            // Terceiro estado: "—" é diferente de "nenhuma falta". Dizer que o paciente
+            // nunca faltou por causa de uma consulta quebrada seria falha exibida como
+            // sucesso — e neste caso a favor de quem falta.
+            Faltas = "não verificado";
+            Cancelamentos = "não verificado";
+            FaltaReincidente = false;
+            AvisoFaltas = string.Empty;
+        }
     }
 
     private async Task CarregarConsentimentosAsync(IServiceScope scope)

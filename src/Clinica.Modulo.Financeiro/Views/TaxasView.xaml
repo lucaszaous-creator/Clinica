@@ -346,6 +346,124 @@
         </DockPanel>
         </TabItem>
 
+        <!-- ============ Apuração do mês (parcela 28) ============
+             O serviço separa ISS, PIS, COFINS, IRPJ e CSLL desde a parcela 15 e toda
+             tela consolidava num número só: a clínica sabia quanto de imposto saiu e
+             não sabia DE QUÊ — que é a pergunta do contador. -->
+        <TabItem Header="Apuração do mês">
+        <DockPanel Margin="0,12,0,0">
+
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="Quanto de cada tributo saiu no mês" Style="{StaticResource H3}"
+                               Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding ResumoApuracao}" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap" Margin="0" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <Button Content="◀" Command="{Binding MesApuracaoAnteriorCommand}"
+                            Style="{StaticResource BotaoSecundario}" Width="40" />
+                    <Border Background="{StaticResource Brush.Superficie}"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                            CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
+                        <TextBlock Text="{Binding MesApuracao, StringFormat='{}{0:MMMM/yyyy}'}"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                    </Border>
+                    <Button Content="▶" Command="{Binding MesApuracaoProximoCommand}"
+                            Style="{StaticResource BotaoSecundario}" Width="40" />
+                    <Button Content="Apurar" Command="{Binding ApurarCommand}" Margin="8,0,0,0" />
+                    <Button Content="Exportar CSV" Command="{Binding ExportarApuracaoCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="120" />
+                </StackPanel>
+            </Grid>
+
+            <!-- Terceiro estado: a leitura falhou. Lista vazia por consulta quebrada se lê
+                 como "não houve imposto no mês", que é a mentira mais cara desta aba. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding ApuracaoNaoVerificada,
+                                 Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock TextWrapping="Wrap"
+                           Text="Não foi possível apurar este mês. A lista está VAZIA por falha de leitura, não por ausência de imposto." />
+            </Border>
+
+            <!-- A divergência aparece em vez de ser escondida: significa que a regra mudou
+                 DEPOIS de o dinheiro entrar, e é a clínica que decide qual número vale. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                    Visibility="{Binding TemDivergencia,
+                                 Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding DivergenciaApuracao}" TextWrapping="Wrap" />
+            </Border>
+
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}"
+                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Padding="16,12"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="150" />
+                                <ColumnDefinition Width="140" />
+                                <ColumnDefinition Width="160" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Tributo" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="1" Text="Nome" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="Alíquota" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="Base" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="4" Text="Valor" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="5" Text="Quem recolhe" Style="{StaticResource Rotulo}" Margin="0" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Apuracao}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="150" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="160" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Sigla}"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Nome}" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Aliquota}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Base}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Valor}"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="5" Text="{Binding Natureza}" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </DockPanel>
+        </TabItem>
+
         </TabControl>
     </DockPanel>
 </UserControl>

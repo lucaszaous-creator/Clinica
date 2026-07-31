@@ -664,6 +664,51 @@ for arq in xamls():
             f"Fonte.* do design system")
 
 
+# --------------------------------------------------------------- checagem 12
+# TIPO PÚBLICO DUPLICADO dentro do MESMO projeto e namespace.
+#
+# Nasceu de uma falha de CI real: `LinhaApuracao` foi criada em TaxasViewModel sem
+# ninguém notar que RepassesViewModel já tinha uma com o mesmo nome — CS0101, e só o
+# runner Windows contou. É um erro barato de cometer numa suíte em que cada tela
+# declara suas próprias linhas de lista, todas no mesmo namespace por módulo.
+#
+# O agrupamento é POR PROJETO, e isso importa: `Clinica.Desktop` e `Clinica.Desktop.Shell`
+# repetem de propósito o namespace `Clinica.Desktop.Controls` (o design system duplicado é
+# o débito assumido da arquitetura multi-exe). São assemblies diferentes, então não colidem
+# — agrupar só por namespace acusaria oito falsos positivos permanentes.
+TIPO_PUBLICO = re.compile(
+    r"^public\s+(?:sealed\s+|abstract\s+|static\s+|partial\s+)*"
+    r"(?:class|record|struct|enum|interface)\s+(\w+)", re.M)
+
+NAMESPACE_ARQUIVO = re.compile(r"^namespace\s+([\w.]+)\s*;", re.M)
+
+_tipos: dict[tuple[str, str, str], set[str]] = {}
+
+for arq in RAIZ.joinpath("src").rglob("*.cs"):
+    if "/obj/" in arq.as_posix() or "/bin/" in arq.as_posix():
+        continue
+
+    texto = arq.read_text(encoding="utf-8", errors="ignore")
+    ns = NAMESPACE_ARQUIVO.search(texto)
+    if ns is None:
+        continue
+
+    # src/<Projeto>/... — o projeto é o primeiro nível abaixo de src.
+    relativo = arq.relative_to(RAIZ / "src")
+    projeto = relativo.parts[0]
+
+    for m in TIPO_PUBLICO.finditer(texto):
+        _tipos.setdefault((projeto, ns.group(1), m.group(1)), set()).add(rel(arq))
+
+for (projeto, ns, tipo), arquivos in sorted(_tipos.items()):
+    # `partial` legítimo repete o tipo no MESMO arquivo (XAML + code-behind não entram
+    # aqui, que é só .cs); dois arquivos distintos é colisão.
+    if len(arquivos) > 1:
+        erros.append(
+            f"{projeto}: o tipo público '{ns}.{tipo}' está declarado em "
+            f"{' e '.join(sorted(arquivos))} — CS0101 no build")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
