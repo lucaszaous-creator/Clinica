@@ -880,6 +880,21 @@ for arq in sorted(CONGELADO.rglob("*.xaml")):
     if largura_c is not None and largura_c > 1366:
         erros.append(f"{rel(arq)}: Width={largura_c:.0f} é maior que o monitor do balcão (1366)")
 
+    # MinHeight/MinWidth são piores que Height/Width: o usuário consegue redimensionar
+    # uma janela grande demais, mas não consegue passar do mínimo. Janela com mínimo
+    # maior que a tela fica permanentemente com parte fora, e não há o que fazer.
+    minh = _num("MinHeight")
+    if minh is not None and minh + MOLDURA > ALTURA_UTIL:
+        erros.append(
+            f"{rel(arq)}: MinHeight={minh:.0f} passa da área útil — o usuário não "
+            f"consegue diminuir abaixo disso, então parte da janela fica fora para sempre")
+
+    minw = _num("MinWidth")
+    if minw is not None and minw > 1366:
+        erros.append(
+            f"{rel(arq)}: MinWidth={minw:.0f} passa do monitor do balcão — "
+            f"barra de rolagem horizontal permanente")
+
     ROLAM_C = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
     cresce_c = (raiz_c.get("SizeToContent") or "").find("Height") >= 0
     alto_c = altura_c is not None and altura_c >= 400
