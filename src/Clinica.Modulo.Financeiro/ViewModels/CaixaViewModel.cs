@@ -286,7 +286,6 @@ public sealed partial class CaixaViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
     /// <summary>
     /// O extrato do mês em CSV (parcela 32).
     ///
@@ -335,6 +334,7 @@ public sealed partial class CaixaViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
     private void MesAnterior() => Mes = Mes.AddMonths(-1);
 
     [RelayCommand]
