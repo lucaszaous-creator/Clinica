@@ -668,6 +668,91 @@ public sealed partial class AgendaViewModel : ObservableObject
     [RelayCommand]
     private void Hoje() => Dia = DateTime.Today;
 
+    /// <summary>
+    /// A folha do dia, que o profissional leva para a sala.
+    ///
+    /// Toda clínica imprime essa folha; nesta, a secretária copiava a agenda num papel de
+    /// bloco. Ela sai SEM dado clínico de propósito: circula pela sala e pela recepção, e
+    /// nome, horário, profissional e sala bastam para conduzir o dia.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImprimirAgendaAsync()
+    {
+        try
+        {
+            byte[] pdf;
+            using (var scope = _escopos.CreateScope())
+            {
+                var pdfs = scope.ServiceProvider.GetRequiredService<AgendaPdfService>();
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+                pdf = await pdfs.AgendaDoDiaAsync(
+                    DateOnly.FromDateTime(Dia),
+                    // Respeita o filtro da tela: quem está vendo só a própria agenda
+                    // espera imprimir só a própria agenda.
+                    SoMinhaAgenda && !MostrarTodosOsProfissionais
+                        ? SessaoUsuario.Atual.ProfissionalId
+                        : null,
+                    await parametros.ObterPrestadorAsync());
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf, ImpressaoPdf.NomeSeguro($"agenda-{Dia:yyyy-MM-dd}.pdf"));
+
+            if (erro is not null)
+            {
+                Mensagem = erro;
+                MensagemEhErro = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — agenda do dia não pôde ser impressa", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// O comprovante que o paciente leva do balcão. Sem valor e sem diagnóstico: ele
+    /// existe para o horário não ser esquecido, e papel avulso não é lugar de dado
+    /// clínico.
+    /// </summary>
+    [RelayCommand]
+    private async Task ComprovanteAsync(CartaoAgenda? cartao)
+    {
+        if (cartao is null) return;
+
+        try
+        {
+            byte[] pdf;
+            using (var scope = _escopos.CreateScope())
+            {
+                var pdfs = scope.ServiceProvider.GetRequiredService<AgendaPdfService>();
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+                pdf = await pdfs.ComprovanteAsync(
+                    cartao.AgendamentoId, await parametros.ObterPrestadorAsync());
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf,
+                ImpressaoPdf.NomeSeguro($"comprovante-{cartao.Paciente}-{Dia:yyyy-MM-dd}.pdf"));
+
+            if (erro is not null)
+            {
+                Mensagem = erro;
+                MensagemEhErro = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — comprovante não pôde ser gerado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     private static string Rotular(StatusAgendamento status) => status switch
     {
         StatusAgendamento.Agendado => "Marcado",

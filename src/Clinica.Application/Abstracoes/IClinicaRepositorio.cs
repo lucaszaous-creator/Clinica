@@ -42,6 +42,22 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default);
 
+    /// <summary>
+    /// Pacientes que fazem aniversario no dia (ou na janela de dias a partir dele).
+    /// A comparacao e por DIA E MES, nunca pela data inteira — o ano de nascimento nao
+    /// tem nada a ver com a pergunta.
+    /// </summary>
+    Task<IReadOnlyList<Paciente>> AniversariantesAsync(
+        DateOnly dia, int janelaDias = 0, CancellationToken ct = default);
+
+    /// <summary>
+    /// Historico de agendamentos de UM paciente — a base do padrao de falta (parcela 28).
+    /// A agenda registra StatusAgendamento.Faltou desde a parcela 1, e os indicadores
+    /// calculam a taxa da CLINICA; a do paciente nunca foi lida por ninguem.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
     /// <summary>Paciente com todo o histórico (atendimentos e seus códigos) carregado.</summary>
     Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default);
 

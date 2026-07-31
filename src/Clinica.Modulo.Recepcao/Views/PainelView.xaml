@@ -242,6 +242,65 @@
                         </StackPanel>
                     </Border>
                 </Grid>
+
+                <!-- ===== Aniversariantes (parcela 28) =====
+                     A data estava no cadastro desde sempre e nenhuma tela a lia. É a
+                     ligação mais barata que a clínica faz — trinta segundos, sem nada a
+                     vender — e era a que se perdia. -->
+                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Aniversariantes da semana" Style="{StaticResource H3}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                                   Text="Do dia e dos próximos seis — a clínica não abre todo dia, e sem a janela todo aniversário de domingo se perderia. Quem vem hoje aparece primeiro: o parabéns é dado no balcão." />
+
+                        <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,8"
+                                Visibility="{Binding AniversariantesNaoVerificados,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock TextWrapping="Wrap"
+                                       Text="Não foi possível ler os aniversariantes. A lista está vazia por falha de leitura, não por não haver ninguém." />
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding Aniversariantes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0,8" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                        VerticalAlignment="Center">
+                                                <Border Style="{StaticResource Badge.Sucesso}" Margin="0,0,8,0"
+                                                        Visibility="{Binding VemHoje,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="Vem hoje" />
+                                                </Border>
+                                                <Button Content="Parabenizar"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        IsEnabled="{Binding TemTelefone}"
+                                                        Command="{Binding DataContext.ParabenizarCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

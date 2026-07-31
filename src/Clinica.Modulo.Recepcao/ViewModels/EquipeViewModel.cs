@@ -241,6 +241,80 @@ public sealed partial class EquipeViewModel : ObservableObject
     }
 
     /// <summary>Reabre a agenda. O que estava marcado dentro continua marcado.</summary>
+    /// <summary>
+    /// Empurra em bloco as sessões que caíram dentro do período fechado (parcela 28).
+    ///
+    /// Bloquear continua NÃO desmarcando ninguém — e é exatamente por isso que este botão
+    /// precisava existir. Até aqui a tela dizia "3 sessões marcadas dentro — remarque" e
+    /// a recepção remarcava uma a uma. Num mês de férias são trinta, e quem tem trinta
+    /// para remarcar não remarca: empurra o problema e descobre no dia.
+    /// </summary>
+    [RelayCommand]
+    private async Task RemarcarBloqueioAsync(LinhaBloqueio? linha)
+    {
+        if (linha is null || !linha.TemConflito) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "remarcar sessões");
+
+        var resposta = _dialogo.PerguntarTexto(
+            "Empurrar as sessões",
+            $"Em quantos dias empurrar as sessões marcadas dentro de {linha.Periodo}?\n\n"
+            + "O HORÁRIO é mantido — o paciente organizou a vida em torno dele, e "
+            + "reorganizar horário é conversa de quem fala com ele, não decisão do "
+            + "sistema. Data nova que esbarrar em choque é PULADA e aparece na lista, "
+            + "para você resolver as poucas que sobrarem.",
+            "7");
+        if (string.IsNullOrWhiteSpace(resposta)) return;
+
+        if (!int.TryParse(resposta.Trim(), out var dias) || dias == 0)
+        {
+            _dialogo.Aviso("Número inválido", "Informe em quantos dias empurrar (ex.: 7).");
+            return;
+        }
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var bloqueios = scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>();
+            var r = await bloqueios.RemarcarEmLoteAsync(
+                linha.Id, dias, SessaoUsuario.Atual.Operador);
+
+            if (r.Vazio)
+            {
+                _snackbar.Info("Não havia sessão a remarcar dentro do período.");
+            }
+            else if (r.TudoRemarcado)
+            {
+                _snackbar.Sucesso(
+                    $"{r.Remarcados.Count} sessão(ões) empurradas em {dias} dia(s).");
+            }
+            else
+            {
+                // As recusadas aparecem uma a uma: "3 não deram" mandaria a recepção
+                // procurar quais são, que é o trabalho que este botão veio eliminar.
+                _dialogo.Aviso(
+                    "Nem todas puderam ser empurradas",
+                    $"{r.Remarcados.Count} sessão(ões) foram remarcadas.\n\n"
+                    + $"{r.Recusados.Count} ficaram como estavam:\n"
+                    + string.Join("\n", r.Recusados.Select(Descrever)));
+            }
+
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — remarcação em lote falhou", ex);
+            _snackbar.Erro(ex.Message);
+        }
+    }
+
+    private static string Descrever((Agendamento Sessao, string Motivo) recusa)
+    {
+        var nome = recusa.Sessao.Paciente?.Nome ?? "paciente";
+        return $"· {nome} — {recusa.Sessao.DataHora:dd/MM HH:mm}: {recusa.Motivo}";
+    }
+
     [RelayCommand]
     private async Task ExcluirBloqueioAsync(LinhaBloqueio? linha)
     {

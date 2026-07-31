@@ -35,6 +35,19 @@ public sealed partial class ProntuarioViewModel : ObservableObject
 
     public ObservableCollection<LinhaEvolucao> Sessoes { get; } = [];
 
+    /// <summary>
+    /// Busca por texto dentro do prontuário (parcela 28).
+    ///
+    /// O prontuário de um paciente de tratamento longo passa de cinquenta sessões, e a
+    /// pergunta que o profissional faz antes de atender é sempre a mesma: "o que eu fiz
+    /// da última vez que ele veio com dor no ombro?". Sem busca, a resposta era rolar a
+    /// lista inteira — e na prática ninguém rolava.
+    /// </summary>
+    [ObservableProperty] private string _termoSessao = string.Empty;
+
+    /// <summary>O que a lista está mostrando. Filtro invisível é filtro que engana.</summary>
+    [ObservableProperty] private string _resumoSessoes = string.Empty;
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -70,7 +83,42 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         Seletor.SelecaoMudou += AoTrocarPaciente;
     }
 
-    private void AoTrocarPaciente(Paciente? paciente) => _ = CarregarAsync();
+    private void AoTrocarPaciente(Paciente? paciente)
+    {
+        // Trocar de paciente limpa a busca: "ombro" digitado para um não é pergunta sobre
+        // o próximo, e a lista voltaria filtrada sem ninguém entender por quê.
+        TermoSessao = string.Empty;
+        _ = CarregarAsync();
+    }
+
+    partial void OnTermoSessaoChanged(string value) => _ = CarregarAsync();
+
+    /// <summary>
+    /// A sessão contém o termo em algum dos campos escritos. Sem acento e sem caixa: quem
+    /// digita no balcão escreve "lombalgia" e o prontuário diz "Lombalgia", e uma busca
+    /// que erra por isso é uma busca que ninguém usa duas vezes.
+    /// </summary>
+    private static bool Casa(Evolucao e, string termo)
+    {
+        var alvo = Normalizar(string.Join(" ",
+            e.QueixaPrincipal, e.Conduta, e.TextoEvolucao, e.Orientacoes));
+        return alvo.Contains(Normalizar(termo), StringComparison.Ordinal);
+    }
+
+    private static string Normalizar(string? texto)
+    {
+        if (string.IsNullOrWhiteSpace(texto)) return string.Empty;
+
+        var decomposto = texto.Normalize(System.Text.NormalizationForm.FormD);
+        var limpo = new System.Text.StringBuilder(decomposto.Length);
+
+        foreach (var c in decomposto)
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+                != System.Globalization.UnicodeCategory.NonSpacingMark)
+                limpo.Append(char.ToLowerInvariant(c));
+
+        return limpo.ToString();
+    }
 
     private int PacienteId => Seletor.Selecionado?.Id ?? 0;
 
@@ -96,12 +144,25 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
 
-            foreach (var e in await prontuario.DoPacienteAsync(PacienteId))
+            var todas = await prontuario.DoPacienteAsync(PacienteId);
+            var termo = TermoSessao.Trim();
+
+            foreach (var e in todas)
             {
+                if (termo.Length > 0 && !Casa(e, termo)) continue;
                 var anexos = await prontuario.AnexosAsync(e.Id);
                 Sessoes.Add(LinhaEvolucao.De(e, anexos.Count));
             }
 
+            ResumoSessoes = termo.Length == 0
+                ? $"{todas.Count} sessão(ões) no prontuário."
+                // A lista filtrada DIZ que está filtrada, e diz sobre quantas: "3 sessões"
+                // sozinho faria o profissional concluir que o paciente veio três vezes.
+                : $"{Sessoes.Count} de {todas.Count} sessão(ões) contêm “{termo}”.";
+
+            // A evolução da dor é sempre do prontuário INTEIRO, nunca do filtro: ela mede
+            // o tratamento, e medir só as sessões que citam uma palavra daria um gráfico
+            // que não corresponde a tratamento nenhum.
             AplicarEvolucaoDaDor(await prontuario.EvolucaoDaDorAsync(PacienteId));
         }
         catch (Exception ex)

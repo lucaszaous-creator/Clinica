@@ -44,7 +44,7 @@ public class BloqueioAgendaTests : IDisposable
         _db.Database.EnsureCreated();
         _repo = new ClinicaRepositorio(_db);
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
-        _bloqueios = new BloqueioAgendaService(_repo);
+        _bloqueios = new BloqueioAgendaService(_repo, _agenda);
     }
 
     private async Task<int> CriarPacienteAsync(string nome = "Maria")

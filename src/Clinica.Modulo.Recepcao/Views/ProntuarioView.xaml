@@ -101,6 +101,21 @@
                         <TextBlock DockPanel.Dock="Top" Text="Sessões" Style="{StaticResource H3}"
                                    Margin="0,0,0,8" />
 
+                        <!-- Busca dentro do prontuário (parcela 28). O prontuário de um
+                             tratamento longo passa de cinquenta sessões, e a pergunta
+                             antes de atender é sempre "o que eu fiz da última vez que ele
+                             veio com dor no ombro?". Sem busca, a resposta era rolar a
+                             lista inteira — e na prática ninguém rolava. -->
+                        <TextBox DockPanel.Dock="Top" Style="{StaticResource CampoPesquisa}"
+                                 Margin="0,0,0,8"
+                                 Text="{Binding TermoSessao, UpdateSourceTrigger=PropertyChanged, Delay=300}"
+                                 ctrl:Ajudantes.Placeholder="Buscar na queixa, conduta, evolução ou orientações" />
+
+                        <TextBlock DockPanel.Dock="Top" Text="{Binding ResumoSessoes}"
+                                   Style="{StaticResource TextoSuave}"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   TextWrapping="Wrap" Margin="0,0,0,8" />
+
                         <TextBlock DockPanel.Dock="Top" Text="Nenhuma sessão registrada ainda.">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">

@@ -155,6 +155,36 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Codigos)
             .FirstOrDefaultAsync(a => a.Id == atendimentoId, ct);
 
+    public async Task<IReadOnlyList<Paciente>> AniversariantesAsync(
+        DateOnly dia, int janelaDias = 0, CancellationToken ct = default)
+    {
+        // Dia e mes, nunca a data inteira: o ano de nascimento nao tem nada a ver com a
+        // pergunta. A janela e resolvida em memoria de proposito — sao poucos dias e a
+        // virada de ano/mes em SQL exigiria aritmetica que nao vale a complexidade.
+        var dias = Enumerable.Range(0, Math.Max(janelaDias, 0) + 1)
+            .Select(d => dia.AddDays(d))
+            .Select(d => (d.Month, d.Day))
+            .ToHashSet();
+
+        var meses = dias.Select(d => d.Month).Distinct().ToList();
+
+        var candidatos = await _db.Pacientes.AsNoTracking()
+            .Where(p => p.DataNascimento != null && meses.Contains(p.DataNascimento.Value.Month))
+            .ToListAsync(ct);
+
+        return candidatos
+            .Where(p => dias.Contains((p.DataNascimento!.Value.Month, p.DataNascimento.Value.Day)))
+            .OrderBy(p => p.Nome)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.Agendamentos.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId)
+            .OrderByDescending(a => a.DataHora)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default)
     {
         var query = _db.Pacientes.AsQueryable();

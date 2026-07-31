@@ -123,6 +123,17 @@
                                 <TextBlock Text="{Binding UltimaSessao}"
                                            HorizontalAlignment="Right"
                                            Foreground="{StaticResource Brush.Texto.Primario}" />
+                                <!-- Padrão de falta (parcela 28). A agenda registra
+                                     "Faltou" desde a parcela 1 e os indicadores calculam
+                                     a taxa da CLÍNICA — a do paciente nunca foi lida. -->
+                                <TextBlock Text="Faltas" Style="{StaticResource Rotulo}" />
+                                <TextBlock Text="{Binding Faltas}"
+                                           HorizontalAlignment="Right"
+                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                <TextBlock Text="Cancelamentos" Style="{StaticResource Rotulo}" />
+                                <TextBlock Text="{Binding Cancelamentos}"
+                                           HorizontalAlignment="Right"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -130,6 +141,15 @@
                     <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
                             Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
                         <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+                    </Border>
+
+                    <!-- Aviso, nunca impedimento: ninguém deixa de ser atendido por ter
+                         faltado. Mas dar o horário mais disputado da semana a quem falta
+                         com frequência é combinar o buraco de antemão. -->
+                    <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
+                            Visibility="{Binding FaltaReincidente,
+                                         Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock Text="{Binding AvisoFaltas}" TextWrapping="Wrap" />
                     </Border>
 
                     <!-- ===== Elegibilidade ===== -->

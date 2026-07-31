@@ -30,6 +30,20 @@ public sealed class LinhaPendenciaRecepcao
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
 }
 
+/// <summary>Um paciente que faz aniversário, com o contato para a clínica ligar.</summary>
+public sealed class LinhaAniversariante
+{
+    public required int PacienteId { get; init; }
+    public required string Paciente { get; init; }
+    public required string Detalhe { get; init; }
+    public string? Telefone { get; init; }
+
+    /// <summary>Vem hoje: o parabéns é dado no balcão e não custa nem a ligação.</summary>
+    public required bool VemHoje { get; init; }
+
+    public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
+}
+
 /// <summary>
 /// Painel próprio da Recepção — que NÃO é o do faturamento.
 ///
@@ -43,10 +57,29 @@ public sealed partial class PainelViewModel : ObservableObject
     /// <summary>Jornada de referência para a barra de ocupação (8h em minutos).</summary>
     private const int JornadaMinutos = 8 * 60;
 
+    /// <summary>
+    /// Quantos dias à frente a lista de aniversário alcança. Seis dias cobrem a semana
+    /// inteira: a clínica que abre de segunda a sexta perderia todo aniversário de
+    /// domingo se a lista fosse só do dia.
+    /// </summary>
+    private const int JanelaAniversarioDias = 6;
+
+    private readonly RelacionamentoService _relacionamento;
+
     private readonly PainelRecepcaoService _painel;
 
     public ObservableCollection<LinhaOcupacao> Ocupacao { get; } = [];
     public ObservableCollection<LinhaPendenciaRecepcao> Pendencias { get; } = [];
+
+    /// <summary>
+    /// Quem faz aniversário. A data estava no cadastro desde sempre e NENHUMA tela a
+    /// lia — a ligação mais barata que a clínica faz (trinta segundos, sem nada a
+    /// vender) era a que se perdia.
+    /// </summary>
+    public ObservableCollection<LinhaAniversariante> Aniversariantes { get; } = [];
+
+    /// <summary>Falha na leitura dos aniversariantes: lista vazia por erro, não por não haver.</summary>
+    [ObservableProperty] private bool _aniversariantesNaoVerificados;
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
     [ObservableProperty] private bool _carregando;
@@ -72,9 +105,11 @@ public sealed partial class PainelViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _pendenciasNaoVerificadas;
 
-    public PainelViewModel(PainelRecepcaoService painel)
+    public PainelViewModel(
+        PainelRecepcaoService painel, RelacionamentoService relacionamento)
     {
         _painel = painel;
+        _relacionamento = relacionamento;
         _ = CarregarAsync();
     }
 
@@ -105,6 +140,58 @@ public sealed partial class PainelViewModel : ObservableObject
         }
 
         await CarregarPendenciasAsync(dia);
+        await CarregarAniversariantesAsync(dia);
+    }
+
+    /// <summary>
+    /// Aniversariantes do dia e dos próximos dias. A janela existe porque a clínica não
+    /// abre todo dia: sem ela, todo aniversário de domingo se perderia.
+    ///
+    /// Isolada do resto, como as pendências: se falhar, o painel continua mostrando o dia.
+    /// </summary>
+    private async Task CarregarAniversariantesAsync(DateOnly dia)
+    {
+        try
+        {
+            AniversariantesNaoVerificados = false;
+            var lista = await _relacionamento.AniversariantesAsync(dia, JanelaAniversarioDias);
+
+            Aniversariantes.Clear();
+            foreach (var a in lista)
+                Aniversariantes.Add(new LinhaAniversariante
+                {
+                    PacienteId = a.PacienteId,
+                    Paciente = a.Nome,
+                    Telefone = a.Telefone,
+                    VemHoje = a.VemHoje,
+                    Detalhe = (a.Idade is { } idade ? $"{idade} anos · " : string.Empty)
+                              + a.DiaEMes
+                              + (a.VemHoje ? " · vem hoje" : string.Empty)
+                });
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — aniversariantes não puderam ser lidos", ex);
+            Aniversariantes.Clear();
+            AniversariantesNaoVerificados = true;
+        }
+    }
+
+    /// <summary>Abre o WhatsApp para dar os parabéns — mensagem sem nada a vender.</summary>
+    [RelayCommand]
+    private void Parabenizar(LinhaAniversariante? linha)
+    {
+        if (linha?.Telefone is not { } telefone) return;
+
+        var primeiro = linha.Paciente.Split(' ').FirstOrDefault() ?? linha.Paciente;
+        var erro = Whatsapp.Abrir(
+            telefone, linha.Paciente,
+            $"Feliz aniversário, {primeiro}! Toda a equipe da clínica deseja um ótimo dia.");
+
+        if (erro is null) return;
+        Mensagem = erro;
+        MensagemEhErro = true;
     }
 
     private void AplicarResumo(ResumoDiaRecepcao resumo)
