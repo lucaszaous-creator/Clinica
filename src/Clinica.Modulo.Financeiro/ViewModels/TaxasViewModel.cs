@@ -45,7 +45,7 @@ public sealed class LinhaTributo
 }
 
 /// <summary>Uma linha da apuração mensal: um tributo, o que incidiu e quem recolhe.</summary>
-public sealed class LinhaApuracao
+public sealed class LinhaApuracaoMensal
 {
     public required string Sigla { get; init; }
     public required string Nome { get; init; }
@@ -147,7 +147,7 @@ public sealed partial class TaxasViewModel : ObservableObject
     /// quanto de imposto saiu e não sabia de quê — que é a pergunta do contador, e a
     /// única que permite conferir cinco guias antes de pagá-las.
     /// </summary>
-    public ObservableCollection<LinhaApuracao> Apuracao { get; } = [];
+    public ObservableCollection<LinhaApuracaoMensal> Apuracao { get; } = [];
 
     [ObservableProperty] private DateTime _mesApuracao =
         new(DateTime.Today.Year, DateTime.Today.Month, 1);
@@ -468,7 +468,7 @@ public sealed partial class TaxasViewModel : ObservableObject
 
             Apuracao.Clear();
             foreach (var l in r.Linhas)
-                Apuracao.Add(new LinhaApuracao
+                Apuracao.Add(new LinhaApuracaoMensal
                 {
                     Sigla = l.Sigla,
                     Nome = l.Nome,
