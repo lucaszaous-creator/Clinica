@@ -26,17 +26,29 @@ dotnet run --project src/Clinica.Desktop
 # Verificação estática da suíte multi-exe (roda em qualquer sistema) — RODE ANTES DE TODO PUSH
 python3 tools/verificar-suite.py
 
+# Compilação do C# das telas WPF em Linux — RODE ANTES DE TODO PUSH que mexa em ViewModel/janela
+python3 tools/compilar-sombra.py
+
 # Migrations (usa a env var CLINICA_DB como connection string)
 CLINICA_DB="Host=...;Database=...;Username=...;Password=...;SSL Mode=Require" \
   dotnet ef migrations add NomeDaMigration -p src/Clinica.Infrastructure -s src/Clinica.Infrastructure
 ```
 
-⚠️ `Clinica.Desktop` e toda a suíte multi-exe **só compilam no Windows** (`net8.0-windows`). Neste
-ambiente Linux, valide mudanças com `dotnet build src/Clinica.Application` / `Clinica.Domain` /
-`Clinica.Infrastructure`, com os testes e com `tools/verificar-suite.py` (XAML, pack URIs, chaves do
-design system, projetos na solução); o CI (`.github/workflows/build-exe.yml`, runner Windows) compila
-os quatro apps em cada push na `main` **e em cada PR para a `main`** — commit em branch de trabalho
-não gera build sozinho.
+⚠️ `Clinica.Desktop` e toda a suíte multi-exe **só compilam no Windows** (`net8.0-windows`) — o SDK
+de Linux não traz o `Microsoft.NET.Sdk.WindowsDesktop`. **Isso não é desculpa para empurrar sem
+compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
+
+| ferramenta | cobre | não cobre |
+|---|---|---|
+| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 817 testes | nada das telas |
+| `tools/compilar-sombra.py` | **o C# dos 7 projetos WPF** (nome, tipo, aridade, atributo) | XAML |
+| `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução | semântica de C# |
+
+Se o SDK não estiver instalado: `apt-get update && apt-get install -y dotnet-sdk-8.0` (o instalador
+da Microsoft está bloqueado pelo proxy; o repositório do Ubuntu não). O CI
+(`.github/workflows/build-exe.yml`, runner Windows) segue sendo o build oficial dos quatro apps, em
+cada push na `main` **e em cada PR para a `main`** — commit em branch de trabalho não gera build
+sozinho.
 
 Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/release.yml`, que empacota
 os quatro apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
@@ -573,17 +585,29 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   A abertura do app é o item com `Inicial = true` (parcela 22), não o primeiro da lista;
   navegação entre módulos passa por `NavegacaoSuite` + `ChavesSuite` — chave que só um
   módulo usa continua sendo `const` do módulo dono, porque não é contrato de ninguém.
-- **O verificador é a única barreira local contra erro de compilação WPF.** `Clinica.Desktop`
-  e a suíte só compilam no Windows, então `tools/verificar-suite.py` cobre o que dá para
-  conferir aqui: XAML, chaves do design system, pack URIs, dicionário que usa token sem
-  mesclá-lo (quebra em runtime, não no build), **aridade de `new XViewModel(...)` escrito à
-  mão** (checagem 7), **membro `required` não inicializado** (checagem 8) e **variável de
-  padrão colidindo com outra declaração do mesmo método** (checagem 9). As três nasceram de
-  falhas de CI reais. A 9 tem uma assimetria que engana: `is { } f` entra no escopo do
-  MÉTODO, enquanto `foreach (var f in ...)` entra num escopo próprio — por isso dois
-  `foreach` com o mesmo nome são irmãos e legais, e a checagem parte só das variáveis de
-  padrão. **Rode-o antes de todo push.** O que ele não pega — `using` faltando, tipo
-  trocado — continua sendo do build do PR; não invente heurística para isso.
+- **Duas barreiras locais contra erro de compilação WPF, e elas se dividem por linguagem.**
+  - `tools/compilar-sombra.py` compila **o C#** dos sete projetos WPF. Ele recompila os
+    mesmos `.cs` num projeto `net8.0` comum que referencia as *reference assemblies* do
+    WPF baixadas do NuGet, e substitui o compilador de marcação — a etapa que o SDK de
+    Linux não tem — por um gerador próprio de `.g.cs`: para cada XAML com `x:Class`, emite
+    a parte `partial` com `InitializeComponent()` e um campo por `x:Name`. **`x:Name`
+    dentro de `Style`/`ControlTemplate`/`DataTemplate` NÃO vira campo** (o WPF resolve por
+    `FindName` em runtime) — gerar campo ali inventaria erro que o CI não tem. Ele nasceu
+    de quatro erros reais numa noite só (`CS0019` de `DayOfWeek % 7`, `CS0117` de membro
+    inexistente, `CS1503` de argumento posicional caindo no parâmetro errado e `CS0579` de
+    `[RelayCommand]` órfão), e é **autotestado contra os quatro**.
+  - `tools/verificar-suite.py` cobre **o XAML e o que é textual**: chaves do design system,
+    pack URIs, dicionário que usa token sem mesclá-lo (quebra em runtime, não no build),
+    **aridade de `new XViewModel(...)` escrito à mão** (checagem 7), **membro `required`
+    não inicializado** (checagem 8), **variável de padrão colidindo com outra declaração do
+    mesmo método** (checagem 9) e **tipo público duplicado no mesmo projeto e namespace**
+    (checagem 12, `CS0101`). A 9 tem uma assimetria que engana: `is { } f` entra no escopo
+    do MÉTODO, enquanto `foreach (var f in ...)` entra num escopo próprio — por isso dois
+    `foreach` com o mesmo nome são irmãos e legais, e a checagem parte só das variáveis de
+    padrão.
+
+  **Rode as duas antes de todo push.** O que sobra para o CI é o compilador de marcação de
+  verdade (`MC*`) e o empacotamento — não invente heurística para isso.
 - **Gráfico é desenhado com os tokens, sem biblioteca** (`Controls/Graficos.cs`,
   `Componentes/Graficos.xaml`). Os quatro apps se auto-atualizam por Velopack e uma
   dependência de UI nova é risco desproporcional. Duas regras do desenho: **valor nulo
