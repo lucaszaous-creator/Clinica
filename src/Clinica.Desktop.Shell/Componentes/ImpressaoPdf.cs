@@ -62,6 +62,45 @@ public static class ImpressaoPdf
         return null;
     }
 
+    /// <summary>
+    /// Grava um arquivo escolhido pelo usuário e NÃO o abre. Devolve o caminho gravado,
+    /// ou <c>null</c> se a pessoa desistiu do diálogo; erro vem como exceção.
+    /// </summary>
+    /// <remarks>
+    /// Existe ao lado de <see cref="SalvarEAbrirAsync"/> porque nem todo arquivo é para
+    /// LER. Um backup da base é um JSON de dezenas de megabytes: abri-lo no bloco de
+    /// notas depois de gravar não ajuda ninguém e ainda dá a impressão de que algo saiu
+    /// errado. Aqui o sucesso é o arquivo existir no lugar escolhido.
+    /// </remarks>
+    public static async Task<string?> SalvarAsync(
+        Func<Stream, Task> escrever, string nomeSugerido, string filtro, string extensao)
+    {
+        var dialogo = new Microsoft.Win32.SaveFileDialog
+        {
+            FileName = nomeSugerido,
+            Filter = filtro,
+            DefaultExt = extensao
+        };
+        if (dialogo.ShowDialog() != true) return null;
+
+        // Grava em temporário e renomeia: interrupção no meio nunca deixa no lugar um
+        // arquivo pela metade com cara de backup bom.
+        var temporario = dialogo.FileName + ".parcial";
+
+        await using (var saida = File.Create(temporario))
+            await escrever(saida);
+
+        File.Move(temporario, dialogo.FileName, overwrite: true);
+        return dialogo.FileName;
+    }
+
+    /// <summary>Pede um arquivo já existente para leitura. <c>null</c> = desistiu.</summary>
+    public static string? Escolher(string filtro, string titulo)
+    {
+        var dialogo = new Microsoft.Win32.OpenFileDialog { Filter = filtro, Title = titulo };
+        return dialogo.ShowDialog() == true ? dialogo.FileName : null;
+    }
+
     /// <summary>Nome de arquivo sem os caracteres que o Windows recusa.</summary>
     public static string NomeSeguro(string bruto)
     {
