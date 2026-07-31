@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -174,6 +175,48 @@ public sealed partial class RepassesViewModel : ObservableObject
                 },
                 Ativa = r.Ativa
             });
+    }
+
+    /// <summary>
+    /// O extrato do mês em CSV — o papel que o profissional recebe junto com o repasse
+    /// (parcela 32).
+    ///
+    /// A tela mostra quanto cada um tem a receber e a clínica lia esse número em voz
+    /// alta. Repasse é a conversa mais sensível que uma clínica tem com quem atende: o
+    /// número precisa vir com a CONTA que o produziu — atendimentos, receita que entrou e
+    /// a regra aplicada —, senão discordar dele vira discutir memória.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportarAsync()
+    {
+        if (Calculados.Count == 0)
+        {
+            _snackbar.Info("Não há repasse para exportar neste mês.");
+            return;
+        }
+
+        try
+        {
+            var csv = ExportacaoCsv.Montar(
+                ["Profissional", "Atendimentos", "Receita que entrou", "Regra", "A receber", "Situação"],
+                Calculados.Select(r => new[]
+                {
+                    r.Profissional, r.Atendimentos, r.Receita, r.Regra, r.Valor, r.Situacao
+                }));
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                csv,
+                ImpressaoPdf.NomeSeguro($"repasses-{Mes:yyyy-MM}.csv"),
+                "CSV (*.csv)|*.csv", ".csv");
+
+            if (erro is not null) _snackbar.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — repasses não puderam ser exportados", ex);
+            _snackbar.Erro(ex.Message);
+        }
     }
 
     [RelayCommand]

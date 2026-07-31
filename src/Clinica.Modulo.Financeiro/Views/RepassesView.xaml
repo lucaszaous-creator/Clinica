@@ -26,6 +26,13 @@
                             Command="{Binding ProximoMesCommand}" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <!-- O papel que o profissional recebe junto com o repasse. O número
+                         precisa vir com a CONTA que o produziu — atendimentos, receita que
+                         entrou e a regra aplicada —, senão discordar dele vira discutir
+                         memória. -->
+                    <Button Content="Exportar CSV" Style="{StaticResource BotaoSecundario}"
+                            Margin="0,0,8,0" MinWidth="120"
+                            Command="{Binding ExportarCommand}" />
                     <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                             Command="{Binding CarregarCommand}" />
                     <Button Content="Nova regra…" Margin="8,0,0,0"

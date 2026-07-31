@@ -32,6 +32,7 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveAcessos = "acessos";
     public const string ChaveConfiguracoes = "configuracoes";
     public const string ChaveMetas = "metas";
+    public const string ChaveRetencao = "retencao";
 
     public string Nome => "Direção";
 
@@ -86,6 +87,13 @@ public sealed class ModuloGerente : IModuloApp
             Chave = ChaveMetas, Rotulo = "Metas", Glifo = "\uE7C1",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
+        // Ao lado das campanhas: as duas falam com quem nao esta vindo, mas por caminhos
+        // diferentes — la a rodada automatica, aqui a lista para decidir caso a caso.
+        new ItemMenuModulo
+        {
+            Chave = ChaveRetencao, Rotulo = "Quem parou de vir", Glifo = "\uE77B",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
+        },
         // Auditoria vem ANTES de Acessos de propósito: "quem fez o quê" é a pergunta que
         // se faz toda semana, e "quem pode o quê" a que se mexe raramente. E fica sob a
         // própria permissão (VerAuditoria), não sob GerenciarUsuarios: ler a trilha e mexer
@@ -122,6 +130,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
         servicos.AddTransient<MetasViewModel>();
+        servicos.AddTransient<RetencaoViewModel>();
         // UsuarioEdicaoViewModel é construído à mão pela tela: precisa receber o id do
         // usuário no construtor, como os demais formulários da suíte.
     }
@@ -171,6 +180,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveMetas => new MetasView
         {
             DataContext = servicos.GetRequiredService<MetasViewModel>()
+        },
+        ChaveRetencao => new RetencaoView
+        {
+            DataContext = servicos.GetRequiredService<RetencaoViewModel>()
         },
         _ => null
     };

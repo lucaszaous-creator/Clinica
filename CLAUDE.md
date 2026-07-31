@@ -355,6 +355,67 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   oferece no lugar do ICP-Brasil**, então não podia continuar sem tela onde digitar; e
   **modelo e protocolo se apagam mesmo** — não são registro do que aconteceu, e as sessões
   e documentos feitos com eles não mudam porque aplicar **copia**, nunca referencia.
+- **Meta e teto são a mesma ideia aplicada aos dois lados** (`MetaService` parcela 28,
+  `OrcamentoService` parcela 31): antes das duas, o painel comparava tudo com o **mês
+  anterior** — e variação responde "melhorou?", nunca "chegamos onde a gente disse que ia
+  chegar?". Sem alvo, um mês 10% melhor que um mês ruim aparece como vitória, e gastar 10%
+  menos que um mês caro aparece como economia. As duas entidades seguem as mesmas regras:
+  **fato datado** (uma linha por mês; reajustar agosto não reescreve julho, como a vigência
+  da taxa e do preço), **índice único** (dois alvos para a mesma pergunta dariam duas
+  réguas e a tela escolheria uma sem dizer qual) e **ausência ≠ zero** — sem linha é "não
+  decidimos", zero é "decidimos que é zero", e inventar zero faria todo mês não planejado
+  aparecer como alvo batido. O realizado vem sempre do **serviço dono** do indicador, nunca
+  recalculado. Duas assimetrias que parecem detalhe: **não se projeta mês com menos de 5
+  dias** (projetar no dia 2 multiplica ruído por quinze) e **ocupação não se projeta por
+  regra de três**, porque ela já é uma média e multiplicá-la pelos dias que faltam daria
+  300%. No orçamento, o **comprometido** (conta prevista que ainda vai vencer) conta
+  separado do gasto: não é dinheiro que saiu, mas é dinheiro já decidido — e o teto costuma
+  estourar no que foi CONTRATADO, não no que foi pago.
+- **Apuração por tributo e resultado do mês** (parcelas 28 e 31): `TributoService` separa
+  ISS, PIS, COFINS, IRPJ e CSLL desde a parcela 15 e **toda tela consolidava num número
+  só** — a clínica sabia quanto de imposto saiu e não sabia **de quê**, que é a pergunta do
+  contador. Na apuração, a **retenção é resolvida por recebimento** com o convênio dele:
+  apurar o mês com os tributos gerais somaria o que a clínica recolhe com o que a operadora
+  já reteve. A **divergência** entre o apurado agora e o gravado na época **aparece** em vez
+  de ser escondida — ela significa que uma alíquota mudou depois de o dinheiro entrar, e é a
+  clínica que decide qual número vai para a guia. O `ResultadoMensalService` é **regime de
+  CAIXA e a tela diz isso**: competência exigiria provisão e rateio que a clínica não
+  mantém, e número aproximado apresentado como contábil é pior que número honesto
+  apresentado como caixa. **Taxa e imposto são DEDUÇÃO, não despesa** (saem da receita antes
+  de ela existir; listá-los junto do aluguel faria a clínica achar que pode cortá-los), e
+  **margem sobre zero é nula** — 0% faria um mês sem faturamento parecer um mês que faturou
+  e não sobrou nada.
+- **O papel que sai da agenda** (`AgendaPdfService`, parcela 29): a folha do dia e o
+  comprovante do paciente. Os dois saem **sem dado clínico** — a folha circula pela sala e
+  pela recepção, e o comprovante é papel avulso; nome, horário, profissional e sala bastam.
+  Cancelados e faltas entram na folha **marcados, nunca sumindo**: quem lê às 14h precisa
+  saber que o horário das 15h vagou, e linha ausente se confunde com horário que nunca
+  existiu.
+- **Aniversário e padrão de falta** (`RelacionamentoService`, parcela 29): as duas perguntas
+  do balcão que o sistema gravava e ninguém lia. A data de nascimento está no cadastro desde
+  sempre — a ligação mais barata que a clínica faz era a que se perdia. A janela cobre a
+  **semana** porque a clínica não abre todo dia. Do outro lado, a agenda registra `Faltou`
+  desde a parcela 1 e os indicadores calculam a taxa da **clínica**; a do paciente nunca foi
+  lida, e é ela que decide se vale dar a alguém o horário mais disputado da semana.
+  **Cancelamento avisado conta separado da falta** (quem desmarcou deu chance de reocupar) e
+  a reincidência **exige base mínima**: uma falta em duas sessões dá 50% e não diz nada.
+- **Acerto de inventário** (`EstoqueService`, parcela 30): a clínica só podia lançar
+  `Perda` quando a contagem não batia — e **perda é uma AFIRMAÇÃO**: alguém quebrou, venceu
+  ou extraviou. Quando a contagem acha A MAIS, ou quando a diferença vem de erro de
+  digitação antigo, chamar de perda mente sobre o que aconteceu, e é essa mentira que faz o
+  custo médio do insumo parar de valer. O tipo novo não precisou de migration (o enum é
+  gravado como texto); o que virou coluna foi a **direção** do acerto, e ela é campo
+  separado em vez de quantidade negativa porque negativa espalharia `Math.Abs` por todo
+  cálculo de saldo — um esquecido daria saldo negativo silencioso. O método recebe a
+  quantidade **CONTADA**, nunca a diferença: quem está com a caixa na mão conta "tenho 37".
+- **Quem parou de vir** (`RetencaoPacienteService`, parcela 32): o recall dispara mensagens
+  por regra de tempo; esta é a **lista**, para a direção olhar caso a caso e decidir quem
+  vale um telefonema de verdade — o paciente de tratamento longo que some vale dez recalls
+  disparados no vazio. **Quem tem sessão futura marcada não sumiu**, por mais tempo que faça
+  desde a última: ele já voltou, só ainda não veio. A base é o **atendimento**, não o
+  agendamento (cancelado não é visita). Pacote em aberto é **destaque, não filtro**: o
+  paciente pagou sessões que não usou, e essa ligação a clínica deve tanto a ela quanto a
+  ele.
 - **Como os quatro módulos se falam** (parcela 27): eles compartilham o BANCO, não
   mensagens — não há fila, evento nem sincronização; o que um grava o outro lê, e a
   ligação é sempre uma CHAVE ESTRANGEIRA. O circuito completo:
