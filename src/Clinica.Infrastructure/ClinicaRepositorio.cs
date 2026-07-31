@@ -504,7 +504,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<Paciente>> PacientesComConsultasAsync(CancellationToken ct = default)
-        => await _db.Pacientes.Include(p => p.Consultas).OrderBy(p => p.Nome).ToListAsync(ct);
+        => await _db.Pacientes.AsNoTracking()
+            // Leitura pura (aba Consultas e pendências do painel): sem rastreamento o
+            // EF não precisa guardar milhares de pacientes no change tracker, o que
+            // também tira custo do SaveChanges seguinte no mesmo escopo.
+            .Include(p => p.Consultas).OrderBy(p => p.Nome).ToListAsync(ct);
 
     // ---- Agenda ----
 
@@ -1724,5 +1728,36 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                 "Outro computador alterou este registro enquanto você editava. " +
                 "Atualize a tela (F5) para ver a versão mais recente e repita a operação.", ex);
         }
+        catch (DbUpdateException ex) when (Traduzir(ex) is { } amigavel)
+        {
+            throw new InvalidOperationException(amigavel, ex);
+        }
+    }
+
+    /// <summary>
+    /// Traduz a falha de gravação para o que se pode fazer a respeito, ou devolve `null`
+    /// para deixá-la subir como está.
+    ///
+    /// O texto mora em <see cref="MensagensDeErro"/>, que é testado sozinho: a ordem das
+    /// regras de duplicidade é o que mais erra ali, e mensagem plausível e errada é pior
+    /// que o texto cru do Postgres — ninguém desconfia dela.
+    /// </summary>
+    private static string? Traduzir(DbUpdateException ex)
+    {
+        if (ex.GetBaseException() is Npgsql.PostgresException pg)
+        {
+            if (pg.SqlState == "23505")                      // unique_violation
+                return MensagensDeErro.Duplicidade(pg.ConstraintName);
+
+            if (pg.SqlState == "23503")                      // foreign_key_violation
+                return MensagensDeErro.VinculoQuebrado;
+        }
+
+        // O banco é remoto e a internet do consultório oscila: este é o caso mais comum.
+        if (ex.GetBaseException() is System.Net.Sockets.SocketException or TimeoutException
+            || ex.GetBaseException() is Npgsql.NpgsqlException { IsTransient: true })
+            return MensagensDeErro.SemConexao;
+
+        return null;
     }
 }
