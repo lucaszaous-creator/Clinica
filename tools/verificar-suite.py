@@ -801,6 +801,42 @@ for arq in RAIZ.joinpath("src").rglob("*.xaml"):
                 f"o botão aparece e o clique não faz nada (o WPF engole o erro em runtime)")
 
 
+# --------------------------------------------------------------- checagem 14
+# TELA QUE NÃO MOSTRA QUE ESTÁ CARREGANDO.
+#
+# Vinte e oito ViewModels da suíte mantêm uma propriedade `Carregando` e apenas UMA tela
+# a exibia. Não é detalhe estético: o banco é remoto e, com o retry ligado, uma consulta
+# numa conexão ruim leva segundos — e durante esse tempo a tela mostra uma lista vazia,
+# visualmente IDÊNTICA a "não existe nada". A secretária conclui que o dia não tem
+# ninguém marcado e age a partir disso.
+#
+# A correção é o controle `EstadoDaTela` (parcela 35), que resolve os três estados numa
+# ordem que é a regra: carregando vence tudo, falha vem ANTES de vazio, e vazio só quando
+# a leitura deu certo.
+#
+# Isto é AVISO e não erro, de propósito: a migração das telas é gradual, e transformar em
+# erro travaria o push de quem está mexendo em outra coisa. O aviso existe para a dívida
+# ficar contada e visível a cada execução, em vez de virar esquecimento.
+_pendentes: list[str] = []
+
+for vm in sorted(RAIZ.glob("src/Clinica.Modulo.*/ViewModels/*ViewModel.cs")):
+    if "_carregando" not in vm.read_text(encoding="utf-8", errors="ignore"):
+        continue
+
+    view = vm.parent.parent / "Views" / (vm.stem.replace("ViewModel", "View") + ".xaml")
+    if not view.exists():
+        continue  # ViewModel de janela ou de item, sem tela própria
+
+    if "EstadoDaTela" not in view.read_text(encoding="utf-8", errors="ignore"):
+        _pendentes.append(view.stem)
+
+if _pendentes:
+    avisos.append(
+        f"{len(_pendentes)} tela(s) têm 'Carregando' no ViewModel e não o mostram — "
+        f"lista vazia por espera fica igual a lista vazia por não haver nada. "
+        f"Use ctrl:EstadoDaTela. Faltam: {', '.join(sorted(_pendentes))}")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

@@ -173,4 +173,65 @@
         <Setter Property="Margin" Value="24,0,24,24" />
     </Style>
 
+    <!-- ===== Os três estados de uma lista (parcela 35) =====
+         Um componente só, porque a ORDEM dos estados é a regra: carregando vence tudo,
+         falha vem ANTES de vazio, e vazio só quando a leitura deu certo. Cada tela
+         resolvendo isso sozinha era o que fazia leitura falha aparecer como "não há
+         nada" — e o banco é remoto, então a espera é real. -->
+    <Style TargetType="ctrl:EstadoDaTela">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ctrl:EstadoDaTela">
+                    <Grid Background="{StaticResource Brush.Superficie}">
+
+                        <!-- Carregando: o giro diz que o sistema está trabalhando, e o
+                             texto diz o que ele espera. Sem isso a tela em branco
+                             parecia uma lista sem ninguém. -->
+                        <StackPanel x:Name="carregando" Visibility="Collapsed"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    Margin="24">
+                            <Control Style="{StaticResource Spinner}"
+                                     HorizontalAlignment="Center" />
+                            <TextBlock Text="{TemplateBinding TextoCarregando}"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                       HorizontalAlignment="Center" Margin="0,12,0,0" />
+                        </StackPanel>
+
+                        <!-- Falha de leitura: NUNCA desenhada como vazio. -->
+                        <Border x:Name="naoVerificado" Visibility="Collapsed"
+                                Style="{StaticResource AlertaAviso}"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                MaxWidth="420" Margin="24">
+                            <TextBlock Text="{TemplateBinding TextoNaoVerificado}"
+                                       TextWrapping="Wrap" TextAlignment="Center" />
+                        </Border>
+
+                        <!-- Vazio de verdade: reaproveita o EmptyState do design system,
+                             que existia com estilo completo e nenhum consumidor. -->
+                        <ctrl:EmptyState x:Name="vazio" Visibility="Collapsed"
+                                         Glifo="{TemplateBinding Glifo}"
+                                         Titulo="{TemplateBinding Titulo}"
+                                         Descricao="{TemplateBinding Descricao}" />
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Estado" Value="Carregando">
+                            <Setter TargetName="carregando" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="Estado" Value="NaoVerificado">
+                            <Setter TargetName="naoVerificado" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <Trigger Property="Estado" Value="Vazio">
+                            <Setter TargetName="vazio" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
