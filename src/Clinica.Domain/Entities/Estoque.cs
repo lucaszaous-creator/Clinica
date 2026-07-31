@@ -15,7 +15,22 @@ public enum TipoMovimentoEstoque
     Saida,
 
     /// <summary>Quebra, vencimento, extravio.</summary>
-    Perda
+    Perda,
+
+    /// <summary>
+    /// Acerto de INVENTÁRIO: a contagem física não bateu com o saldo do sistema
+    /// (parcela 30).
+    ///
+    /// Existe porque a clínica não tinha como registrar a diferença com honestidade. Ela
+    /// só podia lançar `Perda`, e perda é uma afirmação: alguém quebrou, venceu ou
+    /// extraviou. Quando a diferença é SOBRA (contou mais do que o sistema tinha) ou
+    /// erro de digitação antigo, chamar de perda mente sobre o que aconteceu — e é
+    /// exatamente essa mentira que faz o custo médio do insumo parar de valer.
+    ///
+    /// A quantidade do ajuste é sempre POSITIVA, como nos demais; o que diz a direção é
+    /// <see cref="MovimentoEstoque.AjusteParaCima"/>.
+    /// </summary>
+    Ajuste
 }
 
 /// <summary>
@@ -57,6 +72,16 @@ public class ItemEstoque
 /// </summary>
 public class MovimentoEstoque
 {
+    /// <summary>
+    /// No acerto de inventário: a contagem achou MAIS do que o sistema tinha. Null nos
+    /// demais tipos, que já dizem a direção pelo próprio nome.
+    ///
+    /// É um campo separado, e não uma quantidade negativa, porque quantidade negativa
+    /// espalharia `Math.Abs` por todo cálculo de saldo e custo — e um esquecido daria
+    /// saldo negativo silencioso.
+    /// </summary>
+    public bool? AjusteParaCima { get; set; }
+
     public int Id { get; set; }
 
     public int ItemEstoqueId { get; set; }

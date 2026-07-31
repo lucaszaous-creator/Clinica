@@ -1158,14 +1158,25 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         // linha de SQL. Movimento de insumo é volume baixo (alguns por dia); a projeção
         // já evita o que era caro, que era arrastar o extrato inteiro.
         var movimentos = await _db.MovimentosEstoque.AsNoTracking()
-            .Select(m => new { m.ItemEstoqueId, m.Tipo, m.Quantidade })
+            .Select(m => new { m.ItemEstoqueId, m.Tipo, m.Quantidade, m.AjusteParaCima })
             .ToListAsync(ct);
 
         return movimentos
             .GroupBy(m => m.ItemEstoqueId)
             .ToDictionary(
                 g => g.Key,
-                g => g.Sum(m => m.Tipo == TipoMovimentoEstoque.Entrada ? m.Quantidade : -m.Quantidade));
+                // O AJUSTE de inventário (parcela 30) soma ou subtrai conforme a direção
+                // gravada: a contagem física tanto acha a mais quanto a menos, e a
+                // quantidade continua positiva em todos os tipos para o saldo nunca
+                // depender de um Math.Abs esquecido em algum canto.
+                g => g.Sum(m => m.Tipo switch
+                {
+                    TipoMovimentoEstoque.Entrada => m.Quantidade,
+                    TipoMovimentoEstoque.Ajuste => m.AjusteParaCima == true
+                        ? m.Quantidade
+                        : -m.Quantidade,
+                    _ => -m.Quantidade
+                }));
     }
 
     // ---- Recibo e orçamento ----

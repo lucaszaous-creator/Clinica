@@ -67,7 +67,7 @@ public class RelacionamentoTests : IDisposable
         {
             PacienteId = pacienteId,
             DataHora = quando,
-            Modalidade = ModalidadeAtendimento.AcupunturaComEletro,
+            ModalidadePrevista = ModalidadeAtendimento.AcupunturaComEletro,
             Status = status
         });
         await _db.SaveChangesAsync();
