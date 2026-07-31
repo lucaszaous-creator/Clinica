@@ -88,8 +88,11 @@ public static class ConexaoStore
                 Database = uri.AbsolutePath.Trim('/'),
                 Username = Uri.UnescapeDataString(userInfo[0]),
                 Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : null,
-                SslMode = SslMode.Require,
-                TrustServerCertificate = true
+                // `SslMode.Require` no Npgsql 8 já significa "criptografa e não valida o
+                // certificado", que é o que o Neon precisa. O `TrustServerCertificate`
+                // que ficava aqui foi marcado obsoleto e não faz nada — mantê-lo dava a
+                // impressão de que a decisão de confiança estava sendo tomada nesta linha.
+                SslMode = SslMode.Require
             };
             return builder.ConnectionString;
         }

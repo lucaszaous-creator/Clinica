@@ -107,6 +107,12 @@ NOWARN = ",".join([
     "NU1702",
     "CS8981",
     "MSB3277",           # conflito de versão entre refs do WPF e do runtime
+    # Artefato DESTA ferramenta: os campos de x:Name que ela gera nunca são
+    # atribuídos, porque o InitializeComponent() gerado é um stub — no app real
+    # quem os preenche é o compilador de marcação. Eram 714 avisos, todos falsos,
+    # e ferramenta que enterra o achado real em ruído próprio é ignorada na
+    # terceira vez que roda.
+    "CS0649",
 ])
 
 

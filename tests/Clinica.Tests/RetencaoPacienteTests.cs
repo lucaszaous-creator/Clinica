@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -5,6 +6,7 @@ using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Xunit;
 
 namespace Clinica.Tests;
@@ -151,6 +153,73 @@ public class RetencaoPacienteTests : IDisposable
         var soAntigos = await _retencao.SumidosAsync(Hoje, diasMinimos: 180);
         soAntigos.Should().ContainSingle();
         soAntigos[0].Nome.Should().Be("Sumiu faz um ano");
+    }
+
+    /// <summary>
+    /// O custo da leitura NÃO cresce com o número de pacientes.
+    ///
+    /// A primeira versão carregava a tabela de pacientes inteira com a de atendimentos
+    /// junto e ia ao banco três vezes POR PESSOA (agendamento futuro, contatos, pacotes).
+    /// Numa base de dois mil pacientes são seis mil idas a um Postgres remoto: a tela
+    /// levaria minutos e a direção concluiria que ela não funciona.
+    ///
+    /// Este teste conta os comandos de fato executados. Ele não afere velocidade — afere
+    /// a FORMA da consulta, que é o que regride sem ninguém perceber: basta alguém voltar
+    /// a chamar um `...DoPacienteAsync` dentro do laço.
+    /// </summary>
+    [Fact]
+    public async Task Leitura_nao_faz_uma_consulta_por_paciente()
+    {
+        var contador = new ContadorDeConsultas();
+        var opcoes = new DbContextOptionsBuilder<ClinicaDbContext>()
+            .UseSqlite(_conn).AddInterceptors(contador).Options;
+
+        using var db = new ClinicaDbContext(opcoes);
+        var repo = new ClinicaRepositorio(db);
+        var retencao = new RetencaoPacienteService(repo, new PacoteService(repo));
+
+        for (var i = 0; i < 12; i++)
+        {
+            var id = await CriarPacienteAsync($"Sumido {i}");
+            await AtenderAsync(id, Hoje.AddDays(-100 - i));
+        }
+
+        contador.Zerar();
+        var lista = await retencao.SumidosAsync(Hoje);
+
+        lista.Should().HaveCount(12);
+
+        // O piso é tão importante quanto o teto: sem ele, um interceptor que não se
+        // registrasse deixaria o teste passar contando zero — verde por não ter olhado.
+        contador.Total.Should().BeGreaterThan(0, "o contador precisa estar de fato ligado");
+        contador.Total.Should().BeLessThanOrEqualTo(
+            6, "a leitura é por conjunto — doze pacientes não podem custar doze consultas");
+    }
+
+    /// <summary>Conta os comandos que chegam ao banco, para o teste acima.</summary>
+    private sealed class ContadorDeConsultas : DbCommandInterceptor
+    {
+        private int _total;
+
+        public int Total => _total;
+
+        public void Zerar() => _total = 0;
+
+        public override InterceptionResult<DbDataReader> ReaderExecuting(
+            DbCommand command, CommandEventData eventData,
+            InterceptionResult<DbDataReader> result)
+        {
+            Interlocked.Increment(ref _total);
+            return base.ReaderExecuting(command, eventData, result);
+        }
+
+        public override ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(
+            DbCommand command, CommandEventData eventData,
+            InterceptionResult<DbDataReader> result, CancellationToken ct = default)
+        {
+            Interlocked.Increment(ref _total);
+            return base.ReaderExecutingAsync(command, eventData, result, ct);
+        }
     }
 
     [Fact]

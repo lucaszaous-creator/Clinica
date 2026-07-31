@@ -264,3 +264,18 @@ public sealed record LancamentoDatado(
     /// </summary>
     public int? CategoriaId { get; init; }
 }
+
+/// <summary>
+/// O que a leitura de retenção precisa de cada paciente já atendido — agrupado no BANCO.
+///
+/// Antes disso, responder "quem parou de vir" exigia carregar a tabela de pacientes
+/// inteira com a de atendimentos junto, para no fim usar duas agregações por pessoa: a
+/// data da última sessão e a contagem. Numa base de alguns milhares de pacientes isso é
+/// o banco inteiro trafegando até o cliente — e o banco é remoto (Neon).
+/// </summary>
+public sealed record ResumoAtendimentosPaciente(
+    int PacienteId,
+    string Nome,
+    string? Telefone,
+    DateOnly UltimaSessao,
+    int TotalSessoes);

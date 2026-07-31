@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
 using Clinica.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -141,7 +142,79 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
 
     public async Task<IReadOnlyList<Paciente>> PacientesComAtendimentosAsync(CancellationToken ct = default)
-        => await _db.Pacientes.Include(p => p.Atendimentos).ToListAsync(ct);
+        => await _db.Pacientes.AsNoTracking().Include(p => p.Atendimentos).ToListAsync(ct);
+
+    /// <summary>
+    /// Uma linha por paciente já atendido, agregada NO BANCO.
+    ///
+    /// O `GroupBy` sai em SQL (`MAX(data)`, `COUNT(*)`), e o `join` com pacientes traz
+    /// só as três colunas que a lista mostra. Quem antes fazia isso em memória arrastava
+    /// pacientes e atendimentos inteiros pela rede para usar dois números por pessoa.
+    /// </summary>
+    public async Task<IReadOnlyList<ResumoAtendimentosPaciente>> ResumoAtendimentosPorPacienteAsync(
+        CancellationToken ct = default)
+        => await _db.Atendimentos.AsNoTracking()
+            .GroupBy(a => a.PacienteId)
+            .Select(g => new { PacienteId = g.Key, Ultima = g.Max(a => a.Data), Total = g.Count() })
+            .Join(_db.Pacientes.AsNoTracking(),
+                r => r.PacienteId, p => p.Id,
+                (r, p) => new ResumoAtendimentosPaciente(
+                    p.Id, p.Nome, p.Telefone, r.Ultima, r.Total))
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<int>> PacientesComAgendamentoFuturoAsync(
+        IReadOnlyCollection<int> pacienteIds, DateOnly dia, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        // `DataHora` é DateTime e o corte é por DIA: comparar contra a meia-noite do dia
+        // mantém a sessão marcada para hoje mais tarde dentro do resultado.
+        var corte = dia.ToDateTime(TimeOnly.MinValue);
+
+        return await _db.Agendamentos.AsNoTracking()
+            .Where(a => pacienteIds.Contains(a.PacienteId)
+                        && a.Status == StatusAgendamento.Agendado
+                        && a.DataHora >= corte)
+            .Select(a => a.PacienteId)
+            .Distinct()
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<int>> PacientesJaContatadosAsync(
+        IReadOnlyDictionary<int, DateOnly> desdeQuandoPorPaciente,
+        TipoContato tipo, CancellationToken ct = default)
+    {
+        if (desdeQuandoPorPaciente.Count == 0) return [];
+
+        var ids = desdeQuandoPorPaciente.Keys.ToList();
+
+        // O corte por paciente é diferente (cada um tem a sua última sessão), e traduzir
+        // isso para SQL exigiria um OR por pessoa. Traz-se então o par (paciente, data)
+        // do conjunto — que é pequeno, um contato por paciente por rodada — e o corte
+        // acontece aqui. Continua sendo UMA consulta.
+        var contatos = await _db.Contatos.AsNoTracking()
+            .Where(c => ids.Contains(c.PacienteId) && c.Tipo == tipo)
+            .Select(c => new { c.PacienteId, c.Referencia })
+            .ToListAsync(ct);
+
+        return contatos
+            .Where(c => desdeQuandoPorPaciente.TryGetValue(c.PacienteId, out var desde)
+                        && c.Referencia >= desde)
+            .Select(c => c.PacienteId)
+            .Distinct()
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<PacotePaciente>> PacotesDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        return await _db.PacotesPaciente.AsNoTracking()
+            .Include(p => p.Consumos)
+            .Where(p => pacienteIds.Contains(p.PacienteId))
+            .ToListAsync(ct);
+    }
 
     public Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default)
         => _db.Codigos.FirstOrDefaultAsync(c => c.Id == codigoId, ct);
