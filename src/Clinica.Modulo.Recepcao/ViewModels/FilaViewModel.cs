@@ -91,6 +91,13 @@ public sealed partial class FilaViewModel : ObservableObject
     public ObservableCollection<CartaoFila> EmAtendimento { get; } = [];
     public ObservableCollection<CartaoFila> Finalizados { get; } = [];
 
+    /// <summary>
+    /// O quadro só está vazio quando as QUATRO colunas estão — um paciente já finalizado
+    /// é dia com movimento, não fila vazia.
+    /// </summary>
+    public bool QuadroVazio => Aguardando.Count == 0 && NaRecepcao.Count == 0
+                               && EmAtendimento.Count == 0 && Finalizados.Count == 0;
+
     [ObservableProperty]
     private DateTime _dia = DateTime.Today;
 
@@ -189,6 +196,8 @@ public sealed partial class FilaViewModel : ObservableObject
             }
 
             AtualizarEsperas();
+            // As quatro coleções mudaram: o quadro precisa reavaliar se está vazio.
+            OnPropertyChanged(nameof(QuadroVazio));
 
             var faltas = _doDia.Count(a => a.Status == StatusAgendamento.Faltou);
             var cancelados = _doDia.Count(a => a.Status == StatusAgendamento.Cancelado);

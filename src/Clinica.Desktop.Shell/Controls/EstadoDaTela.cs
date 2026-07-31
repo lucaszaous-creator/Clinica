@@ -96,6 +96,28 @@ public class EstadoDaTela : Control
         set => SetValue(NaoVerificadoProperty, value);
     }
 
+    /// <summary>
+    /// Diz explicitamente se está vazio, ignorando <see cref="Itens"/>.
+    /// </summary>
+    /// <remarks>
+    /// Saída para tela COMPOSTA, e não atalho. A fila é um quadro de quatro colunas que
+    /// carregam da mesma consulta: quatro componentes dariam quatro giros na tela para
+    /// uma espera só, e o quadro só está vazio quando as quatro estão. `Itens` continua
+    /// sendo o caminho normal — quem tem uma lista só não precisa deste campo.
+    ///
+    /// Nulo = decide pelo `Itens`. É por isso que é `bool?` e não `bool`: com `bool`, o
+    /// valor padrão `false` afirmaria "não está vazio" em toda tela que não o preenchesse.
+    /// </remarks>
+    public static readonly DependencyProperty VazioProperty =
+        DependencyProperty.Register(nameof(Vazio), typeof(bool?), typeof(EstadoDaTela),
+            new PropertyMetadata(null, AoMudar));
+
+    public bool? Vazio
+    {
+        get => (bool?)GetValue(VazioProperty);
+        set => SetValue(VazioProperty, value);
+    }
+
     /// <summary>Ícone do estado vazio (fonte de ícones do design system).</summary>
     public static readonly DependencyProperty GlifoProperty =
         DependencyProperty.Register(nameof(Glifo), typeof(string), typeof(EstadoDaTela),
@@ -184,7 +206,7 @@ public class EstadoDaTela : Control
         // pode ser desenhada como ausência de dado.
         Estado = Carregando ? EstadoDeLista.Carregando
             : NaoVerificado ? EstadoDeLista.NaoVerificado
-            : Vazia(Itens) ? EstadoDeLista.Vazio
+            : (Vazio ?? Vazia(Itens)) ? EstadoDeLista.Vazio
             : EstadoDeLista.Conteudo;
 
         Visibility = Estado == EstadoDeLista.Conteudo
