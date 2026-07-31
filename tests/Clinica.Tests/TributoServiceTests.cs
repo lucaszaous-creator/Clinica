@@ -295,6 +295,170 @@ public class TributoServiceTests : IDisposable
         await acao.Should().ThrowAsync<InvalidOperationException>();
     }
 
+    // ---------------- A apuração do mês (parcela 28) ----------------
+    //
+    // A medição de cobertura mostrou `ApuracaoMensalAsync` com ZERO execução: ela foi
+    // escrita, aprovada no CI e nunca rodou. É a tela que responde "de QUÊ foi o imposto"
+    // — a pergunta do contador — e o número dela vai para a guia.
+
+    private async Task ReceberAsync(
+        decimal valor, DateOnly quando, decimal? imposto = null, string? convenio = null)
+    {
+        _db.Lancamentos.Add(new LancamentoFinanceiro
+        {
+            Tipo = TipoLancamento.Entrada,
+            Status = StatusLancamento.Realizado,
+            Data = quando,
+            DataPagamento = quando,
+            Valor = valor,
+            ValorImposto = imposto,
+            ConvenioCodigo = convenio,
+            Descricao = "Sessão"
+        });
+        await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// O caso do Presumido: cinco tributos, cada um com a sua alíquota, sobre a mesma
+    /// receita. A soma das linhas é o total — o ponto inteiro da tela.
+    /// </summary>
+    [Fact]
+    public async Task Apuracao_abre_o_imposto_por_tributo()
+    {
+        await CriarAsync("ISS", 3m);
+        await CriarAsync("PIS", 0.65m);
+        await CriarAsync("COFINS", 3m);
+
+        await ReceberAsync(1000m, new DateOnly(2026, 9, 10));
+
+        var a = await _tributos.ApuracaoMensalAsync(2026, 9);
+
+        a.Vazia.Should().BeFalse();
+        a.ReceitaBruta.Should().Be(1000m);
+        a.Linhas.Should().HaveCount(3);
+        a.Linhas.Sum(l => l.Valor).Should().Be(a.TotalApurado,
+            "a soma do detalhe é o total — é o detalhe que vai ao contador");
+        a.TotalApurado.Should().Be(66.50m);
+    }
+
+    /// <summary>
+    /// Base presumida: a clínica cadastra "IRPJ 15% sobre 32%" e o que sai é 4,8%. Sem o
+    /// campo de base, digitar 15% triplicaria o imposto do mês.
+    /// </summary>
+    [Fact]
+    public async Task Apuracao_usa_a_aliquota_efetiva_e_nao_a_de_tabela()
+    {
+        await CriarAsync("IRPJ", 15m, basePercentual: 32m);
+        await ReceberAsync(1000m, new DateOnly(2026, 9, 10));
+
+        var a = await _tributos.ApuracaoMensalAsync(2026, 9);
+
+        a.TotalApurado.Should().Be(48m, "15% sobre 32% da receita, não 15% dela");
+    }
+
+    /// <summary>
+    /// Recebimento FORA do mês não entra. Parece óbvio e é o erro mais fácil de cometer
+    /// num corte de datas — e um mês que puxa o vizinho manda para a guia um imposto que
+    /// já foi recolhido.
+    /// </summary>
+    [Fact]
+    public async Task Apuracao_ignora_recebimento_de_outro_mes()
+    {
+        await CriarAsync("ISS", 3m);
+
+        await ReceberAsync(1000m, new DateOnly(2026, 9, 30));
+        await ReceberAsync(5000m, new DateOnly(2026, 10, 1));
+        await ReceberAsync(7000m, new DateOnly(2026, 8, 31));
+
+        var a = await _tributos.ApuracaoMensalAsync(2026, 9);
+
+        a.ReceitaBruta.Should().Be(1000m);
+    }
+
+    /// <summary>
+    /// A retenção do convênio SUBSTITUI os tributos gerais naquele recebimento — os dois
+    /// são o mesmo imposto, e somá-los conta duas vezes (o erro clássico da planilha de
+    /// convênio). Aqui: mil reais do convênio, mil particulares.
+    /// </summary>
+    [Fact]
+    public async Task Retencao_do_convenio_nao_soma_com_o_tributo_geral()
+    {
+        await CriarAsync("ISS", 3m);
+
+        var retido = new Tributo
+        {
+            Sigla = "IRRF",
+            Nome = "IRRF retido",
+            Percentual = 1.5m,
+            BasePercentual = 100m,
+            ConvenioCodigo = "UNIMED",
+            Ativo = true
+        };
+        await _tributos.SalvarAsync(retido);
+
+        await ReceberAsync(1000m, new DateOnly(2026, 9, 10), convenio: "UNIMED");
+        await ReceberAsync(1000m, new DateOnly(2026, 9, 11));
+
+        var a = await _tributos.ApuracaoMensalAsync(2026, 9);
+
+        a.Linhas.Should().Contain(l => l.Sigla == "IRRF" && l.RetidoNaFonte);
+        a.Linhas.Single(l => l.Sigla == "IRRF").Base.Should().Be(1000m,
+            "a retenção incide só sobre o que veio daquele convênio");
+        a.Linhas.Single(l => l.Sigla == "ISS").Base.Should().Be(1000m,
+            "o particular não sofre a retenção do convênio, e o do convênio não sofre o ISS geral");
+
+        a.ARecolher.Should().Be(30m, "retido já saiu; a guia leva só o que a clínica recolhe");
+        a.Retido.Should().Be(15m);
+    }
+
+    /// <summary>
+    /// Sem tributo cadastrado a apuração é VAZIA, não zero: "não configuramos" e
+    /// "configuramos e deu zero" são respostas diferentes, e a tela mostra cada uma de
+    /// um jeito.
+    /// </summary>
+    [Fact]
+    public async Task Sem_tributo_cadastrado_a_apuracao_e_vazia()
+    {
+        await ReceberAsync(1000m, new DateOnly(2026, 9, 10));
+
+        var a = await _tributos.ApuracaoMensalAsync(2026, 9);
+
+        a.Vazia.Should().BeTrue();
+        a.ReceitaBruta.Should().Be(1000m, "a receita existe mesmo sem imposto configurado");
+    }
+
+    /// <summary>
+    /// A divergência entre o apurado AGORA e o gravado NA ÉPOCA aparece em vez de ser
+    /// escondida: ela significa que uma alíquota mudou depois de o dinheiro entrar, e é a
+    /// clínica que decide qual número vai para a guia.
+    /// </summary>
+    [Fact]
+    public async Task Divergencia_com_o_gravado_na_epoca_fica_visivel()
+    {
+        await CriarAsync("ISS", 5m);
+
+        // Gravado quando a alíquota ainda era 3%.
+        await ReceberAsync(1000m, new DateOnly(2026, 9, 10), imposto: 30m);
+
+        var a = await _tributos.ApuracaoMensalAsync(2026, 9);
+
+        a.TotalGravado.Should().Be(30m);
+        a.TotalApurado.Should().Be(50m);
+        a.Diverge.Should().BeTrue();
+    }
+
+    /// <summary>Mês sem nenhum recebimento não estoura e não inventa receita.</summary>
+    [Fact]
+    public async Task Mes_sem_recebimento_apura_zero()
+    {
+        await CriarAsync("ISS", 3m);
+
+        var a = await _tributos.ApuracaoMensalAsync(2026, 9);
+
+        a.ReceitaBruta.Should().Be(0m);
+        a.Vazia.Should().BeTrue();
+    }
+
     public void Dispose()
     {
         _db.Dispose();
