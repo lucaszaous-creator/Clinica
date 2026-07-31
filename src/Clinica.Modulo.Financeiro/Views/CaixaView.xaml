@@ -33,6 +33,8 @@
                      aberta do módulo não tinha. -->
                 <Button Content="Exportar CSV" Command="{Binding ExportarCommand}"
                         Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="120" />
+                <Button Content="Cobrar por Pix" Command="{Binding CobrarPixCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="140" />
                 <Button Content="Novo lançamento" Command="{Binding NovoLancamentoCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" Margin="8,0,0,0" />
             </StackPanel>
         </Grid>

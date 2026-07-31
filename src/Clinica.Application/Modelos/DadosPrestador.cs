@@ -16,6 +16,23 @@ public sealed class DadosPrestador
     public string? Telefone { get; set; }
     public string? Email { get; set; }
 
+    /// <summary>
+    /// Chave Pix da clínica — CPF, CNPJ, e-mail, telefone ou aleatória.
+    ///
+    /// Fica aqui, junto do CNPJ e do endereço, porque é identidade da clínica e não
+    /// configuração de operação: quem muda a chave é quem muda a conta bancária.
+    /// Acrescentar campo a este objeto é seguro para o faturamento congelado — ele é
+    /// gravado como JSON, e a versão dele simplesmente ignora o que não conhece.
+    /// </summary>
+    public string? ChavePix { get; set; }
+
+    /// <summary>
+    /// Cidade da clínica. Obrigatória no código Pix pelo padrão do Banco Central, e é a
+    /// única razão de o campo existir — o endereço completo não serve, porque ali cabem
+    /// no máximo quinze caracteres.
+    /// </summary>
+    public string? Cidade { get; set; }
+
     /// <summary>Registro ANS da operadora (destino do lote).</summary>
     public string? RegistroAnsOperadora { get; set; }
 

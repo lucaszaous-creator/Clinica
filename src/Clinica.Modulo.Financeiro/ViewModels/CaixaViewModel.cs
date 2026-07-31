@@ -17,6 +17,13 @@ public sealed class LinhaCaixa
     public required string Descricao { get; init; }
     public required string Categoria { get; init; }
     public required string ValorFormatado { get; init; }
+
+    /// <summary>
+    /// O valor em número, ao lado do formatado. Existe porque quem precisa dele — a
+    /// cobrança por Pix — não pode reconverter "+ R$ 150,00" para decimal: o texto já
+    /// carrega sinal, símbolo e a cultura da máquina, e a volta erra em algum deles.
+    /// </summary>
+    public required decimal Valor { get; init; }
     public required string StatusRotulo { get; init; }
 
     /// <summary>Vínculo com o faturamento, quando a receita nasceu de uma guia.</summary>
@@ -42,6 +49,7 @@ public sealed partial class CaixaViewModel : ObservableObject
     private readonly DocumentoFinanceiroService _documentos;
     private readonly DocumentosFinanceirosPdfService _pdfs;
     private readonly ParametrosService _parametros;
+    private readonly PixService _pix;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
@@ -102,13 +110,14 @@ public sealed partial class CaixaViewModel : ObservableObject
         FinanceiroService financeiro, TaxaService taxas,
         DocumentoFinanceiroService documentos,
         DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
-        ISnackbarService snackbar, IDialogoService dialogo)
+        PixService pix, ISnackbarService snackbar, IDialogoService dialogo)
     {
         _financeiro = financeiro;
         _taxas = taxas;
         _documentos = documentos;
         _pdfs = pdfs;
         _parametros = parametros;
+        _pix = pix;
         _snackbar = snackbar;
         _dialogo = dialogo;
         _ = CarregarAsync();
@@ -140,6 +149,7 @@ public sealed partial class CaixaViewModel : ObservableObject
                     Descricao = l.Descricao,
                     Categoria = l.Categoria?.Nome ?? "—",
                     ValorFormatado = $"{(entrada ? "+" : "-")} {l.Valor:C}",
+                    Valor = l.Valor,
                     StatusRotulo = Rotular(l.Status),
                     VeioDoFaturamento = l.CodigoFaturamentoId is not null,
                     EhEntrada = entrada,
@@ -187,6 +197,33 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         _snackbar.Sucesso("Lançamento registrado.");
         await CarregarAsync();
+    }
+
+
+    /// <summary>
+    /// Gera o código Pix para o paciente pagar agora.
+    /// </summary>
+    /// <remarks>
+    /// O `PixService` foi entregue na parcela 34 sem tela nenhuma; esta é a porta. Sai do
+    /// CAIXA porque é onde o dinheiro é registrado — e quando a linha já existe, o valor
+    /// vai preenchido: redigitar o que o sistema já sabe é onde entra o erro de um dígito.
+    ///
+    /// Gerar o código NÃO dá baixa. O lançamento continua previsto até alguém conferir o
+    /// extrato, porque este código não fala com banco nenhum e marcar como recebido aqui
+    /// criaria receita que talvez não tenha entrado.
+    /// </remarks>
+    [RelayCommand]
+    private void CobrarPix(LinhaCaixa? linha)
+    {
+        var vm = new CobrancaPixViewModel(
+            _parametros, _pix,
+            linha?.Valor,
+            linha?.Descricao);
+
+        new Janelas.CobrancaPixWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        }.ShowDialog();
     }
 
     /// <summary>Marca um lançamento previsto como efetivamente pago/recebido.</summary>

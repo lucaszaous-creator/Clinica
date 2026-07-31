@@ -49,6 +49,9 @@
 
                                 <TextBlock Text="E-mail" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
                                 <TextBox Text="{Binding Email}" MaxLength="120" />
+
+                                <TextBlock Text="Cidade" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                                <TextBox Text="{Binding Cidade}" MaxLength="60" />
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Nome fantasia" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
@@ -59,6 +62,12 @@
 
                                 <TextBlock Text="Telefone" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
                                 <TextBox Text="{Binding Telefone}" MaxLength="30" />
+
+                                <TextBlock Text="Chave Pix" Style="{StaticResource Rotulo}" Margin="0,10,0,4" />
+                                <TextBox Text="{Binding ChavePix, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />
+                                <TextBlock Text="{Binding TipoChavePixRotulo}" TextWrapping="Wrap"
+                                           Style="{StaticResource TextoSuave}"
+                                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" />
                             </StackPanel>
                         </Grid>
 
