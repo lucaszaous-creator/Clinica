@@ -1160,5 +1160,29 @@ duas se resolvessem ali, em trinta segundos. É a sexta rodada do defeito recorr
 projeto, agora na forma mais estrutural de todas: **o dado existe, tem leitor, tem tela —
 e a tela está do lado errado da ponte.**
 
+As **parcelas 28 a 32** foram uma rodada de 30 melhorias em cinco lotes, e o que elas têm
+em comum não é um módulo — é um TIPO de lacuna. Três padrões apareceram:
+
+**O dado existia e nenhuma tela o lia.** A data de nascimento estava no cadastro desde
+sempre (aniversariantes), `Faltou` era gravado desde a parcela 1 e só virava taxa da
+CLÍNICA (padrão de falta do paciente), `AbaixoDoMinimoAsync` existia desde a parcela 4 sem
+um chamador (lista de compras). É a mesma coisa que as parcelas 21 a 25 já tinham corrigido
+em outros pontos — e continua aparecendo.
+
+**A pergunta não tinha régua.** O painel comparava tudo com o mês anterior, e variação
+responde "melhorou?" e nunca "chegamos onde a gente disse que ia chegar?". Meta (28) e teto
+de gasto (31) são a mesma ideia aplicada às duas pontas do dinheiro.
+
+**O número existia consolidado e ninguém conseguia abri-lo.** `ValorImposto` somava cinco
+tributos num campo só (apuração), e o resultado do mês não existia em lugar nenhum — o
+módulo respondia "o que entrou e saiu", "como se distribui no tempo" e "quanto de imposto",
+e nunca "sobrou quanto".
+
+> **O que NÃO entrou de propósito.** Ao levantar o lote do Financeiro, duas melhorias
+> planejadas (alerta de mínimo e alerta de validade no estoque) já existiam na tela, e uma
+> terceira (comparativo ano a ano) teria pouco valor com um ano de base. Foram trocadas por
+> lacunas reais em vez de contadas como entrega — contar o que já está pronto é a forma
+> mais fácil de um quadro de features mentir.
+
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

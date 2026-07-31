@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -254,6 +255,120 @@ public sealed partial class EstoqueViewModel : ObservableObject
         if (janela.ShowDialog() != true) return;
         _snackbar.Sucesso("Movimento registrado.");
         await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Acerto de INVENTÁRIO: a contagem física não bateu com o saldo do sistema.
+    ///
+    /// Até aqui a clínica só podia lançar `Perda` quando a contagem não fechava — e perda
+    /// é uma AFIRMAÇÃO: alguém quebrou, venceu ou extraviou. Quando a contagem acha A
+    /// MAIS, chamar de perda mente sobre o que aconteceu.
+    ///
+    /// Pede a quantidade CONTADA, nunca a diferença: quem está com a caixa na mão conta
+    /// "tenho 37", e pedir "então ajusta 4 para baixo" é exigir a conta que o sistema
+    /// sabe fazer e a pessoa erra.
+    /// </summary>
+    [RelayCommand]
+    private async Task InventariarAsync(LinhaEstoque? linha)
+    {
+        if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "acertar o inventário");
+
+        var contado = _dialogo.PerguntarTexto(
+            $"Inventário de {linha.Nome}",
+            $"O sistema diz {linha.Saldo}. Quanto você CONTOU na prateleira?\n\n"
+            + "Informe a quantidade contada — o sistema calcula a diferença. Se a "
+            + "contagem bater, nada é registrado.");
+        if (string.IsNullOrWhiteSpace(contado)) return;
+
+        if (!Valores.TentarLerDecimal(contado, out var quantidade) || quantidade < 0)
+        {
+            Erro("Informe a quantidade contada (não pode ser negativa).");
+            return;
+        }
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Por que a contagem não bateu?",
+            "Diferença de inventário sem motivo é indistinguível de erro de digitação seis "
+            + "meses depois. Escreva o que você encontrou (ex.: “frasco quebrado não "
+            + "lançado”, “entrada digitada em dobro em maio”).");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        try
+        {
+            var movimento = await _estoque.AjustarInventarioAsync(
+                linha.Id, quantidade, motivo, SessaoUsuario.Atual.Operador);
+
+            if (movimento is null)
+            {
+                // Contagem igual ao saldo não vira movimento: registrar um ajuste de zero
+                // sujaria o extrato com linhas que não mudam nada.
+                _snackbar.Info("A contagem bateu com o sistema — nada a ajustar.");
+                return;
+            }
+
+            _snackbar.Sucesso(movimento.AjusteParaCima == true
+                ? $"Ajuste para cima: {movimento.Quantidade:0.##} a mais no saldo."
+                : $"Ajuste para baixo: {movimento.Quantidade:0.##} a menos no saldo.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — inventário não pôde ser ajustado", ex);
+            Erro(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// A lista de compras: o que está abaixo do mínimo e QUANTO comprar.
+    ///
+    /// `AbaixoDoMinimoAsync` existia no serviço desde a parcela 4 e **nenhuma tela a
+    /// chamava** — a tela marcava a linha em vermelho e deixava a conta para quem fosse
+    /// ao fornecedor. Quem vai ao fornecedor não leva a tela: leva um papel.
+    ///
+    /// A sugestão é **o dobro do mínimo menos o saldo**, e a tela diz isso: repor só até
+    /// o mínimo faz o item voltar ao alerta na semana seguinte.
+    /// </summary>
+    [RelayCommand]
+    private async Task ListaDeComprasAsync()
+    {
+        try
+        {
+            var faltando = await _estoque.AbaixoDoMinimoAsync();
+
+            if (faltando.Count == 0)
+            {
+                _snackbar.Info("Nada abaixo do mínimo — não há o que comprar.");
+                return;
+            }
+
+            var csv = ExportacaoCsv.Montar(
+                ["Item", "Unidade", "Saldo", "Mínimo", "Sugestão de compra", "Custo médio"],
+                faltando.Select(s => new[]
+                {
+                    s.Nome,
+                    s.Unidade,
+                    $"{s.Saldo:0.##}",
+                    $"{s.EstoqueMinimo:0.##}",
+                    $"{Math.Max(s.EstoqueMinimo * 2 - s.Saldo, 0m):0.##}",
+                    s.CustoMedio is { } custo ? custo.ToString("C") : "—"
+                }));
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                csv,
+                ImpressaoPdf.NomeSeguro($"lista-de-compras-{DateTime.Today:yyyy-MM-dd}.csv"),
+                "CSV (*.csv)|*.csv", ".csv");
+
+            if (erro is not null) Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — lista de compras não pôde ser gerada", ex);
+            Erro(ex.Message);
+        }
     }
 
     [RelayCommand]

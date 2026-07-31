@@ -27,6 +27,7 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveContas = ChavesSuite.Contas;
     public const string ChaveInadimplencia = ChavesSuite.Inadimplencia;
     public const string ChaveFluxo = "fluxo-caixa";
+    public const string ChaveResultado = ChavesSuite.Resultado;
     public const string ChaveFechamento = ChavesSuite.FechamentoCaixa;
     public const string ChaveRecebiveis = ChavesSuite.Recebiveis;
     public const string ChaveConciliacao = ChavesSuite.Conciliacao;
@@ -72,6 +73,13 @@ public sealed class ModuloFinanceiro : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveFluxo, Rotulo = "Fluxo de caixa", Glifo = "\uEB05",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        // Logo depois do Fluxo: os dois olham o mesmo dinheiro em recortes diferentes —
+        // o fluxo distribui no tempo, o resultado fecha o mes e diz quanto sobrou.
+        new ItemMenuModulo
+        {
+            Chave = ChaveResultado, Rotulo = "Resultado do m\u00EAs", Glifo = "\uE9D9",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
@@ -124,6 +132,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<ContasViewModel>();
         servicos.AddTransient<InadimplenciaViewModel>();
         servicos.AddTransient<FluxoCaixaViewModel>();
+        servicos.AddTransient<ResultadoViewModel>();
         servicos.AddTransient<FechamentoCaixaViewModel>();
         servicos.AddTransient<RecebiveisViewModel>();
         servicos.AddTransient<ConciliacaoViewModel>();
@@ -144,6 +153,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveContas => new ContasView { DataContext = servicos.GetRequiredService<ContasViewModel>() },
         ChaveInadimplencia => new InadimplenciaView { DataContext = servicos.GetRequiredService<InadimplenciaViewModel>() },
         ChaveFluxo => new FluxoCaixaView { DataContext = servicos.GetRequiredService<FluxoCaixaViewModel>() },
+        ChaveResultado => new ResultadoView { DataContext = servicos.GetRequiredService<ResultadoViewModel>() },
         ChaveFechamento => new FechamentoCaixaView { DataContext = servicos.GetRequiredService<FechamentoCaixaViewModel>() },
         ChaveRecebiveis => new RecebiveisView { DataContext = servicos.GetRequiredService<RecebiveisViewModel>() },
         ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },

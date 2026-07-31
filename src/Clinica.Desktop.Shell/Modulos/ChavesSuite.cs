@@ -39,6 +39,9 @@ public static class ChavesSuite
     /// <summary>Conciliação guia × caixa (Financeiro).</summary>
     public const string Conciliacao = "conciliacao";
 
+    /// <summary>Resultado do mês e teto de gasto (Financeiro).</summary>
+    public const string Resultado = "resultado";
+
     /// <summary>Faturamento (TISS) consolidado (Direção) — pendências e glosas.</summary>
     public const string FaturamentoTiss = "faturamento-gerencial";
 }

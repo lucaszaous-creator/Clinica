@@ -1038,6 +1038,37 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (meta is not null) _db.Metas.Remove(meta);
     }
 
+    // ---- Teto de gasto por categoria (parcela 31) ----
+
+    public async Task<IReadOnlyList<OrcamentoCategoria>> OrcamentosDoMesAsync(
+        int ano, int mes, CancellationToken ct = default)
+        => await _db.Orcamentos.AsNoTracking()
+            .Include(o => o.Categoria)
+            .Where(o => o.Ano == ano && o.Mes == mes)
+            .OrderBy(o => o.Categoria!.Ordem)
+            .ThenBy(o => o.Categoria!.Nome)
+            .ToListAsync(ct);
+
+    public Task<OrcamentoCategoria?> ObterOrcamentoAsync(
+        int ano, int mes, int categoriaId, CancellationToken ct = default)
+        => _db.Orcamentos.FirstOrDefaultAsync(
+            o => o.Ano == ano && o.Mes == mes && o.CategoriaFinanceiraId == categoriaId, ct);
+
+    public Task<OrcamentoCategoria?> ObterOrcamentoPorIdAsync(
+        int orcamentoId, CancellationToken ct = default)
+        => _db.Orcamentos.Include(o => o.Categoria)
+            .FirstOrDefaultAsync(o => o.Id == orcamentoId, ct);
+
+    public async Task AdicionarOrcamentoAsync(
+        OrcamentoCategoria orcamento, CancellationToken ct = default)
+        => await _db.Orcamentos.AddAsync(orcamento, ct);
+
+    public async Task RemoverOrcamentoAsync(int orcamentoId, CancellationToken ct = default)
+    {
+        var orcamento = await _db.Orcamentos.FirstOrDefaultAsync(o => o.Id == orcamentoId, ct);
+        if (orcamento is not null) _db.Orcamentos.Remove(orcamento);
+    }
+
     // ---- Regime tributario (parcela 15) ----
 
     public async Task<IReadOnlyList<Tributo>> TributosAsync(
@@ -1369,7 +1400,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Select(l => new Clinica.Application.Modelos.LancamentoDatado(
                 l.Data, l.DataVencimento, l.DataPagamento,
                 l.Tipo, l.Status, l.Valor,
-                l.Categoria != null ? l.Categoria.Nome : null))
+                l.Categoria != null ? l.Categoria.Nome : null)
+            {
+                CategoriaId = l.CategoriaFinanceiraId
+            })
             .ToListAsync(ct);
 
     // ---- Fechamento de caixa (parcela 14) ----

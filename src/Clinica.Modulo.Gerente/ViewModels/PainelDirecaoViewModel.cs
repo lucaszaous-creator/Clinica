@@ -230,6 +230,8 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
         // Chave local do proprio modulo: Metas nao atravessa modulo, entao continua
         // sendo const do dono em vez de virar contrato em ChavesSuite.
         AssuntoDirecao.MetaEmRisco => (Modulo.ModuloGerente.ChaveMetas, "Ver metas"),
+        // Chave do Financeiro: atravessa modulo, entao vem de ChavesSuite.
+        AssuntoDirecao.OrcamentoEstourado => (ChavesSuite.Resultado, "Ver tetos"),
         _ => (ChavesSuite.FaturamentoTiss, "Ver faturamento")
     };
 

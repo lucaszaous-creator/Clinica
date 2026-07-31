@@ -29,6 +29,10 @@
                         Style="{StaticResource BotaoSecundario}" Width="40" />
                 <Button Content="Atualizar" Command="{Binding CarregarCommand}"
                         Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                <!-- O extrato do mês para o contador. Era a única saída que a tela mais
+                     aberta do módulo não tinha. -->
+                <Button Content="Exportar CSV" Command="{Binding ExportarCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="120" />
                 <Button Content="Novo lançamento" Command="{Binding NovoLancamentoCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" Margin="8,0,0,0" />
             </StackPanel>
         </Grid>

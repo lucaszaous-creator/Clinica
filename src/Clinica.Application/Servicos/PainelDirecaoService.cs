@@ -37,6 +37,12 @@ public enum AssuntoDirecao
     /// </summary>
     MetaEmRisco,
 
+    /// <summary>
+    /// Categoria que passou do teto de gasto do mês (parcela 31). Diferente da meta em
+    /// risco: aqui o estouro JÁ aconteceu — não é previsão, é fato.
+    /// </summary>
+    OrcamentoEstourado,
+
     PendenciasVencidas,
     GlosasVencidas,
     GlosasAVencer
@@ -157,6 +163,7 @@ public sealed class PainelDirecaoService
     private readonly InadimplenciaService _inadimplencia;
     private readonly ReceitaGlosadaService _receitaGlosada;
     private readonly MetaService _metas;
+    private readonly OrcamentoService _orcamentos;
 
     public PainelDirecaoService(
         IClinicaRepositorio repo,
@@ -168,10 +175,12 @@ public sealed class PainelDirecaoService
         PendenciaService pendencias,
         InadimplenciaService inadimplencia,
         ReceitaGlosadaService receitaGlosada,
-        MetaService metas)
+        MetaService metas,
+        OrcamentoService orcamentos)
     {
         _receitaGlosada = receitaGlosada;
         _metas = metas;
+        _orcamentos = orcamentos;
         _repo = repo;
         _financeiro = financeiro;
         _contas = contas;
@@ -381,6 +390,40 @@ public sealed class PainelDirecaoService
         {
             Diagnostico.Registrar("Painel da direção — metas não puderam ser apuradas", ex);
             naoVerificados.Add("Metas do mês");
+        }
+
+        // ---- Teto de gasto estourado (parcela 31) ----
+        try
+        {
+            var tetos = await _orcamentos.ApurarMesAsync(hoje.Year, hoje.Month, ct);
+
+            // Um alerta por categoria, e não um somado: "3 categorias estouraram" não diz
+            // se o problema é material, aluguel ou repasse — e são três decisões
+            // diferentes, com três interlocutores diferentes.
+            foreach (var teto in tetos.Where(t => t.Estourou))
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.OrcamentoEstourado,
+                    $"{teto.Categoria} passou do teto do mês",
+                    $"Teto de {Moeda(teto.Teto)}, gasto de {Moeda(teto.Gasto)} — "
+                    + $"{Moeda(Math.Abs(teto.Saldo))} acima.",
+                    GravidadeDirecao.Aviso));
+
+            // O que ainda não estourou mas vai, pelo que já foi contratado. É o único
+            // aviso que ainda dá para atender: depois de estourar, resta explicar.
+            foreach (var teto in tetos.Where(t => t.VaiEstourar))
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.OrcamentoEstourado,
+                    $"{teto.Categoria} vai passar do teto",
+                    teto.Projetado is { } projetado
+                        ? $"O que já foi contratado leva a {Moeda(projetado)} contra um teto "
+                          + $"de {Moeda(teto.Teto)}."
+                        : "O que já foi contratado passa do teto do mês.",
+                    GravidadeDirecao.Info));
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — tetos de gasto não puderam ser lidos", ex);
+            naoVerificados.Add("Teto de gasto");
         }
 
         // ---- Pendências de faturamento com prazo vencido ----

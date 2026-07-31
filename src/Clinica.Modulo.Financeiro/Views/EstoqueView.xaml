@@ -43,6 +43,13 @@
                              tarefa de poucas vezes por mês e não precisa ocupar a
                              lateral em todas as visitas. -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <!-- A conta de quanto comprar sai daqui em CSV: quem vai ao
+                                 fornecedor não leva a tela, leva um papel. A sugestão é o
+                                 DOBRO do mínimo menos o saldo — repor só até o mínimo faz
+                                 o item voltar ao alerta na semana seguinte. -->
+                            <Button Content="Lista de compras" Margin="0,0,8,0"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding ListaDeComprasCommand}" />
                             <Button Content="Novo item" Margin="0,0,8,0"
                                     Command="{Binding NovoItemCommand}"
                                     IsEnabled="{Binding PodeEditarFinanceiro}" />
@@ -91,6 +98,16 @@
                                                         VerticalAlignment="Center">
                                                 <Button Content="Movimentar…" Style="{StaticResource BotaoPequeno}"
                                                         Command="{Binding DataContext.MovimentarCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <!-- Contagem física. Perda é uma AFIRMAÇÃO
+                                                     (quebrou, venceu, extraviou); a
+                                                     contagem que acha A MAIS não é perda,
+                                                     e forçar tudo em perda faz o custo
+                                                     médio do insumo parar de valer. -->
+                                                <Button Content="Inventário…" Margin="8,0,0,0"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        Command="{Binding DataContext.InventariarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Editar" Margin="8,0,0,0"
