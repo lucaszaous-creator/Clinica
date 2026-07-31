@@ -55,6 +55,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
     public DbSet<BloqueioAgenda> BloqueiosAgenda => Set<BloqueioAgenda>();
     public DbSet<MetaMensal> Metas => Set<MetaMensal>();
+    public DbSet<OrcamentoCategoria> Orcamentos => Set<OrcamentoCategoria>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -332,6 +333,21 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.Cascade);
 
             e.HasIndex(x => new { x.Ano, x.Mes, x.Indicador, x.ProfissionalId }).IsUnique();
+        });
+
+        // Teto de gasto por categoria e mês. Índice único pela mesma razão da meta: dois
+        // tetos para a mesma pergunta dariam duas réguas.
+        b.Entity<OrcamentoCategoria>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Teto).HasPrecision(14, 2);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+
+            e.HasOne(x => x.Categoria).WithMany()
+                .HasForeignKey(x => x.CategoriaFinanceiraId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => new { x.Ano, x.Mes, x.CategoriaFinanceiraId }).IsUnique();
         });
 
         // ---------- Prontuário e LGPD (parcela 2) ----------

@@ -474,6 +474,21 @@ public interface IClinicaRepositorio
 
     Task RemoverMetaAsync(int metaId, CancellationToken ct = default);
 
+    // ---- Teto de gasto por categoria (parcela 31) ----
+
+    /// <summary>Tetos do mes, com a categoria carregada.</summary>
+    Task<IReadOnlyList<OrcamentoCategoria>> OrcamentosDoMesAsync(
+        int ano, int mes, CancellationToken ct = default);
+
+    Task<OrcamentoCategoria?> ObterOrcamentoAsync(
+        int ano, int mes, int categoriaId, CancellationToken ct = default);
+
+    Task<OrcamentoCategoria?> ObterOrcamentoPorIdAsync(int orcamentoId, CancellationToken ct = default);
+
+    Task AdicionarOrcamentoAsync(OrcamentoCategoria orcamento, CancellationToken ct = default);
+
+    Task RemoverOrcamentoAsync(int orcamentoId, CancellationToken ct = default);
+
     // ---- Regime tributario (parcela 15) ----
 
     /// <summary>Catalogo de tributos (ISS, PIS, COFINS, IRPJ, CSLL, Simples).</summary>

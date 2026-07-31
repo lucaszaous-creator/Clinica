@@ -92,3 +92,38 @@ public class MetaMensal
         _ => string.Empty
     };
 }
+
+/// <summary>
+/// Teto de gasto de uma categoria num mês (parcela 31).
+///
+/// A clínica cadastra plano de contas desde a parcela 4 e vê o gasto por categoria no
+/// fluxo de caixa desde a 13 — as duas coisas respondem "quanto saiu de material este
+/// mês". Nenhuma responde **"quanto podia sair"**. Sem teto, o gasto só é julgado contra
+/// o mês anterior, que é a mesma armadilha que a meta resolveu para o faturamento:
+/// gastar 10% menos que um mês ruim aparece como economia.
+///
+/// É irmão de <see cref="MetaMensal"/> e segue as mesmas regras — uma linha por mês
+/// (fato datado, reajustar agosto não reescreve julho) e ausência diferente de zero
+/// (sem linha é "não decidimos", zero é "decidimos que não se gasta nada").
+///
+/// Só categoria de SAÍDA tem teto: alvo de receita é meta, e meta já existe.
+/// </summary>
+public class OrcamentoCategoria
+{
+    public int Id { get; set; }
+
+    public int Ano { get; set; }
+
+    /// <summary>1 a 12.</summary>
+    public int Mes { get; set; }
+
+    public int CategoriaFinanceiraId { get; set; }
+    public CategoriaFinanceira? Categoria { get; set; }
+
+    /// <summary>Quanto pode sair da categoria no mês, em reais.</summary>
+    public decimal Teto { get; set; }
+
+    public DateTime CriadoEm { get; set; } = DateTime.Now;
+
+    public string? CriadoPor { get; set; }
+}

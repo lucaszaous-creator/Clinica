@@ -253,4 +253,14 @@ public sealed record LancamentoDatado(
     public DateOnly DataDoFluxo => Status == StatusLancamento.Realizado
         ? DataPagamento ?? Data
         : DataVencimento ?? Data;
+
+    /// <summary>
+    /// Id da categoria (parcela 31). Entra como propriedade e não como parâmetro
+    /// posicional para não quebrar quem já constrói o registro.
+    ///
+    /// Existe porque o TETO de gasto é por categoria, e casar por NOME seria frágil:
+    /// renomear "Material" para "Material de consumo" desligaria o orçamento em silêncio,
+    /// e duas categorias com o mesmo nome (uma ativa, uma antiga) somariam na mesma linha.
+    /// </summary>
+    public int? CategoriaId { get; init; }
 }
