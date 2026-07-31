@@ -1,0 +1,152 @@
+<UserControl x:Class="Clinica.Gerente.Views.MetasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Metas" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="◀" Command="{Binding AnoAnteriorCommand}"
+                        Style="{StaticResource BotaoSecundario}" Width="40" />
+                <Border Background="{StaticResource Brush.Superficie}"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                        CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
+                    <TextBlock Text="{Binding Ano}" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                </Border>
+                <Button Content="▶" Command="{Binding ProximoAnoCommand}"
+                        Style="{StaticResource BotaoSecundario}" Width="40" />
+                <Button Content="Nova meta" Command="{Binding NovaMetaCommand}"
+                        IsEnabled="{Binding PodeEditar}" Margin="8,0,0,0" MinWidth="130" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,16">
+            <TextBlock TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.Texto.Primario}"
+                       Text="O painel da direção compara o mês com o mês anterior — isso responde “melhorou?”, não “chegamos onde a gente disse que ia chegar?”. A meta declara o alvo, e o painel passa a medir desempenho contra a decisão, com aviso quando o ritmo do mês não alcança o alvo." />
+        </Border>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Terceiro estado: a apuração falhou. Lista sem realizado por consulta quebrada
+             se lê como "não fizemos nada este mês", que é a leitura mais cara possível. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                Visibility="{Binding ApuracaoNaoVerificada, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock TextWrapping="Wrap"
+                       Text="Não foi possível apurar o realizado do mês corrente. A coluna “realizado” está vazia por falha de leitura, e não por falta de movimento." />
+        </Border>
+
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}"
+                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+            <DockPanel>
+                <Border DockPanel.Dock="Top" Padding="16,12"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="90" />
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="170" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Mês" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="1" Text="Indicador" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="2" Text="De quem" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="3" Text="Alvo" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="4" Text="Realizado" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="5" Text="Situação" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="6" Text="" Style="{StaticResource Rotulo}" Margin="0" />
+                    </Grid>
+                </Border>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Metas}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="130" />
+                                            <ColumnDefinition Width="130" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="170" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{Binding Periodo}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Rotulo}"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Dono}" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Alvo}"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="4" Text="{Binding Realizado}"
+                                                   Foreground="{StaticResource Brush.Texto.Primario}"
+                                                   VerticalAlignment="Center" />
+
+                                        <StackPanel Grid.Column="5" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <Border Style="{StaticResource Badge.Sucesso}" Margin="0,4,0,0"
+                                                    HorizontalAlignment="Left"
+                                                    Visibility="{Binding Atingida,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="Batida" />
+                                            </Border>
+                                            <Border Style="{StaticResource Badge.Erro}" Margin="0,4,0,0"
+                                                    HorizontalAlignment="Left"
+                                                    Visibility="{Binding EmRisco,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="Em risco" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="6" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Editar" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Command="{Binding DataContext.EditarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Excluir" Margin="8,0,0,0"
+                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    Command="{Binding DataContext.ExcluirCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+    </DockPanel>
+</UserControl>

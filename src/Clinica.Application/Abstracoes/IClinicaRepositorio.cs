@@ -438,6 +438,26 @@ public interface IClinicaRepositorio
 
     Task RemoverPrecoConvenioAsync(int precoId, CancellationToken ct = default);
 
+    // ---- Metas da direcao (parcela 28) ----
+
+    /// <summary>
+    /// Metas do ano, com o profissional carregado (a meta pode ser da clinica ou de
+    /// alguem). O recorte e o ANO porque a tela mostra o ano inteiro: a direção define
+    /// doze meses de uma vez e acompanha mes a mes.
+    /// </summary>
+    Task<IReadOnlyList<MetaMensal>> MetasDoAnoAsync(int ano, CancellationToken ct = default);
+
+    /// <summary>A meta de um mes/indicador/dono, se existir. Nulo = a direcao nao definiu.</summary>
+    Task<MetaMensal?> ObterMetaAsync(
+        int ano, int mes, IndicadorMeta indicador, int? profissionalId,
+        CancellationToken ct = default);
+
+    Task<MetaMensal?> ObterMetaPorIdAsync(int metaId, CancellationToken ct = default);
+
+    Task AdicionarMetaAsync(MetaMensal meta, CancellationToken ct = default);
+
+    Task RemoverMetaAsync(int metaId, CancellationToken ct = default);
+
     // ---- Regime tributario (parcela 15) ----
 
     /// <summary>Catalogo de tributos (ISS, PIS, COFINS, IRPJ, CSLL, Simples).</summary>

@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -41,6 +42,20 @@ public sealed class LinhaTributo
         Ativo = t.Ativo,
         ValendoAgora = t.VigenteEm(hoje)
     };
+}
+
+/// <summary>Uma linha da apuração mensal: um tributo, o que incidiu e quem recolhe.</summary>
+public sealed class LinhaApuracao
+{
+    public required string Sigla { get; init; }
+    public required string Nome { get; init; }
+    public required string Aliquota { get; init; }
+    public required string Base { get; init; }
+    public required string Valor { get; init; }
+    public required string Natureza { get; init; }
+
+    /// <summary>Retido já saiu; recolhido ainda vai sair. A tela separa os dois.</summary>
+    public required bool Retido { get; init; }
 }
 
 /// <summary>Uma taxa do catálogo, como aparece na lista.</summary>
@@ -123,6 +138,26 @@ public sealed partial class TaxasViewModel : ObservableObject
         FormaPagamento.CartaoDebito,
         FormaPagamento.CartaoCredito
     ];
+
+    // ---- Apuração mensal por tributo (parcela 28) ----
+
+    /// <summary>
+    /// Quanto de CADA tributo saiu no mês. O serviço separava ISS, PIS, COFINS, IRPJ e
+    /// CSLL desde a parcela 15 e toda tela consolidava num número só: a clínica sabia
+    /// quanto de imposto saiu e não sabia de quê — que é a pergunta do contador, e a
+    /// única que permite conferir cinco guias antes de pagá-las.
+    /// </summary>
+    public ObservableCollection<LinhaApuracao> Apuracao { get; } = [];
+
+    [ObservableProperty] private DateTime _mesApuracao =
+        new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    [ObservableProperty] private string _resumoApuracao = string.Empty;
+    [ObservableProperty] private string? _divergenciaApuracao;
+    [ObservableProperty] private bool _apuracaoNaoVerificada;
+
+    /// <summary>Há divergência entre o apurado agora e o gravado na época.</summary>
+    public bool TemDivergencia => !string.IsNullOrWhiteSpace(DivergenciaApuracao);
 
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -415,6 +450,111 @@ public sealed partial class TaxasViewModel : ObservableObject
         Mensagem = mensagem;
         MensagemEhErro = true;
     }
+
+    // ==================== Apuração mensal por tributo (parcela 28) ====================
+
+    [RelayCommand]
+    public async Task ApurarAsync()
+    {
+        try
+        {
+            ApuracaoNaoVerificada = false;
+            DivergenciaApuracao = null;
+
+            using var scope = _escopos.CreateScope();
+            var tributos = scope.ServiceProvider.GetRequiredService<TributoService>();
+
+            var r = await tributos.ApuracaoMensalAsync(MesApuracao.Year, MesApuracao.Month);
+
+            Apuracao.Clear();
+            foreach (var l in r.Linhas)
+                Apuracao.Add(new LinhaApuracao
+                {
+                    Sigla = l.Sigla,
+                    Nome = l.Nome,
+                    Aliquota = $"{l.Aliquota:0.####}%",
+                    Base = l.Base.ToString("C"),
+                    Valor = l.Valor.ToString("C"),
+                    Natureza = l.Natureza,
+                    Retido = l.RetidoNaFonte
+                });
+
+            ResumoApuracao = r.Vazia
+                ? "Nenhum tributo vigente incidiu sobre os recebimentos deste mês."
+                : $"Receita recebida {r.ReceitaBruta:C} · a recolher {r.ARecolher:C}"
+                  + (r.Retido > 0m ? $" · retido na fonte {r.Retido:C}" : string.Empty);
+
+            // A divergência aparece em vez de ser escondida: ela significa que a regra
+            // mudou DEPOIS de o dinheiro entrar, e é a clínica que decide qual número vai
+            // para a guia. Esconder faria o contador receber um total sem saber do outro.
+            if (r.Diverge)
+                DivergenciaApuracao =
+                    $"O apurado agora ({r.TotalApurado:C}) não bate com o que foi gravado nos "
+                    + $"lançamentos ({r.TotalGravado:C}) — diferença de {r.Divergencia:C}. "
+                    + "Isso acontece quando uma alíquota foi alterada depois de o dinheiro "
+                    + "entrar. Confira qual das duas regras vale para este mês.";
+        }
+        catch (Exception ex)
+        {
+            // Falha nunca aparece como sucesso: lista vazia por consulta quebrada se lê
+            // como "não houve imposto no mês", que é a mentira mais cara desta aba.
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — apuração mensal por tributo falhou", ex);
+            Apuracao.Clear();
+            ApuracaoNaoVerificada = true;
+            ResumoApuracao = $"Não foi possível apurar o mês: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void MesApuracaoAnterior() => MesApuracao = MesApuracao.AddMonths(-1);
+
+    [RelayCommand]
+    private void MesApuracaoProximo() => MesApuracao = MesApuracao.AddMonths(1);
+
+    partial void OnMesApuracaoChanged(DateTime value) => _ = ApurarAsync();
+
+    partial void OnDivergenciaApuracaoChanged(string? value)
+        => OnPropertyChanged(nameof(TemDivergencia));
+
+    /// <summary>
+    /// O CSV que vai ao contador. Ponto e vírgula e BOM UTF-8, como o resto da suíte:
+    /// com vírgula o arquivo abre com tudo numa coluna só, e sem BOM "Alíquota" vira
+    /// "AlÃ­quota" na planilha.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportarApuracaoAsync()
+    {
+        if (Apuracao.Count == 0)
+        {
+            _snackbar.Info("Não há apuração para exportar neste mês.");
+            return;
+        }
+
+        try
+        {
+            var csv = ExportacaoCsv.Montar(
+                ["Tributo", "Nome", "Alíquota efetiva", "Base", "Valor", "Natureza"],
+                Apuracao.Select(l => new[]
+                {
+                    l.Sigla, l.Nome, l.Aliquota, l.Base, l.Valor, l.Natureza
+                }));
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                csv,
+                ImpressaoPdf.NomeSeguro($"apuracao-{MesApuracao:yyyy-MM}.csv"),
+                "CSV (*.csv)|*.csv", ".csv");
+
+            if (erro is not null) Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — apuração não pôde ser exportada", ex);
+            Erro(ex.Message);
+        }
+    }
+
 }
 
 /// <summary>

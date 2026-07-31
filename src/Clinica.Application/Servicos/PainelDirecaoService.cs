@@ -31,6 +31,12 @@ public enum AssuntoDirecao
     /// </summary>
     ReceitaGlosada,
 
+    /// <summary>
+    /// O mês não vai alcançar a meta no ritmo atual (parcela 28). É o único alerta do
+    /// painel que fala do FUTURO — os outros são coisas que já aconteceram.
+    /// </summary>
+    MetaEmRisco,
+
     PendenciasVencidas,
     GlosasVencidas,
     GlosasAVencer
@@ -66,6 +72,12 @@ public sealed record PainelDirecao(
     /// <summary>Guias glosadas que ainda contam receita prevista, e quanto elas somam.</summary>
     int GuiasComReceitaGlosada,
     decimal ValorReceitaGlosada,
+
+    /// <summary>
+    /// As metas do mês com o realizado ao lado (parcela 28). Vazio = a direção não
+    /// definiu alvo, e aí o painel volta a mostrar só a variação contra o mês anterior.
+    /// </summary>
+    IReadOnlyList<MetaApurada> Metas,
 
     int PendenciasVencidas,
     int PendenciasEmAberto,
@@ -144,6 +156,7 @@ public sealed class PainelDirecaoService
     private readonly PendenciaService _pendencias;
     private readonly InadimplenciaService _inadimplencia;
     private readonly ReceitaGlosadaService _receitaGlosada;
+    private readonly MetaService _metas;
 
     public PainelDirecaoService(
         IClinicaRepositorio repo,
@@ -154,9 +167,11 @@ public sealed class PainelDirecaoService
         RodadaPendenciasService rodada,
         PendenciaService pendencias,
         InadimplenciaService inadimplencia,
-        ReceitaGlosadaService receitaGlosada)
+        ReceitaGlosadaService receitaGlosada,
+        MetaService metas)
     {
         _receitaGlosada = receitaGlosada;
+        _metas = metas;
         _repo = repo;
         _financeiro = financeiro;
         _contas = contas;
@@ -340,6 +355,34 @@ public sealed class PainelDirecaoService
             naoVerificados.Add("Receita glosada");
         }
 
+        // ---- Metas do mês (parcela 28) ----
+        IReadOnlyList<MetaApurada> metas = [];
+        try
+        {
+            metas = await _metas.ApurarMesAsync(hoje, ct);
+
+            // Um alerta por meta em risco, e não um alerta somado: "2 metas em risco" não
+            // diz qual, e a direção precisa saber se o problema é faturamento ou agenda —
+            // são conversas diferentes, com pessoas diferentes.
+            foreach (var meta in metas.Where(m => m.EmRisco))
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.MetaEmRisco,
+                    $"{meta.Rotulo}: no ritmo atual o mês fecha abaixo da meta",
+                    meta.DesvioProjetado is { } desvio
+                        ? $"Projeção de {desvio:0.#}% contra o alvo. Ainda dá para agir — "
+                          + "no dia 31 já não dá."
+                        : "A projeção do mês não alcança o alvo definido.",
+                    // Aviso, não perigo: a meta ainda pode ser alcançada, e é justamente
+                    // por isso que o alerta existe. Perigo aqui competiria com o dinheiro
+                    // que JÁ está errado, e o painel perderia a hierarquia.
+                    GravidadeDirecao.Aviso));
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — metas não puderam ser apuradas", ex);
+            naoVerificados.Add("Metas do mês");
+        }
+
         // ---- Pendências de faturamento com prazo vencido ----
         int pendenciasVencidas = 0, pendenciasAbertas = 0;
         try
@@ -405,6 +448,7 @@ public sealed class PainelDirecaoService
             pacientesDevendo, totalDevido,
             guiasSemReceita,
             guiasGlosadas, valorGlosado,
+            metas,
             pendenciasVencidas, pendenciasAbertas,
             glosasVencidas, glosasAVencer,
             // Perigo primeiro. O painel é lido de cima para baixo, e a ordem é a única

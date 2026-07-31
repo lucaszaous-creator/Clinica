@@ -217,6 +217,125 @@ public sealed class TributoService
         return _parametros is null ? 0m : await _parametros.ObterAliquotaImpostoAsync(ct);
     }
 
+    /// <summary>
+    /// A apuração do MÊS, tributo a tributo (parcela 28).
+    ///
+    /// Este serviço separa ISS, PIS, COFINS, IRPJ e CSLL desde a parcela 15 — e toda tela
+    /// do sistema consolidava `ValorImposto` num número só. O resultado prático: a clínica
+    /// sabia quanto de imposto saiu no mês e **não sabia de quê**, que é exatamente a
+    /// pergunta que o contador faz, e a única que permite conferir cinco guias antes de
+    /// pagá-las.
+    ///
+    /// Duas decisões que mudam o número:
+    ///
+    /// 1. **O período é pelo dia do RECEBIMENTO**, não pela competência do lançamento —
+    ///    a mesma data que o custo de transação usa. Imposto sobre receita recolhida
+    ///    acompanha o dinheiro que entrou.
+    /// 2. **A retenção do convênio é apurada por recebimento**, com o código da operadora
+    ///    daquele recebimento. Apurar o mês inteiro com os tributos gerais somaria o que a
+    ///    clínica recolhe com o que a operadora já reteve — contando duas vezes o mesmo
+    ///    tributo, que é o erro clássico da planilha de convênio.
+    ///
+    /// O total apurado é comparado com o que está GRAVADO nos lançamentos, e a divergência
+    /// aparece em vez de ser escondida: ela significa que a regra mudou depois de o
+    /// dinheiro entrar, e é a própria clínica que precisa decidir qual dos dois números
+    /// vai para a guia.
+    /// </summary>
+    public async Task<ApuracaoMensal> ApuracaoMensalAsync(
+        int ano, int mes, CancellationToken ct = default)
+    {
+        var inicio = new DateOnly(ano, mes, 1);
+        var fim = inicio.AddMonths(1).AddDays(-1);
+
+        var recebimentos = await _repo.RecebimentosComDeducaoAsync(inicio, fim, ct);
+
+        var receita = recebimentos.Sum(r => r.Valor);
+        var gravado = recebimentos.Sum(r => r.ValorImposto ?? 0m);
+
+        var acumulado = new Dictionary<string, LinhaApuracaoTributo>();
+
+        foreach (var r in recebimentos)
+        {
+            if (r.Valor <= 0m) continue;
+
+            var vigentes = await VigentesEmAsync(r.Dia, r.ConvenioCodigo, ct);
+            if (vigentes.Count == 0) continue;
+
+            foreach (var t in vigentes)
+            {
+                var efetiva = t.AliquotaEfetiva;
+                if (efetiva <= 0m) continue;
+
+                // Cada tributo arredondado SEPARADAMENTE, como no cálculo do recebimento:
+                // arredondar só no fim daria um total que não bate com a soma das linhas,
+                // e é o detalhe que vai para o contador.
+                var valor = Arredondar(r.Valor * efetiva / 100m);
+                var chave = $"{t.Sigla}|{t.RetidoNaFonte}";
+
+                acumulado[chave] = acumulado.TryGetValue(chave, out var atual)
+                    ? atual with
+                    {
+                        Base = atual.Base + r.Valor,
+                        Valor = atual.Valor + valor
+                    }
+                    : new LinhaApuracaoTributo(
+                        t.Sigla, t.Nome, efetiva, r.Valor, valor, t.RetidoNaFonte);
+            }
+        }
+
+        var linhas = acumulado.Values
+            // Retido primeiro: é o que a clínica NÃO paga no vencimento, e separar as duas
+            // naturezas é justamente o que evita recolher de novo o que já saiu.
+            .OrderByDescending(l => l.RetidoNaFonte)
+            .ThenByDescending(l => l.Valor)
+            .ToList();
+
+        return new ApuracaoMensal(ano, mes, receita, gravado, linhas.Sum(l => l.Valor), linhas);
+    }
+
     private static decimal Arredondar(decimal valor)
         => Math.Round(valor, 2, MidpointRounding.AwayFromZero);
+}
+
+/// <summary>Um tributo no mês: quanto incidiu, sobre quanto, e quem recolhe.</summary>
+public sealed record LinhaApuracaoTributo(
+    string Sigla,
+    string Nome,
+    decimal Aliquota,
+    decimal Base,
+    decimal Valor,
+    bool RetidoNaFonte)
+{
+    /// <summary>
+    /// Quem recolhe. Retido já saiu — a operadora descontou antes de depositar; recolhido
+    /// ainda vai sair, na guia do mês. Somar os dois na mesma linha faria a clínica pagar
+    /// duas vezes.
+    /// </summary>
+    public string Natureza => RetidoNaFonte ? "retido na fonte" : "a recolher";
+}
+
+/// <summary>A apuração de um mês, pronta para conferência e para o contador.</summary>
+public sealed record ApuracaoMensal(
+    int Ano,
+    int Mes,
+    decimal ReceitaBruta,
+    decimal TotalGravado,
+    decimal TotalApurado,
+    IReadOnlyList<LinhaApuracaoTributo> Linhas)
+{
+    public bool Vazia => Linhas.Count == 0;
+
+    /// <summary>O que a clínica precisa recolher — sem o que a operadora já reteve.</summary>
+    public decimal ARecolher => Linhas.Where(l => !l.RetidoNaFonte).Sum(l => l.Valor);
+
+    public decimal Retido => Linhas.Where(l => l.RetidoNaFonte).Sum(l => l.Valor);
+
+    /// <summary>
+    /// O apurado agora não bate com o que foi gravado quando o dinheiro entrou. Não é
+    /// erro do sistema: significa que a regra mudou depois. Aparece porque esconder
+    /// faria a clínica levar um número ao contador sem saber que existe outro.
+    /// </summary>
+    public bool Diverge => Math.Abs(TotalGravado - TotalApurado) >= 0.01m;
+
+    public decimal Divergencia => TotalApurado - TotalGravado;
 }

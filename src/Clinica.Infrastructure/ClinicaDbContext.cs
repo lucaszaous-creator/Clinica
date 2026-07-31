@@ -54,6 +54,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
     public DbSet<BloqueioAgenda> BloqueiosAgenda => Set<BloqueioAgenda>();
+    public DbSet<MetaMensal> Metas => Set<MetaMensal>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -313,6 +314,24 @@ public class ClinicaDbContext : DbContext
             // A consulta é sempre "o que bloqueia este intervalo": o índice do início é o
             // que evita varrer o histórico inteiro a cada marcação.
             e.HasIndex(x => x.Inicio);
+        });
+
+        // Meta mensal: uma linha por mês, indicador e dono. O índice único é a regra —
+        // duas metas para o mesmo mês e indicador dariam dois alvos para a mesma pergunta,
+        // e a tela escolheria um deles sem dizer qual.
+        b.Entity<MetaMensal>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Indicador).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.Valor).HasPrecision(14, 2);
+            e.Property(x => x.Observacoes).HasMaxLength(400);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => new { x.Ano, x.Mes, x.Indicador, x.ProfissionalId }).IsUnique();
         });
 
         // ---------- Prontuário e LGPD (parcela 2) ----------

@@ -59,7 +59,8 @@ public class PainelDirecaoTests : IDisposable
             new RodadaPendenciasService(_repo, pendencias, parametros),
             pendencias,
             new InadimplenciaService(_repo, _financeiro),
-            new ReceitaGlosadaService(_repo, _financeiro));
+            new ReceitaGlosadaService(_repo, _financeiro),
+            new MetaService(_repo, _financeiro, new IndicadoresService(_repo, parametros)));
     }
 
     private Task EntradaAsync(DateOnly dia, decimal valor,

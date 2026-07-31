@@ -227,6 +227,9 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
         // precisa dizer QUAL delas resolve o alerta — "ver conciliação" duas vezes na
         // mesma tela faria a direção clicar no primeiro e achar que já viu.
         AssuntoDirecao.ReceitaGlosada => (ChavesSuite.Conciliacao, "Ver glosadas"),
+        // Chave local do proprio modulo: Metas nao atravessa modulo, entao continua
+        // sendo const do dono em vez de virar contrato em ChavesSuite.
+        AssuntoDirecao.MetaEmRisco => (Modulo.ModuloGerente.ChaveMetas, "Ver metas"),
         _ => (ChavesSuite.FaturamentoTiss, "Ver faturamento")
     };
 

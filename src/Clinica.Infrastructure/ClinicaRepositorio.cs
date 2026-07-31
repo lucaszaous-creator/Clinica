@@ -919,7 +919,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             // Pelo dia do PAGAMENTO: o custo de maquininha pertence ao mes da venda.
             .Where(l => (l.DataPagamento ?? l.Data) >= inicio && (l.DataPagamento ?? l.Data) <= fim)
             .Select(l => new Clinica.Application.Modelos.RecebimentoComDeducao(
-                l.DataPagamento ?? l.Data, l.Valor, l.ValorTaxa, l.ValorImposto, l.Adquirente))
+                l.DataPagamento ?? l.Data, l.Valor, l.ValorTaxa, l.ValorImposto, l.Adquirente)
+            {
+                ConvenioCodigo = l.ConvenioCodigo
+            })
             .ToListAsync(ct);
 
     // ---- Recebiveis de cartao (parcela 16) ----
@@ -973,6 +976,36 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     {
         var preco = await _db.PrecosConvenio.FirstOrDefaultAsync(p => p.Id == precoId, ct);
         if (preco is not null) _db.PrecosConvenio.Remove(preco);
+    }
+
+    // ---- Metas da direcao (parcela 28) ----
+
+    public async Task<IReadOnlyList<MetaMensal>> MetasDoAnoAsync(
+        int ano, CancellationToken ct = default)
+        => await _db.Metas.AsNoTracking()
+            .Include(m => m.Profissional)
+            .Where(m => m.Ano == ano)
+            .OrderBy(m => m.Mes)
+            .ThenBy(m => m.Indicador)
+            .ToListAsync(ct);
+
+    public Task<MetaMensal?> ObterMetaAsync(
+        int ano, int mes, IndicadorMeta indicador, int? profissionalId,
+        CancellationToken ct = default)
+        => _db.Metas.FirstOrDefaultAsync(
+            m => m.Ano == ano && m.Mes == mes && m.Indicador == indicador
+                 && m.ProfissionalId == profissionalId, ct);
+
+    public Task<MetaMensal?> ObterMetaPorIdAsync(int metaId, CancellationToken ct = default)
+        => _db.Metas.FirstOrDefaultAsync(m => m.Id == metaId, ct);
+
+    public async Task AdicionarMetaAsync(MetaMensal meta, CancellationToken ct = default)
+        => await _db.Metas.AddAsync(meta, ct);
+
+    public async Task RemoverMetaAsync(int metaId, CancellationToken ct = default)
+    {
+        var meta = await _db.Metas.FirstOrDefaultAsync(m => m.Id == metaId, ct);
+        if (meta is not null) _db.Metas.Remove(meta);
     }
 
     // ---- Regime tributario (parcela 15) ----
