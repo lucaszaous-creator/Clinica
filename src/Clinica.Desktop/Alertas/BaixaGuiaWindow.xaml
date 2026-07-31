@@ -6,6 +6,9 @@
         Icon="/Assets/Marca/icone.png"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
         Background="{StaticResource Brush.Fundo}">
+    <!-- Rolagem: a janela cresce com o conteúdo e, na escala 150% do Windows,
+         o rodapé com os botões sairia da área visível do monitor do balcão. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="620">
     <StackPanel Margin="24">
         <TextBlock Text="Dar baixa na guia" Style="{StaticResource H2}" Margin="0,0,0,2" />
         <TextBlock x:Name="TxtGuia" Style="{StaticResource TextoSuave}" Margin="0,0,0,12" />
@@ -33,4 +36,5 @@
             <Button Content="Registrar baixa" Click="Confirmar_Click" IsDefault="True" MinWidth="130" />
         </StackPanel>
     </StackPanel>
+    </ScrollViewer>
 </Window>

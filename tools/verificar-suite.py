@@ -837,6 +837,58 @@ for _t in sorted(_pendentes):
         f"espera fica igual a lista vazia por não haver nada. Use ctrl:EstadoDaTela.")
 
 
+# --------------------------------------------------------------- checagem 15
+# TAMANHO DE JANELA NO FATURAMENTO (`Clinica.Desktop`).
+#
+# O faturamento está CONGELADO e por isso fica fora das outras checagens: exigir dele os
+# tokens do design system ou os três estados de lista acusaria dezenas de coisas que
+# ninguém vai mexer, e uma lista de erros que não se pretende corrigir treina todo mundo
+# a ignorar o verificador.
+#
+# Tamanho de janela é a exceção, e por um motivo prático: é a única regra aqui cujo
+# defeito o usuário sente TODO DIA, sem nada a ver com arquitetura — janela que nasce
+# com o rodapé atrás da barra de tarefas, ou diálogo que cresce com o conteúdo e corta os
+# botões em vez de rolar. A auditoria achou dez casos assim no app que fatura a clínica.
+#
+# Só as regras da checagem 10 valem aqui. Nada de design system, nada de estado de lista.
+CONGELADO = RAIZ / "src" / "Clinica.Desktop"
+
+for arq in sorted(CONGELADO.rglob("*.xaml")):
+    try:
+        raiz_c = ET.parse(arq).getroot()
+    except ET.ParseError as e:
+        erros.append(f"{rel(arq)}: XAML malformado — {e}")
+        continue
+
+    if _nome(raiz_c) != "Window":
+        continue
+
+    def _num(atributo: str, no=raiz_c) -> float | None:
+        valor = no.get(atributo)
+        try:
+            return float(valor) if valor else None
+        except ValueError:
+            return None
+
+    altura_c = _num("Height")
+    if altura_c is not None and altura_c + MOLDURA > ALTURA_UTIL:
+        erros.append(
+            f"{rel(arq)}: Height={altura_c:.0f} + barra de título passa da área útil de "
+            f"1366×768 ({ALTURA_UTIL}px) — nasce com o rodapé atrás da barra de tarefas")
+
+    largura_c = _num("Width")
+    if largura_c is not None and largura_c > 1366:
+        erros.append(f"{rel(arq)}: Width={largura_c:.0f} é maior que o monitor do balcão (1366)")
+
+    ROLAM_C = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
+    cresce_c = (raiz_c.get("SizeToContent") or "").find("Height") >= 0
+    alto_c = altura_c is not None and altura_c >= 400
+    if (cresce_c or alto_c) and not any(_nome(e) in ROLAM_C for e in raiz_c.iter()):
+        erros.append(
+            f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "
+            f"ScrollViewer — em escala 150% o rodapé sai da tela cortado")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
