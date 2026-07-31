@@ -991,6 +991,28 @@ Três regras que valem para qualquer ponte nova:
 > de eventos que ninguém aqui vai operar. A concorrência de escrita continua protegida pelo
 > `xmin`.
 
+### O circuito é testado inteiro (parcela 33)
+
+`CircuitoCompletoTests` percorre o caminho de ponta a ponta, uma vez por circuito. Existe
+porque **o resto da suíte testa trechos**: o fechamento sozinho, a conciliação sozinha, a
+glosa sozinha — e os três podem passar com o circuito partido, já que o que liga um módulo
+ao outro aqui não é chamada de método, é **chave estrangeira**.
+
+| Circuito | O elo que o teste prende |
+|---|---|
+| Recepção → Faturamento → Financeiro | A guia sai da conciliação porque passou a **ter receita** (`CodigoFaturamentoId`), não porque alguém a marcou |
+| Sessão de pacote | Debita o saldo e **não sugere cobrança** — sessão comprada já foi paga |
+| Glosa → Financeiro | Cancelada a receita PREVISTA, a guia **reaparece sozinha** na conciliação |
+| Glosa → conciliação | A guia volta **marcada**, nunca em branco |
+| NC → Recepção | O paciente que volta **reabre** a não conformidade da guia antiga |
+| Tudo → Gerente | O dia fechado na Recepção chega ao painel, com os onze serviços montados à mão |
+| Glosa → Gerente | Receita glosada é alerta **próprio**, não somado ao resto |
+| Base vazia | O painel abre na clínica recém-instalada sem nenhum bloco "não verificado" |
+
+> **Elo partido não vira erro — vira número zerado.** É por isso que o painel da direção é
+> o teste certo para o fim do circuito, e é a mesma razão pela qual ele nunca calcula nada
+> por conta própria: zero por defeito é indistinguível de zero porque o dia foi fraco.
+
 ## A SIDEBAR da proposta × o que existe
 
 ⚠️ **A falha de levantamento que originou as parcelas 7 a 11.** Este documento foi montado a

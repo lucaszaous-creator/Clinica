@@ -593,6 +593,26 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   A abertura do app é o item com `Inicial = true` (parcela 22), não o primeiro da lista;
   navegação entre módulos passa por `NavegacaoSuite` + `ChavesSuite` — chave que só um
   módulo usa continua sendo `const` do módulo dono, porque não é contrato de ninguém.
+- **O circuito entre os módulos é testado de PONTA A PONTA** (`CircuitoCompletoTests`,
+  parcela 33). O resto da suíte testa trechos — o fechamento sozinho, a conciliação
+  sozinha, a glosa sozinha —, e cada um pode passar com o circuito partido: o que liga um
+  módulo ao outro aqui **não é chamada de método, é chave estrangeira**. Se
+  `LancamentoFinanceiro.CodigoFaturamentoId` deixasse de ser preenchido, nenhum teste de
+  unidade falharia e a guia nunca sairia da conciliação. Os quatro circuitos cobertos são
+  os da parcela 27: Recepção → Faturamento → Financeiro (a guia sai da lista por **ter
+  receita**, não por alguém marcá-la), a **glosa que volta** (cancelada a receita, a guia
+  reaparece sozinha), a **NC que reabre quando o paciente volta** e o **painel da direção**,
+  montado com os onze serviços à mão — que é o que prova que o grafo do Gerente fecha sem
+  o DI resolver nada por baixo. O painel é o teste certo para o fim do circuito porque
+  ele **não calcula nada**: elo partido não vira erro, vira número ZERADO, e zero por
+  defeito é indistinguível de zero porque o dia foi fraco.
+- **Cobertura é medida, não estimada.** `dotnet test --collect:"XPlat Code Coverage"` (o
+  `coverlet` já está no `.csproj`). A leitura útil é a da **camada de aplicação sem as
+  migrations** — elas têm milhares de linhas e afundam o número global para ~21%. Hoje:
+  **91,6%**, com 26 métodos sem execução (eram 39). A varredura por "método com zero
+  execução" é o que achou `RemarcarEmLoteAsync`, `ApuracaoMensalAsync` e os dois PDFs do
+  faturamento — 323 linhas de desenho aprovadas no CI que nunca haviam rodado uma vez.
+  **Serviço testado não é serviço executado**, e é assim que se descobre a diferença.
 - **Duas barreiras locais contra erro de compilação WPF, e elas se dividem por linguagem.**
   - `tools/compilar-sombra.py` compila **o C#** dos sete projetos WPF. Ele recompila os
     mesmos `.cs` num projeto `net8.0` comum que referencia as *reference assemblies* do
