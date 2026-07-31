@@ -417,6 +417,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(a => a.DataHora)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosDaSerieAsync(
+        string serieId, CancellationToken ct = default)
+        // RASTREADOS (sem AsNoTracking): cancelar a serie escreve nestas entidades.
+        => await _db.Agendamentos
+            .Include(a => a.Paciente)
+            .Include(a => a.Profissional)
+            .Where(a => a.SerieId == serieId)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+
     public async Task RemoverAgendamentoAsync(int agendamentoId, CancellationToken ct = default)
     {
         var ag = await _db.Agendamentos.FirstOrDefaultAsync(a => a.Id == agendamentoId, ct);
@@ -470,6 +480,47 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     }
 
     // ---- Lista de espera ----
+
+    // ---- Bloqueio de agenda ----
+
+    public async Task<IReadOnlyList<BloqueioAgenda>> BloqueiosNoPeriodoAsync(
+        DateTime inicio, DateTime fim, CancellationToken ct = default)
+        => await _db.BloqueiosAgenda.AsNoTracking()
+            .Include(x => x.Profissional)
+            .Include(x => x.Sala)
+            .Where(x => x.Inicio < fim && x.Fim > inicio)
+            .OrderBy(x => x.Inicio)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<BloqueioAgenda>> BloqueiosAsync(
+        DateTime? aPartirDe = null, CancellationToken ct = default)
+    {
+        var q = _db.BloqueiosAgenda.AsNoTracking()
+            .Include(x => x.Profissional)
+            .Include(x => x.Sala)
+            .AsQueryable();
+
+        // O que ja passou nao some do banco, mas sai da lista por padrao: bloqueio velho
+        // e historico, e a tela existe para responder "o que esta fechado daqui pra frente".
+        if (aPartirDe is { } desde) q = q.Where(x => x.Fim >= desde);
+
+        return await q.OrderBy(x => x.Inicio).ToListAsync(ct);
+    }
+
+    public async Task AdicionarBloqueioAsync(BloqueioAgenda bloqueio, CancellationToken ct = default)
+        => await _db.BloqueiosAgenda.AddAsync(bloqueio, ct);
+
+    public Task<BloqueioAgenda?> ObterBloqueioAsync(int bloqueioId, CancellationToken ct = default)
+        => _db.BloqueiosAgenda
+            .Include(x => x.Profissional)
+            .Include(x => x.Sala)
+            .FirstOrDefaultAsync(x => x.Id == bloqueioId, ct);
+
+    public async Task RemoverBloqueioAsync(int bloqueioId, CancellationToken ct = default)
+    {
+        var bloqueio = await _db.BloqueiosAgenda.FindAsync([bloqueioId], ct);
+        if (bloqueio is not null) _db.BloqueiosAgenda.Remove(bloqueio);
+    }
 
     public async Task AdicionarListaEsperaAsync(ListaEspera pedido, CancellationToken ct = default)
         => await _db.ListaEspera.AddAsync(pedido, ct);

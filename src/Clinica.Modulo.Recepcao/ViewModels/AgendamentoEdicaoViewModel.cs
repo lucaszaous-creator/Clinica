@@ -38,6 +38,18 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// <summary>Choques detectados para o horário atual (vazio = livre).</summary>
     public ObservableCollection<string> Conflitos { get; } = [];
 
+    /// <summary>
+    /// Carteirinha, cota e consentimento do paciente escolhido — conferidos AQUI, na hora
+    /// de marcar, e não só na ficha (que ninguém abre no balcão).
+    ///
+    /// É aviso, nunca impedimento: quem decide atender é a clínica. Mas marcar dez
+    /// sessões para quem está com a cota estourada é combinar dez glosas de antemão, e
+    /// isso precisava ser dito antes do clique — não na hora de faturar.
+    /// </summary>
+    public ObservableCollection<string> Elegibilidade { get; } = [];
+
+    public bool TemAvisoElegibilidade => Elegibilidade.Count > 0;
+
     [ObservableProperty] private DateTime _data = DateTime.Today;
     [ObservableProperty] private string _hora = "09:00";
     [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
@@ -46,6 +58,27 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     [ObservableProperty] private Sala? _sala;
     [ObservableProperty] private string _duracao = string.Empty;
     [ObservableProperty] private bool _encaixe;
+
+    // ---- Série (o pacote de dez marcado de uma vez) ----
+
+    /// <summary>
+    /// Marcar várias sessões de uma vez. Só na CRIAÇÃO: remarcar já é sobre um horário
+    /// que existe, e repetir ali criaria sessões novas achando que está movendo uma.
+    /// </summary>
+    [ObservableProperty] private bool _emSerie;
+
+    [ObservableProperty] private string _quantidadeSessoes = "10";
+
+    /// <summary>Intervalo em dias. 7 = mesma hora, toda semana — o caso comum.</summary>
+    [ObservableProperty] private string _intervaloDias = "7";
+
+    /// <summary>O que a série marcou e o que ela pulou, escrito para a tela.</summary>
+    public ObservableCollection<string> ResultadoSerie { get; } = [];
+
+    public bool TemResultadoSerie => ResultadoSerie.Count > 0;
+
+    /// <summary>Repetir só faz sentido em horário novo — não em remarcação.</summary>
+    public bool PodeMarcarEmSerie => _agendamentoId is null && PedidoListaEsperaId is null;
     [ObservableProperty] private string? _observacoes;
 
     [ObservableProperty] private string _titulo = "Novo horário";
@@ -82,7 +115,44 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(ModalidadeConsulta));
     }
 
-    private void AoTrocarPaciente(Paciente? paciente) => _ = ConferirConflitosAsync();
+    private void AoTrocarPaciente(Paciente? paciente)
+    {
+        _ = ConferirConflitosAsync();
+        _ = ConferirElegibilidadeAsync();
+    }
+
+    /// <summary>
+    /// Conferência da elegibilidade do paciente escolhido, na data escolhida.
+    ///
+    /// Falha aqui não impede marcar — mas também não passa em branco: sem o aviso, a
+    /// tela estaria dizendo "está tudo certo" sobre algo que não conseguiu conferir.
+    /// </summary>
+    private async Task ConferirElegibilidadeAsync()
+    {
+        Elegibilidade.Clear();
+        OnPropertyChanged(nameof(TemAvisoElegibilidade));
+
+        if (Seletor.Selecionado is not { } paciente) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<ElegibilidadeService>();
+
+            var resultado = await servico.ConferirAsync(paciente.Id, DateOnly.FromDateTime(Data));
+            foreach (var alerta in resultado.Alertas) Elegibilidade.Add(alerta.Descricao);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — elegibilidade não pôde ser conferida ao marcar", ex);
+            Elegibilidade.Add("Não foi possível conferir carteirinha e cota agora.");
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(TemAvisoElegibilidade));
+        }
+    }
 
     partial void OnDataChanged(DateTime value) => _ = ConferirConflitosAsync();
     partial void OnHoraChanged(string value) => _ = ConferirConflitosAsync();
@@ -261,6 +331,43 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
                     duracaoMinutos: DuracaoInformada(), encaixe: Encaixe,
                     modalidadeCodigo: ModalidadeSelecionada.Codigo);
+            }
+            else if (EmSerie && PodeMarcarEmSerie)
+            {
+                if (!int.TryParse(QuantidadeSessoes, out var quantas) || quantas < 2)
+                {
+                    Erro("Quantas sessões? A partir de 2 — para uma só, desmarque \"repetir\".");
+                    return;
+                }
+                if (!int.TryParse(IntervaloDias, out var intervalo) || intervalo < 1)
+                {
+                    Erro("De quantos em quantos dias? (7 = toda semana, mesma hora.)");
+                    return;
+                }
+
+                var serie = await agenda.AgendarSerieAsync(
+                    paciente.Id, dataHora, ModalidadeSelecionada.Base, quantas,
+                    intervaloDias: intervalo, observacoes: Observacoes,
+                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
+                    profissionalId: Profissional?.Id, salaId: Sala?.Id,
+                    duracaoMinutos: DuracaoInformada());
+
+                // A série que pulou datas NÃO fecha a janela em silêncio: a recepção
+                // precisa ver quais não entraram para resolver agora, com o paciente
+                // ainda na frente dela.
+                if (!serie.TudoMarcado)
+                {
+                    ResultadoSerie.Clear();
+                    ResultadoSerie.Add($"{serie.Marcados.Count} sessão(ões) marcada(s).");
+                    foreach (var r in serie.Recusados)
+                        ResultadoSerie.Add($"{r.Quando:dd/MM HH:mm} — não deu: {r.Motivo}");
+
+                    OnPropertyChanged(nameof(TemResultadoSerie));
+                    Mensagem = "Parte da série não entrou. Veja abaixo e resolva as datas que faltam.";
+                    MensagemEhErro = true;
+                    return;
+                }
             }
             else
             {

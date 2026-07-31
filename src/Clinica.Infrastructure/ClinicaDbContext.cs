@@ -53,6 +53,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemDocumentoFinanceiro> ItensDocumentoFinanceiro => Set<ItemDocumentoFinanceiro>();
     public DbSet<ContatoCampanha> Contatos => Set<ContatoCampanha>();
     public DbSet<UsuarioSistema> Usuarios => Set<UsuarioSistema>();
+    public DbSet<BloqueioAgenda> BloqueiosAgenda => Set<BloqueioAgenda>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -231,6 +232,8 @@ public class ClinicaDbContext : DbContext
 
             // Fundação da recepção: recursos disputados e carimbos do kanban. Todos
             // opcionais — desligar um profissional não pode apagar a agenda dele.
+            e.Property(a => a.SerieId).HasMaxLength(40);
+            e.HasIndex(a => a.SerieId);
             e.Property(a => a.ChegadaEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.InicioAtendimentoEm).HasColumnType("timestamp without time zone");
             e.HasOne(a => a.Profissional).WithMany()
@@ -289,6 +292,27 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(l => l.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
 
             e.HasIndex(l => l.Status);
+        });
+
+        // Bloqueio de agenda: férias, feriado, folga. Profissional e sala anuláveis —
+        // sem os dois, o bloqueio é da clínica inteira.
+        b.Entity<BloqueioAgenda>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Motivo).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Inicio).HasColumnType("timestamp without time zone");
+            e.Property(x => x.Fim).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Sala).WithMany()
+                .HasForeignKey(x => x.SalaId).OnDelete(DeleteBehavior.Cascade);
+
+            // A consulta é sempre "o que bloqueia este intervalo": o índice do início é o
+            // que evita varrer o histórico inteiro a cada marcação.
+            e.HasIndex(x => x.Inicio);
         });
 
         // ---------- Prontuário e LGPD (parcela 2) ----------

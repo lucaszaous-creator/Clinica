@@ -88,6 +88,15 @@
                                 Command="{Binding DataContext.QuemChamarCommand,
                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
+                        <!-- Só aparece em sessão marcada em série: cancelar o resto do
+                             pacote de uma vez, quando o paciente desiste no meio. -->
+                        <Button Content="Cancelar série" Style="{StaticResource BotaoAcaoGridPerigo}"
+                                Margin="0,4,4,0"
+                                Visibility="{Binding EhSerie,
+                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                Command="{Binding DataContext.CancelarSerieCommand,
+                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
                     </WrapPanel>
                 </StackPanel>
             </Border>
@@ -143,12 +152,23 @@
                         Style="{StaticResource BotaoSecundario}" Width="40" />
                 <Button Content="Hoje" Command="{Binding HojeCommand}"
                         Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                <!-- Dia ou semana. No modo semana as colunas passam a ser os DIAS: é a
+                     forma de responder "quando ele tem vaga?", que no modo dia se
+                     responde clicando de dia em dia até achar. -->
+                <CheckBox Content="Ver a semana" IsChecked="{Binding ModoSemana}"
+                          VerticalAlignment="Center" Margin="16,0,0,0" />
+
                 <!-- Só aparece para quem entrou como profissional: no balcão a agenda
                      é da clínica inteira e a caixa não teria sentido. -->
                 <CheckBox Content="Ver todos os profissionais"
                           IsChecked="{Binding MostrarTodosOsProfissionais}"
                           VerticalAlignment="Center" Margin="16,0,0,0"
                           Visibility="{Binding SoMinhaAgenda, Converter={StaticResource BoolParaVisibilidade}}" />
+                <!-- A rodada de amanhã: quem confirma as sessões é quem está no balcão,
+                     e até aqui essa tela só existia no Gerente Geral. -->
+                <Button Content="Confirmar amanhã…" Margin="8,0,0,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding ConfirmarSessoesCommand}" />
                 <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}" IsEnabled="{Binding PodeEditarAgenda}"
                         Margin="8,0,0,0" />
             </StackPanel>

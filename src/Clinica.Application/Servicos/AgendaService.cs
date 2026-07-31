@@ -18,6 +18,13 @@ namespace Clinica.Application.Servicos;
 /// </summary>
 public sealed class AgendaService
 {
+    /// <summary>
+    /// Teto de sessões numa série só. Não é limitação técnica: acima disso a agenda vira
+    /// um calendário inteiro marcado de uma vez, e o que se ganha em cliques se perde na
+    /// hora de remarcar tudo porque o paciente mudou de horário.
+    /// </summary>
+    public const int MaximoSessoesPorSerie = 52;
+
     private readonly IClinicaRepositorio _repo;
     private readonly AtendimentoService _atendimentos;
 
@@ -220,6 +227,16 @@ public sealed class AgendaService
                     $"O paciente já tem horário às {a.DataHora:HH:mm}.",
                     a.DataHora, a.FimPrevisto)));
 
+        // Agenda fechada (férias, feriado, folga, sala em manutenção). Vem por último
+        // porque é o choque menos frequente — mas é o único que não tem outro paciente
+        // do outro lado, e por isso precisava existir: sem ele, o que segurava a
+        // marcação em cima da folga era a memória de quem está no balcão.
+        var bloqueios = await _repo.BloqueiosNoPeriodoAsync(dataHora, fim, ct);
+        conflitos.AddRange(bloqueios
+            .Where(b => b.AlcancaRecurso(profissionalId, salaId))
+            .Select(b => new ConflitoAgenda(
+                RecursoAgenda.Bloqueio, b.Id, b.Descricao, b.Inicio, b.Fim)));
+
         return conflitos;
     }
 
@@ -233,20 +250,138 @@ public sealed class AgendaService
         int? pacienteId, int? ignorarAgendamentoId, bool encaixe, CancellationToken ct)
     {
         if (encaixe) return;
-        if (profissionalId is null && salaId is null) return;
+
+        // Sem profissional e sem sala não há recurso disputado — mas o bloqueio DA
+        // CLÍNICA (feriado) vale mesmo assim, e por isso a conferência não pode mais
+        // sair aqui como saía antes.
+        var soBloqueioDaClinica = profissionalId is null && salaId is null;
 
         var conflitos = await ConflitosAsync(
             dataHora, duracaoMinutos, profissionalId, salaId,
             pacienteId: pacienteId, ignorarAgendamentoId: ignorarAgendamentoId, ct: ct);
 
         // Choque com o próprio paciente é aviso da tela, não impedimento: ele pode ter
-        // dois procedimentos seguidos. O que trava é recurso disputado.
-        var impeditivos = conflitos.Where(c => c.Recurso != RecursoAgenda.Paciente).ToList();
+        // dois procedimentos seguidos. O que trava é recurso disputado — e agenda fechada.
+        var impeditivos = conflitos
+            .Where(c => c.Recurso != RecursoAgenda.Paciente)
+            .Where(c => !soBloqueioDaClinica || c.Recurso == RecursoAgenda.Bloqueio)
+            .ToList();
         if (impeditivos.Count == 0) return;
 
         throw new InvalidOperationException(
             impeditivos[0].Descricao + " Escolha outro horário ou marque como encaixe.");
     }
+
+    /// <summary>
+    /// Marca várias sessões de uma vez — o pacote de dez, o tratamento de oito semanas.
+    ///
+    /// Até aqui o Financeiro vendia dez sessões e a agenda marcava UMA por vez: dez
+    /// aberturas do mesmo formulário, dez conferências de conflito, dez chances de
+    /// digitar a hora errada. Era o atrito que a recepção sentia todo dia.
+    ///
+    /// Três regras que valem a pena escrever:
+    ///
+    /// 1. **A série sai da PRIMEIRA data mais N períodos**, nunca da ocorrência anterior
+    ///    mais um. Encadear faria uma sessão adiada empurrar todas as seguintes — e a
+    ///    recepção perderia o horário fixo do paciente, que é o motivo de marcar em série.
+    /// 2. **Conflito não aborta a série: ele PULA a data e diz qual.** Recusar as dez
+    ///    porque a sexta caiu em feriado devolveria a recepção ao trabalho manual; marcar
+    ///    nove e dizer "a de 25/12 não deu" é o que ela faria à mão.
+    /// 3. **Todas compartilham o <see cref="Agendamento.SerieId"/>**, que é o que permite
+    ///    tratar o resto do bloco depois — cancelar as que sobraram quando o paciente
+    ///    desiste no meio do tratamento.
+    /// </summary>
+    public async Task<SerieAgendada> AgendarSerieAsync(
+        int pacienteId, DateTime primeira, ModalidadeAtendimento modalidade, int quantidade,
+        int intervaloDias = 7, string? observacoes = null,
+        Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
+        string? especialidadeConsultaCodigo = null,
+        int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
+        CancellationToken ct = default)
+    {
+        if (quantidade < 2)
+            throw new InvalidOperationException(
+                "Série é a partir de duas sessões. Para uma só, marque o horário normal.");
+
+        if (quantidade > MaximoSessoesPorSerie)
+            throw new InvalidOperationException(
+                $"No máximo {MaximoSessoesPorSerie} sessões por série — acima disso a agenda "
+                + "vira um calendário inteiro marcado de uma vez, e o que se ganha em "
+                + "cliques se perde na hora de remarcar.");
+
+        if (intervaloDias < 1)
+            throw new InvalidOperationException("O intervalo entre as sessões é de pelo menos 1 dia.");
+
+        var serieId = Guid.NewGuid().ToString("N")[..32];
+        var marcados = new List<Agendamento>();
+        var recusados = new List<SessaoRecusada>();
+
+        for (var i = 0; i < quantidade; i++)
+        {
+            // Da PRIMEIRA data mais N períodos — nunca da anterior mais um.
+            var quando = primeira.AddDays((long)intervaloDias * i);
+
+            try
+            {
+                var agendamento = await AgendarAsync(
+                    pacienteId, quando, modalidade, observacoes,
+                    origem: OrigemAgendamento.Manual, ct: ct,
+                    especialidadeConsulta: especialidadeConsulta,
+                    modalidadeCodigo: modalidadeCodigo,
+                    especialidadeConsultaCodigo: especialidadeConsultaCodigo,
+                    profissionalId: profissionalId, salaId: salaId,
+                    duracaoMinutos: duracaoMinutos);
+
+                agendamento.SerieId = serieId;
+                marcados.Add(agendamento);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Choque de recurso e agenda fechada param ESTA data, não a série.
+                recusados.Add(new SessaoRecusada(quando, ex.Message));
+            }
+        }
+
+        if (marcados.Count > 0) await _repo.SalvarAsync(ct);
+
+        return new SerieAgendada(serieId, marcados, recusados);
+    }
+
+    /// <summary>
+    /// Cancela o que ainda está marcado de uma série — o "o paciente desistiu no meio".
+    ///
+    /// Só alcança horário AINDA em aberto: sessão já atendida é fato, e cancelá-la
+    /// apagaria da agenda um atendimento que aconteceu.
+    /// </summary>
+    public async Task<int> CancelarSerieAsync(
+        string serieId, string? operador = null, CancellationToken ct = default)
+    {
+        var daSerie = await _repo.AgendamentosDaSerieAsync(serieId, ct);
+        var cancelados = 0;
+
+        foreach (var a in daSerie.Where(a => a.Status == StatusAgendamento.Agendado))
+        {
+            a.Status = StatusAgendamento.Cancelado;
+            cancelados++;
+        }
+
+        if (cancelados == 0) return 0;
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "SerieCancelada",
+            Detalhe = $"{cancelados} sessão(ões) da série {serieId} canceladas"
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+        return cancelados;
+    }
+
+    /// <summary>Sessões de uma série, na ordem em que acontecem.</summary>
+    public Task<IReadOnlyList<Agendamento>> DaSerieAsync(
+        string serieId, CancellationToken ct = default)
+        => _repo.AgendamentosDaSerieAsync(serieId, ct);
 
     /// <summary>Duração padrão do profissional; na falta dele, a da clínica.</summary>
     private async Task<int> DuracaoPadraoAsync(int? profissionalId, CancellationToken ct)

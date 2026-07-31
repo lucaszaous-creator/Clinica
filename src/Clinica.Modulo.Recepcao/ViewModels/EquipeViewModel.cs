@@ -37,6 +37,19 @@ public sealed class LinhaSala
 /// Excluir só vale enquanto o registro nunca foi usado; depois disso o serviço recusa e
 /// o caminho é DESATIVAR, para a agenda do passado continuar dizendo quem atendeu.
 /// </summary>
+/// <summary>Um período de agenda fechada, como a lista mostra.</summary>
+public sealed class LinhaBloqueio
+{
+    public required int Id { get; init; }
+    public required string Alvo { get; init; }
+    public required string Periodo { get; init; }
+    public required string Motivo { get; init; }
+    public required string Situacao { get; init; }
+
+    /// <summary>Há sessão marcada dentro do período fechado — alguém precisa remarcar.</summary>
+    public required bool TemConflito { get; init; }
+}
+
 public sealed partial class EquipeViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
@@ -45,6 +58,13 @@ public sealed partial class EquipeViewModel : ObservableObject
 
     public ObservableCollection<LinhaProfissional> Profissionais { get; } = [];
     public ObservableCollection<LinhaSala> Salas { get; } = [];
+
+    /// <summary>
+    /// Agenda fechada: férias, feriado, folga, sala em manutenção. Mora aqui, junto de
+    /// quem atende e de onde se atende, porque é sobre a DISPONIBILIDADE da equipe — e
+    /// não sobre um horário de paciente, que é o assunto da tela de Agenda.
+    /// </summary>
+    public ObservableCollection<LinhaBloqueio> Bloqueios { get; } = [];
 
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _mensagem = string.Empty;
@@ -100,6 +120,33 @@ public sealed partial class EquipeViewModel : ObservableObject
                     Situacao = s.Ativa ? "Ativa" : "Inativa",
                     Ativa = s.Ativa
                 });
+
+            var bloqueios = scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>();
+
+            Bloqueios.Clear();
+            foreach (var b in await bloqueios.ListarAsync())
+            {
+                // Quem já está marcado dentro do período fechado aparece na linha:
+                // bloquear NÃO desmarca ninguém, e o paciente combinou aquele horário
+                // com uma pessoa — quem desmarca avisa.
+                var marcados = await bloqueios.MarcadosDentroAsync(b);
+
+                Bloqueios.Add(new LinhaBloqueio
+                {
+                    Id = b.Id,
+                    Alvo = b.DaClinica
+                        ? "Clínica inteira"
+                        : b.Profissional?.Rotulo ?? (b.Sala?.Nome is { } sala ? $"Sala {sala}" : "—"),
+                    Periodo = b.Inicio.Date == b.Fim.Date
+                        ? $"{b.Inicio:dd/MM/yyyy} · {b.Inicio:HH:mm} às {b.Fim:HH:mm}"
+                        : $"{b.Inicio:dd/MM/yyyy HH:mm} a {b.Fim:dd/MM/yyyy HH:mm}",
+                    Motivo = b.Motivo,
+                    TemConflito = marcados.Count > 0,
+                    Situacao = marcados.Count == 0
+                        ? "nada marcado dentro"
+                        : $"{marcados.Count} sessão(ões) marcada(s) dentro — remarque"
+                });
+            }
         }
         catch (Exception ex)
         {
@@ -164,6 +211,62 @@ public sealed partial class EquipeViewModel : ObservableObject
             await equipe.ExcluirSalaAsync(linha.Id);
             _snackbar.Sucesso("Sala excluída.");
         });
+    }
+
+    [RelayCommand]
+    private async Task NovoBloqueioAsync()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "fechar a agenda");
+
+        var vm = new BloqueioEdicaoViewModel(_escopos);
+        var janela = new Janelas.BloqueioWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true) return;
+
+        // O aviso do que já estava marcado é o motivo de a janela existir: bloquear não
+        // desmarca ninguém, e sumir com essa informação faria a recepção descobrir o
+        // choque quando o paciente aparecesse na porta.
+        if (vm.MarcadosDentro.Count > 0)
+            _dialogo.Aviso("Agenda fechada — mas já havia sessão marcada",
+                $"{vm.MarcadosDentro.Count} sessão(ões) estão marcadas dentro do período fechado. "
+                + "Elas continuam na agenda: remarque com o paciente.\n\n"
+                + string.Join("\n", vm.MarcadosDentro));
+        else
+            _snackbar.Sucesso("Agenda fechada no período.");
+
+        await CarregarAsync();
+    }
+
+    /// <summary>Reabre a agenda. O que estava marcado dentro continua marcado.</summary>
+    [RelayCommand]
+    private async Task ExcluirBloqueioAsync(LinhaBloqueio? linha)
+    {
+        if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "reabrir a agenda");
+        if (!_dialogo.Confirmar("Reabrir a agenda",
+                $"Tirar o bloqueio de {linha.Alvo} ({linha.Periodo})? "
+                + "A agenda volta a aceitar marcação nesse período.")) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var bloqueios = scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>();
+            await bloqueios.ExcluirAsync(linha.Id, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info("Agenda reaberta.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — bloqueio não pôde ser removido", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
     }
 
     private async Task AbrirProfissionalAsync(int? id)

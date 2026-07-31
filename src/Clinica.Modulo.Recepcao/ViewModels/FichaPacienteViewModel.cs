@@ -211,6 +211,12 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// </summary>
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
+    /// <summary>
+    /// Anonimizar não tem volta, então a barreira é outra: o balcão exporta os dados do
+    /// titular, mas quem apaga a identificação é quem responde pela clínica.
+    /// </summary>
+    public bool PodeAnonimizar => SessaoUsuario.Atual.Pode(Permissao.AnonimizarDados);
+
     public FichaPacienteViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
@@ -741,6 +747,121 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — documento clínico não pôde ser cancelado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    // ==================== Direitos do titular (LGPD) ====================
+
+    /// <summary>
+    /// Entrega ao paciente tudo o que a clínica guarda sobre ele (LGPD, art. 18).
+    ///
+    /// Sai em TEXTO, não em PDF diagramado: o direito é de receber os dados em formato
+    /// legível e reutilizável — quem pede costuma querer levá-los a outro serviço, e um
+    /// relatório bonito seria menos útil. É a mesma razão de os relatórios exportarem CSV.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportarDadosAsync()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "ver o prontuário");
+
+        if (PacienteId == 0) return;
+
+        try
+        {
+            string texto;
+            using (var scope = _escopos.CreateScope())
+            {
+                var servico = scope.ServiceProvider.GetRequiredService<TitularDadosService>();
+                texto = await servico.ExportarAsync(PacienteId, SessaoUsuario.Atual.Operador);
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                System.Text.Encoding.UTF8.GetBytes(texto),
+                ImpressaoPdf.NomeSeguro($"dados-{Nome}.txt"),
+                "Texto (*.txt)|*.txt", ".txt");
+
+            if (erro is null)
+            {
+                Mensagem = string.Empty;
+                MensagemEhErro = false;
+                return;
+            }
+
+            Mensagem = erro;
+            MensagemEhErro = true;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — dados do titular não puderam ser exportados", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Atende ao pedido de eliminação anonimizando o cadastro — e DIZ, antes de fazer,
+    /// que o prontuário fica.
+    ///
+    /// Prometer "apagar tudo" e manter o histórico seria mentir para o paciente por
+    /// escrito. A guarda do prontuário é obrigação legal do profissional de saúde
+    /// (CFM 1.821/2007) e a própria LGPD a preserva (art. 16, II); o que se apaga é a
+    /// identificação. A confirmação existe para que ninguém descubra isso depois.
+    /// </summary>
+    [RelayCommand]
+    private async Task AnonimizarAsync()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.AnonimizarDados, "anonimizar dados do titular");
+
+        if (PacienteId == 0) return;
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Anonimizar a pedido do titular",
+            $"Registre o pedido de {Nome}: quando pediu, por qual canal e quem recebeu. "
+            + "É o que prova que a clínica atendeu — e ela precisa poder provar.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        if (!_dialogo.ConfirmarPerigo(
+                "Anonimizar cadastro",
+                $"Nome, documento, telefone, carteirinha, nascimento e foto de {Nome} serão "
+                + "apagados e NÃO voltam.\n\n"
+                + "O prontuário FICA: sessões, evoluções, guias e documentos continuam "
+                + "guardados, sem dono identificável. A guarda do prontuário é obrigação "
+                + "legal do profissional de saúde, e a LGPD a preserva expressamente "
+                + "(art. 16, II) — o sistema não pode prometer apagá-lo.\n\n"
+                + "Confirmar?"))
+            return;
+
+        try
+        {
+            ResultadoAnonimizacao resultado;
+            using (var scope = _escopos.CreateScope())
+            {
+                var servico = scope.ServiceProvider.GetRequiredService<TitularDadosService>();
+                resultado = await servico.AnonimizarAsync(
+                    PacienteId, motivo, SessaoUsuario.Atual.Operador);
+            }
+
+            await CarregarAsync();
+            Alterou?.Invoke();
+
+            // O que aconteceu vem escrito, item por item: "pronto" deixaria a clínica sem
+            // saber o que continua guardado se o titular perguntar amanhã.
+            _dialogo.Aviso(
+                "Cadastro anonimizado",
+                $"O cadastro passou a se chamar \"{resultado.NomeAnonimo}\".\n"
+                + $"Consentimentos revogados: {resultado.ConsentimentosRevogados}.\n"
+                + $"Foto removida: {(resultado.FotoRemovida ? "sim" : "não havia")}.\n"
+                + (resultado.PreservouProntuario
+                    ? $"Sessões mantidas sob guarda legal: {resultado.SessoesPreservadas}."
+                    : "Não havia histórico clínico a guardar."));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — cadastro não pôde ser anonimizado", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

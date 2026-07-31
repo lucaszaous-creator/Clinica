@@ -26,6 +26,8 @@
                 <ColumnDefinition Width="1.4*" />
                 <ColumnDefinition Width="16" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <!-- ============ Profissionais ============ -->
@@ -159,6 +161,100 @@
                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}" />
                                             </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- ============ Agenda fechada ============ -->
+            <Border Grid.Column="4" Style="{StaticResource Card}">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Agenda fechada" Style="{StaticResource H3}" Margin="0" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0"
+                                       Text="Férias, feriado, folga, sala em manutenção." />
+                        </StackPanel>
+                        <Button Content="Fechar agenda…" HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource BotaoPequeno}"
+                                Command="{Binding NovoBloqueioCommand}"
+                                IsEnabled="{Binding PodeGerenciarEquipe}" />
+                    </Grid>
+
+                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
+                               Text="Nada bloqueado daqui para a frente. Enquanto não houver, o que segura a marcação em cima da folga é a memória de quem está no balcão.">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Bloqueios.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Bloqueios}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0,10"
+                                            BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Alvo}" FontWeight="SemiBold"
+                                                           TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Periodo}" Margin="0,2,0,0"
+                                                           TextWrapping="Wrap"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                <TextBlock Text="{Binding Motivo}" Margin="0,2,0,0"
+                                                           TextWrapping="Wrap"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                <!-- Bloquear não desmarca ninguém: quem já
+                                                     estava marcado dentro aparece aqui. -->
+                                                <TextBlock Text="{Binding Situacao}" Margin="0,2,0,0"
+                                                           TextWrapping="Wrap"
+                                                           FontSize="{StaticResource Fonte.Legenda}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Texto.Secundario}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding TemConflito}" Value="True">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Aviso}" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <Button Grid.Column="1" Content="Reabrir"
+                                                    VerticalAlignment="Center" Margin="12,0,0,0"
+                                                    Style="{StaticResource BotaoPequeno}"
+                                                    IsEnabled="{Binding DataContext.PodeGerenciarEquipe,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.ExcluirBloqueioCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

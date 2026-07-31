@@ -359,6 +359,7 @@ o inventário está em [Onde estamos](#onde-estamos), e o detalhe feature a feat
 | ~~**18 a 20**~~ ✅ | Gerente + Financeiro | Retenção na fonte por convênio; rentabilidade por operadora; tabela de preço cadastrada na direção e usada no balcão | O encontro do que o faturamento produz com o que o financeiro recebe |
 | ~~**21 a 24**~~ ✅ | Gerente + Recepção | Auditoria (a trilha que ninguém lia); painel da direção; inadimplência; central das 9 folhas | Quatro dados que o sistema gravava e nenhuma tela mostrava |
 | ~~**25 — Capacidades sem porta**~~ ✅ | Todos | Custo por sessão; devolver sessão ao pacote; desfazer confirmação de depósito; quem chamar da lista de espera; conferir documento pelo código; apagar modelo e protocolo | Seis serviços prontos e testados que **nenhuma tela chamava** — nenhuma feature nova |
+| ~~**26 — A Recepção no balcão**~~ ✅ | Recepção | Elegibilidade ao marcar e no check-in; rodada de confirmação com porta na Recepção; bloqueio de agenda (férias, feriado, folga); agendamento em série; visão de semana; direitos do titular (exportar e anonimizar) | Seis capacidades que existiam **em outro lugar** — nenhuma no ponto onde a decisão é tomada |
 
 A coluna "Destrava" é o que justifica a ordem: cada parcela existe porque a seguinte não
 teria onde se apoiar sem ela. A fundação (1) é o caso mais claro — sem `Profissional`,

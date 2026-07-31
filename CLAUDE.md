@@ -355,6 +355,38 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   oferece no lugar do ICP-Brasil**, então não podia continuar sem tela onde digitar; e
   **modelo e protocolo se apagam mesmo** — não são registro do que aconteceu, e as sessões
   e documentos feitos com eles não mudam porque aplicar **copia**, nunca referencia.
+- **A Recepção no balcão** (parcela 26): seis buracos do módulo que fatura o dia.
+  **Elegibilidade ANTES** (`ElegibilidadeService` no check-in da Fila e no agendamento):
+  carteirinha vencida e cota estourada só apareciam na hora de faturar, quando a sessão
+  já aconteceu — é aviso, nunca impedimento, mas marcar dez sessões para quem está com a
+  cota estourada é combinar dez glosas de antemão. A **rodada de confirmação** ganhou porta
+  na Recepção (`ConfirmacoesWindow`): quem liga para o paciente é o balcão, e a campanha
+  morava só no Gerente. **Bloqueio de agenda** (`BloqueioAgendaService`): férias, feriado e
+  folga entram como fato que a agenda respeita — bloquear **não desmarca ninguém** (devolve
+  quem já estava marcado, para a recepção remarcar; sessão que some sem avisar o paciente
+  é pior que o choque), o **encaixe continua furando**, e bloqueio sem profissional e sem
+  sala é da clínica inteira. **Agendamento em série** (`AgendarSerieAsync`): o pacote de
+  dez marcado de uma vez, com a data saindo sempre da **primeira mais N períodos** — nunca
+  da anterior mais um, senão uma sessão adiada empurraria todas as seguintes e o paciente
+  perderia o horário fixo, que é o motivo de marcar em série; data com choque é **PULADA e
+  dita**, e a janela fica aberta para a recepção resolver com o paciente ainda na frente
+  dela. **Visão de semana** na agenda (o dia continua sendo o padrão): a semana começa na
+  segunda e é para responder "quando cabe", que o dia não responde. E os **direitos do
+  titular** (`TitularDadosService`): ver o item de LGPD abaixo.
+- **LGPD além do consentimento** (`TitularDadosService`, parcela 26): colher e revogar
+  consentimento a clínica sabia desde a parcela 2; faltavam os outros dois pedidos que o
+  paciente pode fazer e que ela é **obrigada** a atender — acesso (art. 18, II) e eliminação
+  (art. 18, VI). A regra que o produto não pode fingir que não existe: **prontuário não se
+  apaga**. A guarda é obrigação legal do profissional de saúde (CFM 1.821/2007) e a própria
+  LGPD a preserva (art. 16, II) — então o que se faz é **anonimizar**: nome, documento,
+  telefone, carteirinha, nascimento e foto saem, o histórico fica sem dono identificável, e
+  a tela **diz isso antes de fazer** (prometer apagar tudo e manter o prontuário seria mentir
+  para o paciente por escrito). A exportação sai em **texto, não em PDF diagramado**: o
+  direito é de receber dados legíveis e reutilizáveis, mesma razão do CSV dos relatórios. O
+  **nome original fica na auditoria** — é o que liga o pedido ao registro, e a trilha é o
+  único lugar onde esse vínculo pode existir sem expor o dado na operação do dia a dia.
+  `Permissao.AnonimizarDados` nasce **separada de `EditarProntuario`**: evolução escrita se
+  corrige, anonimização não tem volta — o balcão exporta (`VerProntuario`), a direção elimina.
 - **Recibo e orçamento** (`DocumentoFinanceiroService`, parcela 4): mesmas regras do
   documento clínico — numerados por ano e por tipo (`REC 2026/0001`), não se apagam,
   cancelam-se com motivo, e os **valores ficam gravados na emissão**. O recibo aponta

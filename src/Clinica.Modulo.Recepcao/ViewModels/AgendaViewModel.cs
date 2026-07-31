@@ -18,6 +18,11 @@ public sealed class CartaoAgenda
     /// <summary>De quem é a coluna — é o que a lista de espera pergunta ao vagar.</summary>
     public required int? ProfissionalId { get; init; }
 
+    /// <summary>Marcado em série (pacote de dez). Null = horário avulso.</summary>
+    public required string? SerieId { get; init; }
+
+    public bool EhSerie => !string.IsNullOrWhiteSpace(SerieId);
+
     public required string Faixa { get; init; }
     public required string Paciente { get; init; }
     public string? Telefone { get; init; }
@@ -74,6 +79,16 @@ public sealed partial class AgendaViewModel : ObservableObject
     public ObservableCollection<LinhaListaEspera> Espera { get; } = [];
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
+
+    /// <summary>
+    /// Semana em vez de dia. As colunas deixam de ser os profissionais e passam a ser os
+    /// DIAS: é a forma de responder "quando ele tem vaga?", que no modo dia se responde
+    /// clicando de dia em dia até achar.
+    ///
+    /// Os cartões e os botões são os mesmos — muda só o que cada coluna agrupa.
+    /// </summary>
+    [ObservableProperty] private bool _modoSemana;
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private string _resumo = string.Empty;
 
@@ -148,6 +163,14 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     partial void OnMostrarTodosOsProfissionaisChanged(bool value) => _ = CarregarAsync();
 
+    partial void OnModoSemanaChanged(bool value)
+    {
+        // Sair do foco do horário: "quem chamar para as 14h" é pergunta do modo dia.
+        SugestaoPara = null;
+        SugestaoProfissionalId = null;
+        _ = CarregarAsync();
+    }
+
     partial void OnDiaChanged(DateTime value)
     {
         // Trocar de dia desfaz o foco: "quem chamar para as 14h de ontem" não é pergunta.
@@ -176,6 +199,13 @@ public sealed partial class AgendaViewModel : ObservableObject
             SemProfissionais = profissionais.Count == 0;
 
             Colunas.Clear();
+
+            if (ModoSemana)
+            {
+                await MontarSemanaAsync(agenda, profissionais);
+                await CarregarEsperaAsync(espera);
+                return;
+            }
 
             // Quem entrou como PROFISSIONAL abre na própria coluna. O usuário aponta
             // para o Profissional desde a parcela 5, e um fisioterapeuta que abre o app
@@ -217,6 +247,53 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// A semana da data escolhida, uma coluna por dia (segunda a domingo).
+    ///
+    /// Começa na SEGUNDA e não no dia escolhido: a clínica pensa a semana em bloco, e
+    /// uma grade que começasse na quarta faria o mesmo dia aparecer em posições
+    /// diferentes conforme o dia em que se abre a tela.
+    ///
+    /// O filtro "só a minha agenda" continua valendo — quem entrou como profissional vê
+    /// a semana DELE, que é a pergunta que ele faz.
+    /// </summary>
+    private async Task MontarSemanaAsync(
+        AgendaService agenda, IReadOnlyList<Profissional> profissionais)
+    {
+        var meu = SessaoUsuario.Atual.ProfissionalId;
+        SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
+        var soMeu = SoMinhaAgenda && !MostrarTodosOsProfissionais;
+
+        // O casting vem ANTES da conta: `DayOfWeek + 6` continua sendo DayOfWeek (soma de
+        // enum com int devolve o enum), e o resto de divisão não existe para enum.
+        var segunda = Dia.Date.AddDays(-(((int)Dia.DayOfWeek + 6) % 7));
+        var ocupando = 0;
+
+        for (var i = 0; i < 7; i++)
+        {
+            var quando = segunda.AddDays(i);
+            var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(quando));
+
+            var recorte = soMeu
+                ? doDia.Where(a => a.ProfissionalId == meu).ToList()
+                : doDia.ToList();
+
+            ocupando += recorte.Count(a => a.OcupaAgenda);
+
+            // A coluna do dia não tem "um profissional": o cartão já diz de quem é, e
+            // amarrá-la a alguém faria o botão de chamar da lista de espera oferecer o
+            // profissional errado.
+            Colunas.Add(MontarColuna(
+                null,
+                $"{Dias[i]} {quando:dd/MM}",
+                recorte));
+        }
+
+        Resumo = $"{ocupando} horário(s) na semana de {segunda:dd/MM} a {segunda.AddDays(6):dd/MM}";
+    }
+
+    private static readonly string[] Dias = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
+
     private static ColunaAgenda MontarColuna(
         int? profissionalId, string nome, IEnumerable<Agendamento> agendamentos)
     {
@@ -230,6 +307,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             {
                 AgendamentoId = a.Id,
                 ProfissionalId = profissionalId,
+                SerieId = a.SerieId,
                 Faixa = $"{a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
                 Paciente = a.Paciente?.Nome ?? "(paciente removido)",
                 Telefone = a.Paciente?.Telefone,
@@ -388,6 +466,54 @@ public sealed partial class AgendaViewModel : ObservableObject
         await CarregarAsync();
     }
 
+    /// <summary>
+    /// A rodada de confirmação das sessões de amanhã.
+    ///
+    /// A capacidade existia desde a parcela 5 e morava só no Gerente Geral — mas quem
+    /// confirma as sessões de amanhã é quem está no balcão. É a mesma rodada, o mesmo
+    /// serviço e a mesma chave de idempotência: rodar aqui e lá no mesmo dia não manda
+    /// duas mensagens para o mesmo paciente.
+    /// </summary>
+    [RelayCommand]
+    private async Task ConfirmarSessoesAsync()
+    {
+        var vm = new ConfirmacoesViewModel(_escopos);
+        var janela = new Janelas.ConfirmacoesWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        janela.ShowDialog();
+
+        // A confirmação não muda a agenda do dia aberto, mas pode ter registrado
+        // resposta de quem vem amanhã — recarregar mantém a tela honesta.
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Cancela o que ainda está marcado da série — o "o paciente desistiu no meio do
+    /// tratamento". Sessão já atendida não é tocada: ela é fato, e apagá-la da agenda
+    /// esconderia um atendimento que aconteceu.
+    /// </summary>
+    [RelayCommand]
+    private async Task CancelarSerieAsync(CartaoAgenda? cartao)
+    {
+        if (cartao?.SerieId is not { } serieId) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
+
+        if (!_dialogo.ConfirmarPerigo("Cancelar a série",
+                $"Cancelar TODAS as sessões ainda marcadas da série de {cartao.Paciente}? "
+                + "As que já foram atendidas continuam no histórico.")) return;
+
+        await ExecutarAsync(async scope =>
+        {
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            var quantas = await agenda.CancelarSerieAsync(serieId, SessaoUsuario.Atual.Operador);
+            _snackbar.Info($"{quantas} sessão(ões) da série canceladas.");
+        }, "cancelamento da série");
+    }
+
     /// <summary>Coloca um paciente na lista de espera.</summary>
     [RelayCommand]
     private async Task NovoPedidoEsperaAsync()
@@ -531,11 +657,13 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
     }
 
+    // Em modo semana os botões andam de SETE em sete: avançar um dia numa grade que
+    // mostra a semana inteira não mudaria quase nada na tela.
     [RelayCommand]
-    private void DiaAnterior() => Dia = Dia.AddDays(-1);
+    private void DiaAnterior() => Dia = Dia.AddDays(ModoSemana ? -7 : -1);
 
     [RelayCommand]
-    private void ProximoDia() => Dia = Dia.AddDays(1);
+    private void ProximoDia() => Dia = Dia.AddDays(ModoSemana ? 7 : 1);
 
     [RelayCommand]
     private void Hoje() => Dia = DateTime.Today;

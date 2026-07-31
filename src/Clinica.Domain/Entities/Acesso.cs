@@ -48,7 +48,17 @@ public enum Permissao
     GerenciarUsuarios = 1 << 10,
 
     /// <summary>Ler a trilha de auditoria.</summary>
-    VerAuditoria = 1 << 11
+    VerAuditoria = 1 << 11,
+
+    /// <summary>
+    /// Anonimizar o cadastro a pedido do titular (LGPD, art. 18). Nasce separada de
+    /// <see cref="EditarProntuario"/> de propósito: escrever uma evolução se corrige,
+    /// anonimizar NÃO tem volta — nome, documento e telefone não voltam. Quem decide
+    /// atender ao pedido de eliminação é o controlador, não o balcão. EXPORTAR os dados
+    /// do titular continua em <see cref="VerProntuario"/>: entregar ao paciente o que é
+    /// dele é atendimento comum, e é a recepção que atende.
+    /// </summary>
+    AnonimizarDados = 1 << 12
 }
 
 /// <summary>
@@ -138,6 +148,7 @@ public static class PerfisAcesso
         Permissao.GerenciarEquipe => "Cadastrar equipe",
         Permissao.GerenciarUsuarios => "Gerenciar usuários",
         Permissao.VerAuditoria => "Ver auditoria",
+        Permissao.AnonimizarDados => "Anonimizar dados do titular (LGPD)",
         _ => permissao.ToString()
     };
 
