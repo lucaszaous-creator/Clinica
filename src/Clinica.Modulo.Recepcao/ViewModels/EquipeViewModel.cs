@@ -67,6 +67,12 @@ public sealed partial class EquipeViewModel : ObservableObject
     public ObservableCollection<LinhaBloqueio> Bloqueios { get; } = [];
 
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -92,6 +98,7 @@ public sealed partial class EquipeViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
@@ -150,6 +157,7 @@ public sealed partial class EquipeViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — equipe não pôde ser carregada", ex);
             Mensagem = $"Não foi possível carregar a equipe: {ex.Message}";
             MensagemEhErro = true;

@@ -1,12 +1,14 @@
 <UserControl x:Class="Clinica.Gerente.Views.PendenciasGerencialView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="0,16,0,0">
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
@@ -158,4 +160,13 @@
             </DockPanel>
         </Border>
     </DockPanel>
+    <ctrl:EstadoDaTela
+                       Itens="{Binding Pendencias}"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       Glifo="&#xE7BA;"
+                       TextoCarregando="Lendo as pendências…"
+                       Titulo="Nenhuma guia pendente"
+                       Descricao="O 2º código só vira pendência 24 h depois do atendimento." />
+    </Grid>
 </UserControl>

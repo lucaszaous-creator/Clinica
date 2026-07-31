@@ -814,9 +814,10 @@ for arq in RAIZ.joinpath("src").rglob("*.xaml"):
 # ordem que é a regra: carregando vence tudo, falha vem ANTES de vazio, e vazio só quando
 # a leitura deu certo.
 #
-# Isto é AVISO e não erro, de propósito: a migração das telas é gradual, e transformar em
-# erro travaria o push de quem está mexendo em outra coisa. O aviso existe para a dívida
-# ficar contada e visível a cada execução, em vez de virar esquecimento.
+# Nasceu como AVISO porque as 25 telas migraram aos poucos, e travar o push de quem
+# estava mexendo em outra coisa faria a checagem ser contornada. Com a migração
+# terminada virou ERRO: agora não há dívida a tolerar, e tela nova sem os três estados é
+# regressão — a única hora em que dá para exigir isso barato é enquanto está tudo em dia.
 _pendentes: list[str] = []
 
 for vm in sorted(RAIZ.glob("src/Clinica.Modulo.*/ViewModels/*ViewModel.cs")):
@@ -830,11 +831,10 @@ for vm in sorted(RAIZ.glob("src/Clinica.Modulo.*/ViewModels/*ViewModel.cs")):
     if "EstadoDaTela" not in view.read_text(encoding="utf-8", errors="ignore"):
         _pendentes.append(view.stem)
 
-if _pendentes:
-    avisos.append(
-        f"{len(_pendentes)} tela(s) têm 'Carregando' no ViewModel e não o mostram — "
-        f"lista vazia por espera fica igual a lista vazia por não haver nada. "
-        f"Use ctrl:EstadoDaTela. Faltam: {', '.join(sorted(_pendentes))}")
+for _t in sorted(_pendentes):
+    erros.append(
+        f"{_t}: o ViewModel tem 'Carregando' e a tela não o mostra — lista vazia por "
+        f"espera fica igual a lista vazia por não haver nada. Use ctrl:EstadoDaTela.")
 
 
 # ---------------------------------------------------------------------- saída

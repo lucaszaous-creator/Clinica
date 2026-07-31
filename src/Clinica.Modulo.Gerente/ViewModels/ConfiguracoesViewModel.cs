@@ -81,6 +81,12 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     [ObservableProperty] private bool _rodadaAplicaCarteirinhas;
 
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, tela vazia por erro fica idêntica
+    /// a tela vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -103,6 +109,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = null;
             MensagemEhErro = false;
 
@@ -130,6 +137,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Gerente — configurações não puderam ser lidas", ex);
             Erro($"Não foi possível ler as configurações: {ex.Message}");

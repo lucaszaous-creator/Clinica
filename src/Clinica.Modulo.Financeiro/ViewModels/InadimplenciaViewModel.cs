@@ -83,6 +83,12 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
     [ObservableProperty] private bool _vazio;
     [ObservableProperty] private bool _carregando;
 
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada, e o aviso de falha some junto com o snackbar.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
+
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -105,6 +111,7 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
     {
         if (Carregando) return;
         Carregando = true;
+            NaoVerificado = false;
         try
         {
             Mensagem = null;
@@ -142,6 +149,7 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — inadimplência não pôde ser lida", ex);
             Mensagem = $"Não foi possível ler a inadimplência: {ex.Message}";
             MensagemEhErro = true;

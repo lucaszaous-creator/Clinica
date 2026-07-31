@@ -1,12 +1,14 @@
 <UserControl x:Class="Clinica.Gerente.Views.CampanhasView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="24">
 
         <!-- ============ Cabeçalho ============ -->
@@ -159,4 +161,12 @@
             </DockPanel>
         </Border>
     </DockPanel>
+    <ctrl:EstadoDaTela Itens="{Binding Contatos}"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       Glifo="&#xE8BD;"
+                       TextoCarregando="Lendo os contatos…"
+                       Titulo="Nenhuma mensagem nesta janela"
+                       Descricao="Quem não consentiu aparece CONTADO no resultado da rodada, não sumindo." />
+    </Grid>
 </UserControl>

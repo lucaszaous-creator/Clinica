@@ -52,6 +52,12 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
 
     [ObservableProperty] private string _periodoSelecionado = PeriodoGerencial.EsteMes;
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, tela vazia por erro fica idêntica
+    /// a tela vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private string _intervaloFormatado = string.Empty;
@@ -81,6 +87,7 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
@@ -133,6 +140,7 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Gerente — visão do faturamento não pôde ser carregada", ex);
             Mensagem = $"Não foi possível carregar o faturamento: {ex.Message}";

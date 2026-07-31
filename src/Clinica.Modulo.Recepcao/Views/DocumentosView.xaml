@@ -1,12 +1,14 @@
 <UserControl x:Class="Clinica.Recepcao.Views.DocumentosView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="24">
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -275,4 +277,12 @@
             </Border>
         </Grid>
     </DockPanel>
+    <ctrl:EstadoDaTela Itens="{Binding Emitidas}"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       Glifo="&#xE8A5;"
+                       TextoCarregando="Lendo os documentos…"
+                       Titulo="Nenhum documento emitido"
+                       Descricao="Documento cancelado aparece marcado, nunca sumindo." />
+    </Grid>
 </UserControl>

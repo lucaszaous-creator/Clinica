@@ -1,12 +1,14 @@
 <UserControl x:Class="Clinica.Gerente.Views.MetasView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="24">
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -149,4 +151,13 @@
             </DockPanel>
         </Border>
     </DockPanel>
+    <ctrl:EstadoDaTela
+                       Itens="{Binding Metas}"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       Glifo="&#xE7C1;"
+                       TextoCarregando="Lendo as metas…"
+                       Titulo="Nenhuma meta definida para o ano"
+                       Descricao="Sem meta o painel volta a comparar com o mês anterior — e variação não responde se chegamos onde a clínica combinou." />
+    </Grid>
 </UserControl>

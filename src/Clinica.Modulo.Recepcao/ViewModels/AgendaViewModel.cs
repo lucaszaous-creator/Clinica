@@ -90,6 +90,12 @@ public sealed partial class AgendaViewModel : ObservableObject
     [ObservableProperty] private bool _modoSemana;
 
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada, e o aviso de falha some junto com o snackbar.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string _resumo = string.Empty;
 
     /// <summary>Feedback inline: erro de agenda fica na tela enquanto o usuário resolve.</summary>
@@ -185,6 +191,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
@@ -237,6 +244,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — agenda do dia não pôde ser carregada", ex);
             Mensagem = $"Não foi possível carregar a agenda: {ex.Message}";
             MensagemEhErro = true;

@@ -57,6 +57,12 @@ public sealed partial class IndicadoresViewModel : ObservableObject
 
     [ObservableProperty] private string _periodoSelecionado = PeriodoGerencial.EsteMes;
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, tela vazia por erro fica idêntica
+    /// a tela vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -226,6 +232,7 @@ public sealed partial class IndicadoresViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
@@ -277,6 +284,7 @@ public sealed partial class IndicadoresViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Gerente — indicadores não puderam ser carregados", ex);
             Mensagem = $"Não foi possível carregar os indicadores: {ex.Message}";
             MensagemEhErro = true;

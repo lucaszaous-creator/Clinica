@@ -36,6 +36,12 @@ public sealed partial class PlanoContasViewModel : ObservableObject
     public ObservableCollection<LinhaCategoria> Categorias { get; } = [];
 
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, tela vazia por erro fica idêntica
+    /// a tela vazia por não haver nada.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private string _resumo = "—";
@@ -60,6 +66,7 @@ public sealed partial class PlanoContasViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
@@ -83,6 +90,7 @@ public sealed partial class PlanoContasViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — plano de contas não pôde ser carregado", ex);
             Erro($"Não foi possível carregar o plano de contas: {ex.Message}");
         }

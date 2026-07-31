@@ -61,6 +61,13 @@ public sealed partial class CaixaViewModel : ObservableObject
     [ObservableProperty]
     private bool _carregando;
 
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada, e o aviso some junto com o snackbar em 4 segundos.
+    /// </summary>
+    [ObservableProperty]
+    private bool _naoVerificado;
+
     [ObservableProperty]
     private string _entradas = "—";
 
@@ -131,6 +138,7 @@ public sealed partial class CaixaViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
             var fim = inicio.AddMonths(1).AddDays(-1);
 
@@ -169,6 +177,7 @@ public sealed partial class CaixaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — caixa não pôde ser carregado", ex);
             _snackbar.Erro($"Não foi possível carregar o caixa: {ex.Message}");
         }

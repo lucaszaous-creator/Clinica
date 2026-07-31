@@ -1,7 +1,7 @@
 <Window x:Class="Clinica.Desktop.Shell.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Entrar" Width="460" SizeToContent="Height"
+        Title="Entrar" Width="480" SizeToContent="Height"
         Icon="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/icone.png"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
@@ -10,52 +10,46 @@
          diálogo de 600px vira 900px físicos, e sem isto os botões do rodapé
          ficam atrás da barra de tarefas. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="28">
+    <StackPanel Margin="32,28,32,28">
         <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
-               Height="40" HorizontalAlignment="Left" Margin="0,0,0,18"
+               Height="44" HorizontalAlignment="Left" Margin="0,4,0,22"
                RenderOptions.BitmapScalingMode="HighQuality" ToolTip="Clínica SemDor" />
 
         <TextBlock x:Name="TxtTitulo" Style="{StaticResource H2}" Margin="0,0,0,4" />
-        <TextBlock x:Name="TxtSubtitulo" Style="{StaticResource TextoSuave}" TextWrapping="Wrap" />
+        <TextBlock x:Name="TxtSubtitulo" Style="{StaticResource TextoSuave}"
+                   TextWrapping="Wrap" Margin="0,0,0,10" />
 
         <!-- ============ Entrar ============ -->
         <StackPanel x:Name="PainelEntrar">
-            <TextBlock Text="Usuário" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="Usuário" Style="{StaticResource Rotulo}" Margin="0,4,0,4" />
             <TextBox x:Name="TxtLogin" />
 
-            <TextBlock Text="Senha" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="Senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <PasswordBox x:Name="TxtSenha" />
         </StackPanel>
 
         <!-- ============ Primeiro acesso ============ -->
         <StackPanel x:Name="PainelPrimeiroAcesso" Visibility="Collapsed">
-            <TextBlock Text="Seu nome" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="Seu nome" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <TextBox x:Name="TxtNovoNome" />
 
-            <TextBlock Text="Usuário (sem espaços)" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="Usuário (sem espaços)" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <TextBox x:Name="TxtNovoLogin" />
 
-            <TextBlock Text="Senha" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="Senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <PasswordBox x:Name="TxtNovaSenha" />
 
-            <TextBlock Text="Repita a senha" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="Repita a senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <PasswordBox x:Name="TxtNovaSenhaRepetida" />
         </StackPanel>
 
         <!-- ============ Troca obrigatória de senha ============ -->
         <StackPanel x:Name="PainelTrocarSenha" Visibility="Collapsed">
-            <TextBlock Text="Nova senha" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="Nova senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <PasswordBox x:Name="TxtTrocaSenha" />
 
-            <TextBlock Text="Repita a nova senha" Style="{StaticResource Rotulo}" />
+            <TextBlock Text="Repita a nova senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
             <PasswordBox x:Name="TxtTrocaSenhaRepetida" />
-        </StackPanel>
-
-        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-            <Button x:Name="BtnEntrar" Content="Entrar" MinWidth="140"
-                    Click="Confirmar" IsDefault="True" />
-            <Button Content="Sair" MinWidth="100" Margin="10,0,0,0"
-                    Style="{StaticResource BotaoSecundario}" Click="Cancelar" IsCancel="True" />
         </StackPanel>
 
         <Border x:Name="BoxErro" Style="{StaticResource AlertaPerigo}" Margin="0,16,0,0" Visibility="Collapsed">
@@ -65,6 +59,21 @@
         <Border x:Name="BoxInfo" Style="{StaticResource AlertaInfo}" Margin="0,16,0,0" Visibility="Collapsed">
             <TextBlock x:Name="TxtInfo" TextWrapping="Wrap" />
         </Border>
+
+        <!-- Duas colunas iguais: botões de larguras diferentes (140 e 100) desequilibram
+             o rodapé, e num diálogo de dois botões não há hierarquia de tamanho a
+             comunicar — a hierarquia já está na cor. -->
+        <Grid Margin="0,22,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="BtnEntrar" Grid.Column="0" Content="Entrar"
+                    Click="Confirmar" IsDefault="True" />
+            <Button Grid.Column="2" Content="Sair"
+                    Style="{StaticResource BotaoSecundario}" Click="Cancelar" IsCancel="True" />
+        </Grid>
     </StackPanel>
     </ScrollViewer>
 </Window>

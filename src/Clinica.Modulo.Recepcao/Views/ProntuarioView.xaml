@@ -8,6 +8,7 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="24">
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -181,4 +182,12 @@
             </DockPanel>
         </Grid>
     </DockPanel>
+    <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       Glifo="&#xE8A5;"
+                       TextoCarregando="Lendo o prontuário…"
+                       Titulo="Nenhuma sessão registrada"
+                       Descricao="A evolução é o histórico clínico: ele não se apaga, corrige-se." />
+    </Grid>
 </UserControl>

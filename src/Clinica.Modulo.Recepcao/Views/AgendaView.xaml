@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Recepcao.Views.AgendaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
              Background="{StaticResource Brush.Fundo}">
 
@@ -285,6 +286,7 @@
         </Border>
 
         <!-- ============ Grade: uma coluna por profissional ============ -->
+        <Grid>
         <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <ItemsControl ItemsSource="{Binding Colunas}"
                           ItemTemplate="{StaticResource ColunaAgendaTemplate}">
@@ -295,5 +297,14 @@
                 </ItemsControl.ItemsPanel>
             </ItemsControl>
         </ScrollViewer>
+
+        <ctrl:EstadoDaTela Itens="{Binding Colunas}"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           Glifo="&#xE787;"
+                           TextoCarregando="Montando a agenda…"
+                           Titulo="Nenhum horário neste dia"
+                           Descricao="Bloqueio de férias ou feriado aparece marcado — e o encaixe fura o bloqueio quando a recepção assume." />
+        </Grid>
     </DockPanel>
 </UserControl>

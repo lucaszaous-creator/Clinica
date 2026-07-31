@@ -57,6 +57,12 @@ public sealed partial class PacotesViewModel : ObservableObject
 
     [ObservableProperty] private LinhaCatalogo? _catalogoSelecionado;
     [ObservableProperty] private bool _carregando;
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado. Sem ele, lista vazia por erro fica idêntica
+    /// a lista vazia por não haver nada, e o aviso de falha some junto com o snackbar.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private string _resumo = "—";
@@ -91,6 +97,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         try
         {
             Carregando = true;
+            NaoVerificado = false;
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
@@ -128,6 +135,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — pacotes não puderam ser carregados", ex);
             Erro($"Não foi possível carregar os pacotes: {ex.Message}");
         }

@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Financeiro.Views.PacotesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:vm="clr-namespace:Clinica.Financeiro.ViewModels"
              Background="{StaticResource Brush.Fundo}">
 
@@ -9,6 +10,8 @@
     </UserControl.Resources>
 
     <DockPanel Margin="24">
+      <Grid>
+
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <TextBlock Text="Pacotes, planos e vouchers" Style="{StaticResource H1}" Margin="0,0,0,4" />
@@ -167,5 +170,13 @@
                 </DockPanel>
             </Border>
         </Grid>
-    </DockPanel>
+          </Grid>
+        <ctrl:EstadoDaTela Itens="{Binding Vendidos}"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           Glifo="&#xE8C7;"
+                           TextoCarregando="Lendo os pacotes…"
+                           Titulo="Nenhum pacote vendido"
+                           Descricao="A situação do pacote é calculada na hora — vencimento não precisa de rotina." />
+</DockPanel>
 </UserControl>

@@ -1,12 +1,14 @@
 <UserControl x:Class="Clinica.Gerente.Views.ConfiguracoesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
+    <Grid>
     <DockPanel Margin="24">
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -191,4 +193,11 @@
             </StackPanel>
         </ScrollViewer>
     </DockPanel>
+    <ctrl:EstadoDaTela
+                       Vazio="False"
+                       Carregando="{Binding Carregando}"
+                       NaoVerificado="{Binding NaoVerificado}"
+                       TextoCarregando="Lendo as configurações…"
+                       TextoNaoVerificado="Não foi possível montar esta tela. Os números não estão zerados — eles não puderam ser lidos." />
+    </Grid>
 </UserControl>
