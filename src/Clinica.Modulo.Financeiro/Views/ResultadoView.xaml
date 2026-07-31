@@ -1,0 +1,266 @@
+<UserControl x:Class="Clinica.Financeiro.Views.ResultadoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Resultado do mês" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="◀" Command="{Binding MesAnteriorCommand}"
+                        Style="{StaticResource BotaoSecundario}" Width="40" />
+                <Border Background="{StaticResource Brush.Superficie}"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                        CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
+                    <TextBlock Text="{Binding Mes, StringFormat='{}{0:MMMM/yyyy}'}"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                </Border>
+                <Button Content="▶" Command="{Binding ProximoMesCommand}"
+                        Style="{StaticResource BotaoSecundario}" Width="40" />
+                <Button Content="Exportar CSV" Command="{Binding ExportarCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="120" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <TabControl Background="Transparent" BorderThickness="0">
+
+            <!-- ============ Sobrou quanto ============ -->
+            <TabItem Header="Resultado">
+            <DockPanel Margin="0,12,0,0">
+
+                <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
+                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                        CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,16">
+                    <TextBlock TextWrapping="Wrap"
+                               Foreground="{StaticResource Brush.Texto.Primario}"
+                               Text="Regime de CAIXA: entra o que se moveu no mês. Um resultado por competência exigiria provisão e rateio que a clínica não mantém — e um número aproximado apresentado como contábil é pior do que um número honesto apresentado como caixa. Taxa de maquininha e imposto entram como DEDUÇÃO, não como despesa: eles saem da receita antes de ela existir, e listá-los junto do aluguel faria a clínica achar que pode cortá-los." />
+                </Border>
+
+                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                        Visibility="{Binding ResultadoNaoVerificado,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Não foi possível apurar este mês. Os números estão em “—” por falha de leitura, não por ausência de movimento." />
+                </Border>
+
+                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Receita bruta" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Text="{Binding Receita}" Style="{StaticResource H3}" Margin="0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="(−) Deduções" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Text="{Binding Deducoes}" Style="{StaticResource H3}" Margin="0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="(=) Receita líquida" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Text="{Binding ReceitaLiquida}" Style="{StaticResource H3}" Margin="0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="3">
+                            <TextBlock Text="(−) Despesas" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Text="{Binding Despesas}" Style="{StaticResource H3}" Margin="0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="(=) Resultado" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Text="{Binding Resultado}" Margin="0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource H3}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Prejuizo}" Value="True">
+                                                <Setter Property="Foreground"
+                                                        Value="{StaticResource Brush.Erro}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                        <StackPanel Grid.Column="5">
+                            <TextBlock Text="Margem" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Text="{Binding Margem}" Style="{StaticResource H3}" Margin="0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="De onde veio" Style="{StaticResource H3}"
+                                       Margin="0,0,0,8" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Entradas}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,10">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Categoria}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                    <TextBlock Text="{Binding Valor}" HorizontalAlignment="Right"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                </Grid>
+                                                <ProgressBar Value="{Binding Fracao, Mode=OneWay}"
+                                                             Maximum="1" Height="6" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Para onde foi" Style="{StaticResource H3}"
+                                       Margin="0,0,0,8" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Saidas}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,10">
+                                                <Grid>
+                                                    <TextBlock Text="{Binding Categoria}" TextWrapping="Wrap"
+                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                    <TextBlock Text="{Binding Valor}" HorizontalAlignment="Right"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                </Grid>
+                                                <ProgressBar Value="{Binding Fracao, Mode=OneWay}"
+                                                             Maximum="1" Height="6" Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </DockPanel>
+            </TabItem>
+
+            <!-- ============ Quanto podia sair ============ -->
+            <TabItem Header="Teto de gasto">
+            <DockPanel Margin="0,12,0,0">
+
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                    <TextBlock Text="{Binding ResumoOrcamento}" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,150,0" />
+                    <Button Content="Definir teto" HorizontalAlignment="Right" VerticalAlignment="Top"
+                            MinWidth="130" IsEnabled="{Binding PodeEditar}"
+                            Command="{Binding DefinirTetoCommand}" />
+                </Grid>
+
+                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                        Visibility="{Binding OrcamentoNaoVerificado,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock TextWrapping="Wrap"
+                               Text="Não foi possível ler os tetos deste mês. A lista está vazia por falha de leitura, não por ausência de teto." />
+                </Border>
+
+                <Border Background="{StaticResource Brush.Superficie}"
+                        BorderBrush="{StaticResource Brush.Borda}"
+                        BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Orcamentos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="110" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Categoria}" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Texto.Secundario}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding EmAtencao}" Value="True">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Aviso}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Estourou}" Value="True">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Erro}" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                                <ProgressBar Value="{Binding Fracao, Mode=OneWay}"
+                                                             Maximum="1" Height="6" Margin="0,6,0,0" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" Text="{Binding Teto}"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Gasto}"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Saldo}"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+
+                                            <Button Grid.Column="4" Content="Excluir"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    IsEnabled="{Binding DataContext.PodeEditar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.ExcluirTetoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </DockPanel>
+            </TabItem>
+
+        </TabControl>
+    </DockPanel>
+</UserControl>

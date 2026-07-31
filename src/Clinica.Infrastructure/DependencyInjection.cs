@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<ReceitaGlosadaService>();
         services.AddScoped<MetaService>();
         services.AddScoped<OrcamentoService>();
+        services.AddScoped<ResultadoMensalService>();
         services.AddScoped<RelacionamentoService>();
         services.AddScoped<AgendaPdfService>();
         services.AddScoped<FinanceiroService>();
