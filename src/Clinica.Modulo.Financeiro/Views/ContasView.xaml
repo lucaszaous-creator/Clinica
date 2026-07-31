@@ -176,6 +176,12 @@
                                 Margin="0,0,8,0"
                                 IsEnabled="{Binding PodeEditar}"
                                 Command="{Binding GerarCommand}" />
+                        <!-- A lista que vai à reunião com o contador e à conversa com o
+                             banco. O PRAZO sai escrito, não só a data: é assim que se
+                             pensa nele no balcão. -->
+                        <Button Content="Exportar CSV" Style="{StaticResource BotaoSecundario}"
+                                Margin="0,0,8,0" MinWidth="120"
+                                Command="{Binding ExportarCommand}" />
                         <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding CarregarCommand}" />
                     </StackPanel>

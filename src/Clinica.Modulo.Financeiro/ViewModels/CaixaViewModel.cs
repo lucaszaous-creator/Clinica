@@ -287,6 +287,54 @@ public sealed partial class CaixaViewModel : ObservableObject
     }
 
     [RelayCommand]
+    /// <summary>
+    /// O extrato do mês em CSV (parcela 32).
+    ///
+    /// O Caixa é a tela mais aberta do módulo e era a única sem saída: quando o contador
+    /// pedia o extrato, a clínica exportava do banco ou copiava à mão. Ponto e vírgula e
+    /// BOM UTF-8, como o resto da suíte — com vírgula o arquivo abre com tudo numa coluna
+    /// só, e sem BOM "Sessão" vira "SessÃ£o" na planilha.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportarAsync()
+    {
+        if (Linhas.Count == 0)
+        {
+            _snackbar.Info("Não há lançamento para exportar neste mês.");
+            return;
+        }
+
+        try
+        {
+            var csv = ExportacaoCsv.Montar(
+                ["Data", "Descrição", "Categoria", "Tipo", "Valor", "Situação", "Origem"],
+                Linhas.Select(l => new[]
+                {
+                    l.Data,
+                    l.Descricao,
+                    l.Categoria,
+                    l.EhEntrada ? "Entrada" : "Saída",
+                    l.ValorFormatado,
+                    l.StatusRotulo,
+                    // O elo com o faturamento vai junto: é o que permite conferir a
+                    // receita de convênio contra o demonstrativo da operadora.
+                    l.VeioDoFaturamento ? "guia do faturamento" : "lançamento manual"
+                }));
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                csv,
+                ImpressaoPdf.NomeSeguro($"caixa-{Mes:yyyy-MM}.csv"),
+                "CSV (*.csv)|*.csv", ".csv");
+
+            if (erro is not null) _snackbar.Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — caixa não pôde ser exportado", ex);
+            _snackbar.Erro(ex.Message);
+        }
+    }
+
     private void MesAnterior() => Mes = Mes.AddMonths(-1);
 
     [RelayCommand]

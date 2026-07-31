@@ -356,6 +356,52 @@ public sealed partial class ContasViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// O que vence, em CSV (parcela 32).
+    ///
+    /// É a lista que a clínica leva para a reunião com o contador e para a conversa com o
+    /// banco — e era a única saída da tela que não existia. O PRAZO vai escrito ("venceu
+    /// faz cinco dias"), e não só a data: é assim que se pensa nele no balcão, e a
+    /// planilha que só traz 10/08 obriga quem lê a refazer a conta.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExportarAsync()
+    {
+        if (Contas.Count == 0)
+        {
+            _snackbar.Info("Não há conta para exportar neste recorte.");
+            return;
+        }
+
+        try
+        {
+            var csv = ExportacaoCsv.Montar(
+                ["Descrição", "Categoria/Paciente", "Tipo", "Valor", "Vencimento", "Prazo", "Origem"],
+                Contas.Select(c => new[]
+                {
+                    c.Descricao,
+                    c.Categoria,
+                    c.EhSaida ? "A pagar" : "A receber",
+                    c.Valor,
+                    c.Vencimento,
+                    c.Prazo,
+                    c.Recorrente ? "conta fixa" : "avulsa"
+                }));
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                csv,
+                ImpressaoPdf.NomeSeguro($"contas-{DateTime.Today:yyyy-MM-dd}.csv"),
+                "CSV (*.csv)|*.csv", ".csv");
+
+            if (erro is not null) Erro(erro);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Financeiro — contas não puderam ser exportadas", ex);
+            Erro(ex.Message);
+        }
+    }
+
     private void Erro(string mensagem)
     {
         Mensagem = mensagem;
