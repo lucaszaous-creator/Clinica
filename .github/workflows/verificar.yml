@@ -1,0 +1,48 @@
+name: Verificar (Linux)
+
+# Rede rápida, em TODA branch.
+#
+# O `build-exe.yml` roda num runner Windows e só dispara em push na main e em PR
+# para a main — commit em branch de trabalho não gerava build nenhum, e o autor
+# só descobria um erro de compilação ao abrir o PR. Este job roda em Linux, em
+# qualquer branch, e fecha três das quatro redes do projeto em poucos minutos:
+#
+#   1. tokens/verificar-espelho.py  — CSS x XAML
+#   2. tools/verificar-suite.py     — XAML, pack URIs, chaves do design system
+#   3. tools/compilar-sombra.py     — o C# dos sete projetos WPF
+#   4. dotnet test                  — Domain, Application, Infrastructure
+#
+# A quarta rede (compilador de marcação do WPF e empacotamento dos quatro .exe)
+# continua sendo do runner Windows: ela precisa do SDK WindowsDesktop, que não
+# existe em Linux. Este job NÃO o substitui — ele antecipa o que dá para antecipar.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Conferir espelho dos tokens (CSS x XAML)
+        run: python3 tokens/verificar-espelho.py
+
+      - name: Conferir a suíte multi-exe (XAML, pack URIs, projetos)
+        run: python3 tools/verificar-suite.py
+
+      - name: Testes
+        run: dotnet test tests/Clinica.Tests/Clinica.Tests.csproj -c Release
+
+      # Por último: é o passo mais lento (baixa as reference assemblies do WPF do
+      # NuGet) e o que menos costuma falhar sozinho depois dos anteriores.
+      - name: Compilar o C# das telas WPF (compilação-sombra)
+        run: python3 tools/compilar-sombra.py

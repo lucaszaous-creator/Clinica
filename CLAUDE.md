@@ -34,6 +34,14 @@ CLINICA_DB="Host=...;Database=...;Username=...;Password=...;SSL Mode=Require" \
   dotnet ef migrations add NomeDaMigration -p src/Clinica.Infrastructure -s src/Clinica.Infrastructure
 ```
 
+⚠️ **Confira o carimbo de hora da migration recém-gerada.** Várias migrations deste repositório
+foram escritas à mão com horas FUTURAS (`20260731230000`, `20260801000000`), porque não havia
+`dotnet ef` no ambiente. O `dotnet ef` carimba com a hora REAL do relógio, então uma migration
+gerada hoje pode nascer ordenando **antes** delas — e o EF aplica na ordem do ID, o que faria a
+migration nova tentar alterar uma tabela que ainda não existe. Se o ID novo não for o maior de
+todos, renomeie os dois arquivos e o `[Migration("...")]` do Designer. `ls Migrations/ | sed
+'s/_.*//' | sort -u` mostra a ordem real.
+
 ⚠️ `Clinica.Desktop` e toda a suíte multi-exe **só compilam no Windows** (`net8.0-windows`) — o SDK
 de Linux não traz o `Microsoft.NET.Sdk.WindowsDesktop`. **Isso não é desculpa para empurrar sem
 compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:

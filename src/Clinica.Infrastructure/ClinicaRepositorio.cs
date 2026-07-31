@@ -486,9 +486,29 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarProfissionalAsync(Profissional profissional, CancellationToken ct = default)
         => await _db.Profissionais.AddAsync(profissional, ct);
 
+    /// <summary>
+    /// O profissional já deixou rastro em algum lugar?
+    ///
+    /// A guarda existe para o `EquipeService` poder dizer "desative em vez de excluir,
+    /// para não apagar o histórico" — mas ela só olhava agenda e lista de espera, e o
+    /// histórico de um profissional é bem maior que isso. Faltavam sete tabelas, entre
+    /// elas três em que a exclusão apagaria dado que ninguém tem como recuperar:
+    /// evolução e documento clínico (prontuário, cuja guarda é obrigação legal),
+    /// repasse apurado (o que já foi pago a ele) e a meta acordada para o mês.
+    ///
+    /// O usuário de sistema entra na conta pelo motivo oposto: não é histórico, é
+    /// ACESSO — apagar o profissional deixaria um login apontando para ninguém.
+    /// </summary>
     public async Task<bool> ProfissionalEmUsoAsync(int profissionalId, CancellationToken ct = default)
         => await _db.Agendamentos.AnyAsync(a => a.ProfissionalId == profissionalId, ct)
-           || await _db.ListaEspera.AnyAsync(l => l.ProfissionalId == profissionalId, ct);
+           || await _db.ListaEspera.AnyAsync(l => l.ProfissionalId == profissionalId, ct)
+           || await _db.Evolucoes.AnyAsync(e => e.ProfissionalId == profissionalId, ct)
+           || await _db.DocumentosClinicos.AnyAsync(d => d.ProfissionalId == profissionalId, ct)
+           || await _db.RepassesApurados.AnyAsync(r => r.ProfissionalId == profissionalId, ct)
+           || await _db.RegrasRepasse.AnyAsync(r => r.ProfissionalId == profissionalId, ct)
+           || await _db.Metas.AnyAsync(m => m.ProfissionalId == profissionalId, ct)
+           || await _db.BloqueiosAgenda.AnyAsync(b => b.ProfissionalId == profissionalId, ct)
+           || await _db.Usuarios.AnyAsync(u => u.ProfissionalId == profissionalId, ct);
 
     public async Task RemoverProfissionalAsync(int profissionalId, CancellationToken ct = default)
     {
@@ -508,8 +528,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarSalaAsync(Sala sala, CancellationToken ct = default)
         => await _db.Salas.AddAsync(sala, ct);
 
+    /// <summary>
+    /// A sala já foi usada? Bloqueio conta: uma reforma marcada na sala é registro de
+    /// agenda tanto quanto um atendimento, e apagar a sala levaria o bloqueio junto.
+    /// </summary>
     public async Task<bool> SalaEmUsoAsync(int salaId, CancellationToken ct = default)
-        => await _db.Agendamentos.AnyAsync(a => a.SalaId == salaId, ct);
+        => await _db.Agendamentos.AnyAsync(a => a.SalaId == salaId, ct)
+           || await _db.BloqueiosAgenda.AnyAsync(b => b.SalaId == salaId, ct);
 
     public async Task RemoverSalaAsync(int salaId, CancellationToken ct = default)
     {
