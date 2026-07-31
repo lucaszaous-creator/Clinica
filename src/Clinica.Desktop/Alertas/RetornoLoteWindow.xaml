@@ -48,12 +48,24 @@
             </DataGrid>
         </Border>
 
-        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0" VerticalAlignment="Center">
-            <TextBlock Text="Data do retorno:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <DatePicker x:Name="DpData" Width="140" />
-            <TextBlock Text="Observação:" VerticalAlignment="Center" Margin="16,0,6,0" />
-            <TextBox x:Name="TxtObservacao" Width="320" />
-        </StackPanel>
+        <!-- Grid, e não StackPanel horizontal: a observação larga fixa em 320px era um PISO.
+             StackPanel dá ao filho a largura que ele pede e nunca encolhe, então a linha
+             exigia 741px numa janela cujo mínimo é 700 — arrastada até o mínimo, o campo
+             saía cortado pela direita. Em coluna elástica ele acompanha a janela nos dois
+             sentidos: encolhe até o mínimo sem cortar, e cresce quando maximizada em vez
+             de deixar um vão morto ao lado. -->
+        <Grid Grid.Row="3" Margin="0,12,0,0" VerticalAlignment="Center">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Data do retorno:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <DatePicker Grid.Column="1" x:Name="DpData" Width="140" />
+            <TextBlock Grid.Column="2" Text="Observação:" VerticalAlignment="Center" Margin="16,0,6,0" />
+            <TextBox Grid.Column="3" x:Name="TxtObservacao" MinWidth="160" />
+        </Grid>
 
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click"

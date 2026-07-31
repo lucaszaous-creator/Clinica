@@ -10,7 +10,7 @@
 
         <TextBlock Grid.Row="0" Text="Guias faturadas (baixadas)" Style="{StaticResource H1}" />
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12" VerticalAlignment="Center">
+        <WrapPanel Grid.Row="1" Margin="0,0,0,12" VerticalAlignment="Center">
             <TextBlock Text="De:" VerticalAlignment="Center" Margin="0,0,6,0" />
             <DatePicker SelectedDate="{Binding Inicio}" Width="140" />
             <TextBlock Text="Até:" VerticalAlignment="Center" Margin="16,0,6,0" />
@@ -23,9 +23,12 @@
                     <TextBlock Text="Exportar CSV" />
                 </StackPanel>
             </Button>
+            <!-- Quebra linha e tem teto: mensagem numa linha so corre para fora da tela.
+                 A barra e WrapPanel pelo mesmo motivo — StackPanel horizontal nunca dobra. -->
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
+                       TextWrapping="Wrap" MaxWidth="420"
                        Foreground="{StaticResource Brush.Texto.Secundario}" />
-        </StackPanel>
+        </WrapPanel>
 
         <Border Grid.Row="2" Style="{StaticResource Card}">
         <DataGrid ItemsSource="{Binding Baixados}">

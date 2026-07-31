@@ -13,8 +13,16 @@
 
         <TextBlock Grid.Row="0" Text="Relatórios de faturamento" Style="{StaticResource H1}" />
 
-        <!-- Filtro de período -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16" VerticalAlignment="Center">
+        <!-- Filtro de período.
+
+             WrapPanel, e não StackPanel horizontal: a barra soma duas datas, três botões
+             e a mensagem, e um StackPanel dá a cada filho a largura que ele pede sem
+             nunca dobrar a linha. Na largura mínima da janela (960 menos a sidebar de
+             240) a barra não cabia, e o que sobrava para fora era justamente o fim dela
+             — o botão de fechamento e a MENSAGEM DE ERRO, cortada exatamente na hora em
+             que ela é o que a pessoa precisa ler. Com WrapPanel a barra desce para uma
+             segunda linha; larga, ela desenha igual à de antes. -->
+        <WrapPanel Grid.Row="1" Margin="0,0,0,16" VerticalAlignment="Center">
             <TextBlock Text="De:" VerticalAlignment="Center" Margin="0,0,6,0" />
             <DatePicker SelectedDate="{Binding Inicio}" Width="140" />
             <TextBlock Text="Até:" VerticalAlignment="Center" Margin="16,0,6,0" />
@@ -36,9 +44,12 @@
                     <TextBlock Text="Fechamento (PDF)" />
                 </StackPanel>
             </Button>
+            <!-- Quebra linha e tem teto: mensagem de erro numa linha só é mensagem que
+                 corre para fora da tela e não se lê. -->
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
+                       TextWrapping="Wrap" MaxWidth="420"
                        Foreground="{StaticResource Brush.Erro}" />
-        </StackPanel>
+        </WrapPanel>
 
         <!-- KPIs -->
         <UniformGrid Grid.Row="2" Columns="6" Margin="0,0,0,20">

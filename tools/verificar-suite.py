@@ -904,6 +904,102 @@ for arq in sorted(CONGELADO.rglob("*.xaml")):
             f"ScrollViewer — em escala 150% o rodapé sai da tela cortado")
 
 
+# --------------------------------------------------------------- checagem 16
+# O PISO DA JANELA. Vale para os quatro apps.
+#
+# A checagem 15 olha o TETO: janela que nasce maior que o monitor. Este é o outro lado, e
+# é o que o usuário alcança sozinho — janela redimensionável SEM `MinWidth` encolhe até o
+# mínimo do WPF (perto de 120px), e aí não há layout que resista: campo, botão e mensagem
+# saem cortados pela direita. Diferente do teto, o piso não tem conserto pelo usuário:
+# quem arrastou até lá não sabe qual largura devolve a tela ao normal.
+#
+# `SizeToContent="Height"` resolve a altura sozinho, então só a largura é exigida ali.
+for arq in sorted(RAIZ.glob("src/*/**/*.xaml")):
+    try:
+        raiz_j = ET.parse(arq).getroot()
+    except ET.ParseError:
+        continue  # a checagem 15 já reclamou
+
+    if _nome(raiz_j) != "Window":
+        continue
+    if (raiz_j.get("ResizeMode") or "CanResize") in ("NoResize",):
+        continue  # não dá para arrastar: a largura declarada já é o piso
+
+    def _tem(atributo: str) -> bool:
+        return (raiz_j.get(atributo) or "").strip() != ""
+
+    if not _tem("MinWidth"):
+        erros.append(
+            f"{rel(arq)}: janela redimensionável sem MinWidth — o usuário arrasta a "
+            f"borda até o conteúdo ficar cortado, e não há como saber qual largura "
+            f"desfaz isso")
+
+    # Altura automática não precisa de piso; altura fixa precisa.
+    cresce_alt = "Height" in (raiz_j.get("SizeToContent") or "")
+    if _tem("Height") and not cresce_alt and not _tem("MinHeight"):
+        erros.append(
+            f"{rel(arq)}: janela redimensionável de altura fixa sem MinHeight — "
+            f"encolhida na vertical, o rodapé com os botões é o primeiro a sair")
+
+
+# --------------------------------------------------------------- checagem 17
+# MENSAGEM QUE CORRE PARA FORA DA TELA.
+#
+# `StackPanel Orientation="Horizontal"` dá a cada filho a largura que ele PEDE e nunca
+# dobra a linha. Um `TextBlock` sem `TextWrapping` pede a linha inteira de uma vez — e
+# quando o texto vem de binding (`Mensagem`, `Erro`, `Aviso`) o comprimento é do dado, não
+# do leiaute: uma mensagem de erro do Postgres passa de 200 caracteres.
+#
+# O resultado não é feio, é MUDO: a mensagem sai pela direita e a pessoa não lê justamente
+# o texto que explica por que a ação falhou. O projeto já decidiu que erro se mostra inline
+# (CLAUDE.md, dois canais de feedback) — inline que não cabe não é feedback.
+#
+# Só bindings de mensagem entram: rótulo fixo curto ao lado de um campo é o uso legítimo
+# do StackPanel horizontal, e acusá-lo encheria a saída de ruído.
+#
+# Cobre TAMBÉM o faturamento congelado, pela mesma razão da checagem 15: a regra não tem
+# nada a ver com arquitetura, e os três casos reais estavam justamente lá. Checagem que
+# não alcança o lugar onde o defeito estava é checagem que passa sozinha.
+PALAVRAS_DE_MENSAGEM = ("Mensagem", "Erro", "Aviso", "Procedencia", "Justificativa")
+
+arvores_com_congelado: dict[Path, ET.Element] = dict(arvores)
+for _arq in sorted(CONGELADO.rglob("*.xaml")):
+    try:
+        arvores_com_congelado[_arq] = ET.parse(_arq).getroot()
+    except ET.ParseError:
+        continue  # a checagem 15 já reclamou
+
+for arq, raiz_m in arvores_com_congelado.items():
+    for painel in raiz_m.iter():
+        # WrapPanel entra junto: ele dobra ENTRE os filhos, nunca DENTRO de um. Um texto
+        # sem quebra maior que a linha estoura ali do mesmo jeito — trocar o painel
+        # resolve a barra, não o texto.
+        horizontal = (
+            _nome(painel) == "StackPanel" and painel.get("Orientation") == "Horizontal"
+        ) or (
+            _nome(painel) == "WrapPanel" and (painel.get("Orientation") or "Horizontal") == "Horizontal"
+        )
+        if not horizontal:
+            continue
+        for filho in painel:
+            if _nome(filho) != "TextBlock":
+                continue
+            texto = filho.get("Text") or ""
+            if not texto.startswith("{"):
+                continue  # literal: o autor vê o tamanho na hora de escrever
+            if not any(p in texto for p in PALAVRAS_DE_MENSAGEM):
+                continue
+            if filho.get("TextWrapping") or filho.get("MaxWidth"):
+                continue
+            if "TextoSuave" in (filho.get("Style") or ""):
+                continue  # o estilo já quebra linha
+            erros.append(
+                f"{rel(arq)}: {texto} num {_nome(painel)} horizontal sem TextWrapping — "
+                f"a linha não dobra dentro do texto, então a mensagem sai pela direita e "
+                f"não se lê. Use TextWrapping + MaxWidth no texto (e WrapPanel na barra, "
+                f"se ela também não couber)")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

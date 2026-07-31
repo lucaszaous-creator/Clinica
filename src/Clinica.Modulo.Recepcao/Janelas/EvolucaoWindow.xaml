@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:modelos="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application"
         xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
-        Title="Sessão do prontuário" Width="1160" Height="680" MinWidth="900" MinHeight="520"
+        Title="Sessão do prontuário" Width="1160" Height="680" MinWidth="960" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -120,8 +120,16 @@
         </Border>
 
         <Grid>
+            <!-- A coluna do mapa é FIXA em 530 e não pode deixar de ser: as duas figuras
+                 são Canvas de 220×460 casados com `PontoMapaItem.LarguraFigura`, a mesma
+                 const que posiciona o marcador e que converte o clique de volta em
+                 coordenada normalizada. Encolher a figura não reposicionaria os pontos —
+                 espalharia todos eles em silêncio, que é pior do que uma janela larga.
+                 Por isso o piso da janela é 960 e não 900: 530 + o texto ao lado + as
+                 margens exigem isso, e um mínimo menor que o conteúdo é um mínimo que
+                 corta. -->
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="330" />
                 <ColumnDefinition Width="16" />
                 <ColumnDefinition Width="530" />
             </Grid.ColumnDefinitions>
