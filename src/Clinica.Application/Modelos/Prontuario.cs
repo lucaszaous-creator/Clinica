@@ -86,7 +86,21 @@ public enum ImpedimentoElegibilidade
     SemAutorizacaoVigente,
 
     /// <summary>Falta o consentimento LGPD de tratamento de dados.</summary>
-    SemConsentimentoLgpd
+    SemConsentimentoLgpd,
+
+    /// <summary>
+    /// O paciente tem conta vencida na clínica (parcela 27). Vem do Financeiro, e é a
+    /// resposta que o balcão não tinha: o paciente está aqui, na frente da recepção — o
+    /// único momento em que cobrar é barato.
+    /// </summary>
+    PacienteEmDebito,
+
+    /// <summary>
+    /// Guia deste paciente glosada pelo convênio e ainda em aberto (parcela 27). Vem do
+    /// Faturamento. Glosa por assinatura ou documento faltando se resolve com o paciente
+    /// presente; descobri-la depois custa o recurso inteiro.
+    /// </summary>
+    GuiaGlosada
 }
 
 /// <summary>Um alerta de elegibilidade, com a gravidade que a recepção precisa ver.</summary>

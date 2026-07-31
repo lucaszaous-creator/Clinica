@@ -223,6 +223,10 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
         AssuntoDirecao.DepositoAtrasado => (ChavesSuite.Recebiveis, "Ver recebíveis"),
         AssuntoDirecao.CaixaNaoConferido => (ChavesSuite.FechamentoCaixa, "Conferir caixa"),
         AssuntoDirecao.GuiasSemReceita => (ChavesSuite.Conciliacao, "Ver conciliação"),
+        // Mesmo destino, rótulo diferente: a Conciliação tem as duas abas, e o botão
+        // precisa dizer QUAL delas resolve o alerta — "ver conciliação" duas vezes na
+        // mesma tela faria a direção clicar no primeiro e achar que já viu.
+        AssuntoDirecao.ReceitaGlosada => (ChavesSuite.Conciliacao, "Ver glosadas"),
         _ => (ChavesSuite.FaturamentoTiss, "Ver faturamento")
     };
 

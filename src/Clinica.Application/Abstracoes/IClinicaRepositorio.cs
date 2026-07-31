@@ -588,6 +588,15 @@ public interface IClinicaRepositorio
         IReadOnlyCollection<int> codigoIds, CancellationToken ct = default);
 
     /// <summary>
+    /// Guias de UM paciente com glosa ainda em aberto (parcela 27). O recorte é por
+    /// paciente e resolvido no SQL: quem pergunta é o balcão com uma pessoa na frente, e
+    /// trazer as glosas da clínica inteira para filtrar em memória é a dívida que a busca
+    /// de pacientes já tinha resolvido uma vez.
+    /// </summary>
+    Task<IReadOnlyList<CodigoFaturamento>> CodigosGlosadosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
     /// Lançamentos do período com as três datas e o NOME da categoria — a projeção que o
     /// fluxo de caixa precisa (parcela 13). O período é comparado contra a competência OU
     /// o vencimento OU o pagamento: um lançamento com competência em julho e vencimento

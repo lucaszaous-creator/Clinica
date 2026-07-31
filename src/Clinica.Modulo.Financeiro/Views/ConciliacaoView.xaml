@@ -3,6 +3,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              Background="{StaticResource Brush.Fundo}">
 
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
     <DockPanel Margin="24">
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -26,10 +30,16 @@
             </StackPanel>
         </Grid>
 
+        <!-- Duas sub-abas, e não dois itens de sidebar: é o MESMO assunto (guia × caixa)
+             visto pelos dois lados, e a proposta tem um item ali. -->
+        <TabControl Background="Transparent" BorderThickness="0">
+        <TabItem Header="A lançar">
+        <DockPanel>
+
         <!-- Explicação do elo entre os módulos -->
         <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,16">
+                CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,12,0,16">
             <TextBlock TextWrapping="Wrap"
                        Foreground="{StaticResource Brush.Texto.Primario}"
                        Text="Guias que o faturamento já efetivou no convênio e que ainda não têm receita lançada no caixa. Informe o valor recebido para lançar — a guia sai desta lista e o lançamento fica vinculado a ela." />
@@ -89,6 +99,16 @@
                                                    VerticalAlignment="Center" />
 
                                         <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                            <!-- Guia recusada pelo convênio aparece MARCADA,
+                                                 nunca sumindo: linha que desaparece sem
+                                                 explicação faz procurar o que se viu ontem. -->
+                                            <Border Style="{StaticResource AlertaAviso}"
+                                                    Margin="0,0,0,6" Padding="8,4"
+                                                    Visibility="{Binding TemGlosa,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="{Binding AvisoGlosa}" TextWrapping="Wrap"
+                                                           FontSize="{StaticResource Fonte.Legenda}" />
+                                            </Border>
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBox Width="110"
                                                          Text="{Binding Valor, UpdateSourceTrigger=PropertyChanged}"
@@ -129,5 +149,123 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
+        </DockPanel>
+        </TabItem>
+
+        <!-- ============ O caminho de volta (parcela 27) ============
+             Guias que JÁ viraram receita e que o convênio recusou depois. Sem esta aba,
+             o dinheiro recusado continuava no fluxo de caixa e na rentabilidade como se
+             fosse entrar — receita fantasma, o número errado com cara de exato. -->
+        <TabItem Header="Glosadas">
+        <DockPanel>
+
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,12,0,16">
+                <TextBlock TextWrapping="Wrap"
+                           Text="Guias glosadas pelo convênio que ainda têm receita lançada no caixa. Derrubar a receita NÃO apaga o lançamento: ele fica cancelado com o motivo, e a guia volta para a aba “A lançar” caso o recurso seja aceito. Receita já RECEBIDA não se cancela — se a operadora estornou, lance a devolução como saída." />
+            </Border>
+
+            <TextBlock DockPanel.Dock="Top" Text="{Binding ResumoGlosadas}" TextWrapping="Wrap"
+                       Style="{StaticResource TextoSuave}" Margin="0,0,0,12" />
+
+            <!-- Terceiro estado: a leitura falhou. Aba vazia por consulta quebrada se lê
+                 como "nenhuma receita glosada", que é a mentira mais cara desta tela. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding GlosadasNaoVerificadas,
+                                 Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock TextWrapping="Wrap"
+                           Text="Não foi possível conferir as glosas deste mês. A lista abaixo está VAZIA por falha de leitura, não por não haver glosa." />
+            </Border>
+
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}"
+                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Padding="16,12"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="150" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Glosa" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="1" Text="Paciente e motivo" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="Guia" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="Valor" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="4" Text="Situação" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="5" Text="" Style="{StaticResource Rotulo}" Margin="0" />
+                        </Grid>
+                    </Border>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Glosadas}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="180" />
+                                                <ColumnDefinition Width="150" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0" Text="{Binding DataGlosa}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       VerticalAlignment="Center" />
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Motivo}" TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                <TextBlock Text="{Binding Orientacao}" TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="2" Text="{Binding NumeroGuia}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                       VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Valor}"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}"
+                                                       VerticalAlignment="Center" />
+
+                                            <StackPanel Grid.Column="4" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                <TextBlock Text="{Binding Prazo}" TextWrapping="Wrap"
+                                                           Margin="0,2,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            </StackPanel>
+
+                                            <Button Grid.Column="5" Content="Derrubar receita"
+                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    VerticalAlignment="Center"
+                                                    IsEnabled="{Binding PodeCancelar}"
+                                                    Command="{Binding DataContext.CancelarReceitaCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </DockPanel>
+        </TabItem>
+        </TabControl>
     </DockPanel>
 </UserControl>

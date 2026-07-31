@@ -270,6 +270,160 @@ public class ConsentimentoElegibilidadeTests : IDisposable
         resultado.Alertas.Should().BeEmpty();
     }
 
+    // ==================== O que os OUTROS módulos mandam ao balcão (parcela 27) ====================
+
+    /// <summary>
+    /// O serviço construído sem o Financeiro continua respondendo — só não confere
+    /// dívida. A conferência financeira é acréscimo, não a razão de existir da classe;
+    /// derrubar a elegibilidade inteira por falta dela seria trocar um aviso por um erro.
+    /// </summary>
+    [Fact]
+    public async Task Elegibilidade_SemOFinanceiroMontado_NaoQuebra()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().NotContain(a =>
+            a.Motivo == ImpedimentoElegibilidade.PacienteEmDebito);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_PacienteComContaVencida_AvisaOBalcao()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var financeiro = new FinanceiroService(_repo);
+        var contas = new ContasService(_repo);
+        var comFinanceiro = new ElegibilidadeService(
+            _repo, _autorizacoes, _consentimentos,
+            new InadimplenciaService(_repo, financeiro));
+
+        await contas.LancarContaAsync(
+            TipoLancamento.Entrada, "Sessão avulsa", 120m,
+            vencimento: Hoje.AddDays(-20), pacienteId: pacienteId);
+
+        var resultado = await comFinanceiro.ConferirAsync(pacienteId, Hoje);
+
+        // Amarelo, nunca vermelho: vermelho aqui significa "a guia vai ser recusada",
+        // que é problema do convênio. Dívida é assunto de conversa — e ninguém deixa de
+        // ser atendido por dever.
+        var aviso = resultado.Alertas.Should()
+            .ContainSingle(a => a.Motivo == ImpedimentoElegibilidade.PacienteEmDebito).Subject;
+        aviso.Urgencia.Should().Be(NivelUrgencia.Amarelo);
+        aviso.Descricao.Should().Contain("20 dia");
+    }
+
+    [Fact]
+    public async Task Elegibilidade_ContaVencidaOntem_NaoAlarma()
+    {
+        // A conta que venceu ontem quase sempre está em trânsito (boleto compensando,
+        // PIX de domingo). Alerta que dispara para todo mundo é alerta que ninguém lê.
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var financeiro = new FinanceiroService(_repo);
+        var contas = new ContasService(_repo);
+        var comFinanceiro = new ElegibilidadeService(
+            _repo, _autorizacoes, _consentimentos,
+            new InadimplenciaService(_repo, financeiro));
+
+        await contas.LancarContaAsync(
+            TipoLancamento.Entrada, "Sessão avulsa", 120m,
+            vencimento: Hoje.AddDays(-1), pacienteId: pacienteId);
+
+        var resultado = await comFinanceiro.ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().NotContain(a =>
+            a.Motivo == ImpedimentoElegibilidade.PacienteEmDebito);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_GuiaGlosadaEmAberto_AvisaComOPrazo()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var atendimentos = new AtendimentoService(_repo);
+        var glosas = new GlosaService(_repo, new ParametrosService(_repo));
+
+        await atendimentos.LancarAsync(
+            pacienteId, Hoje.AddDays(-10), ModalidadeAtendimento.AcupunturaComEletro);
+
+        var codigo = (await _repo.CodigosNoPeriodoAsync(Hoje.AddDays(-10), Hoje.AddDays(-10)))
+            .First(c => c.Atendimento!.PacienteId == pacienteId);
+        codigo.DarBaixa(Hoje.AddDays(-8), "G-1", "secretaria", null);
+        await _db.SaveChangesAsync();
+
+        // Glosa de ontem: o prazo de recurso ainda corre inteiro.
+        await glosas.RegistrarAsync(codigo.Id, Hoje.AddDays(-1), "Falta assinatura do paciente");
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        var aviso = resultado.Alertas.Should()
+            .ContainSingle(a => a.Motivo == ImpedimentoElegibilidade.GuiaGlosada).Subject;
+        aviso.Descricao.Should().Contain("assinatura");
+        aviso.Descricao.Should().Contain("recorrer");
+    }
+
+    [Fact]
+    public async Task Elegibilidade_GlosaComPrazoAcabando_FicaVermelha()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var atendimentos = new AtendimentoService(_repo);
+        var glosas = new GlosaService(_repo, new ParametrosService(_repo));
+
+        await atendimentos.LancarAsync(
+            pacienteId, Hoje.AddDays(-40), ModalidadeAtendimento.AcupunturaComEletro);
+
+        var codigo = (await _repo.CodigosNoPeriodoAsync(Hoje.AddDays(-40), Hoje.AddDays(-40)))
+            .First(c => c.Atendimento!.PacienteId == pacienteId);
+        codigo.DarBaixa(Hoje.AddDays(-38), "G-2", "secretaria", null);
+        await _db.SaveChangesAsync();
+
+        // Glosada há 27 dias: com o prazo padrão de 30, restam 3 para recorrer.
+        await glosas.RegistrarAsync(codigo.Id, Hoje.AddDays(-27), "Sem senha");
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().Contain(a =>
+            a.Motivo == ImpedimentoElegibilidade.GuiaGlosada
+            && a.Urgencia == NivelUrgencia.Vermelho);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_GlosaRecuperada_NaoAvisaMais()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var atendimentos = new AtendimentoService(_repo);
+        var glosas = new GlosaService(_repo, new ParametrosService(_repo));
+
+        await atendimentos.LancarAsync(
+            pacienteId, Hoje.AddDays(-10), ModalidadeAtendimento.AcupunturaComEletro);
+
+        var codigo = (await _repo.CodigosNoPeriodoAsync(Hoje.AddDays(-10), Hoje.AddDays(-10)))
+            .First(c => c.Atendimento!.PacienteId == pacienteId);
+        codigo.DarBaixa(Hoje.AddDays(-8), "G-3", "secretaria", null);
+        await _db.SaveChangesAsync();
+
+        await glosas.RegistrarAsync(codigo.Id, Hoje.AddDays(-5), "Falta assinatura");
+        await glosas.ReapresentarAsync(codigo.Id, Hoje.AddDays(-3));
+        await glosas.MarcarRecuperadaAsync(codigo.Id);
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        // Glosa resolvida não é notícia. Continuar avisando gastaria a atenção do balcão
+        // com o que já está feito — e alerta que se repete sem motivo deixa de ser lido.
+        resultado.Alertas.Should().NotContain(a =>
+            a.Motivo == ImpedimentoElegibilidade.GuiaGlosada);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

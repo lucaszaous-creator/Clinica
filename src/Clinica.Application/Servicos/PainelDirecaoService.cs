@@ -24,6 +24,13 @@ public enum AssuntoDirecao
     DepositoAtrasado,
     CaixaNaoConferido,
     GuiasSemReceita,
+
+    /// <summary>
+    /// Guia glosada que ainda conta receita no caixa (parcela 27) — dinheiro que a
+    /// direção acha que vai entrar e que o convênio já recusou.
+    /// </summary>
+    ReceitaGlosada,
+
     PendenciasVencidas,
     GlosasVencidas,
     GlosasAVencer
@@ -55,6 +62,11 @@ public sealed record PainelDirecao(
     int PacientesDevendo,
     decimal TotalDevidoPorPacientes,
     int GuiasSemReceita,
+
+    /// <summary>Guias glosadas que ainda contam receita prevista, e quanto elas somam.</summary>
+    int GuiasComReceitaGlosada,
+    decimal ValorReceitaGlosada,
+
     int PendenciasVencidas,
     int PendenciasEmAberto,
     int GlosasVencidas,
@@ -131,6 +143,7 @@ public sealed class PainelDirecaoService
     private readonly RodadaPendenciasService _rodada;
     private readonly PendenciaService _pendencias;
     private readonly InadimplenciaService _inadimplencia;
+    private readonly ReceitaGlosadaService _receitaGlosada;
 
     public PainelDirecaoService(
         IClinicaRepositorio repo,
@@ -140,8 +153,10 @@ public sealed class PainelDirecaoService
         FechamentoCaixaService fechamento,
         RodadaPendenciasService rodada,
         PendenciaService pendencias,
-        InadimplenciaService inadimplencia)
+        InadimplenciaService inadimplencia,
+        ReceitaGlosadaService receitaGlosada)
     {
+        _receitaGlosada = receitaGlosada;
         _repo = repo;
         _financeiro = financeiro;
         _contas = contas;
@@ -299,6 +314,32 @@ public sealed class PainelDirecaoService
             naoVerificados.Add("Guias sem receita");
         }
 
+        // ---- Receita que a glosa derrubou e ninguém tirou do caixa (parcela 27) ----
+        var guiasGlosadas = 0;
+        var valorGlosado = 0m;
+        try
+        {
+            (guiasGlosadas, valorGlosado) = await _receitaGlosada.ResumoPrevistoAsync(
+                inicioMes, hoje, ct);
+
+            if (guiasGlosadas > 0)
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.ReceitaGlosada,
+                    $"{Moeda(valorGlosado)} de receita glosada ainda no caixa",
+                    $"{guiasGlosadas} guia(s) que o convênio recusou continuam contadas como "
+                    + "receita prevista. Enquanto estiverem, o fluxo de caixa promete um "
+                    + "dinheiro que foi negado.",
+                    // Perigo, e não aviso: os outros alertas são coisas a fazer; este é um
+                    // número ERRADO em outra tela. Direção que decide olhando previsão
+                    // inflada decide errado sem saber que está decidindo errado.
+                    GravidadeDirecao.Perigo));
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — receita glosada não pôde ser lida", ex);
+            naoVerificados.Add("Receita glosada");
+        }
+
         // ---- Pendências de faturamento com prazo vencido ----
         int pendenciasVencidas = 0, pendenciasAbertas = 0;
         try
@@ -363,6 +404,7 @@ public sealed class PainelDirecaoService
             diasCaixa, especieNaoConferida,
             pacientesDevendo, totalDevido,
             guiasSemReceita,
+            guiasGlosadas, valorGlosado,
             pendenciasVencidas, pendenciasAbertas,
             glosasVencidas, glosasAVencer,
             // Perigo primeiro. O painel é lido de cima para baixo, e a ordem é a única

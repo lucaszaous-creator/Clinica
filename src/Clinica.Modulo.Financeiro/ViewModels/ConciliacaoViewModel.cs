@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -37,21 +38,84 @@ public sealed partial class LinhaConciliacao : ObservableObject
     /// </summary>
     [ObservableProperty]
     private string? _procedencia;
+
+    /// <summary>
+    /// A guia foi glosada e o convênio ainda não aceitou de volta (parcela 27). A linha
+    /// continua na lista — some não, MARCADA sim, como o documento cancelado na central:
+    /// a guia que desaparece sem explicação faz o balcão gastar a tarde procurando o que
+    /// ele viu ontem. Aqui ela diz por que não deveria virar receita.
+    /// </summary>
+    public bool TemGlosa => Guia.GlosaEmAberto;
+
+    /// <summary>O motivo, escrito como se fala, para caber ao lado da linha.</summary>
+    public string AvisoGlosa => Guia.GlosaEmAberto
+        ? $"Glosada em {Guia.DataGlosa:dd/MM/yyyy}"
+          + (string.IsNullOrWhiteSpace(Guia.MotivoGlosa) ? "" : $" — {Guia.MotivoGlosa}")
+        : string.Empty;
 }
 
 /// <summary>
-/// Conciliação — a tela onde os dois módulos se encontram: lista as guias que o
-/// faturamento já efetivou no convênio e que ainda não têm receita lançada.
-/// Ao lançar, o vínculo fica gravado e a guia sai da lista.
+/// Uma guia glosada que tem receita contada no caixa. É o caminho inverso da conciliação:
+/// lá a pergunta é "o que ainda não virou dinheiro?", aqui é "que dinheiro eu contei e o
+/// convênio recusou?".
+/// </summary>
+public sealed partial class LinhaReceitaGlosada : ObservableObject
+{
+    public required ReceitaGlosada Receita { get; init; }
+    public required string Paciente { get; init; }
+    public required string Convenio { get; init; }
+    public required string NumeroGuia { get; init; }
+    public required string DataGlosa { get; init; }
+    public required string Valor { get; init; }
+    public required string Situacao { get; init; }
+    public required string Motivo { get; init; }
+
+    /// <summary>Prazo de recurso, quando ainda corre — é o que decide a pressa.</summary>
+    public required string Prazo { get; init; }
+
+    /// <summary>
+    /// Só a receita PREVISTA se cancela, e só por quem lança no caixa. O botão apagado é
+    /// a metade VISÍVEL das duas regras — a que impede é o <c>Exigir</c> no comando mais
+    /// a recusa do serviço, porque atalho de teclado passa por cima de botão desabilitado.
+    /// </summary>
+    public bool PodeCancelar =>
+        Receita.AindaPrevisto && SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    /// <summary>O que fazer quando o dinheiro já entrou — dito na própria linha.</summary>
+    public string? Orientacao => Receita.JaRealizado
+        ? "O dinheiro desta guia já entrou. Se a operadora estornou, lance a devolução "
+          + "como saída, com a data do estorno."
+        : null;
+}
+
+/// <summary>
+/// Conciliação — a tela onde o faturamento e o financeiro se encontram, nos DOIS
+/// sentidos (parcela 27).
+///
+/// A aba "A lançar" é a de sempre: guias que o faturamento efetivou no convênio e que
+/// ainda não têm receita lançada. Ao lançar, o vínculo fica gravado e a guia sai da lista.
+///
+/// A aba "Glosadas" é o caminho de volta, que não existia: guias que já viraram receita
+/// e que o convênio recusou depois. Sem ela, o dinheiro recusado continuava no fluxo de
+/// caixa e na rentabilidade como se fosse entrar — receita fantasma, o número errado com
+/// cara de exato.
+///
+/// As duas ficam no MESMO item da sidebar, em sub-abas: é o mesmo assunto (guia × caixa)
+/// visto pelos dois lados, e a proposta tem um item ali.
 /// </summary>
 public sealed partial class ConciliacaoViewModel : ObservableObject
 {
     private readonly FinanceiroService _financeiro;
     private readonly TaxaService _taxas;
     private readonly PrecoConvenioService _precos;
+    private readonly ReceitaGlosadaService _glosadas;
     private readonly ISnackbarService _snackbar;
+    private readonly IDialogoService _dialogo;
 
     public ObservableCollection<LinhaConciliacao> Linhas { get; } = [];
+
+    /// <summary>Guias glosadas com receita ainda contada — a aba do caminho de volta.</summary>
+    public ObservableCollection<LinhaReceitaGlosada> Glosadas { get; } = [];
 
     [ObservableProperty]
     private DateTime _mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
@@ -62,14 +126,27 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
     [ObservableProperty]
     private string _resumo = string.Empty;
 
+    [ObservableProperty]
+    private string _resumoGlosadas = string.Empty;
+
+    /// <summary>
+    /// A leitura das glosas FALHOU. Terceiro estado obrigatório: uma aba vazia porque a
+    /// consulta quebrou se lê como "nenhuma receita glosada", que é a mentira mais cara
+    /// que esta tela poderia contar.
+    /// </summary>
+    [ObservableProperty]
+    private bool _glosadasNaoVerificadas;
+
     public ConciliacaoViewModel(
         FinanceiroService financeiro, TaxaService taxas, PrecoConvenioService precos,
-        ISnackbarService snackbar)
+        ReceitaGlosadaService glosadas, ISnackbarService snackbar, IDialogoService dialogo)
     {
         _financeiro = financeiro;
         _taxas = taxas;
         _precos = precos;
+        _glosadas = glosadas;
         _snackbar = snackbar;
+        _dialogo = dialogo;
         _ = CarregarAsync();
     }
 
@@ -125,6 +202,115 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         {
             Carregando = false;
         }
+
+        // Cada lado carrega sozinho: a aba das glosadas quebrar não pode levar junto a
+        // lista de guias a lançar, que é o trabalho do dia.
+        await CarregarGlosadasAsync();
+    }
+
+    private async Task CarregarGlosadasAsync()
+    {
+        var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
+        var fim = inicio.AddMonths(1).AddDays(-1);
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+        try
+        {
+            GlosadasNaoVerificadas = false;
+            var receitas = await _glosadas.PendentesAsync(inicio, fim);
+
+            Glosadas.Clear();
+            foreach (var r in receitas)
+            {
+                var dias = r.DiasParaFimRecurso(hoje);
+                Glosadas.Add(new LinhaReceitaGlosada
+                {
+                    Receita = r,
+                    Paciente = r.Paciente,
+                    Convenio = r.Convenio.ToString(),
+                    NumeroGuia = r.NumeroGuiaReal ?? "—",
+                    DataGlosa = r.DataGlosa.ToString("dd/MM/yyyy"),
+                    Valor = r.Valor.ToString("C"),
+                    Situacao = r.AindaPrevisto ? "receita prevista" : "receita já realizada",
+                    Motivo = string.IsNullOrWhiteSpace(r.MotivoGlosa)
+                        ? (r.MotivoGlosaCodigo ?? "sem motivo registrado")
+                        : r.MotivoGlosa,
+                    Prazo = dias switch
+                    {
+                        null => "—",
+                        < 0 => $"recurso vencido há {-dias.Value} dia(s)",
+                        0 => "recurso vence hoje",
+                        _ => $"{dias} dia(s) para recorrer"
+                    }
+                });
+            }
+
+            var previstas = Glosadas.Where(l => l.Receita.AindaPrevisto).ToList();
+            ResumoGlosadas = Glosadas.Count == 0
+                ? "Nenhuma guia glosada com receita lançada neste mês."
+                : previstas.Count == 0
+                    ? $"{Glosadas.Count} guia(s) glosada(s) — todas com o dinheiro já recebido."
+                    : $"{previstas.Count} de {Glosadas.Count} guia(s) glosada(s) ainda contam "
+                      + $"{previstas.Sum(l => l.Receita.Valor):C} de receita que o convênio recusou.";
+        }
+        catch (Exception ex)
+        {
+            // Falha nunca aparece como sucesso: a aba diz que não conseguiu conferir.
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — receita glosada não pôde ser carregada", ex);
+            Glosadas.Clear();
+            GlosadasNaoVerificadas = true;
+            ResumoGlosadas = $"Não foi possível conferir as glosas deste mês: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Derruba a receita prevista de uma guia que o convênio recusou.
+    ///
+    /// Não apaga o lançamento — cancela com motivo, porque lançamento é fato datado e o
+    /// histórico precisa dizer que a receita caiu por GLOSA, e não por engano de
+    /// digitação. Cancelado, o vínculo deixa de valer e a guia REAPARECE sozinha na aba
+    /// "A lançar": se o recurso for aceito, ela está lá esperando ser lançada de novo.
+    /// </summary>
+    [RelayCommand]
+    private async Task CancelarReceitaAsync(LinhaReceitaGlosada? linha)
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cancelar receita no caixa");
+
+        if (linha is null) return;
+
+        if (linha.Receita.JaRealizado)
+        {
+            _dialogo.Aviso(
+                "O dinheiro já entrou",
+                "Esta guia foi glosada DEPOIS de o valor cair na conta. Cancelar a "
+                + "entrada faria o caixa parar de bater com o extrato e levaria junto a "
+                + "conferência do dia.\n\nSe a operadora estornou o valor, lance a "
+                + "devolução como saída no Caixa — ela é outro fato, com a data do estorno.");
+            return;
+        }
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Derrubar a receita glosada",
+            $"A guia de {linha.Paciente} ({linha.Valor}) foi glosada em {linha.DataGlosa}. "
+            + "Por que a receita está caindo? O lançamento NÃO é apagado — fica cancelado "
+            + "com este motivo, e a guia volta para a aba \"A lançar\" caso o recurso seja "
+            + "aceito.",
+            linha.Motivo);
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
+        try
+        {
+            await _glosadas.CancelarReceitaAsync(
+                linha.Receita.CodigoId, motivo, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info($"Receita de {linha.Paciente} cancelada — a guia voltou para a conciliação.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Erro(ex.Message);
+        }
     }
 
     /// <summary>Lança a receita da guia com o valor informado na linha.</summary>
@@ -140,6 +326,17 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             _snackbar.Erro("Informe um valor válido, maior que zero.");
             return;
         }
+
+        // Guia recusada pelo convênio ainda pode virar receita — a clínica pode estar
+        // certa de que recupera no recurso, e quem decide é ela. Mas ela decide SABENDO:
+        // até a parcela 27 esta linha era idêntica à de uma guia paga.
+        if (linha.TemGlosa && !_dialogo.ConfirmarPerigo(
+                "Guia glosada",
+                $"{linha.AvisoGlosa}.\n\nO convênio recusou esta guia e ainda não a "
+                + "aceitou de volta. Lançar a receita agora conta um dinheiro que foi "
+                + "negado — se o recurso não for aceito, ele vira receita fantasma no "
+                + "fluxo de caixa.\n\nLançar mesmo assim?"))
+            return;
 
         try
         {

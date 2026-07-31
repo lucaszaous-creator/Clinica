@@ -949,6 +949,31 @@ As pontes que existem hoje, e o sentido de cada uma:
 | Leitura consolidada do faturamento | Faturamento → Gerente | `FaturamentoGerencialView` (só leitura) |
 | Pendências, glosas, NC e lotes na direção | Faturamento → Gerente | `FaturamentoTissView` — 5 abas sobre os serviços compartilhados (parcelas 10b–10d) |
 | Configuração da clínica editável fora do app congelado | Gerente → todos | `ConfiguracoesView` sobre `ParametrosService` (parcela 10a) |
+| Preço negociado da guia usado na conciliação | Gerente → Financeiro | `PrecoConvenioService` (parcela 20) |
+| Retenção na fonte por operadora | Gerente → Financeiro | `Tributo.ConvenioCodigo` (parcela 18) |
+| Alerta da direção que LEVA à tela dona | Gerente → todos | `PainelDirecaoService` + `NavegacaoSuite`/`ChavesSuite` (parcela 22) |
+| **Glosa que derruba receita já contada** | **Faturamento → Financeiro** | **`ReceitaGlosadaService` (parcela 27)** |
+| **Guia glosada marcada na conciliação** | **Faturamento → Financeiro** | **`GuiaSemLancamento.GlosaEmAberto` (parcela 27)** |
+| **Conta vencida do paciente no balcão** | **Financeiro → Recepção** | **`ElegibilidadeService` + `InadimplenciaService` (parcela 27)** |
+| **Guia glosada no balcão, com o prazo de recurso** | **Faturamento → Recepção** | **`ElegibilidadeService` (parcela 27)** |
+
+### O que a parcela 27 corrigiu
+
+Até ela, **todas as pontes iam para a frente**. A sessão virava guia, a guia virava
+receita, a receita virava indicador — e nada voltava. O buraco mais caro estava aí: o
+convênio recusava a guia (`GlosaService`) e o Financeiro **nunca ficava sabendo**. A
+palavra "Glosa" não aparecia em um único arquivo do módulo. O dinheiro recusado continuava
+no fluxo de caixa, no previsto e na rentabilidade por convênio, como se fosse entrar.
+
+> **Receita fantasma é a pior espécie de número errado, porque tem cara de número exato.**
+> Não há linha vermelha, não há aviso: a direção olha a previsão do mês e decide errado
+> sem saber que está decidindo errado.
+
+Os outros dois eram do mesmo tipo, na direção contrária: **o balcão não sabia de nada
+que os outros módulos sabiam sobre o paciente à frente dele.** A conta vencida existia
+desde a parcela 12 e virou tela na 23 — no Financeiro. A glosa existia desde o começo —
+no Faturamento. Quem podia resolver as duas em trinta segundos (com a pessoa presente,
+uma assinatura, uma frase) era exatamente quem não via nenhuma delas.
 
 Três regras que valem para qualquer ponte nova:
 
@@ -1123,6 +1148,17 @@ o paciente pode fazer e a clínica é obrigada a atender. Nenhum deles aparecia 
 quadro — todos eram ✅ **em outro lugar**. É a variante do defeito recorrente que o quadro
 de features não pega: **feature entregue longe de onde ela é usada equivale a feature que
 não existe.**
+
+A **parcela 27** é a primeira a olhar as LIGAÇÕES em vez dos módulos. O achado: todas as
+pontes iam para a frente. A sessão virava guia, a guia virava receita, a receita virava
+indicador — e **nada voltava**. Quando o convênio dizia não, o não morria no faturamento:
+a receita glosada continuava contada no caixa e na rentabilidade, e a direção decidia
+sobre um número que não existia. Na direção contrária, o balcão — o único lugar onde o
+paciente está de corpo presente — não sabia da conta vencida dele (Financeiro) nem da
+guia glosada dele (Faturamento), embora as duas estivessem gravadas havia parcelas e as
+duas se resolvessem ali, em trinta segundos. É a sexta rodada do defeito recorrente do
+projeto, agora na forma mais estrutural de todas: **o dado existe, tem leitor, tem tela —
+e a tela está do lado errado da ponte.**
 
 > Como o cliente recebe os quatro apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

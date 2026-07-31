@@ -61,6 +61,15 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await query.OrderByDescending(c => c.DataGlosa).ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<CodigoFaturamento>> CodigosGlosadosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.Codigos.AsNoTracking()
+            .Include(c => c.Atendimento!)
+            .Where(c => c.Atendimento!.PacienteId == pacienteId
+                     && (c.Glosa == StatusGlosa.Glosada || c.Glosa == StatusGlosa.Reapresentada))
+            .OrderBy(c => c.DataLimiteRecurso)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<CodigoFaturamento>> ConsultarCodigosAsync(Clinica.Application.Modelos.FiltroConsultaGuias filtro, CancellationToken ct = default)
     {
         var q = _db.Codigos
@@ -1269,6 +1278,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Distinct()
             .ToListAsync(ct);
     }
+
 
     public async Task<IReadOnlyList<Clinica.Application.Modelos.LancamentoDatado>>
         LancamentosDatadosNoPeriodoAsync(DateOnly inicio, DateOnly fim, CancellationToken ct = default)
