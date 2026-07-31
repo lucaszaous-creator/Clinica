@@ -1,79 +1,154 @@
 <Window x:Class="Clinica.Desktop.Shell.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Entrar" Width="480" SizeToContent="Height"
+        Title="Entrar" Width="820" Height="520"
         Icon="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/icone.png"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
-        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+        Background="{StaticResource Brush.Superficie}" FontFamily="Segoe UI">
 
-    <!-- O formulário inteiro rola: com a escala do Windows em 150% ou 175% um
-         diálogo de 600px vira 900px físicos, e sem isto os botões do rodapé
-         ficam atrás da barra de tarefas. -->
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-    <StackPanel Margin="32,28,32,28">
-        <Image Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
-               Height="44" HorizontalAlignment="Left" Margin="0,4,0,22"
-               RenderOptions.BitmapScalingMode="HighQuality" ToolTip="Clínica SemDor" />
+    <!--
+        Duas faixas: a marca à esquerda, o formulário à direita.
 
-        <TextBlock x:Name="TxtTitulo" Style="{StaticResource H2}" Margin="0,0,0,4" />
-        <TextBlock x:Name="TxtSubtitulo" Style="{StaticResource TextoSuave}"
-                   TextWrapping="Wrap" Margin="0,0,0,10" />
+        A tela anterior era uma coluna só, com o logo pequeno no canto superior e os
+        campos logo abaixo — o que dá a um sistema de clínica a cara de um formulário
+        interno. A marca ocupar uma faixa inteira não é enfeite: esta é a PRIMEIRA tela
+        que qualquer pessoa vê, e a única em que a clínica se apresenta.
 
-        <!-- ============ Entrar ============ -->
-        <StackPanel x:Name="PainelEntrar">
-            <TextBlock Text="Usuário" Style="{StaticResource Rotulo}" Margin="0,4,0,4" />
-            <TextBox x:Name="TxtLogin" />
+        A faixa é CLARA, e isso não foi escolha estética: as duas artes brancas da marca
+        (`logo-branca.png` e `simbolo-branco.png`) têm uma placa semitransparente embutida
+        no PNG. Ela é invisível sobre fundo claro e vira um retângulo cinza sobre cor —
+        provavelmente a razão de nenhuma das duas nunca ter sido usada. Sobre um fundo
+        claro, `logo-cor.png` sai como a marca de fato é.
 
-            <TextBlock Text="Senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
-            <PasswordBox x:Name="TxtSenha" />
-        </StackPanel>
+        Quando a clínica exportar as versões brancas SEM a placa, esta faixa pode virar
+        o gradiente da marca trocando o Background e a Source. O comentário fica aqui
+        para quem for fazer isso não precisar redescobrir o motivo.
+    -->
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <!-- ============ Primeiro acesso ============ -->
-        <StackPanel x:Name="PainelPrimeiroAcesso" Visibility="Collapsed">
-            <TextBlock Text="Seu nome" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
-            <TextBox x:Name="TxtNovoNome" />
+        <!-- ============ Faixa da marca ============ -->
+        <Border Grid.Column="0">
+            <Border.Background>
+                <!-- Tinta suave da marca: dá separação da área branca do formulário sem
+                     brigar com ele, e deixa a marca colorida legível. -->
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{StaticResource Cor.Azul.50}" Offset="0" />
+                    <GradientStop Color="{StaticResource Cor.Azul.100}" Offset="1" />
+                </LinearGradientBrush>
+            </Border.Background>
+            <Border.BorderBrush>
+                <SolidColorBrush Color="{StaticResource Cor.Cinza.200}" />
+            </Border.BorderBrush>
+            <Border.BorderThickness>0,0,1,0</Border.BorderThickness>
 
-            <TextBlock Text="Usuário (sem espaços)" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
-            <TextBox x:Name="TxtNovoLogin" />
+            <Grid Margin="36,40">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <TextBlock Text="Senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
-            <PasswordBox x:Name="TxtNovaSenha" />
+                <!-- Centralizada nos dois eixos da faixa: é o que o logo pede, e é o que
+                     faltava na tela antiga. -->
+                <Image Grid.Row="0"
+                       Source="pack://application:,,,/Clinica.Desktop.Shell;component/Assets/Marca/logo-cor.png"
+                       Width="220" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       RenderOptions.BitmapScalingMode="HighQuality"
+                       ToolTip="Clínica SemDor" />
 
-            <TextBlock Text="Repita a senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
-            <PasswordBox x:Name="TxtNovaSenhaRepetida" />
-        </StackPanel>
-
-        <!-- ============ Troca obrigatória de senha ============ -->
-        <StackPanel x:Name="PainelTrocarSenha" Visibility="Collapsed">
-            <TextBlock Text="Nova senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
-            <PasswordBox x:Name="TxtTrocaSenha" />
-
-            <TextBlock Text="Repita a nova senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
-            <PasswordBox x:Name="TxtTrocaSenhaRepetida" />
-        </StackPanel>
-
-        <Border x:Name="BoxErro" Style="{StaticResource AlertaPerigo}" Margin="0,16,0,0" Visibility="Collapsed">
-            <TextBlock x:Name="TxtErro" TextWrapping="Wrap" />
+                <StackPanel Grid.Row="1" VerticalAlignment="Bottom">
+                    <TextBlock Text="Sistema de gestão da clínica"
+                               Foreground="{StaticResource Brush.Texto.Primario}"
+                               FontSize="{StaticResource Fonte.Corpo}"
+                               FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="Agenda, prontuário, faturamento e financeiro no mesmo lugar."
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                </StackPanel>
+            </Grid>
         </Border>
 
-        <Border x:Name="BoxInfo" Style="{StaticResource AlertaInfo}" Margin="0,16,0,0" Visibility="Collapsed">
-            <TextBlock x:Name="TxtInfo" TextWrapping="Wrap" />
-        </Border>
+        <!-- ============ Formulário ============ -->
+        <!-- O formulário rola: com a escala do Windows em 150% ou 175% ele cresce junto,
+             e sem isto os botões do rodapé ficam fora da área visível. -->
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                      Background="{StaticResource Brush.Superficie}">
 
-        <!-- Duas colunas iguais: botões de larguras diferentes (140 e 100) desequilibram
-             o rodapé, e num diálogo de dois botões não há hierarquia de tamanho a
-             comunicar — a hierarquia já está na cor. -->
-        <Grid Margin="0,22,0,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Button x:Name="BtnEntrar" Grid.Column="0" Content="Entrar"
-                    Click="Confirmar" IsDefault="True" />
-            <Button Grid.Column="2" Content="Sair"
-                    Style="{StaticResource BotaoSecundario}" Click="Cancelar" IsCancel="True" />
-        </Grid>
-    </StackPanel>
-    </ScrollViewer>
+            <!-- Largura fixa e centrado: campo que acompanha a largura da janela fica
+                 comprido demais para o que se digita nele, e linha longa é mais difícil
+                 de mirar com o cursor. -->
+            <StackPanel Width="360" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Margin="0,44,0,44">
+
+                <TextBlock x:Name="TxtTitulo" Style="{StaticResource H2}" Margin="0,0,0,4" />
+                <TextBlock x:Name="TxtSubtitulo" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0,0,0,8" />
+
+                <!-- ============ Entrar ============ -->
+                <StackPanel x:Name="PainelEntrar">
+                    <TextBlock Text="Usuário" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+                    <TextBox x:Name="TxtLogin" />
+
+                    <TextBlock Text="Senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+                    <PasswordBox x:Name="TxtSenha" />
+                </StackPanel>
+
+                <!-- ============ Primeiro acesso ============ -->
+                <StackPanel x:Name="PainelPrimeiroAcesso" Visibility="Collapsed">
+                    <TextBlock Text="Seu nome" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+                    <TextBox x:Name="TxtNovoNome" />
+
+                    <TextBlock Text="Usuário (sem espaços)" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+                    <TextBox x:Name="TxtNovoLogin" />
+
+                    <TextBlock Text="Senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+                    <PasswordBox x:Name="TxtNovaSenha" />
+
+                    <TextBlock Text="Repita a senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+                    <PasswordBox x:Name="TxtNovaSenhaRepetida" />
+                </StackPanel>
+
+                <!-- ============ Troca obrigatória de senha ============ -->
+                <StackPanel x:Name="PainelTrocarSenha" Visibility="Collapsed">
+                    <TextBlock Text="Nova senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+                    <PasswordBox x:Name="TxtTrocaSenha" />
+
+                    <TextBlock Text="Repita a nova senha" Style="{StaticResource Rotulo}" Margin="0,14,0,4" />
+                    <PasswordBox x:Name="TxtTrocaSenhaRepetida" />
+                </StackPanel>
+
+                <!-- Erro e informação vêm ANTES do rodapé: mensagem que nasce embaixo
+                     empurra os botões para fora do campo de visão, e a pessoa clica de
+                     novo sem ter lido. -->
+                <Border x:Name="BoxErro" Style="{StaticResource AlertaPerigo}"
+                        Margin="0,16,0,0" Visibility="Collapsed">
+                    <TextBlock x:Name="TxtErro" TextWrapping="Wrap" />
+                </Border>
+
+                <Border x:Name="BoxInfo" Style="{StaticResource AlertaInfo}"
+                        Margin="0,16,0,0" Visibility="Collapsed">
+                    <TextBlock x:Name="TxtInfo" TextWrapping="Wrap" />
+                </Border>
+
+                <!-- Duas colunas iguais: num diálogo de dois botões não há hierarquia de
+                     tamanho a comunicar — ela já está na cor. -->
+                <Grid Margin="0,22,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="BtnEntrar" Grid.Column="0" Content="Entrar"
+                            Click="Confirmar" IsDefault="True" />
+                    <Button Grid.Column="2" Content="Sair"
+                            Style="{StaticResource BotaoSecundario}"
+                            Click="Cancelar" IsCancel="True" />
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </Window>
