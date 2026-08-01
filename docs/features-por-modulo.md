@@ -117,6 +117,39 @@ reconstruir o que já existe — e para que o Gerente saiba o que pode ler.
 O balcão e o ato clínico. É o módulo com mais dívida: **quatro das sete features são do
 zero.**
 
+> ### Estado da consolidação (parcela 38)
+>
+> As sete features estão entregues; Telemedicina e Portal saíram de escopo, e a assinatura
+> ICP-Brasil depende de decisão comercial. O que a parcela 38 fechou foi a **prova**:
+>
+> | Superfície | Cobertura medida |
+> |---|---|
+> | 18 serviços da Recepção | **99,9%** (4.716 de 4.718 linhas) |
+> | Serviços em 100% | 16 de 18 |
+> | O que falta | 2 linhas `_ =>` de `switch` sobre enum — inalcançáveis por construção |
+>
+> Os três tipos de buraco que a medição revelou, e que valem para os outros módulos:
+>
+> 1. **O que o serviço RECUSA** não tinha teste. Sala sem nome, protocolo sem ponto,
+>    pacote de sessões sem sessões, atestado de zero dia, autorização com utilizadas
+>    negativas — cada uma dessas mensagens é lida por alguém com o paciente na frente.
+> 2. **A degradação nunca tinha sido exercitada**, porque não havia como fazer o banco
+>    falhar contra um SQLite que funciona. `RepositorioComFalha` (`DispatchProxy` sobre
+>    `IClinicaRepositorio`) resolve isso em ~40 linhas e serve a qualquer serviço. Foi ele
+>    que provou que "pacote que falha vira AVISO e a guia nasce assim mesmo" é
+>    comportamento, e não intenção escrita no comentário.
+> 3. **Método público sem chamador.** A varredura achou dezessete. A maioria era API
+>    redundante (ver abaixo), não porta faltando — mas nenhum deles tinha execução.
+>
+> **Redundâncias mapeadas, mantidas de propósito.** `MapaCorporalService.AplicarProtocoloAsync`,
+> `CopiarDaSessaoAnteriorAsync` e `SalvarComoProtocoloDaSessaoAsync` são as variantes que
+> GRAVAM; a tela usa as que não gravam, porque "aplicar protocolo traz os pontos para a
+> tela e só o Salvar os efetiva". `BloqueioAgendaService.BloqueioDoHorarioAsync` responde
+> uma pergunta que `AgendaService.ConflitosAsync` já responde junto do choque de horário —
+> e é essa que a tela de agendamento usa, avisando ao vivo a cada campo alterado. Todas
+> passaram a ter teste; **remover API pública é decisão separada**, não consequência da
+> consolidação.
+
 ### Feature 01 · Painel próprio da recepção — ✅ · parcela 1
 
 | Item | Estado | Onde |

@@ -646,6 +646,22 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   execução" é o que achou `RemarcarEmLoteAsync`, `ApuracaoMensalAsync` e os dois PDFs do
   faturamento — 323 linhas de desenho aprovadas no CI que nunca haviam rodado uma vez.
   **Serviço testado não é serviço executado**, e é assim que se descobre a diferença.
+- **A Recepção está em 99,9% e as 2 linhas que faltam são inalcançáveis** (parcela 38):
+  os 18 serviços da superfície do balcão (`RecepcaoConsolidadaTests`, 77 testes). O que
+  sobra são dois `_ =>` de `switch` sobre enum cujos valores reais estão todos cobertos —
+  e um deles é guardado por teste (`Toda_finalidade_de_consentimento_tem_rotulo`), que é o
+  que o mantém inalcançável. Três coisas que a consolidação ensinou e valem para os outros
+  módulos: (1) o buraco não estava no caminho feliz, estava no que o serviço **RECUSA** —
+  sala sem nome, protocolo sem ponto, atestado de zero dia, e cada mensagem dessas é lida
+  por alguém com o paciente na frente; (2) o caminho de **degradação nunca tinha sido
+  exercitado** porque não havia como fazer o banco falhar — `RepositorioComFalha`
+  (`DispatchProxy` sobre `IClinicaRepositorio`) resolveu isso e é reaproveitável em
+  qualquer serviço, e foi ele que provou que "pacote que falha vira AVISO e a guia nasce
+  assim mesmo" é verdade e não intenção; (3) **navegação do EF não é código de negócio** —
+  `public Paciente? Paciente { get; set; }` aparece como linha descoberta e testá-la não
+  prova nada; o que vale perseguir na entidade é método com regra (foi assim que
+  `BloqueioAgenda.ColideCom`, com o fim exclusivo dos dois lados, ganhou o primeiro teste
+  da vida dele).
 - **Duas barreiras locais contra erro de compilação WPF, e elas se dividem por linguagem.**
   - `tools/compilar-sombra.py` compila **o C#** dos sete projetos WPF. Ele recompila os
     mesmos `.cs` num projeto `net8.0` comum que referencia as *reference assemblies* do
