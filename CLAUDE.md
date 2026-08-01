@@ -48,9 +48,23 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 
 | ferramenta | cobre | não cobre |
 |---|---|---|
-| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 817 testes | nada das telas |
+| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 1.024 testes | nada das telas |
 | `tools/compilar-sombra.py` | **o C# dos 7 projetos WPF** (nome, tipo, aridade, atributo) | XAML |
 | `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução | semântica de C# |
+
+⚠️ **Compilar não é executar, e a diferença tem um CI próprio** (parcela 39).
+`compilar-sombra.py` usa as *reference assemblies* do WPF: elas compilam e nunca rodam,
+porque o runtime (`Microsoft.WindowsDesktop.App`) só existe em Windows. Resultado: até a
+parcela 39 nenhum ViewModel da suíte tinha **rodado** em teste nenhum — a camada da
+distribuição das colunas do kanban, da ordem de chamada, do texto de cada situação e da
+curva de EVA tinha exatamente uma garantia, a de compilar. `tests/Clinica.Tests.Ui`
+(net8.0-windows) + `.github/workflows/testes-ui.yml` (runner **windows-latest, em TODA
+branch**) fecham isso; `build-exe.yml` só dispara em push na `main` e em PR para ela, então
+quem trabalha numa branch descobria no PR ou depois. **Esses testes NÃO rodam em Linux —
+quem responde é o CI**, e a resposta se lê pelo log do job, não pelo status da API (que
+atrasa dezenas de minutos). O ambiente é o `AmbienteDeTela`: SQLite em memória e o
+`AddClinica` **de verdade**, com só o provider trocado — reescrever a lista de serviços
+daria um grafo paralelo que envelhece e passaria a provar uma montagem que não existe.
 
 Se o SDK não estiver instalado: `apt-get update && apt-get install -y dotnet-sdk-8.0` (o instalador
 da Microsoft está bloqueado pelo proxy; o repositório do Ubuntu não). O CI
@@ -662,6 +676,18 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   prova nada; o que vale perseguir na entidade é método com regra (foi assim que
   `BloqueioAgenda.ColideCom`, com o fim exclusivo dos dois lados, ganhou o primeiro teste
   da vida dele).
+- **O ViewModel só tinha a garantia de COMPILAR** (parcela 39): 42 testes rodando no CI
+  Windows sobre Fila, Agenda e a curva de EVA. Na primeira execução real, **três falharam e
+  as três eram o TESTE, não o produto** — e é isso que faz esta rede valer: (1) check-in de
+  paciente recém-cadastrado **não** passa limpo, porque falta o consentimento LGPD e o
+  balcão avisa (virou um par de testes, um para cada lado); (2) o ganho de EVA com piora é
+  `antes da 1ª − depois da última`, não a diferença entre os dois "antes"; (3) o cenário de
+  ordem de chamada que eu montara não distinguia nada — quem tem hora às 9h e chega às 9h20
+  tem o relógio da clínica começando às 9h20, então ele espera MAIS que o das 9h30 que
+  chegou cedo, e a coluna estava certa. O que a suíte de tela testa é **lógica de
+  ViewModel**, nunca pixel: coluna, ordem, texto, filtro. Teste que depende de pintar é
+  frágil e não responde pergunta de negócio nenhuma — leiaute e animação continuam pedindo
+  olho humano no Windows.
 - **Duas barreiras locais contra erro de compilação WPF, e elas se dividem por linguagem.**
   - `tools/compilar-sombra.py` compila **o C#** dos sete projetos WPF. Ele recompila os
     mesmos `.cs` num projeto `net8.0` comum que referencia as *reference assemblies* do

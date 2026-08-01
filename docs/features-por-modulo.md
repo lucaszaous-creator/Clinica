@@ -127,6 +127,17 @@ zero.**
 > | 18 serviços da Recepção | **99,9%** (4.716 de 4.718 linhas) |
 > | Serviços em 100% | 16 de 18 |
 > | O que falta | 2 linhas `_ =>` de `switch` sobre enum — inalcançáveis por construção |
+> | **ViewModels (Fila, Agenda, EVA)** | **42 testes**, rodando no CI Windows (parcela 39) |
+>
+> **A camada de tela deixou de ter só a garantia de compilar (parcela 39).** O CI Linux
+> roda tudo o que dá para rodar em Linux, mas `compilar-sombra.py` usa as *reference
+> assemblies* do WPF — elas compilam e nunca executam, porque o runtime só existe em
+> Windows. `tests/Clinica.Tests.Ui` + `testes-ui.yml` (windows-latest, em toda branch)
+> fecham isso. Na primeira execução real, **3 dos 40 testes falharam e os 3 eram o teste,
+> não o produto**: paciente recém-cadastrado não passa limpo no check-in (falta o
+> consentimento LGPD, e o balcão avisa com razão); o ganho de EVA com piora é `antes da 1ª −
+> depois da última`; e o cenário de ordem de chamada que eu montara não distinguia hora
+> marcada de ordem de chamada. Corrigidos, 42/42.
 >
 > Os três tipos de buraco que a medição revelou, e que valem para os outros módulos:
 >
