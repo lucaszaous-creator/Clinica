@@ -19,19 +19,21 @@
                     Padding="12" Margin="0,0,0,8">
                 <StackPanel>
 
-                    <!-- Linha 1: horário + espera -->
+                    <!-- Linha 1: horário + a situação da coluna em que o cartão está -->
                     <Grid>
                         <TextBlock Text="{Binding Horario}" FontWeight="SemiBold"
                                    Foreground="{StaticResource Brush.Texto.Primario}" />
-                        <TextBlock Text="{Binding Espera}" HorizontalAlignment="Right"
+                        <!-- Atraso do paciente, espera da clínica, tempo de sala: cada
+                             coluna tem a sua pergunta, e o texto já vem escrito para ela. -->
+                        <TextBlock Text="{Binding Situacao}" HorizontalAlignment="Right"
                                    FontSize="{StaticResource Fonte.Legenda}">
-                            <!-- Espera longa fica vermelha; o estilo sai só daqui (MC3024). -->
+                            <!-- Situação crítica fica vermelha; o estilo sai só daqui (MC3024). -->
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground"
                                             Value="{StaticResource Brush.Texto.Secundario}" />
                                     <Style.Triggers>
-                                        <DataTrigger Binding="{Binding EsperaLonga}" Value="True">
+                                        <DataTrigger Binding="{Binding SituacaoCritica}" Value="True">
                                             <Setter Property="Foreground"
                                                     Value="{StaticResource Brush.Erro}" />
                                             <Setter Property="FontWeight" Value="SemiBold" />
@@ -64,6 +66,14 @@
                                 Visibility="{Binding TemGuiaPendente,
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Guia pendente" />
+                        </Border>
+                        <!-- O que a elegibilidade disse no check-in. O diálogo morria no
+                             OK; o cartão guarda até a tela ser fechada. -->
+                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,4,4"
+                                ToolTip="{Binding Avisos}"
+                                Visibility="{Binding TemAvisos,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Conferir no check-in" />
                         </Border>
                         <Border Style="{StaticResource Badge.Info}" Margin="0,0,4,4"
                                 Visibility="{Binding EhRetornoDoSegundoCodigo,
@@ -127,15 +137,47 @@
                 </StackPanel>
             </Border>
         </DataTemplate>
+
+        <!-- ============ Cartão fora da fila (falta/cancelamento) ============
+             Compacto de propósito: ele não é o fluxo do dia, é o desfazer. -->
+        <DataTemplate x:Key="CartaoForaDaFilaTemplate" DataType="{x:Type vm:CartaoFila}">
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                    CornerRadius="{StaticResource Raio.Medio}"
+                    Padding="10,8" Margin="0,0,8,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding Horario}" FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                    <TextBlock Text="{Binding Paciente}" Margin="8,0,0,0"
+                               VerticalAlignment="Center" MaxWidth="180"
+                               TextTrimming="CharacterEllipsis"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                    <Border Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="{Binding MotivoForaDaFila}" />
+                    </Border>
+                    <Button Content="Reabrir" Style="{StaticResource BotaoPequeno}"
+                            Margin="8,0,0,0" VerticalAlignment="Center"
+                            ToolTip="Devolve o horário à fila, na etapa em que ele estava"
+                            IsEnabled="{Binding DataContext.PodeEditarAgenda,
+                                        RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            Command="{Binding DataContext.ReabrirCommand,
+                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            CommandParameter="{Binding}" />
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
     <DockPanel Margin="24">
 
         <!-- ============ Cabeçalho: dia + navegação ============ -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="Fila de hoje" Style="{StaticResource H1}" Margin="0,0,0,4" />
-                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" Margin="0" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -158,6 +200,70 @@
             </StackPanel>
         </Grid>
 
+        <!-- ============ Filtro: quem eu estou procurando ============
+             Trinta pacientes em quatro colunas é rolagem nas quatro, e a pergunta do
+             balcão é quase sempre sobre UM paciente — o que está na frente. -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox Grid.Column="0" Style="{StaticResource CampoPesquisa}"
+                     MaxWidth="360" HorizontalAlignment="Left"
+                     Text="{Binding Busca, UpdateSourceTrigger=PropertyChanged}"
+                     ctrl:Ajudantes.Placeholder="Buscar paciente na fila do dia" />
+
+            <ComboBox Grid.Column="1" Width="220" Margin="12,0,0,0"
+                      VerticalAlignment="Center"
+                      ItemsSource="{Binding Profissionais}"
+                      SelectedItem="{Binding ProfissionalFiltro}"
+                      DisplayMemberPath="Nome" />
+
+            <Button Grid.Column="2" Content="Limpar filtro" Margin="12,0,0,0"
+                    Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding LimparFiltroCommand}"
+                    Visibility="{Binding Filtrando,
+                                 Converter={StaticResource BoolParaVisibilidade}}" />
+        </Grid>
+
+        <!-- ============ Fora da fila: o desfazer do balcão ============
+             Falta e cancelamento não são coluna do kanban — o quadro é o fluxo de quem
+             vem —, mas também não podem sumir: clicar "Falta" na linha errada era a
+             única ação do balcão sem volta, e falta falsa conta contra o paciente. -->
+        <Border DockPanel.Dock="Bottom" Margin="0,16,0,0">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ForaDaFila.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                    <TextBlock Text="Fora da fila" Style="{StaticResource H3}" Margin="0" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0"
+                               Text="Faltas e cancelamentos do dia. Reabrir devolve o horário à fila na etapa em que ele estava — falta marcada por engano conta contra o paciente na hora de dar o horário mais disputado da semana." />
+                </StackPanel>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding ForaDaFila}"
+                                  ItemTemplate="{StaticResource CartaoForaDaFilaTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
         <!-- ============ Quadro: quatro colunas ============ -->
         <Grid>
           <Grid x:Name="quadro">
@@ -175,9 +281,12 @@
             <Border Grid.Column="0" Style="{StaticResource Card}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Aguardando" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Style="{StaticResource H3}" Margin="0">
+                            <Run Text="Aguardando" />
+                            <Run Text="{Binding Aguardando.Count, Mode=OneWay, StringFormat='({0})'}" />
+                        </TextBlock>
                         <TextBlock Text="Marcado, ainda não chegou"
-                                   Style="{StaticResource TextoSuave}"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
                     </StackPanel>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -191,9 +300,14 @@
             <Border Grid.Column="2" Style="{StaticResource Card}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Na recepção" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Text="Esperando ser chamado"
-                                   Style="{StaticResource TextoSuave}"
+                        <TextBlock Style="{StaticResource H3}" Margin="0">
+                            <Run Text="Na recepção" />
+                            <Run Text="{Binding NaRecepcao.Count, Mode=OneWay, StringFormat='({0})'}" />
+                        </TextBlock>
+                        <!-- A ordem desta coluna é a ORDEM DE CHAMADA, e não a hora
+                             marcada: quem espera há mais tempo vem primeiro. -->
+                        <TextBlock Text="Esperando ser chamado — o primeiro da coluna espera há mais tempo"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
                     </StackPanel>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -207,9 +321,12 @@
             <Border Grid.Column="4" Style="{StaticResource Card}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Em atendimento" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Style="{StaticResource H3}" Margin="0">
+                            <Run Text="Em atendimento" />
+                            <Run Text="{Binding EmAtendimento.Count, Mode=OneWay, StringFormat='({0})'}" />
+                        </TextBlock>
                         <TextBlock Text="Na sala com o profissional"
-                                   Style="{StaticResource TextoSuave}"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
                     </StackPanel>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -223,9 +340,12 @@
             <Border Grid.Column="6" Style="{StaticResource Card}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Finalizado" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Style="{StaticResource H3}" Margin="0">
+                            <Run Text="Finalizado" />
+                            <Run Text="{Binding Finalizados.Count, Mode=OneWay, StringFormat='({0})'}" />
+                        </TextBlock>
                         <TextBlock Text="Atendimento e códigos gerados"
-                                   Style="{StaticResource TextoSuave}"
+                                   Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
                     </StackPanel>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -236,13 +356,15 @@
             </Border>
           </Grid>
 
-          <!-- Um estado para o quadro todo: as quatro colunas vêm da mesma consulta. -->
+          <!-- Um estado para o quadro todo: as quatro colunas vêm da mesma consulta.
+               O texto muda com o filtro — quadro vazio por filtro e quadro vazio por
+               dia sem ninguém são respostas diferentes. -->
           <ctrl:EstadoDaTela Vazio="{Binding QuadroVazio}"
                              Carregando="{Binding Carregando}"
                              Glifo="&#xE77B;"
                              TextoCarregando="Montando a fila do dia…"
-                             Titulo="Ninguém marcado para hoje"
-                             Descricao="Cancelados e faltas não entram no quadro: ele mostra o fluxo de quem vem hoje." />
+                             Titulo="{Binding TituloVazio}"
+                             Descricao="{Binding DescricaoVazia}" />
         </Grid>
     </DockPanel>
 </UserControl>

@@ -236,6 +236,44 @@ public class BloqueioAgendaTests : IDisposable
         (await _bloqueios.ListarAsync(incluirPassado: true)).Should().HaveCount(2);
     }
 
+    // ===== O que a agenda do dia precisa MOSTRAR (parcela 36) =====
+
+    [Fact]
+    public async Task Bloqueio_do_dia_e_devolvido_para_a_grade_mostrar()
+    {
+        var profissionalId = await CriarProfissionalAsync();
+        await _bloqueios.CriarAsync(
+            Manha, Manha.AddHours(3), "Congresso", profissionalId: profissionalId);
+
+        // O bloqueio já impedia a marcação desde que existe — mas só na hora de salvar.
+        // Sem esta leitura, a grade mostrava a manhã como livre e a recepção descobria
+        // que estava fechada tomando o erro, ou depois de oferecer o horário no telefone.
+        var doDia = await _bloqueios.NoDiaAsync(DateOnly.FromDateTime(Manha));
+
+        doDia.Should().ContainSingle().Which.Motivo.Should().Be("Congresso");
+    }
+
+    [Fact]
+    public async Task Bloqueio_de_varios_dias_aparece_em_cada_um_deles()
+    {
+        await _bloqueios.CriarAsync(Manha, Manha.AddDays(5), "Férias");
+
+        // As férias de uma semana precisam aparecer na coluna de cada dia: quem abre a
+        // quinta-feira não vê o dia em que elas começaram.
+        var noMeio = await _bloqueios.NoDiaAsync(DateOnly.FromDateTime(Manha.AddDays(3)));
+
+        noMeio.Should().ContainSingle().Which.Motivo.Should().Be("Férias");
+    }
+
+    [Fact]
+    public async Task Dia_sem_bloqueio_devolve_lista_vazia()
+    {
+        await _bloqueios.CriarAsync(Manha, Manha.AddHours(2), "Feriado");
+
+        (await _bloqueios.NoDiaAsync(DateOnly.FromDateTime(Manha.AddDays(1))))
+            .Should().BeEmpty();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

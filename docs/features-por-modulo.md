@@ -139,7 +139,7 @@ zero.**
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
 | Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26) |
-| **Bloqueio de agenda** (férias, feriado, folga) | ✅ | `BloqueioAgendaService`, `BloqueioWindow` (parcela 26) |
+| **Bloqueio de agenda** (férias, feriado, folga) | ✅ | `BloqueioAgendaService`, `BloqueioWindow` (parcela 26); **visível na grade** desde a parcela 36 (`NoDiaAsync` → `ColunaAgenda.Bloqueios`) |
 | **Agendamento em série** (o pacote de dez) | ✅ | `AgendaService.AgendarSerieAsync`/`CancelarSerieAsync` (parcela 26) |
 | **Visão de semana** | ✅ | `AgendaViewModel.ModoSemana` — o dia continua sendo o padrão (parcela 26) |
 | Elegibilidade antes de marcar | ✅ | `ElegibilidadeService` no agendamento e no check-in da Fila (parcela 26) |
@@ -158,7 +158,17 @@ zero.**
 > o **encaixe**, e aí ele fica registrado em vez de virar conflito silencioso. Quem não
 > informa profissional nem sala — o faturamento — enxerga o comportamento de sempre.
 
-### Feature 03 · Fila em kanban — ✅ · parcela 1
+> **O bloqueio saiu do cadastro e entrou na grade (parcela 36).** Ele impedia a marcação
+> desde a parcela 26, mas só na hora de salvar: a agenda do dia mostrava a terça de férias
+> exatamente como mostra uma terça livre, e a recepção descobria o fechamento tomando o
+> erro — ou, pior, depois de oferecer o horário a quem estava no telefone. Agora cada
+> coluna abre com os períodos fechados que a alcançam, recortados ao dia; **sala** fechada
+> vai para uma faixa acima da grade (ela não fecha a agenda de ninguém, tira um lugar de
+> todo mundo); e coluna com bloqueio **deixa de dizer "agenda livre neste dia"**, que é o
+> convite exato para marcar em cima. Falha ao ler os bloqueios tem **terceiro estado**:
+> grade sem bloqueio por erro e grade sem bloqueio nenhum têm a mesma cara.
+
+### Feature 03 · Fila em kanban — ✅ · parcelas 1 e 36
 
 | Item | Estado | Onde |
 |---|---|---|
@@ -166,11 +176,27 @@ zero.**
 | Colunas Aguardando · Chegou · Em atendimento · Finalizado | ✅ | `Agendamento.Etapa`, `FilaView` |
 | Tempo de espera visível | ✅ | `Agendamento.EsperaMinutos`, atualizado a cada minuto na tela |
 | Aviso de pendência já no check-in | ✅ | `AgendaService.ConfirmarPresencaAsync` + etiqueta no cartão |
+| **Atraso do paciente** na coluna Aguardando | ✅ | `Agendamento.AtrasoDoPacienteMinutos` (parcela 36) |
+| **Espera que é da clínica** (chegar cedo não conta) | ✅ | `Agendamento.EsperaDaClinicaMinutos` (parcela 36) |
+| **Sessão estourando a duração** | ✅ | `Agendamento.SessaoPassouDoPrevisto` (parcela 36) |
+| **Reabrir falta/cancelamento** — o desfazer do balcão | ✅ | `AgendaService.ReabrirAsync` + faixa "Fora da fila" (parcela 36) |
+| Busca e filtro por profissional | ✅ | `FilaViewModel.Busca`/`ProfissionalFiltro` (parcela 36) |
+| Quadro se atualiza sozinho | ✅ | recarga a cada 2 min quando o dia é hoje (parcela 36) |
 
 > As colunas saem dos **carimbos de hora** (`ChegadaEm`, `InicioAtendimentoEm`), não de
 > um status novo: o faturamento continua vendo o mesmo `StatusAgendamento` de sempre.
 > "Concluir" é o antigo check-in — gera o atendimento e os códigos — e fica no fim do
 > fluxo de propósito: a guia nasce quando a sessão de fato aconteceu.
+
+> **Um relógio só media três perguntas diferentes (parcela 36).** O quadro contava
+> minutos desde a chegada e usava esse número para tudo — daí saíam alarme onde não havia
+> problema (quem chega quarenta minutos antes ficava vermelho como se a clínica o
+> estivesse fazendo esperar) e silêncio onde havia (na coluna "Aguardando", quem tinha
+> hora às 9h e não veio era idêntico a quem tem hora às 17h). Agora cada coluna mostra a
+> pergunta dela: **atraso do paciente**, **espera da clínica** (que começa no mais tarde
+> entre a chegada e a hora marcada) e **tempo de sala** (medido do início REAL da sessão,
+> não da hora marcada — senão o atraso apareceria duas vezes). "Na recepção" passou a ser
+> ordenada pela **ordem de chamada**, e não pela hora marcada.
 
 ### Feature 04 · Pacientes — cadastro 360º — ✅ · parcela 2
 

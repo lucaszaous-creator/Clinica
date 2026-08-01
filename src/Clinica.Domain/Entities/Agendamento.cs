@@ -142,6 +142,10 @@ public class Agendamento
     /// <summary>
     /// Há quanto tempo o paciente espera, em minutos: da chegada até ser chamado (ou até
     /// <paramref name="agora"/>, se ainda não foi). Null enquanto não fez check-in.
+    ///
+    /// É o tempo que ele passou no balcão — inclusive o que ele escolheu passar,
+    /// chegando cedo. Para saber quanto a CLÍNICA atrasou, use
+    /// <see cref="EsperaDaClinicaMinutos"/>.
     /// </summary>
     public int? EsperaMinutos(DateTime agora)
     {
@@ -150,6 +154,71 @@ public class Agendamento
         var minutos = (int)Math.Round((fim - ChegadaEm.Value).TotalMinutes);
         return minutos < 0 ? 0 : minutos;
     }
+
+    /// <summary>
+    /// De quando a espera passa a ser DA CLÍNICA: o mais tarde entre a chegada e a hora
+    /// marcada. Null enquanto o paciente não fez check-in.
+    ///
+    /// Quem chega quarenta minutos antes escolheu esperar trinta e nove — o relógio da
+    /// clínica só começa às 14h. Sem esta distinção, o quadro pinta de vermelho o
+    /// paciente pontual da clínica pontual, e o balcão aprende a ignorar a cor
+    /// justamente quando ela passa a significar alguma coisa.
+    /// </summary>
+    public DateTime? InicioDaEsperaDevida
+        => ChegadaEm is not { } chegada ? null : (chegada > DataHora ? chegada : DataHora);
+
+    /// <summary>
+    /// Quanto a clínica fez o paciente esperar além da hora marcada, em minutos: do
+    /// <see cref="InicioDaEsperaDevida"/> até ser chamado (ou até <paramref name="agora"/>).
+    /// Null antes do check-in; zero enquanto a hora marcada não chega.
+    /// </summary>
+    public int? EsperaDaClinicaMinutos(DateTime agora)
+    {
+        if (InicioDaEsperaDevida is not { } inicio) return null;
+        var fim = InicioAtendimentoEm ?? agora;
+        var minutos = (int)Math.Round((fim - inicio).TotalMinutes);
+        return minutos < 0 ? 0 : minutos;
+    }
+
+    /// <summary>Chegou antes da hora marcada — a espera dele ainda não é atraso da clínica.</summary>
+    public bool ChegouAdiantado => ChegadaEm is { } chegada && chegada < DataHora;
+
+    /// <summary>
+    /// Há quantos minutos o PACIENTE está atrasado: horário marcado já passou e ele não
+    /// fez check-in. Null quando já chegou, quando a hora ainda não deu, ou quando o
+    /// horário não está mais em aberto.
+    ///
+    /// É a pergunta que o quadro não respondia: na coluna "Aguardando", quem tem hora às
+    /// 9h e não veio ficava idêntico a quem tem hora às 17h — e o telefonema que ainda
+    /// salvaria a sessão dependia de alguém reparar no horário de cada cartão.
+    /// </summary>
+    public int? AtrasoDoPacienteMinutos(DateTime agora)
+    {
+        if (ChegadaEm is not null || Status != StatusAgendamento.Agendado) return null;
+        var minutos = (int)Math.Round((agora - DataHora).TotalMinutes);
+        return minutos <= 0 ? null : minutos;
+    }
+
+    /// <summary>Há quantos minutos a sessão está em curso. Null antes de ser chamado.</summary>
+    public int? DuracaoAtendimentoMinutos(DateTime agora)
+    {
+        if (InicioAtendimentoEm is not { } inicio) return null;
+        var minutos = (int)Math.Round((agora - inicio).TotalMinutes);
+        return minutos < 0 ? 0 : minutos;
+    }
+
+    /// <summary>
+    /// Fim previsto contando do início REAL da sessão — não da hora marcada.
+    ///
+    /// A sessão que começou vinte minutos atrasada termina vinte minutos depois; medi-la
+    /// pelo <see cref="FimPrevisto"/> a acusaria de estourar a duração que ela está
+    /// cumprindo à risca, e o atraso apareceria duas vezes.
+    /// </summary>
+    public DateTime? FimPrevistoDaSessao => InicioAtendimentoEm?.AddMinutes(DuracaoEfetiva);
+
+    /// <summary>A sessão já passou da duração prevista — a sala vai atrasar a próxima.</summary>
+    public bool SessaoPassouDoPrevisto(DateTime agora)
+        => FimPrevistoDaSessao is { } fim && agora > fim;
 
     /// <summary>
     /// Este horário se sobrepõe ao intervalo informado? Comparação por intervalo (e não

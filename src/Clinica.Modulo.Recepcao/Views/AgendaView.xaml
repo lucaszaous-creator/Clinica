@@ -122,7 +122,35 @@
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
                     </StackPanel>
 
+                    <!-- Agenda FECHADA no topo da coluna. O bloqueio já impedia a
+                         marcação desde que existe, mas só na hora de salvar: a grade não
+                         mostrava nada, e a recepção descobria que a terça estava fechada
+                         tomando o erro — ou depois de oferecer o horário no telefone. -->
+                    <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Bloqueios}"
+                                  Margin="0,0,0,4">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:CartaoBloqueio}">
+                                <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,8">
+                                    <StackPanel>
+                                        <TextBlock FontWeight="SemiBold" TextWrapping="Wrap">
+                                            <Run Text="Agenda fechada" />
+                                            <Run Text="·" />
+                                            <Run Text="{Binding Faixa, Mode=OneWay}" />
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding Motivo}" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="{StaticResource Fonte.Legenda}" />
+                                        <TextBlock Text="{Binding Alvo}" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="{StaticResource Fonte.Legenda}" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
                     <TextBlock Text="Agenda livre neste dia." Margin="0,12"
+                               TextWrapping="Wrap"
                                Visibility="{Binding Vazia,
                                             Converter={StaticResource BoolParaVisibilidade}}"
                                Style="{StaticResource TextoSuave}" />
@@ -192,6 +220,22 @@
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,16"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Sala fechada (manutenção, reforma). Fica aqui e não nas colunas: ela não
+             fecha a agenda de ninguém — tira um lugar de todo mundo. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,16"
+                Visibility="{Binding TemAvisoSalas, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding AvisoSalas}" TextWrapping="Wrap" MaxWidth="820" />
+        </Border>
+
+        <!-- A leitura dos bloqueios FALHOU. Sem esta faixa, grade sem bloqueio por erro
+             fica idêntica a grade sem bloqueio nenhum — e é nessa que se marca em cima
+             das férias sem nada avisar. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,16"
+                Visibility="{Binding BloqueiosNaoVerificados, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                       Text="Não foi possível conferir os bloqueios (férias, feriado, folga) deste período. A grade abaixo pode estar mostrando como livre um horário que está fechado — confira em Profissionais e salas antes de marcar." />
         </Border>
 
         <!-- Sem profissional cadastrado: a grade não tem colunas e a tela precisa dizer por quê -->

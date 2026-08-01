@@ -436,6 +436,39 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   agendamento (cancelado não é visita). Pacote em aberto é **destaque, não filtro**: o
   paciente pagou sessões que não usou, e essa ligação a clínica deve tanto a ela quanto a
   ele.
+- **O quadro do balcão media um relógio só** (parcela 36): a fila em kanban contava
+  minutos desde a chegada e usava esse número para tudo. Daí saíam dois erros com o
+  mesmo formato — **alarme onde não havia problema** (quem chega quarenta minutos antes
+  ficava vermelho como se a clínica o estivesse fazendo esperar, e o balcão aprende a
+  ignorar a cor) e **silêncio onde havia** (na coluna "Aguardando", quem tinha hora às 9h
+  e não veio era idêntico a quem tem hora às 17h; o telefonema que ainda salvaria a
+  sessão dependia de alguém reparar no horário de cada cartão). São três relógios, e
+  cada coluna mostra o seu: `AtrasoDoPacienteMinutos`, `EsperaDaClinicaMinutos` — que
+  começa no **mais tarde entre a chegada e a hora marcada**, porque quem chega cedo
+  escolheu esperar — e `DuracaoAtendimentoMinutos`, medida do **início REAL da sessão** e
+  não da hora marcada (senão a sessão que começou atrasada seria acusada de estourar a
+  duração que está cumprindo, e o atraso apareceria duas vezes). "Na recepção" é ordenada
+  pela **ordem de chamada** (quem espera há mais tempo), não pela hora marcada — o das 9h
+  que chegou atrasado esperou menos que o das 9h30 que chegou na hora. `ReabrirAsync` é o
+  **desfazer que faltava**: falta marcada na linha errada era a única ação do balcão sem
+  volta, e falta não é enfeite — ela conta contra o paciente na hora de decidir quem fica
+  com o horário mais disputado da semana; reabrir **não limpa os carimbos**, porque o
+  cartão tem de voltar para a coluna em que estava. E o quadro **volta ao banco sozinho**
+  a cada 2 min quando o dia é hoje: balcão e sala olham a MESMA fila em máquinas
+  diferentes, e quadro que mostra o dia de dez minutos atrás é pior que quadro nenhum,
+  porque parece atual.
+- **O bloqueio que só existia na hora de salvar** (parcela 36): férias, feriado e folga
+  impediam a marcação desde a parcela 26, mas a agenda do dia **não mostrava nada** —
+  a terça fechada tinha a mesma cara da terça livre, e a recepção descobria tomando o
+  erro ou depois de oferecer o horário no telefone. `BloqueioAgendaService.NoDiaAsync`
+  põe cada período fechado no topo da coluna que ele alcança, **recortado ao dia** (as
+  férias de duas semanas não podem aparecer como "de 01/07 a 15/07" dentro da coluna de
+  quinta). **Sala** fechada vai para uma faixa acima da grade, não para as colunas: ela
+  não fecha a agenda de ninguém, tira um lugar de todo mundo. Coluna com bloqueio deixa
+  de dizer "agenda livre neste dia", que é o convite exato para marcar em cima. E a falha
+  na leitura tem **terceiro estado** — grade sem bloqueio por erro e grade sem bloqueio
+  nenhum são visualmente idênticas, e é na primeira que se marca em cima das férias sem
+  nada avisar.
 - **Como os quatro módulos se falam** (parcela 27): eles compartilham o BANCO, não
   mensagens — não há fila, evento nem sincronização; o que um grava o outro lê, e a
   ligação é sempre uma CHAVE ESTRANGEIRA. O circuito completo:

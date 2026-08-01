@@ -40,6 +40,26 @@ public sealed class CartaoAgenda
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
 }
 
+/// <summary>
+/// Um período em que a agenda desta coluna está FECHADA: férias, feriado, folga.
+///
+/// O bloqueio existia desde a parcela 26 e impedia a marcação — mas só na hora de
+/// salvar. A grade não mostrava nada, e a recepção descobria que a terça estava fechada
+/// tomando o erro, ou depois de ter oferecido o horário a quem estava no telefone.
+/// </summary>
+public sealed class CartaoBloqueio
+{
+    public required int BloqueioId { get; init; }
+
+    /// <summary>"09:00–12:00" ou "dia inteiro" — já recortado ao dia da coluna.</summary>
+    public required string Faixa { get; init; }
+
+    public required string Motivo { get; init; }
+
+    /// <summary>De quem é a indisponibilidade: a clínica, o profissional ou a sala.</summary>
+    public required string Alvo { get; init; }
+}
+
 /// <summary>Uma coluna da grade — um profissional (ou o resíduo "sem profissional").</summary>
 public sealed class ColunaAgenda
 {
@@ -47,7 +67,15 @@ public sealed class ColunaAgenda
     public required string Nome { get; init; }
     public required string Resumo { get; init; }
     public required ObservableCollection<CartaoAgenda> Horarios { get; init; }
-    public bool Vazia => Horarios.Count == 0;
+
+    /// <summary>Os períodos fechados que alcançam esta coluna, no topo dela.</summary>
+    public required ObservableCollection<CartaoBloqueio> Bloqueios { get; init; }
+
+    /// <summary>
+    /// Coluna sem NADA. Agenda fechada não é agenda livre: dizer "livre neste dia"
+    /// debaixo de um bloqueio de férias é o convite exato para marcar em cima dele.
+    /// </summary>
+    public bool Vazia => Horarios.Count == 0 && Bloqueios.Count == 0;
 }
 
 /// <summary>Um pedido na lista de espera.</summary>
@@ -147,6 +175,24 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string _esperaVazia = "Ninguém na lista de espera.";
 
+    /// <summary>
+    /// Salas fechadas no período mostrado (manutenção, reforma). Ficam numa faixa acima
+    /// da grade, e não nas colunas: sala fechada não fecha a agenda de ninguém — ela tira
+    /// um lugar de todo mundo, e repeti-la em cada coluna diria o contrário.
+    /// </summary>
+    [ObservableProperty] private string _avisoSalas = string.Empty;
+
+    public bool TemAvisoSalas => !string.IsNullOrWhiteSpace(AvisoSalas);
+
+    partial void OnAvisoSalasChanged(string value) => OnPropertyChanged(nameof(TemAvisoSalas));
+
+    /// <summary>
+    /// Os bloqueios não puderam ser lidos — o terceiro estado outra vez. Uma grade sem
+    /// bloqueio por falha é idêntica a uma grade sem bloqueio nenhum, e é justamente
+    /// nesta que se pode marcar em cima das férias sem que nada avise.
+    /// </summary>
+    [ObservableProperty] private bool _bloqueiosNaoVerificados;
+
     /// <summary>Há um horário em foco: a tela oferece voltar à lista inteira.</summary>
     public bool TemSugestao => SugestaoPara is not null;
 
@@ -199,6 +245,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
             var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();
             var espera = scope.ServiceProvider.GetRequiredService<ListaEsperaService>();
+            var fechamentos = scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>();
 
             var dia = DateOnly.FromDateTime(Dia);
             var doDia = await agenda.DoDiaAsync(dia);
@@ -206,13 +253,18 @@ public sealed partial class AgendaViewModel : ObservableObject
             SemProfissionais = profissionais.Count == 0;
 
             Colunas.Clear();
+            BloqueiosNaoVerificados = false;
+            _salasFechadas.Clear();
 
             if (ModoSemana)
             {
-                await MontarSemanaAsync(agenda, profissionais);
+                await MontarSemanaAsync(agenda, fechamentos, profissionais);
+                AvisoSalas = DescreverSalasFechadas();
                 await CarregarEsperaAsync(espera);
                 return;
             }
+
+            var bloqueios = await BloqueiosDoDiaAsync(fechamentos, dia);
 
             // Quem entrou como PROFISSIONAL abre na própria coluna. O usuário aponta
             // para o Profissional desde a parcela 5, e um fisioterapeuta que abre o app
@@ -226,14 +278,23 @@ public sealed partial class AgendaViewModel : ObservableObject
                 : profissionais;
 
             foreach (var p in visiveis)
-                Colunas.Add(MontarColuna(p.Id, p.Rotulo, doDia.Where(a => a.ProfissionalId == p.Id)));
+                Colunas.Add(MontarColuna(
+                    p.Id, p.Rotulo, doDia.Where(a => a.ProfissionalId == p.Id),
+                    // O da clínica (feriado) alcança todo mundo; o do profissional, só a
+                    // coluna dele. Sala fechada não fecha a agenda de ninguém e vai para
+                    // a faixa de aviso.
+                    bloqueios.Where(b => b.AlcancaRecurso(p.Id, null)), dia));
 
             // "Sem profissional" só aparece quando existe: é resíduo da agenda antiga
             // (e do faturamento, que marca sem informar quem atende), não uma pessoa.
             // Filtrando por "minha agenda", ele não é meu — fica de fora.
             var orfaos = doDia.Where(a => a.ProfissionalId is null).ToList();
             if (orfaos.Count > 0 && visiveis.Count == profissionais.Count)
-                Colunas.Add(MontarColuna(null, "Sem profissional", orfaos));
+                Colunas.Add(MontarColuna(
+                    null, "Sem profissional", orfaos,
+                    bloqueios.Where(b => b.DaClinica), dia));
+
+            AvisoSalas = DescreverSalasFechadas();
 
             var ocupando = visiveis.Count == profissionais.Count
                 ? doDia.Count(a => a.OcupaAgenda)
@@ -266,7 +327,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// a semana DELE, que é a pergunta que ele faz.
     /// </summary>
     private async Task MontarSemanaAsync(
-        AgendaService agenda, IReadOnlyList<Profissional> profissionais)
+        AgendaService agenda, BloqueioAgendaService fechamentos,
+        IReadOnlyList<Profissional> profissionais)
     {
         var meu = SessaoUsuario.Atual.ProfissionalId;
         SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
@@ -280,7 +342,9 @@ public sealed partial class AgendaViewModel : ObservableObject
         for (var i = 0; i < 7; i++)
         {
             var quando = segunda.AddDays(i);
-            var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(quando));
+            var dia = DateOnly.FromDateTime(quando);
+            var doDia = await agenda.DoDiaAsync(dia);
+            var bloqueios = await BloqueiosDoDiaAsync(fechamentos, dia);
 
             var recorte = soMeu
                 ? doDia.Where(a => a.ProfissionalId == meu).ToList()
@@ -288,13 +352,22 @@ public sealed partial class AgendaViewModel : ObservableObject
 
             ocupando += recorte.Count(a => a.OcupaAgenda);
 
+            // Quem vê só a própria agenda vê os bloqueios DELE (mais os da clínica); quem
+            // vê a semana inteira vê também a folga do colega — na semana, "sexta: Dra.
+            // Ana de folga" é exatamente a informação que faz o horário ser oferecido ou não.
+            var fechadoNoDia = soMeu
+                ? bloqueios.Where(b => b.AlcancaRecurso(meu, null))
+                : bloqueios.Where(b => b.DaClinica || b.ProfissionalId is not null);
+
             // A coluna do dia não tem "um profissional": o cartão já diz de quem é, e
             // amarrá-la a alguém faria o botão de chamar da lista de espera oferecer o
             // profissional errado.
             Colunas.Add(MontarColuna(
                 null,
                 $"{Dias[i]} {quando:dd/MM}",
-                recorte));
+                recorte,
+                fechadoNoDia,
+                dia));
         }
 
         Resumo = $"{ocupando} horário(s) na semana de {segunda:dd/MM} a {segunda.AddDays(6):dd/MM}";
@@ -302,8 +375,46 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     private static readonly string[] Dias = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 
+    /// <summary>
+    /// Os bloqueios de um dia, com o terceiro estado.
+    ///
+    /// Falha aqui não derruba a agenda — mas também não pode passar por "não há bloqueio":
+    /// grade sem bloqueio por falha e grade sem bloqueio nenhum têm exatamente a mesma
+    /// cara, e é na primeira que se marca em cima das férias sem nada avisar.
+    /// </summary>
+    private async Task<IReadOnlyList<BloqueioAgenda>> BloqueiosDoDiaAsync(
+        BloqueioAgendaService fechamentos, DateOnly dia)
+    {
+        try
+        {
+            var todos = await fechamentos.NoDiaAsync(dia);
+
+            // Sala fechada é aviso da clínica inteira, não coluna de ninguém.
+            foreach (var b in todos.Where(b => b.ProfissionalId is null && b.SalaId is not null))
+                _salasFechadas.Add($"{b.Sala?.Nome ?? "sala"} ({b.Motivo})");
+
+            return todos;
+        }
+        catch (Exception ex)
+        {
+            BloqueiosNaoVerificados = true;
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — bloqueios da agenda não puderam ser lidos", ex);
+            return [];
+        }
+    }
+
+    /// <summary>Salas fechadas no período mostrado, sem repetir a mesma duas vezes.</summary>
+    private readonly SortedSet<string> _salasFechadas = new(StringComparer.OrdinalIgnoreCase);
+
+    private string DescreverSalasFechadas()
+        => _salasFechadas.Count == 0
+            ? string.Empty
+            : $"Sala(s) fechada(s) no período: {string.Join(" · ", _salasFechadas)}.";
+
     private static ColunaAgenda MontarColuna(
-        int? profissionalId, string nome, IEnumerable<Agendamento> agendamentos)
+        int? profissionalId, string nome, IEnumerable<Agendamento> agendamentos,
+        IEnumerable<BloqueioAgenda> bloqueios, DateOnly dia)
     {
         var cartoes = new ObservableCollection<CartaoAgenda>();
         var ocupando = 0;
@@ -330,12 +441,40 @@ public sealed partial class AgendaViewModel : ObservableObject
             });
         }
 
+        var fechados = new ObservableCollection<CartaoBloqueio>();
+        var inicioDoDia = dia.ToDateTime(TimeOnly.MinValue);
+        var fimDoDia = dia.ToDateTime(TimeOnly.MaxValue);
+
+        foreach (var b in bloqueios.OrderBy(b => b.Inicio))
+        {
+            // Recortado ao dia da coluna: as férias de duas semanas não podem aparecer
+            // como "de 01/07 a 15/07" dentro da coluna de quinta — o que a coluna precisa
+            // dizer é que a quinta inteira está fechada.
+            var de = b.Inicio < inicioDoDia ? inicioDoDia : b.Inicio;
+            var ate = b.Fim > fimDoDia ? fimDoDia : b.Fim;
+            var diaInteiro = de <= inicioDoDia && ate >= fimDoDia;
+
+            fechados.Add(new CartaoBloqueio
+            {
+                BloqueioId = b.Id,
+                Faixa = diaInteiro ? "dia inteiro" : $"{de:HH:mm}–{ate:HH:mm}",
+                Motivo = b.Motivo,
+                Alvo = b.DaClinica
+                    ? "Clínica"
+                    : b.Profissional?.Rotulo
+                      ?? (b.Sala?.Nome is { } sala ? $"Sala {sala}" : "Recurso")
+            });
+        }
+
         return new ColunaAgenda
         {
             ProfissionalId = profissionalId,
             Nome = nome,
-            Resumo = $"{ocupando} horário(s)",
-            Horarios = cartoes
+            Resumo = fechados.Count == 0
+                ? $"{ocupando} horário(s)"
+                : $"{ocupando} horário(s) · {fechados.Count} bloqueio(s)",
+            Horarios = cartoes,
+            Bloqueios = fechados
         };
     }
 

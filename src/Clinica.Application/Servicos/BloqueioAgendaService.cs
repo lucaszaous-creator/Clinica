@@ -73,6 +73,18 @@ public sealed class BloqueioAgendaService
         => _repo.ObterBloqueioAsync(bloqueioId, ct);
 
     /// <summary>
+    /// Bloqueios que alcançam um dia — o que a agenda daquele dia precisa MOSTRAR.
+    ///
+    /// O bloqueio já impedia a marcação desde que existe, mas só na hora de salvar: a
+    /// grade do dia não mostrava nada, e a recepção descobria que a terça estava fechada
+    /// tomando o erro — ou, pior, depois de oferecer o horário a quem estava no telefone.
+    /// </summary>
+    public Task<IReadOnlyList<BloqueioAgenda>> NoDiaAsync(
+        DateOnly dia, CancellationToken ct = default)
+        => _repo.BloqueiosNoPeriodoAsync(
+            dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct);
+
+    /// <summary>
     /// Cria o bloqueio e devolve, junto, quem já está marcado dentro dele.
     ///
     /// A lista vem no RESULTADO, e não como recusa: a clínica pode ter decidido tirar

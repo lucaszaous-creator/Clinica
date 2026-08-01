@@ -531,6 +531,51 @@ public sealed class AgendaService
         return resultado;
     }
 
+    /// <summary>
+    /// Devolve à agenda um horário marcado como falta ou cancelado — o desfazer do balcão.
+    ///
+    /// Clicar "Falta" na linha errada é o erro mais fácil da fila do dia, e até aqui não
+    /// havia volta: a recepção teria de remarcar o horário, o que grava uma remarcação que
+    /// nunca aconteceu. Pior, a falta não é enfeite — ela alimenta a reincidência do
+    /// paciente (<c>RelacionamentoService</c>) e a taxa de falta da clínica, e uma falta
+    /// errada tira do paciente o horário mais disputado da semana por um motivo inventado.
+    ///
+    /// Os carimbos de chegada e de início NÃO são apagados: o cartão volta para a coluna
+    /// exata em que estava. Limpá-los seria uma segunda alteração silenciosa dentro de um
+    /// comando que o usuário pediu para DESFAZER.
+    ///
+    /// Horário já realizado não se reabre por aqui — a guia já nasceu, e reabri-lo
+    /// deixaria um atendimento faturado sem sessão na agenda.
+    /// </summary>
+    public async Task<Agendamento> ReabrirAsync(
+        int agendamentoId, string? operador = null, CancellationToken ct = default)
+    {
+        var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
+
+        if (ag.Status == StatusAgendamento.Agendado)
+            throw new InvalidOperationException("Este horário já está em aberto.");
+
+        if (ag.Status == StatusAgendamento.Realizado)
+            throw new InvalidOperationException(
+                "Este horário já virou atendimento; reabri-lo deixaria a guia sem sessão na "
+                + "agenda. Estorne o atendimento antes.");
+
+        var anterior = ag.Status;
+        ag.Status = StatusAgendamento.Agendado;
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "AgendamentoReaberto",
+            Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — de {anterior} de volta para Agendado",
+            PacienteId = ag.PacienteId
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+        return ag;
+    }
+
     public async Task CancelarAsync(int agendamentoId, string? operador = null, CancellationToken ct = default)
         => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Cancelado, operador, ct);
 
