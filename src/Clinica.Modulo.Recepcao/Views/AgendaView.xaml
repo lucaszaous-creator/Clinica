@@ -113,7 +113,8 @@
 
         <!-- ============ Coluna de um profissional ============ -->
         <DataTemplate x:Key="ColunaAgendaTemplate" DataType="{x:Type vm:ColunaAgenda}">
-            <Border Style="{StaticResource Card}" Width="280" Margin="0,0,16,0">
+            <Border Style="{StaticResource Card}" Width="280" Margin="0,0,16,0"
+                    ctrl:Movimento.Entrada="True">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Text="{Binding Nome}" Style="{StaticResource H3}" Margin="0"
@@ -246,7 +247,8 @@
         </Border>
 
         <!-- ============ Lista de espera (painel lateral) ============ -->
-        <Border DockPanel.Dock="Right" Style="{StaticResource Card}" Width="320" Margin="16,0,0,0">
+        <Border DockPanel.Dock="Right" Style="{StaticResource Card}" Width="320" Margin="16,0,0,0"
+                ctrl:Movimento.Entrada="True" ctrl:Movimento.Atraso="60">
             <DockPanel>
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                     <!-- O título diz o que a lista está mostrando: filtrada por um

@@ -278,7 +278,8 @@
             </Grid.ColumnDefinitions>
 
             <!-- Aguardando -->
-            <Border Grid.Column="0" Style="{StaticResource Card}">
+            <Border Grid.Column="0" Style="{StaticResource Card}"
+                    ctrl:Movimento.Entrada="True">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Style="{StaticResource H3}" Margin="0">
@@ -297,7 +298,8 @@
             </Border>
 
             <!-- Chegou -->
-            <Border Grid.Column="2" Style="{StaticResource Card}">
+            <Border Grid.Column="2" Style="{StaticResource Card}"
+                    ctrl:Movimento.Entrada="True" ctrl:Movimento.Atraso="50">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Style="{StaticResource H3}" Margin="0">
@@ -318,7 +320,8 @@
             </Border>
 
             <!-- Em atendimento -->
-            <Border Grid.Column="4" Style="{StaticResource Card}">
+            <Border Grid.Column="4" Style="{StaticResource Card}"
+                    ctrl:Movimento.Entrada="True" ctrl:Movimento.Atraso="100">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Style="{StaticResource H3}" Margin="0">
@@ -337,7 +340,8 @@
             </Border>
 
             <!-- Finalizado -->
-            <Border Grid.Column="6" Style="{StaticResource Card}">
+            <Border Grid.Column="6" Style="{StaticResource Card}"
+                    ctrl:Movimento.Entrada="True" ctrl:Movimento.Atraso="150">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Style="{StaticResource H3}" Margin="0">

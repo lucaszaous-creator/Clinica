@@ -71,6 +71,24 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     [ObservableProperty] private string _resumoEva = string.Empty;
 
     /// <summary>
+    /// A dor com que o paciente CHEGA em cada sessão. É a linha que responde se o
+    /// tratamento está segurando entre uma sessão e a seguinte.
+    /// </summary>
+    public ObservableCollection<PontoGrafico> CurvaAntes { get; } = [];
+
+    /// <summary>A dor com que ele SAI — o alívio de cada sessão.</summary>
+    public ObservableCollection<PontoGrafico> CurvaDepois { get; } = [];
+
+    /// <summary>Há série suficiente para desenhar (duas sessões medidas em par).</summary>
+    [ObservableProperty] private bool _temCurvaDaDor;
+
+    /// <summary>Por que a curva não está aparecendo — nunca um espaço em branco.</summary>
+    [ObservableProperty] private string _curvaVazia = string.Empty;
+
+    [ObservableProperty] private string _primeiraSessaoEva = "—";
+    [ObservableProperty] private string _ultimaSessaoEva = "—";
+
+    /// <summary>
     /// Metade VISÍVEL da permissão: quem não pode escrever vê os botões apagados com o
     /// motivo. A que impede é o <c>Exigir</c> dentro do comando.
     /// </summary>
@@ -192,6 +210,8 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     /// </summary>
     private void AplicarEvolucaoDaDor(EvolucaoDaDor dor)
     {
+        MontarCurvaDaDor(dor);
+
         if (dor.SessoesComMedida == 0)
         {
             DorInicial = DorAtual = GanhoAcumulado = AlivioMedio = "—";
@@ -209,6 +229,50 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             : "—";
         AlivioMedio = $"{dor.AlivioMedioPorSessao:0.#} por sessão";
         ResumoEva = $"{dor.SessoesComMedida} de {dor.SessoesRegistradas} sessão(ões) com EVA medida.";
+    }
+
+    /// <summary>
+    /// A CURVA da dor — as duas linhas que o relatório de EVA nunca teve.
+    ///
+    /// <c>EvolucaoDaDorAsync</c> calcula a série ponto a ponto desde a parcela 2, e
+    /// nenhuma tela lia os <c>Pontos</c>: a evolução do tratamento inteiro chegava à
+    /// recepção como quatro números. É a mesma falha que já custou o pacote que debitava
+    /// sem tela, a previsão de recebimento sem leitor e a trilha de auditoria sem
+    /// consulta — só que esta é a leitura que o paciente OLHA, e é o argumento da clínica
+    /// para ele não abandonar o tratamento na quarta sessão.
+    ///
+    /// São DUAS linhas, e não uma: "antes" mostra a dor com que ele chega — é ela que
+    /// diz se o tratamento está segurando entre as sessões — e "depois" mostra o alívio
+    /// de cada sessão. Uma linha só (a média, ou só o depois) esconderia exatamente o
+    /// caso que interessa: o paciente que sai bem de toda sessão e volta na semana
+    /// seguinte na mesma dor.
+    /// </summary>
+    private void MontarCurvaDaDor(EvolucaoDaDor dor)
+    {
+        CurvaAntes.Clear();
+        CurvaDepois.Clear();
+
+        foreach (var ponto in dor.Pontos)
+        {
+            var rotulo = ponto.Data.ToString("dd/MM");
+            CurvaAntes.Add(new PontoGrafico(rotulo, ponto.Antes));
+            CurvaDepois.Add(new PontoGrafico(rotulo, ponto.Depois));
+        }
+
+        // Uma sessão medida não é curva: dois pontos soltos não mostram tendência
+        // nenhuma, e o gráfico daria ao paciente uma conclusão que o dado não sustenta.
+        TemCurvaDaDor = dor.SessoesComMedida >= 2;
+
+        PrimeiraSessaoEva = dor.Pontos.Count > 0 ? dor.Pontos[0].Data.ToString("dd/MM/yyyy") : "—";
+        UltimaSessaoEva = dor.Pontos.Count > 0 ? dor.Pontos[^1].Data.ToString("dd/MM/yyyy") : "—";
+
+        CurvaVazia = dor.SessoesComMedida switch
+        {
+            0 => "Sem sessão com EVA medida antes e depois — a curva aparece a partir da segunda.",
+            1 => "Só uma sessão com o par EVA medido. A curva aparece a partir da segunda: "
+                 + "com um ponto só não há tendência para mostrar.",
+            _ => string.Empty
+        };
     }
 
     [RelayCommand]

@@ -140,9 +140,20 @@
     <CornerRadius x:Key="Raio.Grande">12</CornerRadius>
     <CornerRadius x:Key="Raio.Pilula">999</CornerRadius>
 
-    <!-- ============ Movimento (microinterações ≤150ms) ============ -->
+    <!-- ============ Movimento ============
+         Duas classes, e a diferença não é de gosto:
+
+         MICROINTERAÇÃO (≤150ms) — resposta ao dedo de quem clicou: hover, chevron,
+         sidebar recolhendo. Precisa parecer instantânea, então o teto é apertado.
+
+         ENTRADA (~220ms) — orientação: a seção aparece subindo, dizendo de onde veio,
+         quando a tela troca inteira. Abaixo de ~200ms não é percebida como movimento,
+         é percebida como um piscar; acima de ~300ms atrasa quem já sabe o que quer.
+         Mora em `Controls/Movimento.cs`, que também respeita a preferência de animação
+         do Windows — quem desligou não vê nada disto. -->
     <Duration x:Key="Duracao.Rapida">0:0:0.10</Duration>
     <Duration x:Key="Duracao.Normal">0:0:0.15</Duration>
+    <Duration x:Key="Duracao.Entrada">0:0:0.22</Duration>
 
     <!-- ============ Iconografia ============ -->
     <FontFamily x:Key="FonteIcones">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>

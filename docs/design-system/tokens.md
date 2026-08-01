@@ -51,7 +51,32 @@ Compostos: `Margem.Pagina`=24, `Padding.Card`=16, `Padding.Campo`=12,8, `Padding
 
 ## Movimento
 
-`Duracao.Rapida`=100ms (hover) · `Duracao.Normal`=150ms (sidebar, switch, chevrons). Nunca acima de 150ms.
+Duas classes, e a diferença **não é de gosto** — é o que o movimento está fazendo ali.
+
+**Microinteração** — resposta ao dedo de quem clicou. `Duracao.Rapida`=100ms (hover) ·
+`Duracao.Normal`=150ms (sidebar, switch, chevrons). **Nunca acima de 150ms**: resposta ao
+clique precisa parecer instantânea, e o que atrasa a resposta parece defeito.
+
+**Entrada** — orientação, quando a tela troca inteira e o olho perde o ponto de leitura.
+`Duracao.Entrada`=220ms, deslocamento de 10px para cima, `CubicEase EaseOut`. O teto das
+microinterações **não vale aqui**, e por um motivo: abaixo de ~200ms o movimento não é
+percebido como movimento, é percebido como um piscar — que é pior que não animar. Acima
+de ~300ms ele passa a atrasar quem já sabe o que quer, e no balcão sabe-se.
+
+**Traço de gráfico** — 650ms (`GraficoLinha.DuracaoTracoMs`), porque o movimento
+acompanha a leitura da série da esquerda para a direita, que é a ordem do tempo.
+
+Como usar a entrada: `ctrl:Movimento.Entrada="True"` em qualquer `FrameworkElement`, com
+`ctrl:Movimento.Atraso="60"` (ms) para escalonar irmãos. Três regras:
+
+1. **A preferência do Windows manda.** `SystemParameters.ClientAreaAnimation` desligado =
+   nenhuma animação. Enjoo de movimento é motivo médico, e o usuário já respondeu isso ao
+   sistema operacional.
+2. **Uma vez por elemento.** Contêiner reciclado por virtualização dispara `Loaded` de
+   novo, e a lista piscaria a cada rolagem.
+3. **Nunca dentro do `ItemTemplate` de lista que recarrega sozinha.** O quadro da fila
+   volta ao banco a cada 2 minutos: animar os cartões faria a tela piscar inteira na cara
+   de quem está atendendo. O lugar disto é a **seção** — a coluna, o painel, o cartão.
 
 ## Iconografia
 

@@ -118,7 +118,8 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- ============ Ocupação por profissional ============ -->
-                    <Border Grid.Column="0" Style="{StaticResource Card}">
+                    <Border Grid.Column="0" Style="{StaticResource Card}"
+                            ctrl:Movimento.Entrada="True">
                         <StackPanel>
                             <TextBlock Text="Ocupação por profissional" Style="{StaticResource H3}" />
                             <TextBlock Style="{StaticResource TextoSuave}"
@@ -170,7 +171,8 @@
                     </Border>
 
                     <!-- ============ Guias pendentes de quem vem hoje ============ -->
-                    <Border Grid.Column="2" Style="{StaticResource Card}">
+                    <Border Grid.Column="2" Style="{StaticResource Card}"
+                            ctrl:Movimento.Entrada="True" ctrl:Movimento.Atraso="60">
                         <StackPanel>
                             <TextBlock Text="Guias pendentes de quem vem hoje" Style="{StaticResource H3}" />
                             <TextBlock Style="{StaticResource TextoSuave}"
@@ -249,7 +251,8 @@
                      A data estava no cadastro desde sempre e nenhuma tela a lia. É a
                      ligação mais barata que a clínica faz — trinta segundos, sem nada a
                      vender — e era a que se perdia. -->
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                <Border Style="{StaticResource Card}" Margin="0,16,0,0"
+                        ctrl:Movimento.Entrada="True" ctrl:Movimento.Atraso="120">
                     <StackPanel>
                         <TextBlock Text="Aniversariantes da semana" Style="{StaticResource H3}" />
                         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
