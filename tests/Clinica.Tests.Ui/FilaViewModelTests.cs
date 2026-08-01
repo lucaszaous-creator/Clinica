@@ -80,19 +80,37 @@ public class FilaViewModelTests : IDisposable
     [Fact]
     public async Task Na_recepcao_quem_espera_ha_mais_tempo_vem_primeiro()
     {
-        var cedo = await _amb.PacienteAsync("Chegou cedo para as 9h30");
-        var atrasado = await _amb.PacienteAsync("Chegou atrasado para as 9h");
+        var pontual = await _amb.PacienteAsync("Marcado 9h30, chegou 9h30");
+        var atrasado = await _amb.PacienteAsync("Marcado 9h, chegou 9h45");
 
-        // O das 9h chegou às 9h20; o das 9h30 chegou às 9h05. Pela hora marcada, o das 9h
-        // viria primeiro — mas ele esperou MENOS. A coluna é ordem de chamada.
-        await _amb.AgendamentoAsync(atrasado.Id, As(9), chegada: As(9, 20));
-        await _amb.AgendamentoAsync(cedo.Id, As(9, 30), chegada: As(9, 5));
+        // Pela HORA MARCADA, o das 9h viria primeiro. Mas o relógio da clínica só começa
+        // a correr para ele às 9h45, quando ele apareceu — enquanto o das 9h30 está sendo
+        // feito de esperar desde as 9h30. É o das 9h30 que espera há mais tempo.
+        await _amb.AgendamentoAsync(atrasado.Id, As(9), chegada: As(9, 45));
+        await _amb.AgendamentoAsync(pontual.Id, As(9, 30), chegada: As(9, 30));
 
         var vm = await AbrirCarregadaAsync();
 
         vm.NaRecepcao.Should().HaveCount(2);
-        vm.NaRecepcao[0].Paciente.Should().Be("Chegou cedo para as 9h30");
-        vm.NaRecepcao[1].Paciente.Should().Be("Chegou atrasado para as 9h");
+        vm.NaRecepcao[0].Paciente.Should().Be("Marcado 9h30, chegou 9h30");
+        vm.NaRecepcao[1].Paciente.Should().Be("Marcado 9h, chegou 9h45");
+    }
+
+    [Fact]
+    public async Task Chegar_cedo_nao_fura_a_fila_de_quem_tem_hora_antes()
+    {
+        var cedo = await _amb.PacienteAsync("Marcado 9h30, chegou 9h05");
+        var naHora = await _amb.PacienteAsync("Marcado 9h, chegou 9h");
+
+        // O contrário do teste acima, e a mesma regra: quem chegou uma hora antes
+        // escolheu esperar, e a espera dele só começa quando chega a hora dele.
+        await _amb.AgendamentoAsync(cedo.Id, As(9, 30), chegada: As(9, 5));
+        await _amb.AgendamentoAsync(naHora.Id, As(9), chegada: As(9));
+
+        var vm = await AbrirCarregadaAsync();
+
+        vm.NaRecepcao[0].Paciente.Should().Be("Marcado 9h, chegou 9h");
+        vm.NaRecepcao[1].Paciente.Should().Be("Marcado 9h30, chegou 9h05");
     }
 
     [Fact]
@@ -300,9 +318,16 @@ public class FilaViewModelTests : IDisposable
     // ==================== O check-in ====================
 
     [Fact]
-    public async Task Check_in_avisa_a_guia_pendente_e_o_aviso_FICA_no_cartao()
+    public async Task Check_in_sem_nada_a_dizer_confirma_pelo_snackbar_e_nao_abre_dialogo()
     {
         var p = await _amb.PacienteAsync();
+
+        // O consentimento LGPD precisa estar colhido: sem ele, o check-in TEM o que
+        // dizer, e com razão. (Foi o CI que mostrou isso — o teste nasceu supondo que
+        // paciente recém-cadastrado passa limpo, e ele não passa.)
+        await _amb.Servico<ConsentimentoService>().RegistrarAsync(
+            p.Id, FinalidadeConsentimento.TratamentoDeDados, concedido: true);
+
         await _amb.AgendamentoAsync(p.Id, As(9));
 
         var vm = await AbrirCarregadaAsync();
@@ -313,10 +338,24 @@ public class FilaViewModelTests : IDisposable
 
         vm.NaRecepcao.Should().ContainSingle();
 
-        // Não há pendência nem alerta neste cenário: o check-in é limpo e a tela confirma
-        // pelo snackbar, sem abrir diálogo nenhum.
+        // Diálogo é interrupção: sem nada a resolver, ele não aparece — o snackbar basta.
         _amb.Dialogo.Avisos.Should().BeEmpty();
         _amb.Snackbar.Sucessos.Should().Contain(m => m.Contains("chegou"));
+    }
+
+    [Fact]
+    public async Task Paciente_sem_consentimento_LGPD_e_barrado_no_check_in()
+    {
+        var p = await _amb.PacienteAsync();
+        await _amb.AgendamentoAsync(p.Id, As(9));
+
+        var vm = await AbrirCarregadaAsync();
+        vm.RegistrarChegadaCommand.Execute(vm.Aguardando[0]);
+        await AmbienteDeTela.AssentarAsync(() => vm.Carregando);
+
+        // O balcão é o único lugar onde se colhe consentimento com o paciente presente.
+        _amb.Dialogo.Avisos.Should().ContainSingle()
+            .Which.Mensagem.Should().Contain("consentimento LGPD");
     }
 
     [Fact]

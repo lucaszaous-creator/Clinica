@@ -150,7 +150,12 @@ public class ProntuarioEvaTests : IDisposable
 
         var vm = await AbrirComPacienteAsync(p);
 
-        vm.GanhoAcumulado.Should().Be("+3 pontos");
+        // O ganho é dor INICIAL (o "antes" da primeira sessão = 3) menos dor ATUAL
+        // (o "depois" da última = 5). Piorou dois pontos — e a tela diz isso em vez de
+        // esconder o sinal.
+        vm.GanhoAcumulado.Should().Be("+2 pontos");
+        vm.DorInicial.Should().Be("3/10");
+        vm.DorAtual.Should().Be("5/10");
     }
 
     [Fact]
