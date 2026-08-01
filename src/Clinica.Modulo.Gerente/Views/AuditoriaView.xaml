@@ -87,7 +87,7 @@
                      pouca movimentação. -->
                 <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0"
                         Visibility="{Binding NoLimite, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock TextWrapping="Wrap"
+                    <TextBlock TextWrapping="Wrap" MaxWidth="820"
                                Text="O limite foi atingido: há mais eventos no período do que os mostrados. Estreite o filtro ou aumente o limite antes de concluir qualquer coisa a partir das contagens abaixo." />
                 </Border>
             </StackPanel>

@@ -17,7 +17,7 @@
             <TabItem Header="Convênios">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
+                    <TextBlock TextWrapping="Wrap" MaxWidth="820" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
                                Text="Gerencie os convênios atendidos e ajuste os números das regras. 'Novo convênio' cria uma variante que reutiliza a REGRA de faturamento de uma família existente (ex.: um plano que fatura como a Unimed Padrão), com nome próprio. Selecione um convênio na lista para editá-lo — lembre de clicar em 'Salvar configurações' ao terminar." />
 
                     <!-- Catálogo de convênios (nome, família, ativo) -->
@@ -233,7 +233,7 @@
             <TabItem Header="Modalidades">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
+                    <TextBlock TextWrapping="Wrap" MaxWidth="820" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
                                Text="Modalidades de atendimento oferecidas (o que é realizado na visita). 'Nova modalidade' cria uma variante com nome próprio que reutiliza o COMPORTAMENTO de uma modalidade embutida (ex.: 'Auriculoterapia' que fatura como 'Acupuntura (apenas)'). Desative para ocultar dos lançamentos sem apagar o histórico." />
 
                     <Border Style="{StaticResource Card}" VerticalAlignment="Top">
@@ -289,7 +289,7 @@
             <TabItem Header="Especialidades">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <StackPanel MaxWidth="860" HorizontalAlignment="Left">
-                    <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
+                    <TextBlock TextWrapping="Wrap" MaxWidth="820" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
                                Text="Especialidades das consultas avulsas (discriminam a consulta nos relatórios por especialidade). Adicione as que a clínica atende. Desative para ocultar sem apagar o histórico." />
 
                     <Border Style="{StaticResource Card}" VerticalAlignment="Top">

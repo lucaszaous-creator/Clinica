@@ -43,7 +43,7 @@
         <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                 CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,12,0,16">
-            <TextBlock TextWrapping="Wrap"
+            <TextBlock TextWrapping="Wrap" MaxWidth="820"
                        Foreground="{StaticResource Brush.Texto.Primario}"
                        Text="Guias que o faturamento já efetivou no convênio e que ainda não têm receita lançada no caixa. Informe o valor recebido para lançar — a guia sai desta lista e o lançamento fica vinculado a ela." />
         </Border>
@@ -163,7 +163,7 @@
         <DockPanel>
 
             <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,12,0,16">
-                <TextBlock TextWrapping="Wrap"
+                <TextBlock TextWrapping="Wrap" MaxWidth="820"
                            Text="Guias glosadas pelo convênio que ainda têm receita lançada no caixa. Derrubar a receita NÃO apaga o lançamento: ele fica cancelado com o motivo, e a guia volta para a aba “A lançar” caso o recurso seja aceito. Receita já RECEBIDA não se cancela — se a operadora estornou, lance a devolução como saída." />
             </Border>
 
@@ -175,7 +175,7 @@
             <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                     Visibility="{Binding GlosadasNaoVerificadas,
                                  Converter={StaticResource BoolParaVisibilidade}}">
-                <TextBlock TextWrapping="Wrap"
+                <TextBlock TextWrapping="Wrap" MaxWidth="820"
                            Text="Não foi possível conferir as glosas deste mês. A lista abaixo está VAZIA por falha de leitura, não por não haver glosa." />
             </Border>
 

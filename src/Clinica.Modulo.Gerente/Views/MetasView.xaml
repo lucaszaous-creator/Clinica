@@ -36,7 +36,7 @@
         <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                 CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,16">
-            <TextBlock TextWrapping="Wrap"
+            <TextBlock TextWrapping="Wrap" MaxWidth="820"
                        Foreground="{StaticResource Brush.Texto.Primario}"
                        Text="O painel da direção compara o mês com o mês anterior — isso responde “melhorou?”, não “chegamos onde a gente disse que ia chegar?”. A meta declara o alvo, e o painel passa a medir desempenho contra a decisão, com aviso quando o ritmo do mês não alcança o alvo." />
         </Border>
@@ -50,7 +50,7 @@
              se lê como "não fizemos nada este mês", que é a leitura mais cara possível. -->
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
                 Visibility="{Binding ApuracaoNaoVerificada, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock TextWrapping="Wrap"
+            <TextBlock TextWrapping="Wrap" MaxWidth="820"
                        Text="Não foi possível apurar o realizado do mês corrente. A coluna “realizado” está vazia por falha de leitura, e não por falta de movimento." />
         </Border>
 

@@ -185,7 +185,7 @@
                                    Text="Conferir abre o arquivo e conta o que há dentro dele, sem alterar nada. Faça isso de vez em quando: backup que ninguém sabe se prestou só se descobre no dia em que ele é necessário — que é o único dia em que não dá para descobrir." />
 
                         <Border Style="{StaticResource AlertaInfo}" Margin="0,12,0,0">
-                            <TextBlock TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}"
+                            <TextBlock TextWrapping="Wrap" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}"
                                        Text="Para RESTAURAR um backup, fale com o suporte. A restauração substitui a base inteira, só entra numa base vazia e é feita junto com quem acompanha a operação — por isso ela não tem botão aqui." />
                         </Border>
                     </StackPanel>
