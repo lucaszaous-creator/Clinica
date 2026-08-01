@@ -189,7 +189,7 @@
                                 IsEnabled="{Binding PodeGerenciarEquipe}" />
                     </Grid>
 
-                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Margin="0,0,0,8"
+                    <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" MaxWidth="820" Margin="0,0,0,8"
                                Text="Nada bloqueado daqui para a frente. Enquanto não houver, o que segura a marcação em cima da folga é a memória de quem está no balcão.">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">

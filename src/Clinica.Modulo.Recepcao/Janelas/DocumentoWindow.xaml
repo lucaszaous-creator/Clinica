@@ -197,7 +197,7 @@
 
                         <Border Style="{StaticResource AlertaAviso}" Margin="0,8,0,0"
                                 Visibility="{Binding AvisaCidOmitido, Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock TextWrapping="Wrap"
+                            <TextBlock TextWrapping="Wrap" MaxWidth="820"
                                        Text="O CID NÃO vai sair impresso: o diagnóstico é sigilo do paciente e só entra no atestado com autorização expressa dele." />
                         </Border>
                     </StackPanel>

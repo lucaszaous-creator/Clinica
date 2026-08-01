@@ -11,7 +11,7 @@
 
         <TextBlock Grid.Row="0" Text="Controle de glosas" Style="{StaticResource H1}" />
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+        <WrapPanel Grid.Row="1" Margin="0,0,0,10">
             <CheckBox Content="Mostrar só glosas em aberto" IsChecked="{Binding SomenteEmAberto}" VerticalAlignment="Center" />
             <Button Command="{Binding BuscarCommand}" Style="{StaticResource BotaoSecundario}" Margin="16,0,0,0">
                 <StackPanel Orientation="Horizontal">
@@ -33,9 +33,12 @@
                     <TextBlock Text="Por que as guias são glosadas" />
                 </StackPanel>
             </Button>
+            <!-- Quebra linha e tem teto: mensagem numa linha so corre para fora da tela.
+                 A barra e WrapPanel pelo mesmo motivo — StackPanel horizontal nunca dobra. -->
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"
+                       TextWrapping="Wrap" MaxWidth="420"
                        Foreground="{StaticResource Brush.Erro}" />
-        </StackPanel>
+        </WrapPanel>
 
         <!-- O padrão da própria clínica: o que mais glosa aqui, e o que fazer a respeito -->
         <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,10"

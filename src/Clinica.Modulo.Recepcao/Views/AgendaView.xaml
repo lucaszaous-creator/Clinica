@@ -197,7 +197,7 @@
         <!-- Sem profissional cadastrado: a grade não tem colunas e a tela precisa dizer por quê -->
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,16"
                 Visibility="{Binding SemProfissionais, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock TextWrapping="Wrap"
+            <TextBlock TextWrapping="Wrap" MaxWidth="820"
                        Text="Nenhum profissional cadastrado ainda. Cadastre a equipe em Profissionais e salas — é o que dá colunas a esta agenda." />
         </Border>
 

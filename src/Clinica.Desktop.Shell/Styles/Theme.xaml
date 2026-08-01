@@ -48,6 +48,12 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
         <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
         <Setter Property="TextWrapping" Value="Wrap" />
+        <!-- Teto de leitura. Sem ele, o parágrafo que explica a tela estica com a janela:
+             maximizado num monitor de 1920 o texto do Resultado saía em DUAS LINHAS DE
+             ~250 CARACTERES, que o olho não acompanha de uma ponta à outra — ele perde a
+             linha na volta. O limite não muda nada no monitor de 1366 do balcão, onde a
+             área de conteúdo já é menor que isto; ele só impede o esticão. -->
+        <Setter Property="MaxWidth" Value="820" />
         <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
 

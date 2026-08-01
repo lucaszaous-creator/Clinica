@@ -49,7 +49,7 @@
                 <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
                         BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                         CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,16">
-                    <TextBlock TextWrapping="Wrap"
+                    <TextBlock TextWrapping="Wrap" MaxWidth="820"
                                Foreground="{StaticResource Brush.Texto.Primario}"
                                Text="Regime de CAIXA: entra o que se moveu no mês. Um resultado por competência exigiria provisão e rateio que a clínica não mantém — e um número aproximado apresentado como contábil é pior do que um número honesto apresentado como caixa. Taxa de maquininha e imposto entram como DEDUÇÃO, não como despesa: eles saem da receita antes de ela existir, e listá-los junto do aluguel faria a clínica achar que pode cortá-los." />
                 </Border>

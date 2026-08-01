@@ -636,6 +636,25 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
 
   **Rode as duas antes de todo push.** O que sobra para o CI é o compilador de marcação de
   verdade (`MC*`) e o empacotamento — não invente heurística para isso.
+- **Tamanho de tela tem TETO e PISO, e o piso é o que corta.** A checagem 15 olha o teto
+  (janela que nasce maior que o monitor de 1366×768 do balcão); a **16** olha o piso, e é
+  o lado que o usuário alcança sozinho: janela redimensionável sem `MinWidth` encolhe até
+  o mínimo do WPF e não há leiaute que resista. A diferença é que o teto tem conserto —
+  arrasta-se a borda — e o **piso não**: quem encolheu demais não sabe qual largura
+  devolve a tela ao normal. A **17** cobre o texto: `StackPanel` horizontal dá a cada
+  filho a largura que ele PEDE e nunca dobra a linha, e `WrapPanel` dobra ENTRE os filhos
+  mas nunca DENTRO de um — então `{Binding Mensagem}` sem `TextWrapping` sai pela direita
+  e **não se lê justamente o texto que explica por que a ação falhou**. As duas valem
+  também no faturamento congelado, pela razão da 15 (nada a ver com arquitetura, o usuário
+  sente todo dia) e por uma segunda: os três casos reais estavam lá, e checagem que não
+  alcança o lugar onde o defeito estava é checagem que passa sozinha.
+  Quando o conteúdo tem um piso REAL, sobe-se o mínimo em vez de espremer: as figuras do
+  mapa corporal são `Canvas` de 220×460 casados com `PontoMapaItem.LarguraFigura`, a mesma
+  const que posiciona o marcador e converte o clique de volta — encolher a figura
+  espalharia os pontos em silêncio, então quem cede é a janela (`EvolucaoWindow`, mínimo
+  960). Quando o piso é gratuito, ele some: largura fixa de campo dentro de barra vira
+  coluna elástica (`RetornoLoteWindow`), que de quebra acaba com o vão morto ao lado dele
+  quando a janela está maximizada.
 - **Gráfico é desenhado com os tokens, sem biblioteca** (`Controls/Graficos.cs`,
   `Componentes/Graficos.xaml`). Os quatro apps se auto-atualizam por Velopack e uma
   dependência de UI nova é risco desproporcional. Duas regras do desenho: **valor nulo

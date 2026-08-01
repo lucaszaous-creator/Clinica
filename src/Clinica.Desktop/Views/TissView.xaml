@@ -11,7 +11,7 @@
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Guias TISS — lotes" Style="{StaticResource H1}" />
-        <TextBlock Grid.Row="1" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
+        <TextBlock Grid.Row="1" TextWrapping="Wrap" MaxWidth="820" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
                    Text="Gere o lote (XML padrão TISS 4.01) com as guias baixadas ainda não exportadas, marque o envio à operadora (protocolo) e registre o retorno do demonstrativo — glosas entram no Controle de glosas com prazo de recurso. Dados do prestador e códigos TUSS ficam em Configurações." />
 
         <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,16">

@@ -337,7 +337,7 @@
                          não achou, senão o líquido igual ao bruto passaria por taxa zero. -->
                     <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0"
                             Visibility="{Binding SimSemTaxa, Converter={StaticResource BoolParaVisibilidade}}">
-                        <TextBlock TextWrapping="Wrap"
+                        <TextBlock TextWrapping="Wrap" MaxWidth="820"
                                    Text="Não há taxa cadastrada para essa combinação, então o líquido acima está SEM desconto de maquininha. Cadastre a taxa na aba anterior para o número ficar real." />
                     </Border>
                 </StackPanel>

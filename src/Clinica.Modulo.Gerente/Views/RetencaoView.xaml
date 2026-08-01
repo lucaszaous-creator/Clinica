@@ -32,7 +32,7 @@
         <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                 CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,16">
-            <TextBlock TextWrapping="Wrap"
+            <TextBlock TextWrapping="Wrap" MaxWidth="820"
                        Foreground="{StaticResource Brush.Texto.Primario}"
                        Text="O recall dispara mensagens por regra de tempo; esta é a LISTA, para olhar caso a caso e decidir quem vale um telefonema de verdade — o paciente de tratamento longo que some vale dez recalls disparados no vazio. Quem já tem horário marcado à frente não aparece: ele não está perdido, só ainda não veio." />
         </Border>

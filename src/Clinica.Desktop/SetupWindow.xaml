@@ -5,6 +5,9 @@
         Icon="/Assets/Marca/icone.png"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize" FontFamily="Segoe UI">
     <Border Padding="28">
+        <!-- Rolagem: primeira tela de uma instalação nova, e a que mais varia
+             de altura conforme a mensagem de erro da conexão. -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel>
             <Image Source="/Assets/Marca/logo-cor.png" Height="40" HorizontalAlignment="Left" Margin="0,0,0,18"
                    RenderOptions.BitmapScalingMode="HighQuality" ToolTip="Clínica SemDor" />
@@ -26,5 +29,6 @@
                 <TextBlock x:Name="TxtMensagem" TextWrapping="Wrap" />
             </Border>
         </StackPanel>
+        </ScrollViewer>
     </Border>
 </Window>

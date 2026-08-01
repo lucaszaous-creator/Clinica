@@ -6,6 +6,9 @@
         Icon="/Assets/Marca/icone.png"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize" FontFamily="Segoe UI"
         Background="{StaticResource Brush.Fundo}">
+    <!-- Rolagem: a janela cresce com o conteúdo e, na escala 150% do Windows,
+         o rodapé com os botões sairia da área visível do monitor do balcão. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="620">
     <StackPanel Margin="24">
         <TextBlock Text="{Binding Titulo}" Style="{StaticResource H2}" Margin="0,0,0,2" />
         <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,12"
@@ -79,4 +82,5 @@
                     ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
         </StackPanel>
     </StackPanel>
+    </ScrollViewer>
 </Window>

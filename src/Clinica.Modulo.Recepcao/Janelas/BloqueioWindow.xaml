@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Fechar a agenda" Width="540" SizeToContent="Height"
+        Title="Fechar a agenda" Width="540" SizeToContent="Height" MinWidth="460"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
@@ -72,7 +72,7 @@
                    Text="Sem profissional e sem sala, o bloqueio vale para todo mundo — é assim que se cadastra feriado. Escolher errado aqui é o erro mais caro: um feriado cadastrado como folga de uma pessoa deixa a agenda dos outros aberta." />
 
         <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0">
-            <TextBlock TextWrapping="Wrap"
+            <TextBlock TextWrapping="Wrap" MaxWidth="820"
                        Text="Fechar a agenda NÃO desmarca quem já está marcado. Se houver sessão dentro do período, ela aparece depois de salvar — remarque com o paciente." />
         </Border>
 

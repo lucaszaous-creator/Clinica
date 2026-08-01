@@ -837,6 +837,169 @@ for _t in sorted(_pendentes):
         f"espera fica igual a lista vazia por não haver nada. Use ctrl:EstadoDaTela.")
 
 
+# --------------------------------------------------------------- checagem 15
+# TAMANHO DE JANELA NO FATURAMENTO (`Clinica.Desktop`).
+#
+# O faturamento está CONGELADO e por isso fica fora das outras checagens: exigir dele os
+# tokens do design system ou os três estados de lista acusaria dezenas de coisas que
+# ninguém vai mexer, e uma lista de erros que não se pretende corrigir treina todo mundo
+# a ignorar o verificador.
+#
+# Tamanho de janela é a exceção, e por um motivo prático: é a única regra aqui cujo
+# defeito o usuário sente TODO DIA, sem nada a ver com arquitetura — janela que nasce
+# com o rodapé atrás da barra de tarefas, ou diálogo que cresce com o conteúdo e corta os
+# botões em vez de rolar. A auditoria achou dez casos assim no app que fatura a clínica.
+#
+# Só as regras da checagem 10 valem aqui. Nada de design system, nada de estado de lista.
+CONGELADO = RAIZ / "src" / "Clinica.Desktop"
+
+for arq in sorted(CONGELADO.rglob("*.xaml")):
+    try:
+        raiz_c = ET.parse(arq).getroot()
+    except ET.ParseError as e:
+        erros.append(f"{rel(arq)}: XAML malformado — {e}")
+        continue
+
+    if _nome(raiz_c) != "Window":
+        continue
+
+    def _num(atributo: str, no=raiz_c) -> float | None:
+        valor = no.get(atributo)
+        try:
+            return float(valor) if valor else None
+        except ValueError:
+            return None
+
+    altura_c = _num("Height")
+    if altura_c is not None and altura_c + MOLDURA > ALTURA_UTIL:
+        erros.append(
+            f"{rel(arq)}: Height={altura_c:.0f} + barra de título passa da área útil de "
+            f"1366×768 ({ALTURA_UTIL}px) — nasce com o rodapé atrás da barra de tarefas")
+
+    largura_c = _num("Width")
+    if largura_c is not None and largura_c > 1366:
+        erros.append(f"{rel(arq)}: Width={largura_c:.0f} é maior que o monitor do balcão (1366)")
+
+    # MinHeight/MinWidth são piores que Height/Width: o usuário consegue redimensionar
+    # uma janela grande demais, mas não consegue passar do mínimo. Janela com mínimo
+    # maior que a tela fica permanentemente com parte fora, e não há o que fazer.
+    minh = _num("MinHeight")
+    if minh is not None and minh + MOLDURA > ALTURA_UTIL:
+        erros.append(
+            f"{rel(arq)}: MinHeight={minh:.0f} passa da área útil — o usuário não "
+            f"consegue diminuir abaixo disso, então parte da janela fica fora para sempre")
+
+    minw = _num("MinWidth")
+    if minw is not None and minw > 1366:
+        erros.append(
+            f"{rel(arq)}: MinWidth={minw:.0f} passa do monitor do balcão — "
+            f"barra de rolagem horizontal permanente")
+
+    ROLAM_C = {"ScrollViewer", "ListBox", "ListView", "DataGrid"}
+    cresce_c = (raiz_c.get("SizeToContent") or "").find("Height") >= 0
+    alto_c = altura_c is not None and altura_c >= 400
+    if (cresce_c or alto_c) and not any(_nome(e) in ROLAM_C for e in raiz_c.iter()):
+        erros.append(
+            f"{rel(arq)}: janela que cresce com o conteúdo (ou alta) sem nenhum "
+            f"ScrollViewer — em escala 150% o rodapé sai da tela cortado")
+
+
+# --------------------------------------------------------------- checagem 16
+# O PISO DA JANELA. Vale para os quatro apps.
+#
+# A checagem 15 olha o TETO: janela que nasce maior que o monitor. Este é o outro lado, e
+# é o que o usuário alcança sozinho — janela redimensionável SEM `MinWidth` encolhe até o
+# mínimo do WPF (perto de 120px), e aí não há layout que resista: campo, botão e mensagem
+# saem cortados pela direita. Diferente do teto, o piso não tem conserto pelo usuário:
+# quem arrastou até lá não sabe qual largura devolve a tela ao normal.
+#
+# `SizeToContent="Height"` resolve a altura sozinho, então só a largura é exigida ali.
+for arq in sorted(RAIZ.glob("src/*/**/*.xaml")):
+    try:
+        raiz_j = ET.parse(arq).getroot()
+    except ET.ParseError:
+        continue  # a checagem 15 já reclamou
+
+    if _nome(raiz_j) != "Window":
+        continue
+    if (raiz_j.get("ResizeMode") or "CanResize") in ("NoResize",):
+        continue  # não dá para arrastar: a largura declarada já é o piso
+
+    def _tem(atributo: str) -> bool:
+        return (raiz_j.get(atributo) or "").strip() != ""
+
+    if not _tem("MinWidth"):
+        erros.append(
+            f"{rel(arq)}: janela redimensionável sem MinWidth — o usuário arrasta a "
+            f"borda até o conteúdo ficar cortado, e não há como saber qual largura "
+            f"desfaz isso")
+
+    # Altura automática não precisa de piso; altura fixa precisa.
+    cresce_alt = "Height" in (raiz_j.get("SizeToContent") or "")
+    if _tem("Height") and not cresce_alt and not _tem("MinHeight"):
+        erros.append(
+            f"{rel(arq)}: janela redimensionável de altura fixa sem MinHeight — "
+            f"encolhida na vertical, o rodapé com os botões é o primeiro a sair")
+
+
+# --------------------------------------------------------------- checagem 17
+# MENSAGEM QUE CORRE PARA FORA DA TELA.
+#
+# `StackPanel Orientation="Horizontal"` dá a cada filho a largura que ele PEDE e nunca
+# dobra a linha. Um `TextBlock` sem `TextWrapping` pede a linha inteira de uma vez — e
+# quando o texto vem de binding (`Mensagem`, `Erro`, `Aviso`) o comprimento é do dado, não
+# do leiaute: uma mensagem de erro do Postgres passa de 200 caracteres.
+#
+# O resultado não é feio, é MUDO: a mensagem sai pela direita e a pessoa não lê justamente
+# o texto que explica por que a ação falhou. O projeto já decidiu que erro se mostra inline
+# (CLAUDE.md, dois canais de feedback) — inline que não cabe não é feedback.
+#
+# Só bindings de mensagem entram: rótulo fixo curto ao lado de um campo é o uso legítimo
+# do StackPanel horizontal, e acusá-lo encheria a saída de ruído.
+#
+# Cobre TAMBÉM o faturamento congelado, pela mesma razão da checagem 15: a regra não tem
+# nada a ver com arquitetura, e os três casos reais estavam justamente lá. Checagem que
+# não alcança o lugar onde o defeito estava é checagem que passa sozinha.
+PALAVRAS_DE_MENSAGEM = ("Mensagem", "Erro", "Aviso", "Procedencia", "Justificativa")
+
+arvores_com_congelado: dict[Path, ET.Element] = dict(arvores)
+for _arq in sorted(CONGELADO.rglob("*.xaml")):
+    try:
+        arvores_com_congelado[_arq] = ET.parse(_arq).getroot()
+    except ET.ParseError:
+        continue  # a checagem 15 já reclamou
+
+for arq, raiz_m in arvores_com_congelado.items():
+    for painel in raiz_m.iter():
+        # WrapPanel entra junto: ele dobra ENTRE os filhos, nunca DENTRO de um. Um texto
+        # sem quebra maior que a linha estoura ali do mesmo jeito — trocar o painel
+        # resolve a barra, não o texto.
+        horizontal = (
+            _nome(painel) == "StackPanel" and painel.get("Orientation") == "Horizontal"
+        ) or (
+            _nome(painel) == "WrapPanel" and (painel.get("Orientation") or "Horizontal") == "Horizontal"
+        )
+        if not horizontal:
+            continue
+        for filho in painel:
+            if _nome(filho) != "TextBlock":
+                continue
+            texto = filho.get("Text") or ""
+            if not texto.startswith("{"):
+                continue  # literal: o autor vê o tamanho na hora de escrever
+            if not any(p in texto for p in PALAVRAS_DE_MENSAGEM):
+                continue
+            if filho.get("TextWrapping") or filho.get("MaxWidth"):
+                continue
+            if "TextoSuave" in (filho.get("Style") or ""):
+                continue  # o estilo já quebra linha
+            erros.append(
+                f"{rel(arq)}: {texto} num {_nome(painel)} horizontal sem TextWrapping — "
+                f"a linha não dobra dentro do texto, então a mensagem sai pela direita e "
+                f"não se lê. Use TextWrapping + MaxWidth no texto (e WrapPanel na barra, "
+                f"se ela também não couber)")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

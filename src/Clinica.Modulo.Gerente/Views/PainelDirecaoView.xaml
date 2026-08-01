@@ -166,7 +166,7 @@
 
             <Border Style="{StaticResource AlertaSucesso}"
                     Visibility="{Binding SemAlerta, Converter={StaticResource BoolParaVisibilidade}}">
-                <TextBlock TextWrapping="Wrap"
+                <TextBlock TextWrapping="Wrap" MaxWidth="820"
                            Text="Nada exige ação hoje: nenhuma conta vencida, nenhum depósito atrasado, a gaveta conferida e nenhuma guia fora do prazo de decisão." />
             </Border>
 

@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <DockPanel Margin="24">
         <TextBlock Text="Consultas" Style="{StaticResource H1}" DockPanel.Dock="Top" />
-        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" MaxWidth="820" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
                    Text="Situação da consulta de cada paciente (validade conforme os Parâmetros do convênio). Renove as vencidas e as que estão a vencer." />
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
