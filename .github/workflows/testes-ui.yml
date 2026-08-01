@@ -1,0 +1,43 @@
+name: Testes de tela (Windows)
+
+# A rede que faltava.
+#
+# O `verificar.yml` (Linux) cobre Domain/Application/Infrastructure e COMPILA o C# das
+# telas com as reference assemblies do WPF. Compilar não é executar: o runtime do WPF
+# (Microsoft.WindowsDesktop.App) só existe em Windows, então nenhum ViewModel da suíte
+# jamais tinha RODADO em teste nenhum — a camada onde mora a distribuição das colunas do
+# kanban, a ordem de chamada, o texto de cada situação e a curva de EVA.
+#
+# Este job fecha isso. Roda em TODA branch, ao contrário do `build-exe.yml`, que só
+# dispara em push na main e em PR para a main — quem está trabalhando numa branch
+# precisa da resposta antes do PR, não depois.
+#
+# Ele NÃO substitui o build-exe: o empacotamento dos quatro .exe continua lá.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  telas:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restaurar
+        run: dotnet restore tests/Clinica.Tests.Ui/Clinica.Tests.Ui.csproj
+
+      # Aqui o compilador de marcação do WPF (MC*) roda de verdade, junto com o C# —
+      # é o mesmo passo que só existia no build-exe, agora em qualquer branch.
+      - name: Compilar as telas
+        run: dotnet build tests/Clinica.Tests.Ui/Clinica.Tests.Ui.csproj -c Release --no-restore
+
+      - name: Testes de ViewModel
+        run: dotnet test tests/Clinica.Tests.Ui/Clinica.Tests.Ui.csproj -c Release --no-build --logger "console;verbosity=normal"

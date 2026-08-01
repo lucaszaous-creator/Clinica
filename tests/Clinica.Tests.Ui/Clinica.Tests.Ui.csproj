@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Testes de TELA (ViewModels da suíte).
+
+    ⚠️ Este projeto só compila e roda no WINDOWS. Ele referencia os módulos WPF, e o
+    runtime do WPF (Microsoft.WindowsDesktop.App) não existe em Linux — as *reference
+    assemblies* que `tools/compilar-sombra.py` usa servem para COMPILAR, nunca para
+    EXECUTAR. Por isso ele fica FORA do `dotnet test` do Linux e tem um job próprio
+    (.github/workflows/testes-ui.yml, runner windows-latest).
+
+    O que ele cobre é o que nenhuma outra rede alcança: a lógica que mora no ViewModel —
+    distribuição das colunas do kanban, ordem de chamada, o texto de cada situação, o
+    filtro, a curva de EVA. Até aqui essa camada só tinha a garantia de COMPILAR.
+
+    Não há janela nem visual aqui: ViewModel puro, com banco SQLite em memória. Teste que
+    depende de pintar pixel é frágil e não responde a pergunta nenhuma de negócio.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FluentAssertions" Version="6.12.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.11" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.6.0" />
+    <PackageReference Include="xunit" Version="2.4.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector" Version="6.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Clinica.Domain\Clinica.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Clinica.Application\Clinica.Application.csproj" />
+    <ProjectReference Include="..\..\src\Clinica.Infrastructure\Clinica.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
+    <ProjectReference Include="..\..\src\Clinica.Modulo.Recepcao\Clinica.Modulo.Recepcao.csproj" />
+  </ItemGroup>
+
+</Project>
