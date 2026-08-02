@@ -58,6 +58,13 @@ da Microsoft está bloqueado pelo proxy; o repositório do Ubuntu não). O CI
 cada push na `main` **e em cada PR para a `main`** — commit em branch de trabalho não gera build
 sozinho.
 
+**Testar sem publicar**: `build-exe.yml` tem `workflow_dispatch` e roda em qualquer branch,
+gerando os cinco `.exe` PORTÁTEIS — sem `vpk pack`, então `mgr.IsInstalled` é falso e eles não se
+auto-atualizam nem mexem no canal do app instalado. A armadilha não é o exe, é o BANCO: aponte
+`ConnectionStrings__Clinica` para uma branch do Neon (a env var vence a config salva e **não grava**
+em `%APPDATA%`) e **nunca** use a tela de Setup no build de teste, que grava. Roteiro completo em
+`docs/testar-sem-publicar.md`.
+
 Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/release.yml`, que empacota
 os cinco apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
 muda**) e publica na mesma release; os apps instalados se auto-atualizam.
