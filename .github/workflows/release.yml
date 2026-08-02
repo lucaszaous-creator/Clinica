@@ -13,6 +13,7 @@ name: Release (instalador + auto-update)
 #   Recepção     →  git tag recepcao-v1.1.3   && git push origin recepcao-v1.1.3
 #   Financeiro   →  git tag financeiro-v1.0.0 && git push origin financeiro-v1.0.0
 #   Gerente      →  git tag gerente-v1.1.1    && git push origin gerente-v1.1.1
+#   Consultório  →  git tag clinico-v1.0.0    && git push origin clinico-v1.0.0
 #
 #   Ou: Actions -> "Release" -> Run workflow -> escolha o app e informe a versão.
 #
@@ -32,7 +33,7 @@ on:
         description: 'Qual app publicar'
         required: true
         type: choice
-        options: [faturamento, recepcao, financeiro, gerente]
+        options: [faturamento, recepcao, financeiro, gerente, clinico]
       version:
         description: 'Versão (ex.: 1.0.0)'
         required: true
@@ -42,6 +43,7 @@ on:
       - 'recepcao-v*.*.*'
       - 'financeiro-v*.*.*'
       - 'gerente-v*.*.*'
+      - 'clinico-v*.*.*'
 
 permissions:
   contents: write
@@ -71,6 +73,7 @@ jobs:
             elseif ($ref -match '^recepcao-v(.+)$')    { $app = "recepcao";    $v = $Matches[1] }
             elseif ($ref -match '^financeiro-v(.+)$')  { $app = "financeiro";  $v = $Matches[1] }
             elseif ($ref -match '^gerente-v(.+)$')     { $app = "gerente";     $v = $Matches[1] }
+            elseif ($ref -match '^clinico-v(.+)$')     { $app = "clinico";     $v = $Matches[1] }
             else { throw "Tag '$ref' não corresponde a nenhum app." }
           } else {
             $app = "${{ github.event.inputs.app }}"
@@ -82,6 +85,7 @@ jobs:
             recepcao    = @{ projeto = "src/Clinica.Recepcao/Clinica.Recepcao.csproj";     packId = "Clinica.Recepcao";    mainExe = "Clinica.Recepcao.exe";   canal = "recepcao";   titulo = "Clínica SemDor — Recepção";         prefixo = "recepcao-v" }
             financeiro  = @{ projeto = "src/Clinica.Financeiro/Clinica.Financeiro.csproj"; packId = "Clinica.Financeiro";  mainExe = "Clinica.Financeiro.exe"; canal = "financeiro"; titulo = "Clínica SemDor — Financeiro";       prefixo = "financeiro-v" }
             gerente     = @{ projeto = "src/Clinica.Gerente/Clinica.Gerente.csproj";       packId = "Clinica.Gerente";     mainExe = "Clinica.Gerente.exe";    canal = "gerente";    titulo = "Clínica SemDor — Gerente Geral";    prefixo = "gerente-v" }
+            clinico     = @{ projeto = "src/Clinica.Clinico/Clinica.Clinico.csproj";       packId = "Clinica.Clinico";     mainExe = "Clinica.Clinico.exe";    canal = "clinico";    titulo = "Clínica SemDor — Consultório";      prefixo = "clinico-v" }
           }[$app]
 
           if (-not $cfg) { throw "App desconhecido: '$app'." }

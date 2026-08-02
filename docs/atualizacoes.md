@@ -32,14 +32,15 @@ Ou pela aba **Actions → "Release (instalador + auto-update)" → Run workflow*
 
 O workflow (`.github/workflows/release.yml`) então: roda o publish com a versão carimbada no assembly (`-p:Version`), empacota com `vpk pack` e publica a release com Setup.exe + pacotes de update. Minutos depois, todos os apps instalados baixam a nova versão no próximo ciclo de verificação.
 
-## Os quatro apps na mesma release
+## Os apps da suíte na mesma release
 
-Desde a Fase 3 da suíte multi-exe (`docs/arquitetura-multi-exe.md`) a mesma release `vX.Y.Z` carrega **quatro** apps. O que separa um do outro é o **canal** do Velopack, não a release: cada canal tem seu `releases.<canal>.json`, e o app instalado só enxerga o do canal com que foi empacotado.
+Desde a Fase 3 da suíte multi-exe (`docs/arquitetura-multi-exe.md`) a mesma release `vX.Y.Z` carrega **vários** apps (hoje cinco, com o Consultório da parcela 36). O que separa um do outro é o **canal** do Velopack, não a release: cada canal tem seu `releases.<canal>.json`, e o app instalado só enxerga o do canal com que foi empacotado.
 
 | App | Instalador | Canal |
 |---|---|---|
 | Faturamento | `Clinica.Faturamento-win-Setup.exe` | `win` (padrão — **não mudar**) |
 | Recepção | `Clinica.Recepcao-recepcao-Setup.exe` | `recepcao` |
+| Consultório | `Clinica.Clinico-clinico-Setup.exe` | `clinico` |
 | Financeiro | `Clinica.Financeiro-financeiro-Setup.exe` | `financeiro` |
 | Gerente Geral | `Clinica.Gerente-gerente-Setup.exe` | `gerente` |
 

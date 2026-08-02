@@ -272,6 +272,17 @@ public interface IClinicaRepositorio
 
     Task RemoverEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Evoluções escritas num intervalo de dias, opcionalmente de um profissional só
+    /// (parcela 36).
+    ///
+    /// É o que responde "o que eu atendi e ainda não escrevi": a consulta por PACIENTE,
+    /// que já existia, obrigaria o consultório a percorrer paciente por paciente do dia
+    /// para descobrir quais sessões ficaram sem registro.
+    /// </summary>
+    Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, int? profissionalId = null, CancellationToken ct = default);
+
     /// <summary>Anexos de uma evolução, por projeção — sem os bytes (corte no SQL).</summary>
     Task<IReadOnlyList<Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default);
@@ -281,6 +292,35 @@ public interface IClinicaRepositorio
 
     Task AdicionarAnexoAsync(AnexoProntuario anexo, CancellationToken ct = default);
     Task RemoverAnexoAsync(int anexoId, CancellationToken ct = default);
+
+    // ---- Avaliações clínicas por instrumento (parcela 36) ----
+
+    Task AdicionarAvaliacaoAsync(AvaliacaoClinica avaliacao, CancellationToken ct = default);
+
+    /// <summary>Avaliação COM as respostas carregadas — a leitura de uma aplicação inteira.</summary>
+    Task<AvaliacaoClinica?> ObterAvaliacaoAsync(int avaliacaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Avaliações do paciente, da mais recente para a mais antiga, SEM as respostas.
+    ///
+    /// O corte é o mesmo dos anexos do prontuário: a lista precisa de escore, faixa e
+    /// data, e trazer junto as nove a dez respostas de cada aplicação multiplicaria por
+    /// dez o que passa pela rede para desenhar uma tabela que não as mostra.
+    /// </summary>
+    Task<IReadOnlyList<AvaliacaoClinica>> AvaliacoesDoPacienteAsync(
+        int pacienteId, string? instrumentoCodigo = null, CancellationToken ct = default);
+
+    Task RemoverAvaliacaoAsync(int avaliacaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Pacientes que este profissional atende, do que veio por último para o mais antigo.
+    ///
+    /// A contagem e a última visita saem do SQL (agrupamento), não de materializar os
+    /// agendamentos: um profissional com dois anos de casa tem milhares deles, e a tela
+    /// mostra uma linha por paciente.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.PacienteDoProfissional>> PacientesDoProfissionalAsync(
+        int profissionalId, int limite = 200, CancellationToken ct = default);
 
     // ---- Consentimento LGPD ----
 

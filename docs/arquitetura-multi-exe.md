@@ -66,9 +66,12 @@ A solução é inverter: **o executável não é dono das telas, ele carrega mó
 Clinica.Desktop.Shell         (lib)  design system, sidebar, snackbar,
                                      ConexaoStore, janela genérica, bootstrap
 Clinica.Modulo.Recepcao       (lib)  Views + ViewModels da recepção
+Clinica.Modulo.Clinico        (lib)  o consultório: dia do profissional, atendimento,
+                                     evolução da dor e escalas por especialidade
 Clinica.Modulo.Financeiro     (lib)
 Clinica.Modulo.Gerente        (lib)  BI, campanhas, acessos e a leitura do faturamento
 Clinica.Recepcao.exe    → Shell + Recepcao
+Clinica.Clinico.exe     → Shell + Clinico
 Clinica.Financeiro.exe  → Shell + Financeiro
 Clinica.Gerente.exe     → Shell + TODOS os módulos
 Clinica.Desktop.exe     → o faturamento, intocado (nunca vira módulo — ver Fase 4)
@@ -156,6 +159,7 @@ os apps novos ganharam canais próprios.
 |---|---|---|---|
 | Faturamento | `Clinica.Faturamento` (não mudar) | `Clinica.Desktop.exe` | `win` (padrão, não mudar) |
 | Recepção | `Clinica.Recepcao` | `Clinica.Recepcao.exe` | `recepcao` |
+| Consultório | `Clinica.Clinico` | `Clinica.Clinico.exe` | `clinico` |
 | Financeiro | `Clinica.Financeiro` | `Clinica.Financeiro.exe` | `financeiro` |
 | Gerente Geral | `Clinica.Gerente` | `Clinica.Gerente.exe` | `gerente` |
 
@@ -399,3 +403,32 @@ virou uma regra do `verificar-suite.py`.
 
 Não substitui o build no Windows — substitui a parte dele que dá para conferir sem
 Windows, que é onde estava a maioria dos erros.
+
+## Parcela 36 — o quinto app: o Consultório
+
+O sistema chegou à recepção, ao financeiro e à direção. Faltava a máquina de **quem
+atende** — e a pergunta que faltava responder não era "qual é a agenda?", que a recepção
+já mostrava, mas **"o que eu atendi e ainda não escrevi"**.
+
+- **`src/Clinica.Modulo.Clinico`** — o módulo: Meu dia, Atendimento, Evolução da dor,
+  Avaliações e Meus pacientes.
+- **`src/Clinica.Clinico`** — o executável, casca fina como as outras três. Carrega **um**
+  módulo: a sala do médico não precisa da agenda do balcão, do caixa nem do cadastro da
+  equipe, e instalar tudo em toda máquina é exatamente o que esta arquitetura evita.
+- O **Gerente Geral ganhou o módulo de graça**, como ganhou os outros — uma linha na lista
+  de módulos e uma `ProjectReference`.
+
+Três decisões que valem para quem mexer aqui:
+
+1. **O módulo não declara `Inicial`.** O `Clinica.Clinico.exe` carrega um módulo só, então
+   o primeiro item já é a abertura. Marcá-lo faria o Consultório vencer o painel da direção
+   dentro do Gerente — o defeito que a parcela 22 corrigiu.
+2. **O paciente é contexto, não parâmetro** (`PacienteEmFoco`, singleton do módulo). No
+   balcão cada tela atende uma pessoa diferente em sequência; no consultório o profissional
+   escolhe uma vez e passa vinte minutos entre quatro telas sobre a mesma pessoa.
+3. **A tela de atendimento não reaproveita a janela de evolução da Recepção** — nenhum
+   módulo conhece os outros, e os dois usos são de fato diferentes: lá é um diálogo modal
+   aberto de vez em quando, aqui é a tela do dia inteiro, com as últimas sessões abertas ao
+   lado. O que se reaproveita é o SERVIÇO (`ProntuarioService`), que é onde a arquitetura
+   sempre disse que a reutilização mora.
+

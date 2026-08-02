@@ -1,0 +1,191 @@
+<UserControl x:Class="Clinica.Clinico.Views.MeuDiaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Meu dia" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding Profissional}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="&lt;" Command="{Binding DiaAnteriorCommand}"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="40" />
+                <DatePicker SelectedDate="{Binding Dia}" Width="150" Margin="8,0" />
+                <Button Content="&gt;" Command="{Binding DiaSeguinteCommand}"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="40" />
+                <Button Content="Hoje" Command="{Binding HojeCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="70" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Sem Profissional vinculado ao login a tela mostra o dia da clínica inteira.
+             Dizer isso é obrigatório: um dia com o dobro de horários sem explicação se
+             lê como defeito, não como cadastro faltando. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,12"
+                Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock TextWrapping="Wrap"
+                       Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a agenda da clínica inteira. Peça à direção para ligar o seu usuário ao seu cadastro em Profissionais e salas." />
+        </Border>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                   TextWrapping="Wrap" Margin="0,0,0,12" />
+
+        <!-- ===== O que eu ainda não escrevi =====
+             É a razão de o módulo existir: a sessão aconteceu, o paciente foi embora e a
+             evolução ficou "para depois". Fica ACIMA da agenda porque é dívida, e dívida
+             que aparece embaixo da lista do dia ninguém rola para ver. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16"
+                MaxHeight="220">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="Sessões sem evolução escrita"
+                           Style="{StaticResource H3}" Margin="0,0,0,4" />
+                <TextBlock DockPanel.Dock="Top" Text="{Binding ResumoPendentes}"
+                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" />
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Pendentes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1" Padding="0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="130" />
+                                            <ColumnDefinition Width="110" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Margin="0,2,0,0" TextWrapping="Wrap">
+                                                <Run Text="{Binding Quando, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Modalidade, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <Border Grid.Column="1" Style="{StaticResource Badge.Aviso}"
+                                                VerticalAlignment="Center" HorizontalAlignment="Left">
+                                            <TextBlock Text="{Binding Atraso}" TextWrapping="Wrap" />
+                                        </Border>
+
+                                        <Button Grid.Column="2" Content="Escrever"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource BotaoAcaoGrid}"
+                                                Command="{Binding DataContext.EscreverPendenteCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== A agenda do dia ===== -->
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}"
+                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+            <Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Sessoes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="70" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="130" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{Binding Hora}"
+                                                   VerticalAlignment="Center" FontWeight="SemiBold" />
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <Border Style="{StaticResource Badge.Info}" Margin="8,0,0,0"
+                                                        Visibility="{Binding Encaixe,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="Encaixe" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Sucesso}" Margin="8,0,0,0"
+                                                        Visibility="{Binding EvolucaoEscrita,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="Evolução escrita" />
+                                                </Border>
+                                                <Border Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
+                                                        Visibility="{Binding RegistroPendente,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="Sem evolução" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Margin="0,4,0,0" TextWrapping="Wrap">
+                                                <Run Text="{Binding Modalidade, Mode=OneWay}" />
+                                                <Run Text=" · sala " />
+                                                <Run Text="{Binding Local, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2" Text="{Binding Situacao}"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Dor" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Margin="0,0,6,0"
+                                                    Command="{Binding DataContext.VerDorCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="{Binding RotuloRegistro}"
+                                                    Style="{StaticResource BotaoAcaoGrid}"
+                                                    Command="{Binding DataContext.AtenderCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE787;"
+                                   TextoCarregando="Lendo a sua agenda…"
+                                   Titulo="Nenhum horário marcado neste dia"
+                                   Descricao="Os horários aparecem aqui assim que a recepção marcar." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>

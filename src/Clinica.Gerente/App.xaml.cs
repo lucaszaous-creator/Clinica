@@ -2,6 +2,7 @@ using System.Windows;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Modulos;
 using Microsoft.Extensions.Hosting;
+using ModuloClinico = Clinica.Clinico.Modulo.ModuloClinico;
 using ModuloFinanceiro = Clinica.Financeiro.Modulo.ModuloFinanceiro;
 using ModuloGerente = Clinica.Gerente.Modulo.ModuloGerente;
 using ModuloRecepcao = Clinica.Recepcao.Modulo.ModuloRecepcao;
@@ -22,6 +23,11 @@ public partial class App : System.Windows.Application
     private readonly IReadOnlyList<IModuloApp> _modulos =
     [
         new ModuloRecepcao(),
+        // O consultório vem depois da recepção porque a sidebar é lida na ordem do dia:
+        // o paciente chega ao balcão antes de entrar na sala. Aqui ele NÃO é a abertura —
+        // o item inicial do Gerente continua sendo o painel da direção, que é o único
+        // marcado com `Inicial` neste executável.
+        new ModuloClinico(),
         new ModuloFinanceiro(),
         // Último de propósito: as telas da direção são as menos usadas no dia a dia, e
         // a sidebar é lida de cima para baixo na ordem do trabalho.

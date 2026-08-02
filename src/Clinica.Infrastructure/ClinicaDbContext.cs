@@ -31,6 +31,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<Evolucao> Evolucoes => Set<Evolucao>();
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
+    public DbSet<AvaliacaoClinica> AvaliacoesClinicas => Set<AvaliacaoClinica>();
+    public DbSet<RespostaAvaliacao> RespostasAvaliacao => Set<RespostaAvaliacao>();
     public DbSet<MapaCorporal> MapasCorporais => Set<MapaCorporal>();
     public DbSet<PontoMapa> PontosMapa => Set<PontoMapa>();
     public DbSet<ProtocoloCorporal> ProtocolosCorporais => Set<ProtocoloCorporal>();
@@ -394,6 +396,53 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.Cascade);
 
             e.HasIndex(x => x.EvolucaoId);
+        });
+
+        // ---- Avaliações clínicas por instrumento (parcela 36) ----
+        b.Entity<AvaliacaoClinica>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.InstrumentoCodigo).IsRequired().HasMaxLength(30);
+            e.Property(x => x.InstrumentoNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.EspecialidadeCodigo).HasMaxLength(40);
+            e.Property(x => x.Unidade).HasMaxLength(10);
+            e.Property(x => x.FaixaNome).HasMaxLength(120);
+            e.Property(x => x.FaixaInterpretacao).HasMaxLength(500);
+            e.Property(x => x.FaixaGravidade).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.AlertaItem).HasMaxLength(500);
+            e.Property(x => x.Observacoes).HasMaxLength(2000);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+            // Apagar a sessão NÃO apaga a avaliação: ela existe sem evolução (retorno só
+            // para reaplicar a escala), e perder o escore por causa da exclusão de um
+            // texto quebraria a curva do tratamento inteiro.
+            e.HasOne(x => x.Evolucao).WithMany()
+                .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.SetNull);
+
+            // A leitura é sempre por paciente, e quase sempre de um instrumento só (a
+            // curva de evolução do escore).
+            e.HasIndex(x => new { x.PacienteId, x.InstrumentoCodigo, x.Data });
+
+            e.Ignore(x => x.PontuacaoFormatada);
+            e.Ignore(x => x.TemAlertaDeItem);
+        });
+
+        b.Entity<RespostaAvaliacao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.ItemCodigo).IsRequired().HasMaxLength(30);
+            e.Property(x => x.Enunciado).IsRequired().HasMaxLength(500);
+            e.Property(x => x.OpcaoRotulo).HasMaxLength(300);
+
+            // Resposta sem a avaliação que a contém não é registro de nada.
+            e.HasOne(x => x.Avaliacao).WithMany(x => x.Respostas)
+                .HasForeignKey(x => x.AvaliacaoClinicaId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.AvaliacaoClinicaId);
         });
 
         b.Entity<ConsentimentoLgpd>(e =>

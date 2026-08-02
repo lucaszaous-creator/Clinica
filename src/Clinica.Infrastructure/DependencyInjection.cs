@@ -27,6 +27,9 @@ public static class DependencyInjection
         services.AddScoped<PainelRecepcaoService>();
         services.AddScoped<ProntuarioService>();
         services.AddScoped<MapaCorporalService>();
+        // Consultório (parcela 36): o dia de quem atende e as escalas por especialidade.
+        services.AddScoped<ConsultorioService>();
+        services.AddScoped<AvaliacaoClinicaService>();
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();
         services.AddScoped<ConsentimentoService>();

@@ -718,6 +718,26 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.Evolucoes.Remove(evolucao);
     }
 
+    // O consultório pergunta pelo INTERVALO, não pelo paciente: ele quer saber o que ficou
+    // sem registro no dia, e a consulta por paciente o obrigaria a um SELECT por pessoa da
+    // agenda. O filtro de profissional vai no SQL — a evolução guarda quem atendeu.
+    public async Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
+        DateOnly inicio, DateOnly fim, int? profissionalId = null, CancellationToken ct = default)
+    {
+        var consulta = _db.Evolucoes.AsNoTracking()
+            .Where(e => e.Data >= inicio && e.Data <= fim);
+
+        // Evolução sem profissional entra quando se filtra por um: ela é justamente a
+        // sessão escrita antes de a clínica cadastrar a equipe, e escondê-la faria o
+        // consultório cobrar de novo um registro que já existe.
+        if (profissionalId is { } id)
+            consulta = consulta.Where(e => e.ProfissionalId == id || e.ProfissionalId == null);
+
+        return await consulta
+            .OrderBy(e => e.Data).ThenBy(e => e.Id)
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default)
         => await _db.AnexosProntuario.AsNoTracking()
@@ -743,6 +763,77 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         var anexo = await _db.AnexosProntuario.FirstOrDefaultAsync(a => a.Id == anexoId, ct);
         if (anexo is not null)
             _db.AnexosProntuario.Remove(anexo);
+    }
+
+    // ---- Avaliações clínicas por instrumento (parcela 36) ----
+
+    public async Task AdicionarAvaliacaoAsync(
+        AvaliacaoClinica avaliacao, CancellationToken ct = default)
+        => await _db.AvaliacoesClinicas.AddAsync(avaliacao, ct);
+
+    // Aqui as respostas VÊM: é a leitura de uma aplicação inteira, a segunda via.
+    public Task<AvaliacaoClinica?> ObterAvaliacaoAsync(
+        int avaliacaoId, CancellationToken ct = default)
+        => _db.AvaliacoesClinicas
+            .Include(a => a.Respostas.OrderBy(r => r.Ordem))
+            .Include(a => a.Profissional)
+            .FirstOrDefaultAsync(a => a.Id == avaliacaoId, ct);
+
+    // Sem Include das respostas de propósito, pelo mesmo motivo dos anexos do prontuário:
+    // a lista mostra escore, faixa e data, e trazer as dez respostas de cada aplicação
+    // multiplicaria por dez o que passa pela rede para desenhar o que não as mostra.
+    public async Task<IReadOnlyList<AvaliacaoClinica>> AvaliacoesDoPacienteAsync(
+        int pacienteId, string? instrumentoCodigo = null, CancellationToken ct = default)
+    {
+        var consulta = _db.AvaliacoesClinicas.AsNoTracking()
+            .Include(a => a.Profissional)
+            .Where(a => a.PacienteId == pacienteId);
+
+        if (!string.IsNullOrWhiteSpace(instrumentoCodigo))
+            consulta = consulta.Where(a => a.InstrumentoCodigo == instrumentoCodigo);
+
+        return await consulta
+            .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task RemoverAvaliacaoAsync(int avaliacaoId, CancellationToken ct = default)
+    {
+        var avaliacao = await _db.AvaliacoesClinicas
+            .FirstOrDefaultAsync(a => a.Id == avaliacaoId, ct);
+        if (avaliacao is not null)
+            _db.AvaliacoesClinicas.Remove(avaliacao);
+    }
+
+    // O agrupamento vai no SQL: um profissional com dois anos de casa tem milhares de
+    // agendamentos, e a tela mostra uma linha por paciente. Cancelado e falta ficam de
+    // fora — "meus pacientes" é quem eu atendi, não quem marcou e não veio.
+    public async Task<IReadOnlyList<Clinica.Application.Modelos.PacienteDoProfissional>>
+        PacientesDoProfissionalAsync(
+            int profissionalId, int limite = 200, CancellationToken ct = default)
+    {
+        // O agrupamento sai como DateTime porque é o tipo da coluna; a conversão para
+        // DateOnly acontece depois, em memória, sobre as poucas linhas já reduzidas —
+        // traduzir DateOnly.FromDateTime para SQL não é coisa que se peça ao provedor.
+        var agrupado = await _db.Agendamentos.AsNoTracking()
+            .Where(a => a.ProfissionalId == profissionalId
+                        && a.Status == StatusAgendamento.Realizado)
+            .GroupBy(a => new { a.PacienteId, Nome = a.Paciente!.Nome })
+            .Select(g => new
+            {
+                g.Key.PacienteId,
+                g.Key.Nome,
+                Ultima = g.Max(a => a.DataHora),
+                Sessoes = g.Count()
+            })
+            .OrderByDescending(x => x.Ultima)
+            .Take(limite)
+            .ToListAsync(ct);
+
+        return agrupado
+            .Select(x => new Clinica.Application.Modelos.PacienteDoProfissional(
+                x.PacienteId, x.Nome, DateOnly.FromDateTime(x.Ultima), x.Sessoes))
+            .ToList();
     }
 
     // ---- Consentimento LGPD ----

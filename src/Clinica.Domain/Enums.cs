@@ -47,7 +47,15 @@ public enum Especialidade
     Ginecologia,
     Acupuntura,
     ClinicaDaDor,
-    Endocrinologia
+    Endocrinologia,
+
+    /// <summary>
+    /// Entrou na parcela 36, com o módulo do consultório. É gravada como TEXTO
+    /// (<c>HasConversion&lt;string&gt;</c>), então acrescentá-la ao fim do enum não
+    /// renumera nada do que já está no banco — e a rotação da Petrobras não a alcança,
+    /// porque aquela regra lista as especialidades que usa uma a uma.
+    /// </summary>
+    Neurocirurgia
 }
 
 /// <summary>Ordem do código no dia. O 2º código é o historicamente esquecido.</summary>

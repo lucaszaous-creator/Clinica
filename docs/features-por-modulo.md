@@ -4,7 +4,7 @@
 > pelos **quatro módulos** da suíte, com o estado real de cada feature conferido no código.
 > É a lista que a gente vai quitando em parcelas.
 
-**Módulos são os quatro apps:** Faturamento · Recepção · Financeiro · Gerente Geral.
+**Módulos são os cinco apps:** Faturamento · Recepção · Consultório · Financeiro · Gerente Geral.
 Os 14 itens numerados da proposta são **features**, e cada uma precisa de um módulo dono.
 
 ⚠️ **A proposta tem DUAS listas, e por muito tempo este documento só conhecia uma.** Além
@@ -28,7 +28,7 @@ Cada estado ✅ ou 🟡 cita o arquivo que o sustenta. Estado sem evidência nã
 
 ## A regra que manda em tudo: o Faturamento está congelado
 
-Ele fatura a clínica hoje. **Não se encosta nele.** Como os quatro apps compartilham
+Ele fatura a clínica hoje. **Não se encosta nele.** Como todos os apps compartilham
 `Clinica.Domain`, `Clinica.Application` e `Clinica.Infrastructure`, a fronteira precisa ser
 exata — senão nada poderia ser construído:
 
@@ -933,7 +933,7 @@ gerou.
 
 ## Como os módulos se comunicam
 
-Os quatro apps compartilham `Domain`, `Application` e `Infrastructure` — o mesmo banco e os
+Todos os apps compartilham `Domain`, `Application` e `Infrastructure` — o mesmo banco e os
 mesmos serviços. Isso os deixa **capazes** de se comunicar, mas capacidade não é fluxo: até a
 parcela 5 nenhum ato de um módulo disparava efeito em outro, e o resultado é o que está
 corrigido acima (o pacote não baixava, o insumo não saía, o dinheiro não entrava).
@@ -1206,5 +1206,44 @@ e nunca "sobrou quanto".
 > lacunas reais em vez de contadas como entrega — contar o que já está pronto é a forma
 > mais fácil de um quadro de features mentir.
 
-> Como o cliente recebe os quatro apps e o cronograma completo:
+## Parcela 36 — o Consultório, o app de quem atende
+
+Até aqui a suíte cobria o balcão (Recepção), o dinheiro (Financeiro) e a leitura do
+negócio (Gerente). Faltava a máquina do **médico, do fisioterapeuta e do
+acupunturista** — e a lacuna não era "eles não veem a agenda", porque a agenda existe
+desde a parcela 1. Era outra, e é a lacuna clássica deste projeto: **o registro clínico
+que fica para depois.**
+
+| Feature | Estado | Onde |
+|---|---|---|
+| Meu dia — a agenda do profissional, com o que já foi atendido | ✅ | `ConsultorioService.DoDiaAsync` |
+| **Sessões atendidas sem evolução escrita** (dias anteriores) | ✅ | `ConsultorioService.RegistrosPendentesAsync` |
+| Atendimento com EVA antes/depois e as últimas sessões abertas ao lado | ✅ | `AtendimentoViewModel` sobre `ProntuarioService` |
+| Repetir a conduta da última sessão (traz para a tela, não grava) | ✅ | `AtendimentoViewModel.RepetirUltima` |
+| Painel de evolução da dor — duas curvas, redução % e tendência | ✅ | `EvolucaoDorViewModel` sobre `ProntuarioService.EvolucaoDaDorAsync` |
+| Escalas por especialidade: PHQ-9, GAD-7, Oswestry, Katz, FINDRISC | ✅ | `Domain/Avaliacoes/`, `AvaliacaoClinicaService` |
+| Curva do escore de um instrumento, com o sinal da melhora resolvido | ✅ | `AvaliacaoClinicaService.EvolucaoDoEscoreAsync` |
+| Carteira do profissional, com a leitura da dor de cada paciente | ✅ | `ConsultorioService.MeusPacientesAsync` |
+| Especialidade **Neurocirurgia** | ✅ | `Especialidade.Neurocirurgia` (sem migration: o enum é texto) |
+| Quinto executável, instalável e com auto-update no canal `clinico` | ✅ | `src/Clinica.Clinico` |
+
+**As duas curvas do painel de dor não são enfeite.** A curva ANTES mede o TRATAMENTO; a
+curva DEPOIS mede a SESSÃO. Um paciente pode sair de toda sessão com 2 e voltar na semana
+seguinte com 8 — a dor alivia e retorna, e o tratamento não está sustentando. Uma linha só
+esconderia exatamente esse caso, que é o que muda conduta.
+
+**Por que escalas, e por que estas cinco.** A clínica é de acupuntura, geriatria,
+psiquiatria, neurocirurgia e endocrinologia. A EVA responde à primeira e à dor; as outras
+quatro não tinham número nenhum — escreviam "refere melhora do humor" na evolução, o que é
+verdade e não compara consulta com consulta, não desenha curva e não vai para o relatório.
+O que o sistema faz com elas é **pontuar e registrar**: a faixa é a leitura publicada da
+escala, e a interpretação é de quem assina o prontuário — a tela diz isso o tempo todo.
+
+> **O que NÃO entrou de propósito.** Antropometria e sinais vitais (peso, IMC,
+> circunferência, pressão, glicemia) seriam uma entidade nova, com tela e histórico
+> próprios — valem uma parcela, não uma nota de rodapé desta. O FINDRISC pergunta IMC e
+> circunferência ao aplicar, então a endocrinologia já tem por onde começar; o registro
+> seriado dessas medidas fica em aberto, declarado, em vez de meio-feito.
+
+> Como o cliente recebe os cinco apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

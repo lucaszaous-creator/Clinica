@@ -1,15 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    Executável do Gerente Geral — a mesma casca fina dos outros, só que carregando
-    TODOS os módulos. Não tem tela própria: cada item da sidebar vem do módulo dono,
-    então nada aqui precisa ser corrigido em dois lugares.
-    Ver docs/arquitetura-multi-exe.md (Fase 3).
-
-    As telas exclusivas da direção (BI, campanhas, acessos e a visão de leitura do
-    faturamento) vivem no Clinica.Modulo.Gerente, que só este executável carrega.
-    A Fase 4 — faturamento como módulo — foi CANCELADA: o app de faturamento está
-    congelado, e o Gerente o enxerga lendo os serviços compartilhados.
+    Executável do Consultório — casca fina sobre Clinica.Desktop.Shell, instalado na
+    máquina do médico, do fisioterapeuta e do acupunturista.
+    Ver docs/arquitetura-multi-exe.md.
   -->
 
   <PropertyGroup>
@@ -18,11 +12,11 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <RootNamespace>Clinica.Gerente</RootNamespace>
+    <RootNamespace>Clinica.Clinico</RootNamespace>
     <!-- Sobrescrita no release pelo workflow (-p:Version=x.y.z). -->
     <Version>1.0.0</Version>
     <!-- Velopack precisa rodar seus hooks antes da UI. -->
-    <StartupObject>Clinica.Gerente.Program</StartupObject>
+    <StartupObject>Clinica.Clinico.Program</StartupObject>
     <ApplicationIcon>..\Clinica.Desktop.Shell\Assets\Marca\icone.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -34,10 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
-    <ProjectReference Include="..\Clinica.Modulo.Recepcao\Clinica.Modulo.Recepcao.csproj" />
     <ProjectReference Include="..\Clinica.Modulo.Clinico\Clinica.Modulo.Clinico.csproj" />
-    <ProjectReference Include="..\Clinica.Modulo.Financeiro\Clinica.Modulo.Financeiro.csproj" />
-    <ProjectReference Include="..\Clinica.Modulo.Gerente\Clinica.Modulo.Gerente.csproj" />
   </ItemGroup>
 
   <!-- App.xaml deixa de gerar o Main automático (usamos Program.Main). -->

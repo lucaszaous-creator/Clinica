@@ -73,9 +73,11 @@ PROJETOS = [
     "src/Clinica.Modulo.Recepcao",
     "src/Clinica.Modulo.Financeiro",
     "src/Clinica.Modulo.Gerente",
+    "src/Clinica.Modulo.Clinico",
     "src/Clinica.Recepcao",
     "src/Clinica.Financeiro",
     "src/Clinica.Gerente",
+    "src/Clinica.Clinico",
 ]
 
 X = "{http://schemas.microsoft.com/winfx/2006/xaml}"
