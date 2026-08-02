@@ -70,16 +70,18 @@ URL_WD = (
     f"{VERSAO_WD}/microsoft.windowsdesktop.app.ref.{VERSAO_WD}.nupkg"
 )
 
-# Os sete projetos WPF da suíte. O faturamento (Clinica.Desktop) fica de fora de
+# Os nove projetos WPF da suíte. O faturamento (Clinica.Desktop) fica de fora de
 # propósito: está congelado, ninguém o edita, e compilá-lo só gastaria tempo.
 PROJETOS_WPF = [
     "Clinica.Desktop.Shell",
     "Clinica.Modulo.Recepcao",
     "Clinica.Modulo.Financeiro",
     "Clinica.Modulo.Gerente",
+    "Clinica.Modulo.Clinico",
     "Clinica.Recepcao",
     "Clinica.Financeiro",
     "Clinica.Gerente",
+    "Clinica.Clinico",
 ]
 
 XMLNS_XAML = "http://schemas.microsoft.com/winfx/2006/xaml"

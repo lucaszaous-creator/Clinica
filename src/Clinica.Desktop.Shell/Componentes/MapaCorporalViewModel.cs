@@ -1,13 +1,12 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
-using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Clinica.Recepcao.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>
 /// Um ponto marcado, do jeito que a tela precisa: as coordenadas normalizadas do
@@ -53,6 +52,15 @@ public sealed partial class PontoMapaItem : ObservableObject
 /// <summary>
 /// O mapa corporal da sessão (feature 06): onde as agulhas foram aplicadas, marcado
 /// clicando na figura.
+///
+/// Mora no SHELL desde a parcela 36, e não no módulo da Recepção que o criou. A razão é a
+/// mesma do <see cref="SeletorPacienteViewModel"/>: o mapa é da acupuntura, que é a
+/// especialidade da casa, e quem mais o usa é quem atende — só que nenhum módulo conhece
+/// os outros, então o Consultório não teria como reaproveitá-lo de lá. As alternativas
+/// eram copiar (duas versões da mesma figura, divergindo na primeira correção) ou deixar
+/// o app do médico sem a ferramenta central dele.
+///
+/// Tela nova da suíte que marca ponto no corpo usa ESTE componente.
 ///
 /// Ele NÃO grava sozinho. Os pontos vivem na tela até a sessão ser salva — inclusive os
 /// que vieram de "repetir a sessão anterior" ou de um protocolo. Gravar no clique do
@@ -120,7 +128,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — mapa corporal não pôde ser carregado", ex);
+                "Mapa corporal não pôde ser carregado", ex);
             Erro($"Não foi possível carregar o mapa: {ex.Message}");
         }
     }
@@ -192,7 +200,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — mapa da sessão anterior não pôde ser lido", ex);
+                "Mapa da sessão anterior não pôde ser lido", ex);
             Erro(ex.Message);
         }
     }
@@ -252,7 +260,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — protocolo corporal não pôde ser apagado", ex);
+                "Protocolo corporal não pôde ser apagado", ex);
             Erro(ex.Message);
         }
     }
@@ -291,7 +299,7 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — protocolo corporal não pôde ser guardado", ex);
+                "Protocolo corporal não pôde ser guardado", ex);
             Erro(ex.Message);
         }
     }

@@ -370,7 +370,8 @@ public class CircuitoCompletoTests : IDisposable
             new InadimplenciaService(_repo, _financeiro),
             _receitaGlosada,
             new MetaService(_repo, _financeiro, new IndicadoresService(_repo, parametros)),
-            new OrcamentoService(_repo, contas));
+            new OrcamentoService(_repo, contas),
+            new ConsultorioService(_repo));
     }
 
     /// <summary>
@@ -460,6 +461,138 @@ public class CircuitoCompletoTests : IDisposable
         painel.GuiasSemReceita.Should().Be(0);
         painel.NaoVerificados.Should().BeEmpty(
             "base vazia não é falha de leitura — nenhum bloco pode se declarar não verificado");
+    }
+
+    // =====================================================================
+    // Circuito 5 — o Consultório (parcela 36)
+    // =====================================================================
+
+    /// <summary>
+    /// A sessão atendida sem evolução escrita sobe do Consultório até a DIREÇÃO.
+    ///
+    /// O elo aqui não é chamada de método: é o par (agendamento realizado, evolução com
+    /// <c>AgendamentoId</c>). Se o atendimento parasse de gravar esse vínculo, nenhum
+    /// teste de unidade falharia — o Consultório continuaria cobrando um registro já
+    /// escrito, para sempre, e o painel da direção acusaria prontuário em aberto numa
+    /// clínica que documenta tudo.
+    ///
+    /// É o mesmo defeito de <c>LancamentoFinanceiro.CodigoFaturamentoId</c>, do outro lado
+    /// do sistema.
+    /// </summary>
+    [Fact]
+    public async Task Sessao_sem_evolucao_chega_ao_painel_da_direcao()
+    {
+        var profissional = new Profissional { Nome = "Dra. Ana" };
+        _db.Profissionais.Add(profissional);
+        await _db.SaveChangesAsync();
+
+        var paciente = await CriarPacienteAsync();
+
+        // Uma sessão ONTEM, atendida: hoje ela já é dívida de registro.
+        var ontem = Dia.AddDays(-1);
+        var agendamento = new Agendamento
+        {
+            PacienteId = paciente,
+            ProfissionalId = profissional.Id,
+            DataHora = ontem.ToDateTime(new TimeOnly(9, 0)),
+            ModalidadePrevista = ModalidadeAtendimento.AcupunturaSimples,
+            Status = StatusAgendamento.Realizado
+        };
+        _db.Agendamentos.Add(agendamento);
+        await _db.SaveChangesAsync();
+
+        var painel = await MontarPainel().MontarAsync(Dia);
+
+        painel.SessoesSemEvolucao.Should().Be(1,
+            "a direção é a única que enxerga a clínica inteira");
+        painel.Alertas.Should().Contain(a => a.Assunto == AssuntoDirecao.ProntuarioEmAberto);
+
+        // ---- O profissional escreve a evolução, ligada ao HORÁRIO ----
+        var prontuario = new ProntuarioService(_repo);
+        await prontuario.SalvarAsync(new Evolucao
+        {
+            PacienteId = paciente,
+            ProfissionalId = profissional.Id,
+            AgendamentoId = agendamento.Id,
+            Data = ontem,
+            EvaAntes = 8,
+            EvaDepois = 4,
+            Conduta = "IG4, VB20"
+        }, "dra.ana");
+
+        var depois = await MontarPainel().MontarAsync(Dia);
+
+        depois.SessoesSemEvolucao.Should().Be(0,
+            "a sessão sai da lista por TER evolução, não porque alguém a marcou");
+        depois.Alertas.Should().NotContain(a => a.Assunto == AssuntoDirecao.ProntuarioEmAberto);
+    }
+
+    /// <summary>
+    /// A guia já faturada sem evolução é OUTRO alerta — mais grave.
+    ///
+    /// A sessão sem registro é prontuário incompleto; a guia sem registro é uma cobrança
+    /// sem o documento que a sustenta, e é ela que o convênio pede quando audita. O painel
+    /// precisa distinguir as duas, senão a direção trata as duas do mesmo jeito.
+    /// </summary>
+    [Fact]
+    public async Task Guia_faturada_sem_evolucao_sobe_como_perigo()
+    {
+        var paciente = await CriarPacienteAsync();
+        var ontem = Dia.AddDays(-1);
+
+        // O caminho real: a recepção confirma a presença e a guia nasce pelas regras do
+        // convênio. É o mesmo fluxo do circuito 1 — aqui só não se escreve a evolução.
+        var agendamento = await _agenda.AgendarAsync(
+            paciente, ontem.ToDateTime(new TimeOnly(9, 0)),
+            ModalidadeAtendimento.AcupunturaComEletro, null);
+        await _agenda.ConfirmarPresencaAsync(agendamento.Id);
+
+        var painel = await MontarPainel().MontarAsync(Dia);
+
+        painel.SessoesSemEvolucaoComGuia.Should().Be(1);
+        painel.Alertas.Should().Contain(a =>
+            a.Assunto == AssuntoDirecao.ProntuarioEmAberto
+            && a.Gravidade == GravidadeDirecao.Perigo);
+    }
+
+    /// <summary>
+    /// As escalas aplicadas no Consultório saem no relatório que a RECEPÇÃO emite.
+    ///
+    /// É o elo mais silencioso da parcela 36: `AvaliacaoClinica` é gravada por um módulo
+    /// e o papel é montado por outro. Sem esta ligação a escala viraria mais um dado com
+    /// um leitor só — e o relatório de evolução, que é o que o paciente leva ao convênio,
+    /// descreveria metade do tratamento.
+    /// </summary>
+    [Fact]
+    public async Task Escala_aplicada_no_consultorio_sai_no_relatorio_da_recepcao()
+    {
+        var paciente = await CriarPacienteAsync();
+        var prontuario = new ProntuarioService(_repo);
+        var avaliacoes = new AvaliacaoClinicaService(_repo);
+
+        await prontuario.SalvarAsync(new Evolucao
+        {
+            PacienteId = paciente,
+            Data = Dia,
+            EvaAntes = 8,
+            EvaDepois = 4,
+            QueixaPrincipal = "lombalgia"
+        }, "dra.ana");
+
+        var gad7 = Clinica.Domain.Avaliacoes.RegistroInstrumentos.Obter("GAD7")!;
+        await avaliacoes.AplicarAsync(
+            paciente, gad7.Codigo,
+            gad7.Itens.ToDictionary(i => i.Codigo, _ => 2),
+            Dia, operador: "dra.ana");
+
+        var documentos = new DocumentoClinicoService(
+            _repo, prontuario, new ConsentimentoService(_repo));
+
+        var relatorio = await documentos.EmitirRelatorioEvolucaoAsync(
+            paciente, operador: "recepcao");
+
+        relatorio.Corpo.Should().Contain("GAD-7", "a escala do consultório entra no papel");
+        relatorio.Itens.Should().Contain(i => i.Descricao.Contains("GAD-7"));
     }
 
     public void Dispose()

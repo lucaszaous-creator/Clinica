@@ -152,7 +152,10 @@ public sealed partial class IndicadoresViewModel : ObservableObject
                     m.Faltas.ToString(),
                     m.Cancelados.ToString(),
                     m.Fechados == 0 ? "\u2014" : $"{m.TaxaNoShow:0.#}",
-                    m.OcupacaoPercentual is { } o ? $"{o:0.#}" : "\u2014"
+                    m.OcupacaoPercentual is { } o ? $"{o:0.#}" : "\u2014",
+                    // A serie mensal nao tem completude por profissional; o travessao e a
+                    // resposta honesta, e nao um zero que a planilha entraria na media.
+                    "\u2014"
                 });
 
             foreach (var p in Produtividade)
@@ -163,11 +166,12 @@ public sealed partial class IndicadoresViewModel : ObservableObject
                     p.Faltas.ToString(),
                     p.Cancelados.ToString(),
                     p.Fechados == 0 ? "\u2014" : $"{p.TaxaNoShow:0.#}",
-                    p.OcupacaoPercentual is { } o ? $"{o:0.#}" : "\u2014"
+                    p.OcupacaoPercentual is { } o ? $"{o:0.#}" : "\u2014",
+                    p.CompletudeProntuario is { } c ? $"{c:0.#}" : "\u2014"
                 });
 
             var csv = ExportacaoCsv.Montar(
-                ["Tipo", "Nome", "Atendidos", "Faltas", "Cancelados", "No-show %", "Ocupacao %"],
+                ["Tipo", "Nome", "Atendidos", "Faltas", "Cancelados", "No-show %", "Ocupacao %", "Prontuario %"],
                 linhas);
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(

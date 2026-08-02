@@ -1,0 +1,260 @@
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.MapaCorporalControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes">
+
+    <!--
+      O MAPA CORPORAL DA SUÍTE, num lugar só (parcela 36).
+
+      Nasceu dentro da janela de evolução da Recepção. Quando o Consultório passou a
+      existir, copiar a figura teria criado duas versões do mesmo desenho — e a segunda
+      correção de silhueta já sairia divergente. Como nenhum módulo conhece os outros, o
+      componente subiu para o shell, que é onde mora o que os dois usam.
+
+      O DataContext esperado é um MapaCorporalViewModel.
+    -->
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+
+        <!-- ===== Silhueta =====
+             Um só desenho, usado nas duas figuras (frente e costas). As coordenadas são
+             ABSOLUTAS dentro de uma tela de 220x460 e o Path não estica: é isso que faz
+             o clique valer, porque a tela converte o pixel clicado em fração (0 a 1)
+             dividindo pelo mesmo 220x460 que o ViewModel guarda. Esticar a figura
+             quebraria essa conta. Os mesmos números estão em PontoMapaItem. -->
+        <GeometryGroup x:Key="Silhueta.Corpo" FillRule="Nonzero">
+            <EllipseGeometry Center="110,40" RadiusX="27" RadiusY="32" />
+            <RectangleGeometry Rect="99,66,22,18" />
+            <RectangleGeometry Rect="58,80,104,120" RadiusX="22" RadiusY="22" />
+            <RectangleGeometry Rect="66,192,88,76" RadiusX="16" RadiusY="16" />
+            <RectangleGeometry Rect="36,92,22,150" RadiusX="11" RadiusY="11" />
+            <RectangleGeometry Rect="162,92,22,150" RadiusX="11" RadiusY="11" />
+            <EllipseGeometry Center="47,252" RadiusX="12" RadiusY="14" />
+            <EllipseGeometry Center="173,252" RadiusX="12" RadiusY="14" />
+            <RectangleGeometry Rect="68,260,38,172" RadiusX="16" RadiusY="16" />
+            <RectangleGeometry Rect="114,260,38,172" RadiusX="16" RadiusY="16" />
+            <EllipseGeometry Center="87,436" RadiusX="19" RadiusY="12" />
+            <EllipseGeometry Center="133,436" RadiusX="19" RadiusY="12" />
+        </GeometryGroup>
+
+        <!-- Bolinha numerada. Não recebe clique (IsHitTestVisible no ItemsControl):
+             assim marcar funciona em qualquer lugar da figura, inclusive em cima de um
+             ponto já marcado. Remover é pela lista ao lado, onde dá para ler o que se
+             está removendo. -->
+        <DataTemplate x:Key="MarcadorPonto" DataType="{x:Type comp:PontoMapaItem}">
+            <Border Width="20" Height="20" CornerRadius="{StaticResource Raio.Pilula}"
+                    Background="{StaticResource Brush.Acento}"
+                    BorderBrush="{StaticResource Brush.Texto.Invertido}" BorderThickness="1.5">
+                <TextBlock Text="{Binding Numero}" FontWeight="Bold"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{StaticResource Brush.Texto.Invertido}" />
+            </Border>
+        </DataTemplate>
+
+        <Style x:Key="PosicaoDoPonto" TargetType="ContentPresenter">
+            <Setter Property="Canvas.Left" Value="{Binding Esquerda}" />
+            <Setter Property="Canvas.Top" Value="{Binding Topo}" />
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel>
+
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,10"
+                       Text="Clique na figura para marcar onde foi aplicado. Escolha a técnica antes do clique; o nome do ponto (IG4, VB20) é opcional e vale para a próxima marcação." />
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Técnica" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding Tecnicas}"
+                              SelectedItem="{Binding TecnicaSelecionada}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Ponto (opcional)" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding NomeProximoPonto, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="40" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <!-- Protocolos, ações e a lista dos pontos marcados.
+             Os nomes dos comandos são os do MapaCorporalViewModel — este bloco é o
+             mesmo que existia na janela de evolução da Recepção, movido inteiro para
+             cá em vez de reescrito, justamente para nenhuma função se perder na mudança. -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" MaxHeight="260">
+            <StackPanel DockPanel.Dock="Top">
+                <Border Style="{StaticResource AlertaInfo}" Margin="0,0,0,8"
+                        Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+                </Border>
+
+                <TextBlock Text="Protocolo" Style="{StaticResource Rotulo}" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox Grid.Column="0" ItemsSource="{Binding Protocolos}"
+                              SelectedItem="{Binding ProtocoloSelecionado}"
+                              DisplayMemberPath="Nome" />
+                    <Button Grid.Column="1" Content="Aplicar" Margin="8,0,0,0"
+                            Style="{StaticResource BotaoPequeno}"
+                            Command="{Binding AplicarProtocoloCommand}" />
+                    <!-- Protocolo é atalho, não prontuário: apaga-se mesmo. As sessões
+                         salvas com ele não mudam — aplicar COPIA os pontos, nunca aponta
+                         para o protocolo. -->
+                    <Button Grid.Column="2" Content="Apagar" Margin="8,0,0,0"
+                            Style="{StaticResource BotaoAcaoGridPerigo}"
+                            Command="{Binding ExcluirProtocoloCommand}" />
+                </Grid>
+
+                <Grid Margin="0,8,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="CampoNomeProtocolo" Grid.Column="0" MaxLength="100" />
+                    <Button Grid.Column="1" Content="Guardar como protocolo" Margin="8,0,0,0"
+                            Style="{StaticResource BotaoPequeno}"
+                            Command="{Binding SalvarComoProtocoloCommand}"
+                            CommandParameter="{Binding Text, ElementName=CampoNomeProtocolo}" />
+                </Grid>
+
+                <CheckBox Content="Vale para toda a clínica (não só para este paciente)"
+                          Margin="0,6,0,0" IsChecked="{Binding ProtocoloDaClinica}" />
+
+                <!-- `MapaCorporalViewModel.Observacoes` existia desde a parcela 3 e
+                     NENHUMA tela o mostrava: o campo era gravado sempre nulo. É o mesmo
+                     defeito que o projeto já corrigiu cinco vezes (dado sem leitor), aqui
+                     na variante mais discreta — o campo tinha escritor e não tinha
+                     escrivão. Ao promover o componente, ele ganhou a caixa. -->
+                <TextBlock Text="Observações do mapa" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+                <TextBox Text="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}"
+                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="44"
+                         VerticalScrollBarVisibility="Auto" />
+
+                <Grid Margin="0,12,0,0">
+                    <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                               Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Repetir a anterior" Style="{StaticResource BotaoPequeno}"
+                                Command="{Binding RepetirAnteriorCommand}" />
+                        <Button Content="Limpar" Margin="8,0,0,0"
+                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                Command="{Binding LimparCommand}" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+                <ItemsControl ItemsSource="{Binding Pontos}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type comp:PontoMapaItem}">
+                            <Border Padding="0,6"
+                                    BorderBrush="{StaticResource Brush.Borda}"
+                                    BorderThickness="0,0,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                    <Button Grid.Column="1" Content="Remover"
+                                            Style="{StaticResource BotaoAcaoGridPerigo}"
+                                            Command="{Binding DataContext.RemoverPontoCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
+
+        <!-- Figuras. A largura é FIXA e não pode deixar de ser: os dois Canvas de 220×460
+             são casados com PontoMapaItem.LarguraFigura, a mesma const que posiciona o
+             marcador e que converte o clique de volta em fração. Encolher a figura
+             espalharia os pontos em silêncio — quem cede é a janela. -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+
+                <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Frente" HorizontalAlignment="Center"
+                               FontWeight="SemiBold" Margin="0,0,0,4"
+                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                    <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                            CornerRadius="{StaticResource Raio.Medio}"
+                            Background="{StaticResource Brush.Superficie}">
+                        <Canvas x:Name="TelaFrente" Width="220" Height="460"
+                                Background="Transparent" ClipToBounds="True"
+                                MouseLeftButtonDown="TelaFrente_Clique">
+                            <Path Data="{StaticResource Silhueta.Corpo}"
+                                  Fill="{StaticResource Brush.Acento.Tint}"
+                                  Stroke="{StaticResource Brush.Borda.Hover}"
+                                  StrokeThickness="1" />
+                            <ItemsControl ItemsSource="{Binding PontosFrente}"
+                                          Width="220" Height="460"
+                                          IsHitTestVisible="False"
+                                          ItemTemplate="{StaticResource MarcadorPonto}"
+                                          ItemContainerStyle="{StaticResource PosicaoDoPonto}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Canvas />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Canvas>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel>
+                    <TextBlock Text="Costas" HorizontalAlignment="Center"
+                               FontWeight="SemiBold" Margin="0,0,0,4"
+                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                    <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                            CornerRadius="{StaticResource Raio.Medio}"
+                            Background="{StaticResource Brush.Superficie}">
+                        <Canvas x:Name="TelaCostas" Width="220" Height="460"
+                                Background="Transparent" ClipToBounds="True"
+                                MouseLeftButtonDown="TelaCostas_Clique">
+                            <Path Data="{StaticResource Silhueta.Corpo}"
+                                  Fill="{StaticResource Brush.Acento.Tint}"
+                                  Stroke="{StaticResource Brush.Borda.Hover}"
+                                  StrokeThickness="1" />
+                            <!-- A linha da coluna é o que diferencia a figura de costas. -->
+                            <Line X1="110" Y1="86" X2="110" Y2="262"
+                                  Stroke="{StaticResource Brush.Borda.Hover}"
+                                  StrokeThickness="1" StrokeDashArray="3 3" />
+                            <ItemsControl ItemsSource="{Binding PontosCostas}"
+                                          Width="220" Height="460"
+                                          IsHitTestVisible="False"
+                                          ItemTemplate="{StaticResource MarcadorPonto}"
+                                          ItemContainerStyle="{StaticResource PosicaoDoPonto}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Canvas />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </Canvas>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</UserControl>

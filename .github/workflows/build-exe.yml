@@ -75,6 +75,24 @@ jobs:
           path: publish-recepcao/
           if-no-files-found: error
 
+      - name: Publicar .exe do Consultório (self-contained, arquivo único)
+        run: >
+          dotnet publish src/Clinica.Clinico/Clinica.Clinico.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableWindowsTargeting=true
+          -o publish-clinico
+
+      - name: Enviar artefato do Consultório
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clinica-Consultorio-win-x64
+          path: publish-clinico/
+          if-no-files-found: error
+
       - name: Publicar .exe do Financeiro (self-contained, arquivo único)
         run: >
           dotnet publish src/Clinica.Financeiro/Clinica.Financeiro.csproj

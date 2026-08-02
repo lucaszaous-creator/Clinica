@@ -48,18 +48,25 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 
 | ferramenta | cobre | não cobre |
 |---|---|---|
-| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 817 testes | nada das telas |
-| `tools/compilar-sombra.py` | **o C# dos 7 projetos WPF** (nome, tipo, aridade, atributo) | XAML |
-| `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução | semântica de C# |
+| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 988 testes | nada das telas |
+| `tools/compilar-sombra.py` | **o C# dos 9 projetos WPF** (nome, tipo, aridade, atributo) | XAML |
+| `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução, **migration destrutiva** | semântica de C# |
 
 Se o SDK não estiver instalado: `apt-get update && apt-get install -y dotnet-sdk-8.0` (o instalador
 da Microsoft está bloqueado pelo proxy; o repositório do Ubuntu não). O CI
-(`.github/workflows/build-exe.yml`, runner Windows) segue sendo o build oficial dos quatro apps, em
+(`.github/workflows/build-exe.yml`, runner Windows) segue sendo o build oficial dos cinco apps, em
 cada push na `main` **e em cada PR para a `main`** — commit em branch de trabalho não gera build
 sozinho.
 
+**Testar sem publicar**: `build-exe.yml` tem `workflow_dispatch` e roda em qualquer branch,
+gerando os cinco `.exe` PORTÁTEIS — sem `vpk pack`, então `mgr.IsInstalled` é falso e eles não se
+auto-atualizam nem mexem no canal do app instalado. A armadilha não é o exe, é o BANCO: aponte
+`ConnectionStrings__Clinica` para uma branch do Neon (a env var vence a config salva e **não grava**
+em `%APPDATA%`) e **nunca** use a tela de Setup no build de teste, que grava. Roteiro completo em
+`docs/testar-sem-publicar.md`.
+
 Release: tag `vX.Y.Z` (ou Actions → "Release") dispara `.github/workflows/release.yml`, que empacota
-os quatro apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
+os cinco apps com **Velopack** (um canal por app; o faturamento fica no canal padrão `win` e **nunca
 muda**) e publica na mesma release; os apps instalados se auto-atualizam.
 
 ## Arquitetura
@@ -87,12 +94,13 @@ Camadas clássicas, todas em `src/`:
   system em `Styles/` (tokens + um ResourceDictionary por família de componente; documentado em
   `docs/design-system/`).
 - **Suíte multi-exe** (`Clinica.Desktop.Shell`, `Clinica.Modulo.*`, `Clinica.Recepcao`,
-  `Clinica.Financeiro`, `Clinica.Gerente`) — três executáveis NOVOS, ao lado do faturamento e sem
+  `Clinica.Financeiro`, `Clinica.Gerente`, `Clinica.Clinico`) — quatro executáveis NOVOS, ao lado do faturamento e sem
   encostar nele. O shell tem o design system, a janela genérica, o contrato de módulo (`IModuloApp`),
   a abertura padrão (`SuiteApp`) e o login (`LoginWindow` + `SessaoUsuario`); cada módulo é uma
   **biblioteca** com suas telas; cada `.exe` é uma casca que só escolhe a lista de módulos — o
   Gerente Geral carrega todos, incluindo o `Clinica.Modulo.Gerente` (BI, campanhas, acessos e a
-  leitura do faturamento), que só ele carrega. **Leia `docs/arquitetura-multi-exe.md` antes de
+  leitura do faturamento), que só ele carrega. O `Clinica.Clinico` (Consultório, parcela 36)
+  carrega um módulo só: a máquina do médico não precisa da agenda do balcão nem do caixa. **Leia `docs/arquitetura-multi-exe.md` antes de
   mexer aqui**: fases, débito assumido (design system e log duplicados, agora permanentes) e
   canais de release.
 - **tests/Clinica.Tests** — xUnit; os testes de regras validam cada fluxograma de convênio de ponta a
@@ -100,7 +108,18 @@ Camadas clássicas, todas em `src/`:
 
 ⚠️ **O FATURAMENTO (`Clinica.Desktop`) ESTÁ CONGELADO.** Ele fatura a clínica hoje e não se encosta
 nele: nada de editar telas, ViewModels ou fluxos dele, e nada de migration que renomeie ou remova o
-que ele usa (**só aditiva**). Criar entidade/serviço novo nas camadas compartilhadas é permitido;
+que ele usa (**só aditiva**, agora conferida pela checagem 18 do `verificar-suite.py`).
+
+**Não editar os arquivos dele é a parte fácil da regra.** A difícil é que ele LÊ as camadas
+compartilhadas, e mudança inocente lá chega à tela dele sem ninguém abrir uma pasta sua. Os três
+caminhos que já morderam: (a) **valor novo num enum embutido** — `Especialidade`,
+`ModalidadeAtendimento`, `Convenio`, `TipoCodigo` — vira opção nova no seletor do lançamento, porque
+os catálogos garantem as embutidas por `Enum.GetValues`; (b) **alerta novo num serviço que ele
+chama** (`PrevencaoGlosaService` é dele e só dele — ver parcela 36); (c) **migration destrutiva**.
+`FaturamentoCongeladoTests` fixa a superfície (a); a checagem 18 pega (c); (b) é julgamento, e a
+pergunta é sempre **"isso vai aparecer na tela de quem fatura amanhã de manhã?"**.
+
+Criar entidade/serviço novo nas camadas compartilhadas é permitido;
 feature nova vai para Recepção, Financeiro ou Gerente. Por isso a **Fase 4 foi cancelada**. O que
 cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.md` e
 `docs/entrega-ao-cliente.md`.
@@ -366,7 +385,8 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   (`DesfazerConfirmacaoAsync`), sugerir quem chamar para o horário que vagou
   (`CandidatosParaAsync`), conferir o documento pelo código impresso (`PorCodigoAsync`) e
   apagar modelo/protocolo. **Antes de dar por pronta uma feature, procure o chamador em
-  produção** — `dotnet test` verde e CI verde não provam que a clínica alcança a função.
+  produção** — e, desde a parcela 36, procure também o leitor em OUTRO MÓDULO: dado que
+  só o módulo que o grava consegue ler é a mesma falha vestida de arquitetura — `dotnet test` verde e CI verde não provam que a clínica alcança a função.
   Regras que a parcela fixou: no custo por sessão **só entra saída COM atendimento** (a
   baixa digitada à mão não é de sessão nenhuma, e rateá-la daria a cada uma um custo que
   não teve) e **média sem base é nula, nunca zero**; a lista de espera filtrada **diz que
@@ -436,7 +456,90 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   agendamento (cancelado não é visita). Pacote em aberto é **destaque, não filtro**: o
   paciente pagou sessões que não usou, e essa ligação a clínica deve tanto a ela quanto a
   ele.
-- **Como os quatro módulos se falam** (parcela 27): eles compartilham o BANCO, não
+- **O consultório do profissional** (`ConsultorioService`, `AvaliacaoClinicaService`,
+  parcela 36): o quinto app (`Clinica.Clinico.exe`, "Consultório"), na máquina do médico e
+  do fisioterapeuta. Ele responde uma pergunta que nenhuma tela respondia: **o que eu
+  atendi e ainda não escrevi.** É a mesma família do defeito que dá nome ao produto — a
+  guia obtida +24h depois que ninguém lembra —, só que do lado clínico: a sessão acontece,
+  o paciente vai embora e a evolução fica "para depois", que é o dia em que já não se
+  lembra o que foi feito. A pendência olha **só dias anteriores**: a sessão das 14h não tem
+  evolução às 14h05 porque o paciente ainda está na sala. O casamento sessão × evolução é
+  pelo `Evolucao.AgendamentoId` e cai para paciente + data quando ele é nulo — sem esse
+  caminho de baixo, a evolução escrita direto no prontuário faria o consultório cobrar para
+  sempre um registro que já existe. **Sem `Profissional` vinculado ao login o app mostra o
+  dia da clínica inteira e DIZ que está fazendo isso**: tela vazia se lê como defeito, não
+  como cadastro faltando. O `PacienteEmFoco` é singleton porque no consultório o paciente é
+  **contexto**, não parâmetro de tela — quem atende escolhe uma vez e passa vinte minutos
+  entre quatro telas sobre a mesma pessoa. E o módulo não declara `Inicial`: o exe carrega
+  um módulo só, então o primeiro item já é a abertura, e marcá-lo faria o Consultório
+  vencer o painel da direção dentro do Gerente (o defeito que a parcela 22 corrigiu).
+- **O Consultório não é uma ilha** (parcela 36): a primeira versão do módulo gravava
+  `AvaliacaoClinica` e evolução, e **só ele as lia** — a sexta ocorrência do defeito
+  recorrente do projeto, cometida por quem já o tinha documentado cinco vezes. O que
+  fecha o circuito, nos dois sentidos:
+  **Consultório → Gerente**: `PainelDirecaoService` ganhou `AssuntoDirecao.ProntuarioEmAberto`
+  — a direção é a única que enxerga a clínica inteira, e o número vem do
+  `ConsultorioService`, dono da leitura. Guia já faturada sem evolução é alerta
+  **separado e mais grave**: a sessão sem registro é prontuário incompleto, a guia sem
+  registro é cobrança sem o documento que a sustenta. No BI,
+  `ProdutividadeProfissional.CompletudeProntuario` divide dois números que estavam lado a
+  lado desde a parcela 5 sem ninguém os dividir — e é **nula, nunca 0%**, sem sessão
+  atendida, senão acusaria de negligência quem tirou férias.
+  **Consultório → Recepção/paciente**: as escalas entram no **relatório de evolução** e no
+  prontuário da Recepção. O relatório é o papel que o paciente leva ao convênio, e sem
+  isso ele descreveria metade do tratamento; a faixa sai como foi **gravada na aplicação**,
+  não recalculada pela definição de hoje.
+  **Recepção/Financeiro/Faturamento → Consultório**: o `ElegibilidadeService` aparece na
+  tela de atendimento. Ele foi feito para o balcão — o lugar onde o paciente está de corpo
+  presente —, e o consultório é o segundo: a urgência viaja **com cada alerta**, porque
+  carteirinha vencida (vermelho) e dívida (amarelo) chegam juntas e pintar as duas da cor
+  da pior faria a segunda parecer impedimento.
+  **O que NÃO foi feito, e por quê**: o `PrevencaoGlosaService` seria o lugar natural do
+  aviso "guia sem prontuário", e ele é chamado **só pelo app congelado**. Acrescentar o
+  alerta mudaria o comportamento do faturamento em produção e dispararia para TODA guia
+  numa clínica que ainda não documenta — alerta que dispara para todo mundo é alerta que
+  ninguém lê. A leitura foi para a direção, onde é nova.
+- **O mapa corporal e a emissão de documento moram no SHELL** (parcela 36): os dois
+  nasceram dentro do módulo da Recepção, e o Consultório precisa dos mesmos — a acupuntura
+  é a especialidade da casa, e quem prescreve é quem atende. Como **nenhum módulo conhece
+  os outros**, as alternativas eram copiar (duas silhuetas divergindo na primeira
+  correção) ou deixar o app do médico sem a ferramenta central dele. Subiram para
+  `Clinica.Desktop.Shell/Componentes`, pelo mesmo argumento que já pôs o
+  `SeletorPacienteViewModel` lá: **tela nova da suíte que marca ponto no corpo ou emite
+  documento usa ESTES componentes; não reescreva.** O bloco foi movido INTEIRO, e não
+  reescrito, para nenhuma função se perder na mudança — e, de quebra,
+  `MapaCorporalViewModel.Observacoes`, gravado sempre nulo desde a parcela 3 porque
+  nenhuma tela o mostrava, finalmente ganhou a caixa de texto.
+- **Escalas clínicas por especialidade** (`Domain/Avaliacoes/`, parcela 36): a EVA responde
+  "quanto dói" e serve à acupuntura e à clínica da dor. As outras quatro especialidades da
+  casa — psiquiatria, geriatria, neurocirurgia e endocrinologia — **não tinham número
+  nenhum**: escreviam "refere melhora do humor" na evolução, o que é verdade e não compara
+  consulta com consulta, não desenha curva e não vai para o relatório. Cinco instrumentos
+  (PHQ-9, GAD-7, Oswestry, Katz, FINDRISC) moram em CÓDIGO e não em tabela, pelo mesmo
+  desenho do motor de regras de convênio: a pontuação de uma escala publicada não é
+  configuração da clínica — deixar editar o peso de um item produziria um escore que
+  continua se chamando PHQ-9 sem ser um. As regras:
+  **tudo o que descreve o instrumento é COPIADO na aplicação** (nome, enunciado, rótulo da
+  alternativa, faixa, interpretação), como o protocolo do mapa corporal e o preço por
+  convênio — é o que permite corrigir uma redação sem reescrever o que o paciente respondeu
+  no mês passado, e o que mantém legível a avaliação de uma escala já retirada do catálogo.
+  **Escala incompleta é recusada** (item em branco vira zero numa soma, e zero é "não tenho
+  esse sintoma"), salvo no Oswestry, cuja regra publicada manda calcular o percentual sobre
+  as seções respondidas. **Peso fora das alternativas é recusado.** O **alerta de item não
+  se dissolve no total** (`IInstrumentoAvaliacao.AlertaDeItem`): o item 9 do PHQ-9 vale 3
+  dos 27 pontos, e um paciente pode marcá-lo zerando o resto — escore 3, faixa "sintomas
+  mínimos", e a única resposta que exigia conduta imediata desapareceria dentro da média.
+  O **Katz inverte** (`MelhorQuandoMenor = false`): 6 é o melhor resultado possível, e sem
+  isso a curva chamaria a recuperação funcional de piora. **O sistema pontua e registra; ele
+  não diagnostica** — a faixa é a leitura publicada da escala, e a tela diz isso o tempo
+  todo. **Neurocirurgia NÃO entrou no enum `Especialidade`** — ela é um código do
+  CATÁLOGO (`InstrumentoOswestry.CodigoNeurocirurgia`), e a diferença não é estilo: o
+  enum é lido pelo faturamento CONGELADO, que na abertura chama
+  `EspecialidadeCatalogoService.RecarregarCacheAsync` e garante as embutidas percorrendo
+  `Enum.GetValues`. Um valor a mais ali viraria, sozinho, uma opção nova no seletor do
+  lançamento de atendimento de um app em produção. A clínica cadastra a especialidade em
+  Configurações quando quiser; até lá o Oswestry serve à acupuntura e à clínica da dor.
+- **Como os módulos se falam** (parcela 27): eles compartilham o BANCO, não
   mensagens — não há fila, evento nem sincronização; o que um grava o outro lê, e a
   ligação é sempre uma CHAVE ESTRANGEIRA. O circuito completo:
   **Recepção → Faturamento**: `FechamentoSessaoService` → `AtendimentoService.LancarAsync`
@@ -562,6 +665,11 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
 
 ### Convenções
 
+- Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`
+  implementando `IInstrumentoAvaliacao`, uma linha em `RegistroInstrumentos`, as
+  especialidades declaradas e o fluxograma coberto em `InstrumentosAvaliacaoTests` — a
+  mesma convenção do convênio, e pela mesma razão: peso errado num item produz escore que
+  continua parecendo válido.
 - Ao adicionar um convênio fixo: nova classe em `Domain/Regras/`, registrar em `RegistroRegras`,
   adicionar ao enum `Convenio`, cobrir o fluxograma com testes em `RegrasFaturamentoTests`.
 - Toda tela que escreve trata as exceções e nunca derruba o app (`DispatcherUnhandledException`
@@ -656,7 +764,7 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   coluna elástica (`RetornoLoteWindow`), que de quebra acaba com o vão morto ao lado dele
   quando a janela está maximizada.
 - **Gráfico é desenhado com os tokens, sem biblioteca** (`Controls/Graficos.cs`,
-  `Componentes/Graficos.xaml`). Os quatro apps se auto-atualizam por Velopack e uma
+  `Componentes/Graficos.xaml`). Os cinco apps se auto-atualizam por Velopack e uma
   dependência de UI nova é risco desproporcional. Duas regras do desenho: **valor nulo
   interrompe a linha** (um mês sem horário fechado desenhado como 0% inventaria um mês
   perfeito) e **o eixo ancora no zero** (escala que começa no menor valor transforma

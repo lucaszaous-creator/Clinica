@@ -22,18 +22,19 @@ Solução em camadas (.NET 8):
 
 ### Suíte multi-exe
 
-Ao lado do faturamento existem mais três aplicativos, montados sobre o mesmo banco e as mesmas
+Ao lado do faturamento existem mais quatro aplicativos, montados sobre o mesmo banco e as mesmas
 camadas — sem duplicar código e sem encostar no que já está em produção:
 
 | Projeto | Responsabilidade |
 |---|---|
 | `Clinica.Desktop.Shell` | Design system, janela genérica, contrato de módulo (`IModuloApp`) e a abertura padrão. |
 | `Clinica.Modulo.Recepcao` | Painel, agenda multiprofissional, fila do dia, pacientes e prontuário. |
+| `Clinica.Modulo.Clinico` | O consultório: o dia do profissional, o atendimento com EVA, o painel de evolução da dor e as escalas por especialidade. |
 | `Clinica.Modulo.Financeiro` | Caixa, Conciliação e Produção. |
 | `Clinica.Modulo.Gerente` | Indicadores (BI), campanhas (confirmação, NPS e recall), acessos e a visão de leitura do faturamento. |
-| `Clinica.Recepcao` / `Clinica.Financeiro` / `Clinica.Gerente` | Executáveis — cascas finas que só escolhem quais módulos carregar. O Gerente Geral carrega todos. |
+| `Clinica.Recepcao` / `Clinica.Clinico` / `Clinica.Financeiro` / `Clinica.Gerente` | Executáveis — cascas finas que só escolhem quais módulos carregar. O Gerente Geral carrega todos. |
 
-Recepção, Financeiro e Gerente pedem **login** (`LoginWindow` + `SessaoUsuario` no shell); base sem
+Recepção, Consultório, Financeiro e Gerente pedem **login** (`LoginWindow` + `SessaoUsuario` no shell); base sem
 usuário abre o primeiro acesso em vez de trancar a clínica do lado de fora. O **faturamento continua
 sem login e não vira módulo** — a Fase 4 foi cancelada. Detalhes, fases e plano:
 [`docs/arquitetura-multi-exe.md`](docs/arquitetura-multi-exe.md).

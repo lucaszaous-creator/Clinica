@@ -50,6 +50,20 @@ public enum Especialidade
     Endocrinologia
 }
 
+// ⚠️ NÃO ACRESCENTE VALOR A ESTE ENUM sem medir o efeito no app de FATURAMENTO.
+//
+// Ele está congelado e em produção, e lê este enum por um caminho que não é óbvio:
+// `App.xaml.cs` chama `EspecialidadeCatalogoService.RecarregarCacheAsync()` na abertura,
+// e `ListarAsync` GARANTE as embutidas percorrendo `Enum.GetValues<Especialidade>()`.
+// Um valor novo aqui vira, sem mais nada, uma opção nova no seletor de especialidade do
+// lançamento de atendimento e na tela de Configurações — mudança visível numa tela que
+// fatura a clínica hoje.
+//
+// Especialidade nova entra pelo CATÁLOGO (`EspecialidadeCadastro`), que existe desde a
+// parcela de modalidades/especialidades dinâmicas justamente para isso: a clínica a
+// cadastra quando quiser, e a partir daí ela vale para todos os apps. Foi o caminho da
+// Neurocirurgia na parcela 36 — ver `InstrumentoOswestry.CodigoNeurocirurgia`.
+
 /// <summary>Ordem do código no dia. O 2º código é o historicamente esquecido.</summary>
 public enum OrdemCodigo
 {

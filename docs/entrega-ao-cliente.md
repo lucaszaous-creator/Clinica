@@ -1,6 +1,6 @@
 # Entrega ao cliente
 
-> Como os quatro apps chegam à clínica: qual instalador vai para qual posto, o que precisa
+> Como os cinco apps chegam à clínica: qual instalador vai para qual posto, o que precisa
 > estar pronto antes de qualquer entrega, e em que ordem quitar o que foi vendido.
 >
 > O catálogo do que cada módulo entrega está em
@@ -85,7 +85,7 @@ por ali leva ao bloqueio do número. Se o cliente entendeu "automática" como "s
 ninguém clicar", a alternativa real é contratar a API oficial do WhatsApp Business — o que
 é decisão comercial, não técnica, e precisa ser dita antes de virar cobrança.
 
-## Topologia: quatro apps, um por perfil
+## Topologia: cinco apps, um por perfil
 
 Cada posto de trabalho instala **só o app do seu perfil**. Todos falam com o mesmo
 PostgreSQL — não há comunicação entre eles.
@@ -93,15 +93,16 @@ PostgreSQL — não há comunicação entre eles.
 | Posto | App | Instalador | O que faz |
 |---|---|---|---|
 | Faturista | Faturamento | `Clinica.Faturamento-win-Setup.exe` | Pendências, guias, lotes TISS, glosas |
-| Balcão / consultório | Recepção | `Clinica.Recepcao-recepcao-Setup.exe` | Agenda, fila, cadastro, prontuário |
+| Balcão | Recepção | `Clinica.Recepcao-recepcao-Setup.exe` | Agenda, fila, cadastro, prontuário |
+| Consultório (médico, fisioterapeuta) | Consultório | `Clinica.Clinico-clinico-Setup.exe` | Meu dia, atendimento, evolução da dor, escalas por especialidade |
 | Administrativo | Financeiro | `Clinica.Financeiro-financeiro-Setup.exe` | Caixa, pacotes, estoque |
 | Direção | Gerente Geral | `Clinica.Gerente-gerente-Setup.exe` | Todos os módulos + BI, NPS e permissões |
 
-> São **quatro** — a proposta comercial (página 24) diz *"Dois apps, um banco"*. Ver
+> São **cinco** — a proposta comercial (página 24) diz *"Dois apps, um banco"*. Ver
 > [Duas afirmações da proposta que ainda precisam de decisão](#duas-afirmações-da-proposta-que-ainda-precisam-de-decisão).
 
-O Gerente Geral **carrega os módulos dos outros** — quem o instala não precisa da Recepção
-nem do Financeiro na mesma máquina.
+O Gerente Geral **carrega os módulos dos outros** — quem o instala não precisa da Recepção,
+do Consultório nem do Financeiro na mesma máquina.
 
 ## A conexão — resolvido na parcela 0
 
@@ -124,7 +125,7 @@ em vez de só mostrar o erro e fechar.
 
 ## Release e versão por app — entregue na parcela 0
 
-Com quatro apps evoluindo em ritmos diferentes, a release conjunta obrigava a **republicar
+Com cinco apps evoluindo em ritmos diferentes, a release conjunta obrigava a **republicar
 o faturamento por mudança que não era dele** — download e reinício reais numa máquina em
 produção, sem nenhum ganho para quem opera. Cada app tem agora sua tag, sua versão e sua
 release.
@@ -336,9 +337,9 @@ Cinco decisões que valem registrar:
 A migration (`20260727220000_CampanhasEAcesso`) é **puramente aditiva**: só as tabelas
 novas `ContatosCampanha` e `Usuarios`.
 
-## Os quatro são instaláveis
+## Os cinco são instaláveis
 
-Desde a parcela 0, **os quatro apps instalam e rodam sozinhos** — nenhum depende de o
+Desde a parcela 0, **os apps da suíte instalam e rodam sozinhos** — nenhum depende de o
 Faturamento estar na mesma máquina. O que varia é quanto cada um já entrega de conteúdo:
 o inventário está em [Onde estamos](#onde-estamos), e o detalhe feature a feature em
 [`features-por-modulo.md`](features-por-modulo.md).
@@ -362,6 +363,7 @@ o inventário está em [Onde estamos](#onde-estamos), e o detalhe feature a feat
 | ~~**26 — A Recepção no balcão**~~ ✅ | Recepção | Elegibilidade ao marcar e no check-in; rodada de confirmação com porta na Recepção; bloqueio de agenda (férias, feriado, folga); agendamento em série; visão de semana; direitos do titular (exportar e anonimizar) | Seis capacidades que existiam **em outro lugar** — nenhuma no ponto onde a decisão é tomada |
 | ~~**27 — Os módulos se falam nos dois sentidos**~~ ✅ | Faturamento ↔ Financeiro ↔ Recepção | A glosa derruba a receita que já estava contada; guia glosada marcada na conciliação; conta vencida e guia glosada chegam ao balcão; alerta na direção | Todas as pontes iam **para a frente** — o convênio recusava a guia e ninguém no dinheiro ficava sabendo |
 | ~~**28 a 32 — A rodada noturna**~~ ✅ | Gerente, Financeiro e Recepção | Metas e apuração por tributo; folha do dia, comprovante, aniversariantes, padrão de falta, busca no prontuário e remarcação em lote; inventário, lista de compras, teto de gasto, resultado do mês e extratos em CSV; quem parou de vir | 30 melhorias em cinco lotes — nenhuma tocou o faturamento congelado |
+| ~~**36 — O consultório**~~ ✅ | Consultório (novo app) | Quinto executável, na máquina de quem atende: Meu dia com as sessões sem evolução escrita, atendimento com EVA e as últimas sessões abertas ao lado, painel de evolução da dor com as duas curvas, escalas por especialidade (PHQ-9, GAD-7, Oswestry, Katz, FINDRISC) e a carteira de pacientes | O sistema tinha agenda, caixa e BI, e **nada para quem atende** — a evolução ficava "para depois" e ninguém cobrava |
 
 A coluna "Destrava" é o que justifica a ordem: cada parcela existe porque a seguinte não
 teria onde se apoiar sem ela. A fundação (1) é o caso mais claro — sem `Profissional`,

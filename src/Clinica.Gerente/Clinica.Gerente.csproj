@@ -35,6 +35,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
     <ProjectReference Include="..\Clinica.Modulo.Recepcao\Clinica.Modulo.Recepcao.csproj" />
+    <ProjectReference Include="..\Clinica.Modulo.Clinico\Clinica.Modulo.Clinico.csproj" />
     <ProjectReference Include="..\Clinica.Modulo.Financeiro\Clinica.Modulo.Financeiro.csproj" />
     <ProjectReference Include="..\Clinica.Modulo.Gerente\Clinica.Modulo.Gerente.csproj" />
   </ItemGroup>

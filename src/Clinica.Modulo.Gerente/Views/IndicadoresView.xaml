@@ -130,6 +130,7 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Profissional" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Grid.Column="1" Text="Atendidos" Style="{StaticResource Rotulo}" Margin="0" />
@@ -137,7 +138,10 @@
                         <TextBlock Grid.Column="3" Text="No-show" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Grid.Column="4" Text="Horas" Style="{StaticResource Rotulo}" Margin="0" />
                         <TextBlock Grid.Column="5" Text="Evoluções" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Grid.Column="6" Text="Queda média da dor" Style="{StaticResource Rotulo}" Margin="0" />
+                        <!-- Os dois números ao lado existiam desde a parcela 5 em colunas
+                             separadas, e a leitura que importa é a RAZÃO entre eles. -->
+                        <TextBlock Grid.Column="6" Text="Prontuário" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="7" Text="Queda média da dor" Style="{StaticResource Rotulo}" Margin="0" />
                     </Grid>
                 </Border>
 
@@ -152,6 +156,7 @@
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="2*" />
+                                                <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="*" />
@@ -174,7 +179,12 @@
                                                        Foreground="{StaticResource Brush.Texto.Secundario}" />
                                             <TextBlock Grid.Column="5" Text="{Binding Evolucoes}"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <!-- "—" quando não houve sessão atendida: 0% acusaria
+                                                 de negligência quem tirou férias. -->
                                             <TextBlock Grid.Column="6"
+                                                       Text="{Binding CompletudeProntuario, StringFormat='{}{0:0.#}%', TargetNullValue='—'}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                            <TextBlock Grid.Column="7"
                                                        Text="{Binding MelhoraMediaEva, StringFormat='{}{0:0.#} pontos', TargetNullValue='—'}"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}" />
                                         </Grid>

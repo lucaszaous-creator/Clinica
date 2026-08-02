@@ -71,6 +71,17 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     [ObservableProperty] private string _resumoEva = string.Empty;
 
     /// <summary>
+    /// Últimos escores das escalas aplicadas pelo Consultório (parcela 36).
+    ///
+    /// Elas são gravadas noutro módulo, e sem esta linha só seriam lidas lá — enquanto a
+    /// recepção, que atende o telefone do paciente e monta o relatório para o convênio,
+    /// veria um prontuário que não menciona a metade medida do tratamento. Vazio quando
+    /// nenhuma escala foi aplicada: a linha some em vez de dizer "nenhuma", que ocuparia
+    /// espaço para informar ausência.
+    /// </summary>
+    [ObservableProperty] private string _resumoEscalas = string.Empty;
+
+    /// <summary>
     /// Metade VISÍVEL da permissão: quem não pode escrever vê os botões apagados com o
     /// motivo. A que impede é o <c>Exigir</c> dentro do comando.
     /// </summary>
@@ -171,6 +182,9 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             // o tratamento, e medir só as sessões que citam uma palavra daria um gráfico
             // que não corresponde a tratamento nenhum.
             AplicarEvolucaoDaDor(await prontuario.EvolucaoDaDorAsync(PacienteId));
+
+            var avaliacoes = scope.ServiceProvider.GetRequiredService<AvaliacaoClinicaService>();
+            AplicarEscalas(await avaliacoes.DoPacienteAsync(PacienteId));
         }
         catch (Exception ex)
         {
@@ -209,6 +223,32 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             : "—";
         AlivioMedio = $"{dor.AlivioMedioPorSessao:0.#} por sessão";
         ResumoEva = $"{dor.SessoesComMedida} de {dor.SessoesRegistradas} sessão(ões) com EVA medida.";
+    }
+
+    /// <summary>
+    /// O ÚLTIMO escore de cada instrumento — não o histórico inteiro. A curva mora no
+    /// Consultório, que é de quem aplica; aqui a pergunta é "o que já foi medido nesta
+    /// pessoa?", e ela se responde com uma linha.
+    /// </summary>
+    private void AplicarEscalas(IReadOnlyList<AvaliacaoClinica> avaliacoes)
+    {
+        if (avaliacoes.Count == 0)
+        {
+            ResumoEscalas = string.Empty;
+            return;
+        }
+
+        // A lista vem da mais recente para a mais antiga, então a primeira de cada
+        // instrumento já é a última aplicação dele.
+        var ultimas = avaliacoes
+            .GroupBy(a => a.InstrumentoCodigo)
+            .Select(g => g.First())
+            .OrderByDescending(a => a.Data)
+            .ToList();
+
+        ResumoEscalas = "Escalas aplicadas: " + string.Join(" · ", ultimas.Select(a =>
+            $"{a.InstrumentoNome} — {a.PontuacaoFormatada} em {a.Data:dd/MM/yyyy}"
+            + (string.IsNullOrWhiteSpace(a.FaixaNome) ? string.Empty : $" ({a.FaixaNome})")));
     }
 
     [RelayCommand]

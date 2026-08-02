@@ -202,6 +202,49 @@ public sealed class DocumentoClinicoService
             Quantidade = e.Profissional?.Rotulo
         }).ToList();
 
+        // As escalas aplicadas no período entram no MESMO relatório (parcela 36).
+        //
+        // Elas são gravadas pelo Consultório e, sem isto, seriam lidas só lá — o quinto
+        // caso do defeito recorrente do projeto, e o mais caro deste: o relatório de
+        // evolução é o papel que o paciente leva ao convênio e ao outro médico, e é
+        // justamente o escore de uma escala validada que sustenta "o tratamento está
+        // funcionando" para quem não acompanhou o tratamento.
+        //
+        // A EVA continua no corpo e as escalas viram ITENS datados, na mesma linha do
+        // tempo das sessões: separá-las em dois blocos faria o leitor comparar o escore
+        // de agosto com a sessão de junho.
+        var avaliacoes = (await _repo.AvaliacoesDoPacienteAsync(pacienteId, null, ct))
+            .Where(a => (inicio is null || a.Data >= inicio) && (fim is null || a.Data <= fim))
+            .OrderBy(a => a.Data).ThenBy(a => a.Id)
+            .ToList();
+
+        foreach (var a in avaliacoes)
+            itens.Add(new ItemDocumento
+            {
+                Descricao = $"{a.Data:dd/MM/yyyy} · {a.InstrumentoNome}: {a.PontuacaoFormatada}",
+                // A faixa vai como foi GRAVADA na aplicação, não recalculada pela
+                // definição de hoje: o relatório precisa dizer o que foi dito ao paciente
+                // na época.
+                Detalhe = Juntar(a.FaixaNome, a.FaixaInterpretacao, a.Observacoes),
+                Quantidade = a.Profissional?.Rotulo
+            });
+
+        if (avaliacoes.Count > 0)
+        {
+            var porInstrumento = avaliacoes
+                .GroupBy(a => a.InstrumentoCodigo)
+                .Select(g => g.OrderBy(a => a.Data).ThenBy(a => a.Id).ToList())
+                .ToList();
+
+            corpo += " Escalas aplicadas no período: " + string.Join("; ", porInstrumento.Select(g =>
+                g.Count == 1
+                    // Uma aplicação é linha de base, não evolução — a mesma regra do par EVA.
+                    ? $"{g[0].InstrumentoNome}, {g[0].PontuacaoFormatada} em {g[0].Data:dd/MM/yyyy} "
+                      + "(aplicação única, sem evolução a relatar)"
+                    : $"{g[0].InstrumentoNome}, de {g[0].PontuacaoFormatada} em {g[0].Data:dd/MM/yyyy} "
+                      + $"para {g[^1].PontuacaoFormatada} em {g[^1].Data:dd/MM/yyyy}")) + ".";
+        }
+
         return await EmitirAsync(new DocumentoClinico
         {
             Tipo = TipoDocumentoClinico.RelatorioEvolucao,

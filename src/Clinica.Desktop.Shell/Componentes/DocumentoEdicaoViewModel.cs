@@ -1,14 +1,13 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
-using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using Clinica.Desktop.Shell.Componentes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Clinica.Recepcao.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Uma linha do documento em edição (medicamento + posologia, exame + indicação).</summary>
 public sealed partial class LinhaItemDocumento : ObservableObject
@@ -135,7 +134,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — tela de documento não pôde ser carregada", ex);
+                "Documento clínico — tela de documento não pôde ser carregada", ex);
             Erro($"Não foi possível carregar a tela: {ex.Message}");
         }
     }
@@ -154,7 +153,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — modelos de documento não puderam ser lidos", ex);
+                "Documento clínico — modelos de documento não puderam ser lidos", ex);
         }
     }
 
@@ -232,7 +231,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — modelo de documento não pôde ser guardado", ex);
+                "Documento clínico — modelo de documento não pôde ser guardado", ex);
             Erro(ex.Message);
         }
     }
@@ -274,7 +273,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — modelo de documento não pôde ser apagado", ex);
+                "Documento clínico — modelo de documento não pôde ser apagado", ex);
             Erro(ex.Message);
         }
     }
@@ -326,7 +325,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Recepção — documento clínico não pôde ser emitido", ex);
+                "Documento clínico — documento clínico não pôde ser emitido", ex);
             Erro(ex.Message);
         }
         finally

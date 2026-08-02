@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Módulo do CONSULTÓRIO: as telas de quem atende (médico, fisioterapeuta,
+    acupunturista). É uma BIBLIOTECA como os outros três — o Clinica.Clinico.exe a
+    carrega sozinha, e o Clinica.Gerente.exe a carrega junto das demais.
+    Ver docs/arquitetura-multi-exe.md.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <!-- O namespace é Clinica.Clinico: só o assembly leva "Modulo" no nome. -->
+    <RootNamespace>Clinica.Clinico</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Clinica.Desktop.Shell\Clinica.Desktop.Shell.csproj" />
+    <ProjectReference Include="..\Clinica.Domain\Clinica.Domain.csproj" />
+    <ProjectReference Include="..\Clinica.Application\Clinica.Application.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -282,6 +282,35 @@ public interface IClinicaRepositorio
     Task AdicionarAnexoAsync(AnexoProntuario anexo, CancellationToken ct = default);
     Task RemoverAnexoAsync(int anexoId, CancellationToken ct = default);
 
+    // ---- Avaliações clínicas por instrumento (parcela 36) ----
+
+    Task AdicionarAvaliacaoAsync(AvaliacaoClinica avaliacao, CancellationToken ct = default);
+
+    /// <summary>Avaliação COM as respostas carregadas — a leitura de uma aplicação inteira.</summary>
+    Task<AvaliacaoClinica?> ObterAvaliacaoAsync(int avaliacaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Avaliações do paciente, da mais recente para a mais antiga, SEM as respostas.
+    ///
+    /// O corte é o mesmo dos anexos do prontuário: a lista precisa de escore, faixa e
+    /// data, e trazer junto as nove a dez respostas de cada aplicação multiplicaria por
+    /// dez o que passa pela rede para desenhar uma tabela que não as mostra.
+    /// </summary>
+    Task<IReadOnlyList<AvaliacaoClinica>> AvaliacoesDoPacienteAsync(
+        int pacienteId, string? instrumentoCodigo = null, CancellationToken ct = default);
+
+    Task RemoverAvaliacaoAsync(int avaliacaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Pacientes que este profissional atende, do que veio por último para o mais antigo.
+    ///
+    /// A contagem e a última visita saem do SQL (agrupamento), não de materializar os
+    /// agendamentos: um profissional com dois anos de casa tem milhares deles, e a tela
+    /// mostra uma linha por paciente.
+    /// </summary>
+    Task<IReadOnlyList<Modelos.PacienteDoProfissional>> PacientesDoProfissionalAsync(
+        int profissionalId, int limite = 200, CancellationToken ct = default);
+
     // ---- Consentimento LGPD ----
 
     /// <summary>Todos os registros de consentimento do paciente, do mais recente ao mais antigo.</summary>
@@ -750,10 +779,21 @@ public interface IClinicaRepositorio
     /// <summary>
     /// Evoluções registradas no período, com o profissional carregado. É o que dá ao BI
     /// a produtividade CLÍNICA (quantas sessões foram documentadas, e quanto a dor caiu)
-    /// além da produtividade de agenda.
+    /// além da produtividade de agenda — e, desde a parcela 36, o que responde ao
+    /// consultório "o que eu atendi e ainda não escrevi".
+    ///
+    /// <paramref name="profissionalId"/> vem DEPOIS do <c>ct</c> (o mesmo arranjo de
+    /// <c>AgendaService.AgendarAsync</c>) para os chamadores antigos não mudarem. Ele
+    /// existe aqui, e não numa sobrecarga nova, porque duas consultas respondendo à mesma
+    /// pergunta divergem no dia em que alguém corrigir só uma delas — e a que ficou para
+    /// trás continua compilando.
+    ///
+    /// Evolução SEM profissional entra quando se filtra por um: ela é a sessão escrita
+    /// antes de a clínica cadastrar a equipe, e escondê-la faria o consultório cobrar de
+    /// novo um registro que já existe.
     /// </summary>
     Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
-        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default, int? profissionalId = null);
 
     /// <summary>
     /// Quando cada paciente veio pela última vez e se já tem horário futuro — por

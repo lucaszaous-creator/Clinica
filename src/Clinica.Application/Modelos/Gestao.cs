@@ -69,6 +69,24 @@ public sealed record ProdutividadeProfissional(
 
     /// <summary>Horas ocupadas, para a tela não fazer a conta.</summary>
     public double HorasOcupadas => Math.Round(MinutosOcupados / 60.0, 1);
+
+    /// <summary>
+    /// Quanto do que foi atendido está DOCUMENTADO (parcela 36): evoluções escritas sobre
+    /// sessões atendidas.
+    ///
+    /// Os dois números já estavam neste registro desde a parcela 5 e ninguém os dividia —
+    /// o BI mostrava "18 atendidos" e "11 evoluções" em colunas separadas, e a leitura que
+    /// importa é a razão entre eles. É o indicador de qualidade clínica que faltava ao
+    /// lado dos de agenda.
+    ///
+    /// <c>null</c> sem sessão atendida, nunca 0%: profissional que não atendeu no período
+    /// não documentou coisa nenhuma, e 0% o acusaria de negligência por ter tirado férias.
+    /// Pode passar de 100% — evolução escrita para sessão de outro período entra na
+    /// contagem —, e o teto artificial esconderia justamente o registro atrasado sendo
+    /// posto em dia.
+    /// </summary>
+    public double? CompletudeProntuario
+        => Atendidos == 0 ? null : Math.Round(Evolucoes * 100.0 / Atendidos, 1);
 }
 
 /// <summary>Um mês da série gerencial (evolução de ocupação e no-show).</summary>
