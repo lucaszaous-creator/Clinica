@@ -20,6 +20,22 @@ public sealed class InstrumentoOswestry : IInstrumentoAvaliacao
 {
     public const string CodigoInstrumento = "ODI";
 
+    /// <summary>
+    /// Código da NEUROCIRURGIA no catálogo de especialidades.
+    ///
+    /// Ela não é valor do enum <see cref="Especialidade"/>, e isso é decisão, não
+    /// esquecimento: o enum é lido pelo app de faturamento CONGELADO — que garante as
+    /// embutidas no catálogo na abertura e as oferece no lançamento do atendimento —, e
+    /// acrescentar um valor ali faria uma opção nova aparecer na tela de um app em
+    /// produção sem ninguém ter pedido.
+    ///
+    /// Como código do catálogo, a especialidade só existe quando a clínica a cadastra em
+    /// Configurações. Até lá o Oswestry continua sendo oferecido à acupuntura e à clínica
+    /// da dor, que são embutidas; assim que ela for cadastrada, passa a valer aqui também,
+    /// sem recompilar nada.
+    /// </summary>
+    public const string CodigoNeurocirurgia = "Neurocirurgia";
+
     public string Codigo => CodigoInstrumento;
     public string Nome => "Oswestry (ODI) — incapacidade por dor lombar";
     public string Descricao => "Nove seções sobre o dia a dia; resultado em % de incapacidade.";
@@ -34,7 +50,7 @@ public sealed class InstrumentoOswestry : IInstrumentoAvaliacao
 
     public IReadOnlyList<string> Especialidades { get; } =
     [
-        nameof(Especialidade.Neurocirurgia),
+        CodigoNeurocirurgia,
         nameof(Especialidade.Acupuntura),
         nameof(Especialidade.ClinicaDaDor)
     ];

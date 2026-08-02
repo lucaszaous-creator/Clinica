@@ -1224,7 +1224,7 @@ que fica para depois.**
 | Escalas por especialidade: PHQ-9, GAD-7, Oswestry, Katz, FINDRISC | ✅ | `Domain/Avaliacoes/`, `AvaliacaoClinicaService` |
 | Curva do escore de um instrumento, com o sinal da melhora resolvido | ✅ | `AvaliacaoClinicaService.EvolucaoDoEscoreAsync` |
 | Carteira do profissional, com a leitura da dor de cada paciente | ✅ | `ConsultorioService.MeusPacientesAsync` |
-| Especialidade **Neurocirurgia** | ✅ | `Especialidade.Neurocirurgia` (sem migration: o enum é texto) |
+| Especialidade **Neurocirurgia** | ✅ | Código do catálogo (`InstrumentoOswestry.CodigoNeurocirurgia`) — **fora do enum**, para não aparecer no seletor do app congelado |
 | Quinto executável, instalável e com auto-update no canal `clinico` | ✅ | `src/Clinica.Clinico` |
 
 **As duas curvas do painel de dor não são enfeite.** A curva ANTES mede o TRATAMENTO; a
@@ -1259,6 +1259,15 @@ Se o atendimento parasse de gravá-lo, nenhum teste de unidade falharia — o Co
 cobraria para sempre um registro já escrito e a direção veria prontuário em aberto numa
 clínica que documenta tudo. Por isso o circuito é testado de ponta a ponta
 (`CircuitoCompletoTests`, circuito 5), como os quatro da parcela 27.
+
+**Nada disso toca o faturamento.** A parcela foi auditada arquivo a arquivo contra o app
+congelado, e a auditoria achou uma coisa: `Especialidade.Neurocirurgia`, acrescentada ao
+enum, apareceria sozinha no seletor de especialidade do lançamento de atendimento — porque
+o `App.xaml.cs` dele carrega o catálogo na abertura e o catálogo garante as embutidas por
+`Enum.GetValues`. Ninguém tinha tocado num arquivo de `Clinica.Desktop`; a tela mudaria
+assim mesmo. A especialidade virou código de catálogo, e duas travas nasceram daí:
+`FaturamentoCongeladoTests` (fixa os enums que ele consome) e a **checagem 18** do
+`verificar-suite.py` (reprova migration destrutiva).
 
 **O que ficou de fora, e por quê.** O `PrevencaoGlosaService` seria o lugar natural do
 aviso "guia sem prontuário" — e ele é chamado **só pelo app congelado**. Acrescentar o

@@ -50,7 +50,7 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 |---|---|---|
 | `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 988 testes | nada das telas |
 | `tools/compilar-sombra.py` | **o C# dos 9 projetos WPF** (nome, tipo, aridade, atributo) | XAML |
-| `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução | semântica de C# |
+| `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução, **migration destrutiva** | semântica de C# |
 
 Se o SDK não estiver instalado: `apt-get update && apt-get install -y dotnet-sdk-8.0` (o instalador
 da Microsoft está bloqueado pelo proxy; o repositório do Ubuntu não). O CI
@@ -101,7 +101,18 @@ Camadas clássicas, todas em `src/`:
 
 ⚠️ **O FATURAMENTO (`Clinica.Desktop`) ESTÁ CONGELADO.** Ele fatura a clínica hoje e não se encosta
 nele: nada de editar telas, ViewModels ou fluxos dele, e nada de migration que renomeie ou remova o
-que ele usa (**só aditiva**). Criar entidade/serviço novo nas camadas compartilhadas é permitido;
+que ele usa (**só aditiva**, agora conferida pela checagem 18 do `verificar-suite.py`).
+
+**Não editar os arquivos dele é a parte fácil da regra.** A difícil é que ele LÊ as camadas
+compartilhadas, e mudança inocente lá chega à tela dele sem ninguém abrir uma pasta sua. Os três
+caminhos que já morderam: (a) **valor novo num enum embutido** — `Especialidade`,
+`ModalidadeAtendimento`, `Convenio`, `TipoCodigo` — vira opção nova no seletor do lançamento, porque
+os catálogos garantem as embutidas por `Enum.GetValues`; (b) **alerta novo num serviço que ele
+chama** (`PrevencaoGlosaService` é dele e só dele — ver parcela 36); (c) **migration destrutiva**.
+`FaturamentoCongeladoTests` fixa a superfície (a); a checagem 18 pega (c); (b) é julgamento, e a
+pergunta é sempre **"isso vai aparecer na tela de quem fatura amanhã de manhã?"**.
+
+Criar entidade/serviço novo nas camadas compartilhadas é permitido;
 feature nova vai para Recepção, Financeiro ou Gerente. Por isso a **Fase 4 foi cancelada**. O que
 cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.md` e
 `docs/entrega-ao-cliente.md`.
@@ -514,8 +525,13 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   O **Katz inverte** (`MelhorQuandoMenor = false`): 6 é o melhor resultado possível, e sem
   isso a curva chamaria a recuperação funcional de piora. **O sistema pontua e registra; ele
   não diagnostica** — a faixa é a leitura publicada da escala, e a tela diz isso o tempo
-  todo. **Neurocirurgia** entrou no enum `Especialidade` sem migration: ele é gravado como
-  texto, e a rotação da Petrobras lista as especialidades que usa uma a uma.
+  todo. **Neurocirurgia NÃO entrou no enum `Especialidade`** — ela é um código do
+  CATÁLOGO (`InstrumentoOswestry.CodigoNeurocirurgia`), e a diferença não é estilo: o
+  enum é lido pelo faturamento CONGELADO, que na abertura chama
+  `EspecialidadeCatalogoService.RecarregarCacheAsync` e garante as embutidas percorrendo
+  `Enum.GetValues`. Um valor a mais ali viraria, sozinho, uma opção nova no seletor do
+  lançamento de atendimento de um app em produção. A clínica cadastra a especialidade em
+  Configurações quando quiser; até lá o Oswestry serve à acupuntura e à clínica da dor.
 - **Como os módulos se falam** (parcela 27): eles compartilham o BANCO, não
   mensagens — não há fila, evento nem sincronização; o que um grava o outro lê, e a
   ligação é sempre uma CHAVE ESTRANGEIRA. O circuito completo:

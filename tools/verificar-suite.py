@@ -1002,6 +1002,63 @@ for arq, raiz_m in arvores_com_congelado.items():
                 f"se ela também não couber)")
 
 
+# --------------------------------------------------------------- checagem 18
+# MIGRATION SÓ ADITIVA — a regra que protege o app CONGELADO.
+#
+# O faturamento está em produção e aplica migrations na abertura. Enquanto houver versões
+# diferentes instaladas na clínica, a regra do projeto (docs/arquitetura-multi-exe.md) é
+# que migration nova só ACRESCENTA: coluna nova o EF ignora sem problema; renomear ou
+# remover algo que o faturamento usa derruba a clínica no dia seguinte, e o erro aparece
+# na máquina de quem fatura, não na de quem programou.
+#
+# A regra existia só em prosa. Aqui ela passa a ser conferida.
+#
+# Só vale das migrations NOVAS para a frente: o histórico antigo tem alterações legítimas,
+# feitas antes de o app estar em campo, e acusá-las encheria a saída de ruído que ninguém
+# vai corrigir — o que ensina todo mundo a ignorar o verificador.
+MIGRATIONS = RAIZ / "src" / "Clinica.Infrastructure" / "Migrations"
+
+# Última migration anterior à parcela 36. Daqui para cima, tudo tem de ser aditivo.
+# Mover esta âncora para frente é decisão consciente, e pede uma release do faturamento.
+ANCORA_ADITIVA = "20260801010000"
+
+# Operações que mexem no que JÁ EXISTE. `AddColumn`, `CreateTable` e `CreateIndex` ficam
+# de fora de propósito: são exatamente o que a regra permite.
+DESTRUTIVAS = (
+    "DropColumn", "DropTable", "DropForeignKey", "DropIndex", "DropPrimaryKey",
+    "RenameColumn", "RenameTable", "RenameIndex", "AlterColumn", "AlterTable",
+)
+
+
+def _corpo_do_up(texto: str) -> str:
+    """Só o Up(): o Down() desfaz, e desfazer é destrutivo por definição."""
+    i = texto.find("void Up(MigrationBuilder")
+    if i < 0:
+        return ""
+    j = texto.find("void Down(MigrationBuilder", i)
+    return texto[i:] if j < 0 else texto[i:j]
+
+
+if MIGRATIONS.is_dir():
+    for arq in sorted(MIGRATIONS.glob("*.cs")):
+        if arq.name.endswith(".Designer.cs") or "Snapshot" in arq.name:
+            continue
+
+        carimbo = arq.name.split("_", 1)[0]
+        if not carimbo.isdigit() or carimbo <= ANCORA_ADITIVA:
+            continue
+
+        corpo = _corpo_do_up(arq.read_text(encoding="utf-8"))
+        achadas = sorted({d for d in DESTRUTIVAS if f".{d}(" in corpo})
+
+        if achadas:
+            erros.append(
+                f"{rel(arq)}: migration NÃO aditiva ({', '.join(achadas)}) — o faturamento "
+                f"está em produção e aplica migrations na abertura. Enquanto houver versões "
+                f"diferentes em campo, migration nova só acrescenta. Ver "
+                f"docs/arquitetura-multi-exe.md.")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

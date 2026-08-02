@@ -41,7 +41,7 @@ public class InstrumentosAvaliacaoTests
     [InlineData(nameof(Especialidade.Psiquiatria), "GAD7")]
     [InlineData(nameof(Especialidade.Geriatria), "KATZ")]
     [InlineData(nameof(Especialidade.Endocrinologia), "FINDRISC")]
-    [InlineData(nameof(Especialidade.Neurocirurgia), "ODI")]
+    [InlineData(InstrumentoOswestry.CodigoNeurocirurgia, "ODI")]
     [InlineData(nameof(Especialidade.Acupuntura), "ODI")]
     public void Cada_especialidade_da_clinica_recebe_o_instrumento_dela(string especialidade, string codigo)
         => RegistroInstrumentos.DaEspecialidade(especialidade)

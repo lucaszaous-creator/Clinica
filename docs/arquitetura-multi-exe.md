@@ -52,7 +52,10 @@ Com quatro executáveis instalados isso cria dois problemas:
 2. **Versões diferentes convivendo** — o Recepção v2 aplica uma migration que o
    Faturamento v1 instalado desconhece. Coluna nova o EF ignora sem problema;
    **renomear ou remover** algo que o faturamento usa derruba a clínica.
-   *Regra:* enquanto houver versões diferentes em campo, **migration só aditiva**.
+   *Regra:* enquanto houver versões diferentes em campo, **migration só aditiva** — e
+   desde a parcela 36 isso não é mais só combinado: a **checagem 18** do
+   `verificar-suite.py` reprova `DropColumn`, `RenameColumn`, `AlterColumn` e afins no
+   `Up()` de qualquer migration posterior à âncora declarada no script.
 
 ## Arquitetura alvo: o exe vira uma casca fina
 

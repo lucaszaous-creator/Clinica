@@ -522,15 +522,46 @@ public class ConsultorioTests : IDisposable
     }
 
     [Fact]
-    public async Task Neurocirurgia_existe_no_catalogo_de_especialidades()
+    public async Task Neurocirurgia_NAO_entra_no_catalogo_embutido()
     {
-        // Especialidade nova da parcela 36. É gravada como TEXTO, então não precisou de
-        // migration — mas precisa aparecer no catálogo, que é de onde as telas a leem.
+        // TRAVA CONTRA REGRESSÃO NO APP CONGELADO.
+        //
+        // A primeira versão da parcela 36 acrescentou Neurocirurgia ao enum
+        // `Especialidade`, e isso vazava para o faturamento em produção: ele chama
+        // `RecarregarCacheAsync()` na abertura, e `ListarAsync` GARANTE as embutidas
+        // percorrendo `Enum.GetValues<Especialidade>()` — a especialidade nova apareceria
+        // sozinha no seletor do lançamento de atendimento.
+        //
+        // Base vazia tem de devolver EXATAMENTE as seis de sempre. Se este teste falhar
+        // com "sete", alguém pôs um valor no enum e mudou uma tela que fatura a clínica.
         var catalogo = new EspecialidadeCatalogoService(_repo);
 
-        var todas = await catalogo.ListarAsync();
+        var embutidas = await catalogo.ListarAsync();
 
-        todas.Should().Contain(e => e.Codigo == nameof(Especialidade.Neurocirurgia));
+        embutidas.Should().HaveCount(6);
+        embutidas.Should().NotContain(e => e.Codigo == InstrumentoOswestry.CodigoNeurocirurgia,
+            "especialidade nova entra pelo CATÁLOGO, quando a clínica a cadastrar");
+    }
+
+    [Fact]
+    public async Task Neurocirurgia_cadastrada_pela_clinica_passa_a_receber_o_oswestry()
+    {
+        // O outro lado da mesma decisão: o caminho existe e funciona — só depende de a
+        // clínica cadastrar a especialidade, que é uma escolha dela e não do código.
+        var catalogo = new EspecialidadeCatalogoService(_repo);
+
+        await catalogo.SalvarAsync([new EspecialidadeCadastro
+        {
+            Codigo = InstrumentoOswestry.CodigoNeurocirurgia,
+            Nome = "Neurocirurgia",
+            Ativo = true
+        }]);
+
+        (await catalogo.ListarAsync()).Should()
+            .Contain(e => e.Codigo == InstrumentoOswestry.CodigoNeurocirurgia);
+
+        AvaliacaoClinicaService.Disponiveis(InstrumentoOswestry.CodigoNeurocirurgia)
+            .Should().Contain(i => i.Codigo == InstrumentoOswestry.CodigoInstrumento);
     }
 
     public void Dispose()
