@@ -58,7 +58,7 @@ public sealed class ConsultorioService
         if (profissionalId is { } id)
             agendamentos = agendamentos.Where(a => a.ProfissionalId == id).ToList();
 
-        var evolucoes = await _repo.EvolucoesNoPeriodoAsync(dia, dia, profissionalId, ct);
+        var evolucoes = await _repo.EvolucoesNoPeriodoAsync(dia, dia, ct, profissionalId);
 
         var sessoes = agendamentos
             .OrderBy(a => a.DataHora)
@@ -94,7 +94,7 @@ public sealed class ConsultorioService
         if (profissionalId is { } id)
             agendamentos = agendamentos.Where(a => a.ProfissionalId == id).ToList();
 
-        var evolucoes = await _repo.EvolucoesNoPeriodoAsync(inicio, ontem, profissionalId, ct);
+        var evolucoes = await _repo.EvolucoesNoPeriodoAsync(inicio, ontem, ct, profissionalId);
 
         return agendamentos
             .Where(a => a.Status == StatusAgendamento.Realizado)

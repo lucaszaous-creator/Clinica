@@ -115,7 +115,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
             var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
-            var janela = new Janelas.DocumentoWindow(vm)
+            var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
             {
                 Owner = System.Windows.Application.Current?.MainWindow
             };

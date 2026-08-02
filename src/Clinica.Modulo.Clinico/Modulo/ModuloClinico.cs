@@ -23,7 +23,9 @@ namespace Clinica.Clinico.Modulo;
 /// </summary>
 public sealed class ModuloClinico : IModuloApp
 {
-    public const string ChaveMeuDia = "consultorio-meu-dia";
+    // Chave do CONTRATO: o painel da direção navega até aqui, e por isso ela não pode
+    // ser um literal repetido do outro lado, onde renomear compila e só falha na clínica.
+    public const string ChaveMeuDia = ChavesSuite.ConsultorioMeuDia;
     public const string ChaveAtendimento = "consultorio-atendimento";
     public const string ChaveEvolucaoDor = "consultorio-evolucao-dor";
     public const string ChaveAvaliacoes = "consultorio-avaliacoes";

@@ -399,7 +399,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         if (Seletor.Selecionado is not { } paciente || folha.TipoClinico is not { } tipo) return;
 
         var vm = new DocumentoEdicaoViewModel(_escopos, paciente.Id, tipo);
-        var janela = new Janelas.DocumentoWindow(vm)
+        var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };

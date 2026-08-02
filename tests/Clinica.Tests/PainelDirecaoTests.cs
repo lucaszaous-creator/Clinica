@@ -61,7 +61,8 @@ public class PainelDirecaoTests : IDisposable
             new InadimplenciaService(_repo, _financeiro),
             new ReceitaGlosadaService(_repo, _financeiro),
             new MetaService(_repo, _financeiro, new IndicadoresService(_repo, parametros)),
-            new OrcamentoService(_repo, _contas));
+            new OrcamentoService(_repo, _contas),
+            new ConsultorioService(_repo));
     }
 
     private Task EntradaAsync(DateOnly dia, decimal valor,

@@ -426,9 +426,29 @@ Três decisões que valem para quem mexer aqui:
 2. **O paciente é contexto, não parâmetro** (`PacienteEmFoco`, singleton do módulo). No
    balcão cada tela atende uma pessoa diferente em sequência; no consultório o profissional
    escolhe uma vez e passa vinte minutos entre quatro telas sobre a mesma pessoa.
-3. **A tela de atendimento não reaproveita a janela de evolução da Recepção** — nenhum
+3. **O que os dois módulos compartilham subiu para o SHELL, não foi copiado.** O mapa
+   corporal e a emissão de documento clínico nasceram dentro da Recepção; o Consultório
+   precisa dos dois (a acupuntura é a especialidade da casa, e quem prescreve é quem
+   atende) e nenhum módulo conhece os outros. Estão agora em
+   `Clinica.Desktop.Shell/Componentes`, ao lado do `SeletorPacienteViewModel`, que já
+   tinha estabelecido a regra: **componente que mais de um módulo usa mora no shell.**
+4. **A tela de atendimento não reaproveita a janela de evolução da Recepção** — nenhum
    módulo conhece os outros, e os dois usos são de fato diferentes: lá é um diálogo modal
    aberto de vez em quando, aqui é a tela do dia inteiro, com as últimas sessões abertas ao
    lado. O que se reaproveita é o SERVIÇO (`ProntuarioService`), que é onde a arquitetura
    sempre disse que a reutilização mora.
 
+### O circuito do Consultório
+
+O módulo não é uma ilha, e isso precisou de uma segunda rodada — a primeira versão gravava
+avaliação e evolução que **só ele lia**. Os elos, todos por chave estrangeira sobre o mesmo
+banco, como o resto da suíte:
+
+- **Consultório → Gerente**: prontuário em aberto no painel da direção (com a guia já
+  faturada contada à parte) e completude do prontuário por profissional no BI.
+- **Consultório → Recepção**: as escalas entram no relatório de evolução e no prontuário.
+- **Faturamento/Financeiro → Consultório**: os alertas de elegibilidade na tela de
+  atendimento.
+
+O que **não** foi feito: acrescentar "guia sem prontuário" ao `PrevencaoGlosaService`. Ele
+é chamado apenas pelo app congelado, e o alerta mudaria o comportamento dele em produção.

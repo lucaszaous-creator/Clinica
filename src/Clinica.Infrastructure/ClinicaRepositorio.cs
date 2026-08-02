@@ -718,26 +718,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.Evolucoes.Remove(evolucao);
     }
 
-    // O consultório pergunta pelo INTERVALO, não pelo paciente: ele quer saber o que ficou
-    // sem registro no dia, e a consulta por paciente o obrigaria a um SELECT por pessoa da
-    // agenda. O filtro de profissional vai no SQL — a evolução guarda quem atendeu.
-    public async Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
-        DateOnly inicio, DateOnly fim, int? profissionalId = null, CancellationToken ct = default)
-    {
-        var consulta = _db.Evolucoes.AsNoTracking()
-            .Where(e => e.Data >= inicio && e.Data <= fim);
-
-        // Evolução sem profissional entra quando se filtra por um: ela é justamente a
-        // sessão escrita antes de a clínica cadastrar a equipe, e escondê-la faria o
-        // consultório cobrar de novo um registro que já existe.
-        if (profissionalId is { } id)
-            consulta = consulta.Where(e => e.ProfissionalId == id || e.ProfissionalId == null);
-
-        return await consulta
-            .OrderBy(e => e.Data).ThenBy(e => e.Id)
-            .ToListAsync(ct);
-    }
-
     public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default)
         => await _db.AnexosProntuario.AsNoTracking()
@@ -1694,13 +1674,23 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => _db.CategoriasFinanceiras.FirstOrDefaultAsync(c => c.Id == categoriaId, ct);
     // ---- Indicadores gerenciais ----
 
+    // Uma consulta só para o BI e para o consultório. O filtro de profissional vai no
+    // SQL, e a evolução SEM profissional entra junto: ela é a sessão escrita antes de a
+    // clínica cadastrar a equipe.
     public async Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
-        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
-        => await _db.Evolucoes.AsNoTracking()
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default, int? profissionalId = null)
+    {
+        var consulta = _db.Evolucoes.AsNoTracking()
             .Include(e => e.Profissional)
-            .Where(e => e.Data >= inicio && e.Data <= fim)
-            .OrderBy(e => e.Data)
+            .Where(e => e.Data >= inicio && e.Data <= fim);
+
+        if (profissionalId is { } id)
+            consulta = consulta.Where(e => e.ProfissionalId == id || e.ProfissionalId == null);
+
+        return await consulta
+            .OrderBy(e => e.Data).ThenBy(e => e.Id)
             .ToListAsync(ct);
+    }
 
     public async Task<IReadOnlyList<Clinica.Application.Modelos.InatividadePaciente>> InatividadeAsync(
         DateOnly referencia, CancellationToken ct = default)

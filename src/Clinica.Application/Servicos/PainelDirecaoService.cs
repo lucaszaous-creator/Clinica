@@ -45,7 +45,15 @@ public enum AssuntoDirecao
 
     PendenciasVencidas,
     GlosasVencidas,
-    GlosasAVencer
+    GlosasAVencer,
+
+    /// <summary>
+    /// Sessões atendidas que continuam sem evolução escrita (parcela 36). É o primeiro
+    /// alerta do painel que não é sobre dinheiro — e o único cuja conta a clínica não
+    /// paga em reais: prontuário incompleto é risco legal e, quando a guia já foi
+    /// faturada, é a glosa por falta de documentação esperando o convênio pedir o laudo.
+    /// </summary>
+    ProntuarioEmAberto
 }
 
 /// <summary>Uma coisa que a direção precisa resolver, já escrita como se fala.</summary>
@@ -84,6 +92,20 @@ public sealed record PainelDirecao(
     /// definiu alvo, e aí o painel volta a mostrar só a variação contra o mês anterior.
     /// </summary>
     IReadOnlyList<MetaApurada> Metas,
+
+    /// <summary>
+    /// Sessões atendidas nos últimos dias, da clínica inteira, ainda sem evolução escrita
+    /// (parcela 36). Vem do <c>ConsultorioService</c>, dono da leitura — o painel não
+    /// recalcula.
+    /// </summary>
+    int SessoesSemEvolucao,
+
+    /// <summary>
+    /// Dessas, quantas já geraram guia. É o subconjunto que tem exposição de
+    /// faturamento: a sessão sem guia é só prontuário incompleto; com guia, é uma
+    /// cobrança sem o registro que a sustenta.
+    /// </summary>
+    int SessoesSemEvolucaoComGuia,
 
     int PendenciasVencidas,
     int PendenciasEmAberto,
@@ -163,6 +185,7 @@ public sealed class PainelDirecaoService
     private readonly InadimplenciaService _inadimplencia;
     private readonly ReceitaGlosadaService _receitaGlosada;
     private readonly MetaService _metas;
+    private readonly ConsultorioService _consultorio;
     private readonly OrcamentoService _orcamentos;
 
     public PainelDirecaoService(
@@ -176,10 +199,12 @@ public sealed class PainelDirecaoService
         InadimplenciaService inadimplencia,
         ReceitaGlosadaService receitaGlosada,
         MetaService metas,
-        OrcamentoService orcamentos)
+        OrcamentoService orcamentos,
+        ConsultorioService consultorio)
     {
         _receitaGlosada = receitaGlosada;
         _metas = metas;
+        _consultorio = consultorio;
         _orcamentos = orcamentos;
         _repo = repo;
         _financeiro = financeiro;
@@ -450,6 +475,46 @@ public sealed class PainelDirecaoService
             naoVerificados.Add("Pendências de faturamento");
         }
 
+        // ---- Prontuário em aberto (parcela 36) ----
+        //
+        // A direção é a única que enxerga a clínica INTEIRA: o profissional vê as
+        // próprias sessões no Consultório, e ninguém via a soma. O número vem do
+        // ConsultorioService, dono da leitura — recontar aqui daria um segundo número
+        // sobre a mesma sessão, e a divergência apareceria como defeito.
+        int sessoesSemEvolucao = 0, sessoesSemEvolucaoComGuia = 0;
+        try
+        {
+            // profissionalId nulo = a clínica inteira. É o mesmo método que o Consultório
+            // usa para o dono da agenda.
+            var emAberto = await _consultorio.RegistrosPendentesAsync(hoje, null, ct);
+            sessoesSemEvolucao = emAberto.Count;
+            sessoesSemEvolucaoComGuia = emAberto.Count(r => r.AtendimentoId is not null);
+
+            if (sessoesSemEvolucao > 0)
+            {
+                // Com guia faturada o assunto muda: a sessão sem evolução é prontuário
+                // incompleto; a guia sem evolução é uma cobrança sem o registro que a
+                // sustenta — e é ela que o convênio pede quando audita.
+                var comGuia = sessoesSemEvolucaoComGuia > 0;
+
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.ProntuarioEmAberto,
+                    $"{sessoesSemEvolucao} sessão(ões) atendida(s) sem evolução escrita",
+                    comGuia
+                        ? $"{sessoesSemEvolucaoComGuia} delas já viraram guia: cobrança sem o "
+                          + "registro clínico que a sustenta é a glosa por documentação, e o "
+                          + "prazo de recurso corre a partir da recusa."
+                        : "Prontuário escrito dias depois é escrito de memória — e memória "
+                          + "de sessão não é registro clínico.",
+                    comGuia ? GravidadeDirecao.Perigo : GravidadeDirecao.Aviso));
+            }
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — prontuário em aberto não pôde ser lido", ex);
+            naoVerificados.Add("Prontuário em aberto");
+        }
+
         // ---- Glosa e o prazo de recurso ----
         int glosasVencidas = 0, glosasAVencer = 0;
         try
@@ -492,6 +557,7 @@ public sealed class PainelDirecaoService
             guiasSemReceita,
             guiasGlosadas, valorGlosado,
             metas,
+            sessoesSemEvolucao, sessoesSemEvolucaoComGuia,
             pendenciasVencidas, pendenciasAbertas,
             glosasVencidas, glosasAVencer,
             // Perigo primeiro. O painel é lido de cima para baixo, e a ordem é a única

@@ -272,17 +272,6 @@ public interface IClinicaRepositorio
 
     Task RemoverEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
 
-    /// <summary>
-    /// Evoluções escritas num intervalo de dias, opcionalmente de um profissional só
-    /// (parcela 36).
-    ///
-    /// É o que responde "o que eu atendi e ainda não escrevi": a consulta por PACIENTE,
-    /// que já existia, obrigaria o consultório a percorrer paciente por paciente do dia
-    /// para descobrir quais sessões ficaram sem registro.
-    /// </summary>
-    Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
-        DateOnly inicio, DateOnly fim, int? profissionalId = null, CancellationToken ct = default);
-
     /// <summary>Anexos de uma evolução, por projeção — sem os bytes (corte no SQL).</summary>
     Task<IReadOnlyList<Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default);
@@ -790,10 +779,21 @@ public interface IClinicaRepositorio
     /// <summary>
     /// Evoluções registradas no período, com o profissional carregado. É o que dá ao BI
     /// a produtividade CLÍNICA (quantas sessões foram documentadas, e quanto a dor caiu)
-    /// além da produtividade de agenda.
+    /// além da produtividade de agenda — e, desde a parcela 36, o que responde ao
+    /// consultório "o que eu atendi e ainda não escrevi".
+    ///
+    /// <paramref name="profissionalId"/> vem DEPOIS do <c>ct</c> (o mesmo arranjo de
+    /// <c>AgendaService.AgendarAsync</c>) para os chamadores antigos não mudarem. Ele
+    /// existe aqui, e não numa sobrecarga nova, porque duas consultas respondendo à mesma
+    /// pergunta divergem no dia em que alguém corrigir só uma delas — e a que ficou para
+    /// trás continua compilando.
+    ///
+    /// Evolução SEM profissional entra quando se filtra por um: ela é a sessão escrita
+    /// antes de a clínica cadastrar a equipe, e escondê-la faria o consultório cobrar de
+    /// novo um registro que já existe.
     /// </summary>
     Task<IReadOnlyList<Evolucao>> EvolucoesNoPeriodoAsync(
-        DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default, int? profissionalId = null);
 
     /// <summary>
     /// Quando cada paciente veio pela última vez e se já tem horário futuro — por

@@ -44,4 +44,11 @@ public static class ChavesSuite
 
     /// <summary>Faturamento (TISS) consolidado (Direção) — pendências e glosas.</summary>
     public const string FaturamentoTiss = "faturamento-gerencial";
+
+    /// <summary>
+    /// O dia de quem atende (Consultório). É destino do painel da direção desde a
+    /// parcela 36: o alerta de prontuário em aberto precisa LEVAR à tela onde as sessões
+    /// sem evolução estão listadas — e essa tela mora noutro módulo.
+    /// </summary>
+    public const string ConsultorioMeuDia = "consultorio-meu-dia";
 }

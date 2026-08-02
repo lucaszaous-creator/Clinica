@@ -1239,6 +1239,32 @@ verdade e não compara consulta com consulta, não desenha curva e não vai para
 O que o sistema faz com elas é **pontuar e registrar**: a faixa é a leitura publicada da
 escala, e a interpretação é de quem assina o prontuário — a tela diz isso o tempo todo.
 
+### O Consultório dentro do circuito
+
+A primeira versão do módulo tinha um defeito estrutural: gravava avaliação e evolução, e
+**só ele as lia**. É a sexta ocorrência do padrão que este documento já registrou cinco
+vezes — e a mais constrangedora, porque cometida logo depois de descrevê-lo. O que fecha
+o circuito:
+
+| Sentido | O que passa | Onde |
+|---|---|---|
+| Consultório → Gerente | Sessões atendidas sem evolução escrita, com a guia faturada contada à parte | `PainelDirecaoService` (`AssuntoDirecao.ProntuarioEmAberto`) |
+| Consultório → Gerente | Completude do prontuário por profissional | `ProdutividadeProfissional.CompletudeProntuario`, na tela e no CSV |
+| Consultório → Recepção | Escalas aplicadas no relatório de evolução e no prontuário | `DocumentoClinicoService.EmitirRelatorioEvolucaoAsync`, `ProntuarioViewModel` |
+| Faturamento/Financeiro → Consultório | Carteirinha, cota, conta vencida e guia glosada na tela de atendimento | `ElegibilidadeService` |
+| Recepção ↔ Consultório | Mapa corporal e emissão de documento, um componente só | `Clinica.Desktop.Shell/Componentes` |
+
+O elo do primeiro é uma **chave estrangeira**, não uma chamada: `Evolucao.AgendamentoId`.
+Se o atendimento parasse de gravá-lo, nenhum teste de unidade falharia — o Consultório
+cobraria para sempre um registro já escrito e a direção veria prontuário em aberto numa
+clínica que documenta tudo. Por isso o circuito é testado de ponta a ponta
+(`CircuitoCompletoTests`, circuito 5), como os quatro da parcela 27.
+
+**O que ficou de fora, e por quê.** O `PrevencaoGlosaService` seria o lugar natural do
+aviso "guia sem prontuário" — e ele é chamado **só pelo app congelado**. Acrescentar o
+alerta ali mudaria o comportamento do faturamento em produção e dispararia para toda guia
+numa clínica que ainda não documenta. A leitura foi para a direção, onde é nova.
+
 > **O que NÃO entrou de propósito.** Antropometria e sinais vitais (peso, IMC,
 > circunferência, pressão, glicemia) seriam uma entidade nova, com tela e histórico
 > próprios — valem uma parcela, não uma nota de rodapé desta. O FINDRISC pergunta IMC e

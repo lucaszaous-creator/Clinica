@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Controls;
@@ -11,6 +12,19 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Clinico.ViewModels;
+
+/// <summary>
+/// Um alerta administrativo sobre o paciente que está na sala, com a urgência que veio do
+/// <c>ElegibilidadeService</c> — nunca uma recalculada pela tela, que não tem como saber
+/// se "cota esgotada" pesa mais do que "conta vencida".
+/// </summary>
+public sealed class LinhaAlertaClinico
+{
+    public required string Texto { get; init; }
+
+    /// <summary>Vermelho na origem: atender assim provavelmente vira glosa.</summary>
+    public required bool Grave { get; init; }
+}
 
 /// <summary>Uma sessão anterior, do jeito que o consultório precisa relê-la: inteira.</summary>
 public sealed class LinhaSessaoAnterior
@@ -63,7 +77,34 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
     public SeletorPacienteViewModel Seletor { get; }
 
+    /// <summary>
+    /// O mapa corporal da sessão — o mesmo componente do shell que a Recepção usa
+    /// (parcela 36). É a ferramenta central da acupuntura, que é a especialidade da casa:
+    /// um app para quem atende sem onde marcar o ponto seria um app para outra clínica.
+    ///
+    /// É RECRIADO a cada carga porque ele nasce amarrado a um paciente e a uma evolução —
+    /// reaproveitar a instância entre pacientes traria os pontos de um para a sessão do
+    /// outro, que é o pior defeito possível num prontuário.
+    /// </summary>
+    [ObservableProperty] private MapaCorporalViewModel? _mapa;
+
     public ObservableCollection<LinhaSessaoAnterior> Anteriores { get; } = [];
+
+    /// <summary>
+    /// O que os OUTROS módulos sabem sobre este paciente e que importa com ele na sala
+    /// (parcela 36): carteirinha vencida e cota estourada vêm do Faturamento, conta
+    /// vencida vem do Financeiro, guia glosada vem do Faturamento.
+    ///
+    /// É o sentido de VOLTA do compartilhamento. O `ElegibilidadeService` foi construído
+    /// para o balcão — o único lugar onde o paciente está de corpo presente —, e o
+    /// consultório é o segundo: quem está com ele por vinte minutos pode dizer "passe na
+    /// recepção ao sair, sua autorização acabou", e é a coisa mais barata que a clínica
+    /// faz para não glosar a sessão seguinte.
+    ///
+    /// É AVISO, nunca impedimento: a sessão clínica não se recusa por pendência
+    /// administrativa.
+    /// </summary>
+    public ObservableCollection<LinhaAlertaClinico> Alertas { get; } = [];
 
     /// <summary>Evolução em edição. 0 = sessão nova.</summary>
     [ObservableProperty] private int _evolucaoId;
@@ -172,6 +213,16 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             foreach (var e in sessoes.Where(e => e.Id != EvolucaoId).Take(SessoesAnterioresVisiveis))
                 Anteriores.Add(LinhaSessaoAnterior.De(e));
 
+            await CarregarAlertasAsync(scope.ServiceProvider);
+
+            // O mapa vem depois de resolvida a evolução do horário: ele precisa saber
+            // se está editando uma sessão já escrita (e então carrega os pontos dela) ou
+            // começando uma nova.
+            var mapa = new MapaCorporalViewModel(
+                _escopos, PacienteId, EvolucaoId == 0 ? null : EvolucaoId);
+            await mapa.CarregarAsync();
+            Mapa = mapa;
+
             var dor = await prontuario.EvolucaoDaDorAsync(PacienteId);
             ResumoDor = dor.SessoesComMedida == 0
                 ? "Nenhuma sessão com o par EVA (antes e depois) ainda."
@@ -189,6 +240,49 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         finally
         {
             Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// Os alertas do paciente. Falham SOZINHOS: o atendimento não pode deixar de abrir
+    /// porque a leitura administrativa quebrou — quem está na sala é o paciente, e a
+    /// sessão acontece de qualquer forma.
+    /// </summary>
+    private async Task CarregarAlertasAsync(IServiceProvider servicos)
+    {
+        Alertas.Clear();
+
+        try
+        {
+            var elegibilidade = servicos.GetRequiredService<ElegibilidadeService>();
+            var resposta = await elegibilidade.ConferirAsync(
+                PacienteId, DateOnly.FromDateTime(Data));
+
+            // A urgência viaja COM cada alerta, e não num sinalizador da tela inteira:
+            // carteirinha vencida (vermelho) e dívida do paciente (amarelo) chegam juntas
+            // com frequência, e pintar as duas da cor da pior faria a segunda parecer
+            // impedimento — que é justamente o que a parcela 27 decidiu que ela não é.
+            foreach (var a in resposta.Alertas)
+                Alertas.Add(new LinhaAlertaClinico
+                {
+                    Texto = a.Descricao,
+                    Grave = a.Urgencia == NivelUrgencia.Vermelho
+                });
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — alertas do paciente não puderam ser lidos", ex);
+
+            // Terceiro estado: a lista vazia por falha não pode se parecer com "nada a
+            // avisar". A frase entra na própria lista, que é onde o profissional olha.
+            Alertas.Add(new LinhaAlertaClinico
+            {
+                Texto = "Não foi possível conferir carteirinha, cota e pendências deste "
+                        + "paciente — a lista está vazia por falha de leitura, não porque "
+                        + "não haja nada.",
+                Grave = false
+            });
         }
     }
 
@@ -275,6 +369,13 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             }, SessaoUsuario.Atual.Operador);
 
             EvolucaoId = salva.Id;
+
+            // O mapa é 1:1 com a evolução e só se grava DEPOIS dela: ele precisa do id da
+            // sessão, e antes de a sessão existir não há a que pertencer. Os pontos
+            // trazidos por "repetir" ou por protocolo viram prontuário só aqui — até este
+            // ponto eram tela, e prontuário não é rascunho.
+            if (Mapa is not null) await Mapa.SalvarAsync(salva.Id);
+
             _snackbar.Sucesso("Sessão registrada no prontuário.");
 
             // O aviso do par incompleto vem DEPOIS de gravar, e não impede: o "depois" é
@@ -291,6 +392,46 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Consultório — sessão não pôde ser salva", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Emite receita, atestado, declaração de comparecimento ou pedido de exame para o
+    /// paciente que está na sala.
+    ///
+    /// Abre a MESMA janela da Recepção — promovida ao shell na parcela 36, pelo mesmo
+    /// motivo do mapa corporal. Quem prescreve é quem atende, e um app de consultório
+    /// que não emite receita obriga o médico a pedir à recepcionista que digite o que
+    /// ele acabou de decidir. O serviço por trás (<c>DocumentoClinicoService</c>) já
+    /// exige o profissional que assina em receita, atestado e pedido de exame — é a única
+    /// regra do projeto que IMPEDE em vez de avisar, e ela continua valendo daqui.
+    /// </summary>
+    [RelayCommand]
+    private async Task EmitirDocumentoAsync()
+    {
+        if (PacienteId == 0) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "emitir documento clínico");
+
+            var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
+            var janela = new DocumentoWindow(vm)
+            {
+                Owner = System.Windows.Application.Current?.MainWindow
+            };
+
+            if (janela.ShowDialog() != true) return;
+
+            _snackbar.Sucesso("Documento emitido e numerado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — documento não pôde ser emitido", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

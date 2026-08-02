@@ -232,6 +232,10 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
         AssuntoDirecao.MetaEmRisco => (Modulo.ModuloGerente.ChaveMetas, "Ver metas"),
         // Chave do Financeiro: atravessa modulo, entao vem de ChavesSuite.
         AssuntoDirecao.OrcamentoEstourado => (ChavesSuite.Resultado, "Ver tetos"),
+        // O prontuário em aberto se resolve no Consultório, que é onde as sessões sem
+        // evolução estão listadas uma a uma. No Gerente o módulo está carregado; num
+        // executável que não o carregue o botão nasce desabilitado sozinho.
+        AssuntoDirecao.ProntuarioEmAberto => (ChavesSuite.ConsultorioMeuDia, "Ver sessões"),
         _ => (ChavesSuite.FaturamentoTiss, "Ver faturamento")
     };
 

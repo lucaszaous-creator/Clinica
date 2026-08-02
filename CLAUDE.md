@@ -48,7 +48,7 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 
 | ferramenta | cobre | não cobre |
 |---|---|---|
-| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 985 testes | nada das telas |
+| `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 988 testes | nada das telas |
 | `tools/compilar-sombra.py` | **o C# dos 9 projetos WPF** (nome, tipo, aridade, atributo) | XAML |
 | `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução | semântica de C# |
 
@@ -367,7 +367,8 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   (`DesfazerConfirmacaoAsync`), sugerir quem chamar para o horário que vagou
   (`CandidatosParaAsync`), conferir o documento pelo código impresso (`PorCodigoAsync`) e
   apagar modelo/protocolo. **Antes de dar por pronta uma feature, procure o chamador em
-  produção** — `dotnet test` verde e CI verde não provam que a clínica alcança a função.
+  produção** — e, desde a parcela 36, procure também o leitor em OUTRO MÓDULO: dado que
+  só o módulo que o grava consegue ler é a mesma falha vestida de arquitetura — `dotnet test` verde e CI verde não provam que a clínica alcança a função.
   Regras que a parcela fixou: no custo por sessão **só entra saída COM atendimento** (a
   baixa digitada à mão não é de sessão nenhuma, e rateá-la daria a cada uma um custo que
   não teve) e **média sem base é nula, nunca zero**; a lista de espera filtrada **diz que
@@ -454,6 +455,43 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   entre quatro telas sobre a mesma pessoa. E o módulo não declara `Inicial`: o exe carrega
   um módulo só, então o primeiro item já é a abertura, e marcá-lo faria o Consultório
   vencer o painel da direção dentro do Gerente (o defeito que a parcela 22 corrigiu).
+- **O Consultório não é uma ilha** (parcela 36): a primeira versão do módulo gravava
+  `AvaliacaoClinica` e evolução, e **só ele as lia** — a sexta ocorrência do defeito
+  recorrente do projeto, cometida por quem já o tinha documentado cinco vezes. O que
+  fecha o circuito, nos dois sentidos:
+  **Consultório → Gerente**: `PainelDirecaoService` ganhou `AssuntoDirecao.ProntuarioEmAberto`
+  — a direção é a única que enxerga a clínica inteira, e o número vem do
+  `ConsultorioService`, dono da leitura. Guia já faturada sem evolução é alerta
+  **separado e mais grave**: a sessão sem registro é prontuário incompleto, a guia sem
+  registro é cobrança sem o documento que a sustenta. No BI,
+  `ProdutividadeProfissional.CompletudeProntuario` divide dois números que estavam lado a
+  lado desde a parcela 5 sem ninguém os dividir — e é **nula, nunca 0%**, sem sessão
+  atendida, senão acusaria de negligência quem tirou férias.
+  **Consultório → Recepção/paciente**: as escalas entram no **relatório de evolução** e no
+  prontuário da Recepção. O relatório é o papel que o paciente leva ao convênio, e sem
+  isso ele descreveria metade do tratamento; a faixa sai como foi **gravada na aplicação**,
+  não recalculada pela definição de hoje.
+  **Recepção/Financeiro/Faturamento → Consultório**: o `ElegibilidadeService` aparece na
+  tela de atendimento. Ele foi feito para o balcão — o lugar onde o paciente está de corpo
+  presente —, e o consultório é o segundo: a urgência viaja **com cada alerta**, porque
+  carteirinha vencida (vermelho) e dívida (amarelo) chegam juntas e pintar as duas da cor
+  da pior faria a segunda parecer impedimento.
+  **O que NÃO foi feito, e por quê**: o `PrevencaoGlosaService` seria o lugar natural do
+  aviso "guia sem prontuário", e ele é chamado **só pelo app congelado**. Acrescentar o
+  alerta mudaria o comportamento do faturamento em produção e dispararia para TODA guia
+  numa clínica que ainda não documenta — alerta que dispara para todo mundo é alerta que
+  ninguém lê. A leitura foi para a direção, onde é nova.
+- **O mapa corporal e a emissão de documento moram no SHELL** (parcela 36): os dois
+  nasceram dentro do módulo da Recepção, e o Consultório precisa dos mesmos — a acupuntura
+  é a especialidade da casa, e quem prescreve é quem atende. Como **nenhum módulo conhece
+  os outros**, as alternativas eram copiar (duas silhuetas divergindo na primeira
+  correção) ou deixar o app do médico sem a ferramenta central dele. Subiram para
+  `Clinica.Desktop.Shell/Componentes`, pelo mesmo argumento que já pôs o
+  `SeletorPacienteViewModel` lá: **tela nova da suíte que marca ponto no corpo ou emite
+  documento usa ESTES componentes; não reescreva.** O bloco foi movido INTEIRO, e não
+  reescrito, para nenhuma função se perder na mudança — e, de quebra,
+  `MapaCorporalViewModel.Observacoes`, gravado sempre nulo desde a parcela 3 porque
+  nenhuma tela o mostrava, finalmente ganhou a caixa de texto.
 - **Escalas clínicas por especialidade** (`Domain/Avaliacoes/`, parcela 36): a EVA responde
   "quanto dói" e serve à acupuntura e à clínica da dor. As outras quatro especialidades da
   casa — psiquiatria, geriatria, neurocirurgia e endocrinologia — **não tinham número

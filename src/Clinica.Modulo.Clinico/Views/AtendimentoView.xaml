@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -38,13 +39,17 @@
             </DockPanel>
         </Border>
 
-        <!-- Sessões anteriores, abertas. Não é histórico resumido: é a conduta inteira,
-             que é o que se copia para a sessão de hoje. -->
-        <Border DockPanel.Dock="Right" Style="{StaticResource Card}" Width="320" Margin="16,0,0,0">
-            <DockPanel>
-                <TextBlock DockPanel.Dock="Top" Text="Últimas sessões" Style="{StaticResource H3}"
-                           Margin="0,0,0,8" />
-                <Grid>
+        <!-- Coluna da direita: o histórico e o mapa, em abas.
+             A largura é 530 e não pode encolher — as figuras do mapa são Canvas de
+             220x460 casados com PontoMapaItem.LarguraFigura, a mesma const que posiciona
+             o marcador e converte o clique de volta em fração. Quem cede é a janela. -->
+        <TabControl DockPanel.Dock="Right" Width="530" Margin="16,0,0,0"
+                    Background="Transparent" BorderThickness="0">
+
+            <!-- Sessões anteriores, abertas. Não é histórico resumido: é a conduta
+                 inteira, que é o que se copia para a sessão de hoje. -->
+            <TabItem Header="Últimas sessões">
+                <Grid Margin="0,8,0,0">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Anteriores}">
                             <ItemsControl.ItemTemplate>
@@ -83,8 +88,21 @@
                                        Titulo="Primeira sessão deste paciente"
                                        Descricao="Não há sessão anterior registrada — o que você escrever agora é a linha de base do tratamento." />
                 </Grid>
-            </DockPanel>
-        </Border>
+            </TabItem>
+
+            <!-- O MESMO componente do shell que a Recepção usa. A acupuntura é a
+                 especialidade da casa, e um app para quem atende sem onde marcar o
+                 ponto seria um app para outra clínica. -->
+            <TabItem Header="Mapa corporal">
+                <ContentControl Content="{Binding Mapa}" Margin="0,8,0,0">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate>
+                            <comp:MapaCorporalControl />
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
+            </TabItem>
+        </TabControl>
 
         <!-- ===== Formulário da sessão ===== -->
         <Grid>
@@ -115,6 +133,11 @@
                                 Command="{Binding VerEvolucaoDaDorCommand}" MinWidth="140" />
                         <Button Content="Avaliações" Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding VerAvaliacoesCommand}" Margin="8,0,0,0" MinWidth="110" />
+                        <!-- Receita, atestado, comparecimento e pedido de exame. Quem
+                             prescreve é quem atende. -->
+                        <Button Content="Emitir documento" Margin="8,0,0,0" MinWidth="150"
+                                Command="{Binding EmitirDocumentoCommand}"
+                                IsEnabled="{Binding PodeEditarProntuario}" />
                     </StackPanel>
                 </Grid>
 
@@ -133,6 +156,44 @@
                     <TextBlock Text="{Binding ResumoDor}" TextWrapping="Wrap"
                                Foreground="{StaticResource Brush.Texto.Primario}" />
                 </Border>
+
+                <!-- O que os outros módulos sabem deste paciente: carteirinha e cota
+                     (Faturamento), conta vencida (Financeiro), guia glosada (Faturamento).
+                     É AVISO, nunca impedimento — a sessão clínica não se recusa por
+                     pendência administrativa —, mas é aqui que ela custa barato: o
+                     paciente ainda está na sala. -->
+                <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Alertas}"
+                              Margin="0,0,0,12">
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Alertas.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,6">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Grave}" Value="True">
+                                                <Setter Property="Background"
+                                                        Value="{StaticResource Brush.Erro.Suave}" />
+                                                <Setter Property="BorderBrush"
+                                                        Value="{StaticResource Brush.Erro}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
 
                 <!-- Rodapé com as ações: fica FORA do scroll para o botão de salvar não
                      sumir quando a evolução ficar longa. -->

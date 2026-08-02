@@ -667,7 +667,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         if (PacienteId == 0) return;
 
         var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
-        var janela = new Janelas.DocumentoWindow(vm)
+        var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };

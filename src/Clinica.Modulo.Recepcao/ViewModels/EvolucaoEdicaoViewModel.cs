@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using Clinica.Application.Modelos;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;

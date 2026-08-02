@@ -94,6 +94,13 @@
                         </UniformGrid>
                         <TextBlock Text="{Binding ResumoEva}" Style="{StaticResource TextoSuave}"
                                    TextWrapping="Wrap" />
+                        <!-- As escalas são aplicadas no Consultório e gravadas no mesmo
+                             banco. Sem esta linha, quem monta o relatório para o convênio
+                             não veria a metade medida do tratamento. -->
+                        <TextBlock Text="{Binding ResumoEscalas}" TextWrapping="Wrap"
+                                   Margin="0,6,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
                     </StackPanel>
                 </Border>
 
