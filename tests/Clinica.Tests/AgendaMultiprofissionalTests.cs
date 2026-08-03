@@ -332,6 +332,12 @@ public class AgendaMultiprofissionalTests : IDisposable
         await _agenda.RegistrarChegadaAsync(ag.Id, Manha);
         await _agenda.IniciarAtendimentoAsync(ag.Id, Manha.AddMinutes(5));
 
+        // A parcela 38 pôs "Chamado" entre "Chegou" e "Em atendimento": quem entrou na
+        // sala foi chamado antes, e voltar uma etapa devolve o cartão para a chamada —
+        // não direto para a sala de espera.
+        await _agenda.VoltarEtapaAsync(ag.Id);
+        (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Chamado);
+
         await _agenda.VoltarEtapaAsync(ag.Id);
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Chegou);
 

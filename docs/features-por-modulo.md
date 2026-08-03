@@ -1376,5 +1376,61 @@ concluída**, não por `CollectionChanged`, que dispara uma vez por linha inseri
 **vazio antes da resposta não é resposta** — enquanto a busca do termo digitado não voltou,
 o painel não diz "nenhum paciente encontrado".
 
+## Parcela 38 — o quadro do consultório e a chamada do próximo
+
+O "Meu dia" do Consultório era uma **lista corrida** do que estava marcado. Ela responde
+"quem vem hoje" e não responde a pergunta que quem atende faz vinte vezes por dia: **quem
+já está aí e quem eu posso chamar agora**. A fila do balcão era kanban desde a parcela 26;
+o consultório, que é quem consome essa fila, olhava a agenda.
+
+E faltava o recado de volta. Quem chama pelo nome na sala de espera é a **recepção** — o
+profissional está na sala, com a porta fechada. Sem uma porta no sistema, a alternativa
+real da clínica é abrir a porta e gritar, ou ligar para o balcão a cada paciente.
+
+| O que passou a existir | Onde |
+|---|---|
+| "Meu dia" em kanban de cinco colunas | `MeuDiaViewModel` / `MeuDiaView` |
+| **Chamar próximo** — um clique, o primeiro da recepção | `ChamarProximoCommand` |
+| Chamar um paciente específico / desfazer a chamada | `ChamarCommand`, `DesfazerChamadaCommand` |
+| Coluna **CHAMADO** e a faixa "anuncie na sala de espera" | `FilaViewModel` / `FilaView` (Recepção) |
+| "Chamado há N min", com destaque a partir de 3 | os dois quadros, mesmo corte |
+| Releitura automática do quadro, a cada minuto | `ReconferirAsync` nos dois ViewModels |
+
+**A sincronização é o BANCO**, como todo o resto da suíte — nem fila de mensagens, nem
+evento, nem um módulo conhecendo o outro. O consultório carimba `Agendamento.ChamadoEm`, a
+recepção lê a mesma linha, e é isso que faz os dois quadros nunca divergirem. O estágio
+`Chamado` **não virou coluna no banco**: ele é derivado dos carimbos de hora, como os
+outros quatro (`Agendamento.Etapa`). O que precisou de migration foi só o fato novo — a
+hora da chamada —, e ela é puramente aditiva: o faturamento congelado não conhece a fila,
+só lê `StatusAgendamento`, e segue subindo sobre este banco sem saber que a coluna existe.
+
+As regras que a parcela fixou:
+
+- **Só se chama quem já fez check-in.** Chamar quem não chegou faria a recepção anunciar
+  um nome para uma sala de espera onde a pessoa não está — e a fila perderia a única
+  informação que a torna confiável, que é a de quem está no prédio.
+- **Chamar duas vezes não reinicia o cronômetro** (`??=`). Quem quer insistir precisa ver
+  há QUANTO tempo chamou, e um segundo clique zerando esse número esconderia justamente o
+  caso que exigia a insistência.
+- **Chamar existe dos dois lados.** Em metade das clínicas o profissional avisa pela porta,
+  e obrigar o balcão a esperar um clique da sala faria a coluna nascer sempre vazia num
+  fluxo que funciona há anos. Carimba quem clicar primeiro.
+- **Entrar carimba a chamada junto.** Uma linha do tempo com entrada e sem chamada não
+  existe; sem isso o histórico diria que a pessoa entrou sem ser chamada.
+- **A espera para na CHAMADA, não na entrada.** O que se mede é quanto tempo o paciente
+  ficou sem notícia — contar até ele levantar da cadeira somaria o tempo de atravessar a
+  sala e faria a clínica parecer pior do que é.
+- **A releitura de fundo é silenciosa.** Não acende "Carregando" nem escreve erro: quem
+  está no balcão com um paciente à frente não pode ver a fila piscar em branco a cada
+  minuto, nem levar um aviso vermelho porque o banco demorou uma vez. Falha vai ao log e a
+  tela segue com o quadro do minuto anterior. E só relê **hoje** — quem confere a agenda da
+  semana que vem não tem fila correndo.
+- **A faixa acima do quadro nomeia quem chamar e para qual sala.** A coluna sozinha não
+  bastaria: o balcão passa o dia com esta tela aberta e os olhos no paciente à frente dele,
+  e um cartão que muda de coluna em silêncio é um cartão que ninguém vê. "1 paciente
+  chamado" mandaria a recepcionista procurar antes de abrir a boca.
+- **Só HOJE se chama.** Olhar a agenda de terça que vem e poder chamar alguém de lá seria
+  mandar a recepção anunciar um nome com dois dias de antecedência.
+
 > Como o cliente recebe os cinco apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

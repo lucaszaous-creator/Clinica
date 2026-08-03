@@ -241,6 +241,7 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.SerieId).HasMaxLength(40);
             e.HasIndex(a => a.SerieId);
             e.Property(a => a.ChegadaEm).HasColumnType("timestamp without time zone");
+            e.Property(a => a.ChamadoEm).HasColumnType("timestamp without time zone");
             e.Property(a => a.InicioAtendimentoEm).HasColumnType("timestamp without time zone");
             e.HasOne(a => a.Profissional).WithMany()
                 .HasForeignKey(a => a.ProfissionalId).OnDelete(DeleteBehavior.SetNull);

@@ -23,6 +23,18 @@ public sealed record SessaoDoDia(
     int? AtendimentoId,
     int? EvolucaoId)
 {
+    /// <summary>
+    /// Há quantos minutos o paciente espera (da chegada até ser chamado). Null antes do
+    /// check-in — no consultório isso significa "ainda não está no prédio".
+    /// </summary>
+    public int? EsperaMinutos { get; init; }
+
+    /// <summary>
+    /// Há quantos minutos o profissional chamou e o paciente não entrou (parcela 38).
+    /// Null quando não há chamada pendente.
+    /// </summary>
+    public int? ChamadoHaMinutos { get; init; }
+
     /// <summary>A sessão já tem evolução no prontuário.</summary>
     public bool EvolucaoEscrita => EvolucaoId is not null;
 
@@ -50,6 +62,21 @@ public sealed record DiaDoProfissional(
     public int Atendidos => Sessoes.Count(s => s.Status == StatusAgendamento.Realizado);
 
     public int AEsperar => Sessoes.Count(s => s.Status == StatusAgendamento.Agendado);
+
+    /// <summary>Já no prédio, esperando ser chamado — é sobre estes que se decide o próximo.</summary>
+    public int NaRecepcao => Sessoes.Count(s => s.Etapa == EtapaFila.Chegou);
+
+    /// <summary>Chamados e ainda não entraram (parcela 38).</summary>
+    public int Chamados => Sessoes.Count(s => s.Etapa == EtapaFila.Chamado);
+
+    /// <summary>
+    /// O próximo a chamar: quem já chegou, pelo horário. Null quando não há ninguém no
+    /// balcão — e aí o botão de chamar fica desabilitado em vez de chamar o ar.
+    /// </summary>
+    public SessaoDoDia? ProximoAChamar => Sessoes
+        .Where(s => s.Etapa == EtapaFila.Chegou)
+        .OrderBy(s => s.DataHora)
+        .FirstOrDefault();
 
     /// <summary>Sessões que aconteceram e ainda não têm evolução escrita.</summary>
     public int RegistrosPendentes => Sessoes.Count(s => s.RegistroPendente);

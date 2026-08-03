@@ -13,10 +13,23 @@
              botões habilitados, e isso já vem do próprio cartão (PodeChegar,
              PodeIniciar, PodeFinalizar, PodeVoltar). -->
         <DataTemplate x:Key="CartaoFilaTemplate" DataType="{x:Type vm:CartaoFila}">
-            <Border Background="{StaticResource Brush.Superficie}"
-                    BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                    CornerRadius="{StaticResource Raio.Medio}"
+            <Border CornerRadius="{StaticResource Raio.Medio}" BorderThickness="1"
                     Padding="12" Margin="0,0,0,8">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+                        <Style.Triggers>
+                            <!-- Chamado há tempo demais: ou não ouviu, ou saiu — e quem
+                                 está parado esperando é o profissional. -->
+                            <DataTrigger Binding="{Binding ChamadaDemorada}" Value="True">
+                                <Setter Property="Background"
+                                        Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <StackPanel>
 
                     <!-- Linha 1: horário + espera -->
@@ -45,6 +58,23 @@
                     <TextBlock Text="{Binding Paciente}" Margin="0,4,0,0"
                                TextTrimming="CharacterEllipsis"
                                Foreground="{StaticResource Brush.Texto.Primario}" />
+
+                    <!-- O recado do consultório, no cartão de quem ele quer. -->
+                    <TextBlock Text="{Binding ChamadoHa}" Margin="0,2,0,0" FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Erro}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
                     <TextBlock Margin="0,2,0,0"
                                FontSize="{StaticResource Fonte.Legenda}"
@@ -89,6 +119,15 @@
                                 CommandParameter="{Binding}" />
                         <Button Content="Chamar" Style="{StaticResource BotaoPequeno}"
                                 Margin="0,4,4,0"
+                                ToolTip="Avisa que este paciente é o próximo — o mesmo aviso que o consultório manda"
+                                Visibility="{Binding PodeChamar,
+                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                Command="{Binding DataContext.ChamarCommand,
+                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
+                        <Button Content="Entrou" Style="{StaticResource BotaoPequeno}"
+                                Margin="0,4,4,0"
+                                ToolTip="O paciente levantou e foi para a sala"
                                 Visibility="{Binding PodeIniciar,
                                              Converter={StaticResource BoolParaVisibilidade}}"
                                 Command="{Binding DataContext.IniciarAtendimentoCommand,
@@ -158,17 +197,37 @@
             </StackPanel>
         </Grid>
 
-        <!-- ============ Quadro: quatro colunas ============ -->
+        <!-- ============ CHAMANDO ============
+             A faixa existe porque a coluna sozinha não bastaria: o balcão passa o dia com
+             esta tela aberta e os olhos no paciente à frente dele, e um cartão que muda
+             de coluna em silêncio é um cartão que ninguém vê. Ela nomeia quem chamar e
+             para qual sala — "1 paciente chamado" mandaria a recepcionista procurar. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding TemChamados, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="CHAMANDO — anuncie na sala de espera" FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding AvisoChamada}" TextWrapping="Wrap" Margin="0,4,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- ============ Quadro: cinco colunas ============
+             Em 1366 px as cinco não cabem lado a lado sem espremer o cartão até o nome do
+             paciente virar reticências, então o quadro rola na horizontal a partir de um
+             piso — como o do consultório, e pelo mesmo motivo. -->
         <Grid>
-          <Grid x:Name="quadro">
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+          <Grid x:Name="quadro" MinWidth="1150">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="210" />
                 <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="210" />
                 <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="210" />
                 <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="210" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" MinWidth="210" />
             </Grid.ColumnDefinitions>
 
             <!-- Aguardando -->
@@ -203,8 +262,24 @@
                 </DockPanel>
             </Border>
 
-            <!-- Em atendimento -->
+            <!-- Chamado — o recado do consultório -->
             <Border Grid.Column="4" Style="{StaticResource Card}">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <TextBlock Text="Chamado" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Text="O profissional pediu — anuncie"
+                                   Style="{StaticResource TextoSuave}"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
+                    </StackPanel>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Chamados}"
+                                      ItemTemplate="{StaticResource CartaoFilaTemplate}" />
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+
+            <!-- Em atendimento -->
+            <Border Grid.Column="6" Style="{StaticResource Card}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Text="Em atendimento" Style="{StaticResource H3}" Margin="0" />
@@ -220,7 +295,7 @@
             </Border>
 
             <!-- Finalizado -->
-            <Border Grid.Column="6" Style="{StaticResource Card}">
+            <Border Grid.Column="8" Style="{StaticResource Card}">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Text="Finalizado" Style="{StaticResource H3}" Margin="0" />
@@ -235,8 +310,9 @@
                 </DockPanel>
             </Border>
           </Grid>
+          </ScrollViewer>
 
-          <!-- Um estado para o quadro todo: as quatro colunas vêm da mesma consulta. -->
+          <!-- Um estado para o quadro todo: as cinco colunas vêm da mesma consulta. -->
           <ctrl:EstadoDaTela Vazio="{Binding QuadroVazio}"
                              Carregando="{Binding Carregando}"
                              Glifo="&#xE77B;"
