@@ -1279,6 +1279,74 @@ numa clínica que ainda não documenta. A leitura foi para a direção, onde é 
 > próprios — valem uma parcela, não uma nota de rodapé desta. O FINDRISC pergunta IMC e
 > circunferência ao aplicar, então a endocrinologia já tem por onde começar; o registro
 > seriado dessas medidas fica em aberto, declarado, em vez de meio-feito.
+> *(Entregue na parcela 37, logo abaixo.)*
+
+## Parcela 37 — o prontuário que o Consultório precisava
+
+A parcela 36 entregou o app de quem atende e, ao ser auditada com a lente do próprio
+projeto, revelou quatro lacunas — três delas da mesma família, e a família é a que dá
+nome ao produto: **o que o profissional precisa ver e não alcança.**
+
+| Feature | Estado | Onde |
+|---|---|---|
+| **Anexos da sessão no Consultório** — o laudo que volta do exame que ele pediu | ✅ | `AnexosSessaoViewModel` sobre `ProntuarioService.AnexarAsync` |
+| **Prontuário inteiro com busca por texto**, na máquina de quem atende | ✅ | `ProntuarioClinicoViewModel` |
+| **Lista de problemas** — diagnóstico, alergia, antecedente, uso contínuo | ✅ | `ProblemaPacienteService`, `ProblemaPaciente` |
+| Alergia e uso contínuo como alerta na tela de atendimento | ✅ | `AtendimentoViewModel.AlertasClinicos` |
+| **Antropometria e sinais vitais seriados** (peso, altura, cintura, PA, glicemia, HbA1c) | ✅ | `MedidaClinicaService`, `CatalogoMedidas` |
+| IMC derivado do peso com a altura vigente, com a procedência da altura | ✅ | `MedidaClinicaService.ResumoAsync` / `SerieAsync` |
+| Curva de qualquer medida, com a direção da variação resolvida | ✅ | `MedidasViewModel` sobre `SerieMedida` |
+| Contagem de anexos do prontuário em UMA consulta (era uma por sessão) | ✅ | `ProntuarioService.ContagemDeAnexosAsync` |
+
+**As três primeiras são a mesma tese.** Nenhuma exigiu capacidade nova do sistema: anexar
+existe desde a parcela 2 e a busca no prontuário desde a 28. O que faltava era **porta no
+módulo certo** — e essa é a variante mais discreta do defeito recorrente deste projeto,
+porque `dotnet test` fica verde e a Recepção usa todo dia. A mais gritante das três é a
+dos anexos: o Consultório **emitia pedido de exame** desde a parcela 36 e não tinha onde
+ler o laudo de volta. Ele pedia e não recebia. A da busca é a mais irônica: o comentário
+que a acompanha no módulo da Recepção diz, com todas as letras, "a pergunta que o
+profissional faz antes de atender é sempre a mesma" — a feature foi justificada pelo
+profissional e entregue na tela de quem não atende.
+
+**Por que medidas seriadas, e por que agora.** A parcela 36 declarou a lacuna por escrito
+e a deixou em aberto. O argumento que a fechou foi o FINDRISC: ele PERGUNTA o IMC e a
+circunferência de cintura, o paciente responde, o escore é gravado — e os dados que o
+produziram evaporavam. As regras que a parcela fixou:
+
+- **O IMC não se digita.** É derivado do peso com a altura vigente, e a data dessa altura
+  vai junto: um IMC calculado com altura de três anos atrás continua sendo a melhor
+  leitura disponível, desde que quem lê saiba disso. Gravá-lo criaria um terceiro número
+  livre para contradizer os dois que o originam, com a mesma cara de fato.
+- **A única recusa é a implausibilidade.** 2500 kg é dedo escorregado no teclado; 210 kg é
+  anormal e possível, e recusá-lo esconderia justamente o paciente que precisa de atenção.
+- **Faixa ausente e faixa normal são coisas diferentes.** O peso isolado não tem leitura
+  publicada — 80 kg é obesidade numa pessoa e magreza noutra —, e o selo SOME em vez de
+  dizer "normal".
+- **Meia pressão arterial não existe**: tipo com par exige os dois números, e a diastólica
+  maior que a sistólica é campo trocado, não paciente raro.
+- Os cortes da cintura são os do **FINDRISC**, e seguem o sexo. Usar aqui um corte
+  diferente do da escala aplicada ao lado faria a mesma clínica dar duas leituras da mesma
+  fita métrica.
+
+**A lista de problemas é fundação de prontuário.** Até aqui o CID morava só dentro de
+`DocumentoClinico`: um campo por papel emitido, nunca o diagnóstico da pessoa. O
+profissional redigitava "M54.5" a cada atestado, ninguém respondia "o que este paciente
+tem?" sem ler o prontuário inteiro, e a alergia ficava enterrada em texto livre no meio de
+uma evolução de dois anos atrás. As regras seguem as da NC do faturamento e do documento
+clínico cancelado: **não se apaga — muda-se a situação**, e **descartar exige motivo
+escrito**. A que é só dela: **alergia alerta mesmo depois de dada por resolvida**, porque
+"resolvida" numa alergia é quase sempre "não reagiu da última vez", e o dia em que reagir
+é o dia em que o aviso teria valido. Só o descarte a cala.
+
+**Nada disso toca o faturamento.** Nenhum valor novo em enum embutido, nenhuma migration
+destrutiva (`ProntuarioMedidasEProblemas` só cria tabela), e nenhum serviço que o app
+congelado chama mudou de comportamento. O catálogo de medidas mora em CÓDIGO pelo mesmo
+desenho das escalas — o corte do IMC é definição publicada, não configuração da clínica.
+
+> **O que NÃO entrou de propósito.** O saldo da autorização de sessões na tela de
+> atendimento ("faltam 2 de 10") ficou de fora a pedido: `AutorizacaoService` segue com
+> chamador só no app congelado, e o `ElegibilidadeService` continua avisando a cota
+> DEPOIS de estourada. É lacuna declarada, não resolvida.
 
 > Como o cliente recebe os cinco apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

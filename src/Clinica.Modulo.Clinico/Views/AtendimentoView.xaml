@@ -157,6 +157,44 @@
                                Foreground="{StaticResource Brush.Texto.Primario}" />
                 </Border>
 
+                <!-- O que o PRONTUÁRIO avisa: alergia e uso contínuo (parcela 37).
+                     Fica ACIMA e separado dos avisos administrativos porque é outra coisa:
+                     carteirinha vencida se resolve no balcão depois, alergia se resolve
+                     ANTES de prescrever. -->
+                <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding AlertasClinicos}"
+                              Margin="0,0,0,12">
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding AlertasClinicos.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Margin="0,0,0,6">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Grave}" Value="True">
+                                                <Setter Property="Background"
+                                                        Value="{StaticResource Brush.Erro.Suave}" />
+                                                <Setter Property="BorderBrush"
+                                                        Value="{StaticResource Brush.Erro}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap"
+                                           FontWeight="SemiBold" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
                 <!-- O que os outros módulos sabem deste paciente: carteirinha e cota
                      (Faturamento), conta vencida (Financeiro), guia glosada (Faturamento).
                      É AVISO, nunca impedimento — a sessão clínica não se recusa por

@@ -31,6 +31,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<Evolucao> Evolucoes => Set<Evolucao>();
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
+    public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();
+    public DbSet<ProblemaPaciente> ProblemasPaciente => Set<ProblemaPaciente>();
     public DbSet<AvaliacaoClinica> AvaliacoesClinicas => Set<AvaliacaoClinica>();
     public DbSet<RespostaAvaliacao> RespostasAvaliacao => Set<RespostaAvaliacao>();
     public DbSet<MapaCorporal> MapasCorporais => Set<MapaCorporal>();
@@ -396,6 +398,70 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.Cascade);
 
             e.HasIndex(x => x.EvolucaoId);
+        });
+
+        // ---- Medidas clínicas seriadas (parcela 37) ----
+        b.Entity<MedidaClinica>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.TipoCodigo).IsRequired().HasMaxLength(30);
+            e.Property(x => x.TipoNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.Unidade).HasMaxLength(20);
+            // Medida clínica é número exato de balança e fita: decimal, nunca ponto
+            // flutuante — 78,3 kg que grava 78,29999 vira série que não bate com o papel.
+            e.Property(x => x.Valor).HasPrecision(9, 2);
+            e.Property(x => x.ValorSecundario).HasPrecision(9, 2);
+            e.Property(x => x.FaixaNome).HasMaxLength(120);
+            e.Property(x => x.FaixaInterpretacao).HasMaxLength(500);
+            e.Property(x => x.FaixaGravidade).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+            // Apagar a sessão NÃO apaga a medida, pelo mesmo motivo da avaliação: o peso
+            // do dia é fato, e perdê-lo por causa da exclusão de um texto quebraria a
+            // curva do tratamento inteiro.
+            e.HasOne(x => x.Evolucao).WithMany()
+                .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.SetNull);
+
+            // A leitura é sempre por paciente, e quase sempre de um tipo só (a curva).
+            e.HasIndex(x => new { x.PacienteId, x.TipoCodigo, x.Data });
+
+            e.Ignore(x => x.ValorFormatado);
+            e.Ignore(x => x.TemFaixa);
+        });
+
+        // ---- Lista de problemas (parcela 37) ----
+        b.Entity<ProblemaPaciente>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Cid).HasMaxLength(15);
+            e.Property(x => x.Natureza).HasConversion<string>().HasMaxLength(25);
+            e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Observacoes).HasMaxLength(2000);
+            e.Property(x => x.MotivoDescarte).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.AtualizadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+            // A EvolucaoId é procedência, não dono: a lista é do PACIENTE, e apagar a
+            // sessão em que a alergia foi anotada não pode apagar a alergia.
+            e.HasOne(x => x.Evolucao).WithMany()
+                .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => new { x.PacienteId, x.Situacao });
+
+            e.Ignore(x => x.EstaAtivo);
+            e.Ignore(x => x.EhAlertaDeAtendimento);
+            e.Ignore(x => x.Rotulo);
         });
 
         // ---- Avaliações clínicas por instrumento (parcela 36) ----

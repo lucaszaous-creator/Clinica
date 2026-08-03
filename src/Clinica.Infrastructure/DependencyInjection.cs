@@ -30,6 +30,9 @@ public static class DependencyInjection
         // Consultório (parcela 36): o dia de quem atende e as escalas por especialidade.
         services.AddScoped<ConsultorioService>();
         services.AddScoped<AvaliacaoClinicaService>();
+        // Parcela 37: as medidas seriadas e a lista de problemas do prontuário.
+        services.AddScoped<MedidaClinicaService>();
+        services.AddScoped<ProblemaPacienteService>();
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();
         services.AddScoped<ConsentimentoService>();

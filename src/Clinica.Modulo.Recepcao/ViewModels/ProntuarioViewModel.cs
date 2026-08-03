@@ -165,12 +165,19 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             var todas = await prontuario.DoPacienteAsync(PacienteId);
             var termo = TermoSessao.Trim();
 
-            foreach (var e in todas)
-            {
-                if (termo.Length > 0 && !Casa(e, termo)) continue;
-                var anexos = await prontuario.AnexosAsync(e.Id);
-                Sessoes.Add(LinhaEvolucao.De(e, anexos.Count));
-            }
+            var filtradas = termo.Length == 0
+                ? todas.ToList()
+                : todas.Where(e => Casa(e, termo)).ToList();
+
+            // Uma consulta para o prontuário inteiro (parcela 37). Antes era uma por
+            // sessão: num tratamento de quarenta, quarenta idas a um banco remoto para
+            // desenhar quarenta clipes.
+            var contagens = await prontuario.ContagemDeAnexosAsync(
+                filtradas.Select(e => e.Id).ToList());
+
+            foreach (var e in filtradas)
+                Sessoes.Add(LinhaEvolucao.De(
+                    e, contagens.TryGetValue(e.Id, out var quantos) ? quantos : 0));
 
             ResumoSessoes = termo.Length == 0
                 ? $"{todas.Count} sessão(ões) no prontuário."
