@@ -98,6 +98,15 @@ public sealed partial class EvolucaoDorViewModel : ObservableObject
     /// <summary>A tendência é de piora ou de estagnação — a tela destaca.</summary>
     [ObservableProperty] private bool _tendenciaPreocupa;
 
+    /// <summary>
+    /// Há pelo menos uma sessão com o par EVA completo — ou seja, há curva.
+    ///
+    /// É o que faz o gráfico SUMIR quando não há o que desenhar: sem isso ficavam 200 px
+    /// de área vazia dizendo, com o desenho, a mesma coisa que a frase logo acima já dizia
+    /// com palavras.
+    /// </summary>
+    [ObservableProperty] private bool _temCurva;
+
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
@@ -167,6 +176,8 @@ public sealed partial class EvolucaoDorViewModel : ObservableObject
             CurvaAntes.Add(new PontoGrafico(rotulo, p.Antes));
             CurvaDepois.Add(new PontoGrafico(rotulo, p.Depois));
         }
+
+        TemCurva = dor.SessoesComMedida > 0;
 
         if (dor.SessoesComMedida == 0)
         {

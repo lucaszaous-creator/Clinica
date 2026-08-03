@@ -42,8 +42,19 @@
                     </Style>
                 </DockPanel.Style>
 
-                <clin:FaixaPaciente DockPanel.Dock="Top" Margin="0,0,0,12"
+                <clin:FaixaPaciente DockPanel.Dock="Top" Margin="0,0,0,14"
                                     Nome="{Binding Paciente}" Contexto="{Binding Resumo}">
+                    <clin:FaixaPaciente.Acoes>
+                        <StackPanel Orientation="Horizontal">
+                            <ComboBox ItemsSource="{Binding Instrumentos}"
+                                      SelectedItem="{Binding Instrumento}"
+                                      DisplayMemberPath="Nome" MinWidth="260" MaxWidth="340"
+                                      VerticalAlignment="Center" />
+                            <Button Content="Aplicar" Margin="8,0,0,0" MinWidth="120"
+                                    Command="{Binding AplicarCommand}"
+                                    IsEnabled="{Binding PodeEditarProntuario}" />
+                        </StackPanel>
+                    </clin:FaixaPaciente.Acoes>
                 </clin:FaixaPaciente>
 
                 <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
@@ -51,68 +62,71 @@
                     <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Escolha do instrumento. O filtro pela especialidade não é restrição:
-                     é a diferença entre abrir a tela com as escalas que se usa e abrir um
-                     catálogo. Quem precisar do resto desliga num clique. -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Instrumento" Style="{StaticResource Rotulo}" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <ComboBox Grid.Column="0" ItemsSource="{Binding Instrumentos}"
-                                      SelectedItem="{Binding Instrumento}"
-                                      DisplayMemberPath="Nome" />
-                            <Button Grid.Column="1" Content="Aplicar" Margin="8,0,0,0" MinWidth="120"
-                                    Command="{Binding AplicarCommand}"
-                                    IsEnabled="{Binding PodeEditarProntuario}" />
-                        </Grid>
-                        <CheckBox Content="Mostrar todas as escalas, não só as da minha especialidade"
-                                  IsChecked="{Binding TodosOsInstrumentos}" Margin="0,8,0,0" />
-                        <TextBlock Text="{Binding Instrumento.Descricao}" TextWrapping="Wrap"
-                                   Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0" />
-                    </StackPanel>
-                </Border>
+                <!-- O filtro pela especialidade não é restrição: é a diferença entre abrir
+                     a tela com as escalas que se usa e abrir um catálogo. Fica como linha
+                     de apoio, não como bloco com borda em volta de um combo que já está
+                     no alto — cada retângulo a mais é uma costura a mais na tela. -->
+                <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0" VerticalAlignment="Center"
+                              Content="Todas as escalas"
+                              IsChecked="{Binding TodosOsInstrumentos}" />
+                    <TextBlock Grid.Column="1" Text="{Binding Instrumento.Descricao}"
+                               TextWrapping="Wrap" Margin="16,0,0,0" VerticalAlignment="Center"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                </Grid>
 
                 <!-- A curva é sempre de UM instrumento: escores de escalas diferentes não
                      se somam nem se sobrepõem. -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,14">
                     <StackPanel>
-                        <TextBlock Text="Evolução do escore" Style="{StaticResource H3}" Margin="0,0,0,8" />
-                        <UniformGrid Columns="4">
-                            <StackPanel Margin="0,0,12,0">
+                        <TextBlock Text="Evolução do escore" Style="{StaticResource H3}"
+                                   Margin="0,0,0,10" />
+
+                        <!-- As quatro leituras JUNTAS, à esquerda. Espalhadas por mil
+                             pixels num UniformGrid, quatro números viravam quatro traços
+                             perdidos com meio metro de branco entre eles. -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <StackPanel Margin="0,0,28,0">
                                 <TextBlock Text="PRIMEIRA" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding EscalaPrimeira}" Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="{Binding EscalaPrimeira}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
                             </StackPanel>
-                            <StackPanel Margin="0,0,12,0">
+                            <StackPanel Margin="0,0,28,0">
                                 <TextBlock Text="ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding EscalaAtual}" Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="{Binding EscalaAtual}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
                             </StackPanel>
-                            <StackPanel Margin="0,0,12,0">
+                            <StackPanel Margin="0,0,28,0">
                                 <TextBlock Text="VARIAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding EscalaGanho}" Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="{Binding EscalaGanho}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MaxWidth="240">
                                 <TextBlock Text="FAIXA ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
                                 <TextBlock Text="{Binding EscalaFaixa}" TextWrapping="Wrap"
                                            Style="{StaticResource CardKpi.Valor}" />
                             </StackPanel>
-                        </UniformGrid>
+                        </StackPanel>
+
                         <TextBlock Text="{Binding LeituraCurva}" Style="{StaticResource TextoSuave}"
-                                   TextWrapping="Wrap" Margin="0,8,0,8" />
-                        <Grid Height="150">
+                                   TextWrapping="Wrap" Margin="0,0,0,4" />
+
+                        <!-- Sem aplicação não há gráfico: a área vazia dizia a mesma coisa
+                             que a frase acima dela, e ainda repetia o estado vazio da
+                             lista logo abaixo. Três respostas para uma pergunta só. -->
+                        <Grid Height="160" Margin="0,8,0,0"
+                              Visibility="{Binding TemCurva,
+                                           Converter={StaticResource BoolParaVisibilidade}}">
                             <ctrl:GraficoLinha Pontos="{Binding Curva}"
                                                Cor="{StaticResource Brush.Acento}" />
                         </Grid>
                     </StackPanel>
                 </Border>
-
-                <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}"
-                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" />
 
                 <Border Background="{StaticResource Brush.Superficie}"
                         BorderBrush="{StaticResource Brush.Borda}"

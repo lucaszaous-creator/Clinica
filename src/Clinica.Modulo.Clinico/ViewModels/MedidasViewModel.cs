@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
+using Clinica.Clinico.Janelas;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -44,13 +45,20 @@ public sealed class LinhaMedida
     };
 }
 
-/// <summary>O último valor de uma medida, no cartão que abre com o paciente.</summary>
+/// <summary>Uma ficha da fileira "onde o paciente está hoje".</summary>
 public sealed class CartaoMedida
 {
     public required string Rotulo { get; init; }
     public required string Valor { get; init; }
     public required string Detalhe { get; init; }
     public required bool Alerta { get; init; }
+
+    /// <summary>
+    /// O sistema CALCULOU em vez de ter colhido — hoje só o IMC. A ficha se pinta de
+    /// outra cor por isso: número derivado com a mesma cara do medido faz o profissional
+    /// procurar no papel uma aferição que nunca existiu.
+    /// </summary>
+    public bool Derivado { get; init; }
 }
 
 /// <summary>
@@ -97,22 +105,13 @@ public sealed partial class MedidasViewModel : ObservableObject
 
     /// <summary>
     /// Tipos que a tela oferece para ACOMPANHAR — inclui o IMC, que é derivado. O seletor
-    /// da colheita é outro (<see cref="TiposRegistraveis"/>), e a diferença é o ponto: o
-    /// IMC se vê, não se digita.
+    /// do diálogo de colheita é outro (<c>CatalogoMedidas.Registraveis</c>), e a diferença
+    /// é o ponto: o IMC se vê, não se digita.
     /// </summary>
     public IReadOnlyList<TipoMedida> TiposAcompanhaveis { get; } =
         CatalogoMedidas.TodasAsMedidas;
 
-    public IReadOnlyList<TipoMedida> TiposRegistraveis { get; } = CatalogoMedidas.Registraveis;
-
     [ObservableProperty] private TipoMedida? _tipoAcompanhado;
-
-    // ===== formulário da colheita =====
-    [ObservableProperty] private TipoMedida? _tipoNovo;
-    [ObservableProperty] private DateTime _dataNova = DateTime.Today;
-    [ObservableProperty] private string? _valorNovo;
-    [ObservableProperty] private string? _valorSecundarioNovo;
-    [ObservableProperty] private string? _observacoesNovas;
 
     [ObservableProperty] private string _paciente = string.Empty;
     [ObservableProperty] private bool _semPaciente = true;
@@ -126,10 +125,17 @@ public sealed partial class MedidasViewModel : ObservableObject
     /// <summary>A variação da série é de PIORA — a tela destaca.</summary>
     [ObservableProperty] private bool _variacaoPreocupa;
 
-    /// <summary>O IMC derivado, com a procedência da altura usada.</summary>
-    [ObservableProperty] private string _imc = "—";
-    [ObservableProperty] private string _imcDetalhe = string.Empty;
-    [ObservableProperty] private bool _imcAlerta;
+    /// <summary>
+    /// A série do tipo acompanhado tem pelo menos um ponto.
+    ///
+    /// É o que faz o gráfico SUMIR quando não há o que desenhar. Antes ficavam 200 px de
+    /// branco com "sem dados no período" flutuando no meio — a área vazia dizia a mesma
+    /// coisa que a frase logo acima dela, duas vezes, ocupando um terço do cartão.
+    /// </summary>
+    [ObservableProperty] private bool _temSerie;
+
+    /// <summary>Linha de contexto da faixa do paciente: o que já se acompanha dele.</summary>
+    [ObservableProperty] private string _resumoAtual = string.Empty;
 
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
@@ -138,16 +144,6 @@ public sealed partial class MedidasViewModel : ObservableObject
 
     /// <summary>Metade VISÍVEL da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
-
-    /// <summary>O tipo escolhido para colher pede dois números (a pressão).</summary>
-    public bool TemSegundoValor => TipoNovo?.TemSegundoValor ?? false;
-
-    public string RotuloSegundoValor => TipoNovo?.RotuloSegundoValor ?? string.Empty;
-
-    /// <summary>Unidade e nota do tipo escolhido, ao lado do campo.</summary>
-    public string AjudaDoTipo => TipoNovo is null
-        ? string.Empty
-        : $"Em {TipoNovo.Unidade}. {TipoNovo.Nota}".Trim();
 
     public MedidasViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar,
@@ -161,7 +157,6 @@ public sealed partial class MedidasViewModel : ObservableObject
         // A abertura é pelo peso: é a medida que toda especialidade colhe, e a que dá o
         // IMC. Abrir num tipo que a clínica não usa mostraria curva vazia como boas-vindas.
         TipoAcompanhado = TiposAcompanhaveis.FirstOrDefault(t => t.Codigo == CatalogoMedidas.Peso);
-        TipoNovo = TiposRegistraveis.FirstOrDefault(t => t.Codigo == CatalogoMedidas.Peso);
 
         Seletor = new SeletorClinicoViewModel(escopos, foco);
         Seletor.Escolhido += escolhido => _ = CarregarAsync();
@@ -172,16 +167,6 @@ public sealed partial class MedidasViewModel : ObservableObject
     private int PacienteId => _foco.PacienteId ?? 0;
 
     partial void OnTipoAcompanhadoChanged(TipoMedida? value) => _ = CarregarAsync();
-
-    partial void OnTipoNovoChanged(TipoMedida? value)
-    {
-        // Trocar de tipo esquece o segundo campo: a diastólica digitada para a pressão não
-        // é número nenhum quando o tipo passa a ser peso, e o serviço a recusaria.
-        ValorSecundarioNovo = null;
-        OnPropertyChanged(nameof(TemSegundoValor));
-        OnPropertyChanged(nameof(RotuloSegundoValor));
-        OnPropertyChanged(nameof(AjudaDoTipo));
-    }
 
     [RelayCommand]
     public async Task CarregarAsync()
@@ -238,40 +223,51 @@ public sealed partial class MedidasViewModel : ObservableObject
 
     private void AplicarResumo(ResumoMedidas resumo)
     {
+        // O IMC abre a fileira, e não um cartão à parte do tamanho da tela com um traço
+        // no meio: ele é uma leitura entre as outras — só que calculada, e a ficha diz
+        // isso pela cor e pela procedência da altura usada.
+        Cartoes.Add(new CartaoMedida
+        {
+            Rotulo = "IMC (calculado)",
+            Valor = resumo.TemImc
+                ? $"{resumo.Imc!.Value.ToString("0.#", Cultura)} kg/m²"
+                : "—",
+            Detalhe = resumo.TemImc
+                // A PROCEDÊNCIA vai junto: um IMC derivado de uma altura de três anos
+                // atrás continua sendo a melhor leitura disponível, desde que quem lê
+                // saiba disso.
+                ? $"{resumo.ImcFaixa} · peso de {resumo.ImcEm:dd/MM/yy} "
+                  + $"com a altura de {resumo.AlturaUsadaEm:dd/MM/yy}"
+                : resumo.Ultimas.Any(m => m.TipoCodigo == CatalogoMedidas.Peso)
+                    ? "falta a ALTURA — o peso sozinho não se interpreta"
+                    : "registre peso e altura",
+            Alerta = resumo.TemImc && resumo.ImcGravidade == GravidadeFaixa.Alerta,
+            Derivado = true
+        });
+
         foreach (var m in resumo.Ultimas)
             Cartoes.Add(new CartaoMedida
             {
                 Rotulo = m.TipoNome,
                 Valor = m.ValorFormatado,
                 Detalhe = m.TemFaixa
-                    ? $"{m.FaixaNome} · {m.Data:dd/MM/yyyy}"
-                    : $"colhido em {m.Data:dd/MM/yyyy}",
+                    ? $"{m.FaixaNome} · {m.Data:dd/MM/yy}"
+                    : $"colhido em {m.Data:dd/MM/yy}",
                 Alerta = m.FaixaGravidade == GravidadeFaixa.Alerta
             });
 
-        if (!resumo.TemImc)
-        {
-            Imc = "—";
-            ImcAlerta = false;
-            ImcDetalhe = resumo.Ultimas.Any(m => m.TipoCodigo == CatalogoMedidas.Peso)
-                ? "Falta a ALTURA para calcular o IMC — o peso sozinho não se interpreta."
-                : "Registre peso e altura para acompanhar o IMC.";
-            return;
-        }
-
-        Imc = $"{resumo.Imc!.Value.ToString("0.#", Cultura)} kg/m²";
-        ImcAlerta = resumo.ImcGravidade == GravidadeFaixa.Alerta;
-
-        // A PROCEDÊNCIA vai junto: um IMC derivado de uma altura de três anos atrás
-        // continua sendo a melhor leitura disponível, desde que quem lê saiba disso.
-        ImcDetalhe = $"{resumo.ImcFaixa} · peso de {resumo.ImcEm:dd/MM/yyyy} com a "
-                     + $"altura medida em {resumo.AlturaUsadaEm:dd/MM/yyyy}.";
+        ResumoAtual = resumo.Ultimas.Count == 0
+            ? "Nenhuma medida registrada para este paciente ainda."
+            : $"{resumo.Ultimas.Count} medida(s) acompanhada(s) · última colheita em "
+              + $"{resumo.Ultimas.Max(m => m.Data):dd/MM/yyyy}";
     }
 
     private void AplicarSerie(SerieMedida serie)
     {
         foreach (var p in serie.Pontos)
             Curva.Add(new PontoGrafico(p.Data.ToString("dd/MM"), (double)p.Valor));
+
+        TemSerie = serie.TemDados;
 
         if (!serie.TemDados)
         {
@@ -315,56 +311,37 @@ public sealed partial class MedidasViewModel : ObservableObject
         => valor is { } v ? $"{v.ToString("0.#", Cultura)} {serie.Unidade}" : "—";
 
     /// <summary>
-    /// Grava a colheita. O número é lido com ponto decimal INVARIANTE depois de trocada a
-    /// vírgula: quem digita "78,5" no balcão e "78.5" no consultório precisa gravar o mesmo
-    /// peso — é a mesma regra da alíquota do <c>ParametrosService</c>, e ler "2,5" como 25
-    /// multiplicaria a medida por dez.
+    /// Abre o diálogo da colheita (parcela 37, rodada de leiaute).
+    ///
+    /// O formulário morava aberto nesta tela, ocupando um terço dela com cinco campos
+    /// esticados de ponta a ponta — para um ato que acontece uma vez por consulta. O que
+    /// se olha aqui é a SÉRIE; colher é pontual, e pontual não merece painel permanente.
     /// </summary>
     [RelayCommand]
     private async Task RegistrarAsync()
     {
+        if (PacienteId == 0) return;
+
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            if (PacienteId == 0)
-                throw new InvalidOperationException("Escolha o paciente antes de registrar a medida.");
+            var vm = new MedidaEdicaoViewModel(
+                _escopos, PacienteId, Paciente, TipoAcompanhado?.Codigo);
 
-            if (TipoNovo is not { } tipo)
-                throw new InvalidOperationException("Escolha o que está sendo medido.");
-
-            var valor = Numero(ValorNovo)
-                ?? throw new InvalidOperationException($"Digite o valor de {tipo.Nome}.");
-
-            decimal? segundo = null;
-            if (tipo.TemSegundoValor)
-                segundo = Numero(ValorSecundarioNovo)
-                    ?? throw new InvalidOperationException(
-                        $"{tipo.Nome} precisa dos dois valores: {tipo.RotuloSegundoValor} está em branco.");
-
-            using var scope = _escopos.CreateScope();
-            var servico = scope.ServiceProvider.GetRequiredService<MedidaClinicaService>();
-
-            await servico.RegistrarAsync(new MedidaClinica
+            var janela = new RegistrarMedidaWindow(vm)
             {
-                PacienteId = PacienteId,
-                ProfissionalId = SessaoUsuario.Atual.ProfissionalId,
-                Data = DateOnly.FromDateTime(DataNova),
-                TipoCodigo = tipo.Codigo,
-                Valor = valor,
-                ValorSecundario = segundo,
-                Observacoes = ObservacoesNovas
-            }, SessaoUsuario.Atual.Operador);
+                Owner = System.Windows.Application.Current?.MainWindow
+            };
 
-            ValorNovo = null;
-            ValorSecundarioNovo = null;
-            ObservacoesNovas = null;
+            if (janela.ShowDialog() != true) return;
 
-            _snackbar.Sucesso($"{tipo.Nome} registrado.");
+            _snackbar.Sucesso("Medida registrada.");
 
-            // A tela acompanha o que acabou de ser medido: registrar peso e continuar
-            // olhando a curva da pressão faria a colheita parecer não ter entrado.
-            TipoAcompanhado = TiposAcompanhaveis.FirstOrDefault(t => t.Codigo == tipo.Codigo)
+            // A tela passa a acompanhar o que acabou de ser medido: registrar peso e
+            // continuar olhando a curva da pressão faria a colheita parecer não ter entrado.
+            TipoAcompanhado = TiposAcompanhaveis
+                                  .FirstOrDefault(t => t.Codigo == vm.TipoRegistrado)
                               ?? TipoAcompanhado;
 
             await CarregarAsync();
@@ -372,7 +349,7 @@ public sealed partial class MedidasViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Consultório — medida não pôde ser registrada", ex);
+                "Consultório — colheita não pôde ser aberta", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
@@ -455,23 +432,6 @@ public sealed partial class MedidasViewModel : ObservableObject
     /// <summary>Abre o prontuário do mesmo paciente sem perder o foco do posto.</summary>
     [RelayCommand]
     private void VerProntuario() => NavegacaoSuite.Ir(ModuloClinico.ChaveProntuario);
-
-    /// <summary>
-    /// Lê o número digitado. Aceita vírgula e ponto (a mesma pessoa escreve dos dois
-    /// jeitos), e a conversão é INVARIANTE: a cultura da máquina faria "2,5" virar 25 num
-    /// posto e 2,5 no outro.
-    /// </summary>
-    private static decimal? Numero(string? texto)
-    {
-        if (string.IsNullOrWhiteSpace(texto)) return null;
-
-        var limpo = texto.Trim().Replace(',', '.');
-        return decimal.TryParse(
-            limpo, System.Globalization.NumberStyles.Number,
-            System.Globalization.CultureInfo.InvariantCulture, out var valor)
-            ? valor
-            : null;
-    }
 
     private static readonly System.Globalization.CultureInfo Cultura = new("pt-BR");
 }

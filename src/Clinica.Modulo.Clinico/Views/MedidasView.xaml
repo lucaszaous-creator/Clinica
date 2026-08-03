@@ -9,7 +9,7 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
+    <DockPanel Margin="24,20,24,24">
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <TextBlock Text="Medidas" Style="{StaticResource H1}" Margin="0,0,0,2" />
@@ -17,14 +17,10 @@
                        Text="Peso, cintura, pressão e glicemia ao longo do tratamento. As faixas são a referência publicada de cada medida." />
         </StackPanel>
 
-        <!-- O painel já abre com a agenda do dia e a carteira: a tela deixa de nascer
-             vazia esperando alguém digitar um nome que o sistema já sabe. -->
         <clin:PainelPacienteClinico DockPanel.Dock="Left" Width="300" Margin="0,0,16,0"
                                     DataContext="{Binding Seletor}" />
 
         <Grid>
-            <!-- Estado vazio de verdade: ícone, título e o que fazer. Frase cinza
-                 solta no meio da tela não é estado vazio, é tela inacabada. -->
             <ctrl:EmptyState Glifo="&#xE77B;"
                              Titulo="Nenhum paciente escolhido"
                              Descricao="Escolha alguém ao lado para registrar e acompanhar peso, circunferência abdominal, pressão, glicemia e HbA1c ao longo do tratamento."
@@ -42,13 +38,18 @@
                     </Style>
                 </DockPanel.Style>
 
-                <clin:FaixaPaciente DockPanel.Dock="Top" Margin="0,0,0,12"
-                                    Nome="{Binding Paciente}" Contexto="{Binding LeituraSerie}">
+                <!-- Colher é o ato pontual da consulta e mora num BOTÃO. O formulário
+                     aberto o tempo todo empurrava a série — que é o que se olha aqui —
+                     para baixo da dobra. -->
+                <clin:FaixaPaciente DockPanel.Dock="Top" Margin="0,0,0,14"
+                                    Nome="{Binding Paciente}" Contexto="{Binding ResumoAtual}">
                     <clin:FaixaPaciente.Acoes>
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Prontuário deste paciente" MinWidth="180"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding VerProntuarioCommand}" />
+                            <Button Content="Prontuário" Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding VerProntuarioCommand}" MinWidth="120" />
+                            <Button Content="Registrar medida" Margin="8,0,0,0" MinWidth="160"
+                                    Command="{Binding RegistrarCommand}"
+                                    IsEnabled="{Binding PodeEditarProntuario}" />
                         </StackPanel>
                     </clin:FaixaPaciente.Acoes>
                 </clin:FaixaPaciente>
@@ -58,274 +59,211 @@
                     <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
                 </Border>
 
-                <!-- ============ COLHER ============ -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Registrar medida" Style="{StaticResource H3}" Margin="0,0,0,8" />
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="O que" Style="{StaticResource Rotulo}" />
-                                <ComboBox ItemsSource="{Binding TiposRegistraveis}"
-                                          SelectedItem="{Binding TipoNovo}"
-                                          DisplayMemberPath="Nome" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                <TextBlock Text="Data" Style="{StaticResource Rotulo}" />
-                                <DatePicker SelectedDate="{Binding DataNova}" />
-                            </StackPanel>
-
-                            <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                                <TextBlock Text="Valor" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding ValorNovo, UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-
-                            <!-- O segundo campo só aparece quando o tipo tem par (a
-                                 pressão): campo desabilitado ao lado do preenchido faz a
-                                 pessoa procurar o que digitar nele. -->
-                            <StackPanel Grid.Column="3" Margin="0,0,8,0"
-                                        Visibility="{Binding TemSegundoValor,
-                                                     Converter={StaticResource BoolParaVisibilidade}}">
-                                <TextBlock Text="{Binding RotuloSegundoValor}"
-                                           Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding ValorSecundarioNovo,
-                                                UpdateSourceTrigger=PropertyChanged}" />
-                            </StackPanel>
-
-                            <Button Grid.Column="4" Content="Registrar" MinWidth="130"
-                                    VerticalAlignment="Bottom"
-                                    Command="{Binding RegistrarCommand}"
-                                    IsEnabled="{Binding PodeEditarProntuario}" />
-                        </Grid>
-
-                        <TextBlock Text="{Binding AjudaDoTipo}" TextWrapping="Wrap"
-                                   Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,8,0,0" />
-
-                        <TextBox Text="{Binding ObservacoesNovas, UpdateSourceTrigger=PropertyChanged}"
-                                 TextWrapping="Wrap" Margin="0,8,0,0"
-                                 ctrl:Ajudantes.Placeholder="Observação da colheita (opcional)" />
-                    </StackPanel>
-                </Border>
-
-                <!-- ============ ÚLTIMAS COLHEITAS + IMC ============ -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <TextBlock Text="Onde o paciente está hoje" Style="{StaticResource H3}"
-                                   Margin="0,0,0,8" />
-
-                        <!-- O IMC vem primeiro e DIZ que é derivado, com a data da altura
-                             usada: número calculado apresentado igual ao medido faz o
-                             profissional procurar no papel uma aferição que não existiu. -->
-                        <Border CornerRadius="{StaticResource Raio.Medio}" Padding="12,10"
-                                Margin="0,0,0,10" BorderThickness="1"
-                                BorderBrush="{StaticResource Brush.Borda}">
-                            <Border.Style>
-                                <Style TargetType="Border">
-                                    <Setter Property="Background"
-                                            Value="{StaticResource Brush.Acento.Tint}" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding ImcAlerta}" Value="True">
-                                            <Setter Property="Background"
-                                                    Value="{StaticResource Brush.Erro.Suave}" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Border.Style>
-                            <StackPanel>
-                                <TextBlock Text="IMC (calculado)" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding Imc}" Style="{StaticResource CardKpi.Valor}"
-                                           TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding ImcDetalhe}" TextWrapping="Wrap"
-                                           Margin="0,4,0,0"
-                                           FontSize="{StaticResource Fonte.Legenda}"
-                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
-                            </StackPanel>
-                        </Border>
-
-                        <ItemsControl ItemsSource="{Binding Cartoes}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border CornerRadius="{StaticResource Raio.Medio}" Padding="12,10"
-                                            Margin="0,0,8,8" MinWidth="170" MaxWidth="240"
-                                            BorderThickness="1"
-                                            BorderBrush="{StaticResource Brush.Borda}">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
+                <!-- ===== Onde o paciente está hoje =====
+                     Uma FILEIRA de fichas, não um cartão gigante com um traço no meio. O
+                     IMC vem primeiro e diz que é calculado, com a data da altura usada. -->
+                <ItemsControl DockPanel.Dock="Top" Margin="0,0,0,14"
+                              ItemsSource="{Binding Cartoes}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border CornerRadius="{StaticResource Raio.Medio}" Padding="14,10"
+                                    Margin="0,0,10,10" MinWidth="150" MaxWidth="230"
+                                    BorderThickness="1">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Background"
+                                                Value="{StaticResource Brush.Superficie}" />
+                                        <Setter Property="BorderBrush"
+                                                Value="{StaticResource Brush.Borda}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Derivado}" Value="True">
                                                 <Setter Property="Background"
-                                                        Value="{StaticResource Brush.Superficie}" />
+                                                        Value="{StaticResource Brush.Acento.Tint}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Alerta}" Value="True">
+                                                <Setter Property="Background"
+                                                        Value="{StaticResource Brush.Erro.Suave}" />
+                                                <Setter Property="BorderBrush"
+                                                        Value="{StaticResource Brush.Erro}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap"
+                                               Style="{StaticResource CardKpi.Rotulo}" />
+                                    <TextBlock Text="{Binding Valor}" TextWrapping="Wrap"
+                                               Style="{StaticResource CardKpi.Valor}" />
+                                    <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                               Margin="0,4,0,0"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- ===== Série: curva à esquerda, histórico à direita ===== -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="420" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource Card}">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Acompanhar"
+                                           Style="{StaticResource H3}" Margin="0,0,10,0"
+                                           VerticalAlignment="Center" />
+                                <ComboBox Grid.Column="1" ItemsSource="{Binding TiposAcompanhaveis}"
+                                          SelectedItem="{Binding TipoAcompanhado}"
+                                          DisplayMemberPath="Nome" MaxWidth="280"
+                                          HorizontalAlignment="Left" VerticalAlignment="Center" />
+                                <Button Grid.Column="2" Content="Exportar CSV" MinWidth="130"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        Command="{Binding ExportarCommand}"
+                                        IsEnabled="{Binding TemSerie}" />
+                            </Grid>
+
+                            <!-- As três leituras juntas, à esquerda: espalhá-las por mil
+                                 pixels transformava três números em três traços perdidos. -->
+                            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+                                        Margin="0,0,0,10">
+                                <StackPanel Margin="0,0,28,0">
+                                    <TextBlock Text="PRIMEIRA" Style="{StaticResource CardKpi.Rotulo}" />
+                                    <TextBlock Text="{Binding Primeiro}" TextWrapping="Wrap"
+                                               Style="{StaticResource CardKpi.Valor}" />
+                                </StackPanel>
+                                <StackPanel Margin="0,0,28,0">
+                                    <TextBlock Text="ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
+                                    <TextBlock Text="{Binding Atual}" TextWrapping="Wrap"
+                                               Style="{StaticResource CardKpi.Valor}" />
+                                </StackPanel>
+                                <StackPanel>
+                                    <TextBlock Text="VARIAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
+                                    <TextBlock Text="{Binding Variacao}" TextWrapping="Wrap">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock"
+                                                   BasedOn="{StaticResource CardKpi.Valor}">
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Alerta}" Value="True">
-                                                        <Setter Property="Background"
-                                                                Value="{StaticResource Brush.Erro.Suave}" />
+                                                    <DataTrigger Binding="{Binding VariacaoPreocupa}"
+                                                                 Value="True">
+                                                        <Setter Property="Foreground"
+                                                                Value="{StaticResource Brush.Erro}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
-                                        </Border.Style>
-                                        <StackPanel>
-                                            <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap"
-                                                       Style="{StaticResource CardKpi.Rotulo}" />
-                                            <TextBlock Text="{Binding Valor}" TextWrapping="Wrap"
-                                                       Style="{StaticResource CardKpi.Valor}" />
-                                            <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
-                                                       Margin="0,4,0,0"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-
-                <!-- ============ CURVA ============ -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Acompanhar" Style="{StaticResource H3}"
-                                       VerticalAlignment="Center" Margin="0,0,12,0" />
-                            <ComboBox Grid.Column="1" ItemsSource="{Binding TiposAcompanhaveis}"
-                                      SelectedItem="{Binding TipoAcompanhado}"
-                                      DisplayMemberPath="Nome" VerticalAlignment="Center" />
-                            <Button Grid.Column="2" Content="Exportar CSV" Margin="12,0,0,0"
-                                    MinWidth="130" Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding ExportarCommand}" />
-                        </Grid>
-
-                        <UniformGrid Columns="3">
-                            <StackPanel Margin="0,0,12,0">
-                                <TextBlock Text="PRIMEIRA" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding Primeiro}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
                             </StackPanel>
-                            <StackPanel Margin="0,0,12,0">
-                                <TextBlock Text="ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding Atual}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="VARIAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding Variacao}" TextWrapping="Wrap">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding VariacaoPreocupa}" Value="True">
-                                                    <Setter Property="Foreground"
-                                                            Value="{StaticResource Brush.Erro}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                            </StackPanel>
-                        </UniformGrid>
 
-                        <TextBlock Text="{Binding LeituraSerie}" TextWrapping="Wrap"
-                                   Style="{StaticResource TextoSuave}" Margin="0,8,0,8" />
+                            <TextBlock DockPanel.Dock="Top" Text="{Binding LeituraSerie}"
+                                       TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
+                                       Margin="0,0,0,10" />
 
-                        <!-- O eixo NÃO começa no zero aqui: peso e pressão vivem numa faixa
-                             estreita e conhecida, e ancorar no zero achataria a curva
-                             inteira num traço reto no topo. É a mesma exceção da EVA. -->
-                        <Grid Height="150">
-                            <ctrl:GraficoLinha Pontos="{Binding Curva}" ComecaDoZero="False"
-                                               Cor="{StaticResource Brush.Acento}" />
-                        </Grid>
-                    </StackPanel>
-                </Border>
+                            <!-- O gráfico SOME quando não há o que desenhar. Antes ficavam
+                                 200 px de branco com "sem dados no período" flutuando no
+                                 meio — a área vazia dizia a mesma coisa que a frase, duas
+                                 vezes, ocupando um terço do cartão. -->
+                            <Grid MinHeight="180"
+                                  Visibility="{Binding TemSerie,
+                                               Converter={StaticResource BoolParaVisibilidade}}">
+                                <ctrl:GraficoLinha Pontos="{Binding Curva}" ComecaDoZero="False"
+                                                   Cor="{StaticResource Brush.Acento}" />
+                            </Grid>
+                        </DockPanel>
+                    </Border>
 
-                <Border Background="{StaticResource Brush.Superficie}"
-                        BorderBrush="{StaticResource Brush.Borda}"
-                        BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
-                    <Grid>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding Historico}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
-                                                BorderThickness="0,0,0,1">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="110" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
+                    <Border Grid.Column="1" Width="440" Margin="16,0,0,0"
+                            Style="{StaticResource Card}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Top" Text="Colheitas"
+                                       Style="{StaticResource H3}" Margin="0,0,0,10" />
+                            <Grid>
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding Historico}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="90" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
 
-                                                <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                           VerticalAlignment="Center" />
-
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center"
-                                                            Margin="12,0">
-                                                    <TextBlock Text="{Binding Valor}" TextWrapping="Wrap"
-                                                               FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
-                                                    <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
-                                                               Margin="0,4,0,0"
+                                                    <TextBlock Grid.Column="0" Text="{Binding Data}"
+                                                               VerticalAlignment="Center"
                                                                FontSize="{StaticResource Fonte.Legenda}"
                                                                Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                                </StackPanel>
 
-                                                <!-- Sem faixa publicada o selo SOME. Escrever
-                                                     "normal" para o peso isolado seria afirmar
-                                                     o que ninguém apurou. -->
-                                                <Border Grid.Column="2" VerticalAlignment="Center"
-                                                        Margin="0,0,8,0"
-                                                        Visibility="{Binding TemFaixa,
-                                                                     Converter={StaticResource BoolParaVisibilidade}}">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border" BasedOn="{StaticResource Badge}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding FaixaAlerta}" Value="True">
-                                                                    <Setter Property="Background"
-                                                                            Value="{StaticResource Brush.Erro.Suave}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <TextBlock Text="{Binding Faixa}" TextWrapping="Wrap" />
-                                                </Border>
+                                                    <StackPanel Grid.Column="1" Margin="8,0"
+                                                                VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Valor}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding Faixa}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Visibility="{Binding TemFaixa,
+                                                                                Converter={StaticResource BoolParaVisibilidade}}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Texto.Secundario}" />
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding FaixaAlerta}"
+                                                                                     Value="True">
+                                                                            <Setter Property="Foreground"
+                                                                                    Value="{StaticResource Brush.Erro}" />
+                                                                            <Setter Property="FontWeight"
+                                                                                    Value="SemiBold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                        <TextBlock Text="{Binding Observacoes}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                    </StackPanel>
 
-                                                <Button Grid.Column="3" Content="Excluir"
-                                                        VerticalAlignment="Center"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        Command="{Binding DataContext.ExcluirCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
+                                                    <Button Grid.Column="2" Content="Excluir"
+                                                            VerticalAlignment="Center"
+                                                            Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                            Command="{Binding DataContext.ExcluirCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
 
-                        <ctrl:EstadoDaTela Itens="{Binding Historico}"
-                                           Carregando="{Binding Carregando}"
-                                           NaoVerificado="{Binding NaoVerificado}"
-                                           Glifo="&#xE9D9;"
-                                           TextoCarregando="Lendo as medidas…"
-                                           Titulo="Nenhuma colheita desta medida"
-                                           Descricao="A primeira colheita é a linha de base — é ela que dá sentido a todas as seguintes. O IMC não aparece aqui porque é calculado do peso com a altura, e não colhido." />
-                    </Grid>
-                </Border>
+                                <ctrl:EstadoDaTela Itens="{Binding Historico}"
+                                                   Carregando="{Binding Carregando}"
+                                                   NaoVerificado="{Binding NaoVerificado}"
+                                                   Glifo="&#xE9D9;"
+                                                   TextoCarregando="Lendo as medidas…"
+                                                   Titulo="Nenhuma colheita"
+                                                   Descricao="A primeira é a linha de base do acompanhamento. O IMC não aparece aqui: ele é calculado do peso com a altura, não colhido." />
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+                </Grid>
             </DockPanel>
         </Grid>
     </DockPanel>

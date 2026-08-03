@@ -565,6 +565,28 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   no topo do conteúdo porque num app onde se passa vinte minutos entre quatro abas sobre a
   MESMA pessoa a identidade é âncora, não rótulo — e as ações da tela viajam com ela em vez
   de ficarem acesas no cabeçalho da página sobre uma tela sem paciente nenhum.
+- **Ferramenta de uso pontual mora em BOTÃO, não em painel aberto** (parcela 37, 3ª
+  rodada): o mapa corporal ocupava uma aba de 530 px permanente na tela de atendimento e o
+  formulário de colher medida ocupava um terço da tela de Medidas — os dois para atos que
+  acontecem uma vez por consulta. O resultado era o previsível: o mapa não cabia (as
+  figuras são Canvas de 220×460 que NÃO esticam, então sobrava rolagem e os botões do
+  rodapé saíam cortados pela borda da janela) e a série de medidas — que é o que se OLHA
+  naquela tela — era empurrada para baixo da dobra por um formulário que ninguém estava
+  preenchendo. Os dois viraram janela (`MapaCorporalWindow`, `RegistrarMedidaWindow`), o
+  que de quebra deu ao mapa os 960 px de mínimo que a Recepção já lhe dava. A pergunta que
+  decide: **isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?** O
+  segundo caso é botão.
+- **Cada retângulo a mais é uma costura a mais** (parcela 37, 3ª rodada): embrulhar todo
+  bloco num `Card` com borda produz uma colcha de retalhos — a tela fica com aparência de
+  esboço mesmo com o conteúdo certo. Uma superfície por REGIÃO, e a separação interna por
+  espaço, rótulo e `Separator`. Três correções que vieram junto e valem para qualquer tela:
+  **KPI não se espalha** (cinco números num `UniformGrid` de largura inteira viram cinco
+  traços perdidos com meio metro de branco entre eles — em `StackPanel` horizontal à
+  esquerda eles voltam a se ler como um conjunto); **gráfico sem dado SOME** em vez de
+  desenhar 200 px de área vazia dizendo com o desenho o que a frase acima dele já diz com
+  palavras; e **um estado vazio por pergunta** — a tela de Avaliações chegou a ter três
+  respostas para "não há escala aplicada" (a frase, a área do gráfico e o `EstadoDaTela`
+  da lista).
 - **`TextoSuave` alinha à ESQUERDA, e isso anda junto do `MaxWidth`** (parcela 37): sem o
   `HorizontalAlignment`, o TextBlock recebe a fatia inteira do painel, o teto de 820 o
   encolhe e o WPF **centraliza** o que sobrou — num monitor de 1920 o subtítulo de toda
