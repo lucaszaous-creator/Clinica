@@ -2,292 +2,260 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             xmlns:clin="clr-namespace:Clinica.Clinico.Componentes"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24,20,24,24">
+    <DockPanel Margin="0,4,0,0">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Atendimento" Style="{StaticResource H1}" Margin="0,0,0,2" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
-                       Text="A sessão escrita com o paciente ainda na sala." />
+            <!-- A identidade é âncora, e as ferramentas do atendimento moram AQUI, em
+                 botões — não em painéis abertos ocupando a tela o tempo todo. Marcar
+                 ponto no mapa e emitir receita são atos de foco, feitos uma vez por
+                 sessão; painel permanente para isso é o que espremia a tela inteira. -->
+        <!-- Ações desta SEÇÃO. A identidade do paciente não se repete aqui: ela é do
+             cabeçalho da tela, uma vez, acima das abas. -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+                HorizontalAlignment="Right" Margin="0,0,0,14">
+            <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
+                Command="{Binding AbrirMapaCommand}" MinWidth="130" />
+            <Button Content="Emitir documento" Style="{StaticResource BotaoSecundario}"
+                Command="{Binding EmitirDocumentoCommand}" Margin="8,0,0,0"
+                MinWidth="150"
+                IsEnabled="{Binding PodeEditarProntuario}" />
+            <Button Content="Evolução da dor" Style="{StaticResource BotaoSecundario}"
+                Command="{Binding VerEvolucaoDaDorCommand}" Margin="8,0,0,0"
+                MinWidth="130" />
+            <Button Content="Avaliações" Style="{StaticResource BotaoSecundario}"
+                Command="{Binding VerAvaliacoesCommand}" Margin="8,0,0,0"
+                MinWidth="110" />
         </StackPanel>
 
-        <clin:PainelPacienteClinico DockPanel.Dock="Left" Width="300" Margin="0,0,16,0"
-                                    DataContext="{Binding Seletor}" />
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
 
-        <Grid>
-            <ctrl:EmptyState Glifo="&#xE77B;"
-                             Titulo="Nenhum paciente em atendimento"
-                             Descricao="Escolha alguém da sua agenda de hoje, ao lado — ou busque pelo nome. Quem for chamado da agenda tem a evolução ligada ao horário automaticamente."
-                             Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
-
-            <DockPanel>
-                <DockPanel.Style>
-                    <Style TargetType="DockPanel">
+            <!-- Alergia e uso contínuo: o que se resolve ANTES de prescrever. Fica
+                 acima e separado do administrativo, que se resolve no balcão depois. -->
+            <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding AlertasClinicos}"
+                          Margin="0,0,0,10">
+                <ItemsControl.Style>
+                    <Style TargetType="ItemsControl">
                         <Setter Property="Visibility" Value="Visible" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding SemPaciente}" Value="True">
+                            <DataTrigger Binding="{Binding AlertasClinicos.Count}" Value="0">
                                 <Setter Property="Visibility" Value="Collapsed" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </DockPanel.Style>
+                </ItemsControl.Style>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,0,6">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Grave}" Value="True">
+                                            <Setter Property="Background"
+                                                    Value="{StaticResource Brush.Erro.Suave}" />
+                                            <Setter Property="BorderBrush"
+                                                    Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding Texto}" TextWrapping="Wrap"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-                <!-- A identidade é âncora, e as ferramentas do atendimento moram AQUI, em
-                     botões — não em painéis abertos ocupando a tela o tempo todo. Marcar
-                     ponto no mapa e emitir receita são atos de foco, feitos uma vez por
-                     sessão; painel permanente para isso é o que espremia a tela inteira. -->
-                <clin:FaixaPaciente DockPanel.Dock="Top" Margin="0,0,0,14"
-                                    Nome="{Binding Paciente}" Contexto="{Binding Origem}">
-                    <clin:FaixaPaciente.Acoes>
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding AbrirMapaCommand}" MinWidth="130" />
-                            <Button Content="Emitir documento" Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding EmitirDocumentoCommand}" Margin="8,0,0,0"
-                                    MinWidth="150"
-                                    IsEnabled="{Binding PodeEditarProntuario}" />
-                            <Button Content="Evolução da dor" Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding VerEvolucaoDaDorCommand}" Margin="8,0,0,0"
-                                    MinWidth="130" />
-                            <Button Content="Avaliações" Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding VerAvaliacoesCommand}" Margin="8,0,0,0"
-                                    MinWidth="110" />
-                        </StackPanel>
-                    </clin:FaixaPaciente.Acoes>
-                </clin:FaixaPaciente>
+            <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Alertas}"
+                          Margin="0,0,0,10">
+                <ItemsControl.Style>
+                    <Style TargetType="ItemsControl">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Alertas.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ItemsControl.Style>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Margin="0,0,0,6">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Grave}" Value="True">
+                                            <Setter Property="Background"
+                                                    Value="{StaticResource Brush.Erro.Suave}" />
+                                            <Setter Property="BorderBrush"
+                                                    Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                        Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-                </Border>
-
-                <!-- Alergia e uso contínuo: o que se resolve ANTES de prescrever. Fica
-                     acima e separado do administrativo, que se resolve no balcão depois. -->
-                <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding AlertasClinicos}"
-                              Margin="0,0,0,10">
-                    <ItemsControl.Style>
-                        <Style TargetType="ItemsControl">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding AlertasClinicos.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ItemsControl.Style>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Margin="0,0,0,6">
-                                <Border.Style>
-                                    <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Grave}" Value="True">
-                                                <Setter Property="Background"
-                                                        Value="{StaticResource Brush.Erro.Suave}" />
-                                                <Setter Property="BorderBrush"
-                                                        Value="{StaticResource Brush.Erro}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap"
-                                           FontWeight="SemiBold" />
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <ItemsControl DockPanel.Dock="Top" ItemsSource="{Binding Alertas}"
-                              Margin="0,0,0,10">
-                    <ItemsControl.Style>
-                        <Style TargetType="ItemsControl">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Alertas.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ItemsControl.Style>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Margin="0,0,0,6">
-                                <Border.Style>
-                                    <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding Grave}" Value="True">
-                                                <Setter Property="Background"
-                                                        Value="{StaticResource Brush.Erro.Suave}" />
-                                                <Setter Property="BorderBrush"
-                                                        Value="{StaticResource Brush.Erro}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Border.Style>
-                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-
-                <!-- Rodapé fora do scroll: o Salvar não some quando a evolução fica longa.
-                     UM primário na tela — o resto é secundário, senão nada é primário. -->
-                <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Margin="0,0,12,0"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Texto.Secundario}"
-                                   Text="A EVA vale em par: registre o depois ao terminar a sessão." />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <Button Content="Repetir última conduta"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding RepetirUltimaCommand}"
-                                    IsEnabled="{Binding PodeEditarProntuario}" MinWidth="180" />
-                            <Button Content="Salvar sessão" Margin="8,0,0,0" MinWidth="150"
-                                    Command="{Binding SalvarCommand}"
-                                    IsEnabled="{Binding PodeEditarProntuario}" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- ===== Duas colunas: escrever à esquerda, reler à direita =====
-                     Cada uma é UMA superfície, não uma pilha de caixas com borda. A
-                     separação interna é por espaço e rótulo — desenhar um retângulo em
-                     volta de cada campo é o que fazia a tela parecer costurada. -->
+            <!-- Rodapé fora do scroll: o Salvar não some quando a evolução fica longa.
+                 UM primário na tela — o resto é secundário, senão nada é primário. -->
+            <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">
                 <Grid>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="520" />
+                        <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
+                               Margin="0,0,12,0"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               Text="A EVA vale em par: registre o depois ao terminar a sessão." />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Content="Repetir última conduta"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding RepetirUltimaCommand}"
+                                IsEnabled="{Binding PodeEditarProntuario}" MinWidth="180" />
+                        <Button Content="Salvar sessão" Margin="8,0,0,0" MinWidth="150"
+                                Command="{Binding SalvarCommand}"
+                                IsEnabled="{Binding PodeEditarProntuario}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
 
-                    <Border Grid.Column="0" Style="{StaticResource Card}">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel>
+            <!-- ===== Duas colunas: escrever à esquerda, reler à direita =====
+                 Cada uma é UMA superfície, não uma pilha de caixas com borda. A
+                 separação interna é por espaço e rótulo — desenhar um retângulo em
+                 volta de cada campo é o que fazia a tela parecer costurada. -->
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="520" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                                <!-- A dor abre a sessão: é a primeira pergunta feita em voz
-                                     alta, e o resumo do tratamento fica ao lado dela. -->
-                                <Grid Margin="0,0,0,12">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
+                <Border Grid.Column="0" Style="{StaticResource Card}">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
 
-                                    <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                        <TextBlock Text="Data da sessão" Style="{StaticResource Rotulo}" />
-                                        <DatePicker SelectedDate="{Binding Data}" Width="150" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="0,0,16,0">
-                                        <TextBlock Text="EVA antes" Style="{StaticResource Rotulo}" />
-                                        <ComboBox ItemsSource="{Binding EscalaEva}" Width="90"
-                                                  SelectedItem="{Binding EvaAntes}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" Margin="0,0,16,0">
-                                        <TextBlock Text="EVA depois" Style="{StaticResource Rotulo}" />
-                                        <ComboBox ItemsSource="{Binding EscalaEva}" Width="90"
-                                                  SelectedItem="{Binding EvaDepois}" />
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="3" Text="{Binding ResumoDor}"
-                                               TextWrapping="Wrap" VerticalAlignment="Bottom"
-                                               Margin="0,0,0,6"
-                                               FontSize="{StaticResource Fonte.Legenda}"
-                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                </Grid>
+                            <!-- A dor abre a sessão: é a primeira pergunta feita em voz
+                                 alta, e o resumo do tratamento fica ao lado dela. -->
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
 
-                                <Separator Margin="0,0,0,14"
-                                           Background="{StaticResource Brush.Borda}" />
+                                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                    <TextBlock Text="Data da sessão" Style="{StaticResource Rotulo}" />
+                                    <DatePicker SelectedDate="{Binding Data}" Width="150" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="0,0,16,0">
+                                    <TextBlock Text="EVA antes" Style="{StaticResource Rotulo}" />
+                                    <ComboBox ItemsSource="{Binding EscalaEva}" Width="90"
+                                              SelectedItem="{Binding EvaAntes}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="0,0,16,0">
+                                    <TextBlock Text="EVA depois" Style="{StaticResource Rotulo}" />
+                                    <ComboBox ItemsSource="{Binding EscalaEva}" Width="90"
+                                              SelectedItem="{Binding EvaDepois}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="3" Text="{Binding ResumoDor}"
+                                           TextWrapping="Wrap" VerticalAlignment="Bottom"
+                                           Margin="0,0,0,6"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                            </Grid>
 
-                                <TextBlock Text="Queixa principal" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding QueixaPrincipal, UpdateSourceTrigger=PropertyChanged}"
-                                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
-                                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
+                            <Separator Margin="0,0,0,14"
+                                       Background="{StaticResource Brush.Borda}" />
 
-                                <TextBlock Text="Conduta (pontos, técnica, tempo)"
-                                           Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Conduta, UpdateSourceTrigger=PropertyChanged}"
-                                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"
-                                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
+                            <TextBlock Text="Queixa principal" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding QueixaPrincipal, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
+                                     VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
 
-                                <TextBlock Text="Evolução" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}"
-                                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="96"
-                                         VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
+                            <TextBlock Text="Conduta (pontos, técnica, tempo)"
+                                       Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Conduta, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="72"
+                                     VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
 
-                                <TextBlock Text="Orientações ao paciente" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Orientacoes, UpdateSourceTrigger=PropertyChanged}"
-                                         TextWrapping="Wrap" AcceptsReturn="True" MinHeight="56"
-                                         VerticalScrollBarVisibility="Auto" />
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Border>
+                            <TextBlock Text="Evolução" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding TextoEvolucao, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="96"
+                                     VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />
 
-                    <!-- As últimas sessões continuam ABERTAS: reler o que foi feito é a
-                         primeira coisa que se faz, e é referência para o que se digita ao
-                         lado. Diferente do mapa, que é um ato à parte. -->
-                    <Border Grid.Column="1" Width="400" Margin="16,0,0,0"
-                            Style="{StaticResource Card}">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="Últimas sessões"
-                                       Style="{StaticResource H3}" Margin="0,0,0,10" />
-                            <Grid>
-                                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl ItemsSource="{Binding Anteriores}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <StackPanel Margin="0,0,0,14">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="*" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                                   FontWeight="SemiBold" />
-                                                        <TextBlock Grid.Column="1" Text="{Binding Eva}"
-                                                                   Margin="8,0,0,0" TextWrapping="Wrap"
-                                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                                    </Grid>
-                                                    <TextBlock Text="{Binding Queixa}" TextWrapping="Wrap"
-                                                               Margin="0,6,0,0"
+                            <TextBlock Text="Orientações ao paciente" Style="{StaticResource Rotulo}" />
+                            <TextBox Text="{Binding Orientacoes, UpdateSourceTrigger=PropertyChanged}"
+                                     TextWrapping="Wrap" AcceptsReturn="True" MinHeight="56"
+                                     VerticalScrollBarVisibility="Auto" />
+                        </StackPanel>
+                    </ScrollViewer>
+                </Border>
+
+                <!-- As últimas sessões continuam ABERTAS: reler o que foi feito é a
+                     primeira coisa que se faz, e é referência para o que se digita ao
+                     lado. Diferente do mapa, que é um ato à parte. -->
+                <Border Grid.Column="1" Width="400" Margin="16,0,0,0"
+                        Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Últimas sessões"
+                                   Style="{StaticResource H3}" Margin="0,0,0,10" />
+                        <Grid>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Anteriores}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,14">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Grid.Column="0" Text="{Binding Data}"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Eva}"
+                                                               Margin="8,0,0,0" TextWrapping="Wrap"
                                                                FontSize="{StaticResource Fonte.Legenda}"
                                                                Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                                    <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap"
-                                                               Margin="0,4,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}" />
-                                                    <Separator Margin="0,12,0,0"
-                                                               Background="{StaticResource Brush.Borda}" />
-                                                </StackPanel>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
+                                                </Grid>
+                                                <TextBlock Text="{Binding Queixa}" TextWrapping="Wrap"
+                                                           Margin="0,6,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}" />
+                                                <Separator Margin="0,12,0,0"
+                                                           Background="{StaticResource Brush.Borda}" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
 
-                                <!-- Histórico vazio por FALHA seria lido como "paciente
-                                     novo", e a conduta de hoje sairia sem o que veio antes. -->
-                                <ctrl:EstadoDaTela Itens="{Binding Anteriores}"
-                                                   Carregando="{Binding Carregando}"
-                                                   NaoVerificado="{Binding NaoVerificado}"
-                                                   Glifo="&#xE81C;"
-                                                   TextoCarregando="Lendo o prontuário…"
-                                                   Titulo="Primeira sessão"
-                                                   Descricao="Não há sessão anterior registrada — o que você escrever agora é a linha de base do tratamento." />
-                            </Grid>
-                        </DockPanel>
-                    </Border>
-                </Grid>
-            </DockPanel>
-        </Grid>
+                            <!-- Histórico vazio por FALHA seria lido como "paciente
+                                 novo", e a conduta de hoje sairia sem o que veio antes. -->
+                            <ctrl:EstadoDaTela Itens="{Binding Anteriores}"
+                                               Carregando="{Binding Carregando}"
+                                               NaoVerificado="{Binding NaoVerificado}"
+                                               Glifo="&#xE81C;"
+                                               TextoCarregando="Lendo o prontuário…"
+                                               Titulo="Primeira sessão"
+                                               Descricao="Não há sessão anterior registrada — o que você escrever agora é a linha de base do tratamento." />
+                        </Grid>
+                    </DockPanel>
+                </Border>
+            </Grid>
     </DockPanel>
 </UserControl>

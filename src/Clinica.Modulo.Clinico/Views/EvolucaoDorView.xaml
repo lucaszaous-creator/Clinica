@@ -2,201 +2,163 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             xmlns:clin="clr-namespace:Clinica.Clinico.Componentes"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
+    <DockPanel Margin="0,4,0,0">
 
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
-            <StackPanel>
-                <TextBlock Text="Evolução da dor (EVA)" Style="{StaticResource H1}" Margin="0,0,0,2" />
-                <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
-                           Text="A dor de chegada mede o tratamento; a de saída mede a sessão." />
-            </StackPanel>
-        </Grid>
+        <!-- Ações desta SEÇÃO. A identidade do paciente não se repete aqui: ela é do
+             cabeçalho da tela, uma vez, acima das abas. -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+                HorizontalAlignment="Right" Margin="0,0,0,14">
+            <Button Content="Exportar CSV" Command="{Binding ExportarCommand}"
+                Style="{StaticResource BotaoSecundario}" MinWidth="130" />
+            <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                Margin="8,0,0,0" MinWidth="110" />
+        </StackPanel>
 
-        <!-- O painel já abre com a agenda do dia e a carteira: a tela deixa de nascer
-             vazia esperando alguém digitar um nome que o sistema já sabe. -->
-        <clin:PainelPacienteClinico DockPanel.Dock="Left" Width="300" Margin="0,0,16,0"
-                                    DataContext="{Binding Seletor}" />
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
 
-        <Grid>
-            <!-- Estado vazio de verdade: ícone, título e o que fazer. Frase cinza
-                 solta no meio da tela não é estado vazio, é tela inacabada. -->
-            <ctrl:EmptyState Glifo="&#xE77B;"
-                             Titulo="Nenhum paciente escolhido"
-                             Descricao="Escolha alguém ao lado para ver as duas curvas de dor do tratamento — a de chegada, que mede o tratamento, e a de saída, que mede a sessão."
-                             Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
+            <!-- Quando a tendência preocupa ela vira ALERTA, e não mais uma linha
+                 cinza dentro do cartão — é a leitura que muda conduta. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                    Visibility="{Binding TendenciaPreocupa, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding Tendencia}" TextWrapping="Wrap" />
+            </Border>
 
-            <DockPanel>
-                <DockPanel.Style>
-                    <Style TargetType="DockPanel">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SemPaciente}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </DockPanel.Style>
-
-                <clin:FaixaPaciente DockPanel.Dock="Top" Margin="0,0,0,12"
-                                    Nome="{Binding Paciente}" Contexto="{Binding Resumo}">
-                    <clin:FaixaPaciente.Acoes>
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="Exportar CSV" Command="{Binding ExportarCommand}"
-                                    Style="{StaticResource BotaoSecundario}" MinWidth="130" />
-                            <Button Content="Atualizar" Command="{Binding CarregarCommand}"
-                                    Margin="8,0,0,0" MinWidth="110" />
+            <!-- UM cartão para a leitura inteira: cinco números, a frase e a curva.
+                 Eram três blocos com borda empilhados, e o texto da tendência saía
+                 repetido em dois deles. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,14">
+                <StackPanel>
+                    <!-- "—" quando falta base: 0 e "não medido" são coisas diferentes,
+                         e a diferença aqui decide se o tratamento continua. Juntas à
+                         esquerda, porque cinco números espalhados por mil e trezentos
+                         pixels viram cinco traços perdidos. -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <StackPanel Margin="0,0,26,0">
+                            <TextBlock Text="DOR INICIAL" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding DorInicial}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
                         </StackPanel>
-                    </clin:FaixaPaciente.Acoes>
-                </clin:FaixaPaciente>
-
-                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                        Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-                </Border>
-
-                <!-- Quando a tendência preocupa ela vira ALERTA, e não mais uma linha
-                     cinza dentro do cartão — é a leitura que muda conduta. -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
-                        Visibility="{Binding TendenciaPreocupa, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="{Binding Tendencia}" TextWrapping="Wrap" />
-                </Border>
-
-                <!-- UM cartão para a leitura inteira: cinco números, a frase e a curva.
-                     Eram três blocos com borda empilhados, e o texto da tendência saía
-                     repetido em dois deles. -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,14">
-                    <StackPanel>
-                        <!-- "—" quando falta base: 0 e "não medido" são coisas diferentes,
-                             e a diferença aqui decide se o tratamento continua. Juntas à
-                             esquerda, porque cinco números espalhados por mil e trezentos
-                             pixels viram cinco traços perdidos. -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <StackPanel Margin="0,0,26,0">
-                                <TextBlock Text="DOR INICIAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding DorInicial}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,26,0">
-                                <TextBlock Text="DOR ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding DorAtual}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,26,0">
-                                <TextBlock Text="GANHO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding GanhoAcumulado}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,26,0">
-                                <TextBlock Text="REDUÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding Reducao}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="ALÍVIO MÉDIO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding AlivioMedio}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
+                        <StackPanel Margin="0,0,26,0">
+                            <TextBlock Text="DOR ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding DorAtual}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
                         </StackPanel>
-
-                        <TextBlock Text="{Binding Tendencia}" TextWrapping="Wrap"
-                                   Style="{StaticResource TextoSuave}" Margin="0,0,0,10" />
-
-                        <!-- A curva só existe com par EVA. Sem ela o desenho SOME em vez de
-                             pintar 200 px de branco repetindo a frase de cima. -->
-                        <StackPanel Visibility="{Binding TemCurva,
-                                                 Converter={StaticResource BoolParaVisibilidade}}">
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <Border Width="14" Height="4" VerticalAlignment="Center"
-                                        Background="{StaticResource Brush.Semaforo.Vermelho}" />
-                                <TextBlock Text="dor ao chegar" Margin="6,0,16,0"
-                                           Style="{StaticResource TextoSuave}" />
-                                <Border Width="14" Height="4" VerticalAlignment="Center"
-                                        Background="{StaticResource Brush.Semaforo.Verde}" />
-                                <TextBlock Text="dor ao sair" Margin="6,0,0,0"
-                                           Style="{StaticResource TextoSuave}" />
-                            </StackPanel>
-
-                            <!-- ComecaDoZero fica LIGADO: a EVA é uma faixa conhecida de 0
-                                 a 10, e uma escala que começasse no menor valor medido
-                                 transformaria a queda de um ponto num despencar. -->
-                            <Grid Height="200">
-                                <ctrl:GraficoLinha Pontos="{Binding CurvaAntes}"
-                                                   Cor="{StaticResource Brush.Semaforo.Vermelho}" />
-                                <ctrl:GraficoLinha Pontos="{Binding CurvaDepois}"
-                                                   Cor="{StaticResource Brush.Semaforo.Verde}" />
-                            </Grid>
+                        <StackPanel Margin="0,0,26,0">
+                            <TextBlock Text="GANHO" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding GanhoAcumulado}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                        <StackPanel Margin="0,0,26,0">
+                            <TextBlock Text="REDUÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding Reducao}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="ALÍVIO MÉDIO" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding AlivioMedio}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
                         </StackPanel>
                     </StackPanel>
-                </Border>
 
-                <Border Background="{StaticResource Brush.Superficie}"
-                        BorderBrush="{StaticResource Brush.Borda}"
-                        BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
-                    <Grid>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding Sessoes}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
-                                                BorderThickness="0,0,0,1">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="130" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="140" />
-                                                </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding Tendencia}" TextWrapping="Wrap"
+                               Style="{StaticResource TextoSuave}" Margin="0,0,0,10" />
 
-                                                <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                           VerticalAlignment="Center" />
+                    <!-- A curva só existe com par EVA. Sem ela o desenho SOME em vez de
+                         pintar 200 px de branco repetindo a frase de cima. -->
+                    <StackPanel Visibility="{Binding TemCurva,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <Border Width="14" Height="4" VerticalAlignment="Center"
+                                    Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                            <TextBlock Text="dor ao chegar" Margin="6,0,16,0"
+                                       Style="{StaticResource TextoSuave}" />
+                            <Border Width="14" Height="4" VerticalAlignment="Center"
+                                    Background="{StaticResource Brush.Semaforo.Verde}" />
+                            <TextBlock Text="dor ao sair" Margin="6,0,0,0"
+                                       Style="{StaticResource TextoSuave}" />
+                        </StackPanel>
 
-                                                <TextBlock Grid.Column="1" VerticalAlignment="Center"
-                                                           TextWrapping="Wrap"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="chegou em " />
-                                                    <Run Text="{Binding Antes, Mode=OneWay}" />
-                                                    <Run Text="/10 · saiu em " />
-                                                    <Run Text="{Binding Depois, Mode=OneWay}" />
-                                                    <Run Text="/10" />
-                                                </TextBlock>
+                        <!-- ComecaDoZero fica LIGADO: a EVA é uma faixa conhecida de 0
+                             a 10, e uma escala que começasse no menor valor medido
+                             transformaria a queda de um ponto num despencar. -->
+                        <Grid Height="200">
+                            <ctrl:GraficoLinha Pontos="{Binding CurvaAntes}"
+                                               Cor="{StaticResource Brush.Semaforo.Vermelho}" />
+                            <ctrl:GraficoLinha Pontos="{Binding CurvaDepois}"
+                                               Cor="{StaticResource Brush.Semaforo.Verde}" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
-                                                <Border Grid.Column="2" HorizontalAlignment="Left"
-                                                        VerticalAlignment="Center">
-                                                    <Border.Style>
-                                                        <Style TargetType="Border" BasedOn="{StaticResource Badge}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Aliviou}" Value="True">
-                                                                    <Setter Property="Background"
-                                                                            Value="{StaticResource Brush.Sucesso.Suave}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </Border.Style>
-                                                    <TextBlock Text="{Binding Variacao}" TextWrapping="Wrap" />
-                                                </Border>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}"
+                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Sessoes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,10" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="140" />
+                                            </Grid.ColumnDefinitions>
 
-                        <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
-                                           Carregando="{Binding Carregando}"
-                                           NaoVerificado="{Binding NaoVerificado}"
-                                           Glifo="&#xEB05;"
-                                           TextoCarregando="Lendo a evolução da dor…"
-                                           Titulo="Nenhuma sessão com o par EVA"
-                                           Descricao="A dor precisa ser medida ANTES e DEPOIS da sessão: uma medida solta não diz se o tratamento funcionou." />
-                    </Grid>
-                </Border>
-            </DockPanel>
-        </Grid>
+                                            <TextBlock Grid.Column="0" Text="{Binding Data}"
+                                                       VerticalAlignment="Center" />
+
+                                            <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                                       TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                <Run Text="chegou em " />
+                                                <Run Text="{Binding Antes, Mode=OneWay}" />
+                                                <Run Text="/10 · saiu em " />
+                                                <Run Text="{Binding Depois, Mode=OneWay}" />
+                                                <Run Text="/10" />
+                                            </TextBlock>
+
+                                            <Border Grid.Column="2" HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center">
+                                                <Border.Style>
+                                                    <Style TargetType="Border" BasedOn="{StaticResource Badge}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Aliviou}" Value="True">
+                                                                <Setter Property="Background"
+                                                                        Value="{StaticResource Brush.Sucesso.Suave}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <TextBlock Text="{Binding Variacao}" TextWrapping="Wrap" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
+                                       Carregando="{Binding Carregando}"
+                                       NaoVerificado="{Binding NaoVerificado}"
+                                       Glifo="&#xEB05;"
+                                       TextoCarregando="Lendo a evolução da dor…"
+                                       Titulo="Nenhuma sessão com o par EVA"
+                                       Descricao="A dor precisa ser medida ANTES e DEPOIS da sessão: uma medida solta não diz se o tratamento funcionou." />
+                </Grid>
+            </Border>
     </DockPanel>
 </UserControl>

@@ -88,12 +88,6 @@ public sealed partial class MedidasViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
     private readonly PacienteEmFoco _foco;
 
-    /// <summary>
-    /// O painel do consultório, que já abre com a agenda do dia e a carteira — e não com
-    /// uma caixa de busca vazia sobre uma coluna em branco.
-    /// </summary>
-    public SeletorClinicoViewModel Seletor { get; }
-
     /// <summary>Últimas colheitas, uma por tipo — a leitura de abertura.</summary>
     public ObservableCollection<CartaoMedida> Cartoes { get; } = [];
 
@@ -158,9 +152,6 @@ public sealed partial class MedidasViewModel : ObservableObject
         // IMC. Abrir num tipo que a clínica não usa mostraria curva vazia como boas-vindas.
         TipoAcompanhado = TiposAcompanhaveis.FirstOrDefault(t => t.Codigo == CatalogoMedidas.Peso);
 
-        Seletor = new SeletorClinicoViewModel(escopos, foco);
-        Seletor.Escolhido += escolhido => _ = CarregarAsync();
-
         if (_foco.Definido) _ = CarregarAsync();
     }
 
@@ -189,7 +180,6 @@ public sealed partial class MedidasViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
             Paciente = _foco.Nome;
-            Seletor.Sincronizar();
 
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<MedidaClinicaService>();

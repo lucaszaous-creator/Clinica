@@ -1,0 +1,92 @@
+<UserControl x:Class="Clinica.Clinico.Views.PacienteWorkspaceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:views="clr-namespace:Clinica.Clinico.Views"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- Chegou aqui sem paciente (navegação direta de outro módulo): a tela diz o que
+             fazer, em vez de abrir cinco abas em branco. -->
+        <ctrl:EmptyState Glifo="&#xE77B;"
+                         Titulo="Nenhum paciente aberto"
+                         Descricao="Escolha alguém em “Meu dia”, se você o atende hoje, ou em “Meus pacientes”."
+                         TextoAcao="Ir para Meus pacientes"
+                         AcaoCommand="{Binding TrocarPacienteCommand}"
+                         Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
+
+        <DockPanel Margin="24,20,24,0">
+            <DockPanel.Style>
+                <Style TargetType="DockPanel">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding SemPaciente}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DockPanel.Style>
+
+            <!-- ===== Cabeçalho da PESSOA =====
+                 A identidade aparece UMA vez, aqui, e vale para as cinco abas. Antes cada
+                 tela repetia o nome e ainda carregava a lista inteira de pacientes ao
+                 lado — a mesma informação, seis vezes, comendo 300 px de largura útil. -->
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                <Button Content="&#xE72B;  Voltar para a lista" HorizontalAlignment="Left"
+                        Margin="0,0,0,10" Padding="0"
+                        Style="{StaticResource BotaoFantasma}"
+                        Command="{Binding VoltarCommand}" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <ctrl:Avatar Grid.Column="0" Tamanho="48" VerticalAlignment="Center"
+                                 Nome="{Binding Paciente}" />
+
+                    <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}"
+                                   TextWrapping="Wrap" Margin="0" />
+                        <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
+                                   Margin="0,2,0,0" />
+                    </StackPanel>
+
+                    <Button Grid.Column="2" Content="Trocar paciente" MinWidth="150"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding TrocarPacienteCommand}" />
+                </Grid>
+            </StackPanel>
+
+            <!-- ===== As cinco seções, como ABAS =====
+                 Elas só existem com paciente, e por isso não são itens de menu: item que
+                 abre em branco pedindo para você ir a outro lugar primeiro ensina o
+                 usuário a errar. A aba diz sozinha que pertence a quem está acima. -->
+            <TabControl SelectedIndex="{Binding AbaAtual}"
+                        Background="Transparent" BorderThickness="0">
+                <TabItem Header="Atendimento">
+                    <views:AtendimentoView DataContext="{Binding Atendimento}" />
+                </TabItem>
+                <TabItem Header="Prontuário">
+                    <views:ProntuarioClinicoView DataContext="{Binding Prontuario}" />
+                </TabItem>
+                <TabItem Header="Evolução da dor">
+                    <views:EvolucaoDorView DataContext="{Binding Dor}" />
+                </TabItem>
+                <TabItem Header="Medidas">
+                    <views:MedidasView DataContext="{Binding Medidas}" />
+                </TabItem>
+                <TabItem Header="Avaliações">
+                    <views:AvaliacoesView DataContext="{Binding Avaliacoes}" />
+                </TabItem>
+            </TabControl>
+        </DockPanel>
+    </Grid>
+</UserControl>
