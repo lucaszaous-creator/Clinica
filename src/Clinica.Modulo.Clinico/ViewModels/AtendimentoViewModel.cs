@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
+using Clinica.Clinico.Janelas;
 using Clinica.Clinico.Modulo;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -458,6 +459,41 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Consultório — sessão não pôde ser salva", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Abre o mapa corporal em JANELA (parcela 37, rodada de leiaute).
+    ///
+    /// Ele morava numa aba de 530 px ao lado do formulário, e não cabia: as duas figuras
+    /// são Canvas de 220×460 que NÃO esticam — é o que faz o clique virar fração — então
+    /// sobrava barra de rolagem e os botões do rodapé saíam cortados pela borda da tela.
+    /// A Recepção já abre o mapa numa janela de 960 de mínimo, pelo mesmo motivo.
+    ///
+    /// A janela NÃO grava. O mapa é 1:1 com a evolução e só se efetiva depois que a sessão
+    /// existe — quem o grava continua sendo o Salvar daqui, com o id da evolução na mão.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirMapa()
+    {
+        if (Mapa is null) return;
+
+        try
+        {
+            new MapaCorporalWindow(Mapa, $"Mapa corporal — {Paciente}")
+            {
+                Owner = System.Windows.Application.Current?.MainWindow
+            }.ShowDialog();
+
+            // O resumo do rodapé muda com o que foi marcado lá dentro.
+            OnPropertyChanged(nameof(Mapa));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — mapa corporal não pôde ser aberto", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

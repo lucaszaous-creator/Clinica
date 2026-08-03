@@ -61,71 +61,78 @@
                     <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
                 </Border>
 
-                <!-- Cinco leituras. "—" quando falta base: 0 e "não medido" são coisas
-                     diferentes, e a diferença aqui decide se o tratamento continua. -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <StackPanel>
-                        <UniformGrid Columns="5">
-                            <StackPanel Margin="0,0,12,0">
-                                <TextBlock Text="DOR INICIAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding DorInicial}" Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,12,0">
-                                <TextBlock Text="DOR ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding DorAtual}" Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,12,0">
-                                <TextBlock Text="GANHO ACUMULADO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding GanhoAcumulado}" Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,12,0">
-                                <TextBlock Text="REDUÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding Reducao}" Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel>
-                                <TextBlock Text="ALÍVIO MÉDIO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding AlivioMedio}" Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                        </UniformGrid>
-                        <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
-                                   TextWrapping="Wrap" Margin="0,8,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <!-- A leitura da tendência das últimas sessões, que é a que muda conduta.
-                     Quando ela preocupa, vira alerta em vez de mais uma linha cinza. -->
+                <!-- Quando a tendência preocupa ela vira ALERTA, e não mais uma linha
+                     cinza dentro do cartão — é a leitura que muda conduta. -->
                 <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
                         Visibility="{Binding TendenciaPreocupa, Converter={StaticResource BoolParaVisibilidade}}">
                     <TextBlock Text="{Binding Tendencia}" TextWrapping="Wrap" />
                 </Border>
 
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+                <!-- UM cartão para a leitura inteira: cinco números, a frase e a curva.
+                     Eram três blocos com borda empilhados, e o texto da tendência saía
+                     repetido em dois deles. -->
+                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,14">
                     <StackPanel>
-                        <TextBlock Text="Curva do tratamento" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Text="{Binding Tendencia}" TextWrapping="Wrap"
-                                   Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Border Width="14" Height="4" VerticalAlignment="Center"
-                                    Background="{StaticResource Brush.Semaforo.Vermelho}" />
-                            <TextBlock Text="dor ao chegar" Margin="6,0,16,0"
-                                       Style="{StaticResource TextoSuave}" />
-                            <Border Width="14" Height="4" VerticalAlignment="Center"
-                                    Background="{StaticResource Brush.Semaforo.Verde}" />
-                            <TextBlock Text="dor ao sair" Margin="6,0,0,0"
-                                       Style="{StaticResource TextoSuave}" />
+                        <!-- "—" quando falta base: 0 e "não medido" são coisas diferentes,
+                             e a diferença aqui decide se o tratamento continua. Juntas à
+                             esquerda, porque cinco números espalhados por mil e trezentos
+                             pixels viram cinco traços perdidos. -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                            <StackPanel Margin="0,0,26,0">
+                                <TextBlock Text="DOR INICIAL" Style="{StaticResource CardKpi.Rotulo}" />
+                                <TextBlock Text="{Binding DorInicial}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,26,0">
+                                <TextBlock Text="DOR ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
+                                <TextBlock Text="{Binding DorAtual}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,26,0">
+                                <TextBlock Text="GANHO" Style="{StaticResource CardKpi.Rotulo}" />
+                                <TextBlock Text="{Binding GanhoAcumulado}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,26,0">
+                                <TextBlock Text="REDUÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
+                                <TextBlock Text="{Binding Reducao}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="ALÍVIO MÉDIO" Style="{StaticResource CardKpi.Rotulo}" />
+                                <TextBlock Text="{Binding AlivioMedio}" TextWrapping="Wrap"
+                                           Style="{StaticResource CardKpi.Valor}" />
+                            </StackPanel>
                         </StackPanel>
 
-                        <!-- ComecaDoZero fica LIGADO: a EVA é uma faixa conhecida de 0 a 10,
-                             e uma escala que começasse no menor valor medido transformaria
-                             a queda de um ponto num despencar. -->
-                        <Grid Height="200">
-                            <ctrl:GraficoLinha Pontos="{Binding CurvaAntes}"
-                                               Cor="{StaticResource Brush.Semaforo.Vermelho}" />
-                            <ctrl:GraficoLinha Pontos="{Binding CurvaDepois}"
-                                               Cor="{StaticResource Brush.Semaforo.Verde}" />
-                        </Grid>
+                        <TextBlock Text="{Binding Tendencia}" TextWrapping="Wrap"
+                                   Style="{StaticResource TextoSuave}" Margin="0,0,0,10" />
+
+                        <!-- A curva só existe com par EVA. Sem ela o desenho SOME em vez de
+                             pintar 200 px de branco repetindo a frase de cima. -->
+                        <StackPanel Visibility="{Binding TemCurva,
+                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <Border Width="14" Height="4" VerticalAlignment="Center"
+                                        Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                                <TextBlock Text="dor ao chegar" Margin="6,0,16,0"
+                                           Style="{StaticResource TextoSuave}" />
+                                <Border Width="14" Height="4" VerticalAlignment="Center"
+                                        Background="{StaticResource Brush.Semaforo.Verde}" />
+                                <TextBlock Text="dor ao sair" Margin="6,0,0,0"
+                                           Style="{StaticResource TextoSuave}" />
+                            </StackPanel>
+
+                            <!-- ComecaDoZero fica LIGADO: a EVA é uma faixa conhecida de 0
+                                 a 10, e uma escala que começasse no menor valor medido
+                                 transformaria a queda de um ponto num despencar. -->
+                            <Grid Height="200">
+                                <ctrl:GraficoLinha Pontos="{Binding CurvaAntes}"
+                                                   Cor="{StaticResource Brush.Semaforo.Vermelho}" />
+                                <ctrl:GraficoLinha Pontos="{Binding CurvaDepois}"
+                                                   Cor="{StaticResource Brush.Semaforo.Verde}" />
+                            </Grid>
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 

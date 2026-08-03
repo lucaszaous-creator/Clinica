@@ -1,0 +1,45 @@
+<Window x:Class="Clinica.Clinico.Janelas.MapaCorporalWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
+        Title="Mapa corporal" Width="1020" Height="660"
+        MinWidth="960" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!--
+      O mapa em JANELA, e não numa coluna da tela de atendimento.
+
+      Ele estava espremido num TabControl de 530 px: as duas figuras são Canvas de 220x460
+      que NÃO esticam (é o que faz o clique virar fração — ver PontoMapaItem), então
+      sobrava barra de rolagem, e os botões do rodapé saíam cortados pela borda da janela.
+      É a razão de a Recepção já abrir o mapa numa janela de 960 de mínimo.
+
+      A troca não é só de tamanho: marcar pontos é um ato de foco, com o paciente na maca —
+      não é algo que se faz de canto de olho enquanto se digita a evolução. A tela de
+      atendimento ganhou um botão, e o mapa ganhou espaço.
+    -->
+    <DockPanel Margin="20">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Titulo, RelativeSource={RelativeSource AncestorType=Window}}"
+                       Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource TextoSuave}"
+                       Text="Clique na figura para marcar. Nada é gravado até você fechar com “Concluir” e salvar a sessão." />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Descartar" IsCancel="True"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="120" />
+                <Button Content="Concluir" Margin="8,0,0,0" MinWidth="140" IsDefault="True"
+                        Click="Concluir" />
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Auto">
+            <comp:MapaCorporalControl />
+        </ScrollViewer>
+    </DockPanel>
+</Window>

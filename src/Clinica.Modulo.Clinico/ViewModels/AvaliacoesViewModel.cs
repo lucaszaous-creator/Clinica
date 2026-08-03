@@ -95,6 +95,16 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
     /// <summary>Leitura da curva do instrumento escolhido, em uma frase.</summary>
     [ObservableProperty] private string _leituraCurva = string.Empty;
 
+    /// <summary>
+    /// A curva tem pelo menos um ponto.
+    ///
+    /// É o que faz o gráfico SUMIR quando não há o que desenhar. Antes ficavam 150 px de
+    /// área vazia com "sem dados no período" flutuando dentro, logo acima de um segundo
+    /// estado vazio dizendo a MESMA coisa com outras palavras — duas respostas para a
+    /// mesma pergunta, ocupando meia tela.
+    /// </summary>
+    [ObservableProperty] private bool _temCurva;
+
     [ObservableProperty] private string _escalaAtual = "—";
     [ObservableProperty] private string _escalaPrimeira = "—";
     [ObservableProperty] private string _escalaGanho = "—";
@@ -229,6 +239,7 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
     {
         EscalaAtual = EscalaPrimeira = EscalaGanho = EscalaFaixa = "—";
         LeituraCurva = string.Empty;
+        TemCurva = false;
 
         if (Instrumento is null) return;
 
@@ -236,6 +247,8 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
 
         foreach (var p in evolucao.Pontos)
             Curva.Add(new PontoGrafico(p.Data.ToString("dd/MM"), p.Pontuacao));
+
+        TemCurva = evolucao.Aplicacoes > 0;
 
         if (evolucao.Aplicacoes == 0)
         {
