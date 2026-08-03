@@ -78,6 +78,44 @@ public sealed class ModuloClinico : IModuloApp
         {
             Chave = ChaveMeusPacientes, Rotulo = "Meus pacientes", Glifo = "\uE77B",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+
+        // ===== Navegáveis, mas fora do menu =====
+        //
+        // A tela do paciente e as cinco chaves clínicas continuam sendo DESTINO: é por
+        // elas que "Atender" na fila do dia, os atalhos da carteira e o painel da direção
+        // abrem alguém. Tirá-las da lista — e não só do menu — foi o que quebrou todos
+        // esses botões de uma vez: o shell navega procurando a chave em `Itens`, e o que
+        // não está lá simplesmente não abre.
+        new ItemMenuModulo
+        {
+            Chave = ChavePaciente, Rotulo = "Paciente", Glifo = "\uE77B",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveAtendimento, Rotulo = "Atendimento", Glifo = "\uE70F",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveProntuario, Rotulo = "Prontuário", Glifo = "\uE7C3",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveEvolucaoDor, Rotulo = "Evolução da dor", Glifo = "\uEB05",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveMedidas, Rotulo = "Medidas", Glifo = "\uE9D2",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveAvaliacoes, Rotulo = "Avaliações", Glifo = "\uE9D9",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario, Oculto = true
         }
     ];
 

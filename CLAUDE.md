@@ -565,6 +565,18 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   no topo do conteúdo porque num app onde se passa vinte minutos entre quatro abas sobre a
   MESMA pessoa a identidade é âncora, não rótulo — e as ações da tela viajam com ela em vez
   de ficarem acesas no cabeçalho da página sobre uma tela sem paciente nenhum.
+- **Chave de navegação sem item de menu = botão que não faz NADA** (parcela 37, 4ª
+  rodada — a regressão que foi para produção). A navegação da suíte é por STRING:
+  `NavegacaoSuite.Ir(chave)` faz o shell procurar a chave em `ShellViewModel.Itens`, que é
+  a lista da SIDEBAR, e sem achar ele **retorna false em silêncio** — sem erro, sem log,
+  sem exceção. Ao tirar as cinco telas clínicas do menu, tirei-as junto da lista: "Atender"
+  na fila do dia, os atalhos da carteira e o painel da direção pararam de abrir qualquer
+  coisa de uma vez. O `compilar-sombra` passou (é string), o `verificar-suite` passou (era
+  C#, não XAML) e os 1023 testes passaram (nenhum monta a sidebar). A correção é
+  `ItemMenuModulo.Oculto` — **navegável sem ocupar linha no menu**; `Itens` guarda tudo o
+  que é destino, `Grupos` filtra o que aparece. A **checagem 19** do `verificar-suite`
+  passou a exigir que toda `NavegacaoSuite.Ir(ModuloX.ChaveY)` tenha o item declarado, e é
+  autotestada contra esta regressão.
 - **Lista → tela do item. Não enfie mestre-detalhe numa tela só** (parcela 37, 4ª
   rodada — a correção mais cara da parcela, e a que o cliente reprovou em voz alta). As
   cinco telas clínicas tinham, CADA UMA, uma coluna de 300 px com a lista de pacientes

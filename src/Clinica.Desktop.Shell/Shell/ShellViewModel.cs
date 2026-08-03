@@ -84,7 +84,11 @@ public sealed partial class ShellViewModel : ObservableObject
         // agrupar por módulo daria cabeçalhos que explicam a arquitetura em vez do
         // trabalho. A ordem dos grupos é a do enum; dentro do grupo, a ordem em que os
         // módulos foram carregados — que já é a ordem do dia de trabalho.
+        // `Itens` guarda TUDO o que é navegável; a sidebar mostra só o que não é oculto.
+        // A separação é o que permite uma tela ser destino de NavegacaoSuite sem ocupar
+        // linha no menu — ver ItemMenuModulo.Oculto.
         Grupos = Itens
+            .Where(i => !i.Oculto)
             .GroupBy(i => i.Grupo)
             .OrderBy(g => g.Key)
             .Select(g => new GrupoMenuModulo(GruposSidebar.Rotulo(g.Key), g.ToList()))
@@ -98,7 +102,10 @@ public sealed partial class ShellViewModel : ObservableObject
         // primeiro disponível, como sempre. Existe porque o Gerente Geral carrega os três
         // módulos e abria no painel da RECEPÇÃO: quem manda na clínica entrava no sistema
         // e via a fila do balcão.
-        var abertura = Itens.FirstOrDefault(i => i.Inicial) ?? Itens.FirstOrDefault();
+        // A abertura sai do que é VISÍVEL: cair numa tela oculta seria abrir o app numa
+        // tela que não se sabe como alcançar de novo.
+        var visiveis = Itens.Where(i => !i.Oculto).ToList();
+        var abertura = visiveis.FirstOrDefault(i => i.Inicial) ?? visiveis.FirstOrDefault();
         if (abertura is not null) Navegar(abertura);
     }
 

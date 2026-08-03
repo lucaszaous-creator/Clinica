@@ -1059,6 +1059,61 @@ if MIGRATIONS.is_dir():
                 f"docs/arquitetura-multi-exe.md.")
 
 
+# --------------------------------------------------------------- checagem 19
+# CHAVE DE NAVEGAÇÃO SEM ITEM DE MENU.
+#
+# A navegação da suíte é por STRING: `NavegacaoSuite.Ir(chave)` faz o shell procurar a
+# chave na lista de itens do módulo (`ShellViewModel.IrPara`) e, se não achar, NÃO FAZ
+# NADA — sem erro, sem log, sem exceção. O botão simplesmente não responde.
+#
+# Isto não é hipótese: na 4ª rodada da parcela 37 as cinco telas clínicas saíram do menu
+# do Consultório para virar abas da tela do paciente, e saíram junto da LISTA. Resultado:
+# "Atender" na fila do dia, os atalhos da carteira e o painel da direção pararam de abrir
+# qualquer coisa, de uma vez. O compilador de sombra passou (é string), o verificador
+# passou (é C#, não XAML) e os 1023 testes passaram (nenhum monta a sidebar).
+#
+# A correção foi `ItemMenuModulo.Oculto` — navegável sem ocupar linha no menu. Esta
+# checagem existe para a próxima vez: toda chave usada em `NavegacaoSuite.Ir/Existe`
+# precisa estar declarada como `Chave = ...` em algum `ItemMenuModulo` do módulo dono.
+# Só o que é CONSTANTE de chave: `Ir(ModuloX.ChaveY)` ou `Ir("literal")`. O painel da
+# direção navega por variável (`Ir(alerta.Destino)`), e aí o destino só se conhece em
+# tempo de execução — cobri-lo aqui daria ruído em cima de código correto.
+CHAVE_NAV = re.compile(
+    r"""NavegacaoSuite\.(?:Ir|Existe)\(\s*(?:[A-Za-z0-9_]+\.)?(Chave[A-Za-z0-9_]*)\s*\)""")
+CHAVE_NAV_LITERAL = re.compile(r"""NavegacaoSuite\.(?:Ir|Existe)\(\s*"([^"]+)"\s*\)""")
+CHAVE_ITEM = re.compile(r"Chave\s*=\s*(?:[A-Za-z0-9_]+\.)?([A-Za-z0-9_]+)\s*,")
+
+for modulo in sorted(RAIZ.glob("src/Clinica.Modulo.*")) + sorted(RAIZ.glob("src/Clinica.Recepcao")):
+    if not modulo.is_dir():
+        continue
+
+    fontes = list(modulo.rglob("*.cs"))
+    if not fontes:
+        continue
+
+    texto = "\n".join(f.read_text(encoding="utf-8") for f in fontes)
+
+    # As chaves declaradas como item de menu DESTE módulo.
+    declaradas = set(CHAVE_ITEM.findall(texto))
+    # Literais também valem (nem todo módulo usa const).
+    declaradas |= set(re.findall(r'Chave\s*=\s*"([^"]+)"', texto))
+
+    for arq in fontes:
+        corpo = arq.read_text(encoding="utf-8")
+        for chave in CHAVE_NAV.findall(corpo) + CHAVE_NAV_LITERAL.findall(corpo):
+            # Chave de OUTRO módulo (ChavesSuite.X) é contrato entre módulos: quem a
+            # publica é o dono, e este módulo não tem como declará-la.
+            if f"ChavesSuite.{chave}" in corpo:
+                continue
+            if chave in declaradas:
+                continue
+            erros.append(
+                f"{rel(arq)}: navega para `{chave}`, que não é `Chave` de nenhum "
+                f"ItemMenuModulo deste módulo — o shell procura a chave na lista de itens "
+                f"e, sem achar, o botão não faz NADA. Declare o item (use `Oculto = true` "
+                f"se a tela não deve aparecer na sidebar).")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
