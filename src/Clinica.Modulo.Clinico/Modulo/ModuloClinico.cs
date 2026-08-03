@@ -27,7 +27,9 @@ public sealed class ModuloClinico : IModuloApp
     // ser um literal repetido do outro lado, onde renomear compila e só falha na clínica.
     public const string ChaveMeuDia = ChavesSuite.ConsultorioMeuDia;
     public const string ChaveAtendimento = "consultorio-atendimento";
+    public const string ChaveProntuario = "consultorio-prontuario";
     public const string ChaveEvolucaoDor = "consultorio-evolucao-dor";
+    public const string ChaveMedidas = "consultorio-medidas";
     public const string ChaveAvaliacoes = "consultorio-avaliacoes";
     public const string ChaveMeusPacientes = "consultorio-pacientes";
 
@@ -54,9 +56,22 @@ public sealed class ModuloClinico : IModuloApp
             Chave = ChaveAtendimento, Rotulo = "Atendimento", Glifo = "\uE70F",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
+        // O prontuário INTEIRO, com busca. Vem logo depois do atendimento porque é a
+        // segunda coisa que se faz com o paciente na sala: reler o que já foi feito.
+        new ItemMenuModulo
+        {
+            Chave = ChaveProntuario, Rotulo = "Prontuário", Glifo = "\uE7C3",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
         new ItemMenuModulo
         {
             Chave = ChaveEvolucaoDor, Rotulo = "Evolução da dor", Glifo = "\uEB05",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        // As medidas seriadas (parcela 37): peso, cintura, pressão, glicemia, HbA1c.
+        new ItemMenuModulo
+        {
+            Chave = ChaveMedidas, Rotulo = "Medidas", Glifo = "\uE9D2",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
         new ItemMenuModulo
@@ -79,18 +94,23 @@ public sealed class ModuloClinico : IModuloApp
 
         servicos.AddTransient<MeuDiaViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
+        servicos.AddTransient<ProntuarioClinicoViewModel>();
         servicos.AddTransient<EvolucaoDorViewModel>();
+        servicos.AddTransient<MedidasViewModel>();
         servicos.AddTransient<AvaliacoesViewModel>();
         servicos.AddTransient<MeusPacientesViewModel>();
-        // AplicarAvaliacaoViewModel é construído à mão pela tela: ele recebe o paciente e
-        // o instrumento escolhidos, como todo formulário da suíte.
+        // AplicarAvaliacaoViewModel, AnexosSessaoViewModel e ProblemaEdicaoViewModel são
+        // construídos à mão pela tela: eles recebem o paciente, a sessão ou o problema
+        // escolhidos, como todo formulário da suíte.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChaveMeuDia => new MeuDiaView { DataContext = servicos.GetRequiredService<MeuDiaViewModel>() },
         ChaveAtendimento => new AtendimentoView { DataContext = servicos.GetRequiredService<AtendimentoViewModel>() },
+        ChaveProntuario => new ProntuarioClinicoView { DataContext = servicos.GetRequiredService<ProntuarioClinicoViewModel>() },
         ChaveEvolucaoDor => new EvolucaoDorView { DataContext = servicos.GetRequiredService<EvolucaoDorViewModel>() },
+        ChaveMedidas => new MedidasView { DataContext = servicos.GetRequiredService<MedidasViewModel>() },
         ChaveAvaliacoes => new AvaliacoesView { DataContext = servicos.GetRequiredService<AvaliacoesViewModel>() },
         ChaveMeusPacientes => new MeusPacientesView { DataContext = servicos.GetRequiredService<MeusPacientesViewModel>() },
         _ => null

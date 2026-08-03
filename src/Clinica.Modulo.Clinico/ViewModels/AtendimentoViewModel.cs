@@ -106,6 +106,23 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<LinhaAlertaClinico> Alertas { get; } = [];
 
+    /// <summary>
+    /// O que o PRONTUÁRIO avisa sobre este paciente: alergia e medicação de uso contínuo
+    /// (parcela 37).
+    ///
+    /// Fica numa lista separada da administrativa de propósito. As duas são "avisos", e é
+    /// só isso que têm em comum: carteirinha vencida se resolve no balcão depois, alergia
+    /// se resolve ANTES de prescrever. Misturá-las faria a linha que impede um dano
+    /// dividir espaço com a que lembra de uma cota — e a experiência do projeto com o
+    /// <c>ElegibilidadeService</c> é clara: alerta que divide lugar com o resto é alerta
+    /// que ninguém lê.
+    ///
+    /// Alergia dada por RESOLVIDA continua aqui: "resolvida" numa alergia é quase sempre
+    /// "não reagiu da última vez", e o dia em que reagir é o dia em que o aviso teria
+    /// valido. Só o descarte a cala.
+    /// </summary>
+    public ObservableCollection<LinhaAlertaClinico> AlertasClinicos { get; } = [];
+
     /// <summary>Evolução em edição. 0 = sessão nova.</summary>
     [ObservableProperty] private int _evolucaoId;
 
@@ -251,6 +268,44 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     private async Task CarregarAlertasAsync(IServiceProvider servicos)
     {
         Alertas.Clear();
+        AlertasClinicos.Clear();
+
+        // O prontuário falha SEPARADO do administrativo: uma consulta quebrada não pode
+        // apagar a outra lista, e "sem alergia registrada" nunca pode ser o que a tela diz
+        // quando na verdade não conseguiu ler.
+        try
+        {
+            var problemas = servicos.GetRequiredService<ProblemaPacienteService>();
+
+            foreach (var p in await problemas.AlertasAsync(PacienteId))
+                AlertasClinicos.Add(new LinhaAlertaClinico
+                {
+                    Texto = p.Natureza == NaturezaProblema.Alergia
+                        ? $"ALERGIA — {p.Rotulo}"
+                              + (string.IsNullOrWhiteSpace(p.Observacoes)
+                                  ? string.Empty : $": {p.Observacoes}")
+                        : $"Uso contínuo — {p.Rotulo}"
+                              + (string.IsNullOrWhiteSpace(p.Observacoes)
+                                  ? string.Empty : $": {p.Observacoes}"),
+                    // Alergia é vermelha; uso contínuo é amarelo. A urgência viaja com
+                    // cada linha, como no ElegibilidadeService: pintar as duas da cor da
+                    // pior faria a interação medicamentosa parecer contraindicação.
+                    Grave = p.Natureza == NaturezaProblema.Alergia
+                });
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — lista de problemas do paciente não pôde ser lida", ex);
+
+            AlertasClinicos.Add(new LinhaAlertaClinico
+            {
+                Texto = "Não foi possível ler a lista de problemas deste paciente — ela "
+                        + "está vazia por falha de leitura, não porque não haja alergia "
+                        + "registrada.",
+                Grave = false
+            });
+        }
 
         try
         {

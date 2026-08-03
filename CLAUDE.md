@@ -499,6 +499,54 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   alerta mudaria o comportamento do faturamento em produção e dispararia para TODA guia
   numa clínica que ainda não documenta — alerta que dispara para todo mundo é alerta que
   ninguém lê. A leitura foi para a direção, onde é nova.
+- **O que o profissional precisa ver e não alcança** (parcela 37): a auditoria do módulo
+  do Consultório achou três lacunas da mesma família, e nenhuma pedia capacidade nova —
+  pedia **porta no módulo certo**, que é a variante mais discreta do defeito recorrente
+  do projeto (o CI fica verde e a Recepção usa todo dia). (a) **Anexos**: `AnexarAsync`
+  existe desde a parcela 2 e só a Recepção o chamava — o Consultório EMITIA pedido de
+  exame e não tinha onde ler o laudo de volta; ele pedia e não recebia. (b) **Busca no
+  prontuário**: existe desde a parcela 28, dentro do módulo da Recepção, e o comentário
+  que a acompanha lá diz "a pergunta que o profissional faz antes de atender é sempre a
+  mesma" — a feature foi justificada pelo profissional e entregue na tela de quem não
+  atende; a de Atendimento mostra três sessões, e num tratamento de quarenta a sessão 12
+  era inalcançável. (c) **Contagem de anexos** era uma consulta POR SESSÃO
+  (`ContagemDeAnexosAsync` a fez virar uma só). Ao procurar chamador em produção,
+  procure também **em qual módulo está a tela** que lê o que este grava.
+- **Medidas seriadas** (`MedidaClinicaService`, `CatalogoMedidas`, parcela 37): a parcela
+  36 deu número às cinco especialidades pelas escalas e deixou de fora o mais básico. O
+  argumento que fechou a lacuna foi o FINDRISC — ele **pergunta** IMC e circunferência de
+  cintura, o paciente responde, o escore é gravado e os dados que o produziram evaporavam.
+  O catálogo (peso, altura, cintura, PA, glicemia, HbA1c) mora em **CÓDIGO**, pelo desenho
+  das escalas: o corte do IMC é definição publicada, não configuração da clínica.
+  **Tudo o que descreve o tipo é COPIADO na colheita** (nome, unidade, faixa,
+  interpretação). **O IMC não se digita** — é derivado do peso com a altura vigente, e a
+  DATA dessa altura vai junto: um IMC calculado com altura de três anos atrás continua
+  sendo a melhor leitura disponível, desde que quem lê saiba disso; gravá-lo criaria um
+  terceiro número livre para contradizer os dois que o originam. Sem altura ANTES do peso
+  cai-se para a primeira registrada, porque o adulto é pesado toda consulta e medido uma
+  vez, muitas vezes depois — devolver curva vazia a quem tem os dois dados seria pior. A
+  **única recusa é a implausibilidade** (2500 kg é dedo no teclado; 210 kg é anormal e
+  possível, e recusá-lo esconderia quem precisa de atenção). **Faixa ausente ≠ faixa
+  normal**: o peso isolado não tem leitura publicada e o selo SOME. **Meia pressão
+  arterial não existe** (tipo com par exige os dois, e diastólica maior que a sistólica é
+  campo trocado). Os cortes da cintura são os do FINDRISC e seguem o sexo — usar outro
+  faria a mesma clínica dar duas leituras da mesma fita métrica. **Uma colheita só não é
+  variação nenhuma**: `Variacao` é nula, nunca zero.
+- **Lista de problemas** (`ProblemaPacienteService`, parcela 37): até aqui o CID morava só
+  dentro de `DocumentoClinico` — um campo por papel emitido, nunca o diagnóstico da
+  pessoa. O profissional redigitava "M54.5" a cada atestado, ninguém respondia "o que este
+  paciente tem?" sem ler o prontuário inteiro, e a alergia ficava enterrada em texto livre.
+  A lista é do **PACIENTE, não da sessão** (a evolução de origem é procedência opcional).
+  **Não se apaga: muda-se a situação** — resolvido e descartado continuam na base, como a
+  NC do faturamento. **Descartar exige motivo escrito**, única recusa do serviço, pela
+  razão da justificativa do fechamento de caixa. **Alergia alerta mesmo dada por
+  resolvida** — "resolvida" numa alergia é quase sempre "não reagiu da última vez", e o
+  dia em que reagir é o dia em que o aviso teria valido; só o descarte a cala. **O CID é
+  opcional**: exigi-lo faria o fisioterapeuta e o acupunturista pararem de usar a lista, e
+  lista pela metade é pior que nenhuma porque seria lida como completa. Na tela de
+  atendimento os alertas clínicos ficam em lista **separada** da administrativa: as duas
+  são "avisos" e é só isso que têm em comum — carteirinha vencida se resolve no balcão
+  depois, alergia se resolve ANTES de prescrever.
 - **O mapa corporal e a emissão de documento moram no SHELL** (parcela 36): os dois
   nasceram dentro do módulo da Recepção, e o Consultório precisa dos mesmos — a acupuntura
   é a especialidade da casa, e quem prescreve é quem atende. Como **nenhum módulo conhece
@@ -670,6 +718,11 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   especialidades declaradas e o fluxograma coberto em `InstrumentosAvaliacaoTests` — a
   mesma convenção do convênio, e pela mesma razão: peso errado num item produz escore que
   continua parecendo válido.
+- Ao adicionar uma **medida clínica**: nova entrada em `CatalogoMedidas`, com unidade,
+  piso/teto de PLAUSIBILIDADE (não de normalidade) e as faixas publicadas, e cobertura em
+  `MedidasClinicasTests`. Não precisa de migration — o tipo é um código, e o que a colheita
+  grava são as colunas que já existem. Faixa que depende do sexo vai em `FaixasMasculino` /
+  `FaixasFeminino`; sem leitura publicada, deixe `Faixas` vazio em vez de inventar "normal".
 - Ao adicionar um convênio fixo: nova classe em `Domain/Regras/`, registrar em `RegistroRegras`,
   adicionar ao enum `Convenio`, cobrir o fluxograma com testes em `RegrasFaturamentoTests`.
 - Toda tela que escreve trata as exceções e nunca derruba o app (`DispatcherUnhandledException`

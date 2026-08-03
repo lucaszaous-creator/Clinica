@@ -1,0 +1,109 @@
+<Window x:Class="Clinica.Clinico.Janelas.AnexosSessaoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Anexos da sessão" Width="680" Height="520"
+        MinWidth="540" MinHeight="380"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="Anexos da sessão" Style="{StaticResource DialogoTitulo}"
+                       TextWrapping="Wrap" />
+            <TextBlock Text="{Binding Sessao}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" />
+            <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                       Text="Laudo que voltou do laboratório, imagem do exame, foto da região. O arquivo abre no programa padrão do Windows depois de salvo em disco." />
+        </StackPanel>
+
+        <!-- Rodapé fora do scroll: o botão de anexar não pode sumir numa sessão com
+             dez arquivos. -->
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding LimiteTexto}" VerticalAlignment="Center"
+                           TextWrapping="Wrap" Margin="0,0,12,0"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Fechar" IsCancel="True"
+                            Style="{StaticResource BotaoSecundario}" MinWidth="110" />
+                    <Button Content="Anexar arquivo" Margin="8,0,0,0" MinWidth="150"
+                            Command="{Binding AnexarCommand}"
+                            IsEnabled="{Binding PodeEditarProntuario}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}"
+                Style="{StaticResource AlertaPerigo}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}"
+                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+            <Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Anexos}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center"
+                                                    Margin="0,0,12,0">
+                                            <TextBlock Text="{Binding NomeArquivo}" TextWrapping="Wrap"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock Text="{Binding Resumo}" TextWrapping="Wrap"
+                                                       Margin="0,4,0,0"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Salvar em disco"
+                                                    Style="{StaticResource BotaoAcaoGrid}"
+                                                    Command="{Binding DataContext.BaixarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Remover" Margin="8,0,0,0"
+                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    Command="{Binding DataContext.RemoverCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <ctrl:EstadoDaTela Itens="{Binding Anexos}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE723;"
+                                   TextoCarregando="Lendo os anexos…"
+                                   Titulo="Nenhum arquivo anexado a esta sessão"
+                                   Descricao="O laudo do exame que você pediu entra aqui — e passa a abrir do consultório, sem depender de quem está no balcão." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</Window>

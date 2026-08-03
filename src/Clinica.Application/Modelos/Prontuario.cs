@@ -23,6 +23,24 @@ public sealed record AnexoResumo(
         : Tamanho < 1024 * 1024
             ? $"{Tamanho / 1024} KB"
             : $"{Tamanho / (1024.0 * 1024):0.#} MB";
+
+    /// <summary>
+    /// A linha de apoio do arquivo, num texto só (parcela 37): tipo, tamanho, data e
+    /// descrição.
+    ///
+    /// Sai daqui, e não de três TextBlocks lado a lado na tela, porque texto em
+    /// <c>StackPanel</c> horizontal nunca dobra a linha — é a checagem 17 do
+    /// <c>verificar-suite.py</c>, e um nome de arquivo de laboratório é comprido o
+    /// bastante para empurrar a data para fora da janela.
+    /// </summary>
+    public string Resumo
+    {
+        get
+        {
+            var texto = $"{Tipo} · {TamanhoFormatado} · {CriadoEm:dd/MM/yyyy HH:mm}";
+            return string.IsNullOrWhiteSpace(Descricao) ? texto : $"{texto} · {Descricao}";
+        }
+    }
 }
 
 /// <summary>

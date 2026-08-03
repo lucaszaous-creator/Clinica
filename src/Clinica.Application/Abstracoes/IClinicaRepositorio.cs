@@ -282,6 +282,42 @@ public interface IClinicaRepositorio
     Task AdicionarAnexoAsync(AnexoProntuario anexo, CancellationToken ct = default);
     Task RemoverAnexoAsync(int anexoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Quantos anexos tem cada sessão de um prontuário, em UMA consulta (parcela 37).
+    ///
+    /// A lista de sessões precisa do número para desenhar o clipe, e perguntar sessão a
+    /// sessão dá uma ida ao banco por linha — num prontuário de quarenta sessões, quarenta
+    /// viagens a um banco remoto para desenhar quarenta números. Sessões sem anexo não
+    /// aparecem no dicionário; quem lê trata a ausência como zero.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, int>> ContagemDeAnexosAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default);
+
+    // ---- Medidas clínicas seriadas (parcela 37) ----
+
+    Task AdicionarMedidaAsync(MedidaClinica medida, CancellationToken ct = default);
+
+    Task<MedidaClinica?> ObterMedidaAsync(int medidaId, CancellationToken ct = default);
+
+    /// <summary>Série do paciente, da mais recente para a mais antiga; um tipo ou todos.</summary>
+    Task<IReadOnlyList<MedidaClinica>> MedidasDoPacienteAsync(
+        int pacienteId, string? tipoCodigo = null, CancellationToken ct = default);
+
+    Task RemoverMedidaAsync(int medidaId, CancellationToken ct = default);
+
+    // ---- Lista de problemas (parcela 37) ----
+
+    Task AdicionarProblemaAsync(ProblemaPaciente problema, CancellationToken ct = default);
+
+    Task<ProblemaPaciente?> ObterProblemaAsync(int problemaId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Lista de problemas do paciente. Os ativos primeiro, porque é o que se lê antes de
+    /// atender; dentro de cada situação, o mais recente na frente.
+    /// </summary>
+    Task<IReadOnlyList<ProblemaPaciente>> ProblemasDoPacienteAsync(
+        int pacienteId, bool somenteAtivos = false, CancellationToken ct = default);
+
     // ---- Avaliações clínicas por instrumento (parcela 36) ----
 
     Task AdicionarAvaliacaoAsync(AvaliacaoClinica avaliacao, CancellationToken ct = default);

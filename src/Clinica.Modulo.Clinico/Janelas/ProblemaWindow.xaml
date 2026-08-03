@@ -1,0 +1,87 @@
+<Window x:Class="Clinica.Clinico.Janelas.ProblemaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Problema do paciente" Width="620" Height="560"
+        MinWidth="520" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}"
+                       TextWrapping="Wrap" />
+            <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
+                       Text="A lista de problemas é do PACIENTE, não da sessão: ela acompanha a pessoa e alimenta os documentos, em vez de ser redigitada a cada papel emitido." />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancelar" IsCancel="True"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="110" />
+                <Button Content="Gravar" Margin="8,0,0,0" MinWidth="140"
+                        Command="{Binding SalvarCommand}" />
+            </StackPanel>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+
+                <StackPanel Margin="0,0,0,12">
+                    <TextBlock Text="Natureza" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding Naturezas}" SelectedItem="{Binding Natureza}"
+                              DisplayMemberPath="Rotulo" />
+                    <TextBlock Text="{Binding ExplicacaoNatureza}" TextWrapping="Wrap"
+                               Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0" />
+                </StackPanel>
+
+                <StackPanel Margin="0,0,0,12">
+                    <TextBlock Text="Descrição" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Descricao, UpdateSourceTrigger=PropertyChanged}"
+                             TextWrapping="Wrap" AcceptsReturn="True" MinHeight="52"
+                             VerticalScrollBarVisibility="Auto" />
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                               Text="É esta linha que o próximo profissional lê. Escreva como você diria em voz alta." />
+                </StackPanel>
+
+                <Grid Margin="0,0,0,12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                        <TextBlock Text="CID-10 (opcional)" Style="{StaticResource Rotulo}" />
+                        <TextBox Text="{Binding Cid, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                        <TextBlock Text="Desde (opcional)" Style="{StaticResource Rotulo}" />
+                        <DatePicker SelectedDate="{Binding Inicio}" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel>
+                    <TextBlock Text="Observações" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding Observacoes, UpdateSourceTrigger=PropertyChanged}"
+                             TextWrapping="Wrap" AcceptsReturn="True" MinHeight="80"
+                             VerticalScrollBarVisibility="Auto" />
+                    <TextBlock TextWrapping="Wrap" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                               Text="A conduta da alergia (“faz broncoespasmo”), o estágio do diagnóstico, a dose da medicação contínua." />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

@@ -135,6 +135,18 @@ public sealed class ProntuarioService
     public Task<IReadOnlyList<AnexoResumo>> AnexosAsync(int evolucaoId, CancellationToken ct = default)
         => _repo.AnexosDaEvolucaoAsync(evolucaoId, ct);
 
+    /// <summary>
+    /// Quantos anexos tem cada sessão, em UMA consulta (parcela 37).
+    ///
+    /// A lista do prontuário desenha um clipe por sessão, e perguntar sessão a sessão dá
+    /// uma ida ao banco por linha — num prontuário de quarenta sessões, quarenta viagens a
+    /// um banco remoto para desenhar quarenta números. Sessão sem anexo não aparece no
+    /// dicionário; quem lê trata a ausência como zero.
+    /// </summary>
+    public Task<IReadOnlyDictionary<int, int>> ContagemDeAnexosAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
+        => _repo.ContagemDeAnexosAsync(evolucaoIds, ct);
+
     /// <summary>Bytes de um anexo — a única leitura que traz o arquivo do banco.</summary>
     public Task<byte[]?> ConteudoAnexoAsync(int anexoId, CancellationToken ct = default)
         => _repo.ConteudoDoAnexoAsync(anexoId, ct);

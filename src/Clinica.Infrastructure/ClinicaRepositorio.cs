@@ -745,6 +745,79 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.AnexosProntuario.Remove(anexo);
     }
 
+    // Uma consulta para o prontuário inteiro: o agrupamento é do SQL, e o que volta são
+    // dois inteiros por sessão COM anexo — as outras nem aparecem.
+    public async Task<IReadOnlyDictionary<int, int>> ContagemDeAnexosAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
+    {
+        if (evolucaoIds.Count == 0) return new Dictionary<int, int>();
+
+        var contagens = await _db.AnexosProntuario.AsNoTracking()
+            .Where(a => evolucaoIds.Contains(a.EvolucaoId))
+            .GroupBy(a => a.EvolucaoId)
+            .Select(g => new { EvolucaoId = g.Key, Quantos = g.Count() })
+            .ToListAsync(ct);
+
+        return contagens.ToDictionary(c => c.EvolucaoId, c => c.Quantos);
+    }
+
+    // ---- Medidas clínicas seriadas (parcela 37) ----
+
+    public async Task AdicionarMedidaAsync(MedidaClinica medida, CancellationToken ct = default)
+        => await _db.MedidasClinicas.AddAsync(medida, ct);
+
+    public Task<MedidaClinica?> ObterMedidaAsync(int medidaId, CancellationToken ct = default)
+        => _db.MedidasClinicas.FirstOrDefaultAsync(m => m.Id == medidaId, ct);
+
+    public async Task<IReadOnlyList<MedidaClinica>> MedidasDoPacienteAsync(
+        int pacienteId, string? tipoCodigo = null, CancellationToken ct = default)
+    {
+        var consulta = _db.MedidasClinicas.AsNoTracking()
+            .Include(m => m.Profissional)
+            .Where(m => m.PacienteId == pacienteId);
+
+        if (!string.IsNullOrWhiteSpace(tipoCodigo))
+            consulta = consulta.Where(m => m.TipoCodigo == tipoCodigo);
+
+        return await consulta
+            .OrderByDescending(m => m.Data).ThenByDescending(m => m.Id)
+            .ToListAsync(ct);
+    }
+
+    public async Task RemoverMedidaAsync(int medidaId, CancellationToken ct = default)
+    {
+        var medida = await _db.MedidasClinicas.FirstOrDefaultAsync(m => m.Id == medidaId, ct);
+        if (medida is not null)
+            _db.MedidasClinicas.Remove(medida);
+    }
+
+    // ---- Lista de problemas (parcela 37) ----
+
+    public async Task AdicionarProblemaAsync(ProblemaPaciente problema, CancellationToken ct = default)
+        => await _db.ProblemasPaciente.AddAsync(problema, ct);
+
+    public Task<ProblemaPaciente?> ObterProblemaAsync(int problemaId, CancellationToken ct = default)
+        => _db.ProblemasPaciente.FirstOrDefaultAsync(p => p.Id == problemaId, ct);
+
+    public async Task<IReadOnlyList<ProblemaPaciente>> ProblemasDoPacienteAsync(
+        int pacienteId, bool somenteAtivos = false, CancellationToken ct = default)
+    {
+        var consulta = _db.ProblemasPaciente.AsNoTracking()
+            .Include(p => p.Profissional)
+            .Where(p => p.PacienteId == pacienteId);
+
+        if (somenteAtivos)
+            consulta = consulta.Where(p => p.Situacao == SituacaoProblema.Ativo);
+
+        // Ativo primeiro (o enum já nasce nessa ordem), depois o mais recente. A ordem é
+        // do SQL porque a leitura é sempre esta, e reordenar em memória faria cada tela
+        // repetir — e uma delas repetiria diferente.
+        return await consulta
+            .OrderBy(p => p.Situacao)
+            .ThenByDescending(p => p.CriadoEm).ThenByDescending(p => p.Id)
+            .ToListAsync(ct);
+    }
+
     // ---- Avaliações clínicas por instrumento (parcela 36) ----
 
     public async Task AdicionarAvaliacaoAsync(
