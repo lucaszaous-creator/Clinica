@@ -67,7 +67,11 @@ public sealed partial class EvolucaoDorViewModel : ObservableObject
     /// </summary>
     public const int SessoesParaTendencia = 3;
 
-    public SeletorPacienteViewModel Seletor { get; }
+    /// <summary>
+    /// O painel do consultório, que já abre com a agenda do dia e a carteira — e não com
+    /// uma caixa de busca vazia sobre uma coluna em branco.
+    /// </summary>
+    public SeletorClinicoViewModel Seletor { get; }
 
     public ObservableCollection<LinhaDor> Sessoes { get; } = [];
 
@@ -104,13 +108,8 @@ public sealed partial class EvolucaoDorViewModel : ObservableObject
         _escopos = escopos;
         _foco = foco;
 
-        Seletor = new SeletorPacienteViewModel(escopos);
-        Seletor.SelecaoMudou += p =>
-        {
-            if (p is null) return;
-            _foco.Definir(p.Id, p.Nome);
-            _ = CarregarAsync();
-        };
+        Seletor = new SeletorClinicoViewModel(escopos, foco);
+        Seletor.Escolhido += escolhido => _ = CarregarAsync();
 
         if (_foco.Definido) _ = CarregarAsync();
     }
@@ -138,6 +137,7 @@ public sealed partial class EvolucaoDorViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
             Paciente = _foco.Nome;
+            Seletor.Sincronizar();
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();

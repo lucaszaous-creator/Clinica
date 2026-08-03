@@ -547,6 +547,29 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   atendimento os alertas clínicos ficam em lista **separada** da administrativa: as duas
   são "avisos" e é só isso que têm em comum — carteirinha vencida se resolve no balcão
   depois, alergia se resolve ANTES de prescrever.
+- **Tela que abre vazia é tela inacabada** (parcela 37, rodada de UI): as telas clínicas
+  nasciam com uma caixa de busca vazia, uma coluna de 300 px em branco da altura da janela
+  e um miolo de mil pixels com uma frase cinza flutuando no meio. Funcionava — e obrigava
+  o profissional a DIGITAR o nome de alguém que o sistema já sabia que ele ia atender às
+  9h. O `SeletorClinicoViewModel` + `PainelPacienteClinico` abrem com a **fila do dia** e a
+  **carteira** (as duas já existiam, cada uma servindo a uma tela só) e deixam a busca como
+  atalho para quem está fora do dia; a linha da fila leva o `AgendamentoId`, que é o que
+  faz a evolução nascer ligada ao horário. Três armadilhas que a implementação encontrou e
+  que valem para qualquer lista da suíte: (a) **uma ListBox por bloco não funciona** — duas
+  amarradas ao mesmo `SelectedItem` se limpam mutuamente, porque a que não contém o item
+  escolhido devolve `null` ao binding; use `CollectionViewSource` + `GroupStyle` sobre UMA
+  coleção; (b) **remonte por busca CONCLUÍDA** (`SeletorPacienteViewModel.Atualizou`), não
+  por `CollectionChanged`, que dispara uma vez por linha inserida; (c) **vazio antes da
+  resposta não é resposta** — enquanto a busca do termo digitado não voltou, o painel não
+  diz "nenhum paciente encontrado". A `FaixaPaciente` (avatar, nome, contexto, ações) fica
+  no topo do conteúdo porque num app onde se passa vinte minutos entre quatro abas sobre a
+  MESMA pessoa a identidade é âncora, não rótulo — e as ações da tela viajam com ela em vez
+  de ficarem acesas no cabeçalho da página sobre uma tela sem paciente nenhum.
+- **`TextoSuave` alinha à ESQUERDA, e isso anda junto do `MaxWidth`** (parcela 37): sem o
+  `HorizontalAlignment`, o TextBlock recebe a fatia inteira do painel, o teto de 820 o
+  encolhe e o WPF **centraliza** o que sobrou — num monitor de 1920 o subtítulo de toda
+  página da suíte nascia flutuando no meio da tela, com o título alinhado à esquerda logo
+  acima. Parecia leiaute quebrado porque era. Teto sem alinhamento é meia regra.
 - **O mapa corporal e a emissão de documento moram no SHELL** (parcela 36): os dois
   nasceram dentro do módulo da Recepção, e o Consultório precisa dos mesmos — a acupuntura
   é a especialidade da casa, e quem prescreve é quem atende. Como **nenhum módulo conhece

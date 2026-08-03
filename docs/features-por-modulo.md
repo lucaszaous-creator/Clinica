@@ -1348,5 +1348,33 @@ desenho das escalas — o corte do IMC é definição publicada, não configura�
 > chamador só no app congelado, e o `ElegibilidadeService` continua avisando a cota
 > DEPOIS de estourada. É lacuna declarada, não resolvida.
 
+### Parcela 37 (2ª rodada) — a UI do Consultório
+
+O módulo funcionava e **parecia um esboço**. Rodado contra um banco de verdade, três das
+cinco telas abriam assim: coluna de busca vazia com 300 px de altura inteira, miolo de mil
+e duzentos pixels em branco com uma frase cinza flutuando no meio, e botões acesos sobre
+uma tela sem paciente nenhum.
+
+| O que estava errado | O que passou a ser |
+|---|---|
+| Subtítulo de toda página flutuando no meio da tela | `TextoSuave` com `HorizontalAlignment="Left"` — o `MaxWidth` sem alinhamento fazia o WPF centralizar o texto encolhido |
+| Busca vazia como único caminho para escolher paciente | `PainelPacienteClinico`: abre com a **fila do dia** e a **carteira**; a busca vira atalho |
+| Frase cinza solta como "estado vazio" | `EmptyState` com ícone, título e o que fazer |
+| Nome do paciente como `H2` solto sobre o fundo | `FaixaPaciente`: avatar, nome, contexto e as ações da tela |
+| Exportar/Atualizar acesos sem paciente escolhido | Ações dentro da faixa — só existem depois de haver alguém |
+| Contagem de anexos, uma consulta por sessão | `ContagemDeAnexosAsync`, uma para o prontuário inteiro |
+
+**Nada disso pedia dado novo.** A fila do dia (`DoDiaAsync`) e a carteira
+(`MeusPacientesAsync`) existiam desde a parcela 36, cada uma servindo a uma tela só — é a
+mesma família do defeito que a parcela inteira corrigiu, agora na camada da tela: a
+informação estava lá e o lugar onde ela decidia alguma coisa não a alcançava.
+
+Três armadilhas de WPF que a implementação encontrou e que valem para qualquer lista da
+suíte: **uma ListBox por bloco não funciona** (duas amarradas ao mesmo `SelectedItem` se
+limpam mutuamente — use `CollectionViewSource` + `GroupStyle`); **remonte por busca
+concluída**, não por `CollectionChanged`, que dispara uma vez por linha inserida; e
+**vazio antes da resposta não é resposta** — enquanto a busca do termo digitado não voltou,
+o painel não diz "nenhum paciente encontrado".
+
 > Como o cliente recebe os cinco apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

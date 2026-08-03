@@ -75,7 +75,11 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// <summary>Quantas sessões anteriores ficam abertas ao lado do formulário.</summary>
     private const int SessoesAnterioresVisiveis = 3;
 
-    public SeletorPacienteViewModel Seletor { get; }
+    /// <summary>
+    /// O painel do consultório, que já abre com a agenda do dia e a carteira — e não com
+    /// uma caixa de busca vazia sobre uma coluna em branco.
+    /// </summary>
+    public SeletorClinicoViewModel Seletor { get; }
 
     /// <summary>
     /// O mapa corporal da sessão — o mesmo componente do shell que a Recepção usa
@@ -163,8 +167,8 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         _snackbar = snackbar;
         _foco = foco;
 
-        Seletor = new SeletorPacienteViewModel(escopos);
-        Seletor.SelecaoMudou += AoTrocarPaciente;
+        Seletor = new SeletorClinicoViewModel(escopos, foco);
+        Seletor.Escolhido += AoTrocarPaciente;
 
         // O paciente do posto: quem veio da agenda já chega escolhido, e o profissional
         // não redigita o nome que acabou de clicar.
@@ -172,25 +176,31 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         {
             Paciente = _foco.Nome;
             SemPaciente = false;
-            Origem = _foco.AgendamentoId is null
-                ? "Paciente escolhido na busca — a evolução não fica ligada a nenhum horário."
-                : "Sessão chamada da agenda de hoje.";
+            Origem = DescreverOrigem(_foco.AgendamentoId);
             _ = CarregarAsync();
         }
     }
 
-    private void AoTrocarPaciente(Paciente? paciente)
+    private void AoTrocarPaciente(ItemPacienteClinico item)
     {
-        if (paciente is null) return;
-
-        // Trocar de pessoa esquece o horário de origem, senão a evolução do novo paciente
+        // O painel já gravou o contexto do posto — inclusive DERRUBANDO o horário de
+        // origem quando a escolha veio da busca. Sem isso, a evolução do novo paciente
         // nasceria amarrada à sessão do anterior.
-        _foco.Definir(paciente.Id, paciente.Nome);
-        Paciente = paciente.Nome;
+        Paciente = item.Nome;
         SemPaciente = false;
-        Origem = "Paciente escolhido na busca — a evolução não fica ligada a nenhum horário.";
+        Origem = DescreverOrigem(item.AgendamentoId);
         _ = CarregarAsync();
     }
+
+    /// <summary>
+    /// De onde a sessão veio — e é diferença que muda o registro, não decoração: chamada
+    /// da agenda, a evolução nasce ligada ao horário e sai da lista de pendências do
+    /// consultório; escolhida na busca, não.
+    /// </summary>
+    private static string DescreverOrigem(int? agendamentoId)
+        => agendamentoId is null
+            ? "Escolhido na busca — a evolução não fica ligada a nenhum horário."
+            : "Chamado da agenda de hoje — a evolução nasce ligada a este horário.";
 
     private int PacienteId => _foco.PacienteId ?? 0;
 
@@ -210,6 +220,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
             Anteriores.Clear();
+            Seletor.Sincronizar();
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();

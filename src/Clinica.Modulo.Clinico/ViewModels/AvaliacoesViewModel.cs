@@ -68,7 +68,11 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
     /// <summary>Especialidade do profissional logado; null quando não há vínculo.</summary>
     private string? _especialidadeCodigo;
 
-    public SeletorPacienteViewModel Seletor { get; }
+    /// <summary>
+    /// O painel do consultório, que já abre com a agenda do dia e a carteira — e não com
+    /// uma caixa de busca vazia sobre uma coluna em branco.
+    /// </summary>
+    public SeletorClinicoViewModel Seletor { get; }
 
     /// <summary>Instrumentos oferecidos agora (filtrados ou não pela especialidade).</summary>
     public ObservableCollection<IInstrumentoAvaliacao> Instrumentos { get; } = [];
@@ -112,13 +116,8 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
         _dialogo = dialogo;
         _foco = foco;
 
-        Seletor = new SeletorPacienteViewModel(escopos);
-        Seletor.SelecaoMudou += p =>
-        {
-            if (p is null) return;
-            _foco.Definir(p.Id, p.Nome);
-            _ = CarregarAsync();
-        };
+        Seletor = new SeletorClinicoViewModel(escopos, foco);
+        Seletor.Escolhido += escolhido => _ = CarregarAsync();
 
         _ = IniciarAsync();
     }
@@ -195,6 +194,7 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
             Paciente = _foco.Nome;
+            Seletor.Sincronizar();
 
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<AvaliacaoClinicaService>();

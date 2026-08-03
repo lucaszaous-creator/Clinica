@@ -13,8 +13,8 @@
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel>
                 <TextBlock Text="Meus pacientes" Style="{StaticResource H1}" Margin="0,0,0,4" />
-                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
-                           Text="Quem você acompanha, do que veio por último ao mais antigo, com a leitura da dor ao lado — para responder “como está indo?” sem abrir o prontuário de ninguém." />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                           Text="Quem você acompanha, do mais recente ao mais antigo, com a leitura da dor ao lado." />
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <CheckBox Content="Só quem sumiu" IsChecked="{Binding SomenteSumidos}"

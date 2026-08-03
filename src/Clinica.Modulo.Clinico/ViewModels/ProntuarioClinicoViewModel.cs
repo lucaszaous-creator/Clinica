@@ -135,7 +135,11 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
     private readonly PacienteEmFoco _foco;
 
-    public SeletorPacienteViewModel Seletor { get; }
+    /// <summary>
+    /// O painel do consultório, que já abre com a agenda do dia e a carteira — e não com
+    /// uma caixa de busca vazia sobre uma coluna em branco.
+    /// </summary>
+    public SeletorClinicoViewModel Seletor { get; }
 
     public ObservableCollection<LinhaSessaoProntuario> Sessoes { get; } = [];
 
@@ -176,13 +180,13 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         _dialogo = dialogo;
         _foco = foco;
 
-        Seletor = new SeletorPacienteViewModel(escopos);
-        Seletor.SelecaoMudou += p =>
+        Seletor = new SeletorClinicoViewModel(escopos, foco);
+        Seletor.Escolhido += escolhido =>
         {
-            if (p is null) return;
-            _foco.Definir(p.Id, p.Nome);
             // Trocar de paciente limpa a busca: "ombro" digitado para um não é pergunta
             // sobre o próximo, e a lista voltaria filtrada sem ninguém entender por quê.
+            // A atribuição já dispara o recarregamento pelo OnTermoSessaoChanged; quando o
+            // termo já estava vazio, ela não muda nada e o Carregar explícito é que vale.
             TermoSessao = string.Empty;
             _ = CarregarAsync();
         };
@@ -216,6 +220,7 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
             Paciente = _foco.Nome;
+            Seletor.Sincronizar();
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();

@@ -1,0 +1,38 @@
+<UserControl x:Class="Clinica.Clinico.Componentes.FaixaPaciente"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             x:Name="Raiz">
+
+    <Border Background="{StaticResource Brush.Superficie}"
+            BorderBrush="{StaticResource Brush.Borda}"
+            BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}"
+            Padding="16,12">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ctrl:Avatar Grid.Column="0" Tamanho="44" VerticalAlignment="Center"
+                         Nome="{Binding Nome, ElementName=Raiz}" />
+
+            <StackPanel Grid.Column="1" Margin="14,0,12,0" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Nome, ElementName=Raiz}" TextWrapping="Wrap"
+                           FontSize="{StaticResource Fonte.H2}" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                <TextBlock Text="{Binding Contexto, ElementName=Raiz}" TextWrapping="Wrap"
+                           Margin="0,2,0,0"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+            </StackPanel>
+
+            <!-- As ações da tela viajam COM o paciente, não no cabeçalho da página: elas
+                 só existem depois que alguém foi escolhido, e no topo ficariam acesas
+                 sobre uma tela vazia. -->
+            <ContentPresenter Grid.Column="2" VerticalAlignment="Center"
+                              Content="{Binding Acoes, ElementName=Raiz}" />
+        </Grid>
+    </Border>
+</UserControl>

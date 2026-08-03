@@ -3,114 +3,34 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
+             xmlns:clin="clr-namespace:Clinica.Clinico.Componentes"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
+    <DockPanel Margin="24,20,24,24">
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Atendimento" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
-                       Text="A sessão escrita com o paciente ainda na sala. As últimas sessões ficam abertas à direita, porque a primeira coisa que se faz é reler o que foi feito da última vez." />
+            <TextBlock Text="Atendimento" Style="{StaticResource H1}" Margin="0,0,0,2" />
+            <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                       Text="A sessão escrita com o paciente ainda na sala." />
         </StackPanel>
 
-        <!-- Escolha do paciente. Quem veio da agenda já chega escolhido; a busca serve a
-             quem entrou direto nesta tela. -->
-        <Border DockPanel.Dock="Left" Style="{StaticResource Card}" Width="300" Margin="0,0,16,0">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" />
-                    <TextBox Style="{StaticResource CampoPesquisa}"
-                             Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                             ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
-                    <TextBlock Text="{Binding Seletor.Erro}" TextWrapping="Wrap"
-                               Style="{StaticResource TextoSuave}"
-                               Foreground="{StaticResource Brush.Erro}" Margin="0,6,0,0" />
-                </StackPanel>
+        <!-- O painel já abre com a agenda do dia e a carteira. Antes era uma caixa de
+             busca sozinha numa coluna vazia — obrigava o profissional a digitar o nome de
+             alguém que o sistema já sabia que ele ia atender às 9h. -->
+        <clin:PainelPacienteClinico DockPanel.Dock="Left" Width="300" Margin="0,0,16,0"
+                                    DataContext="{Binding Seletor}" />
 
-                <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                         SelectedItem="{Binding Seletor.Selecionado}"
-                         ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                         BorderThickness="0" Background="Transparent"
-                         HorizontalContentAlignment="Stretch" />
-            </DockPanel>
-        </Border>
-
-        <!-- Coluna da direita: o histórico e o mapa, em abas.
-             A largura é 530 e não pode encolher — as figuras do mapa são Canvas de
-             220x460 casados com PontoMapaItem.LarguraFigura, a mesma const que posiciona
-             o marcador e converte o clique de volta em fração. Quem cede é a janela. -->
-        <TabControl DockPanel.Dock="Right" Width="530" Margin="16,0,0,0"
-                    Background="Transparent" BorderThickness="0">
-
-            <!-- Sessões anteriores, abertas. Não é histórico resumido: é a conduta
-                 inteira, que é o que se copia para a sessão de hoje. -->
-            <TabItem Header="Últimas sessões">
-                <Grid Margin="0,8,0,0">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Anteriores}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1" Padding="0,10">
-                                        <StackPanel>
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Data}" FontWeight="SemiBold" />
-                                                <TextBlock Text="{Binding Eva}" Margin="8,0,0,0"
-                                                           TextWrapping="Wrap"
-                                                           Style="{StaticResource TextoSuave}" />
-                                            </StackPanel>
-                                            <TextBlock Text="{Binding Queixa}" TextWrapping="Wrap"
-                                                       Margin="0,4,0,0"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                            <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap"
-                                                       Margin="0,4,0,0"
-                                                       FontSize="{StaticResource Fonte.Legenda}" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-
-                    <!-- O terceiro estado importa MAIS aqui do que numa lista comum: o
-                         histórico vazio por falha de leitura seria lido como "paciente
-                         novo", e a conduta de hoje sairia sem o que foi feito antes. -->
-                    <ctrl:EstadoDaTela Itens="{Binding Anteriores}"
-                                       Carregando="{Binding Carregando}"
-                                       NaoVerificado="{Binding NaoVerificado}"
-                                       Glifo="&#xE81C;"
-                                       TextoCarregando="Lendo o prontuário…"
-                                       Titulo="Primeira sessão deste paciente"
-                                       Descricao="Não há sessão anterior registrada — o que você escrever agora é a linha de base do tratamento." />
-                </Grid>
-            </TabItem>
-
-            <!-- O MESMO componente do shell que a Recepção usa. A acupuntura é a
-                 especialidade da casa, e um app para quem atende sem onde marcar o
-                 ponto seria um app para outra clínica. -->
-            <TabItem Header="Mapa corporal">
-                <ContentControl Content="{Binding Mapa}" Margin="0,8,0,0">
-                    <ContentControl.ContentTemplate>
-                        <DataTemplate>
-                            <comp:MapaCorporalControl />
-                        </DataTemplate>
-                    </ContentControl.ContentTemplate>
-                </ContentControl>
-            </TabItem>
-        </TabControl>
-
-        <!-- ===== Formulário da sessão ===== -->
         <Grid>
-            <TextBlock Text="Escolha um paciente — ou chame um do seu dia — para começar o atendimento."
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       TextWrapping="Wrap" MaxWidth="360" TextAlignment="Center"
-                       Style="{StaticResource TextoSuave}"
-                       Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
+            <!-- Estado vazio DE VERDADE: ícone, título e o que fazer. A frase cinza solta
+                 no meio de mil pixels de branco não é estado vazio, é tela inacabada. -->
+            <ctrl:EmptyState Glifo="&#xE77B;"
+                             Titulo="Nenhum paciente em atendimento"
+                             Descricao="Escolha alguém da sua agenda de hoje, ao lado — ou busque pelo nome. Quem for chamado da agenda tem a evolução ligada ao horário automaticamente."
+                             Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
 
             <DockPanel>
                 <DockPanel.Style>
@@ -124,37 +44,105 @@
                     </Style>
                 </DockPanel.Style>
 
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H2}"
-                               VerticalAlignment="Center" Margin="0" TextWrapping="Wrap" />
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                VerticalAlignment="Center">
-                        <Button Content="Evolução da dor" Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding VerEvolucaoDaDorCommand}" MinWidth="140" />
-                        <Button Content="Avaliações" Style="{StaticResource BotaoSecundario}"
-                                Command="{Binding VerAvaliacoesCommand}" Margin="8,0,0,0" MinWidth="110" />
-                        <!-- Receita, atestado, comparecimento e pedido de exame. Quem
-                             prescreve é quem atende. -->
-                        <Button Content="Emitir documento" Margin="8,0,0,0" MinWidth="150"
-                                Command="{Binding EmitirDocumentoCommand}"
-                                IsEnabled="{Binding PodeEditarProntuario}" />
-                    </StackPanel>
-                </Grid>
+                <!-- A identidade é ÂNCORA, não rótulo: daqui para baixo tudo pertence a
+                     esta pessoa, e as ações da tela viajam com ela. -->
+                <clin:FaixaPaciente DockPanel.Dock="Top" Margin="0,0,0,12"
+                                    Nome="{Binding Paciente}" Contexto="{Binding Origem}">
+                    <clin:FaixaPaciente.Acoes>
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Evolução da dor" Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding VerEvolucaoDaDorCommand}" MinWidth="130" />
+                            <Button Content="Avaliações" Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding VerAvaliacoesCommand}" Margin="8,0,0,0"
+                                    MinWidth="110" />
+                            <!-- Receita, atestado, comparecimento e pedido de exame. Quem
+                                 prescreve é quem atende. -->
+                            <Button Content="Emitir documento" Margin="8,0,0,0" MinWidth="150"
+                                    Command="{Binding EmitirDocumentoCommand}"
+                                    IsEnabled="{Binding PodeEditarProntuario}" />
+                        </StackPanel>
+                    </clin:FaixaPaciente.Acoes>
+                </clin:FaixaPaciente>
 
-                <TextBlock DockPanel.Dock="Top" Text="{Binding Origem}" TextWrapping="Wrap"
-                           Style="{StaticResource TextoSuave}"
-                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" />
+                <!-- Coluna da direita: o histórico e o mapa, em abas.
+                     A largura é 530 e não pode encolher — as figuras do mapa são Canvas de
+                     220x460 casados com PontoMapaItem.LarguraFigura, a mesma const que
+                     posiciona o marcador e converte o clique de volta em fração. Quem
+                     cede é a janela. -->
+                <TabControl DockPanel.Dock="Right" Width="530" Margin="16,0,0,0"
+                            Background="Transparent" BorderThickness="0">
+
+                    <!-- Sessões anteriores, abertas. Não é histórico resumido: é a conduta
+                         inteira, que é o que se copia para a sessão de hoje. -->
+                    <TabItem Header="Últimas sessões">
+                        <Grid Margin="0,8,0,0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Anteriores}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="{StaticResource Brush.Superficie}"
+                                                    BorderBrush="{StaticResource Brush.Borda}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="{StaticResource Raio.Medio}"
+                                                    Padding="14,12" Margin="0,0,0,8">
+                                                <StackPanel>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Data}"
+                                                                   FontWeight="SemiBold" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Eva}"
+                                                                   Margin="8,0,0,0" TextWrapping="Wrap"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                    </Grid>
+                                                    <TextBlock Text="{Binding Queixa}" TextWrapping="Wrap"
+                                                               Margin="0,6,0,0"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                    <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap"
+                                                               Margin="0,4,0,0"
+                                                               FontSize="{StaticResource Fonte.Legenda}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- O terceiro estado importa MAIS aqui do que numa lista
+                                 comum: o histórico vazio por falha de leitura seria lido
+                                 como "paciente novo", e a conduta de hoje sairia sem o
+                                 que foi feito antes. -->
+                            <ctrl:EstadoDaTela Itens="{Binding Anteriores}"
+                                               Carregando="{Binding Carregando}"
+                                               NaoVerificado="{Binding NaoVerificado}"
+                                               Glifo="&#xE81C;"
+                                               TextoCarregando="Lendo o prontuário…"
+                                               Titulo="Primeira sessão deste paciente"
+                                               Descricao="Não há sessão anterior registrada — o que você escrever agora é a linha de base do tratamento." />
+                        </Grid>
+                    </TabItem>
+
+                    <!-- O MESMO componente do shell que a Recepção usa. A acupuntura é a
+                         especialidade da casa, e um app para quem atende sem onde marcar o
+                         ponto seria um app para outra clínica. -->
+                    <TabItem Header="Mapa corporal">
+                        <ContentControl Content="{Binding Mapa}" Margin="0,8,0,0">
+                            <ContentControl.ContentTemplate>
+                                <DataTemplate>
+                                    <comp:MapaCorporalControl />
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </TabItem>
+                </TabControl>
 
                 <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                         Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
                     <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-                </Border>
-
-                <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
-                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                        CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,12">
-                    <TextBlock Text="{Binding ResumoDor}" TextWrapping="Wrap"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
                 </Border>
 
                 <!-- O que o PRONTUÁRIO avisa: alergia e uso contínuo (parcela 37).
@@ -237,11 +225,16 @@
                      sumir quando a evolução ficar longa. -->
                 <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
                     <Grid>
-                        <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Style="{StaticResource TextoSuave}"
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Margin="0,0,12,0"
                                    FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Secundario}"
                                    Text="A EVA vale em par: registre o depois ao terminar a sessão." />
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
                             <Button Content="Repetir última conduta"
                                     Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding RepetirUltimaCommand}"
@@ -257,8 +250,19 @@
                     <StackPanel>
                         <Border Style="{StaticResource Card}" Margin="0,0,0,12">
                             <StackPanel>
-                                <TextBlock Text="Dor (EVA) e data" Style="{StaticResource H3}"
-                                           Margin="0,0,0,8" />
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Dor (EVA) e data"
+                                               Style="{StaticResource H3}" Margin="0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding ResumoDor}"
+                                               TextWrapping="Wrap" Margin="12,0,0,0"
+                                               VerticalAlignment="Center"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                </Grid>
                                 <UniformGrid Columns="3">
                                     <StackPanel Margin="0,0,12,0">
                                         <TextBlock Text="Data da sessão" Style="{StaticResource Rotulo}" />
