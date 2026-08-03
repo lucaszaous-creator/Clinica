@@ -182,6 +182,10 @@ public sealed class ConsultorioService
             a.Etapa,
             a.Encaixe,
             a.AtendimentoId,
-            evolucao?.Id);
+            evolucao?.Id)
+        {
+            EsperaMinutos = a.EsperaMinutos(DateTime.Now),
+            ChamadoHaMinutos = a.ChamadoHaMinutos(DateTime.Now)
+        };
     }
 }

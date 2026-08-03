@@ -47,23 +47,53 @@ public sealed partial class CartaoFila : ObservableObject
     [ObservableProperty]
     private bool _esperaLonga;
 
+    /// <summary>
+    /// Há quanto tempo o profissional pediu este paciente ("chamado há 4 min"). Vazio
+    /// para quem não foi chamado, e para de correr assim que a pessoa entra na sala.
+    /// </summary>
+    [ObservableProperty]
+    private string _chamadoHa = string.Empty;
+
+    /// <summary>
+    /// A chamada está pendente há tempo demais: ou o paciente não ouviu, ou saiu — e
+    /// quem está parado esperando é o profissional. O cartão passa a gritar.
+    /// </summary>
+    [ObservableProperty]
+    private bool _chamadaDemorada;
+
     public bool PodeChegar => Etapa == EtapaFila.Aguardando;
-    public bool PodeIniciar => Etapa is EtapaFila.Aguardando or EtapaFila.Chegou;
+
+    /// <summary>
+    /// O balcão também pode chamar por conta própria (o profissional avisou pela porta,
+    /// a sala vagou): é o mesmo fato, e quem carimba é quem clicar primeiro.
+    /// </summary>
+    public bool PodeChamar => Etapa == EtapaFila.Chegou;
+
+    /// <summary>"Entrou" — o paciente levantou e foi para a sala.</summary>
+    public bool PodeIniciar => Etapa is EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado;
+
     public bool PodeFinalizar => Etapa == EtapaFila.EmAtendimento;
-    public bool PodeVoltar => Etapa is EtapaFila.Chegou or EtapaFila.EmAtendimento;
+
+    public bool PodeVoltar => Etapa is EtapaFila.Chegou or EtapaFila.Chamado or EtapaFila.EmAtendimento;
 
     /// <summary>Só horário em aberto aceita falta/cancelamento.</summary>
     public bool EmAberto => Etapa != EtapaFila.Finalizado;
 }
 
 /// <summary>
-/// Fila de hoje em KANBAN: Aguardando → Chegou → Em atendimento → Finalizado.
+/// Fila de hoje em KANBAN: Aguardando → Chegou → Chamado → Em atendimento → Finalizado.
 ///
 /// A lista simples que existia aqui antes respondia "quem está marcado"; o balcão
 /// precisa de outra pergunta — "quem está esperando, e há quanto tempo". As colunas
-/// saem dos carimbos de chegada e de início do atendimento (<see cref="Agendamento.Etapa"/>),
-/// não de um campo de status novo: o faturamento continua vendo o mesmo
-/// <see cref="StatusAgendamento"/> de sempre.
+/// saem dos carimbos de chegada, de chamada e de início do atendimento
+/// (<see cref="Agendamento.Etapa"/>), não de um campo de status novo: o faturamento
+/// continua vendo o mesmo <see cref="StatusAgendamento"/> de sempre.
+///
+/// A coluna CHAMADO é o recado do consultório (parcela 38). Quem atende está na sala
+/// com a porta fechada e não grita o nome de ninguém: ele clica em "Chamar próximo" no
+/// app dele, e é ESTA tela que anuncia a pessoa. Não há sincronização entre os dois
+/// módulos — nem fila de mensagens, nem evento: eles leem a mesma linha do banco, e é
+/// isso que faz os dois quadros nunca divergirem.
 ///
 /// Finalizar é o antigo check-in (<see cref="AgendaService.ConfirmarPresencaAsync"/>):
 /// gera o atendimento com os códigos e o retorno do 2º código. Fica no FIM do fluxo de
@@ -73,6 +103,14 @@ public sealed partial class FilaViewModel : ObservableObject
 {
     /// <summary>A partir daqui a espera é longa o bastante para destacar o cartão.</summary>
     private const int EsperaLongaMinutos = 30;
+
+    /// <summary>
+    /// A partir daqui a chamada está demorando. Três minutos é o tempo de alguém se
+    /// levantar e andar até a sala — o mesmo corte do consultório, e de propósito: os
+    /// dois lados olhando o mesmo relógio com números diferentes fariam o balcão dizer
+    /// "acabou de ser chamado" enquanto o médico já está reclamando.
+    /// </summary>
+    private const int ChamadaDemoradaMinutos = 3;
 
     private readonly AgendaService _agenda;
     private readonly PainelRecepcaoService _painel;
@@ -88,15 +126,29 @@ public sealed partial class FilaViewModel : ObservableObject
 
     public ObservableCollection<CartaoFila> Aguardando { get; } = [];
     public ObservableCollection<CartaoFila> NaRecepcao { get; } = [];
+    public ObservableCollection<CartaoFila> Chamados { get; } = [];
     public ObservableCollection<CartaoFila> EmAtendimento { get; } = [];
     public ObservableCollection<CartaoFila> Finalizados { get; } = [];
 
     /// <summary>
-    /// O quadro só está vazio quando as QUATRO colunas estão — um paciente já finalizado
+    /// O quadro só está vazio quando as CINCO colunas estão — um paciente já finalizado
     /// é dia com movimento, não fila vazia.
     /// </summary>
     public bool QuadroVazio => Aguardando.Count == 0 && NaRecepcao.Count == 0
+                               && Chamados.Count == 0
                                && EmAtendimento.Count == 0 && Finalizados.Count == 0;
+
+    /// <summary>
+    /// Há gente chamada esperando ser anunciada. É o que acende a faixa no topo da tela:
+    /// a coluna sozinha não bastaria, porque o balcão passa o dia com esta tela aberta e
+    /// os olhos no paciente à frente dele — cartão que aparece calado numa das cinco
+    /// colunas é cartão que ninguém vê.
+    /// </summary>
+    public bool TemChamados => Chamados.Count > 0;
+
+    /// <summary>Quem chamar, em uma linha ("Ana Souza · sala 2").</summary>
+    [ObservableProperty]
+    private string _avisoChamada = string.Empty;
 
     [ObservableProperty]
     private DateTime _dia = DateTime.Today;
@@ -124,15 +176,58 @@ public sealed partial class FilaViewModel : ObservableObject
         _snackbar = snackbar;
         _dialogo = dialogo;
 
-        // Sem isto o "há 5 min" da tela envelhece e mente: quem está há 40 minutos na
-        // sala de espera continuaria aparecendo como recém-chegado.
+        // Duas coisas por batida, e a segunda é a que faz a chamada do consultório
+        // chegar aqui.
+        //
+        // (1) Sem isto o "há 5 min" da tela envelhece e mente: quem está há 40 minutos na
+        //     sala de espera continuaria aparecendo como recém-chegado.
+        // (2) A releitura do banco. Até a parcela 38 esta tela só relia por clique, e isso
+        //     bastava porque tudo o que mudava o quadro era clicado AQUI. Deixou de
+        //     bastar: agora o profissional carimba a chamada do app dele, e um quadro que
+        //     só se atualiza quando alguém clica em "Atualizar" transformaria o recado em
+        //     nada — o balcão ficaria olhando uma tela que já está errada.
+        //
+        // Um minuto é o intervalo certo pelo mesmo motivo de sempre: o consultório
+        // sabe que chamou e vê o próprio quadro; quem espera o anúncio é o paciente
+        // sentado, e um minuto é menos do que ele leva para atravessar a sala.
         //
         // Quem liga e desliga é a View (Loaded/Unloaded): o shell cria uma tela nova a
         // cada navegação, e um timer rodando manteria vivo cada ViewModel já trocado.
         _relogio = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
-        _relogio.Tick += (_, _) => AtualizarEsperas();
+        _relogio.Tick += (_, _) => _ = ReconferirAsync();
 
         _ = CarregarAsync();
+    }
+
+    /// <summary>
+    /// A batida do relógio: relê o dia e reenvelhece os rótulos.
+    ///
+    /// Ela NÃO acende o "Carregando" e nunca mostra erro na tela. É recarga de fundo, e
+    /// quem está no balcão com um paciente à frente não pode ver a fila piscar em
+    /// branco a cada minuto, nem levar um aviso vermelho porque o banco demorou uma vez.
+    /// A falha vai para o log e a tela segue com o que já tinha — desatualizada por um
+    /// minuto, que é o que ela seria de qualquer jeito.
+    ///
+    /// Só relê HOJE: quem está olhando a agenda de terça que vem não tem fila correndo,
+    /// e recarregar por baixo faria o quadro se mexer sozinho enquanto a pessoa lê.
+    /// </summary>
+    private async Task ReconferirAsync()
+    {
+        if (Dia.Date != DateTime.Today || Carregando)
+        {
+            AtualizarEsperas();
+            return;
+        }
+
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — releitura automática da fila falhou", ex);
+        }
     }
 
     /// <summary>Liga o relógio da espera (chamado quando a tela entra em cena).</summary>
@@ -144,11 +239,13 @@ public sealed partial class FilaViewModel : ObservableObject
     partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => CarregarAsync(silencioso: false);
+
+    private async Task CarregarAsync(bool silencioso)
     {
         try
         {
-            Carregando = true;
+            Carregando = !silencioso;
             _doDia = [.. await _agenda.DoDiaAsync(DateOnly.FromDateTime(Dia))];
 
             // Quem tem guia pendente hoje. Falha aqui não pode derrubar a fila inteira:
@@ -168,6 +265,7 @@ public sealed partial class FilaViewModel : ObservableObject
 
             Aguardando.Clear();
             NaRecepcao.Clear();
+            Chamados.Clear();
             EmAtendimento.Clear();
             Finalizados.Clear();
 
@@ -196,19 +294,30 @@ public sealed partial class FilaViewModel : ObservableObject
             }
 
             AtualizarEsperas();
-            // As quatro coleções mudaram: o quadro precisa reavaliar se está vazio.
+            // As cinco coleções mudaram: o quadro precisa reavaliar se está vazio e se
+            // há alguém esperando ser anunciado.
             OnPropertyChanged(nameof(QuadroVazio));
+            OnPropertyChanged(nameof(TemChamados));
+
+            // O aviso nomeia QUEM chamar e para onde. "1 paciente chamado" obrigaria a
+            // recepcionista a procurar o cartão numa das cinco colunas antes de abrir a
+            // boca — e é ela que tem o paciente da vez à frente dela.
+            AvisoChamada = string.Join(" · ", Chamados.Select(c => $"{c.Paciente} → sala {c.Sala}"));
 
             var faltas = _doDia.Count(a => a.Status == StatusAgendamento.Faltou);
             var cancelados = _doDia.Count(a => a.Status == StatusAgendamento.Cancelado);
             Resumo = $"{Aguardando.Count} aguardando · {NaRecepcao.Count} na recepção · "
+                   + $"{Chamados.Count} chamado(s) · "
                    + $"{EmAtendimento.Count} em atendimento · {Finalizados.Count} finalizado(s)"
                    + $" · {faltas} falta(s) · {cancelados} cancelado(s)";
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Recepção — fila do dia não pôde ser carregada", ex);
-            _snackbar.Erro($"Não foi possível carregar a fila: {ex.Message}");
+
+            // Recarga de fundo que falha não interrompe o balcão com um aviso vermelho:
+            // ela já foi para o log, e a tela segue com o quadro do minuto anterior.
+            if (!silencioso) _snackbar.Erro($"Não foi possível carregar a fila: {ex.Message}");
         }
         finally
         {
@@ -219,6 +328,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private ObservableCollection<CartaoFila> Coluna(EtapaFila etapa) => etapa switch
     {
         EtapaFila.Chegou => NaRecepcao,
+        EtapaFila.Chamado => Chamados,
         EtapaFila.EmAtendimento => EmAtendimento,
         EtapaFila.Finalizado => Finalizados,
         _ => Aguardando
@@ -230,7 +340,8 @@ public sealed partial class FilaViewModel : ObservableObject
         var agora = DateTime.Now;
         var porId = _doDia.ToDictionary(a => a.Id);
 
-        foreach (var cartao in Aguardando.Concat(NaRecepcao).Concat(EmAtendimento).Concat(Finalizados))
+        foreach (var cartao in Aguardando.Concat(NaRecepcao).Concat(Chamados)
+                                         .Concat(EmAtendimento).Concat(Finalizados))
         {
             if (!porId.TryGetValue(cartao.AgendamentoId, out var ag)) continue;
 
@@ -239,6 +350,15 @@ public sealed partial class FilaViewModel : ObservableObject
             // Espera só "corre" enquanto o paciente ainda não foi chamado.
             cartao.EsperaLonga = minutos >= EsperaLongaMinutos
                                  && ag.InicioAtendimentoEm is null;
+
+            var desdeAChamada = ag.ChamadoHaMinutos(agora);
+            cartao.ChamadoHa = desdeAChamada switch
+            {
+                null => string.Empty,
+                0 => "chamado agora",
+                var m => $"chamado há {m} min"
+            };
+            cartao.ChamadaDemorada = desdeAChamada >= ChamadaDemoradaMinutos;
         }
     }
 
@@ -298,7 +418,26 @@ public sealed partial class FilaViewModel : ObservableObject
         }
     }
 
-    /// <summary>O profissional chamou: fim da espera, começo da sessão.</summary>
+    /// <summary>
+    /// Chama o paciente pelo balcão — o mesmo fato que o botão do consultório grava.
+    ///
+    /// Existe dos dois lados de propósito: metade das clínicas o profissional avisa pela
+    /// porta, e obrigar o balcão a esperar um clique da sala faria a coluna "chamado"
+    /// nascer sempre vazia num fluxo que funciona há anos. Quem carimba é quem clicar
+    /// primeiro (<see cref="AgendaService.ChamarAsync"/> é idempotente): a hora da
+    /// chamada é uma só, e a segunda chamada não reinicia o relógio de quem já se levantou.
+    /// </summary>
+    [RelayCommand]
+    private async Task ChamarAsync(CartaoFila? cartao)
+        => await ExecutarAsync(cartao, async c =>
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
+            await _agenda.ChamarAsync(c.AgendamentoId);
+            _snackbar.Info($"{c.Paciente} chamado — anuncie para a sala {c.Sala}.");
+        }, "chamada do paciente");
+
+    /// <summary>O paciente levantou e entrou: fim da espera, começo da sessão.</summary>
     [RelayCommand]
     private async Task IniciarAtendimentoAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>

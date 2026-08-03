@@ -30,7 +30,14 @@ public enum EtapaFila
     /// <summary>Fez check-in na recepção e está esperando ser chamado.</summary>
     Chegou,
 
-    /// <summary>Foi chamado; está na sala com o profissional.</summary>
+    /// <summary>
+    /// O profissional avisou que quer este paciente agora, e a recepção ainda não o
+    /// levou à sala (parcela 38). É o recado que atravessa os dois módulos: quem chama
+    /// pelo nome na sala de espera é o balcão, não o médico.
+    /// </summary>
+    Chamado,
+
+    /// <summary>Entrou; está na sala com o profissional.</summary>
     EmAtendimento,
 
     /// <summary>Atendimento encerrado — gerou o atendimento e os códigos.</summary>
@@ -116,7 +123,22 @@ public class Agendamento
     /// <summary>Check-in no balcão: o paciente chegou. Base do tempo de espera.</summary>
     public DateTime? ChegadaEm { get; set; }
 
-    /// <summary>O profissional chamou o paciente — fim da espera, início da sessão.</summary>
+    /// <summary>
+    /// O PROFISSIONAL avisou que quer este paciente agora (parcela 38).
+    ///
+    /// É diferente de <see cref="InicioAtendimentoEm"/>, e a diferença é a clínica real:
+    /// quem chama pelo nome na sala de espera é a RECEPÇÃO, não o médico — ele está na
+    /// sala com a porta fechada. Este carimbo é o recado que atravessa: o consultório
+    /// marca "pode mandar entrar", o balcão vê e chama a pessoa. O atendimento só começa
+    /// quando ela entra, e é aí que o outro carimbo cai.
+    ///
+    /// Sem os dois separados, o tempo de espera mediria a coisa errada: a espera do
+    /// paciente termina quando ele é CHAMADO, e o intervalo entre a chamada e a entrada
+    /// na sala é o tempo que ele levou para se levantar — não espera de clínica.
+    /// </summary>
+    public DateTime? ChamadoEm { get; set; }
+
+    /// <summary>O paciente entrou na sala — começo da sessão.</summary>
     public DateTime? InicioAtendimentoEm { get; set; }
 
     /// <summary>Duração padrão da clínica quando ninguém informou nada.</summary>
@@ -135,18 +157,39 @@ public class Agendamento
         StatusAgendamento.Realizado => EtapaFila.Finalizado,
         StatusAgendamento.Cancelado or StatusAgendamento.Faltou => EtapaFila.ForaDaFila,
         _ when InicioAtendimentoEm is not null => EtapaFila.EmAtendimento,
+        _ when ChamadoEm is not null => EtapaFila.Chamado,
         _ when ChegadaEm is not null => EtapaFila.Chegou,
         _ => EtapaFila.Aguardando
     };
 
     /// <summary>
-    /// Há quanto tempo o paciente espera, em minutos: da chegada até ser chamado (ou até
+    /// Há quantos minutos o paciente foi chamado e ainda não entrou. Null quando não há
+    /// chamada pendente.
+    ///
+    /// A recepção usa isto para insistir: chamada de dois minutos é a pessoa vindo do
+    /// corredor; de dez, é alguém que saiu para o banheiro ou não ouviu — e o profissional
+    /// está parado esperando.
+    /// </summary>
+    public int? ChamadoHaMinutos(DateTime agora)
+    {
+        if (ChamadoEm is null || InicioAtendimentoEm is not null) return null;
+        var minutos = (int)Math.Round((agora - ChamadoEm.Value).TotalMinutes);
+        return minutos < 0 ? 0 : minutos;
+    }
+
+    /// <summary>
+    /// Há quanto tempo o paciente espera, em minutos: da chegada até ser CHAMADO (ou até
     /// <paramref name="agora"/>, se ainda não foi). Null enquanto não fez check-in.
+    ///
+    /// Termina na chamada, e não na entrada na sala: o que a clínica controla é quanto
+    /// tempo alguém ficou sentado sem ser atendido. O minuto entre "pode entrar" e a
+    /// pessoa levantar da cadeira não é fila — e contá-lo pioraria o indicador por algo
+    /// que a recepção não tem como acelerar.
     /// </summary>
     public int? EsperaMinutos(DateTime agora)
     {
         if (ChegadaEm is null) return null;
-        var fim = InicioAtendimentoEm ?? agora;
+        var fim = ChamadoEm ?? InicioAtendimentoEm ?? agora;
         var minutos = (int)Math.Round((fim - ChegadaEm.Value).TotalMinutes);
         return minutos < 0 ? 0 : minutos;
     }

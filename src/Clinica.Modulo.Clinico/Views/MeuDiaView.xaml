@@ -6,15 +6,136 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+
+        <!-- ===== O cartão do quadro =====
+             Um só template para as cinco colunas: o cartão é a MESMA pessoa em etapas
+             diferentes, e cinco templates divergiriam na primeira correção. O que muda
+             por coluna são os botões, e eles se acendem pelo estado do próprio cartão. -->
+        <DataTemplate x:Key="CartaoDoDia">
+            <Border Padding="12,10" Margin="0,0,0,8"
+                    CornerRadius="{StaticResource Raio.Medio}" BorderThickness="1">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+                        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+                        <Style.Triggers>
+                            <!-- Chamada que demora é o profissional PARADO esperando. -->
+                            <DataTrigger Binding="{Binding ChamadaDemorada}" Value="True">
+                                <Setter Property="Background"
+                                        Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding Hora}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="{Binding Paciente}" TextWrapping="Wrap"
+                                   Margin="8,0,0,0"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Margin="0,4,0,0" TextWrapping="Wrap">
+                        <Run Text="{Binding Modalidade, Mode=OneWay}" />
+                        <Run Text=" · sala " />
+                        <Run Text="{Binding Local, Mode=OneWay}" />
+                    </TextBlock>
+
+                    <!-- Espera e chamada: os dois números que decidem o próximo passo. -->
+                    <TextBlock Text="{Binding Espera}" Margin="0,2,0,0"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <TextBlock Text="{Binding ChamadoHa}" Margin="0,2,0,0" FontWeight="SemiBold"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Erro}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <Trigger Property="Text" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <WrapPanel Margin="0,6,0,0">
+                        <Border Style="{StaticResource Badge.Info}" Margin="0,0,6,4"
+                                Visibility="{Binding Encaixe,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Encaixe" />
+                        </Border>
+                        <Border Style="{StaticResource Badge.Sucesso}" Margin="0,0,6,4"
+                                Visibility="{Binding EvolucaoEscrita,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Evolução escrita" />
+                        </Border>
+                        <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,6,4"
+                                Visibility="{Binding RegistroPendente,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Sem evolução" />
+                        </Border>
+                    </WrapPanel>
+
+                    <WrapPanel Margin="0,4,0,0">
+                        <!-- O recado que atravessa para o balcão. -->
+                        <Button Content="Chamar" Margin="0,0,6,4"
+                                Visibility="{Binding PodeChamar,
+                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                Command="{Binding DataContext.ChamarCommand,
+                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}" />
+                        <Button Content="Desfazer chamada" Margin="0,0,6,4"
+                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                Visibility="{Binding PodeDesfazerChamada,
+                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                Command="{Binding DataContext.DesfazerChamadaCommand,
+                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}" />
+                        <Button Content="Dor" Margin="0,0,6,4"
+                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                Command="{Binding DataContext.VerDorCommand,
+                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}" />
+                        <Button Content="{Binding RotuloRegistro}" Margin="0,0,0,4"
+                                Style="{StaticResource BotaoAcaoGrid}"
+                                Command="{Binding DataContext.AtenderCommand,
+                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
+    <DockPanel Margin="24,20,24,24">
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel>
-                <TextBlock Text="Meu dia" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Text="Meu dia" Style="{StaticResource H1}" Margin="0,0,0,2" />
                 <TextBlock Text="{Binding Profissional}" Style="{StaticResource TextoSuave}"
-                           TextWrapping="Wrap" Margin="0" />
+                           Margin="0" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                 <Button Content="&lt;" Command="{Binding DiaAnteriorCommand}"
@@ -24,9 +145,54 @@
                         Style="{StaticResource BotaoSecundario}" MinWidth="40" />
                 <Button Content="Hoje" Command="{Binding HojeCommand}"
                         Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" MinWidth="70" />
-                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
             </StackPanel>
         </Grid>
+
+        <!-- ===== CHAMAR O PRÓXIMO =====
+             O único primário da tela, e a ação mais frequente do dia: o profissional
+             termina uma sessão e quer o próximo. Ele não chama pelo nome — está na sala
+             com a porta fechada; quem anuncia é o balcão, que vê este aviso na fila. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,14" Padding="16,12"
+                CornerRadius="{StaticResource Raio.Grande}"
+                Background="{StaticResource Brush.Acento.Tint}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                Visibility="{Binding EhHoje, Converter={StaticResource BoolParaVisibilidade}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                    <TextBlock Text="Próximo da recepção" Style="{StaticResource CardKpi.Rotulo}" />
+                    <TextBlock TextWrapping="Wrap" FontSize="{StaticResource Fonte.H3}"
+                               FontWeight="SemiBold" Margin="0,2,0,0"
+                               Foreground="{StaticResource Brush.Texto.Primario}">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Text" Value="{Binding ProximoNome}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TemProximo}" Value="False">
+                                        <Setter Property="Text"
+                                                Value="Ninguém aguardando no balcão." />
+                                        <Setter Property="Foreground"
+                                                Value="{StaticResource Brush.Texto.Secundario}" />
+                                        <Setter Property="FontWeight" Value="Normal" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <Button Grid.Column="1" Content="Chamar próximo" MinWidth="180" Padding="18,10"
+                        VerticalAlignment="Center"
+                        Command="{Binding ChamarProximoCommand}"
+                        IsEnabled="{Binding TemProximo}" />
+            </Grid>
+        </Border>
 
         <!-- Sem Profissional vinculado ao login a tela mostra o dia da clínica inteira.
              Dizer isso é obrigatório: um dia com o dobro de horários sem explicação se
@@ -43,59 +209,56 @@
         </Border>
 
         <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
-                   TextWrapping="Wrap" Margin="0,0,0,12" />
+                   Margin="0,0,0,12" />
 
         <!-- ===== O que eu ainda não escrevi =====
              É a razão de o módulo existir: a sessão aconteceu, o paciente foi embora e a
-             evolução ficou "para depois". Fica ACIMA da agenda porque é dívida, e dívida
-             que aparece embaixo da lista do dia ninguém rola para ver. -->
+             evolução ficou "para depois". Fica ACIMA do quadro porque é dívida, e dívida
+             que aparece embaixo ninguém rola para ver. -->
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16"
-                MaxHeight="220">
+                MaxHeight="180">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="Sessões sem evolução escrita"
                            Style="{StaticResource H3}" Margin="0,0,0,4" />
                 <TextBlock DockPanel.Dock="Top" Text="{Binding ResumoPendentes}"
-                           Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           Style="{StaticResource TextoSuave}"
                            FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8" />
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Pendentes}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border BorderBrush="{StaticResource Brush.Borda}"
-                                        BorderThickness="0,0,0,1" Padding="0,8">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="130" />
-                                            <ColumnDefinition Width="110" />
-                                        </Grid.ColumnDefinitions>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="110" />
+                                    </Grid.ColumnDefinitions>
 
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
-                                                       FontWeight="SemiBold" />
-                                            <TextBlock Style="{StaticResource TextoSuave}"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Margin="0,2,0,0" TextWrapping="Wrap">
-                                                <Run Text="{Binding Quando, Mode=OneWay}" />
-                                                <Run Text=" · " />
-                                                <Run Text="{Binding Modalidade, Mode=OneWay}" />
-                                            </TextBlock>
-                                        </StackPanel>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource TextoSuave}"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Margin="0,2,0,0" TextWrapping="Wrap">
+                                            <Run Text="{Binding Quando, Mode=OneWay}" />
+                                            <Run Text=" · " />
+                                            <Run Text="{Binding Modalidade, Mode=OneWay}" />
+                                        </TextBlock>
+                                    </StackPanel>
 
-                                        <Border Grid.Column="1" Style="{StaticResource Badge.Aviso}"
-                                                VerticalAlignment="Center" HorizontalAlignment="Left">
-                                            <TextBlock Text="{Binding Atraso}" TextWrapping="Wrap" />
-                                        </Border>
+                                    <Border Grid.Column="1" Style="{StaticResource Badge.Aviso}"
+                                            VerticalAlignment="Center" HorizontalAlignment="Left">
+                                        <TextBlock Text="{Binding Atraso}" TextWrapping="Wrap" />
+                                    </Border>
 
-                                        <Button Grid.Column="2" Content="Escrever"
-                                                VerticalAlignment="Center"
-                                                Style="{StaticResource BotaoAcaoGrid}"
-                                                Command="{Binding DataContext.EscreverPendenteCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}" />
-                                    </Grid>
-                                </Border>
+                                    <Button Grid.Column="2" Content="Escrever"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource BotaoAcaoGrid}"
+                                            Command="{Binding DataContext.EscreverPendenteCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}" />
+                                </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
@@ -103,89 +266,78 @@
             </DockPanel>
         </Border>
 
-        <!-- ===== A agenda do dia ===== -->
-        <Border Background="{StaticResource Brush.Superficie}"
-                BorderBrush="{StaticResource Brush.Borda}"
-                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
-            <Grid>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Sessoes}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
-                                        BorderThickness="0,0,0,1">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="70" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="130" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+        <!-- ===== O QUADRO =====
+             As colunas saem de `Agendamento.Etapa`, derivada dos carimbos de hora — as
+             MESMAS que a fila do balcão usa. Não há sincronização entre os módulos: os
+             dois leem a mesma tabela, e é isso que faz os quadros nunca divergirem. -->
+        <Grid>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+                <Grid MinWidth="1100">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="210" />
+                        <ColumnDefinition Width="*" MinWidth="210" />
+                        <ColumnDefinition Width="*" MinWidth="210" />
+                        <ColumnDefinition Width="*" MinWidth="210" />
+                        <ColumnDefinition Width="*" MinWidth="210" />
+                    </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="0" Text="{Binding Hora}"
-                                                   VerticalAlignment="Center" FontWeight="SemiBold" />
+                    <DockPanel Grid.Column="0" Margin="0,0,10,0">
+                        <TextBlock DockPanel.Dock="Top" Text="AGUARDANDO"
+                                   Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,8" />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Aguardando}"
+                                          ItemTemplate="{StaticResource CartaoDoDia}" />
+                        </ScrollViewer>
+                    </DockPanel>
 
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                                                <Border Style="{StaticResource Badge.Info}" Margin="8,0,0,0"
-                                                        Visibility="{Binding Encaixe,
-                                                                     Converter={StaticResource BoolParaVisibilidade}}">
-                                                    <TextBlock Text="Encaixe" />
-                                                </Border>
-                                                <Border Style="{StaticResource Badge.Sucesso}" Margin="8,0,0,0"
-                                                        Visibility="{Binding EvolucaoEscrita,
-                                                                     Converter={StaticResource BoolParaVisibilidade}}">
-                                                    <TextBlock Text="Evolução escrita" />
-                                                </Border>
-                                                <Border Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
-                                                        Visibility="{Binding RegistroPendente,
-                                                                     Converter={StaticResource BoolParaVisibilidade}}">
-                                                    <TextBlock Text="Sem evolução" />
-                                                </Border>
-                                            </StackPanel>
-                                            <TextBlock Style="{StaticResource TextoSuave}"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Margin="0,4,0,0" TextWrapping="Wrap">
-                                                <Run Text="{Binding Modalidade, Mode=OneWay}" />
-                                                <Run Text=" · sala " />
-                                                <Run Text="{Binding Local, Mode=OneWay}" />
-                                            </TextBlock>
-                                        </StackPanel>
+                    <DockPanel Grid.Column="1" Margin="0,0,10,0">
+                        <TextBlock DockPanel.Dock="Top" Text="NA RECEPÇÃO"
+                                   Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,8" />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding NaRecepcao}"
+                                          ItemTemplate="{StaticResource CartaoDoDia}" />
+                        </ScrollViewer>
+                    </DockPanel>
 
-                                        <TextBlock Grid.Column="2" Text="{Binding Situacao}"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                    <DockPanel Grid.Column="2" Margin="0,0,10,0">
+                        <TextBlock DockPanel.Dock="Top" Text="CHAMADO"
+                                   Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,8" />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Chamados}"
+                                          ItemTemplate="{StaticResource CartaoDoDia}" />
+                        </ScrollViewer>
+                    </DockPanel>
 
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal"
-                                                    VerticalAlignment="Center">
-                                            <Button Content="Dor" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    Margin="0,0,6,0"
-                                                    Command="{Binding DataContext.VerDorCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="{Binding RotuloRegistro}"
-                                                    Style="{StaticResource BotaoAcaoGrid}"
-                                                    Command="{Binding DataContext.AtenderCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
+                    <DockPanel Grid.Column="3" Margin="0,0,10,0">
+                        <TextBlock DockPanel.Dock="Top" Text="EM ATENDIMENTO"
+                                   Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,8" />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding EmAtendimento}"
+                                          ItemTemplate="{StaticResource CartaoDoDia}" />
+                        </ScrollViewer>
+                    </DockPanel>
 
-                <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
-                                   Carregando="{Binding Carregando}"
-                                   NaoVerificado="{Binding NaoVerificado}"
-                                   Glifo="&#xE787;"
-                                   TextoCarregando="Lendo a sua agenda…"
-                                   Titulo="Nenhum horário marcado neste dia"
-                                   Descricao="Os horários aparecem aqui assim que a recepção marcar." />
-            </Grid>
-        </Border>
+                    <DockPanel Grid.Column="4">
+                        <TextBlock DockPanel.Dock="Top" Text="FINALIZADOS"
+                                   Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,8" />
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Finalizados}"
+                                          ItemTemplate="{StaticResource CartaoDoDia}" />
+                        </ScrollViewer>
+                    </DockPanel>
+                </Grid>
+            </ScrollViewer>
+
+            <!-- O vazio é do QUADRO INTEIRO: coluna vazia sozinha é rotina do dia.
+                 E "ainda carregando" não pode se parecer com "não há ninguém": as duas
+                 telas são vazias, e só uma delas é resposta. -->
+            <ctrl:EstadoDaTela Vazio="{Binding QuadroVazio}"
+                               Carregando="{Binding Carregando}"
+                               Glifo="&#xE787;"
+                               TextoCarregando="Montando o seu dia…"
+                               Titulo="Nenhum horário marcado neste dia"
+                               Descricao="Os horários aparecem aqui assim que a recepção marcar." />
+        </Grid>
     </DockPanel>
 </UserControl>

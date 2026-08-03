@@ -439,7 +439,67 @@ public sealed class AgendaService
         return ag;
     }
 
-    /// <summary>O profissional chamou o paciente: fim da espera, começo da sessão.</summary>
+    /// <summary>
+    /// O PROFISSIONAL avisa que quer este paciente agora (parcela 38).
+    ///
+    /// É o recado que atravessa os dois módulos, e ele existe porque quem chama pelo nome
+    /// na sala de espera é a RECEPÇÃO — o médico está na sala, com a porta fechada. Sem
+    /// isto, a alternativa real da clínica é o profissional abrir a porta e gritar, ou
+    /// ligar para o balcão a cada paciente.
+    ///
+    /// <b>Só se chama quem já CHEGOU.</b> Chamar quem não fez check-in faria a recepção
+    /// anunciar um nome para uma sala de espera onde a pessoa não está — e a fila
+    /// perderia a única informação que a torna confiável, que é a de quem está no prédio.
+    /// </summary>
+    public async Task<Agendamento> ChamarAsync(
+        int agendamentoId, DateTime? quando = null, CancellationToken ct = default)
+    {
+        var ag = await ObterParaFilaAsync(agendamentoId, ct);
+
+        if (ag.Status != StatusAgendamento.Agendado)
+            throw new InvalidOperationException("Este horário não está mais em aberto.");
+
+        if (ag.ChegadaEm is null)
+            throw new InvalidOperationException(
+                "Este paciente ainda não fez check-in no balcão — não há quem chamar na "
+                + "sala de espera.");
+
+        if (ag.InicioAtendimentoEm is not null)
+            throw new InvalidOperationException("Este paciente já está na sala.");
+
+        // Idempotente: chamar de novo não reinicia o cronômetro da chamada. Quem quer
+        // insistir com alguém que não veio precisa ver há QUANTO tempo chamou — e um
+        // segundo clique zerando esse número esconderia justamente o caso.
+        ag.ChamadoEm ??= quando ?? DateTime.Now;
+        await _repo.SalvarAsync(ct);
+        return ag;
+    }
+
+    /// <summary>
+    /// Desfaz a chamada: o profissional se enganou de paciente, ou vai demorar mais.
+    ///
+    /// Some da coluna "chamado" e volta a esperar — a recepção para de anunciar. Não é o
+    /// mesmo que <see cref="VoltarEtapaAsync"/> porque este é o caminho de quem CHAMOU;
+    /// o outro é o do balcão desfazendo um clique errado, e serve à fila inteira.
+    /// </summary>
+    public async Task<Agendamento> DesfazerChamadaAsync(
+        int agendamentoId, CancellationToken ct = default)
+    {
+        var ag = await ObterParaFilaAsync(agendamentoId, ct);
+
+        if (ag.ChamadoEm is null)
+            throw new InvalidOperationException("Este paciente não foi chamado.");
+
+        if (ag.InicioAtendimentoEm is not null)
+            throw new InvalidOperationException(
+                "O atendimento já começou; use voltar etapa.");
+
+        ag.ChamadoEm = null;
+        await _repo.SalvarAsync(ct);
+        return ag;
+    }
+
+    /// <summary>O paciente ENTROU na sala: começo da sessão.</summary>
     public async Task<Agendamento> IniciarAtendimentoAsync(
         int agendamentoId, DateTime? quando = null, CancellationToken ct = default)
     {
@@ -450,18 +510,21 @@ public sealed class AgendaService
                 "Este horário não está mais em aberto.");
 
         var agora = quando ?? DateTime.Now;
-        // Chamar direto (paciente que chegou e já entrou) não pode deixar a espera nula:
-        // sem chegada, o kanban não saberia distinguir quem esperou de quem não esperou.
+        // Entrar direto (paciente que chegou e já foi levado) não pode deixar a espera
+        // nula: sem chegada, o kanban não saberia distinguir quem esperou de quem não
+        // esperou. Pelo mesmo motivo a chamada é carimbada junto — o paciente entrou,
+        // logo foi chamado, e uma linha do tempo com entrada sem chamada não existe.
         ag.ChegadaEm ??= agora;
+        ag.ChamadoEm ??= agora;
         ag.InicioAtendimentoEm ??= agora;
         await _repo.SalvarAsync(ct);
         return ag;
     }
 
     /// <summary>
-    /// Volta o cartão uma coluna: de "em atendimento" para "chegou", de "chegou" para
-    /// "aguardando". Existe porque clicar errado no kanban é rotina — e a alternativa
-    /// (cancelar e remarcar) falsearia o histórico.
+    /// Volta o cartão UMA coluna: em atendimento → chamado → chegou → aguardando. Existe
+    /// porque clicar errado no kanban é rotina — e a alternativa (cancelar e remarcar)
+    /// falsearia o histórico.
     /// </summary>
     public async Task<Agendamento> VoltarEtapaAsync(int agendamentoId, CancellationToken ct = default)
     {
@@ -472,6 +535,7 @@ public sealed class AgendaService
                 "Este horário já foi encerrado; não dá para voltar a etapa por aqui.");
 
         if (ag.InicioAtendimentoEm is not null) ag.InicioAtendimentoEm = null;
+        else if (ag.ChamadoEm is not null) ag.ChamadoEm = null;
         else if (ag.ChegadaEm is not null) ag.ChegadaEm = null;
         else throw new InvalidOperationException("O paciente ainda nem fez check-in.");
 

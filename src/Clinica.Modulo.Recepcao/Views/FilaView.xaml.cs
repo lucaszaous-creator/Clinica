@@ -6,9 +6,10 @@ namespace Clinica.Recepcao.Views;
 /// <summary>
 /// Fila de hoje em kanban.
 ///
-/// A View liga e desliga o relógio que envelhece os tempos de espera: o shell constrói
-/// uma tela nova a cada navegação, e um <c>DispatcherTimer</c> rodando manteria vivo
-/// cada ViewModel já trocado (e faria vários recalcularem a mesma coisa).
+/// A View liga e desliga o relógio que envelhece os tempos de espera e relê o dia — é
+/// por ele que a chamada feita no consultório chega ao balcão (parcela 38). O shell
+/// constrói uma tela nova a cada navegação, e um <c>DispatcherTimer</c> rodando manteria
+/// vivo cada ViewModel já trocado (e faria vários irem ao banco pela mesma coisa).
 /// </summary>
 public partial class FilaView : UserControl
 {

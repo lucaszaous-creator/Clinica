@@ -499,6 +499,35 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   alerta mudaria o comportamento do faturamento em produção e dispararia para TODA guia
   numa clínica que ainda não documenta — alerta que dispara para todo mundo é alerta que
   ninguém lê. A leitura foi para a direção, onde é nova.
+- **A chamada do próximo paciente** (parcela 38): "Meu dia" do Consultório era uma **lista
+  corrida** — ela responde "quem vem hoje" e não responde a pergunta que quem atende faz
+  vinte vezes por dia, "**quem já está aí e quem eu posso chamar agora**". Virou kanban de
+  cinco colunas, as MESMAS da fila do balcão (que é kanban desde a parcela 26). E ganhou o
+  recado de volta: quem chama pelo nome na sala de espera é a **recepção** — o profissional
+  está na sala, com a porta fechada —, então o botão "Chamar próximo" carimba
+  `Agendamento.ChamadoEm` e a fila do balcão anuncia a pessoa. **A sincronização é o
+  BANCO**, como todo o resto da suíte: nem fila de mensagens, nem evento, nem um módulo
+  conhecendo o outro; os dois leem a mesma linha, e é isso que faz os dois quadros nunca
+  divergirem. O estágio `Chamado` **não virou coluna no banco** — é derivado dos carimbos
+  de hora, como os outros quatro (`Agendamento.Etapa`); o que precisou de migration foi só
+  o fato novo, e ela é aditiva (o faturamento congelado só lê `StatusAgendamento`).
+  As regras: **só se chama quem já fez check-in** (anunciar quem não chegou tiraria da fila
+  a única informação que a torna confiável, a de quem está no prédio); **chamar de novo não
+  reinicia o cronômetro** (`??=`) porque quem insiste precisa ver há QUANTO tempo chamou, e
+  o segundo clique esconderia justamente o caso demorado; **chamar existe dos dois lados**
+  (em metade das clínicas o profissional avisa pela porta, e exigir o clique da sala faria
+  a coluna nascer sempre vazia num fluxo que funciona há anos — carimba quem clicar
+  primeiro); **entrar carimba a chamada junto**, porque linha do tempo com entrada e sem
+  chamada não existe; e a **espera para na CHAMADA, não na entrada** — o que se mede é
+  quanto tempo o paciente ficou sem notícia, e contar até ele levantar da cadeira somaria o
+  tempo de atravessar a sala. A **releitura periódica** (1 min, ligada/desligada pelo
+  Loaded/Unloaded da View) é o que faz o recado CHEGAR: até aqui as duas telas só reliam
+  por clique, o que bastava porque tudo o que mexia no quadro era clicado nelas mesmas. Ela
+  é **silenciosa** — não acende "Carregando" nem escreve erro, porque quem está no balcão
+  com um paciente à frente não pode ver a fila piscar em branco a cada minuto — e só relê
+  **hoje**. A faixa acima do quadro **nomeia quem chamar e para qual sala**: a coluna
+  sozinha não bastaria, porque cartão que muda de coluna em silêncio é cartão que ninguém
+  vê, e "1 paciente chamado" mandaria a recepcionista procurar antes de abrir a boca.
 - **O que o profissional precisa ver e não alcança** (parcela 37): a auditoria do módulo
   do Consultório achou três lacunas da mesma família, e nenhuma pedia capacidade nova —
   pedia **porta no módulo certo**, que é a variante mais discreta do defeito recorrente
