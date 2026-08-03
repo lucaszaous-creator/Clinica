@@ -77,12 +77,6 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     private const int SessoesAnterioresVisiveis = 3;
 
     /// <summary>
-    /// O painel do consultório, que já abre com a agenda do dia e a carteira — e não com
-    /// uma caixa de busca vazia sobre uma coluna em branco.
-    /// </summary>
-    public SeletorClinicoViewModel Seletor { get; }
-
-    /// <summary>
     /// O mapa corporal da sessão — o mesmo componente do shell que a Recepção usa
     /// (parcela 36). É a ferramenta central da acupuntura, que é a especialidade da casa:
     /// um app para quem atende sem onde marcar o ponto seria um app para outra clínica.
@@ -168,9 +162,6 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         _snackbar = snackbar;
         _foco = foco;
 
-        Seletor = new SeletorClinicoViewModel(escopos, foco);
-        Seletor.Escolhido += AoTrocarPaciente;
-
         // O paciente do posto: quem veio da agenda já chega escolhido, e o profissional
         // não redigita o nome que acabou de clicar.
         if (_foco.Definido)
@@ -180,17 +171,6 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             Origem = DescreverOrigem(_foco.AgendamentoId);
             _ = CarregarAsync();
         }
-    }
-
-    private void AoTrocarPaciente(ItemPacienteClinico item)
-    {
-        // O painel já gravou o contexto do posto — inclusive DERRUBANDO o horário de
-        // origem quando a escolha veio da busca. Sem isso, a evolução do novo paciente
-        // nasceria amarrada à sessão do anterior.
-        Paciente = item.Nome;
-        SemPaciente = false;
-        Origem = DescreverOrigem(item.AgendamentoId);
-        _ = CarregarAsync();
     }
 
     /// <summary>
@@ -221,7 +201,6 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             Mensagem = null;
             MensagemEhErro = false;
             Anteriores.Clear();
-            Seletor.Sincronizar();
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();

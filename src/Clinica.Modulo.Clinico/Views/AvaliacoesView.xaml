@@ -2,211 +2,175 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             xmlns:clin="clr-namespace:Clinica.Clinico.Componentes"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
+    <DockPanel Margin="0,4,0,0">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Avaliações" Style="{StaticResource H1}" Margin="0,0,0,2" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
-                       Text="As escalas da sua especialidade. O sistema pontua e registra; a conduta é de quem assina o prontuário." />
+        <!-- Ações desta SEÇÃO. A identidade do paciente não se repete aqui: ela é do
+             cabeçalho da tela, uma vez, acima das abas. -->
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
+                HorizontalAlignment="Right" Margin="0,0,0,14">
+            <ComboBox ItemsSource="{Binding Instrumentos}"
+                  SelectedItem="{Binding Instrumento}"
+                  DisplayMemberPath="Nome" MinWidth="260" MaxWidth="340"
+                  VerticalAlignment="Center" />
+            <Button Content="Aplicar" Margin="8,0,0,0" MinWidth="120"
+                Command="{Binding AplicarCommand}"
+                IsEnabled="{Binding PodeEditarProntuario}" />
         </StackPanel>
 
-        <!-- O painel já abre com a agenda do dia e a carteira: a tela deixa de nascer
-             vazia esperando alguém digitar um nome que o sistema já sabe. -->
-        <clin:PainelPacienteClinico DockPanel.Dock="Left" Width="300" Margin="0,0,16,0"
-                                    DataContext="{Binding Seletor}" />
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
 
-        <Grid>
-            <!-- Estado vazio de verdade: ícone, título e o que fazer. Frase cinza
-                 solta no meio da tela não é estado vazio, é tela inacabada. -->
-            <ctrl:EmptyState Glifo="&#xE77B;"
-                             Titulo="Nenhum paciente escolhido"
-                             Descricao="Escolha alguém ao lado para aplicar e acompanhar as escalas da sua especialidade."
-                             Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
+            <!-- O filtro pela especialidade não é restrição: é a diferença entre abrir
+                 a tela com as escalas que se usa e abrir um catálogo. Fica como linha
+                 de apoio, não como bloco com borda em volta de um combo que já está
+                 no alto — cada retângulo a mais é uma costura a mais na tela. -->
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <CheckBox Grid.Column="0" VerticalAlignment="Center"
+                          Content="Todas as escalas"
+                          IsChecked="{Binding TodosOsInstrumentos}" />
+                <TextBlock Grid.Column="1" Text="{Binding Instrumento.Descricao}"
+                           TextWrapping="Wrap" Margin="16,0,0,0" VerticalAlignment="Center"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+            </Grid>
 
-            <DockPanel>
-                <DockPanel.Style>
-                    <Style TargetType="DockPanel">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SemPaciente}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </DockPanel.Style>
+            <!-- A curva é sempre de UM instrumento: escores de escalas diferentes não
+                 se somam nem se sobrepõem. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Evolução do escore" Style="{StaticResource H3}"
+                               Margin="0,0,0,10" />
 
-                <clin:FaixaPaciente DockPanel.Dock="Top" Margin="0,0,0,14"
-                                    Nome="{Binding Paciente}" Contexto="{Binding Resumo}">
-                    <clin:FaixaPaciente.Acoes>
-                        <StackPanel Orientation="Horizontal">
-                            <ComboBox ItemsSource="{Binding Instrumentos}"
-                                      SelectedItem="{Binding Instrumento}"
-                                      DisplayMemberPath="Nome" MinWidth="260" MaxWidth="340"
-                                      VerticalAlignment="Center" />
-                            <Button Content="Aplicar" Margin="8,0,0,0" MinWidth="120"
-                                    Command="{Binding AplicarCommand}"
-                                    IsEnabled="{Binding PodeEditarProntuario}" />
+                    <!-- As quatro leituras JUNTAS, à esquerda. Espalhadas por mil
+                         pixels num UniformGrid, quatro números viravam quatro traços
+                         perdidos com meio metro de branco entre eles. -->
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <StackPanel Margin="0,0,28,0">
+                            <TextBlock Text="PRIMEIRA" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding EscalaPrimeira}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
                         </StackPanel>
-                    </clin:FaixaPaciente.Acoes>
-                </clin:FaixaPaciente>
-
-                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                        Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-                </Border>
-
-                <!-- O filtro pela especialidade não é restrição: é a diferença entre abrir
-                     a tela com as escalas que se usa e abrir um catálogo. Fica como linha
-                     de apoio, não como bloco com borda em volta de um combo que já está
-                     no alto — cada retângulo a mais é uma costura a mais na tela. -->
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <CheckBox Grid.Column="0" VerticalAlignment="Center"
-                              Content="Todas as escalas"
-                              IsChecked="{Binding TodosOsInstrumentos}" />
-                    <TextBlock Grid.Column="1" Text="{Binding Instrumento.Descricao}"
-                               TextWrapping="Wrap" Margin="16,0,0,0" VerticalAlignment="Center"
-                               FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                </Grid>
-
-                <!-- A curva é sempre de UM instrumento: escores de escalas diferentes não
-                     se somam nem se sobrepõem. -->
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,14">
-                    <StackPanel>
-                        <TextBlock Text="Evolução do escore" Style="{StaticResource H3}"
-                                   Margin="0,0,0,10" />
-
-                        <!-- As quatro leituras JUNTAS, à esquerda. Espalhadas por mil
-                             pixels num UniformGrid, quatro números viravam quatro traços
-                             perdidos com meio metro de branco entre eles. -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <StackPanel Margin="0,0,28,0">
-                                <TextBlock Text="PRIMEIRA" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding EscalaPrimeira}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,28,0">
-                                <TextBlock Text="ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding EscalaAtual}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel Margin="0,0,28,0">
-                                <TextBlock Text="VARIAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding EscalaGanho}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
-                            <StackPanel MaxWidth="240">
-                                <TextBlock Text="FAIXA ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding EscalaFaixa}" TextWrapping="Wrap"
-                                           Style="{StaticResource CardKpi.Valor}" />
-                            </StackPanel>
+                        <StackPanel Margin="0,0,28,0">
+                            <TextBlock Text="ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding EscalaAtual}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
                         </StackPanel>
-
-                        <TextBlock Text="{Binding LeituraCurva}" Style="{StaticResource TextoSuave}"
-                                   TextWrapping="Wrap" Margin="0,0,0,4" />
-
-                        <!-- Sem aplicação não há gráfico: a área vazia dizia a mesma coisa
-                             que a frase acima dela, e ainda repetia o estado vazio da
-                             lista logo abaixo. Três respostas para uma pergunta só. -->
-                        <Grid Height="160" Margin="0,8,0,0"
-                              Visibility="{Binding TemCurva,
-                                           Converter={StaticResource BoolParaVisibilidade}}">
-                            <ctrl:GraficoLinha Pontos="{Binding Curva}"
-                                               Cor="{StaticResource Brush.Acento}" />
-                        </Grid>
+                        <StackPanel Margin="0,0,28,0">
+                            <TextBlock Text="VARIAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding EscalaGanho}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
+                        <StackPanel MaxWidth="240">
+                            <TextBlock Text="FAIXA ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
+                            <TextBlock Text="{Binding EscalaFaixa}" TextWrapping="Wrap"
+                                       Style="{StaticResource CardKpi.Valor}" />
+                        </StackPanel>
                     </StackPanel>
-                </Border>
 
-                <Border Background="{StaticResource Brush.Superficie}"
-                        BorderBrush="{StaticResource Brush.Borda}"
-                        BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
-                    <Grid>
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding Aplicacoes}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
-                                                BorderThickness="0,0,0,1">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="100" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="140" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
+                    <TextBlock Text="{Binding LeituraCurva}" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap" Margin="0,0,0,4" />
 
-                                                <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                           VerticalAlignment="Center" />
-
-                                                <StackPanel Grid.Column="1" VerticalAlignment="Center"
-                                                            Margin="12,0">
-                                                    <TextBlock Text="{Binding Instrumento}" TextWrapping="Wrap"
-                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
-                                                    <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
-                                                               Margin="0,4,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                                    <!-- O alerta de item nunca fica escondido dentro do
-                                                         total: é a resposta que exige conduta hoje. -->
-                                                    <Border Style="{StaticResource AlertaPerigo}" Margin="0,6,0,0"
-                                                            Visibility="{Binding TemAlerta,
-                                                                         Converter={StaticResource BoolParaVisibilidade}}">
-                                                        <TextBlock Text="{Binding Alerta}" TextWrapping="Wrap" />
-                                                    </Border>
-                                                </StackPanel>
-
-                                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Pontuacao}" FontWeight="SemiBold"
-                                                               TextWrapping="Wrap" />
-                                                    <Border HorizontalAlignment="Left" Margin="0,4,0,0">
-                                                        <Border.Style>
-                                                            <Style TargetType="Border" BasedOn="{StaticResource Badge}">
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding FaixaAlerta}" Value="True">
-                                                                        <Setter Property="Background"
-                                                                                Value="{StaticResource Brush.Erro.Suave}" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Border.Style>
-                                                        <TextBlock Text="{Binding Faixa}" TextWrapping="Wrap" />
-                                                    </Border>
-                                                </StackPanel>
-
-                                                <Button Grid.Column="3" Content="Excluir"
-                                                        VerticalAlignment="Center"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        Command="{Binding DataContext.ExcluirCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-
-                        <ctrl:EstadoDaTela Itens="{Binding Aplicacoes}"
-                                           Carregando="{Binding Carregando}"
-                                           NaoVerificado="{Binding NaoVerificado}"
-                                           Glifo="&#xE9D9;"
-                                           TextoCarregando="Lendo as avaliações…"
-                                           Titulo="Nenhuma escala aplicada a este paciente"
-                                           Descricao="A primeira aplicação é a linha de base do tratamento — é ela que dá sentido a todas as seguintes." />
+                    <!-- Sem aplicação não há gráfico: a área vazia dizia a mesma coisa
+                         que a frase acima dela, e ainda repetia o estado vazio da
+                         lista logo abaixo. Três respostas para uma pergunta só. -->
+                    <Grid Height="160" Margin="0,8,0,0"
+                          Visibility="{Binding TemCurva,
+                                       Converter={StaticResource BoolParaVisibilidade}}">
+                        <ctrl:GraficoLinha Pontos="{Binding Curva}"
+                                           Cor="{StaticResource Brush.Acento}" />
                     </Grid>
-                </Border>
-            </DockPanel>
-        </Grid>
+                </StackPanel>
+            </Border>
+
+            <Border Background="{StaticResource Brush.Superficie}"
+                    BorderBrush="{StaticResource Brush.Borda}"
+                    BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Aplicacoes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="140" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <TextBlock Grid.Column="0" Text="{Binding Data}"
+                                                       VerticalAlignment="Center" />
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                        Margin="12,0">
+                                                <TextBlock Text="{Binding Instrumento}" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
+                                                           Margin="0,4,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                <!-- O alerta de item nunca fica escondido dentro do
+                                                     total: é a resposta que exige conduta hoje. -->
+                                                <Border Style="{StaticResource AlertaPerigo}" Margin="0,6,0,0"
+                                                        Visibility="{Binding TemAlerta,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                                    <TextBlock Text="{Binding Alerta}" TextWrapping="Wrap" />
+                                                </Border>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Pontuacao}" FontWeight="SemiBold"
+                                                           TextWrapping="Wrap" />
+                                                <Border HorizontalAlignment="Left" Margin="0,4,0,0">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border" BasedOn="{StaticResource Badge}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding FaixaAlerta}" Value="True">
+                                                                    <Setter Property="Background"
+                                                                            Value="{StaticResource Brush.Erro.Suave}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <TextBlock Text="{Binding Faixa}" TextWrapping="Wrap" />
+                                                </Border>
+                                            </StackPanel>
+
+                                            <Button Grid.Column="3" Content="Excluir"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    Command="{Binding DataContext.ExcluirCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <ctrl:EstadoDaTela Itens="{Binding Aplicacoes}"
+                                       Carregando="{Binding Carregando}"
+                                       NaoVerificado="{Binding NaoVerificado}"
+                                       Glifo="&#xE9D9;"
+                                       TextoCarregando="Lendo as avaliações…"
+                                       Titulo="Nenhuma escala aplicada a este paciente"
+                                       Descricao="A primeira aplicação é a linha de base do tratamento — é ela que dá sentido a todas as seguintes." />
+                </Grid>
+            </Border>
     </DockPanel>
 </UserControl>

@@ -33,8 +33,31 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveAvaliacoes = "consultorio-avaliacoes";
     public const string ChaveMeusPacientes = "consultorio-pacientes";
 
+    /// <summary>
+    /// A tela do PACIENTE — identidade no topo, as cinco seções em abas.
+    ///
+    /// As cinco chaves clínicas acima continuam válidas e caem todas aqui, cada uma na
+    /// sua aba (ver <see cref="AbaDe"/>): a fila do dia e o painel da direção navegam por
+    /// elas, e renomear contrato de navegação para arrumar leiaute quebraria o que
+    /// funciona noutro módulo.
+    /// </summary>
+    public const string ChavePaciente = "consultorio-paciente";
+
     public string Nome => "Consultório";
 
+    /// <summary>
+    /// DUAS portas de entrada, e só.
+    ///
+    /// As cinco seções clínicas saíram do menu na 4ª rodada da parcela 37, e a razão é a
+    /// mesma que fez o cliente reprovar o leiaute: elas só existem COM paciente. Como
+    /// itens de menu, cada uma abria em branco carregando a mesma lista de pacientes numa
+    /// coluna de 300 px — mestre-detalhe espremido numa tela só, repetido seis vezes, e
+    /// metade da largura útil gasta com a mesma lista em todas elas.
+    ///
+    /// Agora são duas telas de LISTA, com a largura inteira ("quem eu vejo hoje" e "quem
+    /// eu acompanho"), e a tela do paciente atrás de um clique. Item de menu que só
+    /// funciona depois de você ter passado por outro lugar é item que ensina a errar.
+    /// </summary>
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
         // A abertura do Clinica.Clinico.exe é este item — e ele NÃO declara `Inicial`.
@@ -53,38 +76,20 @@ public sealed class ModuloClinico : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveAtendimento, Rotulo = "Atendimento", Glifo = "\uE70F",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
-        },
-        // O prontuário INTEIRO, com busca. Vem logo depois do atendimento porque é a
-        // segunda coisa que se faz com o paciente na sala: reler o que já foi feito.
-        new ItemMenuModulo
-        {
-            Chave = ChaveProntuario, Rotulo = "Prontuário", Glifo = "\uE7C3",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChaveEvolucaoDor, Rotulo = "Evolução da dor", Glifo = "\uEB05",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
-        },
-        // As medidas seriadas (parcela 37): peso, cintura, pressão, glicemia, HbA1c.
-        new ItemMenuModulo
-        {
-            Chave = ChaveMedidas, Rotulo = "Medidas", Glifo = "\uE9D2",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChaveAvaliacoes, Rotulo = "Avaliações", Glifo = "\uE9D9",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
-        },
-        new ItemMenuModulo
-        {
             Chave = ChaveMeusPacientes, Rotulo = "Meus pacientes", Glifo = "\uE77B",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         }
     ];
+
+    /// <summary>Em que aba da tela do paciente cada chave clínica cai.</summary>
+    private static int AbaDe(string chave) => chave switch
+    {
+        ChaveProntuario => 1,
+        ChaveEvolucaoDor => 2,
+        ChaveMedidas => 3,
+        ChaveAvaliacoes => 4,
+        _ => 0
+    };
 
     public void Registrar(IServiceCollection servicos)
     {
@@ -107,12 +112,17 @@ public sealed class ModuloClinico : IModuloApp
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
     {
         ChaveMeuDia => new MeuDiaView { DataContext = servicos.GetRequiredService<MeuDiaViewModel>() },
-        ChaveAtendimento => new AtendimentoView { DataContext = servicos.GetRequiredService<AtendimentoViewModel>() },
-        ChaveProntuario => new ProntuarioClinicoView { DataContext = servicos.GetRequiredService<ProntuarioClinicoViewModel>() },
-        ChaveEvolucaoDor => new EvolucaoDorView { DataContext = servicos.GetRequiredService<EvolucaoDorViewModel>() },
-        ChaveMedidas => new MedidasView { DataContext = servicos.GetRequiredService<MedidasViewModel>() },
-        ChaveAvaliacoes => new AvaliacoesView { DataContext = servicos.GetRequiredService<AvaliacoesViewModel>() },
         ChaveMeusPacientes => new MeusPacientesView { DataContext = servicos.GetRequiredService<MeusPacientesViewModel>() },
+
+        // A tela do paciente, e as cinco chaves clínicas que caem nela.
+        ChavePaciente or ChaveAtendimento or ChaveProntuario
+            or ChaveEvolucaoDor or ChaveMedidas or ChaveAvaliacoes
+            => new PacienteWorkspaceView
+            {
+                DataContext = new PacienteWorkspaceViewModel(
+                    servicos, servicos.GetRequiredService<PacienteEmFoco>(), AbaDe(chave))
+            },
+
         _ => null
     };
 }

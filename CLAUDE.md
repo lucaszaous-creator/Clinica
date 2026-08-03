@@ -565,6 +565,19 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   no topo do conteúdo porque num app onde se passa vinte minutos entre quatro abas sobre a
   MESMA pessoa a identidade é âncora, não rótulo — e as ações da tela viajam com ela em vez
   de ficarem acesas no cabeçalho da página sobre uma tela sem paciente nenhum.
+- **Lista → tela do item. Não enfie mestre-detalhe numa tela só** (parcela 37, 4ª
+  rodada — a correção mais cara da parcela, e a que o cliente reprovou em voz alta). As
+  cinco telas clínicas tinham, CADA UMA, uma coluna de 300 px com a lista de pacientes
+  grudada à esquerda. Somadas, eram seis cópias da mesma lista, metade da largura útil
+  gasta com ela, e o nome do paciente repetido em toda tela — inclusive vinte minutos
+  depois de ele ter sido escolhido. O desenho certo tem dois passos: **telas de LISTA com
+  a largura inteira** (Meu dia, Meus pacientes) e a **tela do item** atrás de um clique
+  (`PacienteWorkspaceView`: identidade no topo, uma vez, e as seções em ABAS). A regra que
+  decide: **seção que só existe COM um item escolhido não é item de menu** — como item ela
+  abre em branco pedindo que você vá primeiro a outro lugar, e isso ensina o usuário a
+  errar; como aba, ela diz sozinha a quem pertence. As chaves de navegação antigas
+  continuam valendo e caem cada uma na sua aba (`ModuloClinico.AbaDe`), porque renomear
+  contrato de navegação para arrumar leiaute quebra o que funciona noutro módulo.
 - **Ferramenta de uso pontual mora em BOTÃO, não em painel aberto** (parcela 37, 3ª
   rodada): o mapa corporal ocupava uma aba de 530 px permanente na tela de atendimento e o
   formulário de colher medida ocupava um terço da tela de Medidas — os dois para atos que
