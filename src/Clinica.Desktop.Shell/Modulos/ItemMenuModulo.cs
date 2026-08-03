@@ -94,6 +94,22 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// </summary>
     public bool Inicial { get; init; }
 
+    /// <summary>
+    /// A tela existe e é NAVEGÁVEL, mas não aparece na sidebar (parcela 37, 4ª rodada).
+    ///
+    /// Existe porque a navegação da suíte é por CHAVE e o shell só sabe abrir o que está
+    /// na lista de itens (<c>ShellViewModel.IrPara</c>). Quando o Consultório passou a ter
+    /// telas que só fazem sentido COM um paciente escolhido — e por isso saíram do menu —,
+    /// tirá-las da lista matou junto todo botão que navegava até elas: "Atender" na fila
+    /// do dia, os atalhos da carteira, o painel da direção. O app ficou com botões que não
+    /// faziam nada.
+    ///
+    /// Item oculto resolve os dois lados: continua sendo destino de <c>NavegacaoSuite</c>
+    /// e não ocupa linha no menu. Quem monta a sidebar filtra por esta marca; quem navega,
+    /// não.
+    /// </summary>
+    public bool Oculto { get; init; }
+
     [ObservableProperty]
     private bool _estaAtivo;
 }
