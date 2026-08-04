@@ -8,6 +8,55 @@ esquecido**, através de um dashboard de pendências com semáforo de urgência.
 > (eletroacupuntura / acupuntura pós-BSV, obtido 24h depois) era esquecido. Este sistema
 > gera esse 2º código automaticamente já com data prevista e o mantém visível até a baixa.
 
+---
+
+# ⛔ A REGRA DE LEIAUTE
+
+**Nunca mais entregue uma tela picada em várias caixas empilhadas.**
+
+Foi reprovado em voz alta pelo cliente **quatro vezes**, e toda vez pelo mesmo defeito:
+faixas e molduras empilhadas verticalmente, cada uma respondendo a uma pergunta diferente,
+e o conteúdo de verdade espremido no que sobrou. Não é preferência estética — é a diferença
+entre o produto e o de um concorrente. Antes de escrever qualquer XAML, leia isto.
+
+### O que está proibido
+
+| Proibido | Por quê | O que fazer |
+|---|---|---|
+| **Empilhar faixas** acima do conteúdo (aviso + resumo + banner + caixa) | O conteúdo começa na metade da tela. Cada faixa custa 40–70 px **para sempre** | Contexto vira **linha de texto** no cabeçalho; ação vira **botão** |
+| **Um `Card` com borda em volta de cada bloco** | Cinco molduras lado a lado leem-se como cinco telas costuradas — colcha de retalhos | **Uma superfície por REGIÃO**; separe por espaço, rótulo e `Separator` |
+| **Lista longa numa caixa de altura fixa** (`MaxHeight`) | Corta nome de paciente ao meio e rola dentro de um vão de três linhas | **Tela própria**, largura inteira, com um **botão** que leva até ela |
+| **Faixa permanente** para um aviso que nunca sai (ex.: "sem vínculo") | Faixa permanente vira moldura | Uma linha discreta sob o subtítulo |
+| **Banner de largura inteira para dizer que não há nada** | Gasta 70 px para escrever "ninguém aguardando" | **Botão desabilitado** já diz isso, e não ocupa a tela para dizê-lo |
+| **Mestre-detalhe espremido**: faixa lateral de 300 px com a lista de pacientes em toda tela | Metade da largura útil gasta com a mesma lista repetida em seis telas | **Tela de LISTA** (largura inteira) → **tela do item** atrás de um clique, com abas |
+| **Repetir num resumo** os números que já estão nos blocos | O olho tem de casar número com bloco pela ordem | O número mora **junto do que ele conta** |
+| **Coluna/bloco vazio sem marca nenhuma** | Quatro colunas vazias viram um buraco de mil pixels e a tela parece quebrada | Traço (`—`) ou estado vazio — a raia tem de continuar legível |
+| **KPI num `UniformGrid` de largura inteira** | Cinco números viram cinco traços perdidos com meio metro de branco entre eles | `StackPanel` horizontal à esquerda |
+| **Gráfico desenhado sem dado** | 200 px de área vazia dizendo o que a frase acima já disse | O gráfico **some** |
+
+### As três perguntas que decidem
+
+1. **Isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?**
+   O segundo caso é **botão ou janela**, nunca painel aberto ocupando espaço permanente.
+   *(Foi assim que o mapa corporal e o formulário de medida viraram janela.)*
+
+2. **Esta seção existe sem um item escolhido?**
+   Se não existe, **não é item de menu** — como item ela abre em branco pedindo que você vá
+   primeiro a outro lugar, e isso ensina o usuário a errar. Vira **aba** da tela do item.
+
+3. **Quantas perguntas diferentes esta tela responde?**
+   Mais de uma → **mais de uma tela**, ligadas por botão. "Meu dia" responde *o que acontece
+   hoje*; a dívida de prontuário é *o que ficou de trás* — são duas telas, não duas caixas.
+
+> Cada retângulo a mais é uma costura a mais. Quando estiver na dúvida entre outra caixa e
+> outra tela, **é outra tela** — e um botão que leva até ela.
+
+O que as ferramentas cobrem sozinhas está em `tools/verificar-suite.py` (tamanho de janela,
+quebra de texto, chaves do design system). **O resto desta página é julgamento**, e é por
+isso que ela existe: tokens e componentes estão documentados em `docs/design-system/`.
+
+---
+
 ## Arquitetura
 
 Solução em camadas (.NET 8):

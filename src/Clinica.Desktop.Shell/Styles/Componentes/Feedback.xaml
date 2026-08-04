@@ -173,6 +173,67 @@
         <Setter Property="Margin" Value="24,0,24,24" />
     </Style>
 
+    <!-- ===== Cabeçalho de raia do kanban (parcela 38, 2ª rodada) =====
+         Rótulo + contagem, e o TRAÇO da raia vazia. Os dois quadros da suíte escreviam o
+         rótulo à mão e não mostravam contagem nenhuma por coluna: o número morava numa
+         frase de resumo acima do quadro, que empurrava o quadro para baixo e obrigava o
+         olho a casar número com coluna pela ordem.
+
+         O traço não é enfeite. Num dia já terminado, quatro raias vazias sem marca viram
+         um buraco de mil pixels ao lado da única com conteúdo, e o quadro deixa de se ler
+         como quadro. -->
+    <Style TargetType="ctrl:CabecalhoRaia">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ctrl:CabecalhoRaia">
+                    <StackPanel>
+                        <Grid Margin="2,0,2,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="{TemplateBinding Titulo}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+
+                            <Border x:Name="pilula" Grid.Column="1" MinWidth="22"
+                                    Padding="7,1" Margin="8,0,0,0"
+                                    CornerRadius="{StaticResource Raio.Pilula}"
+                                    Background="{StaticResource Brush.Acento.Suave}">
+                                <TextBlock Text="{TemplateBinding Quantidade}"
+                                           HorizontalAlignment="Center"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource Brush.Acento}" />
+                            </Border>
+                        </Grid>
+
+                        <!-- O traço da raia vazia. -->
+                        <TextBlock x:Name="traco" Text="—" Visibility="Collapsed"
+                                   HorizontalAlignment="Center" Margin="0,14,0,0"
+                                   Foreground="{StaticResource Brush.Borda}" />
+                    </StackPanel>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Vazia" Value="True">
+                            <Setter TargetName="traco" Property="Visibility" Value="Visible" />
+                            <!-- Contagem zero fica discreta: pílula colorida em raia vazia
+                                 chama atenção para onde não há nada que fazer. -->
+                            <Setter TargetName="pilula" Property="Background"
+                                    Value="Transparent" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- ===== Os três estados de uma lista (parcela 35) =====
          Um componente só, porque a ORDEM dos estados é a regra: carregando vence tudo,
          falha vem ANTES de vazio, e vazio só quando a leitura deu certo. Cada tela

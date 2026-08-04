@@ -1432,5 +1432,87 @@ As regras que a parcela fixou:
 - **Só HOJE se chama.** Olhar a agenda de terça que vem e poder chamar alguém de lá seria
   mandar a recepção anunciar um nome com dois dias de antecedência.
 
+### Parcela 38 (2ª rodada) — a tela picada em caixas
+
+A 5ª reprovação do cliente, e a mais direta: *"várias box dividindo uma tela"*. O "Meu dia"
+saiu da 1ª rodada com **quatro faixas empilhadas antes do quadro** — e num dia já
+terminado, as quatro raias vazias viravam um buraco de mil pixels ao lado da única com
+conteúdo.
+
+| O que estava errado | O que passou a ser |
+|---|---|
+| Slab azul de largura inteira gastando 70 px para escrever *"ninguém aguardando no balcão"* | **Botão** no cabeçalho, que diz o NOME de quem vai chamar e fica desabilitado quando não há ninguém |
+| Faixa azul permanente do aviso de vínculo | **Linha de texto** sob o subtítulo — faixa permanente vira moldura |
+| Linha de resumo repetindo as cinco contagens em sequência | Contagem no **cabeçalho de cada raia**, junto do que ela conta (`CabecalhoRaia`) |
+| Caixa de `MaxHeight="180"` cortando um nome de paciente ao meio | **Tela própria** de largura inteira (`ChaveRegistrosPendentes`) + botão com a contagem |
+| Cinco `Card` com borda lado a lado | **Raias**: faixa de fundo levíssima, sem moldura, separadas por espaço |
+| Quatro colunas vazias como vão branco | Cada raia vazia mostra um **traço** e continua legível |
+| Quatro botões acesos em todo cartão | **Uma ação principal**; as secundárias só na raia em que servem |
+
+A regra foi escrita no **topo do `README.md`** ("A REGRA DE LEIAUTE"), com a tabela do que
+é proibido e as três perguntas que decidem: *isto é o que a pessoa VÊ ou o que ela FAZ de
+vez em quando?*, *esta seção existe sem um item escolhido?* e *quantas perguntas esta tela
+responde?*. **Na dúvida entre outra caixa e outra tela, é outra tela** — e um botão que
+leva até ela.
+
+O mesmo tratamento foi aplicado à **fila da Recepção**, que tinha o defeito idêntico
+(cinco `Card` emoldurados + resumo repetindo as contagens). O `CabecalhoRaia` nasceu no
+shell justamente porque os dois quadros o usam — copiar faria as duas versões divergirem
+na primeira correção.
+
+## Parcela 39 — a sidebar do Consultório tinha três itens
+
+E não porque o app do médico seja simples: **as portas estavam no módulo errado.** É a
+sétima ocorrência do defeito recorrente do projeto, na variante mais discreta — não é dado
+sem leitor nem serviço sem chamador, é capacidade inteira, testada e em produção cuja
+única porta está no módulo de quem não a usa.
+
+| Lacuna | Onde estava | Onde passou a estar |
+|---|---|---|
+| **Prescrições** (receita, atestado, comparecimento, pedido de exame) | Só na Recepção | `ChavePrescricoes` — abre no paciente em foco, quatro tipos como botões |
+| **Minha semana** | Só na Recepção (desde a parcela 26) | `ChaveMinhaSemana` — sete colunas, uma consulta só |
+| **Meus números** (produtividade + completude de prontuário) | Só no BI do Gerente | `ChaveMeusNumeros` — só quem está logado, sem comparar colegas |
+
+### Prescrições — quem prescreve é quem atende
+
+O fluxo de emissão existia inteiro, e a parcela 36 já tinha subido os componentes para o
+**shell** (`DocumentoWindow`) exatamente por isto. Faltava a porta. Enquanto ela não
+existiu, ou a receita saía do bloquinho de papel, ou o profissional descia até o balcão
+para pedir que alguém emitisse por ele.
+
+A tela **abre no paciente em foco** — no consultório o paciente é contexto, não parâmetro
+—, e oferece os quatro tipos como **botões** em vez de um "Novo documento" que pergunta o
+tipo: ali a decisão vem antes do clique. A busca continua como atalho, para a segunda via
+de quem não está na cadeira. Nada de emissão foi reimplementado.
+
+### Minha semana
+
+"Meu dia" responde o que acontece hoje; ele não responde o que se pergunta **com o
+paciente ainda na frente**: *"quando eu tenho espaço?"*, *"vale marcar o seu retorno para
+sexta?"*. Sete dias numa consulta só (o banco é remoto, e um laço custaria catorze idas);
+começa na **segunda**, e o domingo é o sétimo dia — tratá-lo como primeiro devolveria a
+semana que só começa amanhã. **Dia sem horário aparece vazio**, porque semana com cinco
+colunas faria o olho procurar a quarta que sumiu. É tela de **leitura**: quem marca é o
+balcão, com o telefone na mão e a agenda de todo mundo à vista.
+
+### Meus números
+
+`ProdutividadeProfissional` existe desde a parcela 5 e `CompletudeProntuario` desde a 36 —
+e o único leitor de ambos era o BI do Gerente. O sistema media quem atende, e a pessoa
+medida não via o próprio número. **Indicador que só o chefe enxerga não corrige
+comportamento nenhum**: ele só produz a conversa desagradável no fim do mês, quando o mês
+já passou. A completude é o caso exemplar — ela mede exatamente o que este módulo existe
+para resolver, e quem podia agir sobre ela era quem não a enxergava.
+
+A tela mostra **só quem está logado e não compara colegas** (ranking entre profissionais é
+decisão de gestão; no app de cada um viraria placar), e a **dívida de prontuário é de
+HOJE, não do período** — ela é fila de trabalho, e recortá-la pelo filtro faria escolher
+"mês passado" esconder o que está em aberto agora. Métrica sem base aparece como **—**,
+nunca zero.
+
+> **A lição para a próxima auditoria:** ao procurar chamador em produção, conte também
+> quantos ITENS DE MENU o módulo tem. Sidebar curta demais para o que o app faz é sintoma,
+> não simplicidade.
+
 > Como o cliente recebe os cinco apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

@@ -114,6 +114,33 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
     </Style>
 
+    <!-- ===== Cartão clicável (parcela 39) =====
+         O cartão de kanban e o da semana são LISTAS de coisas em que se clica, e até aqui
+         cada tela resolvia isso de um jeito: umas punham um `Button` de ação dentro do
+         cartão, outras deixavam o cartão inerte e obrigavam a mirar num botão de 60 px.
+
+         Ele é um Button de verdade — e isso não é detalhe de estilo: só assim o cartão
+         ganha foco, responde ao teclado e é anunciado pelo leitor de tela. `Border` com
+         `MouseDown` pareceria igual e seria inalcançável para quem não usa mouse. -->
+    <Style x:Key="BotaoCartao" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Top" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{StaticResource Brush.Superficie.Hover}" />
+                <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda.Hover}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Perigo -->
     <Style x:Key="BotaoPerigo" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Background" Value="{StaticResource Brush.Erro}" />

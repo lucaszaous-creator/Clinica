@@ -499,6 +499,63 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   alerta mudaria o comportamento do faturamento em produção e dispararia para TODA guia
   numa clínica que ainda não documenta — alerta que dispara para todo mundo é alerta que
   ninguém lê. A leitura foi para a direção, onde é nova.
+- **Prescrever o alérgeno que a própria clínica anotou** (`PrescricaoService`, parcela 40):
+  desde a parcela 37 o sistema GUARDA as alergias (`NaturezaProblema.Alergia`, com a regra
+  de alertar mesmo dadas por resolvidas) e a emissão de receita **nunca as consultou** — a
+  base sabia que a paciente é alérgica a dipirona, o profissional escrevia "Dipirona
+  500mg" e o papel saía sem uma palavra. É o mesmo defeito recorrente do projeto (dado
+  gravado sem leitor), só que aqui ele não custa uma guia.
+  **O que o serviço NÃO é**: checador de interação medicamentosa. Isso exige base
+  farmacológica licenciada e atualizada, e uma checagem caseira erraria nos dois sentidos
+  e — pior — passaria a impressão de estar cobrindo o assunto. Ele compara o que está
+  sendo prescrito com **o que a própria clínica anotou sobre este paciente**.
+  A comparação é **textual** (a receita é texto livre por desenho) e por isso tem dois
+  cuidados que valem tanto quanto o alerta: **palavra INTEIRA, nunca trecho** ("sal" dentro
+  de "salbutamol" é coincidência de letras) e **piso de 4 caracteres** com lista de
+  dispensáveis — sem eles, uma alergia anotada como "alergia a X" acenderia em toda receita,
+  e **alerta que dispara à toa é alerta que se fecha sem ler**, o que produz o falso
+  negativo na semana seguinte. Os testes cobrem as DUAS direções com o mesmo peso.
+  **Avisa e exige confirmação — não impede**: o registro pode estar errado, pode haver
+  dessensibilização, e quem decide é quem assina; mas não pode acontecer *sem alguém
+  perceber*. É o segundo caso do projeto em que a tela cobra confirmação explícita (o
+  primeiro é a divergência do fechamento de caixa). A conferência mora no **shell**
+  (`DocumentoEdicaoViewModel`), não na tela do Consultório: é o único lugar por onde toda
+  receita passa, nas duas portas — **checagem de segurança que só existe em uma delas é o
+  defeito de novo, com a agravante de dar a impressão de estar coberto**. Ela reconfere
+  no clique de emitir, porque a da abertura viu uma receita em branco; e **falha da
+  conferência não bloqueia a emissão** (banco lento não pode impedir um atestado), mas
+  também não passa calada — vira aviso de que a checagem não rodou.
+  **Medicação contínua entra como CONTEXTO, sem casar com item**: o valor dela é o que
+  ainda não foi escrito, e casá-la produziria "você prescreveu o que ele já toma", que é o
+  caso normal da renovação de receita.
+- **A sidebar do Consultório tinha TRÊS itens** (parcela 39): e não porque o app do médico
+  seja simples — porque as portas estavam no módulo errado. A auditoria achou três lacunas
+  da mesma família, e é a **sétima** ocorrência do defeito recorrente do projeto, na
+  variante mais discreta de todas: não é dado sem leitor nem serviço sem chamador, é
+  **capacidade inteira e testada cuja única porta está no módulo de quem não a usa**.
+  (a) **Prescrições** — receita, atestado, comparecimento e pedido de exame só se emitiam
+  pela RECEPÇÃO. Quem prescreve é quem atende, e o app instalado na sala do médico não
+  tinha por onde; a parcela 36 já tinha subido a emissão para o shell (`DocumentoWindow`)
+  exatamente por isto, e ninguém construiu a porta. A tela do consultório **abre no
+  paciente em foco** e oferece os quatro tipos como BOTÕES, porque ali a decisão vem antes
+  do clique: ninguém pensa "vou emitir um documento", pensa "vou dar um atestado".
+  (b) **Minha semana** — "Meu dia" responde o que acontece hoje e não responde o que se
+  pergunta com o paciente ainda na frente ("quando eu tenho espaço?", "quinta está
+  cheia?"). A recepção tem visão de semana desde a parcela 26. Sete dias numa consulta só,
+  não sete — o banco é remoto; a semana começa na **segunda** (o domingo é o SÉTIMO dia, e
+  tratá-lo como primeiro devolveria a semana que só começa amanhã); **dia sem horário
+  aparece vazio**, porque semana com cinco colunas faria procurar a quarta que sumiu.
+  (c) **Meus números** — `ProdutividadeProfissional` existe desde a parcela 5 e
+  `CompletudeProntuario` desde a 36, e o único leitor de ambos era o BI do GERENTE: o
+  sistema media quem atende e a pessoa medida não via o próprio número. **Indicador que só
+  o chefe enxerga não corrige comportamento nenhum** — ele só produz a conversa
+  desagradável no fim do mês. A tela mostra **só quem está logado e não compara colegas**
+  (ranking é decisão de gestão; no app de cada um viraria placar), e a **dívida de
+  prontuário é de HOJE, não do período**: ela é fila de trabalho, e recortá-la pelo filtro
+  faria escolher "mês passado" esconder o que está em aberto agora.
+  A lição para a próxima auditoria: **ao procurar chamador em produção, conte também
+  quantos ITENS DE MENU o módulo tem.** Sidebar curta demais para o que o app faz é
+  sintoma, não simplicidade.
 - **A chamada do próximo paciente** (parcela 38): "Meu dia" do Consultório era uma **lista
   corrida** — ela responde "quem vem hoje" e não responde a pergunta que quem atende faz
   vinte vezes por dia, "**quem já está aí e quem eu posso chamar agora**". Virou kanban de
@@ -630,6 +687,32 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   que de quebra deu ao mapa os 960 px de mínimo que a Recepção já lhe dava. A pergunta que
   decide: **isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?** O
   segundo caso é botão.
+- **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
+  arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **cinco** reprovações do
+  cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
+  perguntas que decidem: (1) *isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez
+  em quando?* — o segundo caso é botão/janela, nunca painel aberto; (2) *esta seção existe
+  sem um item escolhido?* — se não, é aba, não item de menu; (3) *quantas perguntas esta
+  tela responde?* — mais de uma, mais de uma tela. Na dúvida entre outra caixa e outra
+  tela, **é outra tela**, e um botão que leva até ela.
+- **A 5ª reprovação: faixas empilhadas comem a tela** (parcela 38, 2ª rodada). O "Meu dia"
+  saiu com QUATRO faixas antes do quadro — o slab azul de "Chamar próximo" (que gastava
+  70 px de largura inteira para escrever *"ninguém aguardando no balcão"*), o alerta de
+  vínculo, a linha de resumo e a caixa de pendências com `MaxHeight="180"` cortando um nome
+  de paciente ao meio. O quadro do dia começava na metade da tela, e num dia já terminado
+  as quatro raias vazias viravam um buraco de mil pixels ao lado da única com conteúdo.
+  As correções, todas generalizáveis: **contexto permanente é LINHA de texto, não faixa**
+  (faixa permanente vira moldura); **ação é BOTÃO, não painel** — e um botão desabilitado
+  já diz "não há ninguém" sem gastar a tela para dizê-lo, além de caber o nome de quem vai
+  ser chamado, que a faixa não dizia; **lista longa merece TELA PRÓPRIA** com a largura
+  inteira, e no lugar dela fica um botão com a contagem (foi assim que a dívida de
+  prontuário virou `ChaveRegistrosPendentes`); **o número mora junto do que ele conta** —
+  o resumo repetia as cinco contagens em sequência e obrigava o olho a casar cada uma com
+  a sua coluna pela ordem, então elas foram para `CabecalhoRaia`; e **coluna vazia mostra
+  um traço**, porque quatro vãos brancos sem marca nenhuma fazem o quadro deixar de se ler
+  como quadro. As colunas do kanban deixaram de ser `Card` com borda e viraram **raias** —
+  faixa de fundo levíssima, sem moldura, separadas por espaço: cinco cartões emoldurados
+  lado a lado leem-se como cinco telas costuradas, que é literalmente a reclamação.
 - **Cada retângulo a mais é uma costura a mais** (parcela 37, 3ª rodada): embrulhar todo
   bloco num `Card` com borda produz uma colcha de retalhos — a tela fica com aparência de
   esboço mesmo com o conteúdo certo. Uma superfície por REGIÃO, e a separação interna por

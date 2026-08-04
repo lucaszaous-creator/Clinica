@@ -33,6 +33,8 @@ public static class DependencyInjection
         // Parcela 37: as medidas seriadas e a lista de problemas do prontuário.
         services.AddScoped<MedidaClinicaService>();
         services.AddScoped<ProblemaPacienteService>();
+        // Conferência clínica da prescrição (parcela 40): alergia registrada × item escrito.
+        services.AddScoped<PrescricaoService>();
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();
         services.AddScoped<ConsentimentoService>();

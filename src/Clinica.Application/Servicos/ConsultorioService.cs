@@ -74,6 +74,64 @@ public sealed class ConsultorioService
     }
 
     /// <summary>
+    /// A SEMANA do profissional (parcela 39) — sete dias de uma vez.
+    ///
+    /// Uma consulta só, não sete: chamar <see cref="DoDiaAsync"/> em laço custaria catorze
+    /// idas ao banco (agendamentos + evoluções por dia) para montar uma tela, e o banco é
+    /// REMOTO. O agrupamento é feito aqui, em memória, sobre o período inteiro.
+    ///
+    /// A semana começa na SEGUNDA, como a da recepção: a clínica pensa a semana em bloco,
+    /// e começar no dia escolhido daria uma janela diferente a cada clique do calendário.
+    /// Dia sem horário nenhum ENTRA na lista, vazio — semana com cinco colunas em vez de
+    /// sete faria o olho procurar a quarta-feira que sumiu.
+    /// </summary>
+    public async Task<SemanaDoProfissional> DaSemanaAsync(
+        DateOnly referencia, int? profissionalId, CancellationToken ct = default)
+    {
+        var inicio = InicioDaSemana(referencia);
+        var fim = inicio.AddDays(6);
+
+        var agendamentos = await _repo.AgendamentosNoPeriodoAsync(
+            inicio.ToDateTime(TimeOnly.MinValue), fim.ToDateTime(TimeOnly.MaxValue), ct);
+
+        if (profissionalId is { } id)
+            agendamentos = agendamentos.Where(a => a.ProfissionalId == id).ToList();
+
+        var evolucoes = await _repo.EvolucoesNoPeriodoAsync(inicio, fim, ct, profissionalId);
+
+        var nome = profissionalId is null
+            ? "Todos os profissionais"
+            : (await _repo.ObterProfissionalAsync(profissionalId.Value, ct))?.Rotulo
+              ?? "Profissional";
+
+        var porDia = agendamentos
+            .GroupBy(a => DateOnly.FromDateTime(a.DataHora))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var dias = Enumerable.Range(0, 7)
+            .Select(i => inicio.AddDays(i))
+            .Select(dia => new DiaDoProfissional(
+                dia, profissionalId, nome,
+                porDia.TryGetValue(dia, out var doDia)
+                    ? doDia.OrderBy(a => a.DataHora).Select(a => Montar(a, evolucoes)).ToList()
+                    : []))
+            .ToList();
+
+        return new SemanaDoProfissional(inicio, profissionalId, nome, dias);
+    }
+
+    /// <summary>
+    /// A segunda-feira da semana da data. <c>DayOfWeek</c> começa no DOMINGO (0), então o
+    /// deslocamento tem de tratar o domingo como o SÉTIMO dia — sem isso, olhar um domingo
+    /// devolveria a semana que está começando no dia seguinte.
+    /// </summary>
+    private static DateOnly InicioDaSemana(DateOnly data)
+    {
+        var desde = ((int)data.DayOfWeek + 6) % 7;
+        return data.AddDays(-desde);
+    }
+
+    /// <summary>
     /// Sessões de dias ANTERIORES que aconteceram e continuam sem evolução escrita.
     ///
     /// O dia de hoje fica fora de propósito: a sessão das 14h ainda não tem evolução às

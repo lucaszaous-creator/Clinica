@@ -1,0 +1,147 @@
+<UserControl x:Class="Clinica.Clinico.Views.MeusNumerosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+
+        <!-- Um KPI. Eles ficam lado a lado num StackPanel horizontal à ESQUERDA, nunca
+             espalhados num UniformGrid de largura inteira: oito números com meio metro de
+             branco entre eles deixam de se ler como um conjunto. -->
+        <Style x:Key="Kpi" TargetType="StackPanel">
+            <Setter Property="Margin" Value="0,0,32,16" />
+            <Setter Property="MinWidth" Value="120" />
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel Margin="24,20,24,24">
+
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                    <TextBlock Text="Meus números" Style="{StaticResource H1}" Margin="0,0,0,2" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0">
+                        <Run Text="{Binding Profissional, Mode=OneWay}" />
+                        <Run Text=" · " />
+                        <Run Text="{Binding Intervalo, Mode=OneWay}" />
+                    </TextBlock>
+                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
+                               Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Visibility="{Binding SemVinculo,
+                                            Converter={StaticResource BoolParaVisibilidade}}"
+                               Text="Seu acesso não está vinculado a um profissional cadastrado, então estes são os números da clínica inteira — não os seus." />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <ComboBox ItemsSource="{Binding Periodos}"
+                              SelectedItem="{Binding PeriodoEscolhido}"
+                              MinWidth="160" VerticalAlignment="Center" />
+                    <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                            Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                </StackPanel>
+            </Grid>
+
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- O corpo tem os TRÊS estados: enquanto a leitura não voltou, uma parede de
+                 "—" seria indistinguível de "não houve movimento", e falha de leitura
+                 seria indistinguível das duas. -->
+            <Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+            <!-- ===== O que aconteceu ===== -->
+            <TextBlock Text="ATENDIMENTO" Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,12" />
+            <WrapPanel>
+                <StackPanel Style="{StaticResource Kpi}">
+                    <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="sessões atendidas" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Kpi}">
+                    <TextBlock Text="{Binding Pacientes}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="pacientes distintos" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Kpi}">
+                    <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="faltas" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Kpi}">
+                    <TextBlock Text="{Binding NoShow}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="taxa de falta" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Kpi}">
+                    <TextBlock Text="{Binding Ocupacao}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="ocupação da agenda" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                </StackPanel>
+            </WrapPanel>
+
+            <Separator Margin="0,4,0,20" />
+
+            <!-- ===== O registro — o número que este módulo existe para mover ===== -->
+            <TextBlock Text="PRONTUÁRIO" Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,12" />
+            <WrapPanel>
+                <StackPanel Style="{StaticResource Kpi}">
+                    <TextBlock Text="{Binding Completude}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="completude do prontuário" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Kpi}">
+                    <TextBlock Text="{Binding Evolucoes}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="evoluções escritas" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                </StackPanel>
+                <StackPanel Style="{StaticResource Kpi}">
+                    <TextBlock Text="{Binding MelhoraDor}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="melhora média da dor (EVA)" Style="{StaticResource TextoSuave}"
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
+                </StackPanel>
+            </WrapPanel>
+
+            <TextBlock Text="{Binding LeituraCompletude}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" Margin="0,0,0,16" />
+
+            <!-- A dívida é o único número ACIONÁVEL da tela — os outros descrevem o
+                 passado, este ainda dá para resolver hoje. Por isso ele leva à lista. -->
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding DividaProntuario}" VerticalAlignment="Center"
+                           TextWrapping="Wrap" MaxWidth="520"
+                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                <Button Content="Ver e escrever" Margin="16,0,0,0"
+                        Command="{Binding AbrirPendentesCommand}"
+                        Visibility="{Binding TemDivida,
+                                     Converter={StaticResource BoolParaVisibilidade}}" />
+            </StackPanel>
+
+            <TextBlock Margin="0,24,0,0" TextWrapping="Wrap"
+                       Style="{StaticResource TextoSuave}"
+                       FontSize="{StaticResource Fonte.Legenda}"
+                       Text="Estes números são só os seus: a tela não compara profissionais. Métrica sem base de cálculo aparece como — , nunca como zero." />
+        </StackPanel>
+    </ScrollViewer>
+
+            <ctrl:EstadoDaTela Vazio="{Binding SemMovimento}"
+                               Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
+                               Glifo="&#xE9D9;"
+                               TextoCarregando="Somando o período…"
+                               Titulo="Nenhum horário no período"
+                               Descricao="Sem agenda no período não há o que medir — e zero por cento de ocupação diria outra coisa." />
+            </Grid>
+    </DockPanel>
+</UserControl>

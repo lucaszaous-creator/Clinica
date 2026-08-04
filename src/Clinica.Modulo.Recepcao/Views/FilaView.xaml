@@ -8,6 +8,14 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
 
+        <!-- A raia do quadro: faixa de fundo, sem borda. Ver o comentário do quadro. -->
+        <Style x:Key="RaiaDoQuadro" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
+            <Setter Property="CornerRadius" Value="{StaticResource Raio.Grande}" />
+            <Setter Property="Padding" Value="10,10,10,4" />
+            <Setter Property="Margin" Value="0,0,10,0" />
+        </Style>
+
         <!-- ============ Cartão do kanban ============
              Um template só para as quatro colunas: o que muda entre elas são os
              botões habilitados, e isso já vem do próprio cartão (PodeChegar,
@@ -174,7 +182,11 @@
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel>
                 <TextBlock Text="Fila de hoje" Style="{StaticResource H1}" Margin="0,0,0,4" />
-                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" Margin="0" />
+                <!-- O resumo NÃO repete a contagem das colunas — cada raia carrega a sua
+                     no cabeçalho. Aqui fica só o que o quadro não mostra: falta e
+                     cancelamento, que saem da fila e sumiriam sem esta linha. -->
+                <TextBlock Text="{Binding ForaDaFila}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
@@ -211,105 +223,84 @@
             </StackPanel>
         </Border>
 
-        <!-- ============ Quadro: cinco colunas ============
-             Em 1366 px as cinco não cabem lado a lado sem espremer o cartão até o nome do
-             paciente virar reticências, então o quadro rola na horizontal a partir de um
-             piso — como o do consultório, e pelo mesmo motivo. -->
+        <!-- ============ O QUADRO ============
+             Cinco RAIAS, não cinco cartões emoldurados: cartão por coluna faz o quadro se
+             ler como cinco telas costuradas lado a lado, que é o defeito que o cliente
+             reprovou. A raia é uma faixa de fundo levíssima, sem borda, e o que separa uma
+             da outra é espaço.
+
+             A contagem foi para o cabeçalho da raia, junto do que ela conta. Antes ela
+             morava numa frase acima do quadro repetindo os cinco números em sequência, e o
+             olho tinha de casar cada um com a sua coluna pela ordem.
+
+             Em 1366 px as cinco não cabem sem espremer o cartão até o nome virar
+             reticências, então o quadro rola na horizontal a partir de um piso. -->
         <Grid>
           <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-          <Grid x:Name="quadro" MinWidth="1150">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="210" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" MinWidth="210" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" MinWidth="210" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" MinWidth="210" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" MinWidth="210" />
-            </Grid.ColumnDefinitions>
+                <Grid x:Name="quadro" MinWidth="1080">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="200" />
+                        <ColumnDefinition Width="*" MinWidth="200" />
+                        <ColumnDefinition Width="*" MinWidth="200" />
+                        <ColumnDefinition Width="*" MinWidth="200" />
+                        <ColumnDefinition Width="*" MinWidth="200" />
+                    </Grid.ColumnDefinitions>
 
-            <!-- Aguardando -->
-            <Border Grid.Column="0" Style="{StaticResource Card}">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Aguardando" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Text="Marcado, ainda não chegou"
-                                   Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
-                    </StackPanel>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Aguardando}"
-                                      ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
+                    <Border Grid.Column="0" Style="{StaticResource RaiaDoQuadro}">
+                        <DockPanel>
+                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="AGUARDANDO"
+                                                Itens="{Binding Aguardando}" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Aguardando}"
+                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
 
-            <!-- Chegou -->
-            <Border Grid.Column="2" Style="{StaticResource Card}">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Na recepção" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Text="Esperando ser chamado"
-                                   Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
-                    </StackPanel>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding NaRecepcao}"
-                                      ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
+                    <Border Grid.Column="1" Style="{StaticResource RaiaDoQuadro}">
+                        <DockPanel>
+                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="NA RECEPÇÃO"
+                                                Itens="{Binding NaRecepcao}" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding NaRecepcao}"
+                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
 
-            <!-- Chamado — o recado do consultório -->
-            <Border Grid.Column="4" Style="{StaticResource Card}">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Chamado" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Text="O profissional pediu — anuncie"
-                                   Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
-                    </StackPanel>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Chamados}"
-                                      ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
+                    <Border Grid.Column="2" Style="{StaticResource RaiaDoQuadro}">
+                        <DockPanel>
+                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="CHAMADO"
+                                                Itens="{Binding Chamados}" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Chamados}"
+                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
 
-            <!-- Em atendimento -->
-            <Border Grid.Column="6" Style="{StaticResource Card}">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Em atendimento" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Text="Na sala com o profissional"
-                                   Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
-                    </StackPanel>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding EmAtendimento}"
-                                      ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
+                    <Border Grid.Column="3" Style="{StaticResource RaiaDoQuadro}">
+                        <DockPanel>
+                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="EM ATENDIMENTO"
+                                                Itens="{Binding EmAtendimento}" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding EmAtendimento}"
+                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
 
-            <!-- Finalizado -->
-            <Border Grid.Column="8" Style="{StaticResource Card}">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                        <TextBlock Text="Finalizado" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Text="Atendimento e códigos gerados"
-                                   Style="{StaticResource TextoSuave}"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
-                    </StackPanel>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Finalizados}"
-                                      ItemTemplate="{StaticResource CartaoFilaTemplate}" />
-                    </ScrollViewer>
-                </DockPanel>
-            </Border>
-          </Grid>
+                    <Border Grid.Column="4" Style="{StaticResource RaiaDoQuadro}" Margin="0">
+                        <DockPanel>
+                            <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="FINALIZADO"
+                                                Itens="{Binding Finalizados}" />
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Finalizados}"
+                                              ItemTemplate="{StaticResource CartaoFilaTemplate}" />
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+                </Grid>
           </ScrollViewer>
 
           <!-- Um estado para o quadro todo: as cinco colunas vêm da mesma consulta. -->
