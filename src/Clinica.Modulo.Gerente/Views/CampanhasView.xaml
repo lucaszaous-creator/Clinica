@@ -20,9 +20,11 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}" MinWidth="130" />
+                <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding TipoSelecionado}" MinWidth="130"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
                 <ComboBox ItemsSource="{Binding Situacoes}" SelectedItem="{Binding SituacaoSelecionada}"
-                          MinWidth="130" Margin="8,0,0,0" />
+                          MinWidth="130" Margin="8,0,0,0"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
                 <ComboBox ItemsSource="{Binding Janelas}" SelectedItem="{Binding JanelaSelecionada}"
                           MinWidth="150" Margin="8,0,0,0" />
                 <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0"

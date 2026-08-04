@@ -1114,6 +1114,79 @@ for modulo in sorted(RAIZ.glob("src/Clinica.Modulo.*")) + sorted(RAIZ.glob("src/
                 f"se a tela não deve aparecer na sidebar).")
 
 
+# --------------------------------------------------------------- checagem 20
+# ComboBox amarrado a lista de ENUM sem rótulo: o WPF chama ToString() no valor e o
+# identificador do programador vai para a tela — "PedidoExame", "RelatorioEvolucao",
+# "CartaoCredito", "PercentualDaReceita".
+#
+# O cliente encontrou isto em produção, na tela de documento clínico, e a varredura
+# mostrou que eram 10 enums em 16 telas. É defeito barato de cometer (basta esquecer um
+# atributo) e caro de achar: o build passa, o teste passa, e só quem abre a tela vê.
+#
+# A checagem casa o ItemsSource com o TIPO declarado no ViewModel e só reclama quando o
+# tipo é um enum do domínio — lista de string ("Este mês", "Últimos 90 dias") não precisa
+# de rótulo nenhum.
+COMBO_SEM_ROTULO = re.compile(
+    r"""<ComboBox\b((?:(?!</?ComboBox|/>|>).)*?)ItemsSource\s*=\s*"\{Binding\s+"""
+    r"""([A-Za-z0-9_.]+)[^"]*"((?:(?!</?ComboBox|/>|>).)*?)/?>""",
+    re.S,
+)
+COLECAO_TIPADA = re.compile(
+    r"(?:IReadOnlyList|IList|List|ObservableCollection|IEnumerable)<\s*([A-Za-z0-9_]+)\s*>"
+    r"\s+(?:_)?(\w+)"
+)
+
+
+def _enums_do_dominio() -> set[str]:
+    achados: set[str] = set()
+    dominio = RAIZ / "src" / "Clinica.Domain"
+    if not dominio.exists():
+        return achados
+    for arq in dominio.rglob("*.cs"):
+        achados.update(re.findall(r"\benum\s+([A-Za-z0-9_]+)", arq.read_text(encoding="utf-8")))
+    return achados
+
+
+def _tipos_das_colecoes() -> dict[str, set[str]]:
+    tipos: dict[str, set[str]] = {}
+    for arq in RAIZ.rglob("src/**/*.cs"):
+        if "/obj/" in str(arq) or "/bin/" in str(arq):
+            continue
+        for tipo, nome in COLECAO_TIPADA.findall(arq.read_text(encoding="utf-8")):
+            chave = nome[0].upper() + nome[1:]
+            tipos.setdefault(chave, set()).add(tipo)
+    return tipos
+
+
+_ENUMS = _enums_do_dominio()
+_TIPOS = _tipos_das_colecoes()
+
+for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
+    if "/obj/" in str(arq) or "/bin/" in str(arq):
+        continue
+    corpo = arq.read_text(encoding="utf-8")
+    for antes, prop, depois in COMBO_SEM_ROTULO.findall(corpo):
+        tag = antes + depois
+        if "ItemTemplate" in tag or "DisplayMemberPath" in tag:
+            continue
+        nome = prop.split(".")[-1]
+        enums = _TIPOS.get(nome, set()) & _ENUMS
+        if not enums:
+            continue
+
+        # O FATURAMENTO está congelado: o defeito está lá e não se corrige por decreto
+        # de leiaute. Vira AVISO — fica dito, não bloqueia o push, e some no dia em que
+        # aquele app sair do congelamento. Esconder seria fingir que a suíte está limpa
+        # quando a tela do cliente não está.
+        destino = avisos if "Clinica.Desktop/" in str(arq).replace("\\", "/") else erros
+        destino.append(
+            f"{rel(arq)}: o ComboBox de `{nome}` lista o enum "
+            f"`{'/'.join(sorted(enums))}` sem rótulo — o WPF chama ToString() e o nome do "
+            f"enum vai para a tela (\"PedidoExame\"). Use "
+            f'ItemTemplate="{{StaticResource ItemRotuloEnum}}".'
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

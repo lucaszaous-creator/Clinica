@@ -130,7 +130,8 @@
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Text="Forma de pagamento" Style="{StaticResource Rotulo}" />
-                                <ComboBox ItemsSource="{Binding Formas}" SelectedItem="{Binding Forma}" />
+                                <ComboBox ItemsSource="{Binding Formas}" SelectedItem="{Binding Forma}"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
                             </StackPanel>
                         </Grid>
 

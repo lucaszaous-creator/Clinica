@@ -35,7 +35,8 @@
                       DisplayMemberPath="Rotulo" />
 
             <TextBlock Text="Base do cálculo" Style="{StaticResource Rotulo}" Margin="0,12,0,4" />
-            <ComboBox ItemsSource="{Binding Bases}" SelectedItem="{Binding Base}" />
+            <ComboBox ItemsSource="{Binding Bases}" SelectedItem="{Binding Base}"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
 
             <Grid Margin="0,12,0,0">
                 <StackPanel Visibility="{Binding EhPercentual, Converter={StaticResource BoolParaVisibilidade}}">

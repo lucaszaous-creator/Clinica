@@ -528,6 +528,31 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   **Medicação contínua entra como CONTEXTO, sem casar com item**: o valor dela é o que
   ainda não foi escrito, e casá-la produziria "você prescreveu o que ele já toma", que é o
   caso normal da renovação de receita.
+- **O nome do enum vazando para a tela** (`RotulosEnum`, parcela 41): o CLIENTE achou em
+  produção — o seletor de tipo da tela de documento clínico oferecia **"PedidoExame"**. A
+  causa é de uma linha: `ComboBox` amarrado a uma lista de enum sem `DisplayMemberPath`
+  nem `ItemTemplate`, e o WPF, sem nada melhor, chama `ToString()`. A varredura mostrou
+  que eram **10 enums em 16 telas** ("RelatorioEvolucao", "CartaoCredito",
+  "PercentualDaReceita", "CreditoAVista"). O rótulo certo do documento já existia
+  (`TipoDocumentoInfo.Rotular`, parcela 3) e a tela não o usava — **a variante mais barata
+  do defeito recorrente do projeto**: o build passa, o teste passa, e só quem abre a tela
+  vê. `RotulosEnum.De` é o ponto único que resolve por tipo e reaproveita os rotuladores
+  que já existiam; `ItemRotuloEnum` é a porta de XAML. Enum sem rótulo declarado cai no
+  **humanizador** ("Pedido exame"), que é pior que o rótulo à mão e melhor que o
+  identificador — e de propósito ele não some: a frase estranha é o que faz alguém vir
+  escrever o rótulo. A **checagem 20** casa o `ItemsSource` com o TIPO declarado no VM e só
+  reclama quando é enum (lista de string não precisa de rótulo); no **faturamento
+  congelado** ela vira AVISO, porque o defeito está lá e não se corrige por decreto de
+  leiaute — esconder seria fingir que a suíte está limpa quando a tela do cliente não está.
+- **Botão ao lado de campo usa a ALTURA do campo** (parcela 41): campos têm `MinHeight`
+  36 e `BotaoPequeno` (base de todos os `BotaoAcaoGrid*`) tem 26. Numa `Grid`, o botão
+  baixo é esticado até a altura da linha e sai com o padding errado — é o **"fora do
+  esquadro"** que o cliente viu na tela de documento clínico, em cinco linhas de uma vez.
+  `BotaoPequeno` é para linha DENSA de tabela; barra de formulário usa `BotaoSecundario`
+  com `VerticalAlignment="Center"`. E **destrutivo repetido não é sólido**: um "Remover"
+  vermelho cheio por linha de receita faz o formulário inteiro parecer tela de erro e gasta
+  a cor mais forte da paleta na ação menos frequente — daí o `BotaoSecundarioPerigo`
+  (contorno). O sólido fica para o destrutivo que é o ASSUNTO da tela.
 - **A sidebar do Consultório tinha TRÊS itens** (parcela 39): e não porque o app do médico
   seja simples — porque as portas estavam no módulo errado. A auditoria achou três lacunas
   da mesma família, e é a **sétima** ocorrência do defeito recorrente do projeto, na

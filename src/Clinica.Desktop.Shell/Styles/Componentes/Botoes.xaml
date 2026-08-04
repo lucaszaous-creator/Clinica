@@ -141,6 +141,24 @@
         </Style.Triggers>
     </Style>
 
+    <!-- ===== Destrutivo DISCRETO (parcela 41) =====
+         Contorno vermelho, fundo branco, altura de campo (36).
+
+         Existe porque "Apagar" e "Remover" em vermelho SÓLIDO, repetidos uma vez por
+         linha de uma receita, fazem o formulário inteiro parecer uma tela de erro — e a
+         cor mais forte da paleta passa a marcar a ação menos frequente da tela. O que a
+         ação destrutiva precisa é ser inconfundível e alcançável; quem protege de fato é
+         a confirmação, não a saturação do botão.
+
+         `BotaoPerigo` (sólido) continua para o destrutivo que é o ASSUNTO da tela —
+         cancelar uma guia, anonimizar um cadastro. -->
+    <Style x:Key="BotaoSecundarioPerigo" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+    </Style>
+
     <!-- Perigo -->
     <Style x:Key="BotaoPerigo" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
         <Setter Property="Background" Value="{StaticResource Brush.Erro}" />

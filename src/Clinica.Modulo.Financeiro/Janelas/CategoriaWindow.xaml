@@ -26,7 +26,8 @@
         <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="80" />
 
         <TextBlock Text="Tipo" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
-        <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}" />
+        <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
 
         <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
