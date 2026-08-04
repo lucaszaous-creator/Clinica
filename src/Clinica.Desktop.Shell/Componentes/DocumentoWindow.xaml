@@ -28,8 +28,52 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
+        <!-- ===== COLISÃO COM ALERGIA (parcela 40) =====
+             Só aparece quando um item escrito bate com alergia registrada do paciente.
+             É o segundo caso do projeto em que a tela COBRA confirmação em vez de só
+             avisar — o primeiro é a divergência do fechamento de caixa —, e a razão é a
+             mesma: quem decide continua sendo a pessoa, mas isto não pode acontecer sem
+             alguém perceber. O botão de emitir fica apagado até a caixa ser marcada. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding ColideComAlergia, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="ATENÇÃO — esta prescrição bate com uma alergia registrada"
+                           FontWeight="SemiBold" TextWrapping="Wrap" />
+                <ItemsControl ItemsSource="{Binding ColisoesAlergia}" Margin="0,6,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <CheckBox Content="Eu vi o alerta e assumo esta prescrição"
+                          IsChecked="{Binding AlergiaConferida}" Margin="0,10,0,0" />
+            </StackPanel>
+        </Border>
+
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
+
+                <!-- ===== O que o prontuário sabe deste paciente =====
+                     Alergias e medicação de uso contínuo, visíveis ANTES de escrever —
+                     é o que se olha para decidir, não uma validação de saída. Some
+                     inteiro quando não há nada registrado: caixa vazia dizendo "nenhuma
+                     alergia" ocuparia a tela para não informar nada. -->
+                <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,16"
+                        Visibility="{Binding TemAlertasClinicos,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                        <TextBlock Text="O prontuário deste paciente registra"
+                                   FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <ItemsControl ItemsSource="{Binding AlertasClinicos}" Margin="0,6,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
 
                 <!-- ===== Identificação do documento ===== -->
                 <Grid>

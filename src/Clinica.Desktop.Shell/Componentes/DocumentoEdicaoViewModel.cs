@@ -42,6 +42,97 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
     public ObservableCollection<Profissional> Profissionais { get; } = [];
     public ObservableCollection<LinhaItemDocumento> Itens { get; } = [];
+
+    // ===================== Conferência clínica (parcela 40) =====================
+    //
+    // O sistema guarda as ALERGIAS do paciente desde a parcela 37 e a emissão de receita
+    // nunca as consultou: a base sabia que a paciente é alérgica a dipirona, o
+    // profissional escrevia "Dipirona 500mg" e o papel saía sem uma palavra.
+    //
+    // A conferência mora AQUI, no shell, e não na tela do consultório, porque este é o
+    // único lugar por onde toda receita passa — nas duas portas (Recepção e Consultório).
+    // Checagem de segurança que só existe em uma delas é o defeito de novo, com a
+    // agravante de dar a impressão de estar coberto.
+
+    /// <summary>Alergias e medicação contínua do paciente — contexto permanente da tela.</summary>
+    public ObservableCollection<string> AlertasClinicos { get; } = [];
+
+    /// <summary>O que a conferência achou ao comparar os itens escritos com as alergias.</summary>
+    public ObservableCollection<string> ColisoesAlergia { get; } = [];
+
+    public bool TemAlertasClinicos => AlertasClinicos.Count > 0;
+
+    /// <summary>
+    /// Um item escrito bate com alergia registrada. Não impede — exige que alguém diga
+    /// que viu (a caixa de confirmação abaixo). É o segundo caso do projeto em que a tela
+    /// cobra confirmação explícita; o primeiro é a divergência do fechamento de caixa.
+    /// </summary>
+    [ObservableProperty] private bool _colideComAlergia;
+
+    /// <summary>O profissional marcou que viu o alerta e assume a prescrição.</summary>
+    [ObservableProperty] private bool _alergiaConferida;
+
+    partial void OnColideComAlergiaChanged(bool value)
+    {
+        // Some o alerta, some a confirmação: deixar a caixa marcada de uma conferência
+        // anterior faria a próxima receita passar com um "eu vi" que ninguém deu.
+        if (!value) AlergiaConferida = false;
+        EmitirCommand.NotifyCanExecuteChanged();
+    }
+
+    partial void OnAlergiaConferidaChanged(bool value) => EmitirCommand.NotifyCanExecuteChanged();
+
+    /// <summary>Enquanto houver colisão não confirmada, o botão de emitir fica apagado.</summary>
+    private bool PodeEmitir() => !Emitindo && (!ColideComAlergia || AlergiaConferida);
+
+    /// <summary>
+    /// Relê o contexto clínico e reconfere os itens escritos.
+    ///
+    /// Falha aqui NÃO derruba a emissão nem a bloqueia: a conferência é uma ajuda, e um
+    /// banco lento não pode impedir alguém de dar um atestado. Mas ela também não pode
+    /// falhar em silêncio fingindo que está tudo certo — por isso o erro vai ao log e a
+    /// tela avisa que a conferência não rodou.
+    /// </summary>
+    private async Task ConferirClinicamenteAsync()
+    {
+        try
+        {
+            var escritos = Itens
+                .Where(i => !string.IsNullOrWhiteSpace(i.Descricao))
+                .Select(i => $"{i.Descricao} {i.Detalhe}".Trim())
+                .ToList();
+
+            using var scope = _escopos.CreateScope();
+            var prescricao = scope.ServiceProvider.GetRequiredService<PrescricaoService>();
+            var conferencia = await prescricao.ConferirAsync(_pacienteId, escritos);
+
+            AlertasClinicos.Clear();
+            foreach (var alergia in conferencia.Alergias)
+                AlertasClinicos.Add($"ALERGIA: {alergia.Descricao}");
+            foreach (var medicacao in conferencia.MedicacoesEmUso)
+                AlertasClinicos.Add($"Em uso contínuo: {medicacao.Descricao}");
+
+            ColisoesAlergia.Clear();
+            foreach (var a in conferencia.Alertas.Where(
+                         a => a.Gravidade == GravidadePrescricao.Alergia))
+                ColisoesAlergia.Add($"\u201C{a.Item}\u201D \u2014 {a.Motivo}");
+
+            ColideComAlergia = conferencia.ExigeConfirmacao;
+            OnPropertyChanged(nameof(TemAlertasClinicos));
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Documento clínico — conferência de alergia não pôde ser feita", ex);
+
+            AlertasClinicos.Clear();
+            AlertasClinicos.Add(
+                "Não foi possível conferir as alergias deste paciente agora — confira na "
+                + "lista de problemas antes de prescrever.");
+            ColideComAlergia = false;
+            OnPropertyChanged(nameof(TemAlertasClinicos));
+        }
+    }
     public ObservableCollection<ModeloDocumento> Modelos { get; } = [];
 
     [ObservableProperty] private TipoDocumentoClinico _tipoSelecionado = TipoDocumentoClinico.Receita;
@@ -64,6 +155,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _emitindo;
+
+    // Sem isto o botão continuaria apagado depois da emissão: `PodeEmitir` lê `Emitindo`,
+    // e o gerador só reavalia o comando quando alguém avisa.
+    partial void OnEmitindoChanged(bool value) => EmitirCommand.NotifyCanExecuteChanged();
 
     public string TituloJanela => $"Emitir {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()}";
 
@@ -130,6 +225,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             Profissional = Profissionais.FirstOrDefault();
 
             await CarregarModelosAsync();
+
+            // O contexto clínico vale com a receita ainda em branco: é o que se olha
+            // ANTES de escrever, não uma validação de saída.
+            await ConferirClinicamenteAsync();
         }
         catch (Exception ex)
         {
@@ -279,13 +378,25 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     }
 
     /// <summary>Emite o documento, gera o PDF e abre para impressão.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(PodeEmitir))]
     private async Task EmitirAsync()
     {
         if (Emitindo) return;
 
         Mensagem = string.Empty;
         MensagemEhErro = false;
+
+        // Reconfere com o que está escrito AGORA. A conferência da abertura viu uma
+        // receita em branco, e quem digitou o alérgeno depois dela passaria direto.
+        await ConferirClinicamenteAsync();
+
+        if (ColideComAlergia && !AlergiaConferida)
+        {
+            Erro("Esta prescrição bate com uma alergia registrada do paciente. "
+                 + "Confira o alerta e marque que você o viu antes de emitir.");
+            return;
+        }
+
         Emitindo = true;
 
         try

@@ -499,6 +499,35 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   alerta mudaria o comportamento do faturamento em produção e dispararia para TODA guia
   numa clínica que ainda não documenta — alerta que dispara para todo mundo é alerta que
   ninguém lê. A leitura foi para a direção, onde é nova.
+- **Prescrever o alérgeno que a própria clínica anotou** (`PrescricaoService`, parcela 40):
+  desde a parcela 37 o sistema GUARDA as alergias (`NaturezaProblema.Alergia`, com a regra
+  de alertar mesmo dadas por resolvidas) e a emissão de receita **nunca as consultou** — a
+  base sabia que a paciente é alérgica a dipirona, o profissional escrevia "Dipirona
+  500mg" e o papel saía sem uma palavra. É o mesmo defeito recorrente do projeto (dado
+  gravado sem leitor), só que aqui ele não custa uma guia.
+  **O que o serviço NÃO é**: checador de interação medicamentosa. Isso exige base
+  farmacológica licenciada e atualizada, e uma checagem caseira erraria nos dois sentidos
+  e — pior — passaria a impressão de estar cobrindo o assunto. Ele compara o que está
+  sendo prescrito com **o que a própria clínica anotou sobre este paciente**.
+  A comparação é **textual** (a receita é texto livre por desenho) e por isso tem dois
+  cuidados que valem tanto quanto o alerta: **palavra INTEIRA, nunca trecho** ("sal" dentro
+  de "salbutamol" é coincidência de letras) e **piso de 4 caracteres** com lista de
+  dispensáveis — sem eles, uma alergia anotada como "alergia a X" acenderia em toda receita,
+  e **alerta que dispara à toa é alerta que se fecha sem ler**, o que produz o falso
+  negativo na semana seguinte. Os testes cobrem as DUAS direções com o mesmo peso.
+  **Avisa e exige confirmação — não impede**: o registro pode estar errado, pode haver
+  dessensibilização, e quem decide é quem assina; mas não pode acontecer *sem alguém
+  perceber*. É o segundo caso do projeto em que a tela cobra confirmação explícita (o
+  primeiro é a divergência do fechamento de caixa). A conferência mora no **shell**
+  (`DocumentoEdicaoViewModel`), não na tela do Consultório: é o único lugar por onde toda
+  receita passa, nas duas portas — **checagem de segurança que só existe em uma delas é o
+  defeito de novo, com a agravante de dar a impressão de estar coberto**. Ela reconfere
+  no clique de emitir, porque a da abertura viu uma receita em branco; e **falha da
+  conferência não bloqueia a emissão** (banco lento não pode impedir um atestado), mas
+  também não passa calada — vira aviso de que a checagem não rodou.
+  **Medicação contínua entra como CONTEXTO, sem casar com item**: o valor dela é o que
+  ainda não foi escrito, e casá-la produziria "você prescreveu o que ele já toma", que é o
+  caso normal da renovação de receita.
 - **A sidebar do Consultório tinha TRÊS itens** (parcela 39): e não porque o app do médico
   seja simples — porque as portas estavam no módulo errado. A auditoria achou três lacunas
   da mesma família, e é a **sétima** ocorrência do defeito recorrente do projeto, na
