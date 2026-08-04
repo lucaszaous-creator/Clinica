@@ -156,8 +156,16 @@ public sealed partial class FilaViewModel : ObservableObject
     [ObservableProperty]
     private bool _carregando;
 
+    /// <summary>
+    /// O que o quadro NÃO mostra: faltas e cancelamentos, que saem da fila.
+    ///
+    /// Substituiu a linha de resumo que repetia a contagem das cinco colunas em sequência
+    /// — os mesmos cinco números que agora ficam no cabeçalho de cada raia, junto do que
+    /// eles contam. Repetidos acima do quadro, obrigavam o olho a casar número com coluna
+    /// pela ordem e empurravam o quadro para baixo.
+    /// </summary>
     [ObservableProperty]
-    private string _resumo = string.Empty;
+    private string _foraDaFila = string.Empty;
 
     /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
@@ -306,10 +314,11 @@ public sealed partial class FilaViewModel : ObservableObject
 
             var faltas = _doDia.Count(a => a.Status == StatusAgendamento.Faltou);
             var cancelados = _doDia.Count(a => a.Status == StatusAgendamento.Cancelado);
-            Resumo = $"{Aguardando.Count} aguardando · {NaRecepcao.Count} na recepção · "
-                   + $"{Chamados.Count} chamado(s) · "
-                   + $"{EmAtendimento.Count} em atendimento · {Finalizados.Count} finalizado(s)"
-                   + $" · {faltas} falta(s) · {cancelados} cancelado(s)";
+            ForaDaFila = (faltas, cancelados) switch
+            {
+                (0, 0) => "Nenhuma falta nem cancelamento hoje.",
+                var (f, c) => $"Fora do quadro: {f} falta(s) e {c} cancelamento(s)."
+            };
         }
         catch (Exception ex)
         {

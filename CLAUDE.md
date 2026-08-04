@@ -630,6 +630,32 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   que de quebra deu ao mapa os 960 px de mínimo que a Recepção já lhe dava. A pergunta que
   decide: **isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?** O
   segundo caso é botão.
+- **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
+  arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **cinco** reprovações do
+  cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
+  perguntas que decidem: (1) *isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez
+  em quando?* — o segundo caso é botão/janela, nunca painel aberto; (2) *esta seção existe
+  sem um item escolhido?* — se não, é aba, não item de menu; (3) *quantas perguntas esta
+  tela responde?* — mais de uma, mais de uma tela. Na dúvida entre outra caixa e outra
+  tela, **é outra tela**, e um botão que leva até ela.
+- **A 5ª reprovação: faixas empilhadas comem a tela** (parcela 38, 2ª rodada). O "Meu dia"
+  saiu com QUATRO faixas antes do quadro — o slab azul de "Chamar próximo" (que gastava
+  70 px de largura inteira para escrever *"ninguém aguardando no balcão"*), o alerta de
+  vínculo, a linha de resumo e a caixa de pendências com `MaxHeight="180"` cortando um nome
+  de paciente ao meio. O quadro do dia começava na metade da tela, e num dia já terminado
+  as quatro raias vazias viravam um buraco de mil pixels ao lado da única com conteúdo.
+  As correções, todas generalizáveis: **contexto permanente é LINHA de texto, não faixa**
+  (faixa permanente vira moldura); **ação é BOTÃO, não painel** — e um botão desabilitado
+  já diz "não há ninguém" sem gastar a tela para dizê-lo, além de caber o nome de quem vai
+  ser chamado, que a faixa não dizia; **lista longa merece TELA PRÓPRIA** com a largura
+  inteira, e no lugar dela fica um botão com a contagem (foi assim que a dívida de
+  prontuário virou `ChaveRegistrosPendentes`); **o número mora junto do que ele conta** —
+  o resumo repetia as cinco contagens em sequência e obrigava o olho a casar cada uma com
+  a sua coluna pela ordem, então elas foram para `CabecalhoRaia`; e **coluna vazia mostra
+  um traço**, porque quatro vãos brancos sem marca nenhuma fazem o quadro deixar de se ler
+  como quadro. As colunas do kanban deixaram de ser `Card` com borda e viraram **raias** —
+  faixa de fundo levíssima, sem moldura, separadas por espaço: cinco cartões emoldurados
+  lado a lado leem-se como cinco telas costuradas, que é literalmente a reclamação.
 - **Cada retângulo a mais é uma costura a mais** (parcela 37, 3ª rodada): embrulhar todo
   bloco num `Card` com borda produz uma colcha de retalhos — a tela fica com aparência de
   esboço mesmo com o conteúdo certo. Uma superfície por REGIÃO, e a separação interna por

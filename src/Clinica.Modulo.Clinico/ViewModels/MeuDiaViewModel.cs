@@ -155,16 +155,36 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     public ObservableCollection<LinhaSessao> EmAtendimento { get; } = [];
     public ObservableCollection<LinhaSessao> Finalizados { get; } = [];
 
-    /// <summary>Sessões de dias anteriores ainda sem evolução — a pendência do consultório.</summary>
-    public ObservableCollection<LinhaRegistroPendente> Pendentes { get; } = [];
+    /// <summary>
+    /// Quantas sessões de dias anteriores continuam sem evolução escrita.
+    ///
+    /// Aqui fica só o NÚMERO. A lista saiu desta tela e virou tela própria: são dezenas
+    /// de linhas respondendo a uma pergunta que não é "o que acontece hoje", e ela vinha
+    /// espremida numa caixa de 180 px que cortava um nome ao meio. Contagem no botão,
+    /// lista na tela dela — ver <see cref="ModuloClinico.ChaveRegistrosPendentes"/>.
+    /// </summary>
+    [ObservableProperty] private int _pendentesCount;
+
+    /// <summary>Há dívida de prontuário — o botão do cabeçalho fica em destaque.</summary>
+    public bool TemPendentes => PendentesCount > 0;
+
+    /// <summary>O que o botão diz. Zero não é "0 pendências", é "prontuário em dia".</summary>
+    public string RotuloPendentes => PendentesCount switch
+    {
+        0 => "Prontuário em dia",
+        1 => "1 sessão sem evolução",
+        var n => $"{n} sessões sem evolução"
+    };
+
+    partial void OnPendentesCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(TemPendentes));
+        OnPropertyChanged(nameof(RotuloPendentes));
+    }
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
 
     [ObservableProperty] private string _profissional = string.Empty;
-
-    [ObservableProperty] private string _resumo = string.Empty;
-
-    [ObservableProperty] private string _resumoPendentes = string.Empty;
 
     [ObservableProperty] private bool _carregando;
 
@@ -286,7 +306,6 @@ public sealed partial class MeuDiaViewModel : ObservableObject
                 MensagemEhErro = false;
             }
             foreach (var c in Colunas) c.Clear();
-            Pendentes.Clear();
 
             var profissionalId = ProfissionalDaSessao;
             SemVinculo = profissionalId is null;
@@ -307,23 +326,17 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             OnPropertyChanged(nameof(TemProximo));
             OnPropertyChanged(nameof(QuadroVazio));
 
-            Resumo = doDia.Sessoes.Count == 0
-                ? "Nenhum horário marcado neste dia."
-                : $"{doDia.Sessoes.Count} horário(s) · {doDia.NaRecepcao} na recepção · "
-                  + $"{doDia.Chamados} chamado(s) · {doDia.Atendidos} atendido(s) · "
-                  + $"{doDia.RegistrosPendentes} sem registro.";
+            // Não há linha de "resumo" abaixo do título: cada coluna do quadro carrega a
+            // própria contagem no cabeçalho, e repetir os mesmos cinco números numa frase
+            // acima dele é uma faixa de texto a mais entre o profissional e o trabalho.
 
             // A pendência é sempre de DIAS ANTERIORES, mesmo quando se olha um dia passado
             // na agenda: ela é a fila de trabalho do profissional, não uma propriedade do
             // dia escolhido — trocá-la junto com o calendário faria a lista sumir na hora
             // em que ele foi conferir o que aconteceu na semana retrasada.
-            var pendentes = await consultorio.RegistrosPendentesAsync(hoje, profissionalId);
-            foreach (var p in pendentes) Pendentes.Add(LinhaRegistroPendente.De(p, hoje));
-
-            ResumoPendentes = pendentes.Count == 0
-                ? "Nenhuma sessão dos últimos dias sem evolução escrita."
-                : $"{pendentes.Count} sessão(ões) atendida(s) nos últimos "
-                  + $"{ConsultorioService.JanelaRegistroPendenteDias} dias continuam sem evolução escrita.";
+            //
+            // Aqui só se conta. A LISTA mora na tela dela.
+            PendentesCount = (await consultorio.RegistrosPendentesAsync(hoje, profissionalId)).Count;
         }
         catch (Exception ex)
         {
@@ -463,23 +476,17 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento);
     }
 
-    /// <summary>Mesma coisa a partir da lista de pendências dos dias anteriores.</summary>
+    /// <summary>Abre a tela das sessões sem evolução — a dívida de prontuário.</summary>
     [RelayCommand]
-    private void EscreverPendente(LinhaRegistroPendente? linha)
-    {
-        if (linha is null) return;
+    private void AbrirPendentes() => NavegacaoSuite.Ir(ModuloClinico.ChaveRegistrosPendentes);
 
-        _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId);
-        NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento);
-    }
-
-    /// <summary>Abre a curva de dor do paciente da linha, sem passar pelo atendimento.</summary>
-    [RelayCommand]
-    private void VerDor(LinhaSessao? linha)
-    {
-        if (linha is null) return;
-
-        _foco.Definir(linha.PacienteId, linha.Paciente);
-        NavegacaoSuite.Ir(ModuloClinico.ChaveEvolucaoDor);
-    }
+    // O atalho "Dor" saiu do cartão do quadro e o comando foi removido junto — comando sem
+    // chamador em produção é o defeito que o projeto documenta desde a parcela 25, e
+    // deixá-lo aqui só para "não perder" seria cometê-lo de propósito.
+    //
+    // A capacidade não se perdeu: "Atender" abre a tela do paciente, onde a dor é uma ABA
+    // (o desenho da parcela 37 — lista → tela do item), e a carteira em "Meus pacientes"
+    // continua com o atalho direto. O que se ganhou foi um cartão com UMA ação principal:
+    // quatro botões acesos em cada um dos vinte cartões de uma raia faziam a coluna
+    // parecer um formulário, não uma fila.
 }

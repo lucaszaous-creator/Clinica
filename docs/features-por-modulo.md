@@ -1432,5 +1432,33 @@ As regras que a parcela fixou:
 - **Só HOJE se chama.** Olhar a agenda de terça que vem e poder chamar alguém de lá seria
   mandar a recepção anunciar um nome com dois dias de antecedência.
 
+### Parcela 38 (2ª rodada) — a tela picada em caixas
+
+A 5ª reprovação do cliente, e a mais direta: *"várias box dividindo uma tela"*. O "Meu dia"
+saiu da 1ª rodada com **quatro faixas empilhadas antes do quadro** — e num dia já
+terminado, as quatro raias vazias viravam um buraco de mil pixels ao lado da única com
+conteúdo.
+
+| O que estava errado | O que passou a ser |
+|---|---|
+| Slab azul de largura inteira gastando 70 px para escrever *"ninguém aguardando no balcão"* | **Botão** no cabeçalho, que diz o NOME de quem vai chamar e fica desabilitado quando não há ninguém |
+| Faixa azul permanente do aviso de vínculo | **Linha de texto** sob o subtítulo — faixa permanente vira moldura |
+| Linha de resumo repetindo as cinco contagens em sequência | Contagem no **cabeçalho de cada raia**, junto do que ela conta (`CabecalhoRaia`) |
+| Caixa de `MaxHeight="180"` cortando um nome de paciente ao meio | **Tela própria** de largura inteira (`ChaveRegistrosPendentes`) + botão com a contagem |
+| Cinco `Card` com borda lado a lado | **Raias**: faixa de fundo levíssima, sem moldura, separadas por espaço |
+| Quatro colunas vazias como vão branco | Cada raia vazia mostra um **traço** e continua legível |
+| Quatro botões acesos em todo cartão | **Uma ação principal**; as secundárias só na raia em que servem |
+
+A regra foi escrita no **topo do `README.md`** ("A REGRA DE LEIAUTE"), com a tabela do que
+é proibido e as três perguntas que decidem: *isto é o que a pessoa VÊ ou o que ela FAZ de
+vez em quando?*, *esta seção existe sem um item escolhido?* e *quantas perguntas esta tela
+responde?*. **Na dúvida entre outra caixa e outra tela, é outra tela** — e um botão que
+leva até ela.
+
+O mesmo tratamento foi aplicado à **fila da Recepção**, que tinha o defeito idêntico
+(cinco `Card` emoldurados + resumo repetindo as contagens). O `CabecalhoRaia` nasceu no
+shell justamente porque os dois quadros o usam — copiar faria as duas versões divergirem
+na primeira correção.
+
 > Como o cliente recebe os cinco apps e o cronograma completo:
 > [`entrega-ao-cliente.md`](entrega-ao-cliente.md).

@@ -1,0 +1,99 @@
+<UserControl x:Class="Clinica.Clinico.Views.RegistrosPendentesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <!-- Uma tela, uma pergunta, UMA superfície: cabeçalho sem moldura e a lista inteira
+         numa única placa. As linhas se separam por um filete embaixo, não por um cartão
+         cada — cartão por linha vira colcha de retalhos assim que passa de dez. -->
+    <DockPanel Margin="24,20,24,24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="Sessões sem evolução" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0" />
+            </StackPanel>
+            <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                    Style="{StaticResource BotaoSecundario}"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" />
+        </Grid>
+
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12"
+                   Style="{StaticResource TextoSuave}"
+                   FontSize="{StaticResource Fonte.Legenda}"
+                   TextWrapping="Wrap"
+                   Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}"
+                   Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a dívida da clínica inteira. Peça à direção para ligar o seu usuário ao seu cadastro em Profissionais e salas." />
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}"
+                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+            <Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Pendentes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" MinWidth="120" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center"
+                                                    Margin="0,0,16,0">
+                                            <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Margin="0,4,0,0" TextWrapping="Wrap">
+                                                <Run Text="{Binding Quando, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Modalidade, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+
+                                        <Border Grid.Column="1" Style="{StaticResource Badge.Aviso}"
+                                                VerticalAlignment="Center" HorizontalAlignment="Left"
+                                                Margin="0,0,16,0">
+                                            <TextBlock Text="{Binding Atraso}" TextWrapping="Wrap" />
+                                        </Border>
+
+                                        <Button Grid.Column="2" Content="Escrever evolução"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource BotaoAcaoGrid}"
+                                                Command="{Binding DataContext.EscreverCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <ctrl:EstadoDaTela Itens="{Binding Pendentes}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE73E;"
+                                   TextoCarregando="Procurando sessões sem registro…"
+                                   Titulo="Prontuário em dia"
+                                   Descricao="Toda sessão atendida nos últimos dias já tem evolução escrita." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>

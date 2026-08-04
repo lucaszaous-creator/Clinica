@@ -34,6 +34,13 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveMeusPacientes = "consultorio-pacientes";
 
     /// <summary>
+    /// A dívida de prontuário. É tela, e não um bloco do "Meu dia", porque numa base real
+    /// são dezenas de linhas: espremidas numa caixa de 180 px acima do quadro, elas
+    /// cortavam um nome ao meio e roubavam do dia a altura que ele precisa.
+    /// </summary>
+    public const string ChaveRegistrosPendentes = "consultorio-registros-pendentes";
+
+    /// <summary>
     /// A tela do PACIENTE — identidade no topo, as cinco seções em abas.
     ///
     /// As cinco chaves clínicas acima continuam válidas e caem todas aqui, cada uma na
@@ -73,6 +80,11 @@ public sealed class ModuloClinico : IModuloApp
         {
             Chave = ChaveMeuDia, Rotulo = "Meu dia", Glifo = "\uE787",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveRegistrosPendentes, Rotulo = "Sess\u00F5es sem evolu\u00E7\u00E3o", Glifo = "\uE73E",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerProntuario
         },
         new ItemMenuModulo
         {
@@ -136,6 +148,7 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddSingleton<PacienteEmFoco>();
 
         servicos.AddTransient<MeuDiaViewModel>();
+        servicos.AddTransient<RegistrosPendentesViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
         servicos.AddTransient<ProntuarioClinicoViewModel>();
         servicos.AddTransient<EvolucaoDorViewModel>();
@@ -151,6 +164,10 @@ public sealed class ModuloClinico : IModuloApp
     {
         ChaveMeuDia => new MeuDiaView { DataContext = servicos.GetRequiredService<MeuDiaViewModel>() },
         ChaveMeusPacientes => new MeusPacientesView { DataContext = servicos.GetRequiredService<MeusPacientesViewModel>() },
+        ChaveRegistrosPendentes => new RegistrosPendentesView
+        {
+            DataContext = servicos.GetRequiredService<RegistrosPendentesViewModel>()
+        },
 
         // A tela do paciente, e as cinco chaves clínicas que caem nela.
         ChavePaciente or ChaveAtendimento or ChaveProntuario
