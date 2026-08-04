@@ -45,7 +45,8 @@
 
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Tipo" Style="{StaticResource Rotulo}" />
-                    <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}" />
+                    <ComboBox ItemsSource="{Binding Tipos}" SelectedItem="{Binding Tipo}"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">

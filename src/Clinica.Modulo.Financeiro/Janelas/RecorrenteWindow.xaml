@@ -34,7 +34,8 @@
                 <!-- Só na criação: a periodicidade ancora a série inteira, e mudá-la
                      depois faria a próxima ocorrência não bater com as já geradas. -->
                 <ComboBox ItemsSource="{Binding Periodicidades}" SelectedItem="{Binding Periodicidade}"
-                          IsEnabled="{Binding EhNova}" />
+                          IsEnabled="{Binding EhNova}"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
             </StackPanel>
         </Grid>
 

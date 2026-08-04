@@ -294,7 +294,8 @@
                         <StackPanel Grid.Column="2">
                             <TextBlock Text="Forma" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
                             <ComboBox ItemsSource="{Binding FormasSimulacao}"
-                                      SelectedItem="{Binding SimForma}" />
+                                      SelectedItem="{Binding SimForma}"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
                         </StackPanel>
                         <StackPanel Grid.Column="4">
                             <TextBlock Text="Adquirente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />

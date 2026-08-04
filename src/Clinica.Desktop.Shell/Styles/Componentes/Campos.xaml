@@ -11,6 +11,20 @@
         <ResourceDictionary Source="../Tokens.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
+    <!-- ===== Item de seletor de ENUM (parcela 41) =====
+         Sem isto o WPF chama ToString() no valor e o identificador do programador vai
+         para a tela: "PedidoExame", "RelatorioEvolucao", "CartaoCredito". O rótulo certo
+         mora em RotulosEnum, no domínio; aqui é só a porta de XAML para ele.
+
+         Todo ComboBox amarrado a uma lista de enum usa ESTE template — é o que a
+         checagem 20 do verificar-suite cobra. -->
+    <ctrl:RotuloEnum x:Key="RotuloEnum" />
+
+    <DataTemplate x:Key="ItemRotuloEnum">
+        <TextBlock Text="{Binding Converter={StaticResource RotuloEnum}}"
+                   TextTrimming="CharacterEllipsis" />
+    </DataTemplate>
+
     <Style TargetType="TextBox">
         <Setter Property="Padding" Value="{StaticResource Padding.Campo}" />
         <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />

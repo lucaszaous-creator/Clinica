@@ -76,7 +76,8 @@
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="Técnica" Style="{StaticResource Rotulo}" />
                     <ComboBox ItemsSource="{Binding Tecnicas}"
-                              SelectedItem="{Binding TecnicaSelecionada}" />
+                              SelectedItem="{Binding TecnicaSelecionada}"
+                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">
