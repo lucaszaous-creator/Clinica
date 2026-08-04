@@ -510,6 +510,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             // também tira custo do SaveChanges seguinte no mesmo escopo.
             .Include(p => p.Consultas).OrderBy(p => p.Nome).ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Consulta>> ConsultasDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        // Lista vazia não vira "WHERE Id IN ()" — o EF traduziria para uma consulta que
+        // sempre volta vazia, mas ainda assim ida e volta ao banco por nada.
+        if (pacienteIds.Count == 0) return Array.Empty<Consulta>();
+
+        return await _db.Consultas.AsNoTracking()
+            .Where(c => pacienteIds.Contains(c.PacienteId))
+            .OrderByDescending(c => c.DataEmissao)
+            .ToListAsync(ct);
+    }
+
     // ---- Agenda ----
 
     public async Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default)

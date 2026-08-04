@@ -100,6 +100,18 @@ public enum ImpedimentoElegibilidade
     /// <summary>A autorização vigente está perto do fim.</summary>
     CotaQuaseNoFim,
 
+    /// <summary>
+    /// A consulta renovável do paciente venceu — o convênio recusa o que for faturado sem
+    /// consulta vigente.
+    /// </summary>
+    ConsultaVencida,
+
+    /// <summary>
+    /// A consulta renovável vence dentro da janela de alerta: dá para renovar agora, com o
+    /// paciente presente, em vez de correr atrás dele depois.
+    /// </summary>
+    ConsultaARenovar,
+
     /// <summary>Não há autorização vigente registrada para o convênio.</summary>
     SemAutorizacaoVigente,
 

@@ -70,6 +70,16 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Aviso de carteirinha vencida do paciente selecionado. Separado da mensagem de erro.</summary>
     [ObservableProperty] private string? _avisoCarteirinha;
 
+    /// <summary>
+    /// Consulta renovável vencida ou a vencer na data do atendimento. Fica ao lado dos
+    /// outros avisos em vez de junto deles: carteirinha, cota e consulta chegam juntas e
+    /// se resolvem em lugares diferentes.
+    /// </summary>
+    [ObservableProperty] private string? _avisoConsulta;
+
+    /// <summary>A consulta já venceu — o convênio recusa o que for faturado sem consulta vigente.</summary>
+    [ObservableProperty] private bool _consultaVencida;
+
     /// <summary>Já há paciente escolhido? Alterna a busca pelo resumo do paciente na tela.</summary>
     [ObservableProperty] private bool _pacienteEscolhido;
 
@@ -166,6 +176,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         OnPropertyChanged(nameof(PacienteSelecionado));
         AvisoPendencias = null;
         AvisoCarteirinha = null;
+        AvisoConsulta = null;
+        ConsultaVencida = false;
         SaldoAutorizacao = null;
         AutorizacaoCritica = false;
         AutorizacaoNaUltima = false;
@@ -185,6 +197,39 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 
         _ = VerificarPendenciasAsync(value.Id);
         _ = VerificarAutorizacaoAsync(value.Id);
+        _ = VerificarConsultaAsync(value.Id);
+    }
+
+    /// <summary>
+    /// Consulta renovável do paciente na data do atendimento.
+    ///
+    /// Ela existia em dois lugares — a aba Consultas e o painel de pendências — e em
+    /// nenhum deles a secretária está com o paciente na frente. Lançar o atendimento é o
+    /// último momento barato: a consulta vencida faz o convênio recusar o que acabou de
+    /// ser gerado aqui.
+    /// </summary>
+    private async Task VerificarConsultaAsync(int pacienteId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var consultas = scope.ServiceProvider.GetRequiredService<ConsultaService>();
+            var situacao = await consultas.DoPacienteAsync(pacienteId, DateOnly.FromDateTime(Data));
+
+            // A seleção pode ter mudado enquanto a consulta rodava.
+            if (PacienteSelecionado?.Id != pacienteId) return;
+
+            AvisoConsulta = situacao?.AvisoRenovacao;
+            ConsultaVencida = situacao?.Vencida ?? false;
+        }
+        catch (Exception ex)
+        {
+            // Aviso é auxiliar: nunca impede o lançamento. Mas também não pode sumir
+            // calado, senão a tela diria "não há consulta a renovar" sem ter olhado.
+            Configuracao.LogErros.Registrar("Novo atendimento — consulta renovável não pôde ser lida", ex);
+            AvisoConsulta = "Não foi possível conferir a consulta renovável deste paciente.";
+            ConsultaVencida = false;
+        }
     }
 
     /// <summary>

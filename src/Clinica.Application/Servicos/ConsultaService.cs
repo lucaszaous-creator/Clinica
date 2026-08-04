@@ -77,52 +77,103 @@ public sealed class ConsultaService
     {
         var pacientes = await _repo.PacientesComConsultasAsync(ct);
         var snapshot = _parametros is null ? null : await _parametros.ObterAsync(ct);
-        var janela = _parametros is null
-            ? JanelaAlertaDias
-            : await _parametros.ObterJanelaAlertaConsultaAsync(ct);
-        var lista = new List<StatusConsultaPaciente>();
+        var janela = await JanelaAsync(ct);
 
-        foreach (var p in pacientes)
-        {
-            var validade = ValidadeEfetiva(p.Convenio, p.ConvenioCodigo, snapshot);
-            var usaConsulta = validade is not null;
-
-            // A consulta vigente é a mais recente que não foi substituída (não Renovada).
-            var vigente = p.Consultas
-                .Where(c => c.Status != StatusConsulta.Renovada)
-                .OrderByDescending(c => c.DataEmissao)
-                .FirstOrDefault();
-
-            if (!usaConsulta)
-            {
-                lista.Add(new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, false,
-                    vigente?.DataEmissao, vigente?.DataVencimento, null, false, false, NivelUrgencia.Verde));
-                continue;
-            }
-
-            if (vigente is null)
-            {
-                // Convênio usa consulta, mas o paciente ainda não tem nenhuma emitida.
-                lista.Add(new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, true,
-                    null, null, null, false, true, NivelUrgencia.Amarelo));
-                continue;
-            }
-
-            var dias = vigente.DiasParaVencer(referencia);
-            var vencida = vigente.EstaVencida(referencia);
-            var precisaRenovar = dias <= janela; // vencida ou a vencer dentro da janela
-            var urgencia = vencida ? NivelUrgencia.Vermelho
-                : dias <= janela ? NivelUrgencia.Amarelo
-                : NivelUrgencia.Verde;
-
-            lista.Add(new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, true,
-                vigente.DataEmissao, vigente.DataVencimento, dias, vencida, precisaRenovar, urgencia));
-        }
-
-        return lista
+        return pacientes
+            .Select(p => Avaliar(p, p.Consultas, snapshot, janela, referencia))
             .OrderByDescending(s => s.PrecisaRenovar)
             .ThenBy(s => s.DiasParaVencer ?? int.MaxValue)
             .ThenBy(s => s.PacienteNome)
             .ToList();
+    }
+
+    /// <summary>
+    /// Situação de consulta de um conjunto de pacientes — a agenda do dia, a fila do
+    /// balcão, o paciente que está sendo marcado.
+    ///
+    /// Existe porque a consulta a renovar só era lida em dois lugares (a aba Consultas e o
+    /// painel de pendências), e nenhum deles é onde a secretária está quando o paciente
+    /// está na frente dela. Cobrar a renovação com a pessoa presente custa uma frase;
+    /// descobri-la depois custa telefonema — é o mesmo argumento do
+    /// <see cref="ElegibilidadeService"/>.
+    ///
+    /// Não repete a regra do <see cref="ListarAsync"/>: as duas passam pelo mesmo
+    /// <c>Avaliar</c>. Duas definições de "precisa renovar" divergiriam na primeira
+    /// correção, e a agenda passaria a discordar da aba Consultas sobre o mesmo paciente.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<int, StatusConsultaPaciente>> SituacaoDeAsync(
+        IReadOnlyCollection<Paciente> pacientes, DateOnly referencia, CancellationToken ct = default)
+    {
+        if (pacientes.Count == 0) return new Dictionary<int, StatusConsultaPaciente>();
+
+        var snapshot = _parametros is null ? null : await _parametros.ObterAsync(ct);
+        var janela = await JanelaAsync(ct);
+
+        var ids = pacientes.Select(p => p.Id).Distinct().ToList();
+        var consultas = (await _repo.ConsultasDosPacientesAsync(ids, ct))
+            .GroupBy(c => c.PacienteId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Consulta>)g.ToList());
+
+        var resultado = new Dictionary<int, StatusConsultaPaciente>();
+        foreach (var p in pacientes)
+        {
+            if (resultado.ContainsKey(p.Id)) continue; // o mesmo paciente pode ter dois horários no dia
+            var doPaciente = consultas.TryGetValue(p.Id, out var c) ? c : Array.Empty<Consulta>();
+            resultado[p.Id] = Avaliar(p, doPaciente, snapshot, janela, referencia);
+        }
+
+        return resultado;
+    }
+
+    /// <summary>Situação de consulta de um paciente só (o escolhido no formulário).</summary>
+    public async Task<StatusConsultaPaciente?> DoPacienteAsync(
+        int pacienteId, DateOnly referencia, CancellationToken ct = default)
+    {
+        var paciente = await _repo.ObterPacienteAsync(pacienteId, ct);
+        if (paciente is null) return null;
+
+        var snapshot = _parametros is null ? null : await _parametros.ObterAsync(ct);
+        var consultas = await _repo.ConsultasDoPacienteAsync(pacienteId, ct);
+        return Avaliar(paciente, consultas, snapshot, await JanelaAsync(ct), referencia);
+    }
+
+    private async Task<int> JanelaAsync(CancellationToken ct)
+        => _parametros is null ? JanelaAlertaDias : await _parametros.ObterJanelaAlertaConsultaAsync(ct);
+
+    /// <summary>
+    /// A regra de "precisa renovar", num lugar só: convênio que usa consulta, consulta
+    /// vigente (a mais recente que não foi substituída) e a distância até o vencimento.
+    /// </summary>
+    private static StatusConsultaPaciente Avaliar(
+        Paciente p, IEnumerable<Consulta> consultas, ParametrosSnapshot? snapshot,
+        int janela, DateOnly referencia)
+    {
+        var validade = ValidadeEfetiva(p.Convenio, p.ConvenioCodigo, snapshot);
+        var usaConsulta = validade is not null;
+
+        // A consulta vigente é a mais recente que não foi substituída (não Renovada).
+        var vigente = consultas
+            .Where(c => c.Status != StatusConsulta.Renovada)
+            .OrderByDescending(c => c.DataEmissao)
+            .FirstOrDefault();
+
+        if (!usaConsulta)
+            return new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, false,
+                vigente?.DataEmissao, vigente?.DataVencimento, null, false, false, NivelUrgencia.Verde);
+
+        if (vigente is null)
+            // Convênio usa consulta, mas o paciente ainda não tem nenhuma emitida.
+            return new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, true,
+                null, null, null, false, true, NivelUrgencia.Amarelo);
+
+        var dias = vigente.DiasParaVencer(referencia);
+        var vencida = vigente.EstaVencida(referencia);
+        var precisaRenovar = dias <= janela; // vencida ou a vencer dentro da janela
+        var urgencia = vencida ? NivelUrgencia.Vermelho
+            : dias <= janela ? NivelUrgencia.Amarelo
+            : NivelUrgencia.Verde;
+
+        return new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, true,
+            vigente.DataEmissao, vigente.DataVencimento, dias, vencida, precisaRenovar, urgencia);
     }
 }

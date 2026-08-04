@@ -49,6 +49,20 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private int _totalFaltas;
     [ObservableProperty] private int _totalCancelados;
 
+    /// <summary>
+    /// Linha de contexto sobre as consultas renováveis do período: "3 pacientes deste dia
+    /// com consulta a renovar". Nula quando não há nenhuma.
+    ///
+    /// É LINHA de texto, não faixa: contexto permanente virado faixa vira moldura, e uma
+    /// faixa por assunto come a tela antes da grade começar. E o terceiro estado importa —
+    /// quando a conferência não roda, ela diz isso em vez de deixar a agenda parecendo
+    /// limpa.
+    /// </summary>
+    [ObservableProperty] private string? _resumoConsultas;
+
+    /// <summary>Há ao menos uma consulta vencida no período (pinta a linha de vermelho).</summary>
+    [ObservableProperty] private bool _consultaVencidaNoPeriodo;
+
     /// <summary>Nome da clínica (assinatura da mensagem de WhatsApp).</summary>
     private string? _nomeClinica;
 
@@ -123,12 +137,78 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         TotalFaltas = lista.Count(a => a.Status == StatusAgendamento.Faltou);
         TotalCancelados = lista.Count(a => a.Status == StatusAgendamento.Cancelado);
 
-        if (ModoSemana) MontarSemana(lista);
-        else MontarDia(lista);
+        var consultas = await ConferirConsultasAsync(lista);
+
+        if (ModoSemana) MontarSemana(lista, consultas);
+        else MontarDia(lista, consultas);
+    }
+
+    /// <summary>
+    /// Situação da consulta renovável dos pacientes do período exibido.
+    ///
+    /// A consulta a renovar só era lida em dois lugares — o painel de pendências e a aba
+    /// Consultas —, e nenhum deles é onde a secretária está quando marca ou recebe o
+    /// paciente. Aqui ela chega ao horário: renovar com a pessoa presente custa uma
+    /// assinatura, e descobrir depois custa telefonema (ou a guia recusada).
+    ///
+    /// Uma leitura só para o período inteiro, pelos pacientes da grade — varrer a base de
+    /// pacientes para responder sobre as vinte pessoas de hoje seria caro num banco remoto,
+    /// e a agenda recarrega a cada navegação de dia.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, Clinica.Application.Modelos.StatusConsultaPaciente>>
+        ConferirConsultasAsync(IReadOnlyList<Agendamento> lista)
+    {
+        ResumoConsultas = null;
+        ConsultaVencidaNoPeriodo = false;
+
+        var pacientes = lista
+            .Select(a => a.Paciente)
+            .OfType<Paciente>()
+            .GroupBy(p => p.Id)
+            .Select(g => g.First())
+            .ToList();
+
+        if (pacientes.Count == 0)
+            return new Dictionary<int, Clinica.Application.Modelos.StatusConsultaPaciente>();
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<ConsultaService>();
+
+            // A referência é o dia exibido, não hoje: quem abre a agenda da semana que vem
+            // precisa saber quais consultas terão vencido LÁ — é para isso que se olha a
+            // agenda com antecedência.
+            var referencia = DateOnly.FromDateTime(ModoSemana ? InicioSemana : Dia);
+            var situacao = await servico.SituacaoDeAsync(pacientes, referencia);
+
+            var aRenovar = situacao.Values.Where(s => s.ARenovar).ToList();
+            ConsultaVencidaNoPeriodo = aRenovar.Any(s => s.Vencida);
+            ResumoConsultas = aRenovar.Count switch
+            {
+                0 => null,
+                1 => $"1 paciente {(ModoSemana ? "desta semana" : "deste dia")} com consulta a renovar"
+                     + $" — {aRenovar[0].PacienteNome}.",
+                _ => $"{aRenovar.Count} pacientes {(ModoSemana ? "desta semana" : "deste dia")}"
+                     + " com consulta a renovar — veja o selo no cartão."
+            };
+
+            return situacao;
+        }
+        catch (Exception ex)
+        {
+            // Degrada, mas não mente: sem o terceiro estado a agenda ficaria idêntica à de
+            // um dia sem nenhuma consulta a renovar.
+            Configuracao.LogErros.Registrar("Agenda — consultas a renovar não puderam ser conferidas", ex);
+            ResumoConsultas = "Não foi possível conferir as consultas a renovar deste período.";
+            return new Dictionary<int, Clinica.Application.Modelos.StatusConsultaPaciente>();
+        }
     }
 
     /// <summary>Monta a grade de faixas do dia, incluindo as vazias (o horário livre é informação).</summary>
-    private void MontarDia(IReadOnlyList<Agendamento> lista)
+    private void MontarDia(
+        IReadOnlyList<Agendamento> lista,
+        IReadOnlyDictionary<int, Clinica.Application.Modelos.StatusConsultaPaciente> consultas)
     {
         Semana.Clear();
         Faixas.Clear();
@@ -153,7 +233,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             var naFaixa = lista
                 .Where(a => a.DataHora >= cursor && a.DataHora < limite)
                 .OrderBy(a => a.DataHora)
-                .Select(Montar)
+                .Select(a => Montar(a, consultas))
                 .ToList();
 
             Faixas.Add(new FaixaHorario(cursor.ToString("HH:mm"), cursor, naFaixa));
@@ -161,7 +241,9 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         }
     }
 
-    private void MontarSemana(IReadOnlyList<Agendamento> lista)
+    private void MontarSemana(
+        IReadOnlyList<Agendamento> lista,
+        IReadOnlyDictionary<int, Clinica.Application.Modelos.StatusConsultaPaciente> consultas)
     {
         Faixas.Clear();
         Semana.Clear();
@@ -172,7 +254,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             var doDia = lista
                 .Where(a => a.DataHora.Date == data)
                 .OrderBy(a => a.DataHora)
-                .Select(Montar)
+                .Select(a => Montar(a, consultas))
                 .ToList();
 
             Semana.Add(new ColunaDia(
@@ -184,26 +266,42 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         }
     }
 
-    private static CartaoAgendamento Montar(Agendamento a) => new(
-        a,
-        a.DataHora.ToString("HH:mm"),
-        a.Paciente?.Nome ?? "—",
-        CatalogoModalidades.Nome(a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
-        a.Status switch
-        {
-            StatusAgendamento.Realizado => "Atendido",
-            StatusAgendamento.Faltou => "Faltou",
-            StatusAgendamento.Cancelado => "Cancelado",
-            _ => "Agendado"
-        },
-        a.Paciente?.FotoMiniatura,
-        a.Paciente is null ? string.Empty : CatalogoConvenios.Nome(a.Paciente.ConvenioCodigo ?? a.Paciente.Convenio.ToString()),
-        a.Paciente?.CarteirinhaVencida ?? false,
-        a.Observacoes,
-        a.Status == StatusAgendamento.Agendado,
-        a.Status == StatusAgendamento.Realizado,
-        a.Status == StatusAgendamento.Faltou,
-        a.Status == StatusAgendamento.Cancelado);
+    private static CartaoAgendamento Montar(
+        Agendamento a,
+        IReadOnlyDictionary<int, Clinica.Application.Modelos.StatusConsultaPaciente> consultas)
+    {
+        // Só o horário de pé cobra a renovação: num cancelado ou numa falta não há
+        // ninguém para assinar nada, e o selo ali só encheria a grade de laranja.
+        var consulta = a.Paciente is { } p
+            && a.Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado
+            && consultas.TryGetValue(p.Id, out var s) && s.ARenovar
+                ? s
+                : null;
+
+        return new CartaoAgendamento(
+            a,
+            a.DataHora.ToString("HH:mm"),
+            a.Paciente?.Nome ?? "—",
+            CatalogoModalidades.Nome(a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
+            a.Status switch
+            {
+                StatusAgendamento.Realizado => "Atendido",
+                StatusAgendamento.Faltou => "Faltou",
+                StatusAgendamento.Cancelado => "Cancelado",
+                _ => "Agendado"
+            },
+            a.Paciente?.FotoMiniatura,
+            a.Paciente is null ? string.Empty : CatalogoConvenios.Nome(a.Paciente.ConvenioCodigo ?? a.Paciente.Convenio.ToString()),
+            a.Paciente?.CarteirinhaVencida ?? false,
+            a.Observacoes,
+            a.Status == StatusAgendamento.Agendado,
+            a.Status == StatusAgendamento.Realizado,
+            a.Status == StatusAgendamento.Faltou,
+            a.Status == StatusAgendamento.Cancelado,
+            consulta?.SeloRenovacao,
+            consulta?.AvisoRenovacao,
+            consulta?.Vencida ?? false);
+    }
 
     [RelayCommand] private async Task DiaAnterior() { Dia = Dia.AddDays(ModoSemana ? -7 : -1); await Recarregar(); }
     [RelayCommand] private async Task ProximoDia() { Dia = Dia.AddDays(ModoSemana ? 7 : 1); await Recarregar(); }

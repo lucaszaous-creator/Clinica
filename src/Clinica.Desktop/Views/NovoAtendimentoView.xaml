@@ -89,6 +89,27 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Consulta renovável: o convênio recusa o que for faturado sem
+                             consulta vigente, e renovar com o paciente aqui é uma assinatura -->
+                        <Border Margin="0,8,0,0"
+                                Visibility="{Binding AvisoConsulta, Converter={StaticResource TextoParaVisibilidade}}">
+                            <Border.Style>
+                                <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ConsultaVencida}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                            <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro.Texto}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#xE787;" Style="{StaticResource Icone}" Margin="0,0,8,0"
+                                           VerticalAlignment="Top" />
+                                <TextBlock Text="{Binding AvisoConsulta}" TextWrapping="Wrap" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Border>
+
                         <!-- Cota de sessões: evita a glosa 2006 antes de ela acontecer -->
                         <Border Margin="0,8,0,0"
                                 Visibility="{Binding SaldoAutorizacao, Converter={StaticResource TextoParaVisibilidade}}">

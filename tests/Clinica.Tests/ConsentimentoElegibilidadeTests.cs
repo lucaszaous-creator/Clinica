@@ -26,6 +26,7 @@ public class ConsentimentoElegibilidadeTests : IDisposable
     private readonly ClinicaRepositorio _repo;
     private readonly ConsentimentoService _consentimentos;
     private readonly AutorizacaoService _autorizacoes;
+    private readonly ConsultaService _consultas;
     private readonly ElegibilidadeService _elegibilidade;
 
     private static readonly DateOnly Hoje = new(2026, 8, 3);
@@ -40,7 +41,8 @@ public class ConsentimentoElegibilidadeTests : IDisposable
         _repo = new ClinicaRepositorio(_db);
         _consentimentos = new ConsentimentoService(_repo);
         _autorizacoes = new AutorizacaoService(_repo);
-        _elegibilidade = new ElegibilidadeService(_repo, _autorizacoes, _consentimentos);
+        _consultas = new ConsultaService(_repo);
+        _elegibilidade = new ElegibilidadeService(_repo, _autorizacoes, _consentimentos, _consultas);
     }
 
     private async Task<int> CriarPacienteAsync(DateOnly? validadeCarteirinha = null)
@@ -298,7 +300,7 @@ public class ConsentimentoElegibilidadeTests : IDisposable
         var financeiro = new FinanceiroService(_repo);
         var contas = new ContasService(_repo);
         var comFinanceiro = new ElegibilidadeService(
-            _repo, _autorizacoes, _consentimentos,
+            _repo, _autorizacoes, _consentimentos, _consultas,
             new InadimplenciaService(_repo, financeiro));
 
         await contas.LancarContaAsync(
@@ -327,7 +329,7 @@ public class ConsentimentoElegibilidadeTests : IDisposable
         var financeiro = new FinanceiroService(_repo);
         var contas = new ContasService(_repo);
         var comFinanceiro = new ElegibilidadeService(
-            _repo, _autorizacoes, _consentimentos,
+            _repo, _autorizacoes, _consentimentos, _consultas,
             new InadimplenciaService(_repo, financeiro));
 
         await contas.LancarContaAsync(
@@ -422,6 +424,78 @@ public class ConsentimentoElegibilidadeTests : IDisposable
         // com o que já está feito — e alerta que se repete sem motivo deixa de ser lido.
         resultado.Alertas.Should().NotContain(a =>
             a.Motivo == ImpedimentoElegibilidade.GuiaGlosada);
+    }
+
+    // ===== Consulta renovável =====
+    //
+    // A consulta cobre laudo, receita e dúvida por 22 ou 30 dias conforme o convênio, e
+    // era lida em exatamente dois lugares — a aba Consultas e o painel de pendências —,
+    // nenhum deles aberto com o paciente no balcão. Renovar com ele presente é uma
+    // assinatura; descobrir na hora de faturar é ligar para quem já foi embora.
+
+    [Fact]
+    public async Task Elegibilidade_ConsultaVencida_AvisaEmVermelho()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        // Unimed: 22 dias de validade. Emitida há 40 → vencida.
+        await _consultas.RenovarAsync(pacienteId, Hoje.AddDays(-40));
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        var aviso = resultado.Alertas.Should()
+            .ContainSingle(a => a.Motivo == ImpedimentoElegibilidade.ConsultaVencida).Subject;
+        // Vermelho pela regra deste serviço: o convênio recusa o que for faturado sem
+        // consulta vigente.
+        aviso.Urgencia.Should().Be(NivelUrgencia.Vermelho);
+        aviso.Descricao.Should().Contain("Consulta vencida");
+    }
+
+    [Fact]
+    public async Task Elegibilidade_ConsultaAVencerDentroDaJanela_AvisaEmAmarelo()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        // 22 dias de validade, emitida há 20 → vence em 2 dias (janela padrão: 5).
+        await _consultas.RenovarAsync(pacienteId, Hoje.AddDays(-20));
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        var aviso = resultado.Alertas.Should()
+            .ContainSingle(a => a.Motivo == ImpedimentoElegibilidade.ConsultaARenovar).Subject;
+        aviso.Urgencia.Should().Be(NivelUrgencia.Amarelo);
+        aviso.Descricao.Should().Contain("2 dia(s)");
+    }
+
+    [Fact]
+    public async Task Elegibilidade_ConsultaComFolga_NaoAvisa()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+        await _consultas.RenovarAsync(pacienteId, Hoje); // vence só daqui a 22 dias
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().NotContain(a =>
+            a.Motivo == ImpedimentoElegibilidade.ConsultaVencida
+            || a.Motivo == ImpedimentoElegibilidade.ConsultaARenovar);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_PacienteSemConsultaNenhuma_NaoAvisa()
+    {
+        // Alerta que dispara para toda a base de convênio no primeiro dia é alerta que
+        // ninguém lê. "Renovar" pressupõe que exista uma consulta emitida.
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().NotContain(a =>
+            a.Motivo == ImpedimentoElegibilidade.ConsultaVencida
+            || a.Motivo == ImpedimentoElegibilidade.ConsultaARenovar);
     }
 
     public void Dispose()

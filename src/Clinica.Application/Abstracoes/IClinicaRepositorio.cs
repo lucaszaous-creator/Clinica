@@ -190,6 +190,15 @@ public interface IClinicaRepositorio
     /// <summary>Todos os pacientes com suas consultas carregadas (para a aba de Consultas).</summary>
     Task<IReadOnlyList<Paciente>> PacientesComConsultasAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// Consultas de um conjunto de pacientes, numa leitura só. Existe para a agenda poder
+    /// avaliar a renovação de um dia inteiro sem varrer a base de pacientes — que é o que
+    /// <see cref="PacientesComConsultasAsync"/> faz, e é caro num banco remoto para
+    /// responder sobre as vinte pessoas marcadas hoje.
+    /// </summary>
+    Task<IReadOnlyList<Consulta>> ConsultasDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
+
     Task AdicionarAgendamentoAsync(Agendamento agendamento, CancellationToken ct = default);
     Task<Agendamento?> ObterAgendamentoAsync(int agendamentoId, CancellationToken ct = default);
     Task<IReadOnlyList<Agendamento>> AgendamentosNoPeriodoAsync(DateTime inicio, DateTime fim, CancellationToken ct = default);

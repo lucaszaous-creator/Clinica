@@ -28,6 +28,7 @@ public sealed class ElegibilidadeService
     private readonly IClinicaRepositorio _repo;
     private readonly AutorizacaoService _autorizacoes;
     private readonly ConsentimentoService _consentimentos;
+    private readonly ConsultaService _consultas;
     private readonly InadimplenciaService? _inadimplencia;
 
     /// <summary>Dias de antecedência para começar a avisar da carteirinha.</summary>
@@ -44,11 +45,17 @@ public sealed class ElegibilidadeService
         IClinicaRepositorio repo,
         AutorizacaoService autorizacoes,
         ConsentimentoService consentimentos,
+        ConsultaService consultas,
         InadimplenciaService? inadimplencia = null)
     {
         _repo = repo;
         _autorizacoes = autorizacoes;
         _consentimentos = consentimentos;
+        // Obrigatório, ao contrário do Financeiro abaixo: a consulta renovável é do mesmo
+        // faturamento que este serviço já confere, sem nada a montar por fora. Deixá-la
+        // opcional faria a conferência sumir em silêncio onde ninguém passasse o serviço
+        // — a tela diria "está tudo certo" sobre o que não olhou.
+        _consultas = consultas;
         // Opcional para o serviço continuar construível sem o Financeiro montado — é a
         // mesma escolha do ParametrosService no GlosaService. Sem ele, a conferência
         // financeira simplesmente não roda; ela não é a razão de existir desta classe.
@@ -64,6 +71,7 @@ public sealed class ElegibilidadeService
         var alertas = new List<AlertaElegibilidade>();
 
         ConferirCarteirinha(paciente, referencia, alertas);
+        await ConferirConsultaAsync(pacienteId, referencia, alertas, ct);
         await ConferirCotaAsync(pacienteId, referencia, alertas, ct);
         await ConferirConsentimentoAsync(pacienteId, alertas, ct);
         await ConferirDebitoAsync(pacienteId, referencia, alertas, ct);
@@ -92,6 +100,36 @@ public sealed class ElegibilidadeService
                 ImpedimentoElegibilidade.CarteirinhaAVencer,
                 NivelUrgencia.Amarelo,
                 $"Carteirinha vence em {dias} dia(s) ({validade:dd/MM/yyyy})."));
+    }
+
+    /// <summary>
+    /// Consulta renovável vencida ou a vencer.
+    ///
+    /// A consulta é o papel que cobre laudo, receita e dúvida por 22 ou 30 dias conforme o
+    /// convênio, e ela era lida em exatamente dois lugares — a aba Consultas e o painel de
+    /// pendências —, nenhum deles aberto no momento em que o paciente está no balcão.
+    /// Renovar com ele presente é uma assinatura; descobrir a consulta vencida na hora de
+    /// faturar é ligar para quem já foi embora.
+    ///
+    /// Só entra aqui quem JÁ TEM consulta emitida (<c>ARenovar</c>, não
+    /// <c>PrecisaRenovar</c>) — ver o comentário do modelo.
+    /// </summary>
+    private async Task ConferirConsultaAsync(
+        int pacienteId, DateOnly referencia,
+        List<AlertaElegibilidade> alertas, CancellationToken ct)
+    {
+        var situacao = await _consultas.DoPacienteAsync(pacienteId, referencia, ct);
+        if (situacao?.AvisoRenovacao is not { } aviso) return;
+
+        alertas.Add(new AlertaElegibilidade(
+            situacao.Vencida
+                ? ImpedimentoElegibilidade.ConsultaVencida
+                : ImpedimentoElegibilidade.ConsultaARenovar,
+            // Vencida é vermelho pela regra deste serviço: o convênio recusa o que for
+            // faturado sem consulta vigente. A que ainda vai vencer é amarelo — dá tempo,
+            // e pintar as duas de vermelho faria a urgente deixar de se distinguir.
+            situacao.Vencida ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo,
+            aviso));
     }
 
     private async Task ConferirCotaAsync(
