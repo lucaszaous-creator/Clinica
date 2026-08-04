@@ -92,7 +92,22 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// conversor invertido e a alternativa seria um <c>DataTrigger</c> em cada uso.</summary>
     public bool TemPaciente => !SemPaciente;
 
-    partial void OnSemPacienteChanged(bool value) => OnPropertyChanged(nameof(TemPaciente));
+    /// <summary>
+    /// Os quatro botões de emitir só funcionam com paciente escolhido E com permissão de
+    /// escrever no prontuário.
+    ///
+    /// É a metade VISÍVEL da regra, e ela faltava: a tela abre pela sidebar sem paciente
+    /// nenhum em foco, os botões ficavam acesos e o clique não fazia NADA — o comando
+    /// batia num `if (_pacienteId == 0) return;` e voltava calado. Botão aceso que não faz
+    /// nada é pior do que botão apagado: quem clica conclui que o sistema quebrou.
+    /// </summary>
+    public bool PodeEmitirDocumento => TemPaciente && PodeEditarProntuario;
+
+    partial void OnSemPacienteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TemPaciente));
+        OnPropertyChanged(nameof(PodeEmitirDocumento));
+    }
 
     private int _pacienteId;
 
@@ -182,7 +197,16 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     [RelayCommand]
     private async Task EmitirAsync(string? tipo)
     {
-        if (_pacienteId == 0) return;
+        // Sem paciente, DIZ. O botão já nasce apagado (`PodeEmitirDocumento`), mas um
+        // atalho de teclado ou um clique numa corrida de carregamento chegam aqui — e
+        // guarda que volta em silêncio é exatamente o defeito que esta linha corrigiu.
+        if (_pacienteId == 0)
+        {
+            Mensagem = "Escolha um paciente antes de emitir: a tela abre no paciente que "
+                     + "você está atendendo, ou use a busca ao lado.";
+            MensagemEhErro = true;
+            return;
+        }
 
         if (!Enum.TryParse<TipoDocumentoClinico>(tipo, out var tipoDocumento))
             tipoDocumento = TipoDocumentoClinico.Receita;

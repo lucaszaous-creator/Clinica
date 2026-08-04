@@ -1187,6 +1187,100 @@ for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
         )
 
 
+# --------------------------------------------------------------- checagem 21
+# BOTÃO ACESO QUE NÃO FAZ NADA.
+#
+# O cliente clicou em "Receita" na tela de Prescrições e não abriu janela nenhuma: o
+# comando começava com `if (_pacienteId == 0) return;` e voltava CALADO, enquanto o botão
+# continuava aceso porque o `IsEnabled` só olhava a permissão. Quem clica e não vê nada
+# acontecer conclui que o sistema quebrou — e não tem como saber que faltava escolher
+# alguém.
+#
+# A regra do projeto já dizia isto para PERMISSÃO ("duas barreiras: IsEnabled explica,
+# Exigir impede"). Esta checagem estende a mesma exigência às demais PRÉ-CONDIÇÕES.
+#
+# Só reclama quando as duas coisas valem ao mesmo tempo:
+#   (a) o comando tem guarda de saída MUDA — `return;` sem escrever mensagem antes; e
+#   (b) a guarda olha ESTADO DO VIEWMODEL, não um parâmetro (um `if (linha is null)` num
+#       botão de linha de lista nunca dispara, e apontá-lo seria ruído); e
+#   (c) algum Button liga esse comando SEM `IsEnabled`.
+COMANDO_COM_GUARDA = re.compile(
+    r"\[RelayCommand[^\]]*\]\s*(?:public|private|internal|protected)?[^\n]*?"
+    r"\b(\w+)Async?\s*\(([^)]*)\)\s*\{(.{0,900}?)\}",
+    re.S,
+)
+# Comentário é ruído aqui, e ruído CARO: um bloco explicativo de três linhas empurra a
+# guarda para fora da janela de busca (foi assim que a checagem não viu o defeito na
+# primeira tentativa), e a palavra "return" citada num comentário criaria achado falso.
+COMENTARIO_DE_LINHA = re.compile(r"//[^\n]*")
+GUARDA_MUDA = re.compile(r"if\s*\(([^)]{1,120})\)\s*(?:\{\s*)?return\s*;")
+BOTAO_COM_COMANDO = re.compile(
+    r"<Button\b((?:(?!</?Button|/>|>).)*?)Command\s*=\s*\"\{Binding\s+"
+    r"(?:[A-Za-z0-9_.]*\.)?(\w+)Command[^\"]*\"((?:(?!</?Button|/>|>).)*?)/?>",
+    re.S,
+)
+
+# Chave: (ViewModel, nome do comando). O casamento é pela CONVENÇÃO DE NOME do projeto
+# (`FooView.xaml` ↔ `FooViewModel.cs`), e não pelo nome do comando solto: `EditarCommand`
+# existe em meia dúzia de telas que nem se conhecem, e comparar só pelo nome apontaria a
+# guarda de um ViewModel na tela de outro.
+#
+# Tela cujo ViewModel não é encontrado por nome é PULADA — o certo aqui é não afirmar
+# nada, porque um palpite errado gasta a confiança na checagem inteira.
+_guardas: dict[tuple[str, str], list[str]] = {}
+for arq in sorted(RAIZ.rglob("src/**/*.cs")):
+    if "/obj/" in str(arq) or "/bin/" in str(arq):
+        continue
+    corpo = COMENTARIO_DE_LINHA.sub("", arq.read_text(encoding="utf-8"))
+    classes = re.findall(r"\b(?:sealed\s+)?partial\s+class\s+(\w+)", corpo)
+    vm = next((c for c in classes if c.endswith("ViewModel")), None)
+    if vm is None:
+        continue
+
+    for nome, params, miolo in COMANDO_COM_GUARDA.findall(corpo):
+        nomes_param = re.findall(r"(\w+)\s*(?:,|$)", params)
+        for cond in GUARDA_MUDA.findall(miolo):
+            antes = miolo[: miolo.index(cond)]
+            # Já avisa antes de sair? então não é mudo.
+            if re.search(r"Mensagem\s*=|Erro\(|_snackbar|_dialogo", antes):
+                continue
+            # A guarda olha um parâmetro? nunca dispara vindo de um botão de linha.
+            if any(re.search(rf"\b{re.escape(p)}\b", cond) for p in nomes_param if p):
+                continue
+
+            # Guarda de REENTRÂNCIA (`if (Carregando) return;`) não é o defeito: o botão
+            # deve mesmo ficar aceso durante a carga, e o guard só impede o clique duplo.
+            # "Já estou fazendo" é diferente de "não dá para fazer".
+            if re.search(r"\b(Carregando|Emitindo|Salvando|Processando|Ocupado|EmCurso)\b", cond):
+                continue
+
+            # Guarda sobre VARIÁVEL LOCAL do próprio método (`var caminho = Escolher();
+            # if (caminho is null) return;`) é diálogo cancelado — sair calado é o certo.
+            locais = re.findall(r"\bvar\s+(\w+)\s*=", antes)
+            if any(re.search(rf"\b{re.escape(v)}\b", cond) for v in locais):
+                continue
+            _guardas.setdefault((vm, nome), []).append(
+                f"{rel(arq)}: if ({cond.strip()}) return;")
+
+for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
+    if "/obj/" in str(arq) or "/bin/" in str(arq):
+        continue
+    corpo = arq.read_text(encoding="utf-8")
+    for antes, nome, depois in BOTAO_COM_COMANDO.findall(corpo):
+        if "IsEnabled" in antes + depois:
+            continue
+        # `PrescricoesClinicasView.xaml` → `PrescricoesClinicasViewModel`.
+        vm_da_tela = arq.stem + "Model" if arq.stem.endswith("View") else None
+        if vm_da_tela is None or (vm_da_tela, nome) not in _guardas:
+            continue
+        onde = _guardas[(vm_da_tela, nome)][0]
+        destino = avisos if "Clinica.Desktop/" in str(arq).replace("\\", "/") else erros
+        destino.append(
+            f"{rel(arq)}: o Button de `{nome}Command` não tem `IsEnabled`, e o comando "
+            f"tem guarda MUDA ({onde}) — o botão fica aceso e o clique não faz nada. "
+            f"Ligue o `IsEnabled` à pré-condição, e faça a guarda DIZER por que saiu."
+        )
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

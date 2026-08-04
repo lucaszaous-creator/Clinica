@@ -115,6 +115,9 @@ public sealed partial class RetencaoViewModel : ObservableObject
         finally
         {
             Carregando = false;
+            // A lista mudou (encheu ou esvaziou pela falha): o botão de exportar precisa
+            // reavaliar se tem o que exportar.
+            OnPropertyChanged(nameof(TemParaExportar));
         }
     }
 
@@ -143,11 +146,21 @@ public sealed partial class RetencaoViewModel : ObservableObject
         MensagemEhErro = true;
     }
 
+    /// <summary>Há linha para exportar — é o que acende o botão de CSV.</summary>
+    public bool TemParaExportar => Sumidos.Count > 0;
+
     /// <summary>A lista em CSV, para a direção trabalhar fora da tela.</summary>
     [RelayCommand]
     private async Task ExportarAsync()
     {
-        if (Sumidos.Count == 0) return;
+        // Lista vazia: o botão já nasce apagado (`TemParaExportar`), mas quem chegar
+        // aqui por atalho ouve o motivo em vez de ver o clique cair no vazio.
+        if (Sumidos.Count == 0)
+        {
+            Mensagem = "Não há ninguém na lista para exportar.";
+            MensagemEhErro = false;
+            return;
+        }
 
         try
         {

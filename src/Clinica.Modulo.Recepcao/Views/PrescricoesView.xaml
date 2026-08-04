@@ -61,7 +61,7 @@
                                VerticalAlignment="Center" Margin="0" />
                     <Button Content="Emitir documento" HorizontalAlignment="Right"
                             Command="{Binding NovoDocumentoCommand}"
-                            IsEnabled="{Binding PodeEditarProntuario}" />
+                            IsEnabled="{Binding PodeEmitirDocumento}" />
                 </Grid>
 
                 <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"

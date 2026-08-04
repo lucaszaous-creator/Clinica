@@ -51,6 +51,15 @@ public sealed partial class PrescricoesViewModel : ObservableObject
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
+    /// <summary>
+    /// Emitir exige paciente escolhido, além da permissão. Sem isto o botão ficava aceso
+    /// numa tela sem ninguém selecionado e o clique não fazia nada — o comando voltava
+    /// calado no `if (PacienteId == 0)`.
+    /// </summary>
+    public bool PodeEmitirDocumento => !SemPaciente && PodeEditarProntuario;
+
+    partial void OnSemPacienteChanged(bool value) => OnPropertyChanged(nameof(PodeEmitirDocumento));
+
     public PrescricoesViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
@@ -108,7 +117,12 @@ public sealed partial class PrescricoesViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoDocumentoAsync()
     {
-        if (PacienteId == 0) return;
+        if (PacienteId == 0)
+        {
+            Mensagem = "Escolha um paciente antes de emitir o documento.";
+            MensagemEhErro = true;
+            return;
+        }
 
         try
         {
