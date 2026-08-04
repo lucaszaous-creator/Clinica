@@ -83,6 +83,52 @@ public sealed record DiaDoProfissional(
 }
 
 /// <summary>
+/// A SEMANA do profissional (parcela 39): sete dias, cada um com as sessões dele.
+///
+/// "Meu dia" responde o que acontece hoje; ele não responde "quando eu tenho espaço",
+/// "quantos pacientes vêm quinta" nem "vale marcar o retorno dele para sexta" — que são
+/// as perguntas que se fazem COM o paciente na frente, no fim da consulta. A agenda do
+/// balcão tem a visão de semana desde a parcela 26, e o app de quem atende não tinha.
+///
+/// Começa na SEGUNDA, como a da recepção, e pela mesma razão: a clínica pensa a semana em
+/// bloco. Começar no dia escolhido daria uma janela diferente a cada clique.
+/// </summary>
+public sealed record SemanaDoProfissional(
+    DateOnly Inicio,
+    int? ProfissionalId,
+    string ProfissionalNome,
+    IReadOnlyList<DiaDoProfissional> Dias)
+{
+    public DateOnly Fim => Inicio.AddDays(6);
+
+    public int Sessoes => Dias.Sum(d => d.Sessoes.Count);
+
+    public int Atendidos => Dias.Sum(d => d.Atendidos);
+
+    /// <summary>Sessões da semana ainda sem evolução escrita — a dívida em formação.</summary>
+    public int RegistrosPendentes => Dias.Sum(d => d.RegistrosPendentes);
+
+    /// <summary>
+    /// Pessoas distintas na semana. Não é o mesmo que sessões, e a diferença é a leitura:
+    /// vinte sessões de oito pacientes é tratamento em série; vinte de vinte é primeira
+    /// consulta atrás de primeira consulta, e o dia cansa de outro jeito.
+    /// </summary>
+    public int PacientesDistintos => Dias
+        .SelectMany(d => d.Sessoes)
+        .Select(s => s.PacienteId)
+        .Distinct()
+        .Count();
+
+    /// <summary>
+    /// O dia mais cheio da semana, em número de sessões. Null quando a semana está vazia —
+    /// nunca zero: "o dia mais cheio tem 0 sessões" é uma frase que não quer dizer nada.
+    /// </summary>
+    public DiaDoProfissional? DiaMaisCheio => Sessoes == 0
+        ? null
+        : Dias.OrderByDescending(d => d.Sessoes.Count).First();
+}
+
+/// <summary>
 /// Sessão atendida em dia ANTERIOR que continua sem evolução escrita.
 ///
 /// É o "2º código esquecido" do prontuário: a sessão aconteceu, o paciente foi embora e o

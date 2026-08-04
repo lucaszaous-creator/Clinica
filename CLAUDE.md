@@ -499,6 +499,34 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   alerta mudaria o comportamento do faturamento em produção e dispararia para TODA guia
   numa clínica que ainda não documenta — alerta que dispara para todo mundo é alerta que
   ninguém lê. A leitura foi para a direção, onde é nova.
+- **A sidebar do Consultório tinha TRÊS itens** (parcela 39): e não porque o app do médico
+  seja simples — porque as portas estavam no módulo errado. A auditoria achou três lacunas
+  da mesma família, e é a **sétima** ocorrência do defeito recorrente do projeto, na
+  variante mais discreta de todas: não é dado sem leitor nem serviço sem chamador, é
+  **capacidade inteira e testada cuja única porta está no módulo de quem não a usa**.
+  (a) **Prescrições** — receita, atestado, comparecimento e pedido de exame só se emitiam
+  pela RECEPÇÃO. Quem prescreve é quem atende, e o app instalado na sala do médico não
+  tinha por onde; a parcela 36 já tinha subido a emissão para o shell (`DocumentoWindow`)
+  exatamente por isto, e ninguém construiu a porta. A tela do consultório **abre no
+  paciente em foco** e oferece os quatro tipos como BOTÕES, porque ali a decisão vem antes
+  do clique: ninguém pensa "vou emitir um documento", pensa "vou dar um atestado".
+  (b) **Minha semana** — "Meu dia" responde o que acontece hoje e não responde o que se
+  pergunta com o paciente ainda na frente ("quando eu tenho espaço?", "quinta está
+  cheia?"). A recepção tem visão de semana desde a parcela 26. Sete dias numa consulta só,
+  não sete — o banco é remoto; a semana começa na **segunda** (o domingo é o SÉTIMO dia, e
+  tratá-lo como primeiro devolveria a semana que só começa amanhã); **dia sem horário
+  aparece vazio**, porque semana com cinco colunas faria procurar a quarta que sumiu.
+  (c) **Meus números** — `ProdutividadeProfissional` existe desde a parcela 5 e
+  `CompletudeProntuario` desde a 36, e o único leitor de ambos era o BI do GERENTE: o
+  sistema media quem atende e a pessoa medida não via o próprio número. **Indicador que só
+  o chefe enxerga não corrige comportamento nenhum** — ele só produz a conversa
+  desagradável no fim do mês. A tela mostra **só quem está logado e não compara colegas**
+  (ranking é decisão de gestão; no app de cada um viraria placar), e a **dívida de
+  prontuário é de HOJE, não do período**: ela é fila de trabalho, e recortá-la pelo filtro
+  faria escolher "mês passado" esconder o que está em aberto agora.
+  A lição para a próxima auditoria: **ao procurar chamador em produção, conte também
+  quantos ITENS DE MENU o módulo tem.** Sidebar curta demais para o que o app faz é
+  sintoma, não simplicidade.
 - **A chamada do próximo paciente** (parcela 38): "Meu dia" do Consultório era uma **lista
   corrida** — ela responde "quem vem hoje" e não responde a pergunta que quem atende faz
   vinte vezes por dia, "**quem já está aí e quem eu posso chamar agora**". Virou kanban de

@@ -41,6 +41,26 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveRegistrosPendentes = "consultorio-registros-pendentes";
 
     /// <summary>
+    /// A semana de quem atende. "Meu dia" responde o que acontece hoje e não responde as
+    /// perguntas que se fazem COM o paciente na frente — "quando eu tenho espaço?",
+    /// "quinta está cheia?". A recepção tem visão de semana desde a parcela 26.
+    /// </summary>
+    public const string ChaveMinhaSemana = "consultorio-semana";
+
+    /// <summary>
+    /// Prescrições. O fluxo de emissão existia inteiro e a única porta estava no módulo da
+    /// RECEPÇÃO — quem prescreve, atesta e pede exame é quem ATENDE.
+    /// </summary>
+    public const string ChavePrescricoes = "consultorio-prescricoes";
+
+    /// <summary>
+    /// A produtividade do profissional, na tela dele. <c>ProdutividadeProfissional</c> e
+    /// <c>CompletudeProntuario</c> só eram lidos pelo BI do Gerente: o sistema media quem
+    /// atende e a pessoa medida não via o próprio número.
+    /// </summary>
+    public const string ChaveMeusNumeros = "consultorio-meus-numeros";
+
+    /// <summary>
     /// A tela do PACIENTE — identidade no topo, as cinco seções em abas.
     ///
     /// As cinco chaves clínicas acima continuam válidas e caem todas aqui, cada uma na
@@ -88,8 +108,23 @@ public sealed class ModuloClinico : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChaveMinhaSemana, Rotulo = "Minha semana", Glifo = "\uE8BD",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveMeusPacientes, Rotulo = "Meus pacientes", Glifo = "\uE77B",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveMeusNumeros, Rotulo = "Meus n\u00FAmeros", Glifo = "\uE9D9",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAgenda
         },
 
         // ===== Navegáveis, mas fora do menu =====
@@ -149,6 +184,9 @@ public sealed class ModuloClinico : IModuloApp
 
         servicos.AddTransient<MeuDiaViewModel>();
         servicos.AddTransient<RegistrosPendentesViewModel>();
+        servicos.AddTransient<MinhaSemanaViewModel>();
+        servicos.AddTransient<PrescricoesClinicasViewModel>();
+        servicos.AddTransient<MeusNumerosViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
         servicos.AddTransient<ProntuarioClinicoViewModel>();
         servicos.AddTransient<EvolucaoDorViewModel>();
@@ -167,6 +205,18 @@ public sealed class ModuloClinico : IModuloApp
         ChaveRegistrosPendentes => new RegistrosPendentesView
         {
             DataContext = servicos.GetRequiredService<RegistrosPendentesViewModel>()
+        },
+        ChaveMinhaSemana => new MinhaSemanaView
+        {
+            DataContext = servicos.GetRequiredService<MinhaSemanaViewModel>()
+        },
+        ChavePrescricoes => new PrescricoesClinicasView
+        {
+            DataContext = servicos.GetRequiredService<PrescricoesClinicasViewModel>()
+        },
+        ChaveMeusNumeros => new MeusNumerosView
+        {
+            DataContext = servicos.GetRequiredService<MeusNumerosViewModel>()
         },
 
         // A tela do paciente, e as cinco chaves clínicas que caem nela.

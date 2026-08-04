@@ -1,0 +1,167 @@
+<UserControl x:Class="Clinica.Clinico.Views.MinhaSemanaView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+
+        <!-- A coluna do dia: faixa de fundo, sem moldura — as sete lado a lado têm de se
+             ler como UMA semana, não como sete cartões costurados. -->
+        <Style x:Key="ColunaDaSemana" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
+            <Setter Property="CornerRadius" Value="{StaticResource Raio.Grande}" />
+            <Setter Property="Padding" Value="10,10,10,4" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel Margin="24,20,24,24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                <TextBlock Text="Minha semana" Style="{StaticResource H1}" Margin="0,0,0,2" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0">
+                    <Run Text="{Binding Profissional, Mode=OneWay}" />
+                    <Run Text=" · " />
+                    <Run Text="{Binding Periodo, Mode=OneWay}" />
+                </TextBlock>
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           TextWrapping="Wrap" Margin="0,6,0,0" />
+                <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
+                           Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Visibility="{Binding SemVinculo,
+                                        Converter={StaticResource BoolParaVisibilidade}}"
+                           Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a semana da clínica inteira." />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                        HorizontalAlignment="Right" VerticalAlignment="Top">
+                <Button Content="&lt;" Command="{Binding SemanaAnteriorCommand}"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="40" />
+                <DatePicker SelectedDate="{Binding Referencia}" Width="150" Margin="8,0" />
+                <Button Content="&gt;" Command="{Binding ProximaSemanaCommand}"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="40" />
+                <Button Content="Esta semana" Command="{Binding SemanaAtualCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                        Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Grid>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding Dias}" MinWidth="1100">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Rows="1" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource ColunaDaSemana}">
+                                <Border.Resources>
+                                    <Style TargetType="Border" BasedOn="{StaticResource {x:Type Border}}" />
+                                </Border.Resources>
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Top" Margin="2,0,2,8">
+                                        <TextBlock Text="{Binding Titulo}"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground"
+                                                            Value="{StaticResource Brush.Texto.Secundario}" />
+                                                    <Style.Triggers>
+                                                        <!-- Hoje se destaca: numa semana de sete
+                                                             colunas iguais, achar o dia corrente
+                                                             não pode depender de contar. -->
+                                                        <DataTrigger Binding="{Binding EhHoje}" Value="True">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Acento}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Text="{Binding Subtitulo}" Margin="0,2,0,0"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                    </StackPanel>
+
+                                    <TextBlock DockPanel.Dock="Top" Text="—"
+                                               HorizontalAlignment="Center" Margin="0,10,0,0"
+                                               Foreground="{StaticResource Brush.Borda}"
+                                               Visibility="{Binding Vazio,
+                                                            Converter={StaticResource BoolParaVisibilidade}}" />
+
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding Sessoes}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Margin="0,0,0,6" Padding="10,8"
+                                                            HorizontalContentAlignment="Stretch"
+                                                            Style="{StaticResource BotaoCartao}"
+                                                            Command="{Binding DataContext.AbrirCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                            CommandParameter="{Binding}">
+                                                        <StackPanel>
+                                                            <TextBlock TextWrapping="Wrap">
+                                                                <Run Text="{Binding Hora, Mode=OneWay}" FontWeight="SemiBold" />
+                                                                <Run Text="  " />
+                                                                <Run Text="{Binding Paciente, Mode=OneWay}" />
+                                                            </TextBlock>
+                                                            <TextBlock Text="{Binding Modalidade}"
+                                                                       TextWrapping="Wrap" Margin="0,3,0,0"
+                                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                            <Border Style="{StaticResource Badge.Aviso}"
+                                                                    HorizontalAlignment="Left" Margin="0,4,0,0"
+                                                                    Visibility="{Binding RegistroPendente,
+                                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                                <TextBlock Text="Sem evolução" />
+                                                            </Border>
+                                                            <Border Style="{StaticResource Badge}"
+                                                                    HorizontalAlignment="Left" Margin="0,4,0,0"
+                                                                    Visibility="{Binding ForaDaFila,
+                                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                                <TextBlock Text="Não aconteceu" />
+                                                            </Border>
+                                                        </StackPanel>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <ctrl:EstadoDaTela Vazio="{Binding Vazio}"
+                               Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
+                               Glifo="&#xE787;"
+                               TextoCarregando="Montando a semana…"
+                               Titulo="Nenhum horário nesta semana"
+                               Descricao="Os horários aparecem aqui assim que a recepção marcar." />
+        </Grid>
+    </DockPanel>
+</UserControl>
