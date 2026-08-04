@@ -55,8 +55,11 @@
                         </ListBox.Style>
                     </ListBox>
                 </StackPanel>
+                <!-- Apagados enquanto não houver paciente escolhido: a tela abre pela
+                     sidebar sem ninguém em foco, e botão aceso que não faz nada faz quem
+                     clica concluir que o sistema quebrou. -->
                 <WrapPanel HorizontalAlignment="Right" Margin="0,10,0,0"
-                           IsEnabled="{Binding PodeEditarProntuario}">
+                           IsEnabled="{Binding PodeEmitirDocumento}">
                     <Button Content="Receita" Margin="0,0,8,8" Padding="14,8"
                             Command="{Binding EmitirCommand}" CommandParameter="Receita" />
                     <Button Content="Atestado" Margin="0,0,8,8" Padding="14,8"

@@ -24,6 +24,7 @@
                 <TextBlock Text="dias" VerticalAlignment="Center"
                            Foreground="{StaticResource Brush.Texto.Secundario}" Margin="8,0,0,0" />
                 <Button Content="Exportar CSV" Command="{Binding ExportarCommand}"
+                        IsEnabled="{Binding TemParaExportar}"
                         Style="{StaticResource BotaoSecundario}" Margin="12,0,0,0" MinWidth="120" />
                 <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
             </StackPanel>

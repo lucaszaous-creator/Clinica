@@ -528,6 +528,26 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   **Medicação contínua entra como CONTEXTO, sem casar com item**: o valor dela é o que
   ainda não foi escrito, e casá-la produziria "você prescreveu o que ele já toma", que é o
   caso normal da renovação de receita.
+- **Botão aceso que não faz NADA** (parcela 41, 2ª rodada — regressão que o cliente pegou):
+  os quatro botões de emitir da tela de Prescrições não abriam janela nenhuma. O comando
+  começava com `if (_pacienteId == 0) return;` e voltava **calado**, enquanto o `IsEnabled`
+  só olhava a permissão — e a tela abre pela sidebar **sem paciente em foco**. Quem clica e
+  não vê nada acontecer conclui que o sistema quebrou; não tem como adivinhar que faltava
+  escolher alguém. O mesmo defeito estava na tela de Prescrições da RECEPÇÃO.
+  A regra do projeto já dizia isto para PERMISSÃO ("duas barreiras: `IsEnabled` explica,
+  `Exigir` impede"); ela vale para **toda pré-condição**: o botão diz que não dá, e a
+  guarda diz por quê. **Guarda que volta em silêncio é botão que não faz nada.**
+  A **checagem 21** cobra as duas metades juntas, e o cuidado está nas EXCEÇÕES — sem elas
+  a checagem viraria ruído e alguém a desligaria: guarda sobre **parâmetro** (`if (linha is
+  null)`) nunca dispara vindo de botão de linha; guarda de **reentrância**
+  (`if (Carregando)`) é "já estou fazendo", não "não dá para fazer", e ali o botão deve
+  mesmo ficar aceso; e guarda sobre **variável local** (`var caminho = Escolher(); if
+  (caminho is null)`) é diálogo cancelado, onde sair calado é o certo. O casamento
+  tela↔comando é pela convenção de nome (`FooView.xaml` ↔ `FooViewModel`), nunca pelo nome
+  do comando solto — `EditarCommand` existe em meia dúzia de telas que não se conhecem.
+  Ela também **ignora comentários** antes de procurar a guarda: um bloco explicativo de três
+  linhas empurrava a guarda para fora da janela de busca, e foi assim que a checagem deixou
+  de ver o defeito na primeira tentativa.
 - **O nome do enum vazando para a tela** (`RotulosEnum`, parcela 41): o CLIENTE achou em
   produção — o seletor de tipo da tela de documento clínico oferecia **"PedidoExame"**. A
   causa é de uma linha: `ComboBox` amarrado a uma lista de enum sem `DisplayMemberPath`
