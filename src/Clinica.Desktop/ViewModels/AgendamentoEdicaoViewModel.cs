@@ -36,6 +36,16 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     /// <summary>Aviso de contexto do paciente escolhido (carteirinha vencida etc.).</summary>
     [ObservableProperty] private string? _avisoPaciente;
 
+    /// <summary>
+    /// Consulta renovável vencida ou a vencer na data que está sendo marcada. Separado do
+    /// aviso acima porque os dois chegam juntos e são conversas diferentes: a carteirinha
+    /// se resolve com o convênio, a consulta se resolve aqui.
+    /// </summary>
+    [ObservableProperty] private string? _avisoConsulta;
+
+    /// <summary>A consulta já venceu (pinta o aviso de vermelho em vez de laranja).</summary>
+    [ObservableProperty] private bool _consultaVencida;
+
     /// <summary>Id do agendamento em edição. Null = agendamento novo.</summary>
     [ObservableProperty] private int? _editandoId;
 
@@ -67,9 +77,18 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(ModalidadeConsulta));
     }
 
+    // A consulta é conferida contra a data marcada: mudar a data muda a resposta.
+    partial void OnDataChanged(DateTime value)
+    {
+        if (Seletor.Selecionado is { } paciente) _ = ConferirConsultaAsync(paciente.Id);
+    }
+
     // Pré-preenche a modalidade com a habitual do paciente e avisa o que atrapalha a guia.
     private void AoTrocarPaciente(Paciente? value)
     {
+        AvisoConsulta = null;
+        ConsultaVencida = false;
+
         if (value is null)
         {
             AvisoPaciente = null;
@@ -83,6 +102,38 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         AvisoPaciente = value.CarteirinhaVencida
             ? $"Carteirinha vencida em {value.ValidadeCarteirinha:dd/MM/yyyy} — renove antes do atendimento, senão a guia é recusada."
             : null;
+
+        _ = ConferirConsultaAsync(value.Id);
+    }
+
+    /// <summary>
+    /// Consulta renovável do paciente NA DATA QUE ESTÁ SENDO MARCADA — não hoje. Marcar
+    /// para daqui a três semanas com uma consulta que vence em cinco dias é combinar a
+    /// renovação de antemão; conferir contra hoje diria que está tudo certo.
+    ///
+    /// Falha não impede marcar, mas não passa em branco: sem o aviso a tela estaria
+    /// dizendo "não há nada a renovar" sobre o que não conseguiu conferir.
+    /// </summary>
+    private async Task ConferirConsultaAsync(int pacienteId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<ConsultaService>();
+            var situacao = await servico.DoPacienteAsync(pacienteId, DateOnly.FromDateTime(Data));
+
+            // A seleção pode ter mudado enquanto a consulta rodava.
+            if (Seletor.Selecionado?.Id != pacienteId) return;
+
+            AvisoConsulta = situacao?.AvisoRenovacao;
+            ConsultaVencida = situacao?.Vencida ?? false;
+        }
+        catch (Exception ex)
+        {
+            Configuracao.LogErros.Registrar("Agendamento — consulta a renovar não pôde ser conferida", ex);
+            AvisoConsulta = "Não foi possível conferir a consulta renovável deste paciente.";
+            ConsultaVencida = false;
+        }
     }
 
     /// <summary>Disparado quando o agendamento é criado (a janela fecha).</summary>

@@ -47,6 +47,27 @@
                         </StackPanel>
                     </Border>
 
+                    <!-- Consulta renovável: renovar com o paciente marcado é uma assinatura;
+                         descobrir na hora de faturar é telefonar para quem já foi embora. -->
+                    <Border DockPanel.Dock="Bottom" Margin="0,10,0,0"
+                            Visibility="{Binding AvisoConsulta, Converter={StaticResource TextoParaVisibilidade}}">
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource AlertaAviso}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ConsultaVencida}" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                        <Setter Property="TextElement.Foreground" Value="{StaticResource Brush.Erro.Texto}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE787;" Style="{StaticResource Icone}" Margin="0,0,8,0"
+                                       VerticalAlignment="Top" />
+                            <TextBlock Text="{Binding AvisoConsulta}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
                     <TextBlock DockPanel.Dock="Bottom" Text="{Binding Seletor.Erro}" TextWrapping="Wrap"
                                Margin="0,8,0,0" Foreground="{StaticResource Brush.Erro.Texto}"
                                Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade}}" />

@@ -20,10 +20,20 @@ public sealed record CartaoAgendamento(
     bool Agendado,
     bool Realizado,
     bool Faltou,
-    bool Cancelado)
+    bool Cancelado,
+    string? SeloConsulta = null,
+    string? AvisoConsulta = null,
+    bool ConsultaVencida = false)
 {
     /// <summary>Cancelado ou falta: some do primeiro plano (opacidade menor no cartão).</summary>
     public bool Encerrado => Cancelado || Faltou;
+
+    /// <summary>
+    /// Há consulta renovável a cobrar deste paciente. A frase vem pronta do
+    /// <c>StatusConsultaPaciente</c> — a tela não decide o que é "a renovar", senão a
+    /// agenda passaria a discordar da aba Consultas sobre o mesmo paciente.
+    /// </summary>
+    public bool TemAvisoConsulta => SeloConsulta is not null;
 }
 
 /// <summary>

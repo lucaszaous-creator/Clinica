@@ -855,6 +855,30 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   costuma estar em trânsito, e **alerta que dispara para todo mundo é alerta que ninguém
   lê**; a dívida é sempre **amarela** — vermelho neste serviço significa "a guia vai ser
   recusada", e dívida é assunto de conversa, não impedimento de atender.
+- **A consulta a renovar chega ao horário** (`ConsultaService.SituacaoDeAsync` /
+  `DoPacienteAsync`): a consulta renovável era lida em exatamente DOIS lugares — a aba
+  Consultas e o painel de pendências —, e nenhum deles é onde a secretária está quando
+  marca ou recebe o paciente. Oitava ocorrência do defeito recorrente do projeto, na
+  variante "leitor existe, mas não onde a decisão acontece": renovar com a pessoa presente
+  é uma assinatura, e descobrir a consulta vencida na hora de faturar é ligar para quem já
+  foi embora com a guia recusada na mão. Agora aparece na **agenda** (selo no cartão +
+  linha de contexto no cabeçalho), no **novo agendamento**, no **novo atendimento** e —
+  pelo `ElegibilidadeService` — na Fila, na ficha e no Consultório da suíte.
+  As regras: a agenda usa **`ARenovar`, não `PrecisaRenovar`** — quem NUNCA emitiu
+  consulta fica de fora, porque o selo acenderia para toda a base de convênio no primeiro
+  dia e alerta que dispara para todo mundo é alerta que ninguém lê (é a mesma escolha que
+  `PendenciaService.ConsultasAVencerAsync` já fazia, e a aba Consultas continua mostrando
+  a linha, que ali é o assunto da tela); a frase e o selo moram no **modelo**
+  (`StatusConsultaPaciente.AvisoRenovacao`/`SeloRenovacao`), para o faturamento e a suíte
+  não escreverem duas versões da mesma cobrança; a regra de "precisa renovar" tem **um só
+  `Avaliar`**, senão a agenda passaria a discordar da aba Consultas sobre o mesmo paciente;
+  a referência é a **data marcada, não hoje** (marcar para daqui a três semanas com uma
+  consulta que vence em cinco dias é combinar a renovação de antemão); a leitura é **em
+  lote pelos pacientes da grade** (`ConsultasDosPacientesAsync`), porque varrer a base
+  inteira para responder sobre as vinte pessoas de hoje é caro num banco remoto e a agenda
+  recarrega a cada navegação de dia; e **cancelado e falta não recebem selo** — não há
+  ninguém para assinar nada. Falha da conferência vira **terceiro estado escrito** ("não
+  foi possível conferir"), nunca agenda limpa.
 - **A Recepção no balcão** (parcela 26): seis buracos do módulo que fatura o dia.
   **Elegibilidade ANTES** (`ElegibilidadeService` no check-in da Fila e no agendamento):
   carteirinha vencida e cota estourada só apareciam na hora de faturar, quando a sessão
