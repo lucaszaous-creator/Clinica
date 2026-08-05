@@ -1,0 +1,272 @@
+using Clinica.Application.Abstracoes;
+using Clinica.Application.Assinatura;
+using Clinica.Domain;
+using Clinica.Domain.Entities;
+
+namespace Clinica.Application.Servicos;
+
+/// <summary>Uma das duas folhas, pronta para ler ou reimprimir.</summary>
+/// <param name="Conferencia">
+/// Só vem preenchida quando a folha tem assinatura eletrônica. É ela que diz se o arquivo
+/// continua íntegro — nunca se assume que sim.
+/// </param>
+public sealed record FolhaAssinada(
+    byte[] Pdf,
+    string NomeArquivo,
+    AssinaturaDocumento? Assinatura,
+    ConferenciaAssinatura? Conferencia);
+
+/// <summary>
+/// A ORQUESTRAÇÃO da assinatura: gerar o PDF, assinar com o certificado, guardar os bytes
+/// e gravar o fato (parcela 42).
+///
+/// Por que é um serviço, e não código de tela
+/// ------------------------------------------
+/// Porque a sequência tem uma regra que não pode morar num clique: <b>o CPF do certificado
+/// tem de bater com o CPF do profissional</b>. Sem ela, "assinatura qualificada" provaria
+/// apenas que alguém com algum token assinou — e o e-CPF da recepcionista assinaria a
+/// prescrição da médica sem um único alerta. É a metade que faz a garantia valer, e uma
+/// regra dessas escrita no code-behind de uma janela sobrevive até a segunda tela que
+/// precisar assinar.
+///
+/// A divisão de trabalho com os outros três
+/// ----------------------------------------
+/// <see cref="PrescricaoInternaPdfService"/> desenha, <see cref="AssinaturaDigitalService"/>
+/// assina e confere, <see cref="PrescricaoInternaService"/> e
+/// <see cref="ChecagemPrescricaoService"/> guardam as regras de negócio. Este aqui só os
+/// põe na ordem certa — e é por isso que os testes daqueles três não precisam de
+/// certificado nenhum.
+/// </summary>
+public sealed class AssinaturaDePrescricaoService
+{
+    private readonly IClinicaRepositorio _repo;
+    private readonly PrescricaoInternaService _prescricoes;
+    private readonly ChecagemPrescricaoService _checagens;
+    private readonly PrescricaoInternaPdfService _pdfs;
+    private readonly AssinaturaDigitalService _assinador;
+    private readonly ParametrosService _parametros;
+
+    public AssinaturaDePrescricaoService(
+        IClinicaRepositorio repo,
+        PrescricaoInternaService prescricoes,
+        ChecagemPrescricaoService checagens,
+        PrescricaoInternaPdfService pdfs,
+        AssinaturaDigitalService assinador,
+        ParametrosService parametros)
+    {
+        _repo = repo;
+        _prescricoes = prescricoes;
+        _checagens = checagens;
+        _pdfs = pdfs;
+        _assinador = assinador;
+        _parametros = parametros;
+    }
+
+    /// <summary>
+    /// Assina a prescrição: gera a folha, sela com o certificado do prescritor e grava.
+    /// </summary>
+    public async Task<ResultadoAssinaturaPrescricao> AssinarPrescricaoAsync(
+        int prescricaoId, CertificadoAssinatura certificado,
+        bool confirmouAlergia = false, int? usuarioId = null, string? operador = null,
+        CancellationToken ct = default)
+    {
+        var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
+            ?? throw new InvalidOperationException("Prescrição não encontrada.");
+
+        ExigirTitularCompativel(certificado, prescricao.Profissional?.Cpf, prescricao.Profissional?.Nome);
+
+        var pdf = await _pdfs.GerarPrescricaoAsync(prescricaoId, await PrestadorAsync(ct), ct);
+
+        var assinado = await SelarAsync(
+            pdf, certificado,
+            motivo: $"Prescrição de execução interna {prescricao.Numero}",
+            nomeExibido: prescricao.Profissional?.Nome ?? certificado.Titular,
+            registroConselho: prescricao.Profissional?.RegistroConselho,
+            ct);
+
+        var arquivo = await GuardarAsync(assinado.Pdf, $"{prescricao.Numero}.pdf", ct);
+
+        var assinatura = Montar(
+            certificado, assinado, arquivo, usuarioId,
+            prescricao.Profissional?.Nome ?? certificado.Titular,
+            prescricao.Profissional?.RegistroConselho);
+
+        return await _prescricoes.AssinarAsync(
+            prescricaoId, assinatura, confirmouAlergia, operador, ct);
+    }
+
+    /// <summary>
+    /// Encerra a execução: gera o registro da enfermagem, sela com o certificado de quem
+    /// executou e grava.
+    /// </summary>
+    public async Task<PrescricaoInterna> EncerrarExecucaoAsync(
+        int prescricaoId, CertificadoAssinatura certificado,
+        IdentificacaoExecutante executante, string? cpfDoExecutante = null,
+        CancellationToken ct = default)
+    {
+        var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
+            ?? throw new InvalidOperationException("Prescrição não encontrada.");
+
+        ExigirTitularCompativel(certificado, cpfDoExecutante, executante.Nome);
+
+        var pdf = await _pdfs.GerarRegistroExecucaoAsync(prescricaoId, await PrestadorAsync(ct), ct);
+
+        var assinado = await SelarAsync(
+            pdf, certificado,
+            motivo: $"Registro de execução de enfermagem — {prescricao.Numero}",
+            nomeExibido: executante.Nome,
+            registroConselho: executante.Conselho,
+            ct);
+
+        var arquivo = await GuardarAsync(
+            assinado.Pdf, $"{prescricao.Numero} execucao.pdf", ct);
+
+        var assinatura = Montar(
+            certificado, assinado, arquivo, executante.UsuarioId,
+            executante.Nome, executante.Conselho);
+
+        return await _checagens.EncerrarAsync(prescricaoId, assinatura, executante, ct);
+    }
+
+    /// <summary>
+    /// A folha para ler ou reimprimir.
+    ///
+    /// Quando existe assinatura eletrônica, devolve <b>os bytes GUARDADOS</b>, nunca um PDF
+    /// novo: a assinatura cobre uma faixa de bytes do arquivo, e um documento "igual"
+    /// regerado agora teria outra — a segunda via sairia com a assinatura inválida. Quando
+    /// não existe, monta na hora, que é o caminho do rascunho e da via para assinar à mão.
+    /// </summary>
+    public async Task<FolhaAssinada> FolhaAsync(
+        int prescricaoId, PapelAssinatura papel, CancellationToken ct = default)
+    {
+        var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
+            ?? throw new InvalidOperationException("Prescrição não encontrada.");
+
+        var assinatura = papel == PapelAssinatura.Prescritor
+            ? prescricao.AssinaturaDoPrescritor
+            : prescricao.AssinaturaDoExecutante;
+
+        var sufixo = papel == PapelAssinatura.Prescritor ? string.Empty : " execucao";
+        var nome = $"{prescricao.Numero.Replace('/', '-')}{sufixo}.pdf";
+
+        if (assinatura?.ArquivoId is int arquivoId
+            && await _repo.ObterArquivoAssinadoAsync(arquivoId, ct) is { } guardado)
+        {
+            return new FolhaAssinada(
+                guardado.Conteudo, guardado.NomeArquivo,
+                assinatura, _assinador.Conferir(guardado.Conteudo));
+        }
+
+        var prestador = await PrestadorAsync(ct);
+        var pdf = papel == PapelAssinatura.Prescritor
+            ? await _pdfs.GerarPrescricaoAsync(prescricaoId, prestador, ct)
+            : await _pdfs.GerarRegistroExecucaoAsync(prescricaoId, prestador, ct);
+
+        return new FolhaAssinada(pdf, nome, assinatura, null);
+    }
+
+    // ---- Apoio ----
+
+    /// <summary>
+    /// O certificado tem de ser DA PESSOA que está assinando.
+    ///
+    /// Três situações, e as três precisam de tratamento diferente:
+    /// - <b>Os dois CPFs existem e diferem</b> → recusa. É o caso que a regra existe para
+    ///   pegar: o token de outra pessoa.
+    /// - <b>O certificado não traz CPF</b> (não é e-CPF ICP-Brasil) → recusa, porque então
+    ///   não há como saber de quem ele é, e uma assinatura qualificada anônima não é
+    ///   qualificada para nada.
+    /// - <b>O profissional não tem CPF cadastrado</b> → recusa, e diz onde cadastrar. É
+    ///   chato, e a alternativa é pior: aceitar em silêncio faria a conferência existir só
+    ///   para quem já a tinha, e o buraco ficaria exatamente em quem esqueceu de preencher.
+    /// </summary>
+    private static void ExigirTitularCompativel(
+        CertificadoAssinatura certificado, string? cpfEsperado, string? nome)
+    {
+        if (certificado.Cpf is null)
+            throw new InvalidOperationException(
+                $"O certificado de {certificado.Titular} não é um e-CPF ICP-Brasil (não traz "
+                + "o CPF do titular). Sem isso não há como confirmar de quem ele é.");
+
+        var esperado = Cpf.Normalizar(cpfEsperado);
+
+        if (esperado.Length == 0)
+            throw new InvalidOperationException(
+                $"{nome ?? "O profissional"} não tem CPF cadastrado, e sem ele o sistema não "
+                + "consegue confirmar que o certificado é mesmo desta pessoa. Cadastre o CPF "
+                + "em Equipe e assine de novo.");
+
+        if (esperado != certificado.Cpf)
+            throw new InvalidOperationException(
+                $"O certificado escolhido é de {certificado.Titular} "
+                + $"(CPF {Cpf.Formatar(certificado.Cpf)}), e a folha está sendo assinada como "
+                + $"{nome}. Cada um assina com o próprio certificado.");
+    }
+
+    private async Task<ResultadoAssinatura> SelarAsync(
+        byte[] pdf, CertificadoAssinatura certificado, string motivo,
+        string nomeExibido, string? registroConselho, CancellationToken ct)
+    {
+        var area = PrescricaoInternaPdfService.AreaDaAssinatura(ContarPaginas(pdf));
+
+        return _assinador.Assinar(pdf, certificado, new PedidoAssinatura(
+            Motivo: motivo,
+            NomeExibido: nomeExibido,
+            RegistroConselho: registroConselho,
+            Area: area,
+            CarimbadoraDeTempo: await _parametros.ObterCarimbadoraDeTempoAsync(ct)));
+    }
+
+    private async Task<ArquivoAssinado> GuardarAsync(
+        byte[] pdf, string nome, CancellationToken ct)
+    {
+        var arquivo = new ArquivoAssinado
+        {
+            Conteudo = pdf,
+            NomeArquivo = nome,
+            GeradoEm = DateTime.Now
+        };
+
+        await _repo.AdicionarArquivoAssinadoAsync(arquivo, ct);
+
+        // Gravado ANTES da assinatura porque a AssinaturaDocumento aponta para ele: sem o
+        // Id, a chave estrangeira ficaria nula e o PDF viraria órfão — a quinta variante
+        // do "dado gravado sem leitor", desta vez com o leitor existindo e o dado perdido.
+        await _repo.SalvarAsync(ct);
+        return arquivo;
+    }
+
+    private static AssinaturaDocumento Montar(
+        CertificadoAssinatura certificado, ResultadoAssinatura assinado,
+        ArquivoAssinado arquivo, int? usuarioId, string nome, string? conselho)
+        => new()
+        {
+            Tipo = TipoAssinatura.IcpBrasil,
+            HashConteudo = assinado.Hash,
+            AlgoritmoHash = "SHA-256",
+            AssinadoEm = DateTime.Now,
+            UsuarioId = usuarioId,
+            NomeAssinante = nome,
+            RegistroConselho = conselho,
+            CpfAssinante = certificado.Cpf,
+            CertificadoTitular = certificado.Titular,
+            CertificadoEmissor = certificado.Emissor,
+            CertificadoSerie = certificado.NumeroSerie,
+            CertificadoValidoDe = certificado.ValidoDe,
+            CertificadoValidoAte = certificado.ValidoAte,
+            CarimboTempoEm = assinado.CarimboTempoEm,
+            CarimboTempoAutoridade = assinado.CarimboTempoAutoridade,
+            ArquivoId = arquivo.Id
+        };
+
+    private Task<Modelos.DadosPrestador> PrestadorAsync(CancellationToken ct)
+        => _parametros.ObterPrestadorAsync(ct);
+
+    private static int ContarPaginas(byte[] pdf)
+    {
+        using var fluxo = new MemoryStream(pdf, writable: false);
+        using var documento = PdfSharp.Pdf.IO.PdfReader.Open(
+            fluxo, PdfSharp.Pdf.IO.PdfDocumentOpenMode.Import);
+        return documento.PageCount;
+    }
+}

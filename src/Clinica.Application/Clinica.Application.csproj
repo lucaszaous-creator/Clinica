@@ -6,6 +6,9 @@
 
   <ItemGroup>
     <PackageReference Include="QuestPDF" Version="2026.7.1" />
+    <!-- Assinatura ICP-Brasil no PDF (parcela 42): MIT, multiplataforma, e o assinador
+         padrão dele já aceita URL de ACT para o carimbo do tempo RFC 3161. -->
+    <PackageReference Include="PdfSharp" Version="6.2.4" />
   </ItemGroup>
 
   <!-- Marca (logo SemDor): embarcada para desenhar no cabeçalho dos PDFs (capa, guia, fechamento). -->

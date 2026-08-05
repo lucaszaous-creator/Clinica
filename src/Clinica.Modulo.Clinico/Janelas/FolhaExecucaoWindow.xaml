@@ -1,0 +1,219 @@
+<Window x:Class="Clinica.Clinico.Janelas.FolhaExecucaoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Folha de execução" Width="1080" Height="660"
+        MinWidth="880" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap">
+                <Run Text="Folha de execução " />
+                <Run Text="{Binding Numero, Mode=OneWay}" />
+            </TextBlock>
+            <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap" Margin="0,2,0,0"
+                       FontSize="{StaticResource Fonte.H3}" FontWeight="SemiBold"
+                       Foreground="{StaticResource Brush.Texto.Primario}" />
+            <TextBlock Text="{Binding Cabecalho}" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Style="{StaticResource TextoSuave}" />
+            <TextBlock Text="{Binding Resumo}" TextWrapping="Wrap" Margin="0,2,0,0"
+                       Style="{StaticResource TextoSuave}" />
+        </StackPanel>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding TemAlertas, Converter={StaticResource BoolParaVisibilidade}}">
+            <ItemsControl ItemsSource="{Binding Alertas}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,1" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <!-- A hora é UMA para a folha, digitada, e vem só sugerida: a técnica administra
+             às 14h e registra às 14h20 — o campo é dela, não do relógio. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Medio}" Padding="12,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="Hora da administração"
+                           VerticalAlignment="Center" Margin="0,0,10,0"
+                           Style="{StaticResource Rotulo}" TextWrapping="Wrap" />
+                <TextBox Grid.Column="1" Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
+                         IsEnabled="{Binding PodeMexer}" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Style="{StaticResource TextoSuave}"
+                           VerticalAlignment="Center" Margin="12,0,0,0" TextWrapping="Wrap"
+                           Text="Escreva o horário em que o item foi de fato administrado. O sistema guarda ao lado a hora em que você registrou." />
+            </Grid>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Style="{StaticResource TextoSuave}"
+                           VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap"
+                           Text="Encerrar assina o registro de enfermagem com o seu certificado. Depois disso a folha não pode mais ser checada." />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Fechar" IsCancel="True" MinWidth="100"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}" />
+                    <Button Content="Encerrar e assinar" Margin="8,0,0,0" MinWidth="180"
+                            VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeEncerrar}"
+                            Command="{Binding EncerrarCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource BoolParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background"
+                                    Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}"
+                BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
+            <Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Itens}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="16,12" BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="34" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{Binding Ordem}"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                    Margin="0,0,12,0">
+                                            <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <TextBlock Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Margin="0,3,0,0" />
+                                            <TextBlock Text="{Binding Justificativa}" TextWrapping="Wrap"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Margin="0,4,0,0"
+                                                       Foreground="{StaticResource Brush.Erro}"
+                                                       Visibility="{Binding Justificativa,
+                                                                    Converter={StaticResource BoolParaVisibilidade},
+                                                                    FallbackValue=Collapsed}" />
+                                            <TextBlock Text="{Binding Executante}" TextWrapping="Wrap"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Margin="0,3,0,0"
+                                                       Visibility="{Binding Executante,
+                                                                    Converter={StaticResource BoolParaVisibilidade},
+                                                                    FallbackValue=Collapsed}" />
+                                        </StackPanel>
+
+                                        <!-- O "chequezinho" e a "rodela": a linguagem visual
+                                             que quem lê esta tela já lê em folha de hospital. -->
+                                        <TextBlock Grid.Column="2" Text="{Binding Marca}"
+                                                   VerticalAlignment="Center" TextWrapping="Wrap"
+                                                   FontSize="{StaticResource Fonte.H3}"
+                                                   FontWeight="SemiBold">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground"
+                                                            Value="{StaticResource Brush.Texto.Secundario}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Realizado}" Value="True">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Sucesso.Forte}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding NaoRealizado}" Value="True">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Erro}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                    VerticalAlignment="Center"
+                                                    IsEnabled="{Binding DataContext.PodeMexer,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                            <Button Content="✓ Realizado" Margin="0,0,6,0"
+                                                    Style="{StaticResource BotaoAcaoGrid}"
+                                                    Visibility="{Binding Pendente,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}"
+                                                    Command="{Binding DataContext.RealizadoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="○ Não realizado" Margin="0,0,6,0"
+                                                    Style="{StaticResource BotaoSecundarioPerigo}"
+                                                    Visibility="{Binding Pendente,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}"
+                                                    Command="{Binding DataContext.NaoRealizadoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Retificar"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    Visibility="{Binding Checado,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}"
+                                                    Command="{Binding DataContext.RetificarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <ctrl:EstadoDaTela Itens="{Binding Itens}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE8A5;"
+                                   TextoCarregando="Abrindo a folha…"
+                                   Titulo="Esta folha não tem itens"
+                                   Descricao="Uma prescrição sem item não deveria ter sido assinada — avise quem prescreveu." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</Window>

@@ -119,6 +119,54 @@ public static class RotulosEnum
 
         Sexo s => s == Sexo.Masculino ? "Masculino" : "Feminino",
 
+        // ---- prescrição interna e checagem de enfermagem (parcela 42) ----
+        //
+        // A via é o campo mais lido da folha de infusão e o mais abreviado no dia a dia:
+        // ninguém na sala fala "endovenosa", fala "EV". A sigla vem junto do nome porque o
+        // seletor é do prescritor (que escreve por extenso) e a folha é da técnica (que lê
+        // a sigla) — deixar só um dos dois obrigaria metade da equipe a traduzir.
+        ViaAdministracao v => v switch
+        {
+            ViaAdministracao.Endovenosa => "Endovenosa (EV)",
+            ViaAdministracao.Intramuscular => "Intramuscular (IM)",
+            ViaAdministracao.Subcutanea => "Subcutânea (SC)",
+            ViaAdministracao.Intradermica => "Intradérmica (ID)",
+            ViaAdministracao.Oral => "Oral (VO)",
+            ViaAdministracao.Inalatoria => "Inalatória",
+            ViaAdministracao.Topica => "Tópica",
+            _ => "Outra"
+        },
+
+        SituacaoPrescricao s => s switch
+        {
+            SituacaoPrescricao.Rascunho => "Rascunho",
+            SituacaoPrescricao.Assinada => "Assinada",
+            SituacaoPrescricao.Encerrada => "Encerrada",
+            _ => "Cancelada"
+        },
+
+        SituacaoChecagem s => s == SituacaoChecagem.Realizado ? "Realizado" : "Não realizado",
+
+        SituacaoItemPrescricao s => s switch
+        {
+            SituacaoItemPrescricao.Pendente => "Aguardando",
+            SituacaoItemPrescricao.Realizado => "Realizado",
+            SituacaoItemPrescricao.NaoRealizado => "Não realizado",
+            _ => "Suspenso"
+        },
+
+        PapelAssinatura p => p == PapelAssinatura.Prescritor ? "Prescritor" : "Enfermagem",
+
+        // O rótulo do NÍVEL de assinatura é frase inteira e mora na entidade
+        // (AssinaturaDocumento.RotuloDoNivel), porque é o que vai IMPRESSO no rodapé do
+        // PDF. Aqui fica a versão curta, do seletor.
+        TipoAssinatura t => t switch
+        {
+            TipoAssinatura.IcpBrasil => "Certificado ICP-Brasil",
+            TipoAssinatura.EletronicaAvancada => "Eletrônica no sistema",
+            _ => "À mão, na via impressa"
+        },
+
         // ---- faturamento (lido pelo app congelado; rótulo só melhora a tela) ----
         TipoCodigo t => t switch
         {

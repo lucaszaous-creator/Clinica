@@ -1022,6 +1022,118 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return emitidos + 1;
     }
 
+    // ---- Prescrição de execução interna e checagem de enfermagem (parcela 42) ----
+
+    public async Task AdicionarPrescricaoInternaAsync(
+        PrescricaoInterna prescricao, CancellationToken ct = default)
+        => await _db.PrescricoesInternas.AddAsync(prescricao, ct);
+
+    public Task<PrescricaoInterna?> ObterPrescricaoInternaAsync(
+        int prescricaoId, CancellationToken ct = default)
+        => _db.PrescricoesInternas
+            .Include(p => p.Paciente)
+            .Include(p => p.Profissional)
+            .Include(p => p.Itens).ThenInclude(i => i.Checagens)
+            .Include(p => p.Assinaturas)
+            .FirstOrDefaultAsync(p => p.Id == prescricaoId, ct);
+
+    public Task<PrescricaoInterna?> ObterPrescricaoInternaPorCodigoAsync(
+        string codigo, CancellationToken ct = default)
+    {
+        var limpo = (codigo ?? string.Empty).Trim().ToUpperInvariant();
+        return _db.PrescricoesInternas
+            .Include(p => p.Paciente)
+            .Include(p => p.Profissional)
+            .Include(p => p.Itens).ThenInclude(i => i.Checagens)
+            .Include(p => p.Assinaturas)
+            .FirstOrDefaultAsync(p => p.CodigoVerificacao == limpo, ct);
+    }
+
+    public async Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasDoPacienteAsync(
+        int pacienteId, int limite = 50, CancellationToken ct = default)
+        => await _db.PrescricoesInternas.AsNoTracking()
+            .Include(p => p.Profissional)
+            .Include(p => p.Itens).ThenInclude(i => i.Checagens)
+            .Include(p => p.Assinaturas)
+            .Where(p => p.PacienteId == pacienteId)
+            .OrderByDescending(p => p.Data).ThenByDescending(p => p.Id)
+            .Take(limite)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasDoDiaAsync(
+        DateOnly data, int? profissionalId = null, bool incluirEncerradas = false,
+        CancellationToken ct = default)
+    {
+        var q = _db.PrescricoesInternas.AsNoTracking()
+            .Include(p => p.Paciente)
+            .Include(p => p.Profissional)
+            .Include(p => p.Itens).ThenInclude(i => i.Checagens)
+            .Include(p => p.Assinaturas)
+            .Where(p => p.Data == data);
+
+        // Rascunho e cancelada NUNCA aparecem na sala: a primeira ninguém assinou, e a
+        // segunda foi desfeita. Mostrar qualquer uma das duas convidaria a técnica a
+        // administrar o que não está mandado.
+        q = incluirEncerradas
+            ? q.Where(p => p.Situacao == SituacaoPrescricao.Assinada
+                        || p.Situacao == SituacaoPrescricao.Encerrada)
+            : q.Where(p => p.Situacao == SituacaoPrescricao.Assinada);
+
+        if (profissionalId is int pid)
+            q = q.Where(p => p.ProfissionalId == pid);
+
+        return await q.OrderBy(p => p.Hora).ThenBy(p => p.Id).ToListAsync(ct);
+    }
+
+    public Task<ItemPrescricaoInterna?> ObterItemPrescricaoInternaAsync(
+        int itemId, CancellationToken ct = default)
+        => _db.ItensPrescricaoInterna
+            .Include(i => i.Prescricao)
+            .Include(i => i.Checagens)
+            .FirstOrDefaultAsync(i => i.Id == itemId, ct);
+
+    public async Task AdicionarChecagemPrescricaoAsync(
+        ChecagemPrescricao checagem, CancellationToken ct = default)
+        => await _db.ChecagensPrescricao.AddAsync(checagem, ct);
+
+    public async Task<int> ProximoNumeroPrescricaoInternaAsync(int ano, CancellationToken ct = default)
+    {
+        // Contar serve pela mesma razão do documento clínico: cancelar mantém a linha, e
+        // com ela o número — a folha pode ter sido impressa antes do cancelamento.
+        var prefixo = $"PRE {ano}/";
+        var emitidas = await _db.PrescricoesInternas.AsNoTracking()
+            .CountAsync(p => p.Numero.StartsWith(prefixo), ct);
+        return emitidas + 1;
+    }
+
+    public Task<ArquivoAssinado?> ObterArquivoAssinadoAsync(
+        int arquivoId, CancellationToken ct = default)
+        => _db.ArquivosAssinados.AsNoTracking()
+            .FirstOrDefaultAsync(a => a.Id == arquivoId, ct);
+
+    public async Task AdicionarArquivoAssinadoAsync(
+        ArquivoAssinado arquivo, CancellationToken ct = default)
+        => await _db.ArquivosAssinados.AddAsync(arquivo, ct);
+
+    public async Task<int> PrescricoesInternasPendentesAsync(
+        DateOnly data, int? profissionalId = null, CancellationToken ct = default)
+    {
+        // "Pendente" no SQL é: existe item não suspenso cuja última palavra ainda não foi
+        // dita. Não dá para reusar ItemPrescricaoInterna.Situacao aqui — ela é C# e
+        // traduzi-la obrigaria a materializar o grafo do dia inteiro para contar linhas.
+        var q = _db.PrescricoesInternas.AsNoTracking()
+            .Where(p => p.Data == data && p.Situacao == SituacaoPrescricao.Assinada);
+
+        if (profissionalId is int pid)
+            q = q.Where(p => p.ProfissionalId == pid);
+
+        // O "se necessário" fica de fora pela mesma razão de PrescricaoInterna.Pendentes:
+        // condição que não aconteceu não é trabalho atrasado.
+        return await q.CountAsync(
+            p => p.Itens.Any(i => i.SuspensoEm == null && !i.SeNecessario && !i.Checagens.Any()),
+            ct);
+    }
+
     public async Task<IReadOnlyList<ModeloDocumento>> ModelosDocumentoAsync(
         TipoDocumentoClinico? tipo = null, CancellationToken ct = default)
         => await _db.ModelosDocumento.AsNoTracking()

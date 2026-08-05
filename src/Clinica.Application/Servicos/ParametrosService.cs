@@ -266,6 +266,32 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Carimbo do tempo das assinaturas ICP-Brasil (parcela 42) ----
+
+    public const string ChaveCarimbadoraDeTempo = "AssinaturaCarimbadoraDeTempoUrl";
+
+    /// <summary>
+    /// URL de uma ACT (autoridade de carimbo do tempo, RFC 3161), ou null.
+    ///
+    /// Nasce VAZIA de propósito. Sem ela a assinatura é PAdES-B: válida, com a data por
+    /// conta do relógio de quem assinou — e o PDF escreve exatamente isso. Chutar uma ACT
+    /// pública faria a clínica confiar num carimbo que ninguém contratou e que pode sair
+    /// do ar sem aviso, transformando "assinar" numa operação que às vezes falha por
+    /// motivo que ninguém entende.
+    /// </summary>
+    public async Task<Uri?> ObterCarimbadoraDeTempoAsync(CancellationToken ct = default)
+    {
+        var valor = await _repo.ObterConfiguracaoAsync(ChaveCarimbadoraDeTempo, ct);
+        return Uri.TryCreate(valor, UriKind.Absolute, out var url) ? url : null;
+    }
+
+    public async Task SalvarCarimbadoraDeTempoAsync(string? url, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(
+            ChaveCarimbadoraDeTempo, (url ?? string.Empty).Trim(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Numeração sequencial de lote TISS (o padrão exige sequência, não timestamp) ----
 
     public const string ChaveProximoLoteTiss = "TissProximoNumeroLote";

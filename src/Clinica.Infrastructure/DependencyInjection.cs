@@ -1,3 +1,4 @@
+using Clinica.Application.Assinatura;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Regras;
@@ -35,6 +36,15 @@ public static class DependencyInjection
         services.AddScoped<ProblemaPacienteService>();
         // Conferência clínica da prescrição (parcela 40): alergia registrada × item escrito.
         services.AddScoped<PrescricaoService>();
+        // Prescrição de execução interna, checagem de enfermagem e assinatura ICP-Brasil
+        // (parcela 42). O assinador é SINGLETON e sem estado — ele não toca no banco, e
+        // exige cadeia confiável porque assinatura que não encadeia abre como inválida em
+        // qualquer leitor de PDF (só os testes o constroem com a exigência desligada).
+        services.AddScoped<PrescricaoInternaService>();
+        services.AddScoped<ChecagemPrescricaoService>();
+        services.AddScoped<PrescricaoInternaPdfService>();
+        services.AddScoped<AssinaturaDePrescricaoService>();
+        services.AddSingleton(new AssinaturaDigitalService(exigirCadeiaConfiavel: true));
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();
         services.AddScoped<ConsentimentoService>();

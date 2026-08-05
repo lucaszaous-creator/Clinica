@@ -107,6 +107,15 @@
                             </StackPanel>
                         </Grid>
 
+                        <StackPanel Margin="0,14,0,0">
+                            <TextBlock Text="Carimbadora de tempo (ACT) — opcional"
+                                       Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding CarimbadoraDeTempo}" MaxLength="300" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="Endereço RFC 3161 de uma autoridade de carimbo do tempo, para as assinaturas ICP-Brasil das prescrições. Em branco a assinatura continua válida — só que a data é a do relógio de quem assinou, e o PDF diz isso." />
+                        </StackPanel>
+
                         <Button Content="Salvar operação" Command="{Binding SalvarOperacaoCommand}"
                                 HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
                     </StackPanel>
