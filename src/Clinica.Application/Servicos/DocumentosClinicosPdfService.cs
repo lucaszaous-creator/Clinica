@@ -399,10 +399,11 @@ public sealed class DocumentosClinicosPdfService
             c.Item().PaddingTop(2).Text(t =>
             {
                 t.Span("2.  ").SemiBold().FontSize(9);
-                t.Span($"Envie o arquivo em {ValidadorOficial}").FontSize(9);
+                t.Span($"ENVIE O ARQUIVO em {ValidadorOficial}").FontSize(9);
                 t.Span("  (validador oficial do ITI, com apoio do CFM e do CFF — gratuito, "
                        + "sem cadastro para conferir).").FontSize(9).FontColor(TextoSecundario);
             });
+
 
             c.Item().PaddingTop(2).Text(t =>
             {
@@ -410,6 +411,17 @@ public sealed class DocumentosClinicosPdfService
                 t.Span("O validador responde se o documento está íntegro, se a assinatura é "
                        + "de quem ele diz e se o prescritor tem registro ativo.").FontSize(9);
             });
+
+            // Sem esta linha o balcão procura no papel um "código de acesso" que não
+            // existe: no fluxo por QR do validador, a senha impressa serve para BUSCAR a
+            // receita hospedada por uma plataforma. Esta aqui não é hospedada — ela é
+            // conferida pelo próprio arquivo, e o código do rodapé é da clínica, para
+            // achar o documento na ficha do paciente. Deixar a dúvida no ar faria o
+            // farmacêutico concluir que falta alguma coisa e devolver o paciente.
+            c.Item().PaddingTop(4).Text(
+                    "Este documento é conferido pelo envio do próprio arquivo — não há "
+                    + "código de acesso a digitar. O código no rodapé é da clínica.")
+                .FontSize(8).FontColor(TextoSecundario);
         });
     }
 
