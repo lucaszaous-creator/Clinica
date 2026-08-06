@@ -145,6 +145,14 @@
                                                     Command="{Binding DataContext.AssinarCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
+                                            <!-- É o ARQUIVO que vale: sem esta porta, o paciente
+                                                 sai com o papel e o PDF assinado fica na clínica. -->
+                                            <Button Content="Enviar" Margin="0,0,6,0"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    IsEnabled="{Binding PodeEnviar}"
+                                                    Command="{Binding DataContext.EnviarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
                                             <Button Content="Cancelar"
                                                     Style="{StaticResource BotaoAcaoGridSecundario}"
                                                     IsEnabled="{Binding PodeCancelar}"

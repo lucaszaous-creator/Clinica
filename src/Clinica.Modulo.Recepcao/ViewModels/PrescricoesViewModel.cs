@@ -251,6 +251,66 @@ public sealed partial class PrescricoesViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Entrega o ARQUIVO assinado ao paciente pelo WhatsApp (parcela 43, 2ª rodada).
+    ///
+    /// A assinatura vive nos bytes: quem sai só com o papel leva um documento sem a
+    /// garantia que o sistema produziu, e a farmácia recusa — com razão. Ver
+    /// <see cref="EntregaAoPaciente"/>, inclusive por que o anexo não é automático.
+    /// </summary>
+    [RelayCommand]
+    private async Task EnviarDocumentoAsync(LinhaDocumento? linha)
+    {
+        if (linha is null) return;
+
+        if (!linha.PodeEnviar)
+        {
+            Mensagem = linha.Cancelado
+                ? $"O documento {linha.Numero} está cancelado."
+                : $"O documento {linha.Numero} ainda não foi assinado digitalmente. "
+                  + "Sem assinatura, o que vale é a via impressa e assinada à caneta — "
+                  + "assine antes de enviar o arquivo.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            byte[] pdf;
+            Paciente? paciente;
+            string? nomeClinica;
+
+            using (var scope = _escopos.CreateScope())
+            {
+                var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
+                var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+
+                // Bytes GUARDADOS: o documento está assinado, e regerar produziria um
+                // arquivo que abre como inválido no leitor de quem confere.
+                pdf = await pdfs.GerarAsync(linha.DocumentoId);
+                paciente = await pacientes.ObterComHistoricoAsync(linha.PacienteId);
+
+                var prestador = await parametros.ObterPrestadorAsync();
+                nomeClinica = prestador.NomeFantasia ?? prestador.RazaoSocial;
+            }
+
+            var entrega = EntregaAoPaciente.Entregar(
+                pdf, linha.NomeArquivoAssinado, paciente?.Telefone,
+                paciente?.Nome ?? "paciente", linha.Tipo, nomeClinica);
+
+            Mensagem = entrega.Frase;
+            MensagemEhErro = entrega.EhErro;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — documento não pôde ser entregue ao paciente", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
     /// Cancela com motivo. A linha continua na lista marcada como cancelada: a via em
     /// papel não desaparece por ser apagada do sistema.
     /// </summary>

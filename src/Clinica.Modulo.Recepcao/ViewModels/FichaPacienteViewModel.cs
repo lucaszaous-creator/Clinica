@@ -107,6 +107,9 @@ public sealed class LinhaAlerta
 public sealed class LinhaDocumento
 {
     public required int DocumentoId { get; init; }
+
+    /// <summary>Dono do documento — a entrega precisa do telefone dele.</summary>
+    public required int PacienteId { get; init; }
     public required string Numero { get; init; }
     public required string Tipo { get; init; }
     public required string Data { get; init; }
@@ -119,6 +122,12 @@ public sealed class LinhaDocumento
     /// <summary>Nome sugerido ao salvar o PDF.</summary>
     public string NomeArquivo => $"{Tipo}-{Numero.Replace('/', '-')}.pdf";
 
+    /// <summary>
+    /// Nome do arquivo entregue ao paciente — o mesmo sufixo que o serviço de assinatura
+    /// grava, para a pasta de entregas não guardar duas versões do mesmo número.
+    /// </summary>
+    public string NomeArquivoAssinado => $"{Tipo}-{Numero.Replace('/', '-')}-assinado.pdf";
+
     /// <summary>Cancelar duas vezes não existe — o botão desliga depois do primeiro.</summary>
     public bool PodeCancelar => !Cancelado;
 
@@ -130,6 +139,13 @@ public sealed class LinhaDocumento
     public bool PodeAssinar => !Cancelado && !Assinado;
 
     /// <summary>
+    /// Só documento ASSINADO se entrega como arquivo. Mandar um PDF sem assinatura pelo
+    /// WhatsApp entrega ao paciente algo que a farmácia não tem como conferir — e ele só
+    /// descobre no balcão. Sem assinatura, o que vale é a via impressa, assinada à caneta.
+    /// </summary>
+    public bool PodeEnviar => Assinado && !Cancelado;
+
+    /// <summary>
     /// Mesma razão do <see cref="LinhaEvolucao.De"/>: a ficha e a tela de Prescrições
     /// listam o mesmo documento, e a situação ("Cancelado em…") não pode ser escrita
     /// duas vezes em lugares diferentes.
@@ -137,6 +153,7 @@ public sealed class LinhaDocumento
     public static LinhaDocumento De(DocumentoClinico d) => new()
     {
         DocumentoId = d.Id,
+        PacienteId = d.PacienteId,
         Numero = d.Numero,
         Tipo = TipoDocumentoInfo.Rotular(d.Tipo),
         Data = d.Data.ToString("dd/MM/yyyy"),

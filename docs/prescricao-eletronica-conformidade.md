@@ -105,14 +105,37 @@ palavra sobre como verificá-lo é recusado por precaução, e o farmacêutico e
 recusá-lo: pela orientação dos CRFs, farmácia que não consegue verificar **não é obrigada
 a dispensar**.
 
-**O que o QR faz e o que ele não faz.** Ele leva ao validador — não carrega o documento.
-Quem hospeda a receita num endereço público é uma plataforma (Memed, Mevo, a do CFM), e nós
-não hospedamos nada; prometer que o QR "abre a receita" seria mentir sobre o que ele faz.
-Na prática o balcão escaneia, cai na página certa e envia o arquivo que o paciente trouxe.
+### Os dois caminhos do validador, e por que estamos no de cima
 
-**Se a clínica quiser zero fricção**, o caminho é a integração gratuita com Mevo ou Memed:
-lá a receita nasce hospedada, o QR resolve para o documento e a farmácia da rede a lê sem
-upload nenhum. Ver `docs/apis-integracao-prescricao.md`.
+O VALIDAR aceita o documento de duas formas, e a diferença não é de conforto:
+
+| | **Envio do arquivo** (o nosso) | **Leitura do QR** |
+|---|---|---|
+| O que o balcão faz | envia o PDF que o paciente trouxe | escaneia o QR impresso |
+| Onde o documento está | com o paciente | **hospedado** por quem emitiu |
+| Exige código de acesso | não | **sim** — uma senha de até 64 caracteres impressa junto do QR, que o paciente informa |
+| Precisa de servidor da clínica | não | **sim** |
+
+O caminho do QR foi desenhado com o CFM justamente para o documento hospedado: a senha
+impressa é o que **libera o acesso à receita** guardada no sistema de quem prescreveu, e
+serve para evitar que qualquer um baixe a receita alheia. Um sistema **desktop**, que fala
+com o banco da própria clínica, não tem endereço na internet para hospedar coisa alguma —
+então o nosso QR leva à **página do farmacêutico** e o documento vai pelo envio do arquivo.
+
+Isso está escrito no próprio documento, e não é detalhe: sem a frase *"não há código de
+acesso a digitar; o código do rodapé é da clínica"*, o balcão procura no papel uma senha
+que não existe, conclui que falta alguma coisa e devolve o paciente.
+
+**Para o QR resolver no documento** (o caminho de baixo) há duas saídas, e as duas dependem
+de decisão comercial, não de código:
+
+1. **Integração gratuita com Mevo ou Memed** — a receita nasce hospedada por eles, o QR
+   resolve para o documento e a farmácia da rede lê sem envio nenhum. Custo declarado zero;
+   falta credencial de parceiro e homologação. Ver `docs/apis-integracao-prescricao.md`.
+2. **Hospedar nós mesmos** — implica servidor público, guarda de documentos de saúde,
+   controle de acesso por senha e a especificação de QR do
+   [Guia do Desenvolvedor do VALIDAR](https://validar.iti.gov.br/guia-desenvolvedor.html)
+   (capítulo IV). É construir uma plataforma; a #1 entrega o mesmo de graça.
 
 **A via impressa de um documento assinado é uma CÓPIA.** A assinatura vive nos bytes do
 arquivo, não na tinta: imprimir deixa a garantia para trás. O rodapé diz isso em vermelho,
