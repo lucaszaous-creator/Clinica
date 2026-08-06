@@ -499,6 +499,67 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   alerta mudaria o comportamento do faturamento em produção e dispararia para TODA guia
   numa clínica que ainda não documenta — alerta que dispara para todo mundo é alerta que
   ninguém lê. A leitura foi para a direção, onde é nova.
+- **A folha de infusão e a checagem de enfermagem** (`PrescricaoInternaService`,
+  `ChecagemPrescricaoService`, parcela 42): a clínica faz infusão, e a folha que ela usa
+  não é a receita — é prescrição de vários itens "destinada ao próprio consultório, o
+  paciente não vai apresentar lá fora". Entidade NOVA, e não um valor a mais em
+  `TipoDocumentoClinico`: `DocumentoClinico` é fato IMUTÁVEL emitido (é essa regra que
+  garante a segunda via idêntica), e esta tem ciclo de vida — rascunho → assinada →
+  executada → encerrada. Enfiar estado vivo lá quebraria as outras sete impressões.
+  **Checar não é preencher um campo**: é afirmar "foi prescrito assim e foi realizado
+  assim" e responder por isso — o peso da baixa da guia, do lado clínico. O ✓ com o
+  horário é o realizado; a **"rodela"** (horário circulado) é o não realizado, e ela
+  **exige justificativa** — terceira recusa do projeto, junto da divergência do
+  fechamento de caixa e do descarte de problema.
+  As regras: **a hora é INFORMADA, nunca `DateTime.Now`** (a técnica administra às 14h e
+  registra às 14h20; o relógio vai em `RegistradoEm` AO LADO, e a diferença entre os dois
+  é o que uma auditoria de enfermagem procura); **hora futura é recusada**, porque
+  pré-checagem é o hábito que faz um item aparecer como feito num paciente que saiu antes
+  de recebê-lo — é a única regra do projeto com relógio injetado, e é assim porque regra
+  de segurança que não dá para testar apodrece sem ninguém notar; **checagem não se apaga,
+  RETIFICA-SE** (linha nova apontando a anterior, com motivo — apagar e regravar é
+  exatamente o gesto que a auditoria procura, e a folha impressa mostra as duas);
+  **item já checado não se edita nem se suspende**, senão a folha desdiz uma execução já
+  assinada; **quem checa é quem fez LOGIN** (daí o perfil `Enfermagem` e a permissão
+  `ChecarPrescricao`, separada de `Prescrever` — é serem duas pessoas que dá valor à
+  conferência); e **o "se necessário" não conta como pendência**, senão toda folha com SOS
+  ficaria eternamente aguardando e o contador da sala apontaria para nada.
+  **O circuito de volta**: o exemplo que a clínica deu foi "o paciente apresentou reação
+  alérgica e não quis fazer a dipirona" — e essa frase morreria num campo de texto. Agora
+  a não realização por reação grava a **alergia na lista de problemas no mesmo
+  SaveChanges**, e a conferência da parcela 40 acende na próxima prescrição.
+- **A certificação digital, e por que NÃO se escaneia o carimbo** (`AssinaturaDigitalService`,
+  `CertificadoIcpBrasil`, `AssinaturaDePrescricaoService`, parcela 42): o pedido original
+  era escanear o carimbo e colar no PDF. Isso é **pior do que não assinar**: imagem não
+  prova autoria (qualquer um copia para outro documento), e a partir do dia em que está no
+  banco existe uma assinatura da médica reutilizável por quem tiver acesso ao sistema — o
+  pior é que ela PARECE garantia, que é o que `DocumentosClinicosPdfService` se recusa a
+  fazer desde a parcela 3.
+  O que se faz é **assinatura qualificada ICP-Brasil**: PKCS#7 destacado SHA-256 no PDF
+  (PdfSharp + `SignedCms`), carimbo do tempo RFC 3161 **opcional** (Configurações →
+  Operação). O que NÃO se faz é LTV/PAdES-LT — anunciá-lo sem implementá-lo seria a mesma
+  mentira do carimbo escaneado.
+  **O CPF sai de DENTRO do certificado** (OID `2.16.76.1.3.1`, no *subjectAltName* como
+  `otherName`; o .NET não expõe `otherName`, então o ASN.1 é lido à mão). Não é
+  preciosismo: é a metade que faz a assinatura valer. Sem comparar esse CPF com
+  `Profissional.Cpf`, o sistema provaria só que ALGUÉM com ALGUM token assinou, e o e-CPF
+  da recepcionista assinaria a prescrição da médica sem um alerta. Certificado sem CPF,
+  vencido, ou de outra pessoa é **recusado**; profissional sem CPF cadastrado também, e
+  isso é decisão — aceitar em silêncio faria a conferência existir só para quem já tinha o
+  campo preenchido.
+  **Duas folhas, não dois carimbos na mesma.** No papel a mesma folha leva os dois carimbos
+  porque papel se assina incrementalmente; em PDF não: se a prescritora assinasse antes da
+  execução (que é quando ela tem de assinar) a assinatura dela cobriria as colunas de
+  checagem EM BRANCO. Então a **Prescrição** é assinada por quem prescreve e o **Registro
+  de execução** pela enfermagem, e o segundo traz impressos o número, o titular e o **hash**
+  do primeiro — o que prova a ORDEM, e é evidência mais forte que dois carimbos numa
+  página. (A biblioteca também não faz atualização incremental, então a segunda assinatura
+  quebraria a primeira — a restrição técnica e a regra clínica apontam para o mesmo lado.)
+  **A reimpressão devolve os BYTES GUARDADOS**, nunca um PDF novo: a assinatura cobre uma
+  faixa de bytes do arquivo, e um documento "igual" regerado agora abriria como inválido —
+  por isso `ArquivoAssinado` é tabela e não cache. E **a folha nunca promete mais do que
+  garante**: o rodapé escreve o nível da assinatura e, sem ACT contratada, diz que a data é
+  declarada pelo relógio de quem assinou.
 - **Prescrever o alérgeno que a própria clínica anotou** (`PrescricaoService`, parcela 40):
   desde a parcela 37 o sistema GUARDA as alergias (`NaturezaProblema.Alergia`, com a regra
   de alertar mesmo dadas por resolvidas) e a emissão de receita **nunca as consultou** — a

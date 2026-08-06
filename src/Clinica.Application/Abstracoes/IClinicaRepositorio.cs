@@ -417,6 +417,70 @@ public interface IClinicaRepositorio
     /// <summary>Próximo sequencial do ano para numerar o documento (<c>2026/0001</c>).</summary>
     Task<int> ProximoNumeroDocumentoAsync(int ano, CancellationToken ct = default);
 
+    // ---- Prescrição de execução interna e checagem de enfermagem (parcela 42) ----
+
+    Task AdicionarPrescricaoInternaAsync(
+        PrescricaoInterna prescricao, CancellationToken ct = default);
+
+    /// <summary>
+    /// A prescrição INTEIRA e rastreada: itens, checagens de cada item, assinaturas,
+    /// paciente e profissional. É a carga da tela de execução, e ela precisa do grafo
+    /// todo — a situação de cada item é derivada das checagens, então uma prescrição
+    /// carregada sem elas apareceria com tudo pendente.
+    /// </summary>
+    Task<PrescricaoInterna?> ObterPrescricaoInternaAsync(
+        int prescricaoId, CancellationToken ct = default);
+
+    /// <summary>Pela via impressa: o código curto do rodapé.</summary>
+    Task<PrescricaoInterna?> ObterPrescricaoInternaPorCodigoAsync(
+        string codigo, CancellationToken ct = default);
+
+    /// <summary>
+    /// Prescrições do paciente, da mais recente para a mais antiga, COM os itens e as
+    /// checagens (a lista mostra "3 de 5 realizados", que é derivado delas).
+    /// </summary>
+    Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasDoPacienteAsync(
+        int pacienteId, int limite = 50, CancellationToken ct = default);
+
+    /// <summary>
+    /// A fila da sala de infusão: as prescrições do dia, com o grafo carregado.
+    ///
+    /// Só as ASSINADAS por padrão — rascunho não se executa, e mostrá-lo na sala
+    /// convidaria a técnica a administrar sobre uma folha que ninguém assinou. Encerrada
+    /// entra quando <paramref name="incluirEncerradas"/>, para a conferência do fim do dia.
+    /// </summary>
+    Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasDoDiaAsync(
+        DateOnly data, int? profissionalId = null, bool incluirEncerradas = false,
+        CancellationToken ct = default);
+
+    /// <summary>Item rastreado, com a prescrição e as checagens — o alvo de checar/retificar.</summary>
+    Task<ItemPrescricaoInterna?> ObterItemPrescricaoInternaAsync(
+        int itemId, CancellationToken ct = default);
+
+    Task AdicionarChecagemPrescricaoAsync(
+        ChecagemPrescricao checagem, CancellationToken ct = default);
+
+    /// <summary>Próximo sequencial do ano para numerar a prescrição (<c>PRE 2026/0001</c>).</summary>
+    Task<int> ProximoNumeroPrescricaoInternaAsync(int ano, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os bytes do PDF assinado, carregados SOB DEMANDA — a listagem nunca os traz, pela
+    /// mesma razão da foto do paciente (a tabela existe separada para isso).
+    /// </summary>
+    Task<ArquivoAssinado?> ObterArquivoAssinadoAsync(
+        int arquivoId, CancellationToken ct = default);
+
+    /// <summary>Guarda o PDF assinado. Não persiste — chame <c>SalvarAsync</c>.</summary>
+    Task AdicionarArquivoAssinadoAsync(
+        ArquivoAssinado arquivo, CancellationToken ct = default);
+
+    /// <summary>
+    /// Quantas prescrições internas do dia ainda têm item sem checagem, por prescrição.
+    /// Alimenta o contador da sala sem materializar o grafo de todas elas.
+    /// </summary>
+    Task<int> PrescricoesInternasPendentesAsync(
+        DateOnly data, int? profissionalId = null, CancellationToken ct = default);
+
     /// <summary>Modelos de documento, opcionalmente de um tipo só.</summary>
     Task<IReadOnlyList<ModeloDocumento>> ModelosDocumentoAsync(
         TipoDocumentoClinico? tipo = null, CancellationToken ct = default);

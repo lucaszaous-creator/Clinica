@@ -22,6 +22,18 @@ public class Profissional
     public string? RegistroConselho { get; set; }
 
     /// <summary>
+    /// CPF, só dígitos. Existe para AMARRAR o certificado digital à pessoa (parcela 42): o
+    /// e-CPF ICP-Brasil carrega o CPF do titular numa extensão do próprio certificado, e é
+    /// comparando os dois que o sistema recusa alguém assinar uma prescrição com o
+    /// certificado de outra pessoa. Sem essa conferência, "assinatura qualificada" provaria
+    /// apenas que ALGUÉM com um token assinou — que é a metade inútil da garantia.
+    ///
+    /// Opcional: quem não assina digitalmente não precisa dele, e exigi-lo travaria o
+    /// cadastro da equipe inteira por causa de uma feature que nem toda clínica usa.
+    /// </summary>
+    public string? Cpf { get; set; }
+
+    /// <summary>
     /// Especialidade principal, pelo código do catálogo (<c>CatalogoEspecialidades</c>).
     /// Null quando o profissional não se enquadra em nenhuma das cadastradas.
     /// </summary>

@@ -73,6 +73,14 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     // ---- Marketing ----
     [ObservableProperty] private string? _diasInatividadeRecall;
 
+    /// <summary>
+    /// URL da autoridade de carimbo do tempo (ACT, RFC 3161) usada nas assinaturas
+    /// ICP-Brasil da parcela 42. Vazia por padrao: sem ela a assinatura continua valida,
+    /// so que a data e a do relogio de quem assinou -- e o PDF escreve isso, em vez de
+    /// fingir precisao que nao tem.
+    /// </summary>
+    [ObservableProperty] private string? _carimbadoraDeTempo;
+
     // ---- Faturamento (a direção lê; o app congelado continua sendo quem fatura) ----
     [ObservableProperty] private string? _janelaAlertaConsulta;
     [ObservableProperty] private string? _prazoRecursoGlosa;
@@ -129,6 +137,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
 
             JornadaDiariaMinutos = (await p.ObterJornadaDiariaAsync()).ToString();
             DiasInatividadeRecall = (await p.ObterDiasInatividadeRecallAsync()).ToString();
+            CarimbadoraDeTempo = (await p.ObterCarimbadoraDeTempoAsync())?.ToString();
             JanelaAlertaConsulta = (await p.ObterJanelaAlertaConsultaAsync()).ToString();
             PrazoRecursoGlosa = (await p.ObterPrazoRecursoGlosaAsync()).ToString();
             IntervaloRodadaPendencias = (await p.ObterIntervaloRodadaPendenciasAsync()).ToString();
@@ -185,8 +194,20 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             if (!TentarLerInteiro(DiasInatividadeRecall, 1, 3650, out var recall))
                 throw new InvalidOperationException("Os dias de inatividade do recall vão de 1 a 3650.");
 
+            // URL vazia e o caso NORMAL (a clinica pode nao ter ACT contratada) e limpa a
+            // configuracao. URL escrita errada e recusada aqui: aceita-la faria toda
+            // assinatura falhar depois, com um erro de rede que ninguem liga a esta tela.
+            var carimbadora = Limpar(CarimbadoraDeTempo);
+            if (carimbadora is not null
+                && !Uri.TryCreate(carimbadora, UriKind.Absolute, out _))
+                throw new InvalidOperationException(
+                    "O endereço da carimbadora de tempo precisa ser uma URL completa "
+                    + "(ex.: https://act.exemplo.com.br/tsa). Deixe em branco se a clínica "
+                    + "não tiver ACT contratada.");
+
             await p.SalvarJornadaDiariaAsync(jornada);
             await p.SalvarDiasInatividadeRecallAsync(recall);
+            await p.SalvarCarimbadoraDeTempoAsync(carimbadora);
             return "Operação e marketing salvos.";
         });
 

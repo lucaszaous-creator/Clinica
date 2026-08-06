@@ -43,6 +43,11 @@ public class ClinicaDbContext : DbContext
     public DbSet<ItemDocumento> ItensDocumento => Set<ItemDocumento>();
     public DbSet<ModeloDocumento> ModelosDocumento => Set<ModeloDocumento>();
     public DbSet<ItemModelo> ItensModelo => Set<ItemModelo>();
+    public DbSet<PrescricaoInterna> PrescricoesInternas => Set<PrescricaoInterna>();
+    public DbSet<ItemPrescricaoInterna> ItensPrescricaoInterna => Set<ItemPrescricaoInterna>();
+    public DbSet<ChecagemPrescricao> ChecagensPrescricao => Set<ChecagemPrescricao>();
+    public DbSet<AssinaturaDocumento> AssinaturasDocumento => Set<AssinaturaDocumento>();
+    public DbSet<ArquivoAssinado> ArquivosAssinados => Set<ArquivoAssinado>();
     public DbSet<PacoteCatalogo> PacotesCatalogo => Set<PacoteCatalogo>();
     public DbSet<PacotePaciente> PacotesPaciente => Set<PacotePaciente>();
     public DbSet<ConsumoPacote> ConsumosPacote => Set<ConsumoPacote>();
@@ -265,6 +270,8 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Nome).IsRequired().HasMaxLength(120);
             e.Property(p => p.NomeCurto).HasMaxLength(40);
             e.Property(p => p.RegistroConselho).HasMaxLength(40);
+            // Só dígitos — é comparado com o CPF extraído do e-CPF ICP-Brasil (parcela 42).
+            e.Property(p => p.Cpf).HasMaxLength(11);
             e.Property(p => p.EspecialidadeCodigo).HasMaxLength(40);
             e.Property(p => p.Telefone).HasMaxLength(20);
             e.Property(p => p.Email).HasMaxLength(120);
@@ -636,6 +643,151 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.DocumentoClinicoId).OnDelete(DeleteBehavior.Cascade);
 
             e.HasIndex(x => x.DocumentoClinicoId);
+        });
+
+        // ---- Prescrição de execução interna e checagem de enfermagem (parcela 42) ----
+        b.Entity<PrescricaoInterna>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Numero).IsRequired().HasMaxLength(20);
+            e.Property(x => x.CodigoVerificacao).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Indicacao).HasMaxLength(500);
+            e.Property(x => x.Observacoes).HasMaxLength(2000);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.AtualizadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AssinadaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.EncerradaEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
+            // A sessão e a evolução são procedência, não donas: desmarcar o horário não
+            // pode levar embora a folha de uma infusão que o paciente recebeu.
+            e.HasOne(x => x.Agendamento).WithMany()
+                .HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Evolucao).WithMany()
+                .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.SetNull);
+
+            e.HasIndex(x => x.Numero).IsUnique();
+            e.HasIndex(x => x.CodigoVerificacao).IsUnique();
+            // As duas leituras reais: a folha do paciente e a fila da sala de infusão.
+            e.HasIndex(x => new { x.PacienteId, x.Data });
+            e.HasIndex(x => new { x.Data, x.Situacao });
+
+            e.Ignore(x => x.EstaAssinada);
+            e.Ignore(x => x.Cancelada);
+            e.Ignore(x => x.PodeChecar);
+            e.Ignore(x => x.PodeEditar);
+            e.Ignore(x => x.Pendentes);
+            e.Ignore(x => x.Realizados);
+            e.Ignore(x => x.NaoRealizados);
+            e.Ignore(x => x.ExecucaoCompleta);
+            e.Ignore(x => x.AssinaturaDoPrescritor);
+            e.Ignore(x => x.AssinaturaDoExecutante);
+        });
+
+        b.Entity<ItemPrescricaoInterna>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Descricao).IsRequired().HasMaxLength(300);
+            e.Property(x => x.Dose).HasMaxLength(60);
+            e.Property(x => x.Diluente).HasMaxLength(120);
+            e.Property(x => x.Volume).HasMaxLength(60);
+            e.Property(x => x.Via).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.TempoInfusao).HasMaxLength(60);
+            e.Property(x => x.Observacoes).HasMaxLength(1000);
+            e.Property(x => x.MotivoSuspensao).HasMaxLength(500);
+            e.Property(x => x.SuspensoPor).HasMaxLength(80);
+            e.Property(x => x.SuspensoEm).HasColumnType("timestamp without time zone");
+
+            // O item pertence à folha: apagar a prescrição (o que só acontece em base de
+            // teste — em produção se cancela) leva os itens junto.
+            e.HasOne(x => x.Prescricao).WithMany(x => x.Itens)
+                .HasForeignKey(x => x.PrescricaoInternaId).OnDelete(DeleteBehavior.Cascade);
+
+            e.HasIndex(x => x.PrescricaoInternaId);
+
+            e.Ignore(x => x.Suspenso);
+            e.Ignore(x => x.ChecagemVigente);
+            e.Ignore(x => x.Situacao);
+            e.Ignore(x => x.TextoCompleto);
+        });
+
+        b.Entity<ChecagemPrescricao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Situacao).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Justificativa).HasMaxLength(1000);
+            e.Property(x => x.ExecutanteNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.ExecutanteConselho).HasMaxLength(60);
+            e.Property(x => x.MotivoRetificacao).HasMaxLength(500);
+            e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Item).WithMany(x => x.Checagens)
+                .HasForeignKey(x => x.ItemPrescricaoInternaId).OnDelete(DeleteBehavior.Cascade);
+            // O usuário some do cadastro, a checagem NÃO: o nome e o conselho ficam
+            // copiados na linha justamente para a folha continuar dizendo quem executou.
+            e.HasOne(x => x.ExecutanteUsuario).WithMany()
+                .HasForeignKey(x => x.ExecutanteUsuarioId).OnDelete(DeleteBehavior.SetNull);
+            // Retificar aponta para a checagem corrigida, que continua na base. Restrict
+            // porque apagar a corrigida deixaria a correção sem o que ela corrige.
+            e.HasOne(x => x.RetificaChecagem).WithMany()
+                .HasForeignKey(x => x.RetificaChecagemId).OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => x.ItemPrescricaoInternaId);
+
+            e.Ignore(x => x.EhRetificacao);
+            e.Ignore(x => x.AtrasoDoRegistro);
+        });
+
+        b.Entity<AssinaturaDocumento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Papel).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.HashConteudo).IsRequired().HasMaxLength(128);
+            e.Property(x => x.AlgoritmoHash).IsRequired().HasMaxLength(20);
+            e.Property(x => x.NomeAssinante).IsRequired().HasMaxLength(120);
+            e.Property(x => x.RegistroConselho).HasMaxLength(60);
+            e.Property(x => x.CpfAssinante).HasMaxLength(11);
+            e.Property(x => x.CertificadoTitular).HasMaxLength(300);
+            e.Property(x => x.CertificadoEmissor).HasMaxLength(300);
+            e.Property(x => x.CertificadoSerie).HasMaxLength(80);
+            e.Property(x => x.CarimboTempoAutoridade).HasMaxLength(200);
+            e.Property(x => x.AssinadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CertificadoValidoDe).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CertificadoValidoAte).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CarimboTempoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Prescricao).WithMany(x => x.Assinaturas)
+                .HasForeignKey(x => x.PrescricaoInternaId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Usuario).WithMany()
+                .HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Arquivo).WithMany()
+                .HasForeignKey(x => x.ArquivoId).OnDelete(DeleteBehavior.SetNull);
+
+            // Uma assinatura por papel: a folha tem um prescritor e um executante. Sem o
+            // índice, um clique duplo no botão gravaria duas e a tela mostraria a errada.
+            e.HasIndex(x => new { x.PrescricaoInternaId, x.Papel }).IsUnique();
+
+            e.Ignore(x => x.EhQualificada);
+            e.Ignore(x => x.RotuloDoNivel);
+            e.Ignore(x => x.HashCurto);
+        });
+
+        b.Entity<ArquivoAssinado>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Conteudo).IsRequired();
+            e.Property(x => x.NomeArquivo).IsRequired().HasMaxLength(200);
+            e.Property(x => x.GeradoEm).HasColumnType("timestamp without time zone");
+
+            e.Ignore(x => x.Tamanho);
         });
 
         b.Entity<ModeloDocumento>(e =>

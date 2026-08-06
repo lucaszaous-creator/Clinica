@@ -58,7 +58,26 @@ public enum Permissao
     /// do titular continua em <see cref="VerProntuario"/>: entregar ao paciente o que é
     /// dele é atendimento comum, e é a recepção que atende.
     /// </summary>
-    AnonimizarDados = 1 << 12
+    AnonimizarDados = 1 << 12,
+
+    /// <summary>
+    /// Escrever e ASSINAR prescrição de execução interna (parcela 42). Separada de
+    /// <see cref="EditarProntuario"/> porque prescrever não é escrever no prontuário: é
+    /// mandar administrar uma droga em alguém, e a folha assinada é o documento que
+    /// sustenta o ato. Quem digita a evolução do fisioterapeuta não prescreve infusão.
+    /// </summary>
+    Prescrever = 1 << 13,
+
+    /// <summary>
+    /// Checar a execução — dizer "foi prescrito assim e foi realizado assim" (parcela 42).
+    ///
+    /// É o espelho da de cima e nunca anda junto dela: quem prescreve não checa a própria
+    /// prescrição. Não é regra de sistema, é a razão de a checagem existir — a conferência
+    /// vale porque foram duas pessoas. O sistema não IMPEDE que o mesmo login tenha as
+    /// duas (numa clínica pequena o profissional às vezes administra ele mesmo), mas os
+    /// perfis padrão as mantêm separadas, e a folha imprime os dois nomes.
+    /// </summary>
+    ChecarPrescricao = 1 << 14
 }
 
 /// <summary>
@@ -80,6 +99,14 @@ public enum PerfilAcesso
     /// <summary>Faturista: lê o faturamento inteiro (o app de faturamento continua sem login).</summary>
     Faturista,
 
+    /// <summary>
+    /// Enfermagem (parcela 42): executa e CHECA a prescrição, e não prescreve nem escreve
+    /// evolução. Nasceu junto da checagem porque ela não vale nada sem login próprio —
+    /// checagem feita no usuário compartilhado do balcão é uma assinatura de ninguém, e
+    /// era esse o buraco que a folha de papel já não tinha.
+    /// </summary>
+    Enfermagem,
+
     /// <summary>Direção: tudo, inclusive criar usuário.</summary>
     Gerente
 }
@@ -100,7 +127,14 @@ public static class PerfisAcesso
             Permissao.GerenciarCampanhas,
 
         PerfilAcesso.Profissional =>
-            Permissao.VerAgenda | Permissao.VerProntuario | Permissao.EditarProntuario,
+            Permissao.VerAgenda | Permissao.VerProntuario | Permissao.EditarProntuario |
+            Permissao.Prescrever,
+
+        // A técnica vê a agenda (para saber quem está na sala), lê o prontuário (alergia
+        // antes de infundir não é opcional) e CHECA. Não recebe EditarProntuario nem
+        // Prescrever: a checagem já é o registro dela, e é assinado.
+        PerfilAcesso.Enfermagem =>
+            Permissao.VerAgenda | Permissao.VerProntuario | Permissao.ChecarPrescricao,
 
         PerfilAcesso.Financeiro =>
             Permissao.VerAgenda | Permissao.VerFinanceiro | Permissao.EditarFinanceiro,
@@ -130,6 +164,7 @@ public static class PerfisAcesso
         PerfilAcesso.Profissional => "Profissional",
         PerfilAcesso.Financeiro => "Financeiro",
         PerfilAcesso.Faturista => "Faturista",
+        PerfilAcesso.Enfermagem => "Enfermagem",
         PerfilAcesso.Gerente => "Gerente Geral",
         _ => perfil.ToString()
     };
@@ -149,6 +184,8 @@ public static class PerfisAcesso
         Permissao.GerenciarUsuarios => "Gerenciar usuários",
         Permissao.VerAuditoria => "Ver auditoria",
         Permissao.AnonimizarDados => "Anonimizar dados do titular (LGPD)",
+        Permissao.Prescrever => "Prescrever e assinar prescrição",
+        Permissao.ChecarPrescricao => "Checar execução de prescrição",
         _ => permissao.ToString()
     };
 

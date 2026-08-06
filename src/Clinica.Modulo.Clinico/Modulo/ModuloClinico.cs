@@ -54,6 +54,22 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChavePrescricoes = "consultorio-prescricoes";
 
     /// <summary>
+    /// A folha de infusão (parcela 42) — multi-item, executada aqui dentro e checada pela
+    /// enfermagem. Item SEPARADO de <see cref="ChavePrescricoes"/>, e não um tipo a mais no
+    /// seletor daquela tela: lá saem os quatro papéis que o paciente LEVA, aqui fica a
+    /// folha que a equipe EXECUTA. Juntá-las faria a decisão mais frequente do dia (dar um
+    /// atestado) dividir espaço com a mais rara.
+    /// </summary>
+    public const string ChavePrescricaoInfusao = "consultorio-prescricao-infusao";
+
+    /// <summary>
+    /// A sala de infusão: as folhas assinadas do dia esperando execução. Sob permissão
+    /// PRÓPRIA (<c>ChecarPrescricao</c>), porque quem checa não é quem prescreve — e é
+    /// serem duas pessoas que dá valor à conferência.
+    /// </summary>
+    public const string ChaveSalaInfusao = "consultorio-sala-infusao";
+
+    /// <summary>
     /// A produtividade do profissional, na tela dele. <c>ProdutividadeProfissional</c> e
     /// <c>CompletudeProntuario</c> só eram lidos pelo BI do Gerente: o sistema media quem
     /// atende e a pessoa medida não via o próprio número.
@@ -123,6 +139,19 @@ public sealed class ModuloClinico : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChavePrescricaoInfusao, Rotulo = "Prescri\u00E7\u00E3o de infus\u00E3o",
+            Glifo = "\uE95E", Grupo = GrupoSidebar.Paciente, Requer = Permissao.Prescrever
+        },
+        // Na GESTAO, e nao em PACIENTE: a sala responde "o que falta fazer hoje", que e
+        // pergunta do dia de trabalho -- e ela e a unica tela do Consultorio que abre sem
+        // paciente escolhido, porque a fila e de todos eles.
+        new ItemMenuModulo
+        {
+            Chave = ChaveSalaInfusao, Rotulo = "Sala de infus\u00E3o", Glifo = "\uE9D5",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.ChecarPrescricao
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveMeusNumeros, Rotulo = "Meus n\u00FAmeros", Glifo = "\uE9D9",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAgenda
         },
@@ -186,6 +215,8 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<RegistrosPendentesViewModel>();
         servicos.AddTransient<MinhaSemanaViewModel>();
         servicos.AddTransient<PrescricoesClinicasViewModel>();
+        servicos.AddTransient<PrescricaoInfusaoViewModel>();
+        servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<MeusNumerosViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
         servicos.AddTransient<ProntuarioClinicoViewModel>();
@@ -193,9 +224,11 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<MedidasViewModel>();
         servicos.AddTransient<AvaliacoesViewModel>();
         servicos.AddTransient<MeusPacientesViewModel>();
-        // AplicarAvaliacaoViewModel, AnexosSessaoViewModel e ProblemaEdicaoViewModel são
-        // construídos à mão pela tela: eles recebem o paciente, a sessão ou o problema
-        // escolhidos, como todo formulário da suíte.
+        // AplicarAvaliacaoViewModel, AnexosSessaoViewModel, ProblemaEdicaoViewModel,
+        // PrescricaoInternaEdicaoViewModel, FolhaExecucaoViewModel e
+        // EscolherCertificadoViewModel são construídos à mão pela tela: eles recebem o
+        // paciente, a sessão, o problema ou a prescrição escolhidos, como todo formulário
+        // da suíte.
     }
 
     public object? CriarTela(string chave, IServiceProvider servicos) => chave switch
@@ -213,6 +246,14 @@ public sealed class ModuloClinico : IModuloApp
         ChavePrescricoes => new PrescricoesClinicasView
         {
             DataContext = servicos.GetRequiredService<PrescricoesClinicasViewModel>()
+        },
+        ChavePrescricaoInfusao => new PrescricaoInfusaoView
+        {
+            DataContext = servicos.GetRequiredService<PrescricaoInfusaoViewModel>()
+        },
+        ChaveSalaInfusao => new SalaInfusaoView
+        {
+            DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()
         },
         ChaveMeusNumeros => new MeusNumerosView
         {

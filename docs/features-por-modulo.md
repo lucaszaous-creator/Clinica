@@ -1059,7 +1059,7 @@ Levantado no código, não na memória:
 |---|---|---|
 | ~~Telemedicina~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Precisa sair da arte da sidebar no material comercial |
 | ~~Portal do paciente~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Idem |
-| Assinatura ICP-Brasil na prescrição | Recepção | Depende de certificado digital — decisão comercial (ver feature 07) |
+| ~~Assinatura ICP-Brasil na prescrição~~ | Consultório | **✅ parcela 42** — assinatura qualificada PAdES (PKCS#7 SHA-256) na prescrição de infusão e no registro de execução, com carimbo do tempo RFC 3161 opcional. Os quatro documentos da feature 07 (receita, atestado, comparecimento, pedido de exame) seguem com carimbo impresso + código de conferência |
 | NFS-e no fechamento | Financeiro | Depende de integração fiscal municipal — decisão comercial |
 | Gerar lote TISS pelo Gerente | Gerente | **Decisão de projeto, não pendência**: o número do lote é sequência do faturamento, e dois apps gerando em paralelo produziriam dois com o mesmo número |
 | **Agendamento em série** | Recepção | Fora da proposta e a maior lacuna do dia a dia: o Financeiro vende pacote de 10 sessões e a agenda marca **uma por vez**. Precisa de entidade e migration — parcela própria |
@@ -1472,6 +1472,8 @@ sem leitor nem serviço sem chamador, é capacidade inteira, testada e em produ�
 | **Prescrições** (receita, atestado, comparecimento, pedido de exame) | Só na Recepção | `ChavePrescricoes` — abre no paciente em foco, quatro tipos como botões |
 | **Minha semana** | Só na Recepção (desde a parcela 26) | `ChaveMinhaSemana` — sete colunas, uma consulta só |
 | **Meus números** (produtividade + completude de prontuário) | Só no BI do Gerente | `ChaveMeusNumeros` — só quem está logado, sem comparar colegas |
+| **Prescrição de infusão** (parcela 42) | Não existia | `ChavePrescricaoInfusao` — folha multi-item assinada com ICP-Brasil |
+| **Sala de infusão** (parcela 42) | Não existia | `ChaveSalaInfusao` — a fila do dia e a checagem de enfermagem |
 
 ### Prescrições — quem prescreve é quem atende
 
@@ -1484,6 +1486,68 @@ A tela **abre no paciente em foco** — no consultório o paciente é contexto, 
 —, e oferece os quatro tipos como **botões** em vez de um "Novo documento" que pergunta o
 tipo: ali a decisão vem antes do clique. A busca continua como atalho, para a segunda via
 de quem não está na cadeira. Nada de emissão foi reimplementado.
+
+### Prescrição de infusão e checagem de enfermagem (parcela 42)
+
+A clínica faz **infusão de medicação**, e a folha que ela usa não é a receita: é uma
+prescrição de vários itens *"destinada ao próprio consultório — o paciente não vai
+apresentar lá fora"*. O que faltava não era o papel; era a **checagem da técnica de
+enfermagem**: o ✓ com o horário quando a medicação foi administrada, e a **"rodela"** (o
+horário circulado) com justificativa escrita quando não foi.
+
+Checar não é preencher um campo. É afirmar *"foi prescrito assim e foi realizado assim"* e
+responder por isso — o mesmo peso da baixa da guia no faturamento, do lado clínico.
+
+**As regras que o serviço cobra**
+
+| Regra | Por quê |
+|---|---|
+| Só se checa folha **assinada** | Administrar sobre rascunho é o buraco clássico do papel |
+| Não realizado **exige justificativa** | Terceira recusa do projeto (com a divergência de caixa e o descarte de problema). Item que não entrou no paciente sem dizer por quê é a pior linha de um prontuário |
+| A hora é **informada**, nunca o relógio | A técnica administra às 14h e registra às 14h20. `RegistradoEm` guarda o relógio ao lado, e a diferença entre os dois é o que uma auditoria procura |
+| Hora **futura é recusada** | Pré-checagem é o hábito que faz um item aparecer como feito num paciente que saiu antes de recebê-lo |
+| Checagem **não se apaga: retifica-se** | Apagar e regravar é exatamente o gesto que uma auditoria de enfermagem procura |
+| Item **já checado** não se edita nem se suspende | Senão a folha passa a desdizer uma execução que já tem assinatura |
+| Quem checa é **quem fez login** | É o vínculo com a pessoa que dá valor à checagem. Daí o perfil `Enfermagem` |
+
+**O circuito que ela fecha.** O exemplo que a clínica deu ao pedir a feature foi *"o
+paciente apresentou reação alérgica e não quis fazer a dipirona"*. Até aqui essa frase
+morreria num campo de texto e a próxima receita sairia com dipirona de novo. Agora a não
+realização por reação registra a **alergia na lista de problemas**, no mesmo SaveChanges —
+e a conferência da parcela 40 passa a acender na próxima prescrição.
+
+### A certificação digital — o que se fez, e o que não se fez
+
+O pedido original era **escanear o carimbo** e colar no PDF. Isso é pior do que não
+assinar: uma imagem não prova autoria (qualquer um a copia para outro documento) e, a
+partir do dia em que está no banco, existe uma assinatura da médica reutilizável por quem
+tiver acesso ao sistema. O pior é que ela **parece** uma garantia.
+
+O que foi feito é **assinatura qualificada ICP-Brasil**: PKCS#7 destacado SHA-256 dentro do
+PDF (PdfSharp + `SignedCms`), com **carimbo do tempo RFC 3161 opcional** (configurável em
+Configurações → Operação). O que **não** foi feito é LTV/PAdES-LT — embutir CRL/OCSP para o
+documento continuar verificável depois de o certificado expirar; anunciá-lo sem
+implementá-lo seria a mesma mentira do carimbo escaneado.
+
+**O CPF sai de dentro do certificado.** Um e-CPF carrega o CPF do titular numa extensão
+ICP-Brasil (OID `2.16.76.1.3.1`, dentro do *subjectAltName* como `otherName`), e o .NET não
+expõe `otherName` em API pronta — o ASN.1 é lido à mão em `CertificadoIcpBrasil`. Isso não
+é preciosismo: **é a metade que faz a assinatura valer**. Sem comparar esse CPF com o do
+profissional, o sistema provaria só que *alguém* com *algum* token assinou, e o e-CPF da
+recepcionista assinaria a prescrição da médica sem um alerta.
+
+**Duas folhas, não dois carimbos na mesma.** No papel a mesma folha leva o carimbo do
+médico em cima e o da enfermagem embaixo, porque papel se assina incrementalmente. Em PDF
+isso não se reproduz honestamente — se a prescritora assinasse antes da execução (que é
+quando ela tem de assinar), a assinatura dela cobriria as colunas de checagem **em
+branco**. Então são dois documentos, e o **Registro de execução** traz impressos o número,
+o titular e o **hash** da prescrição assinada. Isso prova mais que dois carimbos numa
+página: prova a **ordem**.
+
+**A folha nunca promete mais do que garante.** O rodapé escreve o nível da assinatura, e
+quando não há ACT contratada diz que a data é *declarada pelo relógio de quem assinou*. E
+a reimpressão devolve os **bytes guardados**, nunca um PDF novo — a assinatura cobre uma
+faixa de bytes do arquivo, e um documento "igual" regerado agora abriria como inválido.
 
 ### Minha semana
 
