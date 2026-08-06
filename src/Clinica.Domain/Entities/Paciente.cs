@@ -8,6 +8,18 @@ public class Paciente
     public string? Documento { get; set; }
     public string? Telefone { get; set; }
 
+    /// <summary>
+    /// Endereço residencial do paciente.
+    ///
+    /// Não é enfeite de cadastro: o art. 35 da Lei 5.991/1973 exige o nome E o endereço
+    /// residencial do paciente para a receita ser AVIADA — sem ele o farmacêutico pode
+    /// recusar a dispensação, e o papel volta com o paciente. O sistema imprimia receita
+    /// desde a parcela 3 sem ter onde guardar o dado, então a exigência era descoberta na
+    /// farmácia. Opcional no cadastro porque quem não recebe receita não precisa dele;
+    /// quem emite receita é avisado na hora (<see cref="ConformidadeDocumentoClinico"/>).
+    /// </summary>
+    public string? Endereco { get; set; }
+
     public DateOnly? DataNascimento { get; set; }
 
     /// <summary>Número da carteirinha do convênio (vai na guia).</summary>

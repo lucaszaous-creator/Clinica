@@ -70,7 +70,8 @@ public sealed class AssinaturaDePrescricaoService
         var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
             ?? throw new InvalidOperationException("Prescrição não encontrada.");
 
-        ExigirTitularCompativel(certificado, prescricao.Profissional?.Cpf, prescricao.Profissional?.Nome);
+        TitularDoCertificado.Exigir(
+            certificado, prescricao.Profissional?.Cpf, prescricao.Profissional?.Nome);
 
         var pdf = await _pdfs.GerarPrescricaoAsync(prescricaoId, await PrestadorAsync(ct), ct);
 
@@ -132,42 +133,6 @@ public sealed class AssinaturaDePrescricaoService
     }
 
     // ---- Apoio ----
-
-    /// <summary>
-    /// O certificado tem de ser DA PESSOA que está assinando.
-    ///
-    /// Três situações, e as três precisam de tratamento diferente:
-    /// - <b>Os dois CPFs existem e diferem</b> → recusa. É o caso que a regra existe para
-    ///   pegar: o token de outra pessoa.
-    /// - <b>O certificado não traz CPF</b> (não é e-CPF ICP-Brasil) → recusa, porque então
-    ///   não há como saber de quem ele é, e uma assinatura qualificada anônima não é
-    ///   qualificada para nada.
-    /// - <b>O profissional não tem CPF cadastrado</b> → recusa, e diz onde cadastrar. É
-    ///   chato, e a alternativa é pior: aceitar em silêncio faria a conferência existir só
-    ///   para quem já a tinha, e o buraco ficaria exatamente em quem esqueceu de preencher.
-    /// </summary>
-    private static void ExigirTitularCompativel(
-        CertificadoAssinatura certificado, string? cpfEsperado, string? nome)
-    {
-        if (certificado.Cpf is null)
-            throw new InvalidOperationException(
-                $"O certificado de {certificado.Titular} não é um e-CPF ICP-Brasil (não traz "
-                + "o CPF do titular). Sem isso não há como confirmar de quem ele é.");
-
-        var esperado = Cpf.Normalizar(cpfEsperado);
-
-        if (esperado.Length == 0)
-            throw new InvalidOperationException(
-                $"{nome ?? "O profissional"} não tem CPF cadastrado, e sem ele o sistema não "
-                + "consegue confirmar que o certificado é mesmo desta pessoa. Cadastre o CPF "
-                + "em Equipe e assine de novo.");
-
-        if (esperado != certificado.Cpf)
-            throw new InvalidOperationException(
-                $"O certificado escolhido é de {certificado.Titular} "
-                + $"(CPF {Cpf.Formatar(certificado.Cpf)}), e a folha está sendo assinada como "
-                + $"{nome}. Cada um assina com o próprio certificado.");
-    }
 
     private async Task<ResultadoAssinatura> SelarAsync(
         byte[] pdf, CertificadoAssinatura certificado, string motivo,

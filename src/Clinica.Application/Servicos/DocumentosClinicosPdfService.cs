@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Assinatura;
 using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
@@ -18,10 +19,17 @@ namespace Clinica.Application.Servicos;
 /// identificação do paciente, corpo, linhas, carimbo e assinatura. O que muda é o miolo
 /// — e um arquivo por documento seria sete cópias do mesmo cabeçalho para manter em dia.
 ///
-/// O que ele NÃO faz: assinatura digital com certificado ICP-Brasil. O que sai impresso
-/// é o carimbo do profissional (nome e registro no conselho), a linha de assinatura e um
-/// CÓDIGO DE CONFERÊNCIA que permite achar o documento no sistema e comparar com o
-/// papel. Chamar isso de assinatura digital seria mentir sobre o que a via garante.
+/// Assinatura eletrônica (parcela 43)
+/// ----------------------------------
+/// Ela é OPCIONAL e muda o papel. Sem assinatura digital, o que sai impresso é o carimbo
+/// do profissional, a linha de assinatura à caneta e o CÓDIGO DE CONFERÊNCIA — e o rodapé
+/// diz exatamente isso, porque chamar carimbo de assinatura digital seria mentir sobre o
+/// que a via garante. Com assinatura (<c>AssinaturaDeDocumentoClinicoService</c>), a folha
+/// reserva a faixa do carimbo digital e o rodapé passa a dizer duas coisas que o
+/// farmacêutico e o RH precisam saber: onde conferir o arquivo (o validador do ITI, que é
+/// público e gratuito) e que <b>a via válida é o ARQUIVO, não esta impressão</b> — imprimir
+/// um PDF assinado deixa a assinatura para trás, e é assim que uma receita eletrônica
+/// legítima volta recusada do balcão.
 /// </summary>
 public sealed class DocumentosClinicosPdfService
 {
@@ -36,20 +44,70 @@ public sealed class DocumentosClinicosPdfService
     private const string VermelhoForte = "#B91C1C";
     private const string VermelhoSuave = "#FEE2E2";
 
+    // ---- Geometria da folha, e por que ela é CONSTANTE ----
+    //
+    // O carimbo visível da assinatura digital é colado pelo PdfSharp num retângulo
+    // ABSOLUTO da página, depois de o QuestPDF já ter desenhado tudo. Como o conteúdo
+    // flui, o único lugar cuja posição se sabe de antemão é o RODAPÉ, que o QuestPDF
+    // ancora na mesma altura em todas as páginas. Mexer numa destas constantes sem mexer
+    // em AreaDaAssinatura() faz o carimbo cair em cima do texto.
+    private const float AlturaPagina = 841.89f;      // A4 em pontos
+    private const float MargemPagina = 42.52f;       // 1,5 cm
+    private const float AlturaRodape = 104f;
+    private const float AlturaFaixaAssinatura = 58f;
+    private const float LarguraCarimbo = 250f;
+
+    /// <summary>Onde o farmacêutico, o RH ou o convênio conferem o arquivo assinado.</summary>
+    public const string ValidadorOficial = "validar.iti.gov.br";
+
     private readonly IClinicaRepositorio _repo;
 
     public DocumentosClinicosPdfService(IClinicaRepositorio repo) => _repo = repo;
 
+    /// <summary>
+    /// Onde o carimbo da assinatura digital é colado. Sempre na ÚLTIMA página: é lá que
+    /// está o fim do documento, e é a página que alguém confere.
+    /// </summary>
+    public static AreaAssinatura AreaDaAssinatura(int totalPaginas)
+        => new(
+            Pagina: Math.Max(0, totalPaginas - 1),
+            X: MargemPagina,
+            Y: AlturaPagina - MargemPagina - AlturaRodape + 2,
+            Largura: LarguraCarimbo,
+            Altura: AlturaFaixaAssinatura - 4);
+
+    /// <summary>
+    /// O PDF do documento, pronto para imprimir ou enviar.
+    ///
+    /// <b>Documento assinado devolve os BYTES GUARDADOS</b>, nunca um PDF novo: a
+    /// assinatura cobre uma faixa de bytes do arquivo, e um documento "igual" regerado
+    /// agora abriria como INVÁLIDO no leitor de quem confere. A regra mora aqui, e não em
+    /// cada tela, de propósito — são seis telas chamando este método (ficha do paciente,
+    /// central de documentos, prescrições da Recepção, prescrições do Consultório e as
+    /// duas do financeiro), e uma que esquecesse produziria uma segunda via inválida sem
+    /// nenhum sinal de que algo deu errado.
+    /// </summary>
     public async Task<byte[]> GerarAsync(
         int documentoId, DadosPrestador? prestador = null, CancellationToken ct = default)
     {
         var documento = await _repo.ObterDocumentoAsync(documentoId, ct)
             ?? throw new InvalidOperationException($"Documento {documentoId} não encontrado.");
 
+        if (documento.ArquivoAssinadoId is int arquivoId
+            && await _repo.ObterArquivoAssinadoAsync(arquivoId, ct) is { } guardado)
+            return guardado.Conteudo;
+
         return Gerar(documento, prestador);
     }
 
-    public byte[] Gerar(DocumentoClinico documento, DadosPrestador? prestador = null)
+    /// <param name="paraAssinaturaEletronica">
+    /// A folha vai ser assinada com certificado logo depois de gerada. Reserva a faixa do
+    /// carimbo e troca o rodapé — a via impressa deixa de ser o documento e passa a ser
+    /// cópia dele.
+    /// </param>
+    public byte[] Gerar(
+        DocumentoClinico documento, DadosPrestador? prestador = null,
+        bool paraAssinaturaEletronica = false)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -125,7 +183,9 @@ public sealed class DocumentosClinicosPdfService
                                     .FontSize(9.5f).FontColor(VermelhoForte);
                             });
 
-                    PainelPaciente(col, paciente);
+                    PainelPaciente(
+                        col, paciente,
+                        comEndereco: documento.Tipo == TipoDocumentoClinico.Receita);
 
                     if (!string.IsNullOrWhiteSpace(documento.Corpo))
                         Paragrafos(col, documento.Corpo!);
@@ -168,37 +228,87 @@ public sealed class DocumentosClinicosPdfService
                             t.Span(documento.Observacoes!).FontSize(9.5f);
                         });
 
-                    Assinaturas(col, documento);
+                    Assinaturas(col, documento, paraAssinaturaEletronica);
                 });
 
-                page.Footer().Column(col =>
-                {
-                    col.Item().PaddingBottom(4).LineHorizontal(0.75f).LineColor(Borda);
-                    col.Item().Row(row =>
-                    {
-                        row.RelativeItem().Text(t =>
-                        {
-                            t.Span("Conferência  ").FontSize(8).FontColor(TextoSecundario);
-                            t.Span(documento.CodigoVerificacao).SemiBold().FontSize(8.5f);
-                            t.Span("  ·  confira este código na ficha do paciente.")
-                                .FontSize(8).FontColor(TextoSecundario);
-                        });
-                        row.ConstantItem(90).AlignRight().Text(t =>
-                        {
-                            t.Span("Página ").FontSize(8).FontColor(TextoSecundario);
-                            t.CurrentPageNumber().FontSize(8).FontColor(TextoSecundario);
-                            t.Span(" de ").FontSize(8).FontColor(TextoSecundario);
-                            t.TotalPages().FontSize(8).FontColor(TextoSecundario);
-                        });
-                    });
-                });
+                Rodape(page, documento, paraAssinaturaEletronica);
             });
         }).GeneratePdf();
     }
 
     // ==================== Blocos ====================
 
-    private static void PainelPaciente(ColumnDescriptor col, Paciente? paciente)
+    /// <summary>
+    /// O rodapé, e a faixa de altura fixa onde o carimbo digital é colado depois.
+    ///
+    /// Duas frases mudam quando há assinatura eletrônica, e nenhuma delas é decoração:
+    ///
+    /// 1. <b>onde conferir</b> — o validador do ITI é público, gratuito e é o que o
+    ///    farmacêutico usa para verificar assinatura, integridade e emissor. Sem essa
+    ///    linha, o paciente entrega um PDF e a farmácia não tem como saber o que fazer
+    ///    com ele; foi por não existir esse endereço que a primeira leitura do problema
+    ///    concluiu que precisaríamos construir um portal de validação;
+    ///
+    /// 2. <b>que a impressão é cópia</b> — imprimir um PDF assinado deixa a assinatura
+    ///    para trás (ela vive nos bytes do arquivo, não na tinta). Quem leva só o papel
+    ///    leva um documento sem a garantia que o sistema produziu, e essa é a forma mais
+    ///    comum de uma receita eletrônica legítima voltar recusada do balcão.
+    /// </summary>
+    private static void Rodape(
+        PageDescriptor page, DocumentoClinico documento, bool assinaturaEletronica)
+    {
+        page.Footer().Height(assinaturaEletronica ? AlturaRodape : 34).Column(col =>
+        {
+            if (assinaturaEletronica)
+                col.Item().Height(AlturaFaixaAssinatura).Row(row =>
+                {
+                    // Esquerda: reservada, e VAZIA de propósito — é aqui que o PdfSharp
+                    // cola o carimbo com titular, CPF do certificado e emissor.
+                    row.ConstantItem(LarguraCarimbo);
+                    row.ConstantItem(20);
+
+                    row.RelativeItem().AlignBottom().Column(c =>
+                    {
+                        c.Item().Text("Assinado digitalmente com certificado ICP-Brasil")
+                            .SemiBold().FontSize(9);
+                        c.Item().Text($"Confira o arquivo em {ValidadorOficial}")
+                            .FontSize(8.5f).FontColor(TextoSecundario);
+                        c.Item().Text(
+                                "Esta impressão é uma CÓPIA. A via válida é o arquivo PDF assinado.")
+                            .FontSize(8).FontColor(VermelhoForte);
+                    });
+                });
+
+            col.Item().PaddingBottom(4).LineHorizontal(0.75f).LineColor(Borda);
+
+            col.Item().Row(row =>
+            {
+                row.RelativeItem().Text(t =>
+                {
+                    t.Span("Conferência  ").FontSize(8).FontColor(TextoSecundario);
+                    t.Span(documento.CodigoVerificacao).SemiBold().FontSize(8.5f);
+                    t.Span("  ·  confira este código na ficha do paciente.")
+                        .FontSize(8).FontColor(TextoSecundario);
+                });
+                row.ConstantItem(90).AlignRight().Text(t =>
+                {
+                    t.Span("Página ").FontSize(8).FontColor(TextoSecundario);
+                    t.CurrentPageNumber().FontSize(8).FontColor(TextoSecundario);
+                    t.Span(" de ").FontSize(8).FontColor(TextoSecundario);
+                    t.TotalPages().FontSize(8).FontColor(TextoSecundario);
+                });
+            });
+        });
+    }
+
+    /// <param name="comEndereco">
+    /// O endereço residencial só sai na RECEITA, onde o art. 35 da Lei 5.991/1973 o exige
+    /// para ela poder ser aviada. Num atestado ele iria junto para a mão do RH sem
+    /// nenhuma exigência que o justifique, e dado que não precisa sair não sai — é a
+    /// mesma economia do CID, que só é impresso com autorização do paciente.
+    /// </param>
+    private static void PainelPaciente(
+        ColumnDescriptor col, Paciente? paciente, bool comEndereco = false)
         => col.Item().Background(FundoSuave).Border(1).BorderColor(Borda).Padding(12).Column(c =>
         {
             c.Item().Text("PACIENTE").Bold().FontSize(8).FontColor(TextoSecundario).LetterSpacing(0.08f);
@@ -225,6 +335,18 @@ public sealed class DocumentosClinicosPdfService
                         : CatalogoConvenios.Nome(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()))
                         .FontSize(9.5f);
                 });
+            });
+
+            if (!comEndereco) return;
+
+            c.Item().PaddingTop(4).Text(t =>
+            {
+                t.Span("Endereço  ").FontSize(8.5f).FontColor(TextoSecundario);
+                t.Span(string.IsNullOrWhiteSpace(paciente?.Endereco)
+                    // Escrito, e não omitido: quem recebe o papel precisa ver que a
+                    // exigência ficou por cumprir, em vez de descobrir na farmácia.
+                    ? "(não informado — exigido pelo art. 35 da Lei 5.991/1973)"
+                    : paciente!.Endereco!).FontSize(9.5f);
             });
         });
 
@@ -400,26 +522,39 @@ public sealed class DocumentosClinicosPdfService
         }
     }
 
-    /// <summary>Carimbo do profissional e linhas de assinatura.</summary>
-    private static void Assinaturas(ColumnDescriptor col, DocumentoClinico documento)
+    /// <summary>
+    /// Carimbo do profissional e linhas de assinatura.
+    ///
+    /// Com assinatura eletrônica a linha do PROFISSIONAL some, e o nome dele vai no
+    /// carimbo digital do rodapé. Não é economia de espaço: linha em branco embaixo de um
+    /// documento já assinado convida alguém a assinar a cópia, e aí passam a existir duas
+    /// vias com autoria diferente para o mesmo documento. A do PACIENTE continua, porque
+    /// consentimento e anamnese são assinados por ele, na folha, e o certificado da
+    /// clínica não assina no lugar dele.
+    /// </summary>
+    private static void Assinaturas(
+        ColumnDescriptor col, DocumentoClinico documento, bool assinaturaEletronica)
     {
         var assinaPaciente = documento.Tipo is TipoDocumentoClinico.Consentimento
                                  or TipoDocumentoClinico.Anamnese;
 
+        if (assinaturaEletronica && !assinaPaciente) return;
+
         col.Item().PaddingTop(36).Row(row =>
         {
-            row.RelativeItem().Column(c =>
-            {
-                c.Item().LineHorizontal(1).LineColor(TextoSecundario);
-                c.Item().PaddingTop(3).AlignCenter()
-                    .Text(documento.Profissional?.Nome ?? "Profissional responsável")
-                    .SemiBold().FontSize(9.5f);
+            if (!assinaturaEletronica)
+                row.RelativeItem().Column(c =>
+                {
+                    c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                    c.Item().PaddingTop(3).AlignCenter()
+                        .Text(documento.Profissional?.Nome ?? "Profissional responsável")
+                        .SemiBold().FontSize(9.5f);
 
-                var registro = documento.Profissional?.RegistroConselho;
-                c.Item().AlignCenter()
-                    .Text(string.IsNullOrWhiteSpace(registro) ? "Assinatura e carimbo" : registro!)
-                    .FontSize(8.5f).FontColor(TextoSecundario);
-            });
+                    var registro = documento.Profissional?.RegistroConselho;
+                    c.Item().AlignCenter()
+                        .Text(string.IsNullOrWhiteSpace(registro) ? "Assinatura e carimbo" : registro!)
+                        .FontSize(8.5f).FontColor(TextoSecundario);
+                });
 
             if (!assinaPaciente) return;
 

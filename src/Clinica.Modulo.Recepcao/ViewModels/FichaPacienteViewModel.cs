@@ -113,6 +113,7 @@ public sealed class LinhaDocumento
     public required string Profissional { get; init; }
     public required string Codigo { get; init; }
     public required bool Cancelado { get; init; }
+    public required bool Assinado { get; init; }
     public required string Situacao { get; init; }
 
     /// <summary>Nome sugerido ao salvar o PDF.</summary>
@@ -120,6 +121,13 @@ public sealed class LinhaDocumento
 
     /// <summary>Cancelar duas vezes não existe — o botão desliga depois do primeiro.</summary>
     public bool PodeCancelar => !Cancelado;
+
+    /// <summary>
+    /// Assinar depois existe porque emissão e assinatura nem sempre acontecem no mesmo
+    /// minuto. Assinado não se reassina (dois arquivos válidos do mesmo ato, e nada
+    /// diria qual o paciente levou) e cancelado não se assina.
+    /// </summary>
+    public bool PodeAssinar => !Cancelado && !Assinado;
 
     /// <summary>
     /// Mesma razão do <see cref="LinhaEvolucao.De"/>: a ficha e a tela de Prescrições
@@ -135,7 +143,12 @@ public sealed class LinhaDocumento
         Profissional = d.Profissional?.Rotulo ?? "—",
         Codigo = d.CodigoVerificacao,
         Cancelado = d.Cancelado,
-        Situacao = d.Cancelado ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}" : "Válido"
+        Assinado = d.AssinadoEletronicamente,
+        Situacao = d.Cancelado
+            ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
+            : d.AssinadoEletronicamente
+                ? $"Assinado digitalmente em {d.AssinadoEm:dd/MM/yyyy}"
+                : "Válido"
     };
 }
 

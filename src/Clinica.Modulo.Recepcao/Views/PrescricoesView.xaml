@@ -156,6 +156,12 @@
                                                             Command="{Binding DataContext.ImprimirDocumentoCommand,
                                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                             CommandParameter="{Binding}" />
+                                                    <Button Content="Assinar" Style="{StaticResource BotaoPequeno}"
+                                                            Margin="0,0,6,0"
+                                                            IsEnabled="{Binding PodeAssinar}"
+                                                            Command="{Binding DataContext.AssinarDocumentoCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}" />
                                                     <Button Content="Cancelar" Style="{StaticResource BotaoAcaoGridPerigo}"
                                                             IsEnabled="{Binding PodeCancelar}"
                                                             Command="{Binding DataContext.CancelarDocumentoCommand,
