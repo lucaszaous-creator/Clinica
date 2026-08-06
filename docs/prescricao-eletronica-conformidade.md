@@ -169,20 +169,35 @@ e é por isso que assinar **salva e abre o arquivo** em vez de mandar para a imp
   assinada à caneta e retida na farmácia, segue como sempre foi.
 - **LTV / PAdES-LT** (embutir CRL/OCSP para o arquivo continuar verificável depois de o
   certificado expirar). Anunciar sem implementar seria a mesma mentira do carimbo escaneado.
-- **Integração de API com PSC em nuvem** (VIDaaS, Bird ID). `CertificadoIcpBrasil` lê o
-  **repositório do Windows**, e é isso que o sistema usa.
+- **Integração de API com PSC em nuvem** (SafeID Integração, VIDaaS, Bird ID).
+  `CertificadoIcpBrasil` lê o **repositório do Windows**, e é isso que o sistema usa.
 
-  Isto **não** deixa a médica de fora do SafeID: o **SafeID Desktop** existe exatamente
-  para intermediar o certificado em nuvem com aplicativos que não são integrados ao SafeID
-  — instalado o programa, o certificado aparece no repositório do Windows, e ao assinar
-  chega uma notificação no celular para autorizar com o PIN. Ou seja, os dois caminhos da
-  clínica funcionam hoje: o certificado instalado na máquina e o SafeID com o Desktop.
+  Isto **não** deixa o SafeID de fora — pelo contrário, é como ele funciona hoje: o
+  **SafeID Desktop** intermedia o certificado em nuvem para aplicativos que não são
+  integrados ao SafeID. Instalado o programa e feito o login nele, o certificado aparece
+  no repositório do Windows, o seletor o lista como qualquer outro, e ao assinar **chega
+  uma notificação no celular** para autorizar com o PIN. Vale o mesmo para Bird ID e
+  VIDaaS. Ou seja, os dois caminhos que a clínica pediu funcionam: certificado instalado
+  na máquina **e** login pelo SafeID.
 
-  Espere a assinatura demorar o tempo da autorização no celular — é o mesmo comportamento
-  do PIN de um token A3, e é do fluxo, não do sistema.
+  O sistema reconhece a diferença em vez de fingir que não existe: `CertificadoAssinatura.
+  EmNuvem` sai do **provedor de chave** (CSP/KSP) do Windows — não do emissor, porque a
+  mesma AC emite os dois —, e são **três estados**: nuvem, máquina e *não sei*. Quando é
+  nuvem, o seletor avisa que a autorização vai para o celular e a assinatura roda **fora da
+  thread da interface**, senão a janela congela enquanto o telefone não responde. Sem
+  certificado nenhum, a mensagem cita as três formas de resolver, e a do SafeID vem
+  primeiro porque é a que mais confunde: o médico "tem" o certificado no celular e a lista
+  aparece vazia — falta o SafeID Desktop.
 
-  A integração direta por API (OAuth do PSC, sem programa intermediário) continua não
-  implementada; ver a seção de certificados em `docs/apis-integracao-prescricao.md`.
+  A integração **direta por API** (OAuth do PSC, sem programa intermediário) continua não
+  implementada, e há um obstáculo técnico já medido, que vale registrar para não ser
+  redescoberto: assinar com a chave num PSC exige montar o CMS com uma **assinatura
+  externa**, e o atalho óbvio — `X509Certificate2.CopyWithPrivateKey` com um `RSA` que
+  delega a assinatura — **não funciona no Linux**: o OpenSSL tenta exportar a chave
+  privada e estoura. Restam duas saídas, ambas a decidir quando houver credencial e
+  documentação: montar o `SignedData` à mão com `AsnWriter`, ou trazer o BouncyCastle, que
+  já tem `ISignatureFactory` externo. Ver `docs/apis-integracao-prescricao.md`.
+
 - **Base de medicamentos / autocomplete.** O campo é texto livre por decisão, e é por isso
   que a conferência de alergia compara por palavra inteira.
 - **Certificação SBIS/CFM (S-RES).** Não é requisito para prescrever nem para assinar; é

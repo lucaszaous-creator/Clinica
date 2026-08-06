@@ -16,6 +16,12 @@ public sealed class LinhaCertificado
     public required bool Vigente { get; init; }
     public required bool EhECpf { get; init; }
 
+    /// <summary>Onde a chave está — é o que avisa que a autorização vai para o celular.</summary>
+    public required string Origem { get; init; }
+
+    /// <summary>Nuvem (SafeID e afins): a assinatura vai esperar o PIN no telefone.</summary>
+    public required bool EmNuvem { get; init; }
+
     /// <summary>Vencido não se escolhe: assinar com ele produz documento inválido.</summary>
     public bool PodeEscolher => Vigente && EhECpf;
 
@@ -35,7 +41,9 @@ public sealed class LinhaCertificado
         Validade = $"{c.ValidoDe:dd/MM/yyyy} a {c.ValidoAte:dd/MM/yyyy}",
         Emissor = c.Emissor,
         Vigente = c.Vigente,
-        EhECpf = c.EhECpf
+        EhECpf = c.EhECpf,
+        Origem = c.OndeEstaAChave,
+        EmNuvem = c.EmNuvem == true
     };
 }
 
@@ -96,8 +104,15 @@ public sealed partial class EscolherCertificadoViewModel : ObservableObject
         Vazio = Certificados.Count == 0;
 
         if (Vazio)
-            Mensagem = "Nenhum certificado encontrado nesta máquina. Se for um A3, conecte o "
-                     + "token ou o cartão; se for um A1, importe o arquivo .pfx no Windows "
+            // As TRÊS formas que a clínica usa, na ordem em que costumam faltar. A do
+            // SafeID é a que mais confunde: o certificado existe, o médico "tem" o
+            // certificado no celular, e mesmo assim a lista vem vazia — porque sem o
+            // SafeID Desktop instalado ele não aparece para nenhum programa do Windows.
+            Mensagem = "Nenhum certificado encontrado nesta máquina.\n"
+                     + "• SafeID (ou outro certificado em nuvem): instale o SafeID Desktop e "
+                     + "faça login nele — só assim o certificado do celular aparece aqui.\n"
+                     + "• A3: conecte o token ou o cartão.\n"
+                     + "• A1: importe o arquivo .pfx no Windows "
                      + "(Gerenciador de Certificados → Pessoal).";
 
         Selecionado = Certificados.FirstOrDefault(c => c.PodeEscolher);
