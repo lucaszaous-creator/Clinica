@@ -25,6 +25,8 @@ public sealed class LinhaPrescricaoInterna
     public required string Codigo { get; init; }
     public required bool Cancelada { get; init; }
     public required bool TemAssinatura { get; init; }
+
+    /// <summary>Já houve execução registrada — a folha de registro tem o que mostrar.</summary>
     public required bool TemRegistroExecucao { get; init; }
 
     /// <summary>Só rascunho se cancela — depois de executada a folha é registro de um fato.</summary>
@@ -53,7 +55,7 @@ public sealed class LinhaPrescricaoInterna
             Codigo = p.CodigoVerificacao,
             Cancelada = p.Cancelada,
             TemAssinatura = p.AssinaturaDoPrescritor is not null,
-            TemRegistroExecucao = p.AssinaturaDoExecutante is not null,
+            TemRegistroExecucao = p.Realizados + p.NaoRealizados > 0,
             PodeCancelar = p.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada
         };
     }
@@ -245,17 +247,17 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
     private async Task ImprimirAsync(LinhaPrescricaoInterna? linha)
     {
         if (linha is null) return;
-        await ImprimirFolhaAsync(linha, PapelAssinatura.Prescritor);
+        await ImprimirFolhaAsync(linha, FolhaPrescricao.Prescricao);
     }
 
     [RelayCommand]
     private async Task ImprimirExecucaoAsync(LinhaPrescricaoInterna? linha)
     {
         if (linha is null) return;
-        await ImprimirFolhaAsync(linha, PapelAssinatura.Executante);
+        await ImprimirFolhaAsync(linha, FolhaPrescricao.RegistroExecucao);
     }
 
-    private async Task ImprimirFolhaAsync(LinhaPrescricaoInterna linha, PapelAssinatura papel)
+    private async Task ImprimirFolhaAsync(LinhaPrescricaoInterna linha, FolhaPrescricao folhaPedida)
     {
         try
         {
@@ -264,7 +266,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
             {
                 var assinaturas = scope.ServiceProvider
                     .GetRequiredService<AssinaturaDePrescricaoService>();
-                folha = await assinaturas.FolhaAsync(linha.PrescricaoId, papel);
+                folha = await assinaturas.FolhaAsync(linha.PrescricaoId, folhaPedida);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(

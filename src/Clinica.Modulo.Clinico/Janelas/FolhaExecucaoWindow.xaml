@@ -71,13 +71,13 @@
 
                 <TextBlock Grid.Column="0" Style="{StaticResource TextoSuave}"
                            VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap"
-                           Text="Encerrar assina o registro de enfermagem com o seu certificado. Depois disso a folha não pode mais ser checada." />
+                           Text="Encerrar fecha a folha: ela sai da sala e não pode mais ser checada. A assinatura da execução é a sua, à caneta, na via impressa." />
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button Content="Fechar" IsCancel="True" MinWidth="100"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}" />
-                    <Button Content="Encerrar e assinar" Margin="8,0,0,0" MinWidth="180"
+                    <Button Content="Encerrar execução" Margin="8,0,0,0" MinWidth="170"
                             VerticalAlignment="Center"
                             IsEnabled="{Binding PodeEncerrar}"
                             Command="{Binding EncerrarCommand}" />

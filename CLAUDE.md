@@ -547,14 +547,18 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   vencido, ou de outra pessoa é **recusado**; profissional sem CPF cadastrado também, e
   isso é decisão — aceitar em silêncio faria a conferência existir só para quem já tinha o
   campo preenchido.
-  **Duas folhas, não dois carimbos na mesma.** No papel a mesma folha leva os dois carimbos
-  porque papel se assina incrementalmente; em PDF não: se a prescritora assinasse antes da
-  execução (que é quando ela tem de assinar) a assinatura dela cobriria as colunas de
-  checagem EM BRANCO. Então a **Prescrição** é assinada por quem prescreve e o **Registro
-  de execução** pela enfermagem, e o segundo traz impressos o número, o titular e o **hash**
-  do primeiro — o que prova a ORDEM, e é evidência mais forte que dois carimbos numa
-  página. (A biblioteca também não faz atualização incremental, então a segunda assinatura
-  quebraria a primeira — a restrição técnica e a regra clínica apontam para o mesmo lado.)
+  **UMA assinatura eletrônica por folha, e é a de quem prescreve** (decisão da clínica,
+  ago/2026 — a primeira versão exigia duas). Quem confere e assina a EXECUÇÃO é a
+  enfermeira, **na via impressa**, depois que a folha sai da impressora: por isso a
+  Prescrição sai com as **colunas de checagem em branco** ("Feito às", "Visto") e três
+  linhas para o motivo do não realizado. A prescritora assinar um PDF com esses campos
+  vazios é correto — eles são pré-impressos do formulário, como no talão de papel; ela
+  atesta o que MANDOU fazer, e o que foi feito entra por cima, à mão. Isso dispensou um
+  segundo e-CPF (um por técnica) para produzir, com muita cerimônia, a garantia que a
+  caneta dela já dava — e de quebra resolveu a restrição de o PDF não se assinar
+  incrementalmente. O **Registro de execução** continua existindo como espelho eletrônico
+  do que foi checado (prontuário e conferência do fim do dia), é montado NA HORA porque
+  muda a cada item, e o rodapé dele diz que a autoria está no papel.
   **A reimpressão devolve os BYTES GUARDADOS**, nunca um PDF novo: a assinatura cobre uma
   faixa de bytes do arquivo, e um documento "igual" regerado agora abriria como inválido —
   por isso `ArquivoAssinado` é tabela e não cache. E **a folha nunca promete mais do que

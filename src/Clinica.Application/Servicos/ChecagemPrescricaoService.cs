@@ -20,8 +20,19 @@ public sealed record IdentificacaoExecutante(int? UsuarioId, string Nome, string
 /// No hospital, checar não é marcar uma caixinha: é dizer <i>"foi prescrito assim e foi
 /// realizado assim"</i>, com o horário em que aconteceu, e responder por isso. Quando não
 /// foi realizado, a técnica <b>"rodela"</b> — circula o horário — e escreve o porquê
-/// ("o paciente não quis", "apresentou reação alérgica"). É o mesmo peso da baixa da guia
-/// no faturamento, do lado clínico: uma afirmação assinada sobre um fato.
+/// ("o paciente não quis", "apresentou reação alérgica").
+///
+/// Onde mora a assinatura da enfermagem
+/// ------------------------------------
+/// <b>No papel.</b> A clínica decidiu que quem confere e assina a execução é a enfermeira,
+/// na via impressa, depois que a folha sai da impressora — e por isso este serviço não
+/// assina nada. O que ele grava é o REGISTRO do que foi feito: alimenta o prontuário, a
+/// conferência do fim do dia e o circuito da alergia. A garantia de autoria continua sendo
+/// a caneta dela sobre a folha, e a folha impressa diz isso com todas as letras.
+///
+/// Não é menos rigor, é rigor no lugar certo: exigir um segundo certificado ICP-Brasil aqui
+/// obrigaria a clínica a comprar um e-CPF para a técnica e produziria, com muita cerimônia,
+/// a mesma garantia que a assinatura manuscrita já dá.
 ///
 /// As quatro regras que este serviço cobra
 /// ---------------------------------------
@@ -193,28 +204,35 @@ public sealed class ChecagemPrescricaoService
     }
 
     /// <summary>
-    /// Encerra a execução e assina o registro pela enfermagem.
+    /// Encerra a execução: a folha sai da sala e não se checa mais.
+    ///
+    /// <b>Aqui NÃO há assinatura eletrônica</b>, e isso é decisão da clínica: quem confere e
+    /// assina a execução é a enfermeira, <b>na via impressa</b>, depois que a folha sai da
+    /// impressora. O que este método grava é o REGISTRO do que foi feito — útil no
+    /// prontuário, na conferência do fim do dia e no circuito da alergia —, não o documento
+    /// que responde por ele. O documento é o papel, e a folha impressa diz isso.
+    ///
+    /// A primeira versão exigia um segundo certificado ICP-Brasil aqui. Além de obrigar a
+    /// clínica a comprar um e-CPF para a técnica, era uma cerimônia a mais para produzir uma
+    /// garantia que o papel assinado já dava.
     ///
     /// Exige que todo item tenha destino (feito, não feito ou suspenso): encerrar com item
     /// pendente deixaria no prontuário uma folha que não diz se a droga entrou no paciente
     /// — que é a única pergunta que ela existe para responder. O "se necessário" fica de
     /// fora da conta, porque condição que não aconteceu não é trabalho por fazer.
     ///
-    /// <b>Não há reabertura.</b> Encerrar é assinar, e assinatura não se desfaz: se a folha
-    /// foi encerrada cedo demais, a correção é retificar a checagem errada — o que continua
-    /// possível — ou prescrever uma folha nova. Um botão de "reabrir" aqui seria um botão
-    /// de desassinar.
+    /// <b>Não há reabertura.</b> Se a folha foi encerrada cedo demais, a correção é
+    /// retificar a checagem errada — o que continua possível — ou prescrever outra folha.
     /// </summary>
     public async Task<PrescricaoInterna> EncerrarAsync(
-        int prescricaoId, AssinaturaDocumento assinatura,
-        IdentificacaoExecutante executante, CancellationToken ct = default)
+        int prescricaoId, IdentificacaoExecutante executante, CancellationToken ct = default)
     {
         var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
             ?? throw new InvalidOperationException("Prescrição não encontrada.");
 
         if (prescricao.Situacao == SituacaoPrescricao.Encerrada)
             throw new InvalidOperationException(
-                $"A execução da prescrição {prescricao.Numero} já foi encerrada e assinada.");
+                $"A execução da prescrição {prescricao.Numero} já foi encerrada.");
 
         if (!prescricao.PodeChecar)
             throw new InvalidOperationException(
@@ -227,12 +245,8 @@ public sealed class ChecagemPrescricaoService
                 + "com item em aberto não diz se a medicação entrou no paciente, que é a "
                 + "única pergunta que ela existe para responder.");
 
-        assinatura.PrescricaoInternaId = prescricao.Id;
-        assinatura.Papel = PapelAssinatura.Executante;
-        prescricao.Assinaturas.Add(assinatura);
-
         prescricao.Situacao = SituacaoPrescricao.Encerrada;
-        prescricao.EncerradaEm = assinatura.AssinadoEm;
+        prescricao.EncerradaEm = DateTime.Now;
         prescricao.AtualizadoEm = DateTime.Now;
         prescricao.AtualizadoPor = executante.Nome;
 
@@ -242,8 +256,8 @@ public sealed class ChecagemPrescricaoService
             Acao = "PrescricaoExecucaoEncerrada",
             PacienteId = prescricao.PacienteId,
             Detalhe = $"{prescricao.Numero} · {prescricao.Realizados} realizados, "
-                    + $"{prescricao.NaoRealizados} não realizados · "
-                    + $"{assinatura.RotuloDoNivel} · hash {assinatura.HashCurto}"
+                    + $"{prescricao.NaoRealizados} não realizados · encerrada por "
+                    + $"{executante.Nome} (assinatura da enfermagem na via impressa)"
         }, ct);
 
         await _repo.SalvarAsync(ct);
@@ -267,7 +281,7 @@ public sealed class ChecagemPrescricaoService
                     $"A prescrição {prescricao.Numero} ainda não foi assinada pelo "
                     + "profissional e não pode ser executada.",
                 SituacaoPrescricao.Encerrada =>
-                    $"A execução da prescrição {prescricao.Numero} já foi encerrada e assinada.",
+                    $"A execução da prescrição {prescricao.Numero} já foi encerrada.",
                 _ =>
                     $"A prescrição {prescricao.Numero} foi cancelada."
             });

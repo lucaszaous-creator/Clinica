@@ -54,8 +54,7 @@ public class PrescricaoInternaPdfTests : IDisposable
         _checagens = new ChecagemPrescricaoService(_repo, () => DateTime.Today.AddHours(12));
         _pdfs = new PrescricaoInternaPdfService(_repo, conferencia);
         _orquestra = new AssinaturaDePrescricaoService(
-            _repo, _prescricoes, _checagens, _pdfs, _assinador,
-            new ParametrosService(_repo));
+            _repo, _prescricoes, _pdfs, _assinador, new ParametrosService(_repo));
     }
 
     [Fact]
@@ -108,56 +107,56 @@ public class PrescricaoInternaPdfTests : IDisposable
     }
 
     /// <summary>
-    /// O elo entre as duas folhas. É ele que substitui os dois carimbos na mesma página —
-    /// e prova mais, porque o hash da prescrição só existe se ela foi assinada ANTES, com
-    /// aquele conteúdo exato.
+    /// O registro de execução NÃO é assinado eletronicamente — quem assina a execução é a
+    /// enfermeira, na via impressa. O que o sistema guarda é o registro do que foi feito.
+    ///
+    /// Este teste é o guarda da decisão: se um dia voltar um segundo certificado aqui, ele
+    /// cai.
     /// </summary>
     [Fact]
-    public async Task Registro_de_execucao_sai_assinado_pela_enfermagem_e_confere()
+    public async Task Registro_de_execucao_sai_sem_assinatura_eletronica()
     {
         var prescricao = await AssinarPrescricaoAsync();
         var carregada = (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!;
 
         foreach (var item in carregada.Itens)
             await _checagens.ChecarAsync(
-                item.Id, SituacaoChecagem.Realizado,
-                new TimeOnly(9, 30), Tecnica);
+                item.Id, SituacaoChecagem.Realizado, new TimeOnly(9, 30), Tecnica);
 
-        var pdfExecucao = await _pdfs.GerarRegistroExecucaoAsync(prescricao.Id);
-        var certificado = ECpfDeTeste("Joana Técnica", "98765432100");
-        var totalPaginas = ContarPaginas(pdfExecucao);
+        await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
 
-        var assinado = _assinador.Assinar(pdfExecucao, certificado, new PedidoAssinatura(
-            Motivo: "Registro de execução de enfermagem",
-            NomeExibido: "Joana Técnica",
-            RegistroConselho: "COREN-SP 999999",
-            Area: PrescricaoInternaPdfService.AreaDaAssinatura(totalPaginas)));
+        var folha = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
 
-        var arquivo = new ArquivoAssinado
-        {
-            Conteudo = assinado.Pdf,
-            NomeArquivo = $"{prescricao.Numero} execucao.pdf"
-        };
-        _db.ArquivosAssinados.Add(arquivo);
-        await _db.SaveChangesAsync();
-
-        await _checagens.EncerrarAsync(prescricao.Id, new AssinaturaDocumento
-        {
-            Tipo = TipoAssinatura.IcpBrasil,
-            HashConteudo = assinado.Hash,
-            NomeAssinante = "Joana Técnica",
-            RegistroConselho = "COREN-SP 999999",
-            CpfAssinante = certificado.Cpf,
-            CertificadoTitular = certificado.Titular,
-            ArquivoId = arquivo.Id
-        }, Tecnica);
-
-        _assinador.Conferir(assinado.Pdf).Integra.Should().BeTrue();
+        folha.Pdf.Should().NotBeEmpty();
+        folha.Assinatura.Should().BeNull();
+        folha.Conferencia.Should().BeNull();
 
         var final = (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!;
         final.Situacao.Should().Be(SituacaoPrescricao.Encerrada);
-        final.AssinaturaDoPrescritor!.CpfAssinante.Should().Be("12345678909");
-        final.AssinaturaDoExecutante!.CpfAssinante.Should().Be("98765432100");
+        // Uma assinatura eletrônica na folha inteira, e é a de quem prescreveu.
+        final.Assinaturas.Should().ContainSingle()
+            .Which.Papel.Should().Be(PapelAssinatura.Prescritor);
+    }
+
+    /// <summary>
+    /// O registro de execução é montado NA HORA, e não congelado: ele muda a cada item
+    /// checado, e devolver bytes guardados faria a reimpressão mostrar um estado que passou.
+    /// </summary>
+    [Fact]
+    public async Task Registro_de_execucao_acompanha_o_que_ja_foi_checado()
+    {
+        var prescricao = await AssinarPrescricaoAsync();
+        var carregada = (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!;
+
+        var antes = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
+
+        await _checagens.ChecarAsync(
+            carregada.Itens[0].Id, SituacaoChecagem.NaoRealizado, new TimeOnly(9, 30),
+            Tecnica, justificativa: "Paciente recusou.");
+
+        var depois = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
+
+        depois.Pdf.Should().NotEqual(antes.Pdf);
     }
 
     /// <summary>
@@ -315,7 +314,7 @@ public class PrescricaoInternaPdfTests : IDisposable
 
         resultado.Prescricao.Situacao.Should().Be(SituacaoPrescricao.Assinada);
 
-        var folha = await _orquestra.FolhaAsync(prescricao.Id, PapelAssinatura.Prescritor);
+        var folha = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
         folha.Conferencia!.Integra.Should().BeTrue();
         folha.Assinatura!.CpfAssinante.Should().Be("12345678909");
     }
@@ -332,8 +331,8 @@ public class PrescricaoInternaPdfTests : IDisposable
         await _orquestra.AssinarPrescricaoAsync(
             prescricao.Id, ECpfDeTeste("Dra. Ana Souza", "12345678909"));
 
-        var primeira = await _orquestra.FolhaAsync(prescricao.Id, PapelAssinatura.Prescritor);
-        var segunda = await _orquestra.FolhaAsync(prescricao.Id, PapelAssinatura.Prescritor);
+        var primeira = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
+        var segunda = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
 
         segunda.Pdf.Should().Equal(primeira.Pdf);
         segunda.Conferencia!.Integra.Should().BeTrue();

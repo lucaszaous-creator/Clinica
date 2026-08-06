@@ -9,7 +9,10 @@ public enum SituacaoPrescricao
     /// <summary>Assinada pelo prescritor. É o único estado em que a execução é permitida.</summary>
     Assinada,
 
-    /// <summary>A enfermagem encerrou a folha e assinou o registro de execução.</summary>
+    /// <summary>
+    /// A enfermagem terminou a execução e fechou a folha. Não há assinatura eletrônica
+    /// aqui: quem assina a execução é a enfermeira, na via impressa.
+    /// </summary>
     Encerrada,
 
     /// <summary>Desfeita antes de executar. Não some da base: pode ter sido impressa.</summary>
@@ -68,11 +71,36 @@ public enum SituacaoItemPrescricao
     Suspenso
 }
 
-/// <summary>Quem assina o quê. O prescritor assina o que mandou fazer; a enfermagem, o que fez.</summary>
+/// <summary>
+/// Quem assinou eletronicamente.
+///
+/// Hoje só o <see cref="Prescritor"/> é gravado: a clínica decidiu que quem confere e
+/// assina a EXECUÇÃO é a enfermeira, na via impressa, depois que a folha sai da impressora.
+/// O valor <see cref="Executante"/> permanece porque a coluna é gravada como texto e tirá-lo
+/// exigiria uma migration destrutiva para não ganhar nada — mas nada o escreve.
+/// </summary>
 public enum PapelAssinatura
 {
     Prescritor,
+
+    /// <summary>Não é gravado. Ver o comentário do enum.</summary>
     Executante
+}
+
+/// <summary>
+/// Qual das duas folhas se está pedindo — a impressão ou a reimpressão.
+///
+/// Enum próprio, e não <see cref="PapelAssinatura"/> reaproveitado: desde que a enfermagem
+/// passou a assinar no papel, "Executante" não nomeia mais um signatário, e usá-lo para
+/// dizer "a outra folha" faria o parâmetro mentir sobre o que ele escolhe.
+/// </summary>
+public enum FolhaPrescricao
+{
+    /// <summary>O que foi mandado fazer. É esta que leva a assinatura ICP-Brasil.</summary>
+    Prescricao,
+
+    /// <summary>O que foi feito — registro do sistema, conferido e assinado no papel.</summary>
+    RegistroExecucao
 }
 
 /// <summary>
@@ -133,8 +161,9 @@ public enum TipoAssinatura
 /// O que ela acrescenta ao sistema
 /// -------------------------------
 /// A checagem de enfermagem. Quando a técnica checa um item ela não está preenchendo um
-/// campo: está AFIRMANDO que foi prescrito assim e realizado assim, e assinando por isso.
-/// É o mesmo peso da baixa da guia no faturamento, do lado clínico.
+/// campo: está AFIRMANDO que foi prescrito assim e realizado assim. A assinatura que
+/// responde por essa afirmação é MANUSCRITA, na folha impressa — o sistema guarda o
+/// registro, o papel guarda a autoria.
 ///
 /// As regras que o serviço cobra
 /// -----------------------------
@@ -144,8 +173,8 @@ public enum TipoAssinatura
 ///   o que a assinatura da técnica existe para impedir.
 /// - <b>A hora é INFORMADA, nunca a do relógio.</b> Ver <see cref="ChecagemPrescricao"/>.
 /// - <b>Não realizado exige justificativa escrita.</b>
-/// - <b>As duas assinaturas vão em DOCUMENTOS SEPARADOS</b>, e não na mesma folha como no
-///   papel. Ver <see cref="AssinaturaDocumento"/>.
+/// - <b>Só a prescrição é assinada eletronicamente</b>, por quem prescreve. A execução é
+///   conferida e assinada à caneta na via impressa. Ver <see cref="AssinaturaDocumento"/>.
 /// </summary>
 public class PrescricaoInterna
 {
@@ -253,11 +282,12 @@ public class PrescricaoInterna
     /// </summary>
     public bool ExecucaoCompleta => Itens.Count > 0 && Pendentes == 0;
 
+    /// <summary>
+    /// A assinatura eletrônica da folha — sempre a de quem prescreveu, e só ela. A da
+    /// enfermagem é manuscrita, na via impressa (ver <see cref="PapelAssinatura"/>).
+    /// </summary>
     public AssinaturaDocumento? AssinaturaDoPrescritor
         => Assinaturas.FirstOrDefault(a => a.Papel == PapelAssinatura.Prescritor);
-
-    public AssinaturaDocumento? AssinaturaDoExecutante
-        => Assinaturas.FirstOrDefault(a => a.Papel == PapelAssinatura.Executante);
 }
 
 /// <summary>
@@ -476,24 +506,23 @@ public class ChecagemPrescricao
 }
 
 /// <summary>
-/// A ASSINATURA de uma das duas folhas — e o registro honesto de QUE NÍVEL ela tem.
+/// A ASSINATURA ELETRÔNICA da prescrição — e o registro honesto de que nível ela tem.
 ///
-/// Por que as duas assinaturas NÃO ficam na mesma folha
-/// ----------------------------------------------------
-/// No papel, a mesma prescrição leva o carimbo do médico em cima e o da enfermagem embaixo,
-/// porque papel se assina incrementalmente — cada um assina o que está na folha na hora em
-/// que pega a caneta. Em PDF isso não se reproduz honestamente:
+/// Só existe UMA por folha, e é a de quem prescreve
+/// ------------------------------------------------
+/// A execução não é assinada aqui. A clínica decidiu que a enfermeira confere e assina
+/// <b>na via impressa</b>, depois que a folha sai da impressora — por isso a Prescrição sai
+/// com as colunas de checagem em branco e uma linha de assinatura para ela.
 ///
-/// - Se a prescritora assinasse a folha ANTES da execução (que é quando ela tem de
-///   assinar), a assinatura dela cobriria as colunas de checagem em BRANCO — ela estaria
-///   atestando um documento que ainda vai mudar.
-/// - Se assinasse DEPOIS, junto com a enfermagem, ela estaria assinando a execução, que
-///   não é dela; e as duas precisariam estar com o token na máquina no mesmo minuto.
+/// Isso dispensou um segundo certificado ICP-Brasil (um por técnica) para produzir, com
+/// muita cerimônia, a mesma garantia que a caneta dela já dava. E resolveu de graça o
+/// problema que a primeira versão tinha: em PDF não se assina incrementalmente, então duas
+/// assinaturas na mesma folha exigiriam ou dois documentos encadeados, ou a prescritora
+/// assinando um arquivo que ainda ia mudar.
 ///
-/// Então são dois documentos, e o segundo aponta para o primeiro: o registro de execução
-/// traz impressos o número, o titular e o <see cref="HashConteudo"/> da prescrição
-/// assinada. Isso é evidência MAIS forte que dois carimbos na mesma página, porque prova
-/// a ORDEM: a prescrição existia, com aquele conteúdo exato, antes de a execução começar.
+/// A prescritora assinar um PDF com as colunas EM BRANCO é correto, e vale entender por
+/// quê: elas são campos pré-impressos do formulário, como no talão de papel. Ela atesta o
+/// que mandou fazer; o que foi feito é escrito à mão em cima da folha, depois.
 ///
 /// O hash é o que faz a assinatura valer alguma coisa
 /// --------------------------------------------------

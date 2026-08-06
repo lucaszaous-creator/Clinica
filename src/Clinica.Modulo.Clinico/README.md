@@ -136,9 +136,9 @@ checagem seria assinatura de ninguém.
 - A **hora é informada, nunca o relógio** — e hora futura é recusada. É a única regra do
   projeto com relógio injetado (`ChecagemPrescricaoService`), porque regra de segurança que
   não dá para testar apodrece sem ninguém notar.
-- **São duas folhas assinadas, não dois carimbos na mesma.** A prescritora não pode assinar
-  colunas de checagem em branco; o registro de execução carrega o **hash** da prescrição, o
-  que prova a ordem.
+- **Uma assinatura eletrônica só, a de quem prescreve.** A enfermeira confere e assina na
+  via impressa — por isso a Prescrição sai com as colunas de checagem em branco. Ver a
+  revisão de 06/08 abaixo.
 - **A reimpressão devolve os bytes guardados**, nunca um PDF novo — a assinatura cobre uma
   faixa de bytes do arquivo.
 - O **CPF sai de dentro do certificado** e é comparado com `Profissional.Cpf`. Sem isso, a
@@ -149,8 +149,9 @@ checagem seria assinatura de ninguém.
 1. A viabilidade foi provada **antes** de escrever a feature: QuestPDF → PdfSharp → PKCS#7,
    assinatura conferindo e 1 bit trocado sendo pego, tudo em Linux.
 2. Descobriu-se ali que o PdfSharp **não faz atualização incremental** — duas assinaturas no
-   mesmo PDF não existem. Isso mudou o desenho (duas folhas encadeadas) e, por sorte, para
-   melhor: a restrição técnica e a regra clínica apontavam para o mesmo lado.
+   mesmo PDF não existem. Isso levou ao desenho de duas folhas encadeadas pelo hash, que a
+   revisão de 06/08 tornou desnecessário: com a enfermagem assinando no papel, sobra uma
+   assinatura eletrônica só e a restrição deixa de existir.
 3. Dois testes de conteúdo tiveram de ser reescritos: o QuestPDF embute fontes com
    subconjunto **CID**, então o "texto" dentro do PDF são IDs de glifo e procurar a string
    ali daria um teste que passa ou falha por acidente. Passaram a testar a **decisão**
@@ -161,9 +162,42 @@ checagem seria assinatura de ninguém.
 **Verificação**: 1146 testes (50 novos), `compilar-sombra` e `verificar-suite` verdes,
 migration puramente aditiva, CI Windows verde (é ele que compila os XAML de verdade).
 
-**O que ficou para a clínica providenciar**: um certificado ICP-Brasil por pessoa que
-assina, o CPF preenchido em Equipe, e — se quiser data provada em vez de declarada — uma
-ACT contratada.
+**O que ficou para a clínica providenciar**: certificado ICP-Brasil para quem prescreve, o
+CPF preenchido em Equipe, e — se quiser data provada em vez de declarada — uma ACT
+contratada.
+
+### Parcela 42, revisão de 06/08 — a enfermagem assina no papel
+
+O cliente corrigiu o fluxo depois de ver o desenho: *"apenas o médico vai prescrever e
+assinar ali na hora e após impresso que a enfermeira irá verificar e assinar"*. Duas
+assinaturas eletrônicas eram cerimônia a mais para a mesma garantia — e obrigavam a clínica
+a comprar um e-CPF para a técnica.
+
+**O que mudou**
+
+- `ChecagemPrescricaoService.EncerrarAsync` não recebe mais `AssinaturaDocumento`: encerrar
+  fecha a folha, não assina. `AssinaturaDePrescricaoService.EncerrarExecucaoAsync` saiu.
+- A **Prescrição impressa** ganhou as colunas em branco (`Feito às`, `Visto`) e três linhas
+  para o motivo do não realizado. É nela que a enfermeira escreve e assina.
+- O **Registro de execução** deixou de ser documento assinado: é o espelho eletrônico do
+  que foi checado, montado na hora (muda a cada item), com o rodapé dizendo que a autoria
+  está no papel.
+- `FolhaPrescricao` (enum novo) substituiu `PapelAssinatura` como seletor de "qual folha" —
+  reusar "Executante" para isso passou a mentir sobre o que o parâmetro escolhe.
+- `PrescricaoInterna.AssinaturaDoExecutante` saiu: seria sempre nula, e ler nulo sugere
+  feature que não existe. O valor `PapelAssinatura.Executante` fica no enum (a coluna é
+  texto, e tirá-lo pediria migration destrutiva para não ganhar nada) documentado como não
+  gravado.
+
+**O que NÃO mudou, e é o ponto**: a técnica continua registrando ✓ / rodela com hora e
+justificativa na tela. Sem isso o circuito da reação alérgica virando alergia no prontuário
+morreria — e é ele que faz a próxima prescrição acender o alerta.
+
+**Nenhuma migration.** O esquema não mudou: só parou de escrever numa linha.
+
+Dois testes novos guardam a decisão: `Encerrar_NAO_cria_segunda_assinatura_eletronica` e
+`Registro_de_execucao_sai_sem_assinatura_eletronica`. Se um dia voltar um segundo
+certificado, eles caem.
 
 ---
 

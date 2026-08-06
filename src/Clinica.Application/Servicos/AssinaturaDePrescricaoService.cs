@@ -41,7 +41,6 @@ public sealed class AssinaturaDePrescricaoService
 {
     private readonly IClinicaRepositorio _repo;
     private readonly PrescricaoInternaService _prescricoes;
-    private readonly ChecagemPrescricaoService _checagens;
     private readonly PrescricaoInternaPdfService _pdfs;
     private readonly AssinaturaDigitalService _assinador;
     private readonly ParametrosService _parametros;
@@ -49,14 +48,12 @@ public sealed class AssinaturaDePrescricaoService
     public AssinaturaDePrescricaoService(
         IClinicaRepositorio repo,
         PrescricaoInternaService prescricoes,
-        ChecagemPrescricaoService checagens,
         PrescricaoInternaPdfService pdfs,
         AssinaturaDigitalService assinador,
         ParametrosService parametros)
     {
         _repo = repo;
         _prescricoes = prescricoes;
-        _checagens = checagens;
         _pdfs = pdfs;
         _assinador = assinador;
         _parametros = parametros;
@@ -96,57 +93,26 @@ public sealed class AssinaturaDePrescricaoService
     }
 
     /// <summary>
-    /// Encerra a execução: gera o registro da enfermagem, sela com o certificado de quem
-    /// executou e grava.
-    /// </summary>
-    public async Task<PrescricaoInterna> EncerrarExecucaoAsync(
-        int prescricaoId, CertificadoAssinatura certificado,
-        IdentificacaoExecutante executante, string? cpfDoExecutante = null,
-        CancellationToken ct = default)
-    {
-        var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
-            ?? throw new InvalidOperationException("Prescrição não encontrada.");
-
-        ExigirTitularCompativel(certificado, cpfDoExecutante, executante.Nome);
-
-        var pdf = await _pdfs.GerarRegistroExecucaoAsync(prescricaoId, await PrestadorAsync(ct), ct);
-
-        var assinado = await SelarAsync(
-            pdf, certificado,
-            motivo: $"Registro de execução de enfermagem — {prescricao.Numero}",
-            nomeExibido: executante.Nome,
-            registroConselho: executante.Conselho,
-            ct);
-
-        var arquivo = await GuardarAsync(
-            assinado.Pdf, $"{prescricao.Numero} execucao.pdf", ct);
-
-        var assinatura = Montar(
-            certificado, assinado, arquivo, executante.UsuarioId,
-            executante.Nome, executante.Conselho);
-
-        return await _checagens.EncerrarAsync(prescricaoId, assinatura, executante, ct);
-    }
-
-    /// <summary>
     /// A folha para ler ou reimprimir.
     ///
-    /// Quando existe assinatura eletrônica, devolve <b>os bytes GUARDADOS</b>, nunca um PDF
-    /// novo: a assinatura cobre uma faixa de bytes do arquivo, e um documento "igual"
-    /// regerado agora teria outra — a segunda via sairia com a assinatura inválida. Quando
-    /// não existe, monta na hora, que é o caminho do rascunho e da via para assinar à mão.
+    /// A <b>Prescrição</b>, quando assinada, devolve os <b>bytes GUARDADOS</b> — nunca um
+    /// PDF novo: a assinatura cobre uma faixa de bytes do arquivo, e um documento "igual"
+    /// regerado agora teria outra, então a segunda via sairia inválida.
+    ///
+    /// O <b>Registro de execução</b> é sempre montado na hora, e isso não é descuido: ele
+    /// não é assinado eletronicamente (quem assina a execução é a enfermeira, na via
+    /// impressa) e ele MUDA enquanto a folha está aberta, a cada item checado. Congelá-lo
+    /// faria a reimpressão mostrar um estado que já passou.
     /// </summary>
     public async Task<FolhaAssinada> FolhaAsync(
-        int prescricaoId, PapelAssinatura papel, CancellationToken ct = default)
+        int prescricaoId, FolhaPrescricao folhaPedida, CancellationToken ct = default)
     {
         var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
             ?? throw new InvalidOperationException("Prescrição não encontrada.");
 
-        var assinatura = papel == PapelAssinatura.Prescritor
-            ? prescricao.AssinaturaDoPrescritor
-            : prescricao.AssinaturaDoExecutante;
-
-        var sufixo = papel == PapelAssinatura.Prescritor ? string.Empty : " execucao";
+        var ehPrescricao = folhaPedida == FolhaPrescricao.Prescricao;
+        var assinatura = ehPrescricao ? prescricao.AssinaturaDoPrescritor : null;
+        var sufixo = ehPrescricao ? string.Empty : " execucao";
         var nome = $"{prescricao.Numero.Replace('/', '-')}{sufixo}.pdf";
 
         if (assinatura?.ArquivoId is int arquivoId
@@ -158,7 +124,7 @@ public sealed class AssinaturaDePrescricaoService
         }
 
         var prestador = await PrestadorAsync(ct);
-        var pdf = papel == PapelAssinatura.Prescritor
+        var pdf = ehPrescricao
             ? await _pdfs.GerarPrescricaoAsync(prescricaoId, prestador, ct)
             : await _pdfs.GerarRegistroExecucaoAsync(prescricaoId, prestador, ct);
 

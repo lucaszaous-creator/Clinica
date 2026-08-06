@@ -402,7 +402,7 @@ public class PrescricaoInternaTests : IDisposable
         var prescricao = await AssinadaAsync(quantidadeItens: 2);
 
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(
-            () => _checagens.EncerrarAsync(prescricao.Id, Assinatura(), Tecnica));
+            () => _checagens.EncerrarAsync(prescricao.Id, Tecnica));
 
         erro.Message.Should().Contain("sem checagem");
     }
@@ -425,7 +425,7 @@ public class PrescricaoInternaTests : IDisposable
         await _checagens.ChecarAsync(fixo.Id, SituacaoChecagem.Realizado, Agora(), Tecnica);
 
         // Condição que não aconteceu não é trabalho por fazer.
-        var encerrada = await _checagens.EncerrarAsync(prescricao.Id, Assinatura(), Tecnica);
+        var encerrada = await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
 
         encerrada.Situacao.Should().Be(SituacaoPrescricao.Encerrada);
     }
@@ -436,7 +436,7 @@ public class PrescricaoInternaTests : IDisposable
         var prescricao = await AssinadaAsync();
         var itemId = (await Carregar(prescricao.Id)).Itens[0].Id;
         await _checagens.ChecarAsync(itemId, SituacaoChecagem.Realizado, Agora(), Tecnica);
-        await _checagens.EncerrarAsync(prescricao.Id, Assinatura(), Tecnica);
+        await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
 
         var naSala = await _checagens.DoDiaAsync(DateOnly.FromDateTime(DateTime.Today));
         naSala.Should().BeEmpty();
@@ -447,22 +447,43 @@ public class PrescricaoInternaTests : IDisposable
         erro.Message.Should().Contain("já foi encerrada");
     }
 
+    /// <summary>
+    /// Encerrar NÃO assina. A clínica decidiu que quem confere e assina a execução é a
+    /// enfermeira, na via impressa — o sistema guarda o registro, o papel guarda a autoria.
+    /// Este teste existe para o dia em que alguém "melhorar" isso de volta.
+    /// </summary>
     [Fact]
-    public async Task Encerrar_guarda_as_DUAS_assinaturas_uma_por_papel()
+    public async Task Encerrar_NAO_cria_segunda_assinatura_eletronica()
     {
         var prescricao = await AssinadaAsync();
         var itemId = (await Carregar(prescricao.Id)).Itens[0].Id;
         await _checagens.ChecarAsync(itemId, SituacaoChecagem.Realizado, Agora(), Tecnica);
 
-        await _checagens.EncerrarAsync(
-            prescricao.Id,
-            Assinatura(nome: "Joana Técnica", conselho: "COREN-SP 999999"),
-            Tecnica);
+        await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
 
         var carregada = await Carregar(prescricao.Id);
-        carregada.AssinaturaDoPrescritor.Should().NotBeNull();
-        carregada.AssinaturaDoExecutante.Should().NotBeNull();
-        carregada.AssinaturaDoExecutante!.NomeAssinante.Should().Be("Joana Técnica");
+        carregada.Situacao.Should().Be(SituacaoPrescricao.Encerrada);
+        carregada.EncerradaEm.Should().NotBeNull();
+
+        // Uma assinatura eletrônica, e é a de quem prescreveu.
+        carregada.Assinaturas.Should().ContainSingle()
+            .Which.Papel.Should().Be(PapelAssinatura.Prescritor);
+    }
+
+    [Fact]
+    public async Task Encerrar_deixa_na_trilha_quem_fechou_a_folha()
+    {
+        var prescricao = await AssinadaAsync();
+        var itemId = (await Carregar(prescricao.Id)).Itens[0].Id;
+        await _checagens.ChecarAsync(itemId, SituacaoChecagem.Realizado, Agora(), Tecnica);
+
+        await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
+
+        var trilha = await _repo.EventosAuditoriaAsync();
+        trilha.Should().Contain(e =>
+            e.Acao == "PrescricaoExecucaoEncerrada"
+            && e.Detalhe!.Contains("Joana Técnica")
+            && e.Detalhe.Contains("via impressa"));
     }
 
     // ==================== O circuito de volta ====================
