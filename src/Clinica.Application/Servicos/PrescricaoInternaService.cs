@@ -320,7 +320,7 @@ public sealed class PrescricaoInternaService
 
         if (prescricao.Situacao == SituacaoPrescricao.Encerrada)
             throw new InvalidOperationException(
-                "A execução desta folha já foi encerrada e assinada pela enfermagem. Ela é "
+                "A execução desta folha já foi encerrada. Ela é "
                 + "registro do que aconteceu com o paciente e não se cancela.");
 
         if (prescricao.Itens.Any(i => i.ChecagemVigente is not null))

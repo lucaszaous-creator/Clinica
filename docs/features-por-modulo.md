@@ -1536,13 +1536,21 @@ expõe `otherName` em API pronta — o ASN.1 é lido à mão em `CertificadoIcpB
 profissional, o sistema provaria só que *alguém* com *algum* token assinou, e o e-CPF da
 recepcionista assinaria a prescrição da médica sem um alerta.
 
-**Duas folhas, não dois carimbos na mesma.** No papel a mesma folha leva o carimbo do
-médico em cima e o da enfermagem embaixo, porque papel se assina incrementalmente. Em PDF
-isso não se reproduz honestamente — se a prescritora assinasse antes da execução (que é
-quando ela tem de assinar), a assinatura dela cobriria as colunas de checagem **em
-branco**. Então são dois documentos, e o **Registro de execução** traz impressos o número,
-o titular e o **hash** da prescrição assinada. Isso prova mais que dois carimbos numa
-página: prova a **ordem**.
+**Uma assinatura eletrônica, e é a de quem prescreve** (decisão da clínica, ago/2026 — a
+primeira versão exigia duas). Quem confere e assina a execução é a enfermeira, **na via
+impressa**, depois que a folha sai da impressora: por isso a Prescrição sai com as colunas
+de checagem **em branco** ("Feito às", "Visto") e três linhas para o motivo do não
+realizado.
+
+A prescritora assinar um PDF com esses campos vazios é correto, e vale entender por quê:
+eles são pré-impressos do formulário, como no talão de papel. Ela atesta o que **mandou**
+fazer; a caneta escreve por cima da impressão, não do PDF.
+
+Isso dispensou um segundo e-CPF (um por técnica) para produzir, com muita cerimônia, a
+garantia que a assinatura manuscrita já dava — e de quebra resolveu a restrição de o PDF
+não se assinar incrementalmente. O **Registro de execução** segue existindo como espelho
+eletrônico do que foi checado (prontuário e conferência do fim do dia), é montado **na
+hora** porque muda a cada item, e o rodapé dele diz que a autoria está no papel.
 
 **A folha nunca promete mais do que garante.** O rodapé escreve o nível da assinatura, e
 quando não há ACT contratada diz que a data é *declarada pelo relógio de quem assinou*. E

@@ -1,5 +1,4 @@
 using Clinica.Application.Servicos;
-using Clinica.Clinico.Janelas;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
@@ -100,6 +99,13 @@ public sealed class LinhaExecucaoItem
 /// - <b>A reação alérgica vira ALERGIA no prontuário</b>, se quem checou confirmar. É o
 ///   circuito que a clínica pediu quando descreveu o caso: sem isso, "teve reação à
 ///   dipirona" morre no campo de texto e a próxima receita sai com dipirona de novo.
+///
+/// O que esta tela NÃO faz: assinar
+/// --------------------------------
+/// Quem confere e assina a execução é a enfermeira, <b>na via impressa</b>. O que se grava
+/// aqui é o registro — prontuário, conferência do fim do dia e o circuito da alergia. Pedir
+/// um segundo certificado ICP-Brasil obrigaria a clínica a comprar um e-CPF para a técnica
+/// e produziria, com muita cerimônia, a mesma garantia que a caneta dela já dá.
 /// </summary>
 public sealed partial class FolhaExecucaoViewModel : ObservableObject
 {
@@ -128,7 +134,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeChecar => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
 
-    /// <summary>Só folha em execução se checa — encerrada já foi assinada pela enfermagem.</summary>
+    /// <summary>Só folha em execução se checa — a encerrada já foi fechada e assinada no papel.</summary>
     public bool PodeMexer => PodeChecar && EmExecucao;
 
     /// <summary>Encerrar exige tudo checado, e o botão diz isso antes do clique.</summary>
@@ -245,11 +251,14 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Encerra e assina o registro de execução pela enfermagem.
+    /// Encerra a execução: a folha sai da sala e não se checa mais.
     ///
-    /// Não há reabertura: encerrar é assinar, e assinatura não se desfaz. Se a folha foi
-    /// encerrada cedo demais, a correção é retificar a checagem errada ou prescrever outra
-    /// folha — um botão de "reabrir" aqui seria um botão de desassinar.
+    /// NÃO pede certificado. Quem confere e assina a execução é a enfermeira, na via
+    /// impressa — o que esta tela grava é o registro do que foi feito, e a autoria dele
+    /// está na caneta dela sobre a folha.
+    ///
+    /// Não há reabertura: se a folha foi encerrada cedo demais, a correção é retificar a
+    /// checagem errada ou prescrever outra folha.
     /// </summary>
     [RelayCommand]
     private async Task EncerrarAsync()
@@ -267,27 +276,19 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "checar prescrição");
 
             if (!_dialogo.Confirmar(
-                    "Encerrar e assinar",
-                    $"Encerrar a execução da prescrição {Numero} e assinar o registro de "
-                    + "enfermagem? Depois disso a folha não pode mais ser checada."))
+                    "Encerrar execução",
+                    $"Encerrar a execução da prescrição {Numero}? Depois disso a folha não "
+                    + "pode mais ser checada.\n\nLembre de assinar a via impressa — é ela "
+                    + "que responde pela execução."))
                 return;
 
-            var certificado = EscolherCertificadoWindow.Perguntar(
-                $"Registro de execução — {Numero} · {Paciente}",
-                System.Windows.Application.Current?.MainWindow);
-
-            if (certificado is null) return;
-
             using var scope = _escopos.CreateScope();
-            var assinaturas = scope.ServiceProvider
-                .GetRequiredService<AssinaturaDePrescricaoService>();
+            var servico = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
 
-            await assinaturas.EncerrarExecucaoAsync(
-                _prescricaoId, certificado, Executante(),
-                cpfDoExecutante: certificado.Cpf);
+            await servico.EncerrarAsync(_prescricaoId, Executante());
 
             await CarregarAsync();
-            Mensagem = "Execução encerrada e assinada.";
+            Mensagem = "Execução encerrada. Confira e assine a via impressa.";
             MensagemEhErro = false;
         }
         catch (Exception ex)

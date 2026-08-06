@@ -12,20 +12,21 @@ namespace Clinica.Application.Servicos;
 /// <summary>
 /// As DUAS folhas da prescrição de execução interna (parcela 42).
 ///
-/// Por que duas, e não uma com dois carimbos
-/// -----------------------------------------
-/// No papel, a mesma folha leva o carimbo da médica em cima e o da enfermagem embaixo,
-/// porque papel se assina incrementalmente. Em PDF isso não se reproduz honestamente: se a
-/// prescritora assinasse antes da execução (que é quando ela tem de assinar), a assinatura
-/// dela cobriria as colunas de checagem EM BRANCO; se assinasse depois, estaria atestando
-/// uma execução que não é dela. Some-se a isso que a biblioteca de assinatura não faz
-/// atualização incremental — a segunda assinatura quebraria a primeira.
+/// A <b>Prescrição</b> é o papel que sai da impressora e vai para a sala. Ela leva a
+/// assinatura ICP-Brasil de quem prescreveu e as <b>colunas de checagem EM BRANCO</b>, que a
+/// enfermeira preenche à caneta — hora em que administrou, visto, e o motivo quando não
+/// realizou. É nela que está a assinatura manuscrita da enfermagem, e é ela o documento.
 ///
-/// Então: a <b>Prescrição</b> é assinada por quem prescreve, no ato; o <b>Registro de
-/// execução</b> é assinado pela enfermagem no encerramento e traz impressos o número, o
-/// titular e o HASH da prescrição. Isso é evidência mais forte que dois carimbos numa
-/// página só, porque prova a ORDEM: a prescrição existia, com aquele conteúdo exato, antes
-/// de a execução começar.
+/// O <b>Registro de execução</b> é o espelho eletrônico: o que a técnica digitou na Sala de
+/// infusão, com ✓ e "rodela". Serve ao prontuário e à conferência do fim do dia, NÃO é
+/// assinado eletronicamente, e o rodapé dele diz isso — a autoria da execução está no papel.
+///
+/// Por que a prescritora pode assinar um PDF com campos em branco
+/// --------------------------------------------------------------
+/// Porque eles são pré-impressos do formulário, exatamente como no talão de papel. Ela
+/// atesta o que MANDOU fazer; o que foi feito é escrito em cima da folha, depois, por outra
+/// pessoa e com outra caneta. A assinatura dela cobre o PDF — não o que a caneta escreve
+/// sobre a impressão dele.
 ///
 /// O que o PDF diz sobre a própria assinatura
 /// ------------------------------------------
@@ -166,7 +167,6 @@ public sealed class PrescricaoInternaPdfService
         QuestPDF.Settings.License = LicenseType.Community;
 
         var itens = prescricao.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id).ToList();
-        var assinatura = prescricao.AssinaturaDoExecutante;
 
         return Document.Create(container =>
         {
@@ -189,7 +189,9 @@ public sealed class PrescricaoInternaPdfService
                     Retificacoes(col, itens);
                 });
 
-                Rodape(page, prescricao, assinatura,
+                // Assinatura NULA de propósito: o registro eletrônico não é assinado, e o
+                // rodapé imprime a linha para a enfermeira assinar à mão.
+                Rodape(page, prescricao, assinatura: null,
                     nomeLinha: NomeDoExecutante(prescricao) ?? "Enfermagem responsável",
                     registroLinha: ConselhoDoExecutante(prescricao),
                     papel: "Enfermagem");
@@ -334,6 +336,17 @@ public sealed class PrescricaoInternaPdfService
             });
     }
 
+    /// <summary>
+    /// A tabela da prescrição — e as COLUNAS EM BRANCO que a enfermagem preenche à caneta.
+    ///
+    /// Elas são o coração desta folha impressa. Quem confere e assina a execução é a
+    /// enfermeira, no papel, depois que a folha sai da impressora: sem as colunas ela
+    /// escreveria na margem, e uma folha anotada na margem não se lê como registro.
+    ///
+    /// A prescritora assinar digitalmente um PDF com esses campos em branco é correto —
+    /// eles são pré-impressos do formulário, como no talão de papel. Ela atesta o que
+    /// mandou fazer; o que foi feito entra por cima, à mão.
+    /// </summary>
     private static void TabelaDaPrescricao(ColumnDescriptor col, List<ItemPrescricaoInterna> itens)
     {
         col.Item().Table(tabela =>
@@ -342,9 +355,11 @@ public sealed class PrescricaoInternaPdfService
             {
                 c.ConstantColumn(22);    // nº
                 c.RelativeColumn(5);     // medicamento
-                c.ConstantColumn(62);    // via
-                c.ConstantColumn(70);    // tempo
-                c.ConstantColumn(46);    // previsto
+                c.ConstantColumn(56);    // via
+                c.ConstantColumn(58);    // tempo
+                c.ConstantColumn(40);    // previsto
+                c.ConstantColumn(52);    // (em branco) hora realizada
+                c.ConstantColumn(34);    // (em branco) visto
             });
 
             tabela.Header(h =>
@@ -354,6 +369,8 @@ public sealed class PrescricaoInternaPdfService
                 CabecalhoCelula(h, "Via");
                 CabecalhoCelula(h, "Tempo");
                 CabecalhoCelula(h, "Prev.");
+                CabecalhoCelula(h, "Feito às");
+                CabecalhoCelula(h, "Visto");
             });
 
             foreach (var item in itens)
@@ -383,8 +400,40 @@ public sealed class PrescricaoInternaPdfService
                 Celula(tabela).Text(RotulosEnum.De(item.Via)).FontSize(8.5f);
                 Celula(tabela).Text(item.TempoInfusao ?? "—").FontSize(8.5f);
                 Celula(tabela).Text(item.HoraPrevista is { } h ? $"{h:HH\\:mm}" : "—").FontSize(8.5f);
+
+                // Em branco DE PROPÓSITO: é aqui que a enfermeira escreve a hora e faz o
+                // "chequezinho" (ou circula a hora, quando não foi feito). Item suspenso não
+                // ganha campo — dar espaço para checar o que foi suspenso é convidar o erro.
+                Celula(tabela).Element(c => CampoParaCaneta(c, apagado));
+                Celula(tabela).Element(c => CampoParaCaneta(c, apagado));
             }
         });
+
+        col.Item().PaddingTop(4).Text(
+                "A enfermagem anota nas duas últimas colunas: a hora em que administrou e o "
+                + "visto. Quando NÃO foi realizado, circule a hora e escreva o motivo abaixo.")
+            .FontSize(7.5f).FontColor(TextoSecundario);
+
+        col.Item().PaddingTop(6).Column(c =>
+        {
+            c.Item().Text("Itens não realizados — motivo").Bold().FontSize(8)
+                .FontColor(TextoSecundario);
+            // Três linhas: mais que isso vira formulário, menos não cabe uma frase inteira.
+            for (var i = 0; i < 3; i++)
+                c.Item().PaddingTop(13).LineHorizontal(0.5f).LineColor(Borda);
+        });
+    }
+
+    /// <summary>Uma célula vazia com linha de apoio — o campo que se preenche à caneta.</summary>
+    private static void CampoParaCaneta(IContainer celula, bool suspenso)
+    {
+        if (suspenso)
+        {
+            celula.AlignCenter().Text("—").FontSize(8.5f).FontColor(TextoSecundario);
+            return;
+        }
+
+        celula.PaddingTop(9).PaddingHorizontal(2).LineHorizontal(0.5f).LineColor(Borda);
     }
 
     /// <summary>
@@ -694,14 +743,12 @@ public sealed class PrescricaoInternaPdfService
     }
 
     private static string? NomeDoExecutante(PrescricaoInterna prescricao)
-        => prescricao.AssinaturaDoExecutante?.NomeAssinante
-           ?? prescricao.Itens
+        => prescricao.Itens
                .Select(i => i.ChecagemVigente?.ExecutanteNome)
                .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
 
     private static string? ConselhoDoExecutante(PrescricaoInterna prescricao)
-        => prescricao.AssinaturaDoExecutante?.RegistroConselho
-           ?? prescricao.Itens
+        => prescricao.Itens
                .Select(i => i.ChecagemVigente?.ExecutanteConselho)
                .FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));
 

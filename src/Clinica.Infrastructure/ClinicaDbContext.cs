@@ -688,7 +688,6 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.NaoRealizados);
             e.Ignore(x => x.ExecucaoCompleta);
             e.Ignore(x => x.AssinaturaDoPrescritor);
-            e.Ignore(x => x.AssinaturaDoExecutante);
         });
 
         b.Entity<ItemPrescricaoInterna>(e =>
