@@ -279,6 +279,57 @@ public class AssinaturaDocumentoClinicoTests : IDisposable
         gravado!.AssinaturaQualificada.Should().BeTrue();
     }
 
+    // ==================== O que chega ao balcão da farmácia ====================
+
+    /// <summary>
+    /// O endereço impresso é o validador de documentos de SAÚDE, não o genérico de
+    /// assinaturas — e a diferença é a pergunta do farmacêutico. O genérico responde
+    /// "está íntegro e quem assinou"; este responde também "**quem assinou é prescritor
+    /// com registro ATIVO?**", que é o que decide a dispensação.
+    /// </summary>
+    [Fact]
+    public void O_endereco_impresso_e_o_validador_de_saude()
+    {
+        DocumentosClinicosPdfService.ValidadorOficial
+            .Should().Be("assinaturadigital.iti.gov.br");
+
+        DocumentosClinicosPdfService.ValidadorFarmaceutico
+            .Should().StartWith("https://assinaturadigital.iti.gov.br/farmaceutico");
+    }
+
+    /// <summary>
+    /// O QR poupa a digitação do endereço no balcão. Ele é acessório: se a codificação
+    /// falhar, o endereço continua escrito por extenso e o documento continua conferível
+    /// — mas enquanto existir tem de sair um PNG de verdade.
+    /// </summary>
+    [Fact]
+    public void O_qr_do_validador_sai_como_png()
+    {
+        var qr = DocumentosClinicosPdfService.QrDoValidador();
+
+        qr.Should().NotBeNull();
+        qr!.Take(4).Should().Equal(0x89, (byte)'P', (byte)'N', (byte)'G');
+    }
+
+    /// <summary>
+    /// A folha assinada carrega o que a folha em papel não precisa: a faixa do carimbo
+    /// digital, o QR e o passo a passo de quem vai conferir. Se um dia alguém "simplificar"
+    /// o rodapé, o documento sai igual ao de papel — e aí o farmacêutico recebe um arquivo
+    /// sem uma palavra sobre como verificá-lo, que é o caso em que ele recusa por
+    /// precaução, com razão.
+    /// </summary>
+    [Fact]
+    public async Task Folha_para_assinar_traz_mais_do_que_a_folha_de_papel()
+    {
+        var receita = await ReceitaAsync();
+        var documento = await _repo.ObterDocumentoAsync(receita.Id);
+
+        var papel = _pdfs.Gerar(documento!);
+        var paraAssinar = _pdfs.Gerar(documento!, paraAssinaturaEletronica: true);
+
+        paraAssinar.Length.Should().BeGreaterThan(papel.Length);
+    }
+
     // ==================== Apoio ====================
 
     private async Task<DocumentoClinico> ReceitaAsync(

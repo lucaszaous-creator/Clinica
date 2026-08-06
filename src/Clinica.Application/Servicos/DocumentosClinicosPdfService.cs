@@ -4,6 +4,7 @@ using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
+using QRCoder;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -55,10 +56,25 @@ public sealed class DocumentosClinicosPdfService
     private const float MargemPagina = 42.52f;       // 1,5 cm
     private const float AlturaRodape = 104f;
     private const float AlturaFaixaAssinatura = 58f;
-    private const float LarguraCarimbo = 250f;
+    // 220 e não 250: o rodapé do documento assinado divide a faixa com o QR e com o
+    // texto de conferência, e a 250 as três linhas quebravam no meio da palavra.
+    private const float LarguraCarimbo = 220f;
 
-    /// <summary>Onde o farmacêutico, o RH ou o convênio conferem o arquivo assinado.</summary>
-    public const string ValidadorOficial = "validar.iti.gov.br";
+    /// <summary>
+    /// O validador OFICIAL de documentos digitais de SAÚDE — não o validador genérico de
+    /// assinaturas.
+    ///
+    /// A diferença decide o que o balcão consegue responder. O genérico
+    /// (<c>validar.iti.gov.br</c>) diz se o arquivo está íntegro e quem o assinou. Este,
+    /// mantido pelo ITI com apoio dos Conselhos Federais de Medicina e de Farmácia,
+    /// responde ainda a pergunta que o farmacêutico realmente precisa fazer: <b>quem
+    /// assinou é prescritor com registro ATIVO?</b> — e é onde ele registra a dispensação.
+    /// É o endereço que os CRFs mandam usar.
+    /// </summary>
+    public const string ValidadorOficial = "assinaturadigital.iti.gov.br";
+
+    /// <summary>A página do farmacêutico, para o QR cair direto nela.</summary>
+    public const string ValidadorFarmaceutico = "https://assinaturadigital.iti.gov.br/farmaceutico/";
 
     private readonly IClinicaRepositorio _repo;
 
@@ -228,6 +244,8 @@ public sealed class DocumentosClinicosPdfService
                             t.Span(documento.Observacoes!).FontSize(9.5f);
                         });
 
+                    if (paraAssinaturaEletronica) ComoConferir(col, documento);
+
                     Assinaturas(col, documento, paraAssinaturaEletronica);
                 });
 
@@ -265,17 +283,26 @@ public sealed class DocumentosClinicosPdfService
                     // Esquerda: reservada, e VAZIA de propósito — é aqui que o PdfSharp
                     // cola o carimbo com titular, CPF do certificado e emissor.
                     row.ConstantItem(LarguraCarimbo);
-                    row.ConstantItem(20);
+                    row.ConstantItem(16);
+
+                    // O QR leva à PÁGINA DO FARMACÊUTICO do validador, não a um documento
+                    // hospedado: nós não hospedamos nada, e prometer que o QR "abre a
+                    // receita" seria mentir sobre o que ele faz. Ele poupa a digitação do
+                    // endereço no balcão, e o arquivo continua sendo o que se confere lá.
+                    if (QrDoValidador() is { } qr)
+                    {
+                        row.ConstantItem(AlturaFaixaAssinatura - 6).AlignBottom().Image(qr);
+                        row.ConstantItem(8);
+                    }
 
                     row.RelativeItem().AlignBottom().Column(c =>
                     {
-                        c.Item().Text("Assinado digitalmente com certificado ICP-Brasil")
-                            .SemiBold().FontSize(9);
-                        c.Item().Text($"Confira o arquivo em {ValidadorOficial}")
-                            .FontSize(8.5f).FontColor(TextoSecundario);
-                        c.Item().Text(
-                                "Esta impressão é uma CÓPIA. A via válida é o arquivo PDF assinado.")
-                            .FontSize(8).FontColor(VermelhoForte);
+                        c.Item().Text("Assinado digitalmente — ICP-Brasil")
+                            .SemiBold().FontSize(8.5f);
+                        c.Item().Text($"Confira em {ValidadorOficial}")
+                            .FontSize(8).FontColor(TextoSecundario);
+                        c.Item().Text("Esta impressão é CÓPIA; a via válida é o arquivo.")
+                            .FontSize(7.5f).FontColor(VermelhoForte);
                     });
                 });
 
@@ -307,6 +334,85 @@ public sealed class DocumentosClinicosPdfService
     /// nenhuma exigência que o justifique, e dado que não precisa sair não sai — é a
     /// mesma economia do CID, que só é impresso com autorização do paciente.
     /// </param>
+    /// <summary>
+    /// O QR do validador oficial, em PNG. Gerado uma vez por processo — o conteúdo é uma
+    /// constante, e recodificar a cada folha seria trabalho puro.
+    ///
+    /// Devolve null se a codificação falhar: um documento sem QR continua conferível (o
+    /// endereço está escrito ao lado, por extenso). Derrubar a emissão de uma receita por
+    /// causa de um quadradinho seria trocar o essencial pelo acessório.
+    /// </summary>
+    public static byte[]? QrDoValidador()
+    {
+        if (_qrValidador is not null) return _qrValidador;
+
+        try
+        {
+            using var gerador = new QRCodeGenerator();
+            using var dados = gerador.CreateQrCode(
+                ValidadorFarmaceutico, QRCodeGenerator.ECCLevel.M);
+
+            return _qrValidador = new PngByteQRCode(dados).GetGraphic(6);
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("DocumentosClinicosPdfService.QrDoValidador", ex);
+            return null;
+        }
+    }
+
+    private static byte[]? _qrValidador;
+
+    /// <summary>
+    /// O passo a passo de quem vai CONFERIR o documento — farmacêutico, RH ou convênio.
+    ///
+    /// Existe porque a pergunta da clínica não era "a receita é válida?" (é, desde que
+    /// assinada), e sim "<b>o balcão consegue conferir?</b>". Consegue, e de graça — mas
+    /// só se souber que dá e por onde. Um PDF assinado que chega sem instrução nenhuma é
+    /// recusado por precaução, e o farmacêutico está certo em recusá-lo: pela orientação
+    /// dos CRFs, farmácia que não consegue verificar não é obrigada a dispensar.
+    ///
+    /// As três linhas dizem o que ele vai VER, não só onde clicar: é a resposta do
+    /// validador (íntegro, assinado por quem diz, com registro ativo) que decide a
+    /// dispensação.
+    /// </summary>
+    private static void ComoConferir(ColumnDescriptor col, DocumentoClinico documento)
+    {
+        var quem = documento.Tipo == TipoDocumentoClinico.Receita
+            ? "PARA O FARMACÊUTICO"
+            : "PARA QUEM VAI CONFERIR ESTE DOCUMENTO";
+
+        col.Item().Background(FundoSuave).Border(1).BorderColor(Borda).Padding(10).Column(c =>
+        {
+            c.Item().Text(quem).Bold().FontSize(8)
+                .FontColor(TextoSecundario).LetterSpacing(0.08f);
+
+            c.Item().PaddingTop(4).Text(t =>
+            {
+                t.Span("1.  ").SemiBold().FontSize(9);
+                t.Span("Peça ao paciente o ARQUIVO PDF (celular, e-mail ou pen drive). ")
+                    .FontSize(9);
+                t.Span("A folha impressa é cópia — a assinatura está nos bytes do arquivo.")
+                    .FontSize(9).FontColor(TextoSecundario);
+            });
+
+            c.Item().PaddingTop(2).Text(t =>
+            {
+                t.Span("2.  ").SemiBold().FontSize(9);
+                t.Span($"Envie o arquivo em {ValidadorOficial}").FontSize(9);
+                t.Span("  (validador oficial do ITI, com apoio do CFM e do CFF — gratuito, "
+                       + "sem cadastro para conferir).").FontSize(9).FontColor(TextoSecundario);
+            });
+
+            c.Item().PaddingTop(2).Text(t =>
+            {
+                t.Span("3.  ").SemiBold().FontSize(9);
+                t.Span("O validador responde se o documento está íntegro, se a assinatura é "
+                       + "de quem ele diz e se o prescritor tem registro ativo.").FontSize(9);
+            });
+        });
+    }
+
     private static void PainelPaciente(
         ColumnDescriptor col, Paciente? paciente, bool comEndereco = false)
         => col.Item().Background(FundoSuave).Border(1).BorderColor(Borda).Padding(12).Column(c =>
