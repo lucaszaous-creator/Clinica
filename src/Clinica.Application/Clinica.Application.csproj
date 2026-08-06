@@ -9,12 +9,6 @@
     <!-- Assinatura ICP-Brasil no PDF (parcela 42): MIT, multiplataforma, e o assinador
          padrão dele já aceita URL de ACT para o carimbo do tempo RFC 3161. -->
     <PackageReference Include="PdfSharp" Version="6.2.4" />
-    <!-- QR do validador oficial no documento assinado (parcela 43): MIT, 100% gerenciado
-         (PngByteQRCode não usa System.Drawing nem nada nativo). A regra de "não trazer
-         dependência de UI" vale para o que DESENHA a tela dos apps que se auto-atualizam;
-         isto gera bytes de PNG dentro do PDF, e escrever um codificador de QR à mão
-         (Reed-Solomon incluso) seria risco maior que a dependência. -->
-    <PackageReference Include="QRCoder" Version="1.6.0" />
   </ItemGroup>
 
   <!-- Marca (logo SemDor): embarcada para desenhar no cabeçalho dos PDFs (capa, guia, fechamento). -->

@@ -4,7 +4,6 @@ using Clinica.Application.Modelos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
-using QRCoder;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -56,9 +55,7 @@ public sealed class DocumentosClinicosPdfService
     private const float MargemPagina = 42.52f;       // 1,5 cm
     private const float AlturaRodape = 104f;
     private const float AlturaFaixaAssinatura = 58f;
-    // 220 e não 250: o rodapé do documento assinado divide a faixa com o QR e com o
-    // texto de conferência, e a 250 as três linhas quebravam no meio da palavra.
-    private const float LarguraCarimbo = 220f;
+    private const float LarguraCarimbo = 240f;
 
     /// <summary>
     /// O VALIDAR — o validador oficial de assinaturas do ITI, e o único que existe.
@@ -77,8 +74,19 @@ public sealed class DocumentosClinicosPdfService
     /// </summary>
     public const string ValidadorOficial = "validar.iti.gov.br";
 
-    /// <summary>Para onde o QR aponta — a página onde se envia o arquivo.</summary>
-    public const string ValidadorFarmaceutico = "https://validar.iti.gov.br/";
+    /// <summary>
+    /// O endereço completo, para quem quiser digitar. <b>Não vira QR</b>, e a decisão é o
+    /// oposto do que parece: o app oficial do ITI (VALIDAR QR CODE) espera um QR que
+    /// aponte para o DOCUMENTO hospedado, com o código de acesso impresso ao lado —
+    /// capítulo IV do Guia do Desenvolvedor. Um QR com o endereço do site é lido por ele
+    /// como documento e recusado: <i>"QR inválido"</i>.
+    ///
+    /// Ou seja, o QR fazia uma receita legítima PARECER inválida no balcão, que é o pior
+    /// desfecho possível — pior do que não ter QR nenhum. Ele só volta no dia em que o
+    /// documento estiver hospedado (integração com plataforma), quando aí sim haverá um
+    /// QR de documento de verdade para gerar.
+    /// </summary>
+    public const string ValidadorEnderecoCompleto = "https://validar.iti.gov.br/";
 
     private readonly IClinicaRepositorio _repo;
 
@@ -289,16 +297,6 @@ public sealed class DocumentosClinicosPdfService
                     row.ConstantItem(LarguraCarimbo);
                     row.ConstantItem(16);
 
-                    // O QR leva à PÁGINA DO FARMACÊUTICO do validador, não a um documento
-                    // hospedado: nós não hospedamos nada, e prometer que o QR "abre a
-                    // receita" seria mentir sobre o que ele faz. Ele poupa a digitação do
-                    // endereço no balcão, e o arquivo continua sendo o que se confere lá.
-                    if (QrDoValidador() is { } qr)
-                    {
-                        row.ConstantItem(AlturaFaixaAssinatura - 6).AlignBottom().Image(qr);
-                        row.ConstantItem(8);
-                    }
-
                     row.RelativeItem().AlignBottom().Column(c =>
                     {
                         c.Item().Text("Assinado digitalmente — ICP-Brasil")
@@ -338,35 +336,6 @@ public sealed class DocumentosClinicosPdfService
     /// nenhuma exigência que o justifique, e dado que não precisa sair não sai — é a
     /// mesma economia do CID, que só é impresso com autorização do paciente.
     /// </param>
-    /// <summary>
-    /// O QR do validador oficial, em PNG. Gerado uma vez por processo — o conteúdo é uma
-    /// constante, e recodificar a cada folha seria trabalho puro.
-    ///
-    /// Devolve null se a codificação falhar: um documento sem QR continua conferível (o
-    /// endereço está escrito ao lado, por extenso). Derrubar a emissão de uma receita por
-    /// causa de um quadradinho seria trocar o essencial pelo acessório.
-    /// </summary>
-    public static byte[]? QrDoValidador()
-    {
-        if (_qrValidador is not null) return _qrValidador;
-
-        try
-        {
-            using var gerador = new QRCodeGenerator();
-            using var dados = gerador.CreateQrCode(
-                ValidadorFarmaceutico, QRCodeGenerator.ECCLevel.M);
-
-            return _qrValidador = new PngByteQRCode(dados).GetGraphic(6);
-        }
-        catch (Exception ex)
-        {
-            Diagnostico.Registrar("DocumentosClinicosPdfService.QrDoValidador", ex);
-            return null;
-        }
-    }
-
-    private static byte[]? _qrValidador;
-
     /// <summary>
     /// O passo a passo de quem vai CONFERIR o documento — farmacêutico, RH ou convênio.
     ///

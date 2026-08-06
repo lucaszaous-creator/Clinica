@@ -98,11 +98,26 @@ aceita PDF. É para lá que o documento assinado manda o farmacêutico.
 
 O que o VALIDAR responde, e é só isso que o documento promete: se a **assinatura ICP-Brasil
 é válida**, se o **arquivo continua íntegro** e **quem é o titular do certificado** (nome e
-CPF). O documento assinado sai com esse endereço por extenso, um **QR** que leva até ele e
-um bloco **"PARA O FARMACÊUTICO"** com o passo a passo — porque um PDF assinado que chega
-sem uma palavra sobre como verificá-lo é recusado por precaução, e o farmacêutico está
-certo em recusá-lo: pela orientação dos CRFs, farmácia que não consegue verificar **não é
-obrigada a dispensar**.
+CPF). O documento assinado sai com esse endereço por extenso e com um bloco **"PARA O
+FARMACÊUTICO"** com o passo a passo — porque um PDF assinado que chega sem uma palavra
+sobre como verificá-lo é recusado por precaução, e o farmacêutico está certo em recusá-lo:
+pela orientação dos CRFs, farmácia que não consegue verificar **não é obrigada a
+dispensar**.
+
+### Por que a folha NÃO tem QR
+
+Ela teve, por dois dias, e o QR levava ao endereço do VALIDAR. Parecia uma boa ideia — o
+balcão escaneia em vez de digitar. O cliente escaneou com o **app oficial VALIDAR QR
+CODE** e recebeu **"QR inválido"**.
+
+O motivo está no capítulo IV do Guia do Desenvolvedor: para o ITI, um QR num documento de
+saúde é um **QR de documento** — ele aponta para o arquivo hospedado e vem com o código de
+acesso impresso ao lado. O app lê o nosso, procura um documento, não acha, e recusa.
+
+O resultado prático é o pior possível: **uma receita legítima passa a parecer inválida no
+balcão**. Sem QR, o farmacêutico lê o endereço, envia o arquivo e recebe "assinatura
+válida". Com QR, ele lê "inválido" antes de chegar lá. O QR só volta no dia em que houver
+documento hospedado para ele apontar — ou seja, junto com a integração de plataforma.
 
 ### Os dois caminhos do validador, e por que estamos no de cima
 
