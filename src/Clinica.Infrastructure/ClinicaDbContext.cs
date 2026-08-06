@@ -74,6 +74,9 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.Nome).IsRequired().HasMaxLength(200);
             e.Property(p => p.Documento).HasMaxLength(30);
             e.Property(p => p.Telefone).HasMaxLength(30);
+            // Endereço residencial: exigência do art. 35 da Lei 5.991/1973 para a receita
+            // poder ser aviada. Uma linha só, como a clínica escreve no papel.
+            e.Property(p => p.Endereco).HasMaxLength(300);
             e.Property(p => p.Carteirinha).HasMaxLength(40);
             e.Property(p => p.Convenio).HasConversion<string>().HasMaxLength(40);
             e.Property(p => p.ConvenioCodigo).HasMaxLength(40);
@@ -616,11 +619,33 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
             e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
 
+            // ---- Assinatura eletrônica (parcela 43) ----
+            e.Property(x => x.AssinaturaTipo).HasConversion<string>().HasMaxLength(30);
+            e.Property(x => x.AssinaturaHash).HasMaxLength(128);
+            e.Property(x => x.AssinaturaAlgoritmo).HasMaxLength(20);
+            e.Property(x => x.AssinanteNome).HasMaxLength(120);
+            e.Property(x => x.AssinanteRegistroConselho).HasMaxLength(60);
+            e.Property(x => x.AssinanteCpf).HasMaxLength(11);
+            e.Property(x => x.CertificadoTitular).HasMaxLength(300);
+            e.Property(x => x.CertificadoEmissor).HasMaxLength(300);
+            e.Property(x => x.CertificadoSerie).HasMaxLength(80);
+            e.Property(x => x.CarimboTempoAutoridade).HasMaxLength(200);
+            e.Property(x => x.AssinadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CertificadoValidoDe).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CertificadoValidoAte).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CarimboTempoEm).HasColumnType("timestamp without time zone");
+
             e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
             e.HasOne(x => x.Profissional).WithMany()
                 .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Evolucao).WithMany()
                 .HasForeignKey(x => x.EvolucaoId).OnDelete(DeleteBehavior.SetNull);
+
+            // SetNull, e não Cascade: apagar o arquivo não pode apagar o documento — o
+            // fato de ele ter sido emitido e assinado continua valendo mesmo que os bytes
+            // se percam, e a tela precisa poder dizer isso em vez de o registro sumir.
+            e.HasOne(x => x.ArquivoAssinado).WithMany()
+                .HasForeignKey(x => x.ArquivoAssinadoId).OnDelete(DeleteBehavior.SetNull);
 
             // Número e código são a identidade da via em papel — não podem repetir.
             e.HasIndex(x => x.Numero).IsUnique();
@@ -630,6 +655,9 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.Cancelado);
             e.Ignore(x => x.TituloImpresso);
             e.Ignore(x => x.CidImpresso);
+            e.Ignore(x => x.AssinadoEletronicamente);
+            e.Ignore(x => x.AssinaturaQualificada);
+            e.Ignore(x => x.FraseAssinatura);
         });
 
         b.Entity<ItemDocumento>(e =>

@@ -121,6 +121,15 @@
                                                                  Converter={StaticResource BoolParaVisibilidade}}">
                                                 <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" />
                                             </Border>
+                                            <!-- Assinado também é estado que se lê de longe:
+                                                 é ele que diz se o paciente leva o arquivo
+                                                 ou o papel. -->
+                                            <Border Style="{StaticResource Badge.Sucesso}"
+                                                    HorizontalAlignment="Left" Margin="0,6,0,0"
+                                                    Visibility="{Binding Assinado,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" />
+                                            </Border>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="1" Orientation="Horizontal"
@@ -128,6 +137,12 @@
                                             <Button Content="2ª via" Margin="0,0,6,0"
                                                     Style="{StaticResource BotaoAcaoGridSecundario}"
                                                     Command="{Binding DataContext.ImprimirCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Assinar" Margin="0,0,6,0"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    IsEnabled="{Binding PodeAssinar}"
+                                                    Command="{Binding DataContext.AssinarCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Cancelar"

@@ -18,6 +18,12 @@
 
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,16,0,0">
+            <!-- Assinar é ESCOLHA do momento, não configuração: o certificado pode não
+                 estar na máquina, e o papel assinado à caneta continua valendo. A caixa
+                 fica junto do botão porque é ele que ela muda. -->
+            <CheckBox Content="Assinar digitalmente (ICP-Brasil)"
+                      IsChecked="{Binding AssinarDigitalmente}"
+                      VerticalAlignment="Center" Margin="0,0,16,0" />
             <Button x:Name="BtnCancelar" Content="Fechar" Style="{StaticResource BotaoSecundario}"
                     IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
             <Button Content="Emitir e imprimir" Command="{Binding EmitirCommand}"
@@ -49,6 +55,28 @@
                 </ItemsControl>
                 <CheckBox Content="Eu vi o alerta e assumo esta prescrição"
                           IsChecked="{Binding AlergiaConferida}" Margin="0,10,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- ===== O QUE A LEI EXIGE E AINDA FALTA (parcela 43) =====
+             O art. 35 da Lei 5.991/1973 diz o que a receita precisa ter para ser AVIADA,
+             e até aqui a clínica descobria a falta na farmácia, com o paciente na fila.
+             Isto AVISA e não impede — a exceção é a assinatura digital, que recusa, porque
+             assinar sela os bytes e um arquivo impecável de uma receita que a farmácia
+             recusa é pior do que um papel visivelmente incompleto. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                Visibility="{Binding TemExigenciasLegais,
+                             Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="O que a lei exige e ainda falta neste documento"
+                           FontWeight="SemiBold" TextWrapping="Wrap" />
+                <ItemsControl ItemsSource="{Binding ExigenciasLegais}" Margin="0,6,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,2" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
             </StackPanel>
         </Border>
 

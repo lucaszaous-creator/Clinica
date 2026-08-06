@@ -40,6 +40,12 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
     [ObservableProperty] private string _nome = string.Empty;
     [ObservableProperty] private string? _documento;
     [ObservableProperty] private string? _telefone;
+
+    /// <summary>
+    /// Endereço residencial. Exigido pelo art. 35 da Lei 5.991/1973 para a receita poder
+    /// ser AVIADA — sem ele a farmácia pode recusar, e quem descobre é o paciente na fila.
+    /// </summary>
+    [ObservableProperty] private string? _endereco;
     [ObservableProperty] private DateTime? _dataNascimento;
     [ObservableProperty] private Sexo _sexoSelecionado = Sexo.Feminino;
     [ObservableProperty] private EntradaConvenio? _convenio;
@@ -111,6 +117,7 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             Nome = p.Nome;
             Documento = p.Documento;
             Telefone = p.Telefone;
+            Endereco = p.Endereco;
             DataNascimento = p.DataNascimento?.ToDateTime(TimeOnly.MinValue);
             SexoSelecionado = p.Sexo;
             Convenio = Convenios.FirstOrDefault(c => c.Codigo == p.ConvenioCodigo)
@@ -206,6 +213,7 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             paciente.Nome = Nome.Trim();
             paciente.Documento = Limpar(Documento);
             paciente.Telefone = Limpar(Telefone);
+            paciente.Endereco = Limpar(Endereco);
             paciente.DataNascimento = DataNascimento is { } nasc ? DateOnly.FromDateTime(nasc) : null;
             paciente.Sexo = SexoSelecionado;
             paciente.Convenio = Convenio.Familia;

@@ -1,8 +1,7 @@
 using System.Windows;
 using Clinica.Application.Assinatura;
-using Clinica.Clinico.ViewModels;
 
-namespace Clinica.Clinico.Janelas;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>
 /// Escolha do certificado ICP-Brasil na hora de assinar.

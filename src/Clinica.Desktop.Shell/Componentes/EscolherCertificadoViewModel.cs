@@ -3,7 +3,7 @@ using Clinica.Application.Assinatura;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace Clinica.Clinico.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Um certificado na lista, já com o que decide a escolha.</summary>
 public sealed class LinhaCertificado
@@ -40,7 +40,13 @@ public sealed class LinhaCertificado
 }
 
 /// <summary>
-/// A escolha do certificado ICP-Brasil na hora de assinar (parcela 42).
+/// A escolha do certificado ICP-Brasil na hora de assinar (parcela 42; subiu para o shell
+/// na 43).
+///
+/// Mora no SHELL pelo mesmo argumento que já trouxe para cá o mapa corporal, a emissão de
+/// documento e a conferência de alergia: quem assina é quem atende, mas quem emite também
+/// é o balcão — e nenhum módulo conhece o outro. Deixá-la no Consultório obrigaria a
+/// Recepção a ter uma cópia, e duas cópias divergem na primeira correção.
 ///
 /// Por que uma tela, e não "usa o primeiro que achar"
 /// --------------------------------------------------

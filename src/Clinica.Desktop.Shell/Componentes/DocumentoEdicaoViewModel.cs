@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Assinatura;
 using Clinica.Application.Servicos;
+using Clinica.Domain;
 using Clinica.Desktop.Controls;
 using Clinica.Domain.Entities;
 using Clinica.Desktop.Shell.Componentes;
@@ -31,6 +33,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     private readonly IServiceScopeFactory _escopos;
     private readonly int _pacienteId;
 
+    /// <summary>O paciente inteiro — a conferência legal lê o endereço dele.</summary>
+    private Paciente? _paciente;
+
     /// <summary>Os tipos que se escrevem à mão — os montados do prontuário ficam de fora.</summary>
     public IReadOnlyList<TipoDocumentoClinico> Tipos { get; } =
     [
@@ -59,6 +64,69 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
     /// <summary>O que a conferência achou ao comparar os itens escritos com as alergias.</summary>
     public ObservableCollection<string> ColisoesAlergia { get; } = [];
+
+    // ===================== Conformidade legal (parcela 43) =====================
+    //
+    // O art. 35 da Lei 5.991/1973 diz o que a receita precisa TER para ser aviada, e o
+    // sistema imprimia receita desde a parcela 3 sem nunca conferir. A clínica descobria
+    // a falta na farmácia — com o paciente na fila e o papel na mão.
+    //
+    // A conferência roda enquanto se escreve, não no clique: o endereço que falta é
+    // resolvível em trinta segundos ANTES de emitir, e inútil depois, porque documento
+    // emitido é fato e se corrige cancelando.
+
+    /// <summary>O que falta para o documento cumprir a lei, já na frase que a tela mostra.</summary>
+    public ObservableCollection<string> ExigenciasLegais { get; } = [];
+
+    public bool TemExigenciasLegais => ExigenciasLegais.Count > 0;
+
+    /// <summary>
+    /// Assinar com certificado ICP-Brasil em vez de imprimir para assinar à caneta.
+    ///
+    /// Nasce DESLIGADA: a clínica funciona no papel hoje, e ligar sozinho mandaria a
+    /// primeira emissão do dia procurar um token que talvez não esteja na máquina.
+    /// </summary>
+    [ObservableProperty] private bool _assinarDigitalmente;
+
+    partial void OnAssinarDigitalmenteChanged(bool value) => _ = ConferirLegalmenteAsync();
+
+    /// <summary>
+    /// A pergunta muda com a forma de entrega, e é por isso que o resultado não é fixo:
+    /// o atestado em PAPEL vale assinado à caneta, e o mesmo atestado em ARQUIVO só vale
+    /// com certificado (art. 13 da Lei 14.063/2020).
+    /// </summary>
+    private Task ConferirLegalmenteAsync()
+    {
+        try
+        {
+            var faltas = ConformidadeDocumentoClinico.Conferir(
+                DocumentoParaConferencia(), AssinarDigitalmente);
+
+            ExigenciasLegais.Clear();
+            foreach (var falta in faltas) ExigenciasLegais.Add(falta.Frase);
+        }
+        catch (Exception ex)
+        {
+            // Conferência é ajuda: ela não pode impedir alguém de emitir um documento.
+            // Mas também não fica muda, porque tela sem aviso se lê como "está tudo
+            // certo" — que é a leitura errada quando a checagem nem rodou.
+            Clinica.Application.Diagnostico.Registrar(
+                "Documento clínico — conferência legal não pôde ser feita", ex);
+
+            ExigenciasLegais.Clear();
+            ExigenciasLegais.Add(
+                "Não foi possível conferir as exigências legais deste documento agora.");
+        }
+
+        OnPropertyChanged(nameof(TemExigenciasLegais));
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// A janela liga isto ao seletor de certificado. Fica como <c>Func</c> porque o
+    /// ViewModel não conhece WPF — o mesmo arranjo do <c>Fechar</c> do seletor.
+    /// </summary>
+    public Func<string, CertificadoAssinatura?>? EscolherCertificado { get; set; }
 
     public bool TemAlertasClinicos => AlertasClinicos.Count > 0;
 
@@ -224,7 +292,13 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             foreach (var p in await equipe.ProfissionaisAtivosAsync()) Profissionais.Add(p);
             Profissional = Profissionais.FirstOrDefault();
 
+            // O paciente vem inteiro porque a conferência legal lê o ENDEREÇO dele, e o
+            // Id sozinho não responde se a receita pode ser aviada.
+            var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
+            _paciente = await pacientes.ObterComHistoricoAsync(_pacienteId);
+
             await CarregarModelosAsync();
+            await ConferirLegalmenteAsync();
 
             // O contexto clínico vale com a receita ainda em branco: é o que se olha
             // ANTES de escrever, não uma validação de saída.
@@ -397,6 +471,10 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             return;
         }
 
+        // Reconfere a lei com o que está escrito AGORA — mesma razão da reconferência de
+        // alergia acima: a da abertura viu um documento em branco.
+        await ConferirLegalmenteAsync();
+
         Emitindo = true;
 
         try
@@ -405,6 +483,7 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
             byte[] pdf;
             string numero;
+            string nomeArquivo;
 
             using (var scope = _escopos.CreateScope())
             {
@@ -415,15 +494,29 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
                 var emitido = await documentos.EmitirAsync(dados, SessaoUsuario.Atual.Operador);
                 DocumentoEmitidoId = emitido.Id;
                 numero = emitido.Numero;
+                nomeArquivo = $"{TipoDocumentoInfo.Rotular(TipoSelecionado)}-{numero.Replace('/', '-')}.pdf";
 
-                pdf = await pdfs.GerarAsync(emitido.Id, await parametros.ObterPrestadorAsync());
+                if (AssinarDigitalmente)
+                {
+                    // A partir daqui o documento já EXISTE. Se a assinatura não sair, ele
+                    // continua emitido e válido em papel — e a mensagem tem de dizer isso,
+                    // senão a pessoa emite de novo e ficam dois documentos do mesmo ato.
+                    var assinado = await AssinarAsync(scope, emitido.Id, numero);
+                    if (assinado is null) return;
+
+                    pdf = assinado.Pdf;
+                    nomeArquivo = assinado.NomeArquivo;
+                }
+                else
+                {
+                    pdf = await pdfs.GerarAsync(emitido.Id, await parametros.ObterPrestadorAsync());
+                }
             }
 
             // O documento JÁ está emitido: uma falha daqui para a frente é de impressão,
             // não de emissão — e a tela precisa dizer isso, senão alguém emite de novo.
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
-                pdf, ImpressaoPdf.NomeSeguro(
-                    $"{TipoDocumentoInfo.Rotular(TipoSelecionado)}-{numero.Replace('/', '-')}.pdf"));
+                pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));
 
             if (erro is not null)
             {
@@ -443,6 +536,80 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         {
             Emitindo = false;
         }
+    }
+
+    /// <summary>
+    /// Pede o certificado e assina o documento recém-emitido.
+    ///
+    /// Devolve null quando não deu — e nunca em silêncio: quem desistiu do seletor lê que
+    /// o documento continua emitido e vale em papel; quem esbarrou numa recusa (certificado
+    /// de outra pessoa, exigência legal por cumprir) lê o motivo inteiro, porque é dele que
+    /// sai o próximo passo. Guarda que volta calada é botão que não faz nada.
+    /// </summary>
+    private async Task<DocumentoAssinado?> AssinarAsync(
+        IServiceScope scope, int documentoId, string numero)
+    {
+        var certificado = EscolherCertificado?.Invoke(
+            $"Assinar {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()} {numero}");
+
+        if (certificado is null)
+        {
+            Erro($"O documento {numero} foi emitido e NÃO foi assinado digitalmente. "
+                 + "Ele continua valendo impresso e assinado à caneta; para assinar depois, "
+                 + "cancele e emita outro.");
+            return null;
+        }
+
+        try
+        {
+            var assinaturas = scope.ServiceProvider
+                .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
+
+            return await assinaturas.AssinarAsync(
+                documentoId, certificado,
+                SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
+                SessaoUsuario.Atual.Operador);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Documento clínico — assinatura digital não pôde ser feita", ex);
+
+            Erro($"{ex.Message}{Environment.NewLine}{Environment.NewLine}"
+                 + $"O documento {numero} foi emitido e continua valendo impresso e "
+                 + "assinado à caneta.");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Uma cópia do que está na tela, com paciente e profissional LIGADOS, só para a
+    /// conferência legal. Separada do <see cref="MontarDocumento"/> de propósito: aquele
+    /// valida e ESTOURA (dias de afastamento que não são número), e uma conferência que
+    /// derruba a tela enquanto a pessoa digita seria pior que não conferir.
+    /// </summary>
+    private DocumentoClinico DocumentoParaConferencia()
+    {
+        var documento = new DocumentoClinico
+        {
+            Tipo = TipoSelecionado,
+            PacienteId = _pacienteId,
+            Paciente = _paciente,
+            ProfissionalId = Profissional?.Id,
+            Profissional = Profissional,
+            Data = DateOnly.FromDateTime(Data)
+        };
+
+        if (MostraItens)
+            foreach (var i in Itens.Where(i => !string.IsNullOrWhiteSpace(i.Descricao)))
+                documento.Itens.Add(new ItemDocumento
+                {
+                    Descricao = i.Descricao,
+                    Quantidade = i.Quantidade,
+                    Detalhe = i.Detalhe
+                });
+
+        return documento;
     }
 
     private DocumentoClinico MontarDocumento()

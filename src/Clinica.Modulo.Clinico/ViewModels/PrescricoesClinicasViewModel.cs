@@ -21,12 +21,20 @@ public sealed class LinhaDocumentoClinico
     public required string Profissional { get; init; }
     public required string Codigo { get; init; }
     public required bool Cancelado { get; init; }
+    public required bool Assinado { get; init; }
     public required string Situacao { get; init; }
 
     public string NomeArquivo => $"{Tipo}-{Numero.Replace('/', '-')}.pdf";
 
     /// <summary>Cancelar duas vezes não existe — o botão desliga depois do primeiro.</summary>
     public bool PodeCancelar => !Cancelado;
+
+    /// <summary>
+    /// Assinar depois é a porta para o documento emitido hoje de manhã, antes de o token
+    /// estar na máquina. Assinado não se reassina (haveria dois arquivos válidos do mesmo
+    /// ato) e cancelado não se assina.
+    /// </summary>
+    public bool PodeAssinar => !Cancelado && !Assinado;
 
     public static LinhaDocumentoClinico De(DocumentoClinico d) => new()
     {
@@ -37,7 +45,12 @@ public sealed class LinhaDocumentoClinico
         Profissional = d.Profissional?.Rotulo ?? "—",
         Codigo = d.CodigoVerificacao,
         Cancelado = d.Cancelado,
-        Situacao = d.Cancelado ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}" : "Válido"
+        Assinado = d.AssinadoEletronicamente,
+        Situacao = d.Cancelado
+            ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
+            : d.AssinadoEletronicamente
+                ? $"Assinado digitalmente em {d.AssinadoEm:dd/MM/yyyy}"
+                : "Válido"
     };
 }
 
@@ -268,6 +281,83 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — segunda via não pôde ser gerada", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Assina um documento já emitido com o certificado ICP-Brasil (parcela 43).
+    ///
+    /// Existe porque a emissão e a assinatura nem sempre acontecem no mesmo minuto: o
+    /// atestado sai às 9h e o token está na bolsa. Sem esta porta, a única saída seria
+    /// cancelar e emitir outro — que é gastar um número de documento para resolver um
+    /// problema de logística.
+    ///
+    /// O arquivo assinado é <b>salvo e aberto</b>, não impresso e pronto: é o ARQUIVO que
+    /// vale, e imprimi-lo deixa a assinatura para trás.
+    /// </summary>
+    [RelayCommand]
+    private async Task AssinarAsync(LinhaDocumentoClinico? linha)
+    {
+        if (linha is null) return;
+
+        // Guarda de estado (e não de parâmetro): diz por que não dá, em vez de voltar
+        // calada — o botão já está apagado, e quem chega aqui por atalho merece a frase.
+        if (!linha.PodeAssinar)
+        {
+            Mensagem = linha.Cancelado
+                ? $"O documento {linha.Numero} está cancelado e não pode ser assinado."
+                : $"O documento {linha.Numero} já foi assinado digitalmente.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "assinar documento clínico");
+
+            var certificado = EscolherCertificadoWindow.Perguntar(
+                $"Assinar {linha.Tipo.ToLowerInvariant()} {linha.Numero}",
+                System.Windows.Application.Current?.MainWindow);
+
+            // Diálogo cancelado: sair calado é o certo, e é a exceção prevista pela regra
+            // do "botão que não faz nada".
+            if (certificado is null) return;
+
+            DocumentoAssinado assinado;
+            using (var scope = _escopos.CreateScope())
+            {
+                var assinaturas = scope.ServiceProvider
+                    .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
+
+                assinado = await assinaturas.AssinarAsync(
+                    linha.DocumentoId, certificado,
+                    SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
+                    SessaoUsuario.Atual.Operador);
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                assinado.Pdf, ImpressaoPdf.NomeSeguro(assinado.NomeArquivo));
+
+            if (erro is not null)
+            {
+                Mensagem = $"{erro} O documento foi assinado e está guardado no sistema.";
+                MensagemEhErro = true;
+            }
+            else
+            {
+                _snackbar.Sucesso("Documento assinado. Entregue o ARQUIVO ao paciente.");
+                Mensagem = string.Empty;
+                MensagemEhErro = false;
+            }
+
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — documento não pôde ser assinado", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

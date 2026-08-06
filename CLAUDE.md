@@ -564,6 +564,38 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   por isso `ArquivoAssinado` é tabela e não cache. E **a folha nunca promete mais do que
   garante**: o rodapé escreve o nível da assinatura e, sem ACT contratada, diz que a data é
   declarada pelo relógio de quem assinou.
+- **O documento que SAI da clínica, e a lei que manda nele** (`ConformidadeDocumentoClinico`,
+  `AssinaturaDeDocumentoClinicoService`, parcela 43): a parcela 42 pôs assinatura
+  qualificada na folha de infusão — que é o **único documento que a lei dispensa** (art. 13,
+  parágrafo único, da Lei 14.063/2020: "não se aplica aos atos internos do ambiente
+  hospitalar") — e deixou sem assinatura os quatro que a lei realmente disciplina. O motor
+  estava pronto e testado; **faltava a porta**, na variante mais cara do defeito recorrente.
+  O mapa completo está em `docs/prescricao-eletronica-conformidade.md`. As regras:
+  **atestado em ARQUIVO só vale com assinatura qualificada** (art. 13) — não é documento com
+  defeito, é arquivo sem valor —, enquanto **em papel, assinado à caneta, ele sempre valeu**;
+  por isso a conferência muda de resposta conforme a forma de entrega, e o aviso SOME quando
+  a folha vai ser assinada. Receita, pedido de exame e declaração caem no art. 14 (avançada
+  **ou** qualificada) e assinamos com a qualificada mesmo assim, porque é a que a farmácia
+  confere sozinha, num validador público, sem cadastro em plataforma nenhuma.
+  O **conteúdo** é a metade que ninguém lembra: o art. 35 da Lei 5.991/1973 exige **endereço
+  residencial do paciente** e **modo de usar** para a receita ser AVIADA, e o sistema
+  imprimia receita desde a parcela 3 **sem ter onde guardar o endereço** — a clínica
+  descobria na farmácia, com o paciente na fila. O endereço sai **só na receita** (num
+  atestado iria para o RH sem exigência que o justifique — a economia do CID).
+  A emissão **avisa**; a **assinatura RECUSA**, e é a quarta recusa do projeto: assinar sela
+  os bytes, corrigir depois exige cancelar e emitir outro, e um PDF criptograficamente
+  impecável de uma receita que a farmácia não pode aviar é a **garantia aparente** que este
+  projeto se recusa a produzir desde a parcela 3.
+  **Não precisamos de portal de validação**: `validar.iti.gov.br` é público, gratuito e é o
+  que o farmacêutico usa — o rodapé do PDF escreve o endereço, porque sem essa linha o
+  paciente entrega um arquivo e o balcão não sabe o que fazer com ele. E **a via impressa de
+  um documento assinado é CÓPIA** (a assinatura vive nos bytes, não na tinta), então assinar
+  **salva e abre o arquivo**, nunca manda para a impressora. A reimpressão devolve os
+  **bytes guardados**, e a regra mora dentro do `DocumentosClinicosPdfService.GerarAsync` de
+  propósito: são seis telas chamando, e uma que esquecesse produziria segunda via inválida
+  sem nenhum sinal. O seletor de certificado subiu para o **shell** pelo argumento de
+  sempre — capacidade que existe numa porta só é o defeito de novo, aqui com o agravante de
+  ser a assinatura que dá valor jurídico ao arquivo.
 - **Prescrever o alérgeno que a própria clínica anotou** (`PrescricaoService`, parcela 40):
   desde a parcela 37 o sistema GUARDA as alergias (`NaturezaProblema.Alergia`, com a regra
   de alertar mesmo dadas por resolvidas) e a emissão de receita **nunca as consultou** — a

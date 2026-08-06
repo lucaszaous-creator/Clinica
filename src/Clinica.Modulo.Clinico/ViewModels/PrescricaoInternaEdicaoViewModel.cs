@@ -2,6 +2,7 @@ using Clinica.Application.Servicos;
 using Clinica.Clinico.Janelas;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using Clinica.Domain;
 using CommunityToolkit.Mvvm.ComponentModel;

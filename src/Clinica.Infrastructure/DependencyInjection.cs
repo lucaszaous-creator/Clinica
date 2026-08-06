@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<ChecagemPrescricaoService>();
         services.AddScoped<PrescricaoInternaPdfService>();
         services.AddScoped<AssinaturaDePrescricaoService>();
+        services.AddScoped<AssinaturaDeDocumentoClinicoService>();
         services.AddSingleton(new AssinaturaDigitalService(exigirCadeiaConfiavel: true));
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();

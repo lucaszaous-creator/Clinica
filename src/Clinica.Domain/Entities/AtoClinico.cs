@@ -291,6 +291,72 @@ public class DocumentoClinico
     public TimeOnly? HoraChegada { get; set; }
     public TimeOnly? HoraSaida { get; set; }
 
+    // ---- Assinatura eletrônica (parcela 43) ----
+    //
+    // Por que os campos moram AQUI e não em `AssinaturaDocumento`, que já existe:
+    // aquela tabela nasceu para a folha de infusão, que tem DOIS papéis (prescritor e
+    // enfermagem) e por isso precisa de uma linha por assinatura. O documento clínico
+    // tem UMA e só uma — quem emite assina, e corrigir é cancelar e emitir outro —, e
+    // um-para-um mora na própria linha. Reaproveitar a outra exigiria tornar
+    // `PrescricaoInternaId` anulável, que é `AlterColumn`: migration não aditiva, o que
+    // este repositório não faz enquanto houver versões diferentes em campo.
+
+    /// <summary>
+    /// Como o documento foi assinado. Null = não foi assinado eletronicamente — a via
+    /// vale pela assinatura à caneta na folha impressa, como sempre valeu.
+    /// </summary>
+    public TipoAssinatura? AssinaturaTipo { get; set; }
+
+    /// <summary>SHA-256 do PDF assinado, em hexadecimal minúsculo.</summary>
+    public string? AssinaturaHash { get; set; }
+
+    public string? AssinaturaAlgoritmo { get; set; }
+
+    /// <summary>
+    /// Quando foi assinado, pelo relógio da máquina. Sem carimbo do tempo de uma ACT
+    /// credenciada esta data é DECLARADA, não provada — e o rodapé do PDF diz isso.
+    /// </summary>
+    public DateTime? AssinadoEm { get; set; }
+
+    /// <summary>O login que assinou.</summary>
+    public int? AssinadoPorUsuarioId { get; set; }
+
+    /// <summary>Nome e conselho COPIADOS no ato — o cadastro muda, o documento não.</summary>
+    public string? AssinanteNome { get; set; }
+
+    public string? AssinanteRegistroConselho { get; set; }
+
+    /// <summary>
+    /// Só dígitos, e vem de DENTRO do certificado (OID 2.16.76.1.3.1), não do cadastro.
+    /// É o que prova que quem assinou é quem o documento diz que assinou.
+    /// </summary>
+    public string? AssinanteCpf { get; set; }
+
+    public string? CertificadoTitular { get; set; }
+
+    public string? CertificadoEmissor { get; set; }
+
+    public string? CertificadoSerie { get; set; }
+
+    public DateTime? CertificadoValidoDe { get; set; }
+
+    public DateTime? CertificadoValidoAte { get; set; }
+
+    public DateTime? CarimboTempoEm { get; set; }
+
+    public string? CarimboTempoAutoridade { get; set; }
+
+    /// <summary>
+    /// O PDF assinado, guardado byte a byte.
+    ///
+    /// Tabela à parte para a listagem não arrastar megabytes — e, mais importante, é a
+    /// razão de a reimpressão devolver os bytes GUARDADOS em vez de gerar de novo: a
+    /// assinatura cobre uma faixa de bytes do arquivo, e um PDF "igual" regerado agora
+    /// abriria como inválido no leitor do farmacêutico.
+    /// </summary>
+    public int? ArquivoAssinadoId { get; set; }
+    public ArquivoAssinado? ArquivoAssinado { get; set; }
+
     // ---- Rastro ----
 
     public DateTime CriadoEm { get; set; } = DateTime.Now;
@@ -313,6 +379,34 @@ public class DocumentoClinico
     /// <summary>O CID só sai impresso quando o paciente autorizou.</summary>
     public string? CidImpresso
         => CidAutorizado && !string.IsNullOrWhiteSpace(Cid) ? Cid : null;
+
+    /// <summary>O documento foi assinado eletronicamente.</summary>
+    public bool AssinadoEletronicamente => AssinaturaTipo is not null;
+
+    /// <summary>
+    /// Assinatura que a lei presume autêntica sem a outra parte precisar concordar — a
+    /// única que serve para atestado em meio eletrônico (art. 13 da Lei 14.063/2020).
+    /// </summary>
+    public bool AssinaturaQualificada => AssinaturaTipo == TipoAssinatura.IcpBrasil;
+
+    /// <summary>
+    /// O que o rodapé do PDF e a tela escrevem sobre a assinatura.
+    ///
+    /// A frase muda com o carimbo do tempo de propósito: sem ACT contratada a data é a
+    /// do relógio de quem assinou, e chamá-la de comprovada seria prometer mais do que
+    /// a via garante — o mesmo cuidado que a folha de infusão já toma.
+    /// </summary>
+    public string FraseAssinatura => (AssinaturaTipo, CarimboTempoEm) switch
+    {
+        (null, _) => "Documento sem assinatura eletrônica: vale pela assinatura à caneta na via impressa.",
+        (TipoAssinatura.IcpBrasil, { } quando) =>
+            $"Assinado digitalmente por {AssinanteNome} com certificado ICP-Brasil, "
+            + $"com carimbo do tempo de {quando:dd/MM/yyyy HH:mm}.",
+        (TipoAssinatura.IcpBrasil, null) =>
+            $"Assinado digitalmente por {AssinanteNome} com certificado ICP-Brasil em "
+            + $"{AssinadoEm:dd/MM/yyyy HH:mm} (data declarada pelo relógio de quem assinou).",
+        _ => $"Assinado eletronicamente por {AssinanteNome} em {AssinadoEm:dd/MM/yyyy HH:mm}."
+    };
 }
 
 /// <summary>
