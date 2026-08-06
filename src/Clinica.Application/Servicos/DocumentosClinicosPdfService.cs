@@ -61,20 +61,24 @@ public sealed class DocumentosClinicosPdfService
     private const float LarguraCarimbo = 220f;
 
     /// <summary>
-    /// O validador OFICIAL de documentos digitais de SAÚDE — não o validador genérico de
-    /// assinaturas.
+    /// O VALIDAR — o validador oficial de assinaturas do ITI, e o único que existe.
     ///
-    /// A diferença decide o que o balcão consegue responder. O genérico
-    /// (<c>validar.iti.gov.br</c>) diz se o arquivo está íntegro e quem o assinou. Este,
-    /// mantido pelo ITI com apoio dos Conselhos Federais de Medicina e de Farmácia,
-    /// responde ainda a pergunta que o farmacêutico realmente precisa fazer: <b>quem
-    /// assinou é prescritor com registro ATIVO?</b> — e é onde ele registra a dispensação.
-    /// É o endereço que os CRFs mandam usar.
+    /// Este endereço já esteve errado nesta constante, e o erro merece ficar registrado
+    /// porque ele é do tipo que passa em todo teste: o ITI manteve por três anos um
+    /// validador separado para documentos de saúde (<c>assinaturadigital.iti.gov.br</c>,
+    /// criado na pandemia) e outro genérico (<c>verificador.iti.gov.br</c>). Os DOIS foram
+    /// desativados em <b>06/03/2023</b> e unificados aqui. Muita orientação de CRF ainda
+    /// aponta para os endereços antigos, e foi de uma delas que veio o endereço morto —
+    /// impresso, num documento que o paciente leva ao balcão.
+    ///
+    /// A lição para a próxima constante deste tipo: <b>endereço que vai IMPRESSO num
+    /// documento tem de ser aberto no navegador antes de virar código</b>. Nenhuma
+    /// compilação, teste ou revisão pega uma URL que responde 404.
     /// </summary>
-    public const string ValidadorOficial = "assinaturadigital.iti.gov.br";
+    public const string ValidadorOficial = "validar.iti.gov.br";
 
-    /// <summary>A página do farmacêutico, para o QR cair direto nela.</summary>
-    public const string ValidadorFarmaceutico = "https://assinaturadigital.iti.gov.br/farmaceutico/";
+    /// <summary>Para onde o QR aponta — a página onde se envia o arquivo.</summary>
+    public const string ValidadorFarmaceutico = "https://validar.iti.gov.br/";
 
     private readonly IClinicaRepositorio _repo;
 
@@ -400,16 +404,20 @@ public sealed class DocumentosClinicosPdfService
             {
                 t.Span("2.  ").SemiBold().FontSize(9);
                 t.Span($"ENVIE O ARQUIVO em {ValidadorOficial}").FontSize(9);
-                t.Span("  (validador oficial do ITI, com apoio do CFM e do CFF — gratuito, "
-                       + "sem cadastro para conferir).").FontSize(9).FontColor(TextoSecundario);
+                t.Span("  (VALIDAR, o validador oficial de assinaturas do ITI — gratuito e "
+                       + "sem cadastro).").FontSize(9).FontColor(TextoSecundario);
             });
 
-
+            // Só o que o VALIDAR realmente responde: assinatura válida, arquivo íntegro e
+            // quem é o titular do certificado. Prometer que ele confere o registro no
+            // conselho mandaria o farmacêutico procurar na tela uma resposta que ela não
+            // dá — e documento que promete a mais volta recusado.
             c.Item().PaddingTop(2).Text(t =>
             {
                 t.Span("3.  ").SemiBold().FontSize(9);
-                t.Span("O validador responde se o documento está íntegro, se a assinatura é "
-                       + "de quem ele diz e se o prescritor tem registro ativo.").FontSize(9);
+                t.Span("O validador responde se a assinatura ICP-Brasil é válida, se o "
+                       + "arquivo continua íntegro e quem é o titular do certificado "
+                       + "(nome e CPF).").FontSize(9);
             });
 
             // Sem esta linha o balcão procura no papel um "código de acesso" que não

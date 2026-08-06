@@ -84,26 +84,25 @@ A primeira leitura do problema concluiu que faltava construir um **portal públi
 validação**, e que isso seria o item caro. Estava errado: o portal existe, é do governo, e
 é feito exatamente para isto.
 
-**[assinaturadigital.iti.gov.br](https://assinaturadigital.iti.gov.br)** — o *Validador de
-Documentos Digitais em Saúde*, do ITI **com apoio do CFM e do CFF**. Ele **não é** o
-validador genérico de assinaturas (`validar.iti.gov.br`), e a diferença é justamente a
-pergunta do farmacêutico:
+**[validar.iti.gov.br](https://validar.iti.gov.br)** — o **VALIDAR**, validador oficial de
+assinaturas eletrônicas do ITI. É público, gratuito, não exige cadastro para conferir e
+aceita PDF. É para lá que o documento assinado manda o farmacêutico.
 
-| Pergunta do balcão | Validador genérico | Validador de saúde |
-|---|---|---|
-| O arquivo foi alterado depois de assinado? | sim | sim |
-| A assinatura é de quem o documento diz? | sim | sim |
-| **Quem assinou é prescritor com registro ATIVO?** | não | **sim** |
-| Registrar a dispensação | não | **sim** (farmacêutico com certificado) |
+> **Cuidado com endereço antigo.** O ITI manteve, de 2020 a 2023, dois validadores
+> separados: o `assinaturadigital.iti.gov.br` (criado na pandemia, específico para
+> documentos de saúde) e o `verificador.iti.gov.br`. **Os dois foram desativados em
+> 06/03/2023** e unificados no VALIDAR. Boa parte da orientação de CRF publicada na época
+> ainda aponta para os endereços mortos — e foi exatamente assim que uma URL 404 chegou a
+> ser impressa em receita neste projeto. Endereço que vai impresso num documento se abre
+> no navegador antes de virar código.
 
-É o endereço que os CRFs mandam usar, aceita **PDF**, é gratuito e não exige cadastro para
-conferir. Por isso o documento assinado sai com **três coisas** que a folha de papel não
-tem: o endereço escrito por extenso, um **QR** que leva direto à
-[página do farmacêutico](https://assinaturadigital.iti.gov.br/farmaceutico/) e um bloco
-**"PARA O FARMACÊUTICO"** com o passo a passo — porque um PDF assinado que chega sem uma
-palavra sobre como verificá-lo é recusado por precaução, e o farmacêutico está certo em
-recusá-lo: pela orientação dos CRFs, farmácia que não consegue verificar **não é obrigada
-a dispensar**.
+O que o VALIDAR responde, e é só isso que o documento promete: se a **assinatura ICP-Brasil
+é válida**, se o **arquivo continua íntegro** e **quem é o titular do certificado** (nome e
+CPF). O documento assinado sai com esse endereço por extenso, um **QR** que leva até ele e
+um bloco **"PARA O FARMACÊUTICO"** com o passo a passo — porque um PDF assinado que chega
+sem uma palavra sobre como verificá-lo é recusado por precaução, e o farmacêutico está
+certo em recusá-lo: pela orientação dos CRFs, farmácia que não consegue verificar **não é
+obrigada a dispensar**.
 
 ### Os dois caminhos do validador, e por que estamos no de cima
 
@@ -120,7 +119,7 @@ O caminho do QR foi desenhado com o CFM justamente para o documento hospedado: a
 impressa é o que **libera o acesso à receita** guardada no sistema de quem prescreveu, e
 serve para evitar que qualquer um baixe a receita alheia. Um sistema **desktop**, que fala
 com o banco da própria clínica, não tem endereço na internet para hospedar coisa alguma —
-então o nosso QR leva à **página do farmacêutico** e o documento vai pelo envio do arquivo.
+então o nosso QR leva à **página do VALIDAR** e o documento vai pelo envio do arquivo.
 
 Isso está escrito no próprio documento, e não é detalhe: sem a frase *"não há código de
 acesso a digitar; o código do rodapé é da clínica"*, o balcão procura no papel uma senha
@@ -201,10 +200,9 @@ rodapé escreve exatamente isso, em vez de fingir precisão que a via não tem.
   [alteração da validade nacional (Anfarmag)](https://anfarmag.org.br/conteudos/validade-da-receita-em-todo-o-territorio-nacional-alteracao-da-lei-no-5-991-1973/)
 - [CRF-RS — orientação ao farmacêutico sobre prescrição eletrônica](https://crfrs.org.br/noticias/orientacao.ao.farmaceutico.sobre.prescricao.eletronica) ·
   [CRF-SP — dispensação de receitas com assinatura digital](http://www.crfsp.org.br/orienta%C3%A7%C3%A3o-farmac%C3%AAutica/641-fiscalizacao-parceira/farm%C3%A1cia/11248-prescri%C3%A7%C3%A3o-eletr%C3%B4nica-4.html)
-- [ITI — Validador de Documentos Digitais em Saúde](https://assinaturadigital.iti.gov.br) ·
-  [página do farmacêutico](https://assinaturadigital.iti.gov.br/farmaceutico/) ·
-  [ITI — o que o validador garante](https://www.gov.br/iti/pt-br/assuntos/noticias/indice-de-noticias/validador-de-prescricoes-e-atestados-medicos-digitais-garante-seguranca-na-relacao-medico-paciente-e-farmaceuticos) ·
-  [CRF-RJ — passo a passo para validar](https://crf-rj.org.br/noticias/4093-passo-a-passo-como-validar-uma-receita-digital-assinada-com-certificado-icp-brasil.html) ·
-  [Validar genérico de assinaturas](https://validar.iti.gov.br)
+- [ITI — VALIDAR (validador oficial de assinaturas)](https://validar.iti.gov.br) ·
+  [ITI — fim do Validador e do Verificador antigos, 06/03/2023](https://www.gov.br/iti/pt-br/assuntos/noticias/indice-de-noticias/fim-do-validador-e-do-verificador) ·
+  [Guia do Desenvolvedor do VALIDAR](https://validar.iti.gov.br/guia-desenvolvedor.html) ·
+  [CRF-RJ — passo a passo para validar](https://crf-rj.org.br/noticias/4093-passo-a-passo-como-validar-uma-receita-digital-assinada-com-certificado-icp-brasil.html)
 - [ANVISA — SNCR: documentação técnica da API](https://www.gov.br/anvisa/pt-br/assuntos/noticias-anvisa/anvisa-publica-documentacao-tecnica-para-integracao-de-sistemas-de-prescricao-eletronica-ao-sncr) ·
   [prazo prorrogado para 30/09/2026](https://www.gov.br/anvisa/pt-br/assuntos/noticias-anvisa/2026/sncr-anvisa-inicia-etapa-de-integracao-com-sistemas-de-prescricao-eletronica-e-amplia-prazo-para-implementacao)

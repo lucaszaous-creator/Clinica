@@ -586,15 +586,20 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   os bytes, corrigir depois exige cancelar e emitir outro, e um PDF criptograficamente
   impecável de uma receita que a farmácia não pode aviar é a **garantia aparente** que este
   projeto se recusa a produzir desde a parcela 3.
-  **Não precisamos de portal de validação**: `assinaturadigital.iti.gov.br` — o validador
-  de documentos de SAÚDE do ITI, com apoio do CFM e do CFF — é público e gratuito, e é o
-  que os CRFs mandam o farmacêutico usar. Não confundir com o genérico
-  (`validar.iti.gov.br`): só o de saúde responde **"quem assinou é prescritor com registro
-  ATIVO?"**, que é a pergunta que decide a dispensação, e é onde ela é registrada. O
-  documento assinado sai com o endereço por extenso, um **QR** que leva à página do
-  farmacêutico e um bloco **"PARA O FARMACÊUTICO"** com o passo a passo — PDF assinado que
-  chega sem uma palavra sobre como conferir é recusado por precaução, e com razão: pela
-  orientação dos CRFs, farmácia que não consegue verificar não é obrigada a dispensar. O QR
+  **Não precisamos de portal de validação**: o **VALIDAR** (`validar.iti.gov.br`) é
+  público, gratuito, sem cadastro, e é onde o farmacêutico envia o arquivo. **Atenção ao
+  endereço** — esta constante já foi para produção ERRADA: o ITI manteve por três anos um
+  validador só para saúde (`assinaturadigital.iti.gov.br`) e um genérico
+  (`verificador.iti.gov.br`), os **dois desativados em 06/03/2023** e unificados no
+  VALIDAR; muita orientação de CRF ainda aponta para os mortos, e foi de uma delas que
+  saiu a URL impressa em receita. **Endereço que vai IMPRESSO se abre no navegador antes
+  de virar código** — compilação, teste e revisão não pegam um 404. O documento assinado
+  sai com o endereço por extenso, um **QR** que leva ao validador e um bloco **"PARA O
+  FARMACÊUTICO"** com o passo a passo — PDF assinado que chega sem uma palavra sobre como
+  conferir é recusado por precaução, e com razão: pela orientação dos CRFs, farmácia que
+  não consegue verificar não é obrigada a dispensar. O bloco diz só o que o VALIDAR
+  responde (assinatura válida, arquivo íntegro, titular do certificado): prometer que ele
+  confere registro no conselho mandaria o balcão procurar resposta que a tela não dá. O QR
   leva ao validador e **não carrega o documento** (quem hospeda receita é plataforma —
   Memed, Mevo, CFM); prometer que ele "abre a receita" seria mentir sobre o que ele faz. E **a via impressa de
   um documento assinado é CÓPIA** (a assinatura vive nos bytes, não na tinta), então assinar

@@ -282,19 +282,28 @@ public class AssinaturaDocumentoClinicoTests : IDisposable
     // ==================== O que chega ao balcão da farmácia ====================
 
     /// <summary>
-    /// O endereço impresso é o validador de documentos de SAÚDE, não o genérico de
-    /// assinaturas — e a diferença é a pergunta do farmacêutico. O genérico responde
-    /// "está íntegro e quem assinou"; este responde também "**quem assinou é prescritor
-    /// com registro ATIVO?**", que é o que decide a dispensação.
+    /// O endereço impresso é o VALIDAR, e este teste existe porque a constante já esteve
+    /// ERRADA em produção: o ITI teve por três anos um validador separado para documentos
+    /// de saúde e outro genérico, e os dois foram desativados em 06/03/2023 e unificados
+    /// no <c>validar.iti.gov.br</c>. Orientação antiga de CRF ainda aponta para os
+    /// endereços mortos — e o endereço morto foi impresso em receita.
+    ///
+    /// O teste não substitui abrir a URL no navegador (nenhum teste faz isso); ele trava
+    /// a regressão depois que alguém conferiu.
     /// </summary>
     [Fact]
-    public void O_endereco_impresso_e_o_validador_de_saude()
+    public void O_endereco_impresso_e_o_validador_vigente_do_iti()
     {
         DocumentosClinicosPdfService.ValidadorOficial
-            .Should().Be("assinaturadigital.iti.gov.br");
+            .Should().Be("validar.iti.gov.br");
 
         DocumentosClinicosPdfService.ValidadorFarmaceutico
-            .Should().StartWith("https://assinaturadigital.iti.gov.br/farmaceutico");
+            .Should().StartWith("https://validar.iti.gov.br");
+
+        // Os dois endereços aposentados não podem voltar por descuido.
+        DocumentosClinicosPdfService.ValidadorFarmaceutico
+            .Should().NotContain("assinaturadigital.iti.gov.br")
+            .And.NotContain("verificador.iti.gov.br");
     }
 
     /// <summary>
