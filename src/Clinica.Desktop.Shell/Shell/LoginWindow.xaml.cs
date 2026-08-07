@@ -1,4 +1,6 @@
+using System.Net.Http;
 using System.Windows;
+using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Domain.Entities;
@@ -38,6 +40,112 @@ public partial class LoginWindow : Window
 
         if (primeiroAcesso) MostrarPrimeiroAcesso();
         else MostrarEntrar();
+
+        _ = OferecerCertificadoAsync();
+    }
+
+    /// <summary>
+    /// Mostra o botão do SafeID só quando a clínica o cadastrou.
+    ///
+    /// Botão que existe e explica depois do clique é o defeito da parcela 41 — e aqui seria
+    /// pior, porque na tela de login a pessoa ainda não entrou e não tem como investigar
+    /// nada. No PRIMEIRO ACESSO ele também não aparece: não há usuário para o CPF casar, e
+    /// oferecer a entrada por certificado onde ela não pode dar certo é convite ao engano.
+    /// </summary>
+    private async Task OferecerCertificadoAsync()
+    {
+        if (_primeiroAcesso) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var opcoes = await scope.ServiceProvider
+                .GetRequiredService<ProvedorOpcoesSafeID>().ObterAsync();
+
+            if (opcoes is not null) PainelCertificado.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            // Sem SafeID a tela segue funcionando com senha. Sumir calado faria "o botão
+            // não aparece" virar mistério no suporte.
+            LogSuite.Registrar($"{_nomeApp} — leitura da configuração do SafeID", ex);
+        }
+    }
+
+    /// <summary>
+    /// Entrada pelo certificado em nuvem: o PSC autentica, o sistema decide o ACESSO.
+    ///
+    /// O CPF vem de DENTRO do certificado (OID 2.16.76.1.3.1), nunca de um campo digitado —
+    /// é isso que separa esta entrada de um "informe seu CPF para entrar".
+    /// </summary>
+    private async void EntrarComCertificado(object remetente, RoutedEventArgs e)
+    {
+        BtnCertificado.IsEnabled = false;
+        BtnEntrar.IsEnabled = false;
+
+        try
+        {
+            Info("Abrimos a página do SafeID no navegador. Leia o QR Code com o aplicativo "
+                 + "e confirme no celular.");
+
+            OpcoesSafeID? opcoes;
+            IHttpClientFactory fabrica;
+
+            using (var scope = _escopos.CreateScope())
+            {
+                opcoes = await scope.ServiceProvider
+                    .GetRequiredService<ProvedorOpcoesSafeID>().ObterAsync();
+                fabrica = scope.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+            }
+
+            if (opcoes is null)
+            {
+                Erro("O SafeID não está configurado nesta clínica.");
+                return;
+            }
+
+            var cliente = new ClienteSafeID(
+                fabrica.CreateClient(Clinica.Infrastructure.DependencyInjection.NomeHttpSafeID),
+                opcoes);
+
+            var autorizacao = new AutorizacaoSafeIDService(
+                _ => Task.FromResult<OpcoesSafeID?>(opcoes),
+                _ => cliente,
+                url => System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(url.ToString()) { UseShellExecute = true }));
+
+            var sessao = await autorizacao.AutorizarAsync();
+
+            // O CPF sai do certificado, não do que o servidor afirma: é o mesmo dado que
+            // sustenta a assinatura qualificada, e usar outro aqui abriria uma porta que a
+            // assinatura fecha.
+            var cpf = sessao.Certificados
+                .Select(c => c.Certificado.Cpf)
+                .FirstOrDefault(c => !string.IsNullOrWhiteSpace(c));
+
+            using var escopoAcesso = _escopos.CreateScope();
+            var acesso = escopoAcesso.ServiceProvider.GetRequiredService<AcessoService>();
+
+            var resultado = await acesso.AutenticarPorCertificadoAsync(cpf);
+
+            if (!resultado.Sucesso)
+            {
+                Erro(resultado.Erro ?? "Não foi possível entrar com o certificado.");
+                return;
+            }
+
+            Concluir(resultado.Usuario!);
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar($"{_nomeApp} — entrada pelo SafeID", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            BtnCertificado.IsEnabled = true;
+            BtnEntrar.IsEnabled = true;
+        }
     }
 
     private void MostrarEntrar()
