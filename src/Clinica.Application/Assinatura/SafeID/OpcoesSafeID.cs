@@ -41,6 +41,17 @@ public sealed record OpcoesSafeID(
     public Uri Base => BaseUrl ?? BasePadrao;
 
     /// <summary>
+    /// "homologação" ou "produção", para a mensagem de erro NOMEAR o ambiente.
+    ///
+    /// O PSC responde credencial errada e ambiente errado com a mesma frase — "não foi
+    /// possível encontrar a aplicação com base no client_id" —, e a aplicação cadastrada no
+    /// portal de produção realmente não existe em homologação. Sem dizer qual ambiente foi
+    /// chamado, a clínica conferiria o client_id letra por letra procurando um erro de
+    /// digitação que não existe.
+    /// </summary>
+    public string NomeAmbiente => Base == BaseHomologacao ? "homologação" : "produção";
+
+    /// <summary>
     /// As URIs de retorno cadastradas no portal da Safeweb para esta aplicação.
     ///
     /// Moram em CÓDIGO, e não em configuração, porque não são escolha de quem instala: são

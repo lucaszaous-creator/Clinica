@@ -83,6 +83,8 @@ public sealed class AutorizacaoSafeIDService
 
         var cliente = _fabrica(opcoes);
 
+        await ConferirCredenciaisAsync(cliente, opcoes, ct);
+
         using var escuta = EscutaLoopback.Abrir(opcoes.Retornos);
 
         var desafio = DesafioPkce.Gerar();
@@ -123,5 +125,41 @@ public sealed class AutorizacaoSafeIDService
             token.AccessToken, somenteDaAutorizacao: true, ct);
 
         return new SessaoSafeID(token, certificados);
+    }
+
+    /// <summary>
+    /// Confere as credenciais ANTES de abrir o navegador, pedindo o token da aplicação.
+    ///
+    /// Por que este passo existe
+    /// -------------------------
+    /// Porque o erro de credencial do PSC aparece como PÁGINA no navegador e **nunca chega
+    /// ao endereço de retorno** — a escuta continuaria esperando os três minutos inteiros,
+    /// em silêncio, enquanto o usuário já está olhando a mensagem de erro na outra janela.
+    /// Espera muda depois de um erro visível é o que faz a pessoa concluir que o sistema
+    /// travou, e foi exatamente o que aconteceu no primeiro teste na clínica.
+    ///
+    /// O <c>client_token</c> é a chamada certa para isso: ela não assina nada, não envolve
+    /// a médica e responde na hora se o par client_id/secret vale NAQUELE ambiente.
+    ///
+    /// A mensagem nomeia o AMBIENTE porque essa é a causa mais provável, e a mais difícil de
+    /// enxergar: a aplicação cadastrada no portal de produção não existe em homologação, e
+    /// o PSC responde as duas com a mesma frase — "não foi possível encontrar a aplicação".
+    /// </summary>
+    private static async Task ConferirCredenciaisAsync(
+        ClienteSafeID cliente, OpcoesSafeID opcoes, CancellationToken ct)
+    {
+        try
+        {
+            await cliente.TokenDaAplicacaoAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException(
+                $"O SafeID não reconheceu as credenciais desta aplicação no ambiente de "
+                + $"{opcoes.NomeAmbiente}. Confira, em Configurações → Operação, se o "
+                + $"client_id e o client_secret estão corretos e se o ambiente é o mesmo em "
+                + $"que a aplicação foi cadastrada no portal da Safeweb. Detalhe: {ex.Message}",
+                ex);
+        }
     }
 }

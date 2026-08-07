@@ -459,13 +459,43 @@ public class SafeIDTests
     }
 
     [Fact]
+    public async Task Credencial_recusada_falha_ANTES_de_abrir_o_navegador()
+    {
+        // O primeiro teste na clínica caiu aqui: a aplicação estava cadastrada em produção e
+        // o sistema chamou homologação. O PSC respondeu com uma PÁGINA de erro no navegador,
+        // que nunca chega ao endereço de retorno — a escuta esperaria os três minutos em
+        // silêncio enquanto o usuário já via o erro na outra janela.
+        var abriu = false;
+
+        var servico = new AutorizacaoSafeIDService(
+            _ => Task.FromResult<OpcoesSafeID?>(
+                Opcoes with { BaseUrl = OpcoesSafeID.BaseHomologacao }),
+            o => new ClienteSafeID(
+                new HttpClient(HandlerQueResponde(
+                    """{"message":"Não foi possível encontrar a aplicação com base no client_id."}""",
+                    HttpStatusCode.BadRequest)),
+                o),
+            _ => abriu = true);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => servico.AutorizarAsync());
+
+        Assert.False(abriu);                                // não incomodou a médica
+        Assert.Contains("homologação", erro.Message);       // nomeia o ambiente chamado
+        Assert.Contains("Configurações", erro.Message);     // e diz onde corrigir
+    }
+
+    [Fact]
     public async Task Autorizacao_que_ninguem_confirma_expira_com_frase_propria()
     {
         var opcoes = Opcoes with { RedirectUris = [Loopback(18201)] };
 
+        // A credencial precisa PASSAR na conferência para o teste chegar à espera — é o que
+        // separa "credencial errada" de "ninguém confirmou", que são falhas diferentes.
         var servico = new AutorizacaoSafeIDService(
             _ => Task.FromResult<OpcoesSafeID?>(opcoes),
-            o => new ClienteSafeID(new HttpClient(HandlerQueResponde("{}")), o),
+            o => new ClienteSafeID(
+                new HttpClient(HandlerQueResponde("""{"access_token":"tk","expires_in":300}""")), o),
             _ => { /* a médica não pegou o celular */ });
 
         var erro = await Assert.ThrowsAsync<InvalidOperationException>(
