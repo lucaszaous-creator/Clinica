@@ -100,6 +100,8 @@ public sealed class AcessoService
         if (await _repo.ObterUsuarioPorLoginAsync(normalizado, ct) is not null)
             throw new InvalidOperationException($"Já existe um usuário com o login \"{normalizado}\".");
 
+        await CriticarVinculoAsync(profissionalId, usuarioId: 0, ct);
+
         var (hash, sal) = HashSenha.Gerar(senha);
 
         var usuario = new UsuarioSistema
@@ -147,6 +149,8 @@ public sealed class AcessoService
             throw new InvalidOperationException(
                 "Este é o último usuário que pode gerenciar acessos. " +
                 "Dê a permissão a outra pessoa antes de tirar a dele.");
+
+        await CriticarVinculoAsync(profissionalId, usuarioId, ct);
 
         usuario.Nome = nome.Trim();
         usuario.Perfil = perfil;
@@ -361,6 +365,34 @@ public sealed class AcessoService
         await _repo.SalvarAsync(ct);
 
         return ResultadoAutenticacao.Ok(usuario);
+    }
+
+    /// <summary>
+    /// Um profissional tem UM acesso.
+    ///
+    /// Não é preciosismo de modelagem: <c>SessaoUsuario.ProfissionalId</c> é o que faz o
+    /// Consultório saber de quem é "meu dia", e a entrada por certificado casa o CPF do
+    /// e-CPF com o profissional. Dois usuários ativos apontando para a mesma pessoa tornam
+    /// ambígua a resposta a "quem entrou?" — e a entrada por certificado teria de escolher
+    /// um perfil em silêncio, que é pior do que não entrar.
+    ///
+    /// A recusa mora na ESCRITA, e não num índice único do banco, pela mesma razão do CPF
+    /// repetido: migration com índice único falharia no <c>MigrateAsync</c> da abertura se a
+    /// base da clínica já tivesse duplicata, e quem não abriria seria o faturamento, que
+    /// roda em produção.
+    /// </summary>
+    private async Task CriticarVinculoAsync(int? profissionalId, int usuarioId, CancellationToken ct)
+    {
+        if (profissionalId is not { } alvo) return;
+
+        var jaVinculado = (await _repo.UsuariosAsync(ct))
+            .FirstOrDefault(u => u.Id != usuarioId && u.Ativo && u.ProfissionalId == alvo);
+
+        if (jaVinculado is not null)
+            throw new InvalidOperationException(
+                $"O profissional já está vinculado ao usuário \"{jaVinculado.Login}\". "
+                + "Cada profissional tem um acesso — desative o outro antes, ou vincule "
+                + "este usuário a outro profissional.");
     }
 
     // ---------------------------------------------------------------- interno

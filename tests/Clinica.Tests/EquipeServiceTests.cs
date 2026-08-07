@@ -34,6 +34,74 @@ public class EquipeServiceTests : IDisposable
         _agenda = new AgendaService(_repo, new AtendimentoService(_repo));
     }
 
+    // ===== O CPF do profissional (parcela 45) =====
+    //
+    // A coluna existe desde a parcela 42, com três LEITORES — as duas assinaturas e a
+    // entrada por certificado — e, até esta parcela, NENHUM gravador em todo o código. O
+    // efeito era que a assinatura ICP-Brasil recusava sempre, dizendo "cadastre o CPF em
+    // Equipe", numa tela que não tinha o campo. Estes testes existem para que a escrita
+    // nunca mais suma sem ninguém notar.
+
+    [Fact]
+    public async Task Cpf_EhGravado()
+    {
+        var salvo = await _equipe.SalvarProfissionalAsync(
+            new Profissional { Nome = "Dra. Ana", Cpf = "123.456.789-09" });
+
+        var lido = await _equipe.ObterProfissionalAsync(salvo.Id);
+
+        lido!.Cpf.Should().Be("12345678909");   // só dígitos, como a comparação com o e-CPF espera
+    }
+
+    [Fact]
+    public async Task Cpf_EmBranco_EhOCasoNormal()
+    {
+        // Quem não assina digitalmente não precisa de CPF; exigi-lo travaria o cadastro da
+        // equipe inteira por causa de uma feature que nem toda clínica usa.
+        var salvo = await _equipe.SalvarProfissionalAsync(new Profissional { Nome = "Recepção" });
+
+        salvo.Cpf.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Cpf_Invalido_EhRecusado()
+    {
+        // Aceitar "111" faria a médica descobrir o erro no dia de assinar, com o paciente
+        // na sala e a mensagem dizendo que o certificado é de outra pessoa.
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _equipe.SalvarProfissionalAsync(
+                new Profissional { Nome = "Dra. Ana", Cpf = "11111111111" }));
+
+        erro.Message.Should().Contain("não é válido");
+    }
+
+    [Fact]
+    public async Task Cpf_Repetido_EhRecusado()
+    {
+        // A junção com o certificado é por VALOR, não por chave estrangeira: dois
+        // profissionais com o mesmo CPF tornam ambígua a resposta a "quem assinou?".
+        await _equipe.SalvarProfissionalAsync(
+            new Profissional { Nome = "Dra. Ana", Cpf = "12345678909" });
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _equipe.SalvarProfissionalAsync(
+                new Profissional { Nome = "Outra pessoa", Cpf = "12345678909" }));
+
+        erro.Message.Should().Contain("Dra. Ana");
+    }
+
+    [Fact]
+    public async Task Cpf_DoProprioProfissional_NaoContaComoRepetido()
+    {
+        var salvo = await _equipe.SalvarProfissionalAsync(
+            new Profissional { Nome = "Dra. Ana", Cpf = "12345678909" });
+
+        salvo.Nome = "Dra. Ana Souza";
+        var regravado = await _equipe.SalvarProfissionalAsync(salvo);
+
+        regravado.Cpf.Should().Be("12345678909");
+    }
+
     private async Task<int> CriarPacienteAsync()
     {
         var p = new Paciente { Nome = "Paciente", Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };

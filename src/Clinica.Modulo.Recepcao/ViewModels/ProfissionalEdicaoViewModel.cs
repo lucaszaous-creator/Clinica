@@ -23,6 +23,13 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
     [ObservableProperty] private string _nome = string.Empty;
     [ObservableProperty] private string? _nomeCurto;
     [ObservableProperty] private string? _registroConselho;
+
+    /// <summary>
+    /// CPF, para a assinatura digital. É ele que o sistema compara com o CPF de DENTRO do
+    /// certificado ICP-Brasil na hora de assinar — sem ele, a assinatura é recusada, e sem
+    /// este campo na tela não havia como preenchê-lo.
+    /// </summary>
+    [ObservableProperty] private string? _cpf;
     [ObservableProperty] private EntradaEspecialidade? _especialidade;
     [ObservableProperty] private string? _telefone;
     [ObservableProperty] private string? _email;
@@ -64,6 +71,7 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
             Nome = p.Nome;
             NomeCurto = p.NomeCurto;
             RegistroConselho = p.RegistroConselho;
+            Cpf = p.Cpf;
             Especialidade = Especialidades.FirstOrDefault(e => e.Codigo == p.EspecialidadeCodigo);
             Telefone = p.Telefone;
             Email = p.Email;
@@ -119,6 +127,7 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
                 Nome = Nome,
                 NomeCurto = NomeCurto,
                 RegistroConselho = RegistroConselho,
+                Cpf = Cpf,
                 EspecialidadeCodigo = Especialidade?.Codigo,
                 Telefone = Telefone,
                 Email = Email,
