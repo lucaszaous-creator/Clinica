@@ -116,17 +116,29 @@ public sealed class AssinaturaDigitalService
     /// Assina o PDF. Devolve bytes NOVOS — os originais não servem mais para nada, porque
     /// é sobre estes que a assinatura foi calculada.
     /// </summary>
+    /// <param name="assinadorEmNuvem">
+    /// Quando informado, quem faz a conta da assinatura é um PSC (o SafeID), e a chave
+    /// privada <b>não está nesta máquina</b> — sobe o hash, desce o PKCS#7. Nulo mantém o
+    /// caminho de sempre: o certificado do token ou do arquivo, com a chave em mãos.
+    ///
+    /// Note que só isto muda. O desenho da folha, o carimbo visual, o posicionamento e o
+    /// <see cref="Conferir"/> são os mesmos nos dois caminhos — é o que garante que uma
+    /// folha assinada em nuvem seja indistinguível de uma assinada no token, inclusive na
+    /// hora de conferir.
+    /// </param>
     /// <exception cref="InvalidOperationException">
-    /// Certificado sem chave privada, vencido, ou com cadeia que não valida.
+    /// Certificado sem chave privada (só no caminho local), vencido, ou com cadeia que não
+    /// valida.
     /// </exception>
-    public ResultadoAssinatura Assinar(
-        byte[] pdf, CertificadoAssinatura certificado, PedidoAssinatura pedido)
+    public async Task<ResultadoAssinatura> AssinarAsync(
+        byte[] pdf, CertificadoAssinatura certificado, PedidoAssinatura pedido,
+        IDigitalSigner? assinadorEmNuvem = null)
     {
         ArgumentNullException.ThrowIfNull(pdf);
         ArgumentNullException.ThrowIfNull(certificado);
         ArgumentNullException.ThrowIfNull(pedido);
 
-        Criticar(certificado);
+        Criticar(certificado, exigirChaveLocal: assinadorEmNuvem is null);
         GarantirFonte();
 
         using var entrada = new MemoryStream(pdf, writable: false);
@@ -147,13 +159,17 @@ public sealed class AssinaturaDigitalService
             AppearanceHandler = new CarimboDeAssinatura(certificado, pedido)
         };
 
-        var assinador = new PdfSharpDefaultSigner(
+        var assinador = assinadorEmNuvem ?? new PdfSharpDefaultSigner(
             certificado.Certificado, PdfMessageDigestType.SHA256, pedido.CarimbadoraDeTempo);
 
         DigitalSignatureHandler.ForDocument(documento, assinador, opcoes);
 
         using var saida = new MemoryStream();
-        documento.Save(saida);
+
+        // SaveAsync, e não Save: é durante o salvamento que o PDFsharp chama o assinador,
+        // e no caminho da nuvem essa chamada é uma requisição HTTP. Salvar de forma síncrona
+        // bloquearia a thread da tela enquanto a médica confirma no celular.
+        await documento.SaveAsync(saida, false);
         var assinado = saida.ToArray();
 
         // O carimbo do tempo é LIDO de volta do que foi realmente produzido, nunca
@@ -238,9 +254,16 @@ public sealed class AssinaturaDigitalService
         = System.Security.Cryptography.X509Certificates.X509NameType.SimpleName;
 
     /// <summary>Recusa o que não pode assinar, com a frase que a tela mostra.</summary>
-    private void Criticar(CertificadoAssinatura certificado)
+    /// <param name="exigirChaveLocal">
+    /// Falso quando quem assina é um PSC: em nuvem a chave privada <b>nunca</b> está nesta
+    /// máquina — é esse o ponto do produto —, e cobrar <c>HasPrivateKey</c> ali recusaria
+    /// justamente o certificado que funciona. As outras duas críticas continuam valendo
+    /// iguais nos dois caminhos: vencido é vencido, e cadeia que não valida produz documento
+    /// que abre como inválido venha a assinatura de onde vier.
+    /// </param>
+    private void Criticar(CertificadoAssinatura certificado, bool exigirChaveLocal)
     {
-        if (!certificado.Certificado.HasPrivateKey)
+        if (exigirChaveLocal && !certificado.Certificado.HasPrivateKey)
             throw new InvalidOperationException(
                 "O certificado escolhido não tem chave privada nesta máquina — se for um A3, " +
                 "confira se o token está conectado.");

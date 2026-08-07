@@ -109,7 +109,7 @@ public sealed class AssinaturaDeDocumentoClinicoService
         var prestador = await _parametros.ObterPrestadorAsync(ct);
         var pdf = _pdfs.Gerar(documento, prestador, paraAssinaturaEletronica: true);
 
-        var assinado = _assinador.Assinar(pdf, certificado, new PedidoAssinatura(
+        var assinado = await _assinador.AssinarAsync(pdf, certificado, new PedidoAssinatura(
             Motivo: $"{TipoDocumentoInfo.Rotular(documento.Tipo)} {documento.Numero}",
             NomeExibido: documento.Profissional?.Nome ?? certificado.Titular,
             RegistroConselho: documento.Profissional?.RegistroConselho,

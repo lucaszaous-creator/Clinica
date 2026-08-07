@@ -1,0 +1,866 @@
+{
+  "info": {
+    "_postman_id": "5144e424-108c-42b1-87b3-fbcc7ad6c9a3",
+    "name": "Integração PSC - SafeID",
+    "description": "**Objetivo**  \nFacilitar o entendimento do fluxo de assinatura de documentos utilizando certificado em nuvem através do conjunto de serviços disponibilizados pelo Prestador de Serviço de Confiança – PSC Safeweb.\n\n**PRÉ-REQUISITOS**\n\n1. Possuir um Certificado SafeID vinculado ao número de telefone da pessoa que irá realizar a integração.\n    \n2. Instalar o app SafeID no dispositivo móvel.\n    \n3. Vincular o certificado na aplicação SafeID.\n    \n4. Possuir um URL de callback\n    \n5. Para o método oauth/application_cert é necessário obrigatoriamente um certificado ICP-Brasil SLL",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "57193876"
+  },
+  "item": [
+    {
+      "name": "Integração com QR CODE",
+      "item": [
+        {
+          "name": "Autorização de titular",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": []
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/authorize?response_type=code&client_id=client-id&redirect_uri=URI do webhook&State=teste&scope=single_signature&code_challenge=y7TYnehRvrPCzW85jyzaXtOJVpCRyLPOR_WJ-g0Fkzg&code_challenge_method=S256&login_hint=&lifetime=604800",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "authorize"
+              ],
+              "query": [
+                {
+                  "key": "response_type",
+                  "value": "code",
+                  "description": "Valor fixo code"
+                },
+                {
+                  "key": "client_id",
+                  "value": "client-id",
+                  "description": "Deve conter a identificação da aplicação"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "URI do webhook",
+                  "description": "Deve ter a URI para redirecionar o usuário de volta para a aplicação de origem. A URI deve estar na lista de URI's autorizadas para a aplicação. Deve ser URL ENCODED. Se não informado, será considerada a primeira URI cadastrada para a aplicação"
+                },
+                {
+                  "key": "State",
+                  "value": "teste",
+                  "description": "Valor opaco usado pela aplicação para manter o estado entre a requisição e a resposta"
+                },
+                {
+                  "key": "scope",
+                  "value": "single_signature",
+                  "description": "Escopo (Ver lista de escopos em documentação)"
+                },
+                {
+                  "key": "code_challenge",
+                  "value": "y7TYnehRvrPCzW85jyzaXtOJVpCRyLPOR_WJ-g0Fkzg",
+                  "description": "Resultado do Code Challenge Verifier (ver rfc-7636)"
+                },
+                {
+                  "key": "code_challenge_method",
+                  "value": "S256",
+                  "description": "Valor fixo S256 (ver RFC 7636)"
+                },
+                {
+                  "key": "login_hint",
+                  "value": "",
+                  "description": "CPF do usuário"
+                },
+                {
+                  "key": "lifetime",
+                  "value": "604800",
+                  "description": "Tempo de vida da autorização"
+                },
+                {
+                  "key": "limit",
+                  "value": "2",
+                  "disabled": true
+                },
+                {
+                  "key": "",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Serviço para obter do titular a autorização de uso da sua chave privada.\n\nAo enviar informações do cadastro da aplicação, a requisição retornará uma página de autenticação com QR code para autorização da chave privada.\n\n#### [Estrutura do conteúdo de envio](https://pscsafeweb.safewebpss.com.br/Docs/#/endpoints/authorize?id=estrutura-do-conte%C3%BAdo-de-envio)\n\nConfira no exemplo abaixo a estrutura do conteúdo que será enviado na _query_ da requisição.\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| response_type | string | Valor fixo **code** | Sim |\n| client_id | string | Deve conter a identificação da aplicação | Sim |\n| redirect_uri | string | Deve ter a URI para redirecionar o usuário de volta para a aplicação de origem. A URI deve estar na lista de URI's autorizadas para a aplicação. Deve ser URL ENCODED. Se não informado, será considerada a primeira URI cadastrada para a aplicação | Não |\n| state | string | É retornado sem modificações para aplicação de origem; - Recomendado. Um valor opaco usado pela aplicação para manter o estado entre a requisição e a resposta. O serviço de autorização incluirá este valor ao redirecionar o módulo do usuário de volta ao endereço da aplicação. Este parâmetro deverá ser usado para prevenir ataques de falsificação de requisições entre sites (cross-site request forgery) | Não |\n| lifetime | int | Indica o tempo de vida desejado para o token a ser gerado. Inteiro, em segundos | Não |\n| scope | string | Se não informado, será considerado **single_signature**. (ver lista de escopos abaixo) | Não |\n| code_challenge | string | Ver [RFC 7636](https://datatracker.ietf.org/doc/html/rfc7636) | Sim |\n| code_challenge_method | string | Valor fixo **S256** (ver RFC 7636) | Sim |\n| login_hint | string | Valor de CPF ou CNPJ a ser informado como filtro para seleção do certificado a ser utilizado | Não |\n\n##### [Lista de escopos:](https://pscsafeweb.safewebpss.com.br/Docs/#/endpoints/authorize?id=lista-de-escopos)\n\n| Valor | Descrição |\n| --- | --- |\n| single_signature | Token que permite a assinatura de apenas um conteúdo (hash), sendo invalidado apos a sua utilização |\n| multi_signature | Token que permite a assinatura de multiplos hashes em uma única requisicao, sendo invalidado apos a sua utilização |\n| signature_session | Token de sessão OAuth que permite várias assinaturas em várias chamadas a API, desde que o token esteja dentro do prazo de validade ou que não tenha sido revogado pela aplicação ou pelo usuário |\n\n#### [Estrutura do conteúdo de resposta](https://pscsafeweb.safewebpss.com.br/Docs/#/endpoints/authorize?id=estrutura-do-conte%C3%BAdo-de-resposta)\n\nConfira no exemplo abaixo a estrutura do conteúdo de resposta desse serviço.\n\n- Se o usuário autorizar a solicitação, o PSC emite um código de autorização com tempo de validade curto e retorna para aplicação cliente com uma URI de redirecionamento contendo os seguines parâmetros no componente http query, usando o formato **application/x-www-form-urlencoded**:\n    \n\n| Nome | Tipo | Descrição |\n| --- | --- | --- |\n| code | string | Código de autorização gerado pelo PSC, a ser usado na solicitação do token de acesso |\n| state | string | Caso tenha sido informado na requisição, deverá conter o que foi enviado na requisição |\n\n- Se o usuário não autorizar a solicitação, o PSC retorna para aplicação cliente através de sua redirect_uri os seguintes parâmetros via http query, usando o formato **application/x-www-formurlencoded**:\n    \n\n| Nome | Tipo | Descrição |\n| --- | --- | --- |\n| error | string | Com o valor **user_denied** |\n| state | string | Caso tenha sido informado na requisição, deverá conter o que foi enviado na requisição |"
+          },
+          "response": []
+        },
+        {
+          "name": "Token de uso",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "authorization_code",
+                  "description": "Valor fixo authorization_code",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "client-id",
+                  "description": "Identificação da aplicação",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "client-secret",
+                  "description": "Segredo associado à aplicação",
+                  "type": "text"
+                },
+                {
+                  "key": "code",
+                  "value": "C542TW85WG60YXEHMHB1TF3IL24JECYDR3RDVASZ0MZ2JJFF4OV17N2ZKJI8SFZR2YTLE8UERMGALJUB0L6G5SUJVKY25RZ998GECX2J1TVC3F227MOHDKOW6IXX7N81",
+                  "description": "Código de autorização retornado do Serviço Código de Autorização",
+                  "type": "text"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "URI do webhook",
+                  "description": "Deve ser igual ao informado no Serviço Código de Autorização",
+                  "type": "text"
+                },
+                {
+                  "key": "code_verifier",
+                  "value": "teste",
+                  "description": "Correspondendo a code_challenge enviado na Requisição de Código de Autorização, ver RFC 7636",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/token",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "token"
+              ]
+            },
+            "description": "Posterior a autenticação via QR Code na página gerada, a API retornará o code que será utilizado na próxima requisição para obter o BEARER TOKEN (token de uso), que por sua vez será utilizado na autenticação das próximas requisições.  \n\n#### [Estrutura do conteúdo de envio](https://pscsafeweb.safewebpss.com.br/Docs/#/endpoints/token?id=estrutura-do-conteúdo-de-envio)\n\nConfira no exemplo abaixo a estrutura do conteúdo que será enviado no *body* da requisição.\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| grant_type | string | Valor fixo **authorization_code** | Sim |\n| client_id | string | Identificação da aplicação | Sim |\n| client_secret | string | Segredo associado à aplicação | Sim |\n| code | string | Código de autorização retornado do Serviço Código de Autorização | Sim |\n| redirect_uri | string | Deve ser igual ao informado no Serviço Código de Autorização | Não |\n| code_verifier | string | Correspondendo a code_challenge enviado na Requisição de Código de Autorização, ver RFC 7636 | Sim |\n\n#### [Exemplo de envio](https://pscsafeweb.safewebpss.com.br/Docs/#/endpoints/token?id=exemplo-de-envio)\n\nConfira no exemplo abaixo o conteúdo que será enviado no *body* da requisição no formato **application/x-www-form-urlencoded**.\n\n```\nPOST {.../oauth/token} HTTP/1.1\nHost: {servidor do PSC}\nContent-Type: application/x-www-form-urlencoded\ngrant_type=authorization_code\n&client_id=MyApplicationId\n&client_secret=123qwe\n&code=09b30f74d40a7fece1a26cccc97746c364e61022\n&redirect_uri=https://idg.receita.fazenda.gov.br\n&code_verifier={Verifier}\n\n```\n\n#### [Estrutura do conteúdo de resposta](https://pscsafeweb.safewebpss.com.br/Docs/#/endpoints/token?id=estrutura-do-conteúdo-de-resposta)\n\nConfira no exemplo abaixo a estrutura do conteúdo de resposta desse serviço.\n\n| Nome | Tipo | Descrição |\n| --- | --- | --- |\n| access_token | string | Valor do token de acesso |\n| token_type | string | Valor fixo **Bearer** |\n| expires_in | int | Valor inteiro com validade do token em segundos.Para acesso a objeto de pessoas físicas não deve ultrapassar (7 dias), sendo que para pessoas jurídicas este limite será de (30 dias) |\n| scope | string | Deve ser informado se o escopo retornado for diferente do solicitado pela aplicação |\n| authorized_identification_type | string | Deverá conter **CPF** ou **CNPJ** |\n| authorized_identification | string | Valor correspondente ao CPF ou CNPJ associado ao titular do certificado |\n\n#### [Exemplo de objeto de resposta](https://pscsafeweb.safewebpss.com.br/Docs/#/endpoints/token?id=exemplo-de-objeto-de-resposta)\n\nConfira no exemplo abaixo o conteúdo de resposta desse serviço.\n\n```\n{\n  \"access_token\": \"b923575f1ced0ee732ee274b2e02784040bd9606\",\n  \"expires_in\": 300,\n  \"token_type\": \"Bearer\",\n  \"authorized_identification_type\": \"CPF\",\n  \"authorized_identification\": \"00000000001\"\n}\n\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Cliente que fará uso do certificado fará autorização através da leitura do QR code na opção \"autorizar acesso\" do aplicativo SafeID na página gerada a partir das informações enviadas na requisição."
+    },
+    {
+      "name": "Integração com CA",
+      "item": [
+        {
+          "name": "Autorização de Aplicação Confiável",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"client_id\": \"client-id da aplicaçao\",\r\n    \"login_hint\": \"CPF OU CNPJ\",\r\n    \"redirect_uri\": \"URI do webhook\", \r\n    \"state\": \"teste\"\r\n    //\"lifetime\": 604800\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/authorize-ca",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "authorize-ca"
+              ]
+            },
+            "description": "Requisição enviará solicitação de autenticação para o dispositivo móvel (celular) do titular.\n\nExemplo do conteúdo enviado no body da requisição:\n\n``` json\n{\n    \"client_id\": \"MyApplicationId\",\n    \"login_hint\": \"06604571926\",\n    \"redirect_uri\": \"URI pre cadastrada para redirecionamento\",\n    \"state\": \"test\",\n    \"lifetime\": 1800\n}\n\n```\n\nExemplo da estrutura do conteúdo que será enviado no body da requisição:\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| client_id | string | Deve conter a identificação da aplicação | Sim |\n| redirect_uri | string | Deve ter a URI para receber a resposta da autorização (ou negação) da solicitação. A URI deve estar na lista de URI's autorizadas para a aplicação. Deve ser URL ENCODED. Se não informado, será considerada a primeira URI cadastrada para a aplicação | Não |\n| lifetime | int | Indica o tempo de vida desejado para a solicitação (poderá ser alterado pelo usuário). Inteiro, em segundos, não podendo ultrapassar o período de validade de um certificado.  <br>**Valor default:** data final de validade do certificado selecionado pelo usuário | Não |\n| login_hint | string | Valor de CPF ou CNPJ a ser informado como filtro para seleção do certificado a ser utilizado | Sim |\n| state | string | É retornado sem modificações para aplicação de origem; - Recomendado. Um valor opaco usado pela aplicação para manter o estado entre a requisição e a resposta. O serviço de autorização incluirá este valor ao redirecionar o módulo do usuário de volta ao endereço da aplicação. Este parâmetro deverá ser usado para prevenir ataques de falsificação de requisições entre sites (cross-site request forgery) | Não |\n\nEstrutura do Conteúdo de Resposta\n\n*   Se o usuário autorizar a solicitação, o PSC emite um **Certificado de Atributo** e retorna um identificador para aplicação através da URI de redirecionamento, via corpo da requisição, os seguintes parâmetros:\n    \n\n| Nome | Tipo | Descrição |\n| --- | --- | --- |\n| identifierCA | string | Identificador do Certificado de Atributo emitido para a autorização da aplicação. Este identificador deverá ser enviado concatenado com a senha do certificado para a utilização da chave privada. |\n| state | string | Caso tenha sido informado na requisição, deverá conter o que foi enviado na requisição |\n| expirationDate | string | String com a data de expiração da autorização, no formato [ISO 8601](https://pt.wikipedia.org/wiki/ISO_8601) |\n| serialNumber | string | Número de série do Certificado Digital utilizado pelo titular na autorização |\n\nCorpo da requisição enviado para a URI de retorno:\n\n```\n{\n    \"identifierCA\": \"identificador-ca\",\n    \"state\": \"test\",\n    \"expirationDate\": \"2020-03-27T17:17:12.663Z\",\n    \"serialNumber\": \"12345678899\"\n}\n\n```\n\n*   Se o usuário não autorizar a solicitação, o PSC retorna para aplicação cliente, via corpo da requisição, os seguintes parâmetros:\n    \n\n| Nome | Tipo | Descrição |\n| --- | --- | --- |\n| error | string | Com o valor **user_denied** |\n| state | string | Caso tenha sido informado na requisição, deverá conter o que foi enviado na requisição |"
+          },
+          "response": []
+        },
+        {
+          "name": "Autorização Credenciais do Titular",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = JSON.parse(responseBody);\r",
+                  "\r",
+                  "console.log(\"Token: \", jsonData.access_token);\r",
+                  "\r",
+                  "//pm.evironment.set(\"Token\", jsonData.access_token);\r",
+                  "pm.globals.set(\"TokenGeral\", jsonData.access_token);"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"client_id\": \"client-id da aplicação\",\r\n  \"client_secret\": \"client-secret da aplicaçao\",\r\n  \"username\": \"CPF\",\r\n  \"password\": \"IDENTIFIER CA CONCATENADO COM A SENHA DO SAFEID\",\r\n  \"grant_type\": \"password\",\r\n  \"lifetime\": 604800\r\n  \r\n}\r\n\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/pwd_authorize",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "pwd_authorize"
+              ]
+            },
+            "description": "Este método realizará a autorização das credenciais do titular através do Identificador do Certificado de Atributo recebido na URI de redirecionamento após a requisição de Autorização de Aplicação Confiável.\n\n#### Exemplo da estrutura do conteúdo que será enviado no body da requisição:\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| grant_type | string | Valor fixo **password** | Sim |\n| client_id | string | Identificação da aplicação | Sim |\n| client_secret | string | Segredo associado a aplicação.  <br>**Observação:** Obrigatório apenas quando a aplicação não utilizar certificado ICP-Brasil | Não |\n| username | string | Identificação do usuário por meio de CPF ou CNPJ | Sim |\n| password | string | Valor da concatenação de fatores de autenticação informadas pelo usuário (identificador do Certificado de Atributo + senha do Certificado Digital) | Sim |\n| lifetime | int | Indica o tempo de vida desejado para o token a ser gerado em segundos. Para acesso a objeto de pessoas físicas não deve ultrapassar (7 dias), sendo que para pessoas jurídicas este limite será de (30 dias) | Não |\n| scope | string | Se não informado será considerado **single_signature**. (ver lista de escopos para Serviço de Código de Autorização ) | Não |\n| slot_alias | string | Indica o slot do usuário no qual a autenticação deve ser feita, através do número de série do Certificado Digital. Se não informado, o PSC decidirá em qual slot tentar a autenticação | Não |\n\n##### Lista de escopos:\n\n| Valor | Descrição |\n| --- | --- |\n| single_signature | Token que permite a assinatura de apenas um conteúdo (hash), sendo invalidado apos a sua utilização |\n| multi_signature | Token que permite a assinatura de multiplos hashes em uma única requisicao, sendo invalidado apos a sua utilização |\n| signature_session | Token de sessão OAuth que permite várias assinaturas em várias chamadas a API, desde que o token esteja dentro do prazo de validade ou que não tenha sido revogado pela aplicação ou pelo usuário |\n\n##### Exemplo do conteúdo que será enviado no body da requisição:\n\n```\n{\n  \"client_id\": \"MyApplicationId\",\n  \"client_secret\": \"123qwe\",\n  \"username\": \"0660457192\",\n  \"password\": \"123456SENHA\",\n  \"grant_type\": \"password\",\n  \"scope\": \"single_signature\",\n  \"lifetime\": 900,\n  \"slot_alias\": \"12345678899\"\n}\n\n ```\n\n#### Exemplo do conteúdo de resposta deste serviço:\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| access_token | string | Valor do token de acesso | Sim |\n| token_type | string | Valor fixo **Bearer** | Sim |\n| expires_in | int | Validade do token em segundos. | Sim |\n| scope | string | Deve ser informado se o escopo retornado for diferente do solicitado pela aplicação | Não |\n| slot_alias | string | Indica o slot do usuário no qual a autenticação foi feita | Sim |\n\n##### Exemplo de conteúdo de resposta:\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| access_token | string | Valor do token de acesso | Sim |\n| token_type | string | Valor fixo **Bearer** | Sim |\n| expires_in | int | Validade do token em segundos. | Sim |\n| scope | string | Deve ser informado se o escopo retornado for diferente do solicitado pela aplicação | Não |\n| slot_alias | string | Indica o slot do usuário no qual a autenticação foi feita | Sim |\n\n#### Exemplo de objeto de resposta:\n\n```\n{\n  \"access_token\": \"b923575f1ced0ee732ee274b2e02784040bd9606\",\n  \"expires_in\": 300,\n  \"token_type\": \"Bearer\",\n  \"slot_alias\": \"12345678899\"\n}\n\n ```"
+          },
+          "response": []
+        }
+      ],
+      "description": "Método fará a autorização via autenticação na aplicação SafeID no dispositivo do cliente."
+    },
+    {
+      "name": "Assinaturas",
+      "item": [
+        {
+          "name": "Assinatura de Hash",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "TOKEN",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"hashes\": [\r\n    {\r\n      \"id\": \"Assinatura Teste\",\r\n      \"alias\": \"Assinatura teste PDF\",\r\n      \"hash\": \"HASH\",\r\n      \"hash_algorithm\": \"2.16.840.1.101.3.4.2.1\",\r\n      \"signature_format\": \"CMS\"\r\n    },\r\n    {\r\n        \"id\": \"Assinatura Teste\",\r\n      \"alias\": \"Assinatura teste PDF\",\r\n      \"hash\": \"HASH\",\r\n      \"hash_algorithm\": \"2.16.840.1.101.3.4.2.1\",\r\n      \"signature_format\": \"CMS\"\r\n    }\r\n  ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/signature",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "signature"
+              ]
+            },
+            "description": "Serviço para assinatura de um conteúdo junto ao PSC, utilizando a chave privada do certificado.\n\nEste método realiza a assinatura sem políticas, parâmetros OID que especificam o conteúdo e carimbo e o carimbo de tempo.\n\nEstrutura do conteúdo de envio\n\n**Header**\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| Authorization | string | Valor: **\"{{vault:bearer-token}}\"**, onde **access_token** é o token retornado para o uso do certificado | Sim |\n\n**Body**\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| certificate_alias | string | Identificador do certificado correspondente à chave utilizada na assinatura | Não |\n| hashes | array | Conjunto com valores a serem assinados (ver tabela de atributos abaixo) | Sim |\n\nAtributos do objeto HASH\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| id | string | Identificador do conteúdo a ser assinado | Sim |\n| alias | string | Forma legível do identificador do conteúdo | Sim |\n| hash | string | Conteúdo a ser assinado codificado em base64 | Sim |\n| hash_algorithm | string | Object Identifier (OID) do algoritimo de hash. Por exemplo, para SHA256 utilize o OID 2.16.840.1.101.3.4.2.1 | Sim |\n| signature_format | string | RAW ou CMS (ver tabela de formatos de assinatura abaixo) | Sim |\n\nFormatos de Assinatura\n\n| Tipo | Descrição |\n| --- | --- |\n| RAW | Resultado direto (em base64) da operação RSA/DSA sobre o hash informado na requisição |\n| CMS | CMS detached (PKCS#7), contendo os seguintes atributos assinados:  <br>\\- contentType  <br>\\- signingTime (hora do PSC)  <br>\\- messageDigest (hash informado pela aplicação na requisição)  <br>\\- signingCertificateV2 (certificado do assinante) |\n\nExemplo de envio\n\nExemplo do conteúdo de que será enviado no body da requisição:\n\n``` json\n{\n  \"hashes\": [\n    {\n      \"id\": \"Signature request ID 1\",\n      \"alias\": \"Contrato de aluguel XPTO\",\n      \"hash\": \"base64 hash to sign\",\n      \"hash_algorithm\": \"2.16.840.1.101.3.4.2.1\",\n      \"signature_format\": \"RAW\"\n    },\n    {\n      \"id\": \"Signature request ID 2\",\n      \"alias\": \"Documento do Word\",\n      \"hash\": \"base64 hash to sign\",\n      \"hash_algorithm\": \"2.16.840.1.101.3.4.2.1\",\n      \"signature_format\": \"CMS\"\n    },\n    {\n      \"id\": \"Signature request ID n\",\n      \"alias\": \"Firefox\",\n      \"hash\": \"base64 hash to sign\",\n      \"hash_algorithm\": \"2.16.840.1.101.3.4.2.1\",\n      \"signature_format\": \"RAW\"\n    }\n  ]\n}\n\n ```\n\n#### Estrutura do conteúdo de resposta\n\nExemplo da estrutura do conteúdo de resposta desse serviço:\n\n| Nome | Tipo | Descrição |\n| --- | --- | --- |\n| certificate_alias | string | Identificador do certificado correspondente à chave utilizada na assinatura |\n| signatures | array | conjunto com identificadores dos conteúdos a serem assinados e valores assinados. Cada elemento do conjunto conterá:  <br>▪ id: identificador do conteúdo assinado;  <br>▪ raw_signature: valor numérico em base64 da assinatura produzida. |\n\nExemplo de objeto de resposta\n\n```\n{\n  \"certificate_alias\": \"CERTIFICADO TESTE 1:1234567889\",\n  \"signatures\": [\n    {\n      \"id\": \"Signature request ID 1\",\n      \"raw_signature\": \"my raw signature base64\"\n    },\n    {\n      \"id\": \"Signature request ID 2\",\n      \"raw_signature\": \"my raw signature base64\"\n    },\n    {\n      \"id\": \"Signature request ID n\",\n      \"raw_signature\": \"my raw signature base64\"\n    }\n  ]\n}\n\n ```\n\nPara obter o valor do PDF em Base64 e simular o teste, realizamos a conversão do arquivo PDF para HEX no site [https://emn178.github.io/online-tools/sha256_checksum.html](https://emn178.github.io/online-tools/sha256_checksum.html) e após a conversão realizamos outra conversão de HEX para BASE 64 no Console DEV do navegador Google Chrome com os seguintes comandos:\n\n```\nlet hexToBase64 = (hex) => {\n    let hashArray = new Uint8Array(hex.match(/[\\da-f]{2}/gi).map(function (h) { return parseInt(h, 16) }));\n    return btoa(String.fromCharCode(...hashArray));\n}\n(PRESSIONAR ENTER)\nhexToBase64 (\"Valor do PDF em HEX\")\n(PRESSIONAR ENTER NOVAMENTE)\n\n ```\n\nExemplo do comando:\n\n<img src=\"https://i.postimg.cc/Pf1Hqp1G/convers-o-HEX-to-BASE.png\">"
+          },
+          "response": []
+        },
+        {
+          "name": "Assinatura ICP de documento",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{TokenGeral}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"file\": {\r\n    \"id\": \"Signature request ID 1\",\r\n    \"alias\": \"Teste Assinatura\",\r\n    \"content\":\"BASE64 DO PDF\",\r\n    \"signature_type\": 1,\r\n    \"signature_policy\": 1\r\n  }\r\n}\r\n\r\n",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/signature-icp",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "signature-icp"
+              ]
+            },
+            "description": "Serviço para assinatura de um documento, no padrão ICP-Brasil, junto ao PSC, utilizando a chave privada do certificado.\n\n#### Estrutura do conteúdo de envio\n\n**Header**\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| Authorization | string | Valor: **\"{{vault:bearer-token}}\"**, onde **access_token** é o token retornado para o uso do certificado | Sim |\n\n**Body**\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| file | objeto | Conjunto com valores a serem assinados (ver tabela de atributos abaixo) | Sim |\n\n**Atributos do objeto** ***file***\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| id | string | Identificador do documento a ser assinado | Sim |\n| alias | string | Forma legível do identificador do documento | Sim |\n| content | string | Conteúdo do documento a ser assinado em Base64 | Sim |\n| signature_type | int | Valor correspondente ao tipo de assinatura (ver tabela abaixo) | Sim |\n| signature_policy | int | Valor correspondente à política de assinatura (ver tabela abaixo) | Sim |\n\n**Opções de valores para o campo** ***signature_type***\n\n| Valor | Nome |\n| --- | --- |\n| 1 | CAdES |\n| 2 | PAdES |\n\n#### Padrões de Assinatura Digital\n\n**Advanced Electronic Signature (PAdES)** é um padrão internacional de assinatura digital exclusivo para arquivos PDF. Esse padrão é um dos padrões de assinaturas digitais aceitos pela ICP-Brasil. Esse padrão é recomendado para assinatura de documentos no formato PDF.  \nUm dos principais diferenciais do PAdES é a representação visual da assinatura no próprio documento, permitindo o uso de imagens e outras informações do assinante – assemelhando-se à uma assinatura manual, colaborando com a sua aceitação.\n\n##### CAdES\n\nO outro formato de assinatura eletrônica é o **CAdES** ( CMS **Advanced Electronic Signature**). Uma das características de sua grande aceitação é a capacidade de assinar qualquer tipo de arquivo digital. No entanto, esse padrão de assinatura produz um arquivo p7s (criptografados com assinaturas digitais) , que não é de fácil visualização, por isso o Portal de Assinaturas produz um arquivo de manifesto dos documentos assinados por esse padrão. Esse manifesto contém códigos de verificação, código de barra e QRCode para que, mesmo impresso, você consiga acessar o documento original assinado.\n\nExemplos de arquivo que podem ser assinados:\n\n• arquivos vetoriais, como Autocad para projetos arquitetônicos;  \n• arquivos executáveis, como aqueles com extensão “.exe”;  \n• arquivos de imagens, vídeos e músicas, para assegurar o registro do direito autoral de uma obra intelectual;  \n• documentos em geral, como arquivos redigidos no Word, Excel, entre outros.  \nDe uma forma ou de outra, assinar documentos digitalmente é sempre a opção mais segura, rápida e prática.\n\n**Opções de Valores para o campo** ***signature_policy***\n\n| Valor | Nome |\n| --- | --- |\n| 0 | AD-RB |\n| 1 | AD-RT |\n| 2 | AD-RV |\n| 3 | AD-RC |\n| 4 | AD-RA |\n\n#### O que são políticas de assinatura?\n\nA Infraestrutura de Chaves Públicas Brasileira (ICP-Brasil) busca exatamente padronizar a produção de assinaturas digitais confiáveis, para a preservação a longo prazo e a interoperabilidade entre os diversos sistemas operacionais utilizados. Dessa forma, criou um conjunto de políticas de assinaturas, onde cada uma é recomendada para um contexto de utilização, e tornou o uso delas obrigatório para todos os padrões de assinatura normatizados no contexto nacional. As políticas de assinatura permitidas na ICP-Brasil são cinco:\n\n*   Assinatura Digital com Referência Básica (AD-RB);\n*   Assinatura Digital com Referência do Tempo (AD-RT);\n*   Assinatura Digital com Referências para Validação (AD-RV);\n*   Assinatura Digital com Referências Completas (AD-RC);\n*   Assinatura Digital com Referências para Arquivamento (AD-RA).\n    \n\nAs cinco políticas podem ser utilizadas para os padrões CAdES e XAdES, já para o padrão PAdES o AD-RV não possui representação. Segue um resumo relacionando o padrão de assinatura e as políticas permitidas:\n\nCAdES: AD-RB, AD-RT, AD-RV, AD-RC e AD-RA;  \nXAdES: AD-RB, AD-RT, AD-RV, AD-RC e AD-RA;  \nPAdES: AD-RB, AD-RT, AD-RC e AD-RA.\n\nA partir das diretrizes da ICP-Brasil é possível garantir que as assinaturas digitais serão lidas e verificadas pelos diversos sistemas de instituições públicas e privadas.\n\n![](https://i.postimg.cc/GhTRGKJs/politicasdeassinatura.png)\n\n#### Exemplo de envio:\n\n```\n{\n  \"file\": {\n    \"id\": \"Signature request ID 1\",\n    \"alias\": \"Arquivo PDF\",\n    \"content\": \"base64 file content\",\n    \"signature_type\": 1,\n    \"signature_policy\": 1\n  }\n}\n\n```\n\n#### Estrutura do conteúdo de resposta\n\n| Nome | Tipo | Descrição |\n| --- | --- | --- |\n| certificate_alias | string | Identificador do certificado correspondente à chave utilizada na assinatura |\n| signature | string | Objeto com o identificador do documento e o conteúdo assinado.  <br>O objeto conterá:  <br>▪ id: identificador do documento assinado;  <br>▪ raw_signature: valor numérico em base64 da assinatura produzida. |\n\n**Exemplo de objeto de resposta**\n\n```\n{\n  \"certificate_alias\": \"CERTIFICADO TESTE 1:1234567889\",\n  \"signature\": {\n    \"id\": \"Signature request ID 1\",\n    \"raw_signature\": \"base64 signed file\"\n  }\n}\n\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Assinaturas de PDF com carimbo Copy",
+      "item": [
+        {
+          "name": "Iniciar Fluxo de Assinatura",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = JSON.parse(responseBody);\r",
+                  "\r",
+                  "console.log(\"Token: \", jsonData.access_token);\r",
+                  "\r",
+                  "//pm.evironment.set(\"Token\", jsonData.access_token);\r",
+                  "pm.globals.set(\"ID-PDF\", jsonData.id);"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{TokenGeral}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"file\": {\r\n    \"content\": \"BASE64 DO PDF\"\r\n  }\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/pades-signature/start",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "pades-signature",
+                "start"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Aplicar Carimbos de Assinatura",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "TOKEN",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"Id\":\"{{ID-PDF}}\",\r\n    \"signature_policy\": 0,\r\n    \"alias\": \"teste\",\r\n    \"annotations\": [\r\n    {\r\n        \"x\": 10,\r\n        \"y\": 10,\r\n        \"width\": 968,\r\n        \"height\": 292,\r\n        \"page\": 1\r\n        \r\n    }\r\n    ]\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/pades-signature/apply",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "pades-signature",
+                "apply"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Finalizar Assinatura",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "TOKEN",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/pades-signature/finish?documentId=e9d21b1a895b43d8b6a39cb3312cbb03",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "pades-signature",
+                "finish"
+              ],
+              "query": [
+                {
+                  "key": "documentId",
+                  "value": "e9d21b1a895b43d8b6a39cb3312cbb03"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Informações do documento",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "TOKEN",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/pades-signature/info?documentId=ID DO PDF",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "pades-signature",
+                "info"
+              ],
+              "query": [
+                {
+                  "key": "documentId",
+                  "value": "ID DO PDF"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Métodos Auxiliares",
+      "item": [
+        {
+          "name": "Localização de titular",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "TOKEN",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n    \"client_id\": \"{{Client-ID}}\",\r\n    \"client_secret\": \"{{Client-Secret}}\",\r\n    \"user_cpf_cnpj\": \"CPF\",\r\n    \"val_cpf_cnpj\": \"\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/user-discovery",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "user-discovery"
+              ]
+            },
+            "description": "##### Método para verificar se o documento (CPF ou CNPJ) possui certificação.\n\nEstrutura do conteúdo de envio\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| client_id | string | Identificação da aplicação | Sim |\n| client_secret | string | Segredo associado à aplicação | Sim |\n| user_cpf_cnpj | string | deve conter \"CPF\" para pessoa física ou \"CNPJ\" pessoa jurídica | Sim |\n| val_cpf_cnpj | string | deve conter o valor do CPF ou CNPJ | Sim |\n\nExemplo de envio\n\n```\n{\n    \"client_id\": \"(identificador da aplicação)\",\n    \"client_secret\": \"(segredo da aplicação)\",\n    \"user_cpf_cnpj\": \"CPF\",\n    \"val_cpf_cnpj\": \"00000000001\"\n}\n\n```\n\n#### Estrutura do conteúdo de resposta\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| slots | string | Matriz com os alias de slots encontrados, composto pelos pares ordenados **slot_alias** e **label** | Não |\n| status | string | Indicando \"S\" para resultado positivo ou \"N\" caso contrário | Sim |\n\nExemplo de objeto de resposta\n\n```\n{\n  \"slots\": [\n    {\n      \"slot_alias\": \"12345678899-1\",\n      \"label\": \"A3 PESSOAL\"\n    },\n    {\n      \"slot_alias\": \"12345678899-2\",\n      \"label\": \"A3 TRABALHO\"\n    }\n  ],\n  \"status\": \"S\"\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Conteúdo de Certificado",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "TOKEN",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/certificate-discovery",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "certificate-discovery"
+              ]
+            },
+            "description": "Serviço para recuperar informações do certificado armazenado no PSC via bear token.\n\n##### Estrutura do conteúdo de envio\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| Authorization | string | Valor: **\"{{vault:bearer-token}}\"**, onde **access_token** é o token retornado para o uso do certificado | Sim |\n| certificate_alias | string | Identificador do certificado a ser recuperado | Não |\n| from_authorization | boolean | Devolve somente o certificado usado na autorização | Não |\n\n##### Estrutura do conteúdo de resposta\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| status | string | Indicando \"S\" para resultado positivo ou \"N\" caso contrário | Sim |\n| certificates | array | Lista de objetos contendo o **alias** e o **certificate** com o certificado em base64 | Sim |\n\n##### Estrutura do conteúdo de resposta\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| status | string | Indicando \"S\" para resultado positivo ou \"N\" caso contrário | Sim |\n| certificates | array | Lista de objetos contendo o **alias** e o **certificate** com o certificado em base64 | Sim |\n\n##### Exemplo de objeto de resposta\n\n```\n{\n  \"status\": \"S\",\n  \"certificates\": [\n    {\n      \"alias\": \"CERTIFICADO TESTE 1:123456789\",\n      \"certificate\": \"-----BEGIN CERTIFICATE-----\\n{CERTIFICADO}\\n-----END CERTIFICATE-----\"\n    },\n    {\n      \"alias\": \"CERTIFICADO TESTE 2:123456789\",\n      \"certificate\": \"-----BEGIN CERTIFICATE-----\\n{CERTIFICADO}\\n-----END CERTIFICATE-----\"\n    }\n  ]\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Token para Acesso de Aplicação",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "TOKEN",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "CLIENT-ID DA APLICAÇÃO",
+                  "type": "text"
+                },
+                {
+                  "key": "client_secret",
+                  "value": "CLIENT-SECRET DA APLICAÇÃO",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/client_token",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "client_token"
+              ]
+            },
+            "description": "Após a obtenção de código de autorização, o token de acesso deve ser solicitado com parâmetros no formato **application/x-www-form-urlencoded**.\n\nMétodo utilizado para renovar o token de acesso ao longo da utilização da certificação.\n\n#### Estrutura do conteúdo de envio\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| grant_type | string | Valor fixo **client_credentials** | Sim |\n| client_id | string | Identificação da aplicação | Sim |\n| client_secret | string | Segredo associado à aplicação | Sim |\n\n#### Exemplo de envio\n\nConfira no exemplo abaixo o conteúdo que será enviado no *body* da requisição no formato **application/x-www-form-urlencoded**.\n\n```\nPOST {.../oauth/client_token} HTTP/1.1\nHost: {servidor do PSC}\nContent-Type: application/x-www-form-urlencoded\nclient_id=Identificacao_aplicacao\n&client_secret=123qwe\n&grant_type=client_credentials\n\n```\n\n#### Estrutura do conteúdo de resposta\n\n| Nome | Tipo | Descrição |\n| --- | --- | --- |\n| access_token | string | Valor do token de acesso |\n| token_type | string | Valor fixo **Bearer** |\n| expires_in | int | Validade do token em segundos |\n\n#### Exemplo do Objeto de Resposta\n\n```\n{\n  \"access_token\": \"b923575f1ced0ee732ee274b2e02784040bd9606\",\n  \"expires_in\": 7200,\n  \"token_type\": \"Bearer\"\n}\n\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Verificação de Documento Assinado",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "TOKEN",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n\r\n  \"file\": \"TvO+Usu1ypVEd+EAG+ylQaKTXmOiaMN8CH4/KZrbf4o=\",\r\n\r\n  \"signature\":\"BASE64 DO DOC\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/signature_verify",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "signature_verify"
+              ]
+            },
+            "description": "Serviço para validação de assinatura de um documento, no padrão ICP-Brasil.\n\nEstrutura do conteúdo de envio\n\n#### Header\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| Authorization | string | Valor: **\"{{vault:bearer-token}}\"**, onde **access_token** é o token retornado para a *aplicação* | Sim |\n\nEstrutura do conteúdo de envio\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| file | string | Conteúdo do arquivo em formato base64 | Não |\n| signature | string | Conteúdo da assinatura em formato base64 | Não |\n\nO padrão de assinatura será automaticamente identificado de acordo com os parâmetros informados.\n\n#### Exemplo de envio\n\n```\n{\n  \"file\": \"base64 file\",\n  \"signature\": \"base64 signature\"\n}\n\n```\n\nEstrutura do conteúdo de resposta\n\n| Nome | Tipo |\n| --- | --- |\n| signatures | Lista com as informações das assinaturas encontradas (ver tabela de atributos abaixo) |\n\nAtributos do objeto *signature*\n\n| Nome | Descrição |\n| --- | --- |\n| signatureRSA | Objeto com informações referentes a assinatura (ver tabela de atributos abaixo) |\n| datetimeSignature | Data e hora da assinatura |\n| signatory | Objeto com informações referentes ao signatário (ver tabela de atributos abaixo) |\n| timestamp | Objeto com informações referentes ao carimbo de tempo, se houver (ver tabela de atributos abaixo) |\n| valid | Booleano informando se a assinatura é válida (Uma assinatura só será válida se a validação da assinatura, signatário e carimbo de tempo forem válidas) |\n\nAtributos do objeto *signatureRSA*\n\n| Nome | Descrição | Obrigatório |\n| --- | --- | --- |\n| signatureAlgorithm | Descrição do algoritmo utilizado na assinatura | Sim |\n| algorithmHash | Descrição do hash utilizado na assinatura | Sim |\n| validation | Objeto com informações da validação (ver table de atributos abaixo) | Sim |\n\nAtributos do objeto *signatory*\n\n| Nome | Descrição | Obrigatório |\n| --- | --- | --- |\n| holder | Nome/razão social do titular do certificado utilizado na assinatura | Sim |\n| document | Documento do titular do certificado utilizado na assinatura | Sim |\n| isICPBrasil | Booleano indicando se o certificado utilizado e suas cadeias estão dentro do padrão ICP-Brasil | Sim |\n| validation | Objeto com informações da validação (ver table de atributos abaixo) | Sim |\n\nAtributos do objeto *timestamp*\n\n| Nome | Descrição | Obrigatório |\n| --- | --- | --- |\n| issuer | Nome do emissor do carimbo de tempo | Sim |\n| dateTimeSignature | Data e hora em que o carimbo de tempo foi emitido | Sim |\n| validation | Objeto com informações da validação (ver table de atributos abaixo) | Sim |\n\n#### Atributos do objeto *validation*\n\n| Nome | Descrição | Obrigatório |\n| --- | --- | --- |\n| valid | Booleano que indica se o atributo considerado é válido | Sim |\n| description | Descrição da validação realizada | Sim |\n| details | Detalhes da validação, geralmente explicativa quanto a uma validação negativa | Não |\n\nExemplo do objeto de resposta\n\n```\n{\n  \"signatures\": [\n    {\n      \"signatureRSA\": {\n        \"signatureAlgorithm\": \"SHA256withRSA\",\n        \"algorithmHash\": \"SHA256\",\n        \"validation\": {\n          \"valid\": true,\n          \"description\": \"O documento não foi modificado após a aplicação da assinatura.\"\n        }\n      },\n      \"datetimeSignature\": \"25/11/2019 10:53:41\",\n      \"signatory\": {\n        \"holder\": \"CERTIFICATE HOLDER\",\n        \"document\": \"01234567890\",\n        \"isICPBrasil\": true,\n        \"validation\": {\n          \"valid\": true,\n          \"description\": \"A identidade do signatário e suas cadeias são válidas.\"\n        }\n      },\n      \"timestamp\": {\n        \"issuer\": \"SAFEWEB FEA3E2412B80\",\n        \"dateTimeSignature\": \"25/11/2019 10:53:45\",\n        \"validation\": {\n          \"valid\": true,\n          \"description\": \"A data e hora da assinatura são de uma autoridade de carimbo do tempo confiável.\"\n        }\n      },\n      \"valid\": true\n    }\n  ]\n}\n\n```\n\n####"
+          },
+          "response": []
+        },
+        {
+          "name": "Informações de certificado",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{vault:bearer-token}}"
+              }
+            ],
+            "url": {
+              "raw": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/certificate-info",
+              "protocol": "https",
+              "host": [
+                "pscsafeweb",
+                "safewebpss",
+                "com",
+                "br"
+              ],
+              "path": [
+                "Service",
+                "Microservice",
+                "OAuth",
+                "api",
+                "v0",
+                "oauth",
+                "certificate-info"
+              ]
+            },
+            "description": "Serviço para validação de assinatura de um documento, no padrão ICP-Brasil.\n\nEstrutura do conteúdo de envio\n\n#### Header\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| Authorization | string | Valor: **\"{{vault:bearer-token}}\"**, onde **access_token** é o token retornado para a *aplicação* | Sim |\n\nEstrutura do conteúdo de envio\n\n| Nome | Tipo | Descrição | Obrigatório |\n| --- | --- | --- | --- |\n| file | string | Conteúdo do arquivo em formato base64 | Não |\n| signature | string | Conteúdo da assinatura em formato base64 | Não |\n\nO padrão de assinatura será automaticamente identificado de acordo com os parâmetros informados.\n\n#### Exemplo de envio\n\n```\n{\n  \"file\": \"base64 file\",\n  \"signature\": \"base64 signature\"\n}\n\n```\n\nEstrutura do conteúdo de resposta\n\n| Nome | Tipo |\n| --- | --- |\n| signatures | Lista com as informações das assinaturas encontradas (ver tabela de atributos abaixo) |\n\nAtributos do objeto *signature*\n\n| Nome | Descrição |\n| --- | --- |\n| signatureRSA | Objeto com informações referentes a assinatura (ver tabela de atributos abaixo) |\n| datetimeSignature | Data e hora da assinatura |\n| signatory | Objeto com informações referentes ao signatário (ver tabela de atributos abaixo) |\n| timestamp | Objeto com informações referentes ao carimbo de tempo, se houver (ver tabela de atributos abaixo) |\n| valid | Booleano informando se a assinatura é válida (Uma assinatura só será válida se a validação da assinatura, signatário e carimbo de tempo forem válidas) |\n\nAtributos do objeto *signatureRSA*\n\n| Nome | Descrição | Obrigatório |\n| --- | --- | --- |\n| signatureAlgorithm | Descrição do algoritmo utilizado na assinatura | Sim |\n| algorithmHash | Descrição do hash utilizado na assinatura | Sim |\n| validation | Objeto com informações da validação (ver table de atributos abaixo) | Sim |\n\nAtributos do objeto *signatory*\n\n| Nome | Descrição | Obrigatório |\n| --- | --- | --- |\n| holder | Nome/razão social do titular do certificado utilizado na assinatura | Sim |\n| document | Documento do titular do certificado utilizado na assinatura | Sim |\n| isICPBrasil | Booleano indicando se o certificado utilizado e suas cadeias estão dentro do padrão ICP-Brasil | Sim |\n| validation | Objeto com informações da validação (ver table de atributos abaixo) | Sim |\n\nAtributos do objeto *timestamp*\n\n| Nome | Descrição | Obrigatório |\n| --- | --- | --- |\n| issuer | Nome do emissor do carimbo de tempo | Sim |\n| dateTimeSignature | Data e hora em que o carimbo de tempo foi emitido | Sim |\n| validation | Objeto com informações da validação (ver table de atributos abaixo) | Sim |\n\n#### Atributos do objeto *validation*\n\n| Nome | Descrição | Obrigatório |\n| --- | --- | --- |\n| valid | Booleano que indica se o atributo considerado é válido | Sim |\n| description | Descrição da validação realizada | Sim |\n| details | Detalhes da validação, geralmente explicativa quanto a uma validação negativa | Não |\n\nExemplo do objeto de resposta\n\n```\n{\n  \"signatures\": [\n    {\n      \"signatureRSA\": {\n        \"signatureAlgorithm\": \"SHA256withRSA\",\n        \"algorithmHash\": \"SHA256\",\n        \"validation\": {\n          \"valid\": true,\n          \"description\": \"O documento não foi modificado após a aplicação da assinatura.\"\n        }\n      },\n      \"datetimeSignature\": \"25/11/2019 10:53:41\",\n      \"signatory\": {\n        \"holder\": \"CERTIFICATE HOLDER\",\n        \"document\": \"01234567890\",\n        \"isICPBrasil\": true,\n        \"validation\": {\n          \"valid\": true,\n          \"description\": \"A identidade do signatário e suas cadeias são válidas.\"\n        }\n      },\n      \"timestamp\": {\n        \"issuer\": \"SAFEWEB FEA3E2412B80\",\n        \"dateTimeSignature\": \"25/11/2019 10:53:45\",\n        \"validation\": {\n          \"valid\": true,\n          \"description\": \"A data e hora da assinatura são de uma autoridade de carimbo do tempo confiável.\"\n        }\n      },\n      \"valid\": true\n    }\n  ]\n}\n\n```\n\n####"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test(\"Status code is 200\", function () {",
+          "    pm.response.to.have.status(200);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/"
+    }
+  ]
+}

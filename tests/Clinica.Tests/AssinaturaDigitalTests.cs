@@ -30,12 +30,12 @@ public class AssinaturaDigitalTests
     private static AssinaturaDigitalService Servico() => new(exigirCadeiaConfiavel: false);
 
     [Fact]
-    public void Assinatura_confere_no_arquivo_intacto()
+    public async Task Assinatura_confere_no_arquivo_intacto()
     {
         var pdf = PdfDeTeste("Dipirona 1g + SF 0,9% 100 mL — EV — 30 min");
         var certificado = CertificadoDeTeste("Dra. Ana Souza", "12345678909");
 
-        var resultado = Servico().Assinar(pdf, certificado, Pedido());
+        var resultado = await Servico().AssinarAsync(pdf, certificado, Pedido());
         var conferencia = Servico().Conferir(resultado.Pdf);
 
         Assert.True(conferencia.Conferida);
@@ -48,11 +48,11 @@ public class AssinaturaDigitalTests
     /// derruba a assinatura. Sem isto, "assinado" seria decoração.
     /// </summary>
     [Fact]
-    public void Um_bit_trocado_derruba_a_assinatura()
+    public async Task Um_bit_trocado_derruba_a_assinatura()
     {
         var pdf = PdfDeTeste("Dipirona 1g");
         var certificado = CertificadoDeTeste("Dra. Ana Souza", "12345678909");
-        var assinado = Servico().Assinar(pdf, certificado, Pedido()).Pdf;
+        var assinado = (await Servico().AssinarAsync(pdf, certificado, Pedido())).Pdf;
 
         var adulterado = (byte[])assinado.Clone();
         adulterado[assinado.Length / 4] ^= 0xFF;
@@ -100,24 +100,24 @@ public class AssinaturaDigitalTests
     }
 
     [Fact]
-    public void Certificado_vencido_e_recusado_antes_de_produzir_arquivo()
+    public async Task Certificado_vencido_e_recusado_antes_de_produzir_arquivo()
     {
         var vencido = CertificadoDeTeste(
             "Dra. Ana Souza", "12345678909",
             de: DateTimeOffset.Now.AddYears(-3), ate: DateTimeOffset.Now.AddDays(-1));
 
-        var erro = Assert.Throws<InvalidOperationException>(
-            () => Servico().Assinar(PdfDeTeste("x"), vencido, Pedido()));
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Servico().AssinarAsync(PdfDeTeste("x"), vencido, Pedido()));
 
         Assert.Contains("validade", erro.Message);
     }
 
     [Fact]
-    public void Sem_carimbadora_configurada_nao_se_inventa_carimbo_do_tempo()
+    public async Task Sem_carimbadora_configurada_nao_se_inventa_carimbo_do_tempo()
     {
         var certificado = CertificadoDeTeste("Dra. Ana Souza", "12345678909");
 
-        var resultado = Servico().Assinar(PdfDeTeste("x"), certificado, Pedido());
+        var resultado = await Servico().AssinarAsync(PdfDeTeste("x"), certificado, Pedido());
 
         // Nulo, e não DateTime.Now: sem ACT a data é declarada pelo relógio de quem
         // assinou, e gravá-la como carimbo do tempo seria inventar a prova.
@@ -126,11 +126,11 @@ public class AssinaturaDigitalTests
     }
 
     [Fact]
-    public void Hash_gravado_e_o_do_arquivo_assinado()
+    public async Task Hash_gravado_e_o_do_arquivo_assinado()
     {
         var certificado = CertificadoDeTeste("Dra. Ana Souza", "12345678909");
 
-        var resultado = Servico().Assinar(PdfDeTeste("x"), certificado, Pedido());
+        var resultado = await Servico().AssinarAsync(PdfDeTeste("x"), certificado, Pedido());
 
         Assert.Equal(AssinaturaDigitalService.Hash(resultado.Pdf), resultado.Hash);
         Assert.Equal(64, resultado.Hash.Length);   // SHA-256 em hexa
