@@ -112,19 +112,34 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     /// <summary>Sem item não se assina — e o botão diz isso antes do clique.</summary>
     public bool PodeAssinar => PodePrescrever && !Ocupado && Itens.Count > 0;
 
+    /// <param name="prescricaoId">
+    /// Rascunho existente a REABRIR. Nulo cria uma prescrição nova.
+    ///
+    /// Sem este parâmetro, salvar um rascunho e fechar a janela deixava a prescrição
+    /// inalcançável: a lista só oferecia "Abrir", que leva à folha de EXECUÇÃO (a tela da
+    /// enfermagem), e não havia caminho de volta para a edição. <c>PrescricaoInterna
+    /// .PodeEditar</c> existe no domínio desde a parcela 42 dizendo que rascunho se edita —
+    /// e nenhuma tela oferecia isso.
+    /// </param>
     public PrescricaoInternaEdicaoViewModel(
         IServiceScopeFactory escopos, IDialogoService dialogo,
-        int pacienteId, string paciente, int? profissionalId, int? agendamentoId = null)
+        int pacienteId, string paciente, int? profissionalId, int? agendamentoId = null,
+        int? prescricaoId = null)
     {
         _escopos = escopos;
         _dialogo = dialogo;
         _pacienteId = pacienteId;
         _profissionalId = profissionalId;
         _agendamentoId = agendamentoId;
+        _prescricaoId = prescricaoId ?? 0;
         Paciente = paciente;
 
         Itens.CollectionChanged += (_, _) => OnPropertyChanged(nameof(PodeAssinar));
-        AcrescentarItem();
+
+        // Só a prescrição NOVA nasce com uma linha em branco: reabrir um rascunho e ganhar
+        // um item vazio no fim faria a folha impressa sair com uma linha fantasma se
+        // ninguém reparasse.
+        if (_prescricaoId == 0) AcrescentarItem();
 
         _ = PrepararAsync();
     }
@@ -141,12 +156,34 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
 
-            var prescricao = await servico.CriarAsync(
-                _pacienteId, _profissionalId, _agendamentoId,
-                operador: SessaoUsuario.Atual.Operador);
+            var prescricao = _prescricaoId == 0
+                ? await servico.CriarAsync(
+                    _pacienteId, _profissionalId, _agendamentoId,
+                    operador: SessaoUsuario.Atual.Operador)
+                : await servico.ObterAsync(_prescricaoId)
+                  ?? throw new InvalidOperationException("Prescrição não encontrada.");
+
+            // Assinada não se edita: os bytes já foram selados, e deixar a tela abrir para
+            // edição faria a médica digitar por nada e descobrir na hora de salvar.
+            if (!prescricao.PodeEditar)
+                throw new InvalidOperationException(
+                    $"A prescrição {prescricao.Numero} já foi assinada e não pode mais ser "
+                    + "editada. Cancele e emita outra, se for o caso.");
 
             _prescricaoId = prescricao.Id;
             Numero = prescricao.Numero;
+
+            if (prescricao.Itens.Count > 0)
+            {
+                Indicacao = prescricao.Indicacao;
+                Observacoes = prescricao.Observacoes;
+
+                Itens.Clear();
+                foreach (var item in prescricao.Itens.OrderBy(i => i.Ordem))
+                    Itens.Add(LinhaItemPrescricao.De(item));
+
+                AcrescentarItem();   // uma linha livre para acrescentar
+            }
 
             var contexto = await servico.ContextoAsync(_pacienteId);
             Alertas.Clear();

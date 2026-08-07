@@ -32,6 +32,9 @@ public sealed class LinhaPrescricaoInterna
     /// <summary>Só rascunho se cancela — depois de executada a folha é registro de um fato.</summary>
     public required bool PodeCancelar { get; init; }
 
+    /// <summary>Rascunho se edita — é o que <c>PrescricaoInterna.PodeEditar</c> já dizia.</summary>
+    public required bool PodeEditar { get; init; }
+
     public static LinhaPrescricaoInterna De(PrescricaoInterna p)
     {
         var itens = p.Itens.Count;
@@ -56,7 +59,8 @@ public sealed class LinhaPrescricaoInterna
             Cancelada = p.Cancelada,
             TemAssinatura = p.AssinaturaDoPrescritor is not null,
             TemRegistroExecucao = p.Realizados + p.NaoRealizados > 0,
-            PodeCancelar = p.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada
+            PodeCancelar = p.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada,
+            PodeEditar = p.PodeEditar
         };
     }
 }
@@ -218,6 +222,56 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
         {
             Application.Diagnostico.Registrar(
                 "Consultório — prescrição de infusão não pôde ser criada", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Reabre um RASCUNHO para continuar escrevendo.
+    ///
+    /// Faltava, e o efeito era o pior possível: salvar o rascunho e fechar a janela deixava
+    /// a prescrição inalcançável. "Abrir" leva à folha de EXECUÇÃO — a tela da enfermagem —,
+    /// então quem tentasse voltar para corrigir a dose achava um quadro de checagem e
+    /// concluía que teria de começar de novo.
+    /// </summary>
+    [RelayCommand]
+    private async Task EditarAsync(LinhaPrescricaoInterna? linha)
+    {
+        if (linha is null) return;
+
+        if (!linha.PodeEditar)
+        {
+            // A guarda DIZ por que não dá, em vez de voltar calada.
+            Mensagem = $"A prescrição {linha.Numero} já foi assinada e não pode mais ser "
+                     + "editada. Cancele e emita outra, se for o caso.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "editar prescrição");
+
+            var vm = new PrescricaoInternaEdicaoViewModel(
+                _escopos, _dialogo, _pacienteId, Paciente,
+                SessaoUsuario.Atual.ProfissionalId, prescricaoId: linha.PrescricaoId);
+
+            var janela = new PrescricaoInternaWindow(vm)
+            {
+                Owner = System.Windows.Application.Current?.MainWindow
+            };
+            janela.ShowDialog();
+
+            await CarregarAsync();
+
+            if (janela.Assinou)
+                _snackbar.Sucesso("Prescrição assinada e enviada à sala de infusão.");
+        }
+        catch (Exception ex)
+        {
+            Application.Diagnostico.Registrar(
+                "Consultório — rascunho de prescrição não pôde ser reaberto", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

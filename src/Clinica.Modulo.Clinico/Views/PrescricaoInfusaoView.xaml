@@ -125,6 +125,15 @@
 
                                         <StackPanel Grid.Column="1" Orientation="Horizontal"
                                                     VerticalAlignment="Center">
+                                            <!-- Editar vem ANTES de Abrir: num rascunho é a
+                                                 ação esperada, e "Abrir" leva à folha de
+                                                 execução, que é da enfermagem. -->
+                                            <Button Content="Editar" Margin="0,0,6,0"
+                                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    IsEnabled="{Binding PodeEditar}"
+                                                    Command="{Binding DataContext.EditarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
                                             <Button Content="Abrir" Margin="0,0,6,0"
                                                     Style="{StaticResource BotaoAcaoGridSecundario}"
                                                     Command="{Binding DataContext.AbrirCommand,
