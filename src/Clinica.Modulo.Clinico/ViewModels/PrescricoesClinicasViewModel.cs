@@ -337,7 +337,7 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
             var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Assinar {linha.Tipo.ToLowerInvariant()} {linha.Numero}",
-                System.Windows.Application.Current?.MainWindow);
+                System.Windows.Application.Current?.MainWindow, _escopos);
 
             // Diálogo cancelado: sair calado é o certo, e é a exceção prevista pela regra
             // do "botão que não faz nada".

@@ -208,7 +208,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
             var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Assinar {linha.Tipo.ToLowerInvariant()} {linha.Numero}",
-                System.Windows.Application.Current?.MainWindow);
+                System.Windows.Application.Current?.MainWindow, _escopos);
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
 

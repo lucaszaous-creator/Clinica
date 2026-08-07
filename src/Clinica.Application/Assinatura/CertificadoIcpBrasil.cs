@@ -26,6 +26,19 @@ public sealed record CertificadoAssinatura(
     string? Cpf,
     string? Provedor = null)
 {
+    /// <summary>
+    /// Quem faz a conta da assinatura quando a chave NÃO está nesta máquina — o SafeID
+    /// (parcela 44). Nulo é o caminho de sempre: token ou arquivo, com a chave em mãos.
+    ///
+    /// Mora aqui, e não como parâmetro de quem manda assinar, porque é propriedade DESTE
+    /// certificado: um certificado em nuvem não vira local dependendo de quem o usa. A
+    /// alternativa era um parâmetro opcional atravessando dois serviços e quatro telas,
+    /// quase sempre nulo — e bastaria uma delas esquecer de repassá-lo para a assinatura
+    /// cair em silêncio no caminho local e morrer com "certificado sem chave privada", que
+    /// é a mensagem que menos ajuda a achar o defeito.
+    /// </summary>
+    public PdfSharp.Pdf.Signatures.IDigitalSigner? AssinadorRemoto { get; init; }
+
     public bool Vigente => DateTime.Now >= ValidoDe && DateTime.Now <= ValidoAte;
 
     /// <summary>É um e-CPF ICP-Brasil (traz o CPF do titular dentro de si).</summary>
@@ -40,9 +53,31 @@ public sealed record CertificadoAssinatura(
     /// CSP que não se apresenta). Chutar "máquina" faria a tela prometer uma assinatura
     /// instantânea que vai ficar meio minuto esperando um PIN no telefone.
     /// </summary>
-    public bool? EmNuvem => Provedor is null
-        ? null
-        : ProvedoresEmNuvem.Any(p => Provedor.Contains(p, StringComparison.OrdinalIgnoreCase));
+    /// <remarks>
+    /// <b>Duas coisas diferentes desembocam aqui</b>, e a fusão é deliberada (parcela 45).
+    /// Um certificado é "em nuvem" quando assinamos por ele via API do PSC
+    /// (<see cref="AssinadorRemoto"/>, parcela 44) <i>ou</i> quando a chave está num
+    /// provedor de nuvem instalado nesta máquina (o driver da Safeweb, do Bird ID…). São
+    /// caminhos técnicos distintos e a consequência para quem usa é a MESMA: a assinatura
+    /// para e espera uma autorização no celular. Manter dois conceitos separados obrigaria
+    /// cada tela a perguntar as duas coisas, e a que esquecesse metade deixaria a janela
+    /// parecendo travada.
+    /// </remarks>
+    public bool? EmNuvem => AssinadorRemoto is not null
+        ? true
+        : Provedor is null
+            ? null
+            : ProvedoresEmNuvem.Any(p => Provedor.Contains(p, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>De onde ele veio, curto — o seletor escreve isto na linha.</summary>
+    public string Procedencia => AssinadorRemoto is not null
+        ? "SafeID — nuvem"
+        : EmNuvem switch
+        {
+            true => "nuvem (nesta máquina)",
+            false => "nesta máquina",
+            null => "origem não identificada"
+        };
 
     /// <summary>
     /// Pedaços de nome de provedor que denunciam chave em nuvem. Lista curta e explícita
@@ -53,12 +88,14 @@ public sealed record CertificadoAssinatura(
         ["safeweb", "safeid", "bird", "soluti", "vidaas", "valid", "cloud", "nuvem", "remot"];
 
     /// <summary>Onde a chave está, na frase que a tela mostra.</summary>
-    public string OndeEstaAChave => EmNuvem switch
-    {
-        true => "Em nuvem — a autorização vai para o celular do titular",
-        false => "Nesta máquina (arquivo A1 ou token A3)",
-        null => "Origem da chave não identificada"
-    };
+    public string OndeEstaAChave => AssinadorRemoto is not null
+        ? "Em nuvem pelo SafeID — a autorização vai para o celular do titular"
+        : EmNuvem switch
+        {
+            true => "Em nuvem — a autorização vai para o celular do titular",
+            false => "Nesta máquina (arquivo A1 ou token A3)",
+            null => "Origem da chave não identificada"
+        };
 
     /// <summary>Como o certificado aparece no seletor.</summary>
     public string Rotulo

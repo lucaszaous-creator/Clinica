@@ -54,6 +54,33 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
     [ObservableProperty] private string _login = string.Empty;
     [ObservableProperty] private OpcaoPerfil? _perfilSelecionado;
     [ObservableProperty] private OpcaoProfissional? _profissional;
+
+    /// <summary>
+    /// CPF do PROFISSIONAL vinculado — editado aqui, gravado lá.
+    ///
+    /// Por que aparece na tela de acesso, se o dono do dado é o profissional
+    /// ----------------------------------------------------------------------
+    /// Porque é aqui que a direção cadastra quem vai usar o sistema, e é o CPF que amarra o
+    /// certificado digital à pessoa. Sem este campo, dar acesso a alguém que assina exigia
+    /// abrir OUTRA tela (Equipe → editar profissional) para preencher um dado sem o qual a
+    /// assinatura recusa — um passeio que ninguém faz porque nada na tela de acesso diz que
+    /// ele é necessário.
+    ///
+    /// O que NÃO se fez, e por quê: copiar o CPF para <c>UsuarioSistema</c>. A assinatura lê
+    /// <c>documento.Profissional.Cpf</c>, porque o documento aponta para o profissional — se
+    /// o CPF morasse nos dois lugares eles divergiriam no primeiro cadastro corrigido pela
+    /// metade, e haveria duas respostas para "de quem é este certificado". É a mesma razão
+    /// pela qual o usuário aponta para o profissional em vez de copiar o nome dele.
+    /// </summary>
+    [ObservableProperty] private string? _cpfProfissional;
+
+    /// <summary>Só há onde gravar o CPF quando há profissional vinculado.</summary>
+    public bool PodeEditarCpf => Profissional?.Id is not null;
+
+    /// <summary>Explica a ausência do campo em vez de deixá-lo aceso e sem efeito.</summary>
+    public string CpfDica => PodeEditarCpf
+        ? "Necessário para assinar com certificado digital: o sistema compara este CPF com o que está dentro do certificado. Em branco, esta pessoa não assina."
+        : "Vincule um profissional acima para poder cadastrar o CPF de assinatura.";
     [ObservableProperty] private bool _ativo = true;
     [ObservableProperty] private string _senha = string.Empty;
     [ObservableProperty] private bool _deveTrocarSenha = true;
@@ -79,6 +106,60 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
         PerfilSelecionado = Perfis.First(o => o.Valor == PerfilAcesso.Recepcao);
 
         _ = CarregarAsync();
+    }
+
+    partial void OnProfissionalChanged(OpcaoProfissional? value)
+    {
+        OnPropertyChanged(nameof(PodeEditarCpf));
+        OnPropertyChanged(nameof(CpfDica));
+        _ = CarregarCpfAsync();
+    }
+
+    /// <summary>
+    /// Traz o CPF do profissional escolhido. Sem isto, trocar o vínculo deixaria na tela o
+    /// CPF de OUTRA pessoa — que o salvar gravaria por cima, trocando o CPF de quem assina.
+    /// </summary>
+    private async Task CarregarCpfAsync()
+    {
+        if (Profissional?.Id is not { } id)
+        {
+            CpfProfissional = null;
+            return;
+        }
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();
+            CpfProfissional = (await equipe.ObterProfissionalAsync(id))?.Cpf;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — CPF do profissional não pôde ser lido", ex);
+        }
+    }
+
+    /// <summary>
+    /// Grava o CPF no PROFISSIONAL vinculado — o dono do dado.
+    ///
+    /// Passa por <c>EquipeService</c> de propósito: é lá que moram as recusas de CPF
+    /// inválido e de CPF repetido, e escrever direto no repositório aqui as contornaria,
+    /// deixando entrar pela tela de acesso exatamente o que a de equipe recusa.
+    /// </summary>
+    private async Task SalvarCpfDoProfissionalAsync(IServiceProvider servicos)
+    {
+        if (Profissional?.Id is not { } id) return;
+
+        var equipe = servicos.GetRequiredService<EquipeService>();
+        var profissional = await equipe.ObterProfissionalAsync(id);
+        if (profissional is null) return;
+
+        var novo = string.IsNullOrWhiteSpace(CpfProfissional) ? null : CpfProfissional.Trim();
+        if (Clinica.Domain.Cpf.Normalizar(profissional.Cpf) == Clinica.Domain.Cpf.Normalizar(novo))
+            return;   // nada mudou: não reescrever evita gravação e auditoria à toa
+
+        profissional.Cpf = novo;
+        await equipe.SalvarProfissionalAsync(profissional);
     }
 
     private async Task CarregarAsync()
@@ -108,6 +189,8 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
                 Login = usuario.Login;
                 PerfilSelecionado = Perfis.First(o => o.Valor == usuario.Perfil);
                 Ativo = usuario.Ativo;
+                // Atribuir Profissional dispara OnProfissionalChanged, que traz o CPF do
+                // banco — por isso não é preciso lê-lo aqui de novo.
                 Profissional = Profissionais.FirstOrDefault(o => o.Id == usuario.ProfissionalId)
                                ?? Profissionais[0];
                 AplicarPermissoes(usuario.Efetivas);
@@ -164,6 +247,12 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var acesso = scope.ServiceProvider.GetRequiredService<AcessoService>();
+
+            // O CPF é gravado ANTES do vínculo, e no dono dele. Se ele for recusado (inválido
+            // ou já usado por outro profissional), a exceção sobe aqui e o usuário NÃO é
+            // salvo pela metade — a alternativa seria criar o acesso e perder o CPF, com a
+            // direção achando que cadastrou tudo.
+            await SalvarCpfDoProfissionalAsync(scope.ServiceProvider);
 
             if (_usuarioId is { } id)
             {

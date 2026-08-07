@@ -38,6 +38,8 @@ public sealed class EquipeService
         if (dados.DuracaoPadraoMinutos is { } duracao && duracao <= 0)
             throw new InvalidOperationException("A duração padrão precisa ser maior que zero.");
 
+        var cpf = await CriticarCpfAsync(dados, ct);
+
         Profissional destino;
         if (dados.Id == 0)
         {
@@ -53,6 +55,14 @@ public sealed class EquipeService
         destino.Nome = dados.Nome.Trim();
         destino.NomeCurto = Limpar(dados.NomeCurto);
         destino.RegistroConselho = Limpar(dados.RegistroConselho);
+
+        // O CPF: a coluna existe desde a parcela 42 e este é o PRIMEIRO gravador dela.
+        // Até aqui ela tinha três leitores — as duas assinaturas e o login por certificado —
+        // e nenhuma escrita em todo o código, o que fazia a assinatura ICP-Brasil recusar
+        // SEMPRE, com a frase "cadastre o CPF em Equipe" apontando para uma tela que não
+        // tinha o campo. É o defeito recorrente do projeto na forma inversa: leitor sem
+        // gravador, que o CI não vê porque nada quebra — só não funciona.
+        destino.Cpf = cpf;
         destino.EspecialidadeCodigo = Limpar(dados.EspecialidadeCodigo);
         destino.Telefone = Limpar(dados.Telefone);
         destino.Email = Limpar(dados.Email);
@@ -64,6 +74,49 @@ public sealed class EquipeService
 
         await _repo.SalvarAsync(ct);
         return destino;
+    }
+
+    /// <summary>
+    /// Critica o CPF do profissional e devolve só os dígitos (ou null).
+    ///
+    /// Duas recusas, e as duas existem por causa da assinatura digital:
+    ///
+    /// <b>CPF inválido é recusado</b> porque ele não é um dado de cadastro qualquer — é a
+    /// chave que amarra o certificado ICP-Brasil à pessoa. Aceitar "111" faria a médica
+    /// descobrir o erro no dia em que fosse assinar, com o paciente na sala e a mensagem
+    /// dizendo que o certificado é de outra pessoa.
+    ///
+    /// <b>CPF repetido é recusado</b> porque a junção com o certificado é por VALOR, não por
+    /// chave estrangeira: dois profissionais com o mesmo CPF tornam ambígua a resposta a
+    /// "quem assinou?" e a "quem está entrando?". A recusa mora aqui, na escrita, e não
+    /// num índice único do banco, de propósito: migration com índice único falharia no
+    /// <c>MigrateAsync</c> da abertura se a base da clínica já tivesse duplicata — e quem
+    /// não abriria seria o faturamento, que roda em produção.
+    /// </summary>
+    private async Task<string?> CriticarCpfAsync(Profissional dados, CancellationToken ct)
+    {
+        var cpf = Domain.Cpf.Normalizar(dados.Cpf);
+
+        // Vazio é o caso NORMAL: quem não assina digitalmente não precisa de CPF, e exigi-lo
+        // travaria o cadastro da equipe inteira por causa de uma feature que nem toda
+        // clínica usa.
+        if (cpf.Length == 0) return null;
+
+        if (!Domain.Cpf.Valido(cpf))
+            throw new InvalidOperationException(
+                "O CPF informado não é válido. Ele é o que liga o certificado digital a esta "
+                + "pessoa na hora de assinar, então precisa estar correto — ou em branco.");
+
+        var repetido = (await _repo.ProfissionaisAsync(ct))
+            .FirstOrDefault(p => p.Id != dados.Id && Domain.Cpf.Normalizar(p.Cpf) == cpf);
+
+        if (repetido is not null)
+            throw new InvalidOperationException(
+                $"O CPF {Domain.Cpf.Formatar(cpf)} já está cadastrado para {repetido.Nome}. "
+                + "Dois profissionais com o mesmo CPF tornariam impossível saber quem assinou "
+                + "um documento.");
+
+        return cpf;
     }
 
     /// <summary>

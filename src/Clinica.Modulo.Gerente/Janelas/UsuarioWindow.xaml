@@ -58,6 +58,17 @@
             </StackPanel>
         </Grid>
 
+        <!-- O CPF de assinatura fica AQUI, junto do vínculo, e não só em Equipe: é nesta
+             tela que a direção cadastra quem vai usar o sistema, e sem o CPF a assinatura
+             digital recusa. Ele é gravado no PROFISSIONAL, que é o dono do dado. -->
+        <TextBlock Text="CPF (para assinatura digital)" Style="{StaticResource Rotulo}"
+                   Margin="0,12,0,0" />
+        <TextBox Text="{Binding CpfProfissional, UpdateSourceTrigger=PropertyChanged}"
+                 MaxLength="14" IsEnabled="{Binding PodeEditarCpf}" />
+        <TextBlock Text="{Binding CpfDica}" Style="{StaticResource TextoSuave}"
+                   TextWrapping="Wrap" HorizontalAlignment="Left" MaxWidth="520"
+                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,4,0,0" />
+
         <TextBlock Text="Senha" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
         <PasswordBox x:Name="TxtSenha" PasswordChanged="SenhaDigitada" />
         <TextBlock x:Name="TxtAjudaSenha" Style="{StaticResource TextoSuave}"

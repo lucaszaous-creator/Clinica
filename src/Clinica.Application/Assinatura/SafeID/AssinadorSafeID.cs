@@ -1,0 +1,88 @@
+using System.Security.Cryptography;
+using PdfSharp.Pdf.Signatures;
+
+namespace Clinica.Application.Assinatura.SafeID;
+
+/// <summary>
+/// A ponte entre o PDFsharp e o certificado em nuvem: implementa
+/// <see cref="IDigitalSigner"/> pedindo a assinatura ao PSC em vez de usar uma chave local.
+///
+/// Por que cabe numa classe só
+/// ---------------------------
+/// Porque o PDFsharp já publica a costura no formato certo — <c>GetSignatureAsync</c> é
+/// assíncrona, recebe o <see cref="Stream"/> do conteúdo coberto pelo <c>/ByteRange</c> e
+/// devolve os bytes que vão para o <c>/Contents</c>. Tudo o que muda em relação ao
+/// certificado de token é <b>quem faz a conta</b>: aqui o hash é calculado nesta máquina e
+/// só ele viaja.
+///
+/// O que continua sendo nosso: o desenho da folha, o carimbo visual, o posicionamento por
+/// <c>AreaAssinatura</c>, o <c>Conferir</c> e a reimpressão pelos bytes guardados.
+/// </summary>
+public sealed class AssinadorSafeID : IDigitalSigner
+{
+    private readonly ClienteSafeID _cliente;
+    private readonly string _token;
+    private readonly CertificadoDeNuvem _certificado;
+    private readonly string _rotulo;
+
+    /// <param name="rotulo">
+    /// Forma legível do que está sendo assinado (o número da folha, por exemplo). O PSC a
+    /// registra e ela pode aparecer na confirmação do celular — então é o que diz à médica
+    /// <b>o que</b> ela está autorizando, e não serve texto genérico.
+    /// </param>
+    public AssinadorSafeID(
+        ClienteSafeID cliente, string token, CertificadoDeNuvem certificado, string rotulo)
+    {
+        _cliente = cliente;
+        _token = token;
+        _certificado = certificado;
+        _rotulo = string.IsNullOrWhiteSpace(rotulo) ? "Documento da clínica" : rotulo;
+    }
+
+    public string CertificateName => _certificado.Certificado.Titular;
+
+    /// <summary>
+    /// Espaço reservado no <c>/Contents</c> ANTES de assinar.
+    ///
+    /// A doc da Safeweb não publica o tamanho máximo do PKCS#7, e este número não é
+    /// chute confortável: reservar de MENOS quebra a assinatura (o PDFsharp não consegue
+    /// encaixar o que voltou), enquanto reservar de mais custa alguns kilobytes de PDF. Um
+    /// CMS destacado com a cadeia ICP-Brasil fica na casa de 4–8 KB; 32 KB dá folga de
+    /// quatro vezes sobre o pior caso conhecido.
+    ///
+    /// Na homologação isto se mede e vira número medido em vez de número prudente.
+    /// </summary>
+    public const int TamanhoReservado = 32 * 1024;
+
+    public Task<int> GetSignatureSizeAsync() => Task.FromResult(TamanhoReservado);
+
+    /// <summary>
+    /// Calcula o SHA-256 do conteúdo coberto e pede ao PSC o PKCS#7 destacado.
+    ///
+    /// O identificador da requisição é sorteado por assinatura: o PSC casa a resposta pelo
+    /// <c>id</c>, e reaproveitar um valor fixo faria duas assinaturas simultâneas do mesmo
+    /// consultório trocarem de resposta entre si.
+    /// </summary>
+    public async Task<byte[]> GetSignatureAsync(Stream conteudoCoberto)
+    {
+        ArgumentNullException.ThrowIfNull(conteudoCoberto);
+
+        var hash = await SHA256.HashDataAsync(conteudoCoberto);
+
+        var pkcs7 = await _cliente.AssinarHashAsync(
+            _token, hash,
+            identificador: Guid.NewGuid().ToString("N"),
+            rotulo: _rotulo,
+            certificadoAlias: string.IsNullOrWhiteSpace(_certificado.Alias)
+                ? null
+                : _certificado.Alias);
+
+        if (pkcs7.Length > TamanhoReservado)
+            throw new InvalidOperationException(
+                $"O SafeID devolveu uma assinatura de {pkcs7.Length} bytes, maior que o "
+                + $"espaço reservado ({TamanhoReservado}). A folha NÃO foi assinada — "
+                + "aumente TamanhoReservado.");
+
+        return pkcs7;
+    }
+}

@@ -36,6 +36,146 @@ public class AcessoServiceTests : IDisposable
     private Task<UsuarioSistema> CriarGerenteAsync(string login = "direcao")
         => _acesso.CriarAsync("Direção", login, "segredo123", PerfilAcesso.Gerente);
 
+    // ===== A junção acesso → profissional → certificado (parcela 45) =====
+
+    [Fact]
+    public async Task DoisUsuariosAtivos_NaoPodemApontarParaOMesmoProfissional()
+    {
+        // SessaoUsuario.ProfissionalId é o que faz o Consultório saber de quem é "meu dia",
+        // e a entrada por certificado casa o CPF com o profissional. Dois usuários ativos
+        // para a mesma pessoa tornam ambígua a resposta a "quem entrou?".
+        var profissional = new Profissional { Nome = "Dra. Ana Souza", Cpf = "12345678909" };
+        _db.Profissionais.Add(profissional);
+        await _db.SaveChangesAsync();
+
+        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Gerente, profissional.Id);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _acesso.CriarAsync("Ana 2", "ana2", "segredo123", PerfilAcesso.Gerente, profissional.Id));
+
+        erro.Message.Should().Contain("ana");
+    }
+
+    [Fact]
+    public async Task ProfissionalDeUsuarioDESATIVADO_PodeSerVinculadoAOutro()
+    {
+        // Desativado não disputa nada: exigir que a direção apague o acesso antigo para
+        // cadastrar o substituto perderia a trilha de quem era o operador do histórico.
+        var profissional = new Profissional { Nome = "Dra. Ana Souza" };
+        _db.Profissionais.Add(profissional);
+        await _db.SaveChangesAsync();
+
+        var antigo = await _acesso.CriarAsync(
+            "Ana", "ana", "segredo123", PerfilAcesso.Gerente, profissional.Id);
+
+        await CriarGerenteAsync("suporte");   // não deixa a base sem gestor
+        await _acesso.AtualizarAsync(
+            antigo.Id, "Ana", PerfilAcesso.Gerente, profissional.Id,
+            Permissao.Nenhuma, Permissao.Nenhuma, ativo: false);
+
+        var novo = await _acesso.CriarAsync(
+            "Ana nova", "ana2", "segredo123", PerfilAcesso.Profissional, profissional.Id);
+
+        novo.ProfissionalId.Should().Be(profissional.Id);
+    }
+
+    // ===== Entrada pelo certificado (SafeID, parcela 44) =====
+    //
+    // O método não autentica ninguém: quem autenticou foi o PSC, quando a médica confirmou
+    // no celular. O que se testa aqui é a SEGUNDA pergunta — esta pessoa tem acesso a ESTE
+    // sistema? —, que é a que decide se o certificado vira entrada ou não.
+
+    private async Task<UsuarioSistema> CriarMedicaAsync(string cpf, bool ativo = true)
+    {
+        var profissional = new Profissional { Nome = "Dra. Ana Souza", Cpf = cpf };
+        _db.Profissionais.Add(profissional);
+        await _db.SaveChangesAsync();
+
+        var usuario = await _acesso.CriarAsync(
+            "Dra. Ana Souza", "ana", "segredo123", PerfilAcesso.Gerente);
+
+        var rastreado = await _db.Usuarios.FirstAsync(u => u.Id == usuario.Id);
+        rastreado.ProfissionalId = profissional.Id;
+        rastreado.Ativo = ativo;
+        await _db.SaveChangesAsync();
+
+        return rastreado;
+    }
+
+    [Fact]
+    public async Task Certificado_DeQuemTemAcesso_Entra()
+    {
+        await CriarMedicaAsync("12345678909");
+
+        var resultado = await _acesso.AutenticarPorCertificadoAsync("123.456.789-09");
+
+        resultado.Sucesso.Should().BeTrue();
+        resultado.Usuario!.Login.Should().Be("ana");
+    }
+
+    [Fact]
+    public async Task Certificado_DeQuemNaoTemUsuario_NAO_CriaUsuario()
+    {
+        // A regra que impede o certificado de virar a porta mais larga do sistema: ele prova
+        // quem a pessoa é, e quem concede acesso é a direção.
+        await CriarGerenteAsync();
+        var antes = (await _repo.UsuariosAsync()).Count;
+
+        var resultado = await _acesso.AutenticarPorCertificadoAsync("12345678909");
+
+        resultado.Sucesso.Should().BeFalse();
+        resultado.Erro.Should().Contain("Acessos");
+        (await _repo.UsuariosAsync()).Should().HaveCount(antes);
+    }
+
+    [Fact]
+    public async Task Certificado_DeUsuarioDesativado_NaoEntra()
+    {
+        await CriarMedicaAsync("12345678909", ativo: false);
+
+        var resultado = await _acesso.AutenticarPorCertificadoAsync("12345678909");
+
+        resultado.Sucesso.Should().BeFalse();
+        resultado.Erro.Should().Contain("desativado");
+    }
+
+    [Fact]
+    public async Task Certificado_SemCpfValido_NaoEntra()
+    {
+        var resultado = await _acesso.AutenticarPorCertificadoAsync("   ");
+
+        resultado.Sucesso.Should().BeFalse();
+        resultado.Erro.Should().Contain("CPF");
+    }
+
+    [Fact]
+    public async Task Certificado_NaoDestravaContaSobForcaBruta()
+    {
+        // O travamento é do caminho da SENHA. Se o certificado o limpasse, ele viraria a
+        // saída de emergência de uma conta justamente enquanto ela está sob ataque.
+        var usuario = await CriarMedicaAsync("12345678909");
+        usuario.BloqueadoAte = DateTime.Now.AddMinutes(5);
+        usuario.TentativasFalhas = 3;
+        await _db.SaveChangesAsync();
+
+        await _acesso.AutenticarPorCertificadoAsync("12345678909");
+
+        var depois = await _db.Usuarios.AsNoTracking().FirstAsync(u => u.Id == usuario.Id);
+        depois.BloqueadoAte.Should().NotBeNull();
+        depois.UltimoAcessoEm.Should().NotBeNull();   // e a entrada foi mesmo gravada
+    }
+
+    [Fact]
+    public async Task Certificado_GravaAuditoria()
+    {
+        await CriarMedicaAsync("12345678909");
+
+        await _acesso.AutenticarPorCertificadoAsync("12345678909");
+
+        var trilha = await _db.Auditoria.AsNoTracking().ToListAsync();
+        trilha.Should().Contain(e => e.Acao == "LoginPorCertificado");
+    }
+
     // ===== Hash de senha =====
 
     [Fact]

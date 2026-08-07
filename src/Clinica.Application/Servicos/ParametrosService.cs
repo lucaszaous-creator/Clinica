@@ -292,6 +292,45 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Credenciais da aplicação no SafeID (parcela 44) ----
+
+    public const string ChaveSafeIDClientId = "SafeIDClientId";
+    public const string ChaveSafeIDClientSecret = "SafeIDClientSecret";
+    public const string ChaveSafeIDAmbiente = "SafeIDAmbiente";
+
+    /// <summary>
+    /// As credenciais da APLICAÇÃO no PSC, cadastradas uma vez pela direção e lidas por
+    /// todas as máquinas.
+    ///
+    /// Por que no banco, e não numa variável de ambiente por máquina
+    /// -------------------------------------------------------------
+    /// Porque senão instalar o sistema numa máquina nova passaria por abrir o Prompt de
+    /// Comando e digitar quatro <c>setx</c> — e uma clínica não faz isso. Configuração que
+    /// depende de ritual de instalação é configuração que um dia falta, e o sintoma seria a
+    /// médica sem conseguir assinar num consultório específico, sem ninguém saber por quê.
+    ///
+    /// O <c>client_secret</c> identifica a APLICAÇÃO, não a titular: sozinho ele não assina
+    /// nada. Para assinar é preciso, ainda, a médica aprovar no celular (ou o PIN dela) e o
+    /// CPF de dentro do certificado bater com o do cadastro — as duas barreiras que
+    /// <c>TitularDoCertificado.Exigir</c> guarda. É por isso que ele pode morar aqui, ao
+    /// lado da URL da ACT, e a connection string não pode: aquela É a chave de tudo.
+    /// </summary>
+    public async Task<(string? ClientId, string? ClientSecret, string? Ambiente)>
+        ObterCredenciaisSafeIDAsync(CancellationToken ct = default)
+        => (await _repo.ObterConfiguracaoAsync(ChaveSafeIDClientId, ct),
+            await _repo.ObterConfiguracaoAsync(ChaveSafeIDClientSecret, ct),
+            await _repo.ObterConfiguracaoAsync(ChaveSafeIDAmbiente, ct));
+
+    public async Task SalvarCredenciaisSafeIDAsync(
+        string? clientId, string? clientSecret, string? ambiente,
+        CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveSafeIDClientId, (clientId ?? string.Empty).Trim(), ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveSafeIDClientSecret, (clientSecret ?? string.Empty).Trim(), ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveSafeIDAmbiente, (ambiente ?? string.Empty).Trim(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Numeração sequencial de lote TISS (o padrão exige sequência, não timestamp) ----
 
     public const string ChaveProximoLoteTiss = "TissProximoNumeroLote";

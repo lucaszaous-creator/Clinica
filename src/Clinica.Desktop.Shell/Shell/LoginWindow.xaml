@@ -148,6 +148,22 @@
                             Style="{StaticResource BotaoSecundario}"
                             Click="Cancelar" IsCancel="True" />
                 </Grid>
+
+                <!-- Entra AO LADO da senha, nunca no lugar dela: no balcão duas pessoas
+                     dividem a máquina e não vão ter e-CPF cada uma. Só aparece quando a
+                     clínica cadastrou o SafeID. -->
+                <StackPanel x:Name="PainelCertificado" Visibility="Collapsed" Margin="0,16,0,0">
+                    <Separator />
+                    <Button x:Name="BtnCertificado" Margin="0,14,0,0"
+                            Content="Entrar com certificado (SafeID)"
+                            Style="{StaticResource BotaoSecundario}"
+                            Click="EntrarComCertificado" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               HorizontalAlignment="Left" MaxWidth="360"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Margin="0,8,0,0"
+                               Text="Abre a página do SafeID no navegador para você confirmar no celular. Só entra quem já tem acesso cadastrado nesta clínica." />
+                </StackPanel>
             </StackPanel>
         </ScrollViewer>
     </Grid>

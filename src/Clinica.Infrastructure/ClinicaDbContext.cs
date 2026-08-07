@@ -275,6 +275,12 @@ public class ClinicaDbContext : DbContext
             e.Property(p => p.RegistroConselho).HasMaxLength(40);
             // Só dígitos — é comparado com o CPF extraído do e-CPF ICP-Brasil (parcela 42).
             e.Property(p => p.Cpf).HasMaxLength(11);
+            // Índice NÃO ÚNICO de propósito (parcela 45): a entrada por certificado procura
+            // o profissional por este valor, então ele precisa ser indexado. Único ele NÃO
+            // pode ser — a migration roda no MigrateAsync da abertura, inclusive do
+            // faturamento em produção, e falharia se a base já tivesse duplicata. A recusa
+            // de CPF repetido mora em EquipeService, na escrita, onde ela pode explicar.
+            e.HasIndex(p => p.Cpf);
             e.Property(p => p.EspecialidadeCodigo).HasMaxLength(40);
             e.Property(p => p.Telefone).HasMaxLength(20);
             e.Property(p => p.Email).HasMaxLength(120);

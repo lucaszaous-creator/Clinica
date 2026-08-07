@@ -1,3 +1,4 @@
+using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
@@ -81,6 +82,25 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string? _carimbadoraDeTempo;
 
+    // SafeID (parcela 44): as credenciais da APLICAÇÃO no PSC, cadastradas aqui uma vez e
+    // lidas por todas as máquinas. É o que evita ter de configurar cada consultório à mão.
+    [ObservableProperty] private string? _safeIdClientId;
+    [ObservableProperty] private string? _safeIdClientSecret;
+    [ObservableProperty] private bool _safeIdHomologacao;
+
+    /// <summary>
+    /// As credenciais estão vindo de variável de ambiente, que vence o banco. Enquanto for
+    /// verdade, os campos desta tela são só leitura e a tela DIZ por quê — deixar editar o
+    /// que não terá efeito, e ainda confirmar "salvo", é pior do que não oferecer o campo.
+    /// </summary>
+    [ObservableProperty] private bool _safeIdVemDoAmbiente;
+
+    /// <summary>Negado para o XAML amarrar `IsEnabled` sem precisar de conversor.</summary>
+    public bool SafeIdEditavel => !SafeIdVemDoAmbiente;
+
+    partial void OnSafeIdVemDoAmbienteChanged(bool value)
+        => OnPropertyChanged(nameof(SafeIdEditavel));
+
     // ---- Faturamento (a direção lê; o app congelado continua sendo quem fatura) ----
     [ObservableProperty] private string? _janelaAlertaConsulta;
     [ObservableProperty] private string? _prazoRecursoGlosa;
@@ -138,6 +158,28 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             JornadaDiariaMinutos = (await p.ObterJornadaDiariaAsync()).ToString();
             DiasInatividadeRecall = (await p.ObterDiasInatividadeRecallAsync()).ToString();
             CarimbadoraDeTempo = (await p.ObterCarimbadoraDeTempoAsync())?.ToString();
+
+            // A variável de ambiente VENCE o banco (caminho de teste). Quando ela está em
+            // vigor, esta tela passa a mostrar o que o ambiente manda e avisa que é assim —
+            // senão a direção desmarcaria a caixa, salvaria, e nada mudaria: campo que
+            // aceita edição e não tem efeito é a pior variante do botão que não faz nada,
+            // porque o sistema confirma que salvou.
+            var doAmbiente = ConfiguracaoSafeID.DoAmbiente();
+            SafeIdVemDoAmbiente = doAmbiente is not null;
+
+            if (doAmbiente is not null)
+            {
+                SafeIdClientId = doAmbiente.ClientId;
+                SafeIdClientSecret = "(definido por variável de ambiente)";
+                SafeIdHomologacao = doAmbiente.Base == OpcoesSafeID.BaseHomologacao;
+            }
+            else
+            {
+                var safeId = await p.ObterCredenciaisSafeIDAsync();
+                SafeIdClientId = safeId.ClientId;
+                SafeIdClientSecret = safeId.ClientSecret;
+                SafeIdHomologacao = ConfiguracaoSafeID.EhHomologacao(safeId.Ambiente);
+            }
             JanelaAlertaConsulta = (await p.ObterJanelaAlertaConsultaAsync()).ToString();
             PrazoRecursoGlosa = (await p.ObterPrazoRecursoGlosaAsync()).ToString();
             IntervaloRodadaPendencias = (await p.ObterIntervaloRodadaPendenciasAsync()).ToString();
@@ -205,10 +247,31 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
                     + "(ex.: https://act.exemplo.com.br/tsa). Deixe em branco se a clínica "
                     + "não tiver ACT contratada.");
 
+            // Meia credencial do SafeID é recusada aqui. Aceitá-la faria a opção de assinar
+            // em nuvem aparecer na tela de quem assina e falhar no clique — e o profissional
+            // não tem como adivinhar que o problema mora numa tela do Gerente.
+            var clientId = Limpar(SafeIdClientId);
+            var clientSecret = Limpar(SafeIdClientSecret);
+
+            if (!SafeIdVemDoAmbiente && clientId is null != (clientSecret is null))
+                throw new InvalidOperationException(
+                    "O SafeID precisa do client_id E do client_secret. Preencha os dois, ou "
+                    + "deixe os dois em branco para assinar apenas com certificado da máquina.");
+
             await p.SalvarJornadaDiariaAsync(jornada);
             await p.SalvarDiasInatividadeRecallAsync(recall);
             await p.SalvarCarimbadoraDeTempoAsync(carimbadora);
-            return "Operação e marketing salvos.";
+            // Com a variável de ambiente em vigor, os campos mostram o que ELA manda — e o
+            // do segredo mostra um texto explicativo, não o segredo. Gravar isso apagaria a
+            // credencial real da clínica no banco no dia em que a variável fosse removida.
+            if (!SafeIdVemDoAmbiente)
+                await p.SalvarCredenciaisSafeIDAsync(
+                    clientId, clientSecret, SafeIdHomologacao ? "homologacao" : "producao");
+
+            return SafeIdVemDoAmbiente
+                ? "Operação e marketing salvos. O SafeID não foi alterado: ele está vindo de "
+                  + "variável de ambiente desta máquina."
+                : "Operação e marketing salvos.";
         });
 
     [RelayCommand]

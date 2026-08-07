@@ -100,6 +100,8 @@ public sealed class AcessoService
         if (await _repo.ObterUsuarioPorLoginAsync(normalizado, ct) is not null)
             throw new InvalidOperationException($"Já existe um usuário com o login \"{normalizado}\".");
 
+        await CriticarVinculoAsync(profissionalId, usuarioId: 0, ct);
+
         var (hash, sal) = HashSenha.Gerar(senha);
 
         var usuario = new UsuarioSistema
@@ -147,6 +149,8 @@ public sealed class AcessoService
             throw new InvalidOperationException(
                 "Este é o último usuário que pode gerenciar acessos. " +
                 "Dê a permissão a outra pessoa antes de tirar a dele.");
+
+        await CriticarVinculoAsync(profissionalId, usuarioId, ct);
 
         usuario.Nome = nome.Trim();
         usuario.Perfil = perfil;
@@ -282,6 +286,113 @@ public sealed class AcessoService
         await _repo.SalvarAsync(ct);
 
         return ResultadoAutenticacao.Ok(usuario);
+    }
+
+    /// <summary>
+    /// Entra pelo CPF que veio de DENTRO de um certificado ICP-Brasil (parcela 44).
+    ///
+    /// O que este método é, e o que ele NÃO é
+    /// --------------------------------------
+    /// Ele não autentica ninguém: quem autenticou foi o PSC, quando a médica confirmou no
+    /// celular com o PIN dela. O que se faz aqui é a segunda pergunta, que é outra —
+    /// <b>esta pessoa tem acesso a ESTE sistema?</b> Autenticar prova quem alguém é; quem
+    /// concede acesso é a direção, em Acessos.
+    ///
+    /// Por isso CPF sem usuário correspondente <b>não cria usuário</b>. Criar seria deixar
+    /// qualquer titular de e-CPF entrar numa clínica onde ninguém o cadastrou — e o
+    /// certificado, que é a prova mais forte de identidade do sistema, viraria a porta mais
+    /// larga dele.
+    ///
+    /// Entra AO LADO de <see cref="AutenticarAsync"/>, nunca no lugar: no balcão duas
+    /// pessoas dividem a mesma máquina e não vão ter e-CPF cada uma.
+    /// </summary>
+    /// <param name="cpfDoCertificado">
+    /// Só dígitos, lido do OID 2.16.76.1.3.1 por <c>CertificadoIcpBrasil.CpfDoTitular</c> —
+    /// nunca de um campo digitado, que é o que separa isto de "informe seu CPF para entrar".
+    /// </param>
+    public async Task<ResultadoAutenticacao> AutenticarPorCertificadoAsync(
+        string? cpfDoCertificado, DateTime? agora = null, CancellationToken ct = default)
+    {
+        var cpf = Cpf.Normalizar(cpfDoCertificado);
+
+        if (cpf.Length == 0 || !Cpf.Valido(cpf))
+            return ResultadoAutenticacao.Falha(
+                "O certificado não traz um CPF válido, então não há como saber de quem ele é.");
+
+        var usuarios = await _repo.UsuariosAsync(ct);
+
+        var candidatos = usuarios
+            .Where(u => Cpf.Normalizar(u.Profissional?.Cpf) == cpf)
+            .ToList();
+
+        if (candidatos.Count == 0)
+            return ResultadoAutenticacao.Falha(
+                $"Nenhum usuário deste sistema está vinculado ao CPF {Cpf.Formatar(cpf)}. "
+                + "A direção cadastra o acesso em Acessos e vincula o profissional; o "
+                + "certificado sozinho não dá entrada.");
+
+        var ativos = candidatos.Where(u => u.Ativo).ToList();
+
+        if (ativos.Count == 0)
+            return ResultadoAutenticacao.Falha(
+                "Este usuário está desativado. Procure a direção da clínica.");
+
+        // Dois usuários ativos para o mesmo CPF é erro de cadastro, e escolher um em
+        // silêncio daria acesso com o perfil errado — que é pior que não entrar.
+        if (ativos.Count > 1)
+            return ResultadoAutenticacao.Falha(
+                $"Há mais de um usuário ativo vinculado ao CPF {Cpf.Formatar(cpf)}. "
+                + "A direção precisa corrigir isso em Acessos antes da entrada por certificado.");
+
+        // `UsuariosAsync` devolve entidades SEM rastreamento — servem para achar, não para
+        // gravar. Sem esta releitura o `UltimoAcessoEm` abaixo seria descartado no
+        // SaveChanges, e o sistema mostraria "nunca acessou" para quem entra todo dia.
+        var usuario = await _repo.ObterUsuarioAsync(ativos[0].Id, ct);
+
+        if (usuario is null)
+            return ResultadoAutenticacao.Falha(CredencialInvalida);
+
+        // Não zera TentativasFalhas nem BloqueadoAte: o travamento é do caminho da SENHA, e
+        // limpá-lo aqui daria ao certificado o poder de destravar uma conta sob ataque de
+        // força bruta — que é justamente quando o travamento tem de valer.
+        usuario.UltimoAcessoEm = agora ?? DateTime.Now;
+
+        await AuditarAsync(
+            "LoginPorCertificado",
+            $"{usuario.Login} — CPF {Cpf.Formatar(cpf)} lido do certificado",
+            usuario.Login, ct);
+
+        await _repo.SalvarAsync(ct);
+
+        return ResultadoAutenticacao.Ok(usuario);
+    }
+
+    /// <summary>
+    /// Um profissional tem UM acesso.
+    ///
+    /// Não é preciosismo de modelagem: <c>SessaoUsuario.ProfissionalId</c> é o que faz o
+    /// Consultório saber de quem é "meu dia", e a entrada por certificado casa o CPF do
+    /// e-CPF com o profissional. Dois usuários ativos apontando para a mesma pessoa tornam
+    /// ambígua a resposta a "quem entrou?" — e a entrada por certificado teria de escolher
+    /// um perfil em silêncio, que é pior do que não entrar.
+    ///
+    /// A recusa mora na ESCRITA, e não num índice único do banco, pela mesma razão do CPF
+    /// repetido: migration com índice único falharia no <c>MigrateAsync</c> da abertura se a
+    /// base da clínica já tivesse duplicata, e quem não abriria seria o faturamento, que
+    /// roda em produção.
+    /// </summary>
+    private async Task CriticarVinculoAsync(int? profissionalId, int usuarioId, CancellationToken ct)
+    {
+        if (profissionalId is not { } alvo) return;
+
+        var jaVinculado = (await _repo.UsuariosAsync(ct))
+            .FirstOrDefault(u => u.Id != usuarioId && u.Ativo && u.ProfissionalId == alvo);
+
+        if (jaVinculado is not null)
+            throw new InvalidOperationException(
+                $"O profissional já está vinculado ao usuário \"{jaVinculado.Login}\". "
+                + "Cada profissional tem um acesso — desative o outro antes, ou vincule "
+                + "este usuário a outro profissional.");
     }
 
     // ---------------------------------------------------------------- interno

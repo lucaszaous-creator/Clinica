@@ -116,6 +116,56 @@
                                        Text="Endereço RFC 3161 de uma autoridade de carimbo do tempo, para as assinaturas ICP-Brasil das prescrições. Em branco a assinatura continua válida — só que a data é a do relógio de quem assinou, e o PDF diz isso." />
                         </StackPanel>
 
+                        <Separator Margin="0,18,0,14" />
+
+                        <StackPanel>
+                            <TextBlock Text="Certificado em nuvem (SafeID) — opcional"
+                                       Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       HorizontalAlignment="Left" MaxWidth="820"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Margin="0,0,0,8"
+                                       Text="Credenciais da aplicação no portal da Safeweb. Cadastradas aqui uma vez, valem para todas as máquinas da clínica. Em branco, o sistema assina apenas com certificado instalado na máquina (token ou arquivo)." />
+
+                            <!-- Variável de ambiente vence o banco. Quando ela está em vigor,
+                                 editar aqui não teria efeito NENHUM e o sistema ainda diria
+                                 "salvo" — pior que não oferecer o campo. -->
+                            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10"
+                                    Visibility="{Binding SafeIdVemDoAmbiente, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock TextWrapping="Wrap"
+                                           Text="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (SafeID__ClientId e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
+                            </Border>
+
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="client_id" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding SafeIdClientId}" MaxLength="200"
+                                             IsEnabled="{Binding SafeIdEditavel}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="client_secret" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding SafeIdClientSecret}" MaxLength="300"
+                                             IsEnabled="{Binding SafeIdEditavel}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <CheckBox IsChecked="{Binding SafeIdHomologacao}"
+                                      IsEnabled="{Binding SafeIdEditavel}"
+                                      Content="Usar o ambiente de homologação da Safeweb (somente para testes)" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       HorizontalAlignment="Left" MaxWidth="820"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Margin="24,2,0,0"
+                                       Text="Marcado, as assinaturas saem com certificado de teste e NÃO têm valor jurídico. Desmarque antes de usar na clínica." />
+                        </StackPanel>
+
                         <Button Content="Salvar operação" Command="{Binding SalvarOperacaoCommand}"
                                 HorizontalAlignment="Left" Margin="0,14,0,0" MinWidth="190" />
                     </StackPanel>
