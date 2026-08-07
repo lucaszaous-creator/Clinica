@@ -21,13 +21,17 @@ public sealed record OpcoesSafeID(
     Uri? RedirectUri = null,
     Uri? BaseUrl = null)
 {
-    /// <summary>
-    /// Produção. A coleção oficial da Safeweb traz esta URL e só ela — não há host de
-    /// homologação documentado, e inventar um subdomínio "hml" produziria erro de DNS
-    /// apresentado como falha de credencial.
-    /// </summary>
+    /// <summary>Produção.</summary>
     public static readonly Uri BasePadrao =
         new("https://pscsafeweb.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/");
+
+    /// <summary>
+    /// Homologação. Não está na coleção Postman — saiu do <c>appsettings.json</c> do projeto
+    /// de demonstração da própria Safeweb, e é o ambiente onde se mede o que a doc não
+    /// publica (o tamanho do PKCS#7) sem gastar assinatura do plano de produção.
+    /// </summary>
+    public static readonly Uri BaseHomologacao =
+        new("https://pscsafeweb-homologacao.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/");
 
     public Uri Base => BaseUrl ?? BasePadrao;
 }

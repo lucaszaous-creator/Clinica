@@ -142,14 +142,48 @@ Três decisões que já ficam fixadas:
   pessoa é, não que ela tem acesso a este sistema — quem concede acesso é a direção.
 - **Grava `EventoAuditoria`**, como toda ação administrativa de acesso.
 
+## Conferido contra a implementação de referência da Safeweb
+
+O projeto de demonstração oficial (`PSC.DemonstracaoIntegracao`, backend .NET + front Vue) foi
+lido linha a linha e **bate com o que está implementado aqui**:
+
+- `/token` vai como `application/x-www-form-urlencoded` com `grant_type=authorization_code`,
+  `client_id`, `client_secret`, `code_verifier`, `redirect_uri` e `code` — idêntico.
+- `/pwd_authorize` vai como JSON com `grant_type=password` e `scope=signature_session` —
+  idêntico, inclusive no escopo escolhido.
+- `/signature` recebe `{ hashes: [{ id, alias, hash, signature_format: "CMS",
+  hash_algorithm: "2.16.840.1.101.3.4.2.1" }] }` e a resposta é lida em
+  `signatures[0].raw_signature` — idêntico.
+- O `hash` é o **base64 dos 32 bytes crus** do SHA-256 (`crypto.SHA256(…).toString(Base64)`),
+  que é o que `Convert.ToBase64String(hash)` produz.
+- O demo **não envia `signature_policy` no `/signature`**, o que confirma a leitura da doc de
+  que esse caminho assina sem política.
+
+Duas coisas que a coleção não tinha e o demo tem:
+
+1. **Existe ambiente de homologação** —
+   `https://pscsafeweb-homologacao.safewebpss.com.br/…` (agora em
+   `OpcoesSafeID.BaseHomologacao`). É onde se mede o tamanho do PKCS#7 sem gastar assinatura
+   do plano de produção.
+2. **O callback do fluxo CA é mesmo *webhook*.** O demo expõe um `POST /api/CA/CallbackCA`
+   que o PSC chama com `{IdentifierCA, State, ExpirationDate, SerialNumber}`, e a aplicação
+   depois consulta esse registro. Não é redirecionamento de navegador — confirma que o fluxo
+   CA precisa de endereço público, e que o do QR Code é o caminho do desktop.
+
 ## O que ainda falta
 
-1. **`client_id` / `client_secret`** de parceiro Safeweb, e se há ambiente de homologação
-   separado (a coleção traz uma URL só, de produção).
-2. **A Safeweb cadastra `redirect_uri` de loopback?** (ver acima — decide o fluxo).
+1. **`client_id` / `client_secret`** da clínica, emitidos no autoatendimento do
+   [admin-safeid.safeweb.com.br](https://admin-safeid.safeweb.com.br/) (plano gratuito de 50
+   assinaturas serve para homologar).
+2. **A Safeweb cadastra `redirect_uri` de loopback?** (ver acima — decide o fluxo). O demo é
+   uma aplicação web e usa URL pública, então ele não responde isto.
 3. **Tamanho máximo do PKCS#7 devolvido**, para dimensionar `GetSignatureSizeAsync`. O PDFsharp
    reserva o espaço no `/Contents` **antes** de assinar; reservar de menos quebra a assinatura.
-   Não está documentado — vai ser medido na homologação, com folga generosa até lá.
+   Não está documentado — mede-se em homologação; até lá, 32 KB com recusa explícita se estourar.
+4. **`/signature` aceita `signature_policy`?** A interface TypeScript do demo declara o campo
+   como opcional no objeto `Hash`, mas nenhuma tela o envia, e a doc diz que este caminho
+   assina sem política. Se aceitar, ganharíamos AD-RT (com carimbo) **sem subir o documento** —
+   vale perguntar, porque seria o melhor dos dois mundos.
 
 Deliberadamente **não** foi criada uma classe que lance `NotImplementedException`: provedor que
 aparece no seletor e falha no clique é o "botão aceso que não faz nada" da parcela 41, na tela
