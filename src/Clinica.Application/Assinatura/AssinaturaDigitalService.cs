@@ -138,7 +138,11 @@ public sealed class AssinaturaDigitalService
         ArgumentNullException.ThrowIfNull(certificado);
         ArgumentNullException.ThrowIfNull(pedido);
 
-        Criticar(certificado, exigirChaveLocal: assinadorEmNuvem is null);
+        // O certificado carrega o próprio assinador quando está em nuvem; o parâmetro
+        // continua existindo para quem quiser mandar um explicitamente (os testes).
+        var remoto = assinadorEmNuvem ?? certificado.AssinadorRemoto;
+
+        Criticar(certificado, exigirChaveLocal: remoto is null);
         GarantirFonte();
 
         using var entrada = new MemoryStream(pdf, writable: false);
@@ -159,7 +163,7 @@ public sealed class AssinaturaDigitalService
             AppearanceHandler = new CarimboDeAssinatura(certificado, pedido)
         };
 
-        var assinador = assinadorEmNuvem ?? new PdfSharpDefaultSigner(
+        var assinador = remoto ?? new PdfSharpDefaultSigner(
             certificado.Certificado, PdfMessageDigestType.SHA256, pedido.CarimbadoraDeTempo);
 
         DigitalSignatureHandler.ForDocument(documento, assinador, opcoes);

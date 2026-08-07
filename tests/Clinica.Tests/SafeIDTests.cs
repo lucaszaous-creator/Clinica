@@ -522,6 +522,69 @@ public class SafeIDTests
         }
     }
 
+    // ---- O certificado carrega o próprio assinador ----
+
+    [Fact]
+    public async Task Certificado_em_nuvem_assina_SEM_chave_privada_nesta_maquina()
+    {
+        // A regra central da parcela 44. Sem ela, `Criticar` recusaria todo certificado do
+        // PSC com "não tem chave privada nesta máquina" — que é verdade e é irrelevante,
+        // porque quem faz a conta é o PSC.
+        var pkcs7 = Encoding.ASCII.GetBytes("PKCS7-DE-MENTIRA");
+
+        var publico = X509Certificate2.CreateFromPem(PemDeTeste("Dra. Ana Souza", "12345678909"));
+        Assert.False(publico.HasPrivateKey);   // é o caso que interessa
+
+        var certificado = CertificadoIcpBrasil.Ler(publico) with
+        {
+            AssinadorRemoto = new AssinadorDeMentira(pkcs7)
+        };
+
+        Assert.True(certificado.EmNuvem);
+        Assert.Equal("SafeID — nuvem", certificado.Procedencia);
+
+        var assinado = await new AssinaturaDigitalService(exigirCadeiaConfiavel: false)
+            .AssinarAsync(PdfDeUmaPagina(), certificado, PedidoSimples());
+
+        // O que o "PSC" devolveu foi para dentro do /Contents do PDF.
+        Assert.Contains(
+            Convert.ToHexString(pkcs7),
+            Encoding.Latin1.GetString(assinado.Pdf).ToUpperInvariant());
+    }
+
+    [Fact]
+    public void Certificado_da_maquina_continua_dizendo_que_eh_da_maquina()
+    {
+        var certificado = CertificadoIcpBrasil.Ler(
+            X509Certificate2.CreateFromPem(PemDeTeste("Dra. Ana Souza", "12345678909")));
+
+        Assert.False(certificado.EmNuvem);
+        Assert.Equal("nesta máquina", certificado.Procedencia);
+    }
+
+    private sealed class AssinadorDeMentira(byte[] pkcs7)
+        : PdfSharp.Pdf.Signatures.IDigitalSigner
+    {
+        public string CertificateName => "assinador de teste";
+        public Task<int> GetSignatureSizeAsync() => Task.FromResult(2048);
+        public Task<byte[]> GetSignatureAsync(Stream conteudo) => Task.FromResult(pkcs7);
+    }
+
+    private static PedidoAssinatura PedidoSimples() => new(
+        Motivo: "Teste",
+        NomeExibido: "Dra. Ana Souza",
+        RegistroConselho: "CRM 12345",
+        Area: new AreaAssinatura(0, 40, 40, 220, 60));
+
+    private static byte[] PdfDeUmaPagina()
+    {
+        var documento = new PdfSharp.Pdf.PdfDocument();
+        documento.AddPage();
+        using var fluxo = new MemoryStream();
+        documento.Save(fluxo, false);
+        return fluxo.ToArray();
+    }
+
     private static HandlerFalso HandlerQueResponde(
         string json, HttpStatusCode status = HttpStatusCode.OK)
         => new(json, status);

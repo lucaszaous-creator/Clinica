@@ -1,5 +1,10 @@
 using System.Collections.ObjectModel;
+using System.Net.Http;
 using Clinica.Application.Assinatura;
+using Clinica.Application.Assinatura.SafeID;
+using Clinica.Desktop.Shell.Configuracao;
+using Clinica.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -15,6 +20,9 @@ public sealed class LinhaCertificado
     public required string Emissor { get; init; }
     public required bool Vigente { get; init; }
     public required bool EhECpf { get; init; }
+
+    /// <summary>"SafeID — nuvem" ou "nesta máquina". A linha DIZ de onde o certificado veio.</summary>
+    public required string Procedencia { get; init; }
 
     /// <summary>Vencido não se escolhe: assinar com ele produz documento inválido.</summary>
     public bool PodeEscolher => Vigente && EhECpf;
@@ -35,7 +43,8 @@ public sealed class LinhaCertificado
         Validade = $"{c.ValidoDe:dd/MM/yyyy} a {c.ValidoAte:dd/MM/yyyy}",
         Emissor = c.Emissor,
         Vigente = c.Vigente,
-        EhECpf = c.EhECpf
+        EhECpf = c.EhECpf,
+        Procedencia = c.Procedencia
     };
 }
 
@@ -80,11 +89,138 @@ public sealed partial class EscolherCertificadoViewModel : ObservableObject
     /// <summary>Frase do cabeçalho, dita pelo chamador ("Assinar a prescrição PRE 2026/0001").</summary>
     public string Assunto { get; }
 
-    public EscolherCertificadoViewModel(string assunto)
+    private readonly IServiceScopeFactory? _escopos;
+    private readonly string? _cpfDeQuemAssina;
+
+    /// <summary>Está buscando na nuvem — a janela desabilita os botões e diz o que fazer.</summary>
+    [ObservableProperty] private bool _autorizando;
+
+    /// <summary>
+    /// A clínica cadastrou o SafeID. Metade visível da regra: sem isto o botão nem aparece,
+    /// em vez de aparecer e explicar depois do clique.
+    /// </summary>
+    [ObservableProperty] private bool _nuvemDisponivel;
+
+    /// <param name="escopos">
+    /// Null desliga a busca em nuvem. É o caso de quem chama sem DI à mão — e desligar é
+    /// melhor que oferecer um botão que não teria como funcionar.
+    /// </param>
+    public EscolherCertificadoViewModel(
+        string assunto, IServiceScopeFactory? escopos = null, string? cpfDeQuemAssina = null)
     {
         Assunto = assunto;
+        _escopos = escopos;
+        _cpfDeQuemAssina = cpfDeQuemAssina;
         Carregar();
+        _ = VerificarNuvemAsync();
     }
+
+    private async Task VerificarNuvemAsync()
+    {
+        if (_escopos is null) return;
+
+        try
+        {
+            using var escopo = _escopos.CreateScope();
+            NuvemDisponivel = await escopo.ServiceProvider
+                .GetRequiredService<ProvedorOpcoesSafeID>().ObterAsync() is not null;
+        }
+        catch (Exception ex)
+        {
+            // Sem SafeID a janela segue servindo para os certificados da máquina. Sumir sem
+            // rastro faria "o botão não aparece" virar mistério na hora do suporte.
+            LogSuite.Registrar("EscolherCertificado.VerificarNuvem", ex);
+        }
+    }
+
+    /// <summary>
+    /// Busca os certificados em nuvem: manda a médica ao QR Code e traz o que ela autorizar.
+    ///
+    /// Os certificados encontrados entram na MESMA lista dos da máquina, com a procedência
+    /// escrita na linha. Substituir a lista esconderia o token de quem ainda usa os dois, e
+    /// escolher sozinho acertaria na maioria das vezes e erraria em silêncio nas outras.
+    /// </summary>
+    [RelayCommand]
+    private async Task BuscarNaNuvemAsync()
+    {
+        if (_escopos is null || !NuvemDisponivel)
+        {
+            Mensagem = "O SafeID não está configurado. A direção cadastra o client_id e o "
+                     + "client_secret em Configurações → Operação.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        if (Autorizando) return;   // reentrância: "já estou fazendo", não "não dá"
+
+        Autorizando = true;
+        Mensagem = "Abrimos a página do SafeID no navegador. Leia o QR Code com o aplicativo "
+                 + "e confirme no celular — esta janela espera.";
+        MensagemEhErro = false;
+
+        try
+        {
+            OpcoesSafeID? opcoes;
+            using (var escopo = _escopos.CreateScope())
+                opcoes = await escopo.ServiceProvider
+                    .GetRequiredService<ProvedorOpcoesSafeID>().ObterAsync();
+
+            if (opcoes is null)
+                throw new InvalidOperationException(
+                    "O SafeID não está configurado nesta clínica.");
+
+            // O HttpClient vem da fábrica (singleton) e sobrevive ao escopo de propósito: o
+            // assinador guardado na linha vai usá-lo DEPOIS que esta janela fechar.
+            IHttpClientFactory fabrica;
+            using (var escopo = _escopos.CreateScope())
+                fabrica = escopo.ServiceProvider.GetRequiredService<IHttpClientFactory>();
+
+            var cliente = new ClienteSafeID(
+                fabrica.CreateClient(DependencyInjection.NomeHttpSafeID), opcoes);
+
+            var autorizacao = new AutorizacaoSafeIDService(
+                _ => Task.FromResult<OpcoesSafeID?>(opcoes),
+                _ => cliente,
+                AbrirNoNavegador);
+
+            var sessao = await autorizacao.AutorizarAsync(cpf: _cpfDeQuemAssina);
+
+            foreach (var daNuvem in sessao.Certificados)
+            {
+                var assinador = new AssinadorSafeID(
+                    cliente, sessao.Token.AccessToken, daNuvem, Assunto);
+
+                Certificados.Insert(0, LinhaCertificado.De(
+                    daNuvem.Certificado with { AssinadorRemoto = assinador }));
+            }
+
+            Vazio = Certificados.Count == 0;
+            Selecionado = Certificados.FirstOrDefault(c => c.PodeEscolher);
+
+            Mensagem = sessao.Certificados.Count == 0
+                ? "O SafeID autorizou, mas não devolveu nenhum certificado."
+                : null;
+            MensagemEhErro = sessao.Certificados.Count == 0;
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("EscolherCertificado.BuscarNaNuvem", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Autorizando = false;
+        }
+    }
+
+    /// <summary>
+    /// Abre a página do PSC no navegador padrão. <c>UseShellExecute</c> é obrigatório: sem
+    /// ele o .NET tenta executar a URL como programa e falha.
+    /// </summary>
+    private static void AbrirNoNavegador(Uri url)
+        => System.Diagnostics.Process.Start(
+            new System.Diagnostics.ProcessStartInfo(url.ToString()) { UseShellExecute = true });
 
     private void Carregar()
     {
@@ -105,6 +241,15 @@ public sealed partial class EscolherCertificadoViewModel : ObservableObject
 
     /// <summary>Metade visível da regra; a guarda em <see cref="ConfirmarAsync"/> é a que impede.</summary>
     public bool PodeConfirmar => Selecionado?.PodeEscolher == true;
+
+    /// <summary>
+    /// Falso enquanto a autorização em nuvem está em curso. Não é "não dá" — é "já estou
+    /// fazendo": clicar de novo abriria uma segunda página de QR e a médica confirmaria a
+    /// que não está sendo esperada.
+    /// </summary>
+    public bool PodeInteragir => !Autorizando;
+
+    partial void OnAutorizandoChanged(bool value) => OnPropertyChanged(nameof(PodeInteragir));
 
     partial void OnSelecionadoChanged(LinhaCertificado? value)
         => OnPropertyChanged(nameof(PodeConfirmar));

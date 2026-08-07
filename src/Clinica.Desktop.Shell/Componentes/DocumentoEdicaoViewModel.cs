@@ -31,6 +31,13 @@ public sealed partial class LinhaItemDocumento : ObservableObject
 public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
+
+    /// <summary>
+    /// Para a janela repassar ao seletor de certificado, que precisa de DI para oferecer a
+    /// busca em nuvem. Mesma assembly, então `internal` basta — e é melhor que a janela
+    /// receber uma segunda fábrica só para isso.
+    /// </summary>
+    internal IServiceScopeFactory Escopos => _escopos;
     private readonly int _pacienteId;
 
     /// <summary>O paciente inteiro — a conferência legal lê o endereço dele.</summary>

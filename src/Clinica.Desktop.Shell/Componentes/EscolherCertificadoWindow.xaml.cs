@@ -30,9 +30,21 @@ public partial class EscolherCertificadoWindow : Window
     /// Estático porque as três telas que assinam fazem exatamente a mesma coisa aqui, e
     /// repetir o `ShowDialog` em cada uma é como se perde a comparação com `Confirmou`.
     /// </summary>
-    public static CertificadoAssinatura? Perguntar(string assunto, Window? dono)
+    /// <param name="escopos">
+    /// Habilita a busca de certificado em NUVEM (SafeID). Null a desliga — e desligar é
+    /// melhor que mostrar um botão que não teria como funcionar.
+    /// </param>
+    /// <param name="cpfDeQuemAssina">
+    /// Vai como <c>login_hint</c> para a página do PSC já abrir no CPF certo, poupando a
+    /// médica de digitá-lo a cada documento.
+    /// </param>
+    public static CertificadoAssinatura? Perguntar(
+        string assunto, Window? dono,
+        Microsoft.Extensions.DependencyInjection.IServiceScopeFactory? escopos = null,
+        string? cpfDeQuemAssina = null)
     {
-        var janela = new EscolherCertificadoWindow(new EscolherCertificadoViewModel(assunto))
+        var janela = new EscolherCertificadoWindow(
+            new EscolherCertificadoViewModel(assunto, escopos, cpfDeQuemAssina))
         {
             Owner = dono
         };
