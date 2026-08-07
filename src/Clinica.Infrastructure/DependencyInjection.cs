@@ -123,12 +123,19 @@ public static class DependencyInjection
     /// </summary>
     private static void RegistrarSafeID(IServiceCollection services)
     {
-        var opcoes = ConfiguracaoSafeID.DoAmbiente();
-        if (opcoes is null) return;
+        // Registra SEMPRE, e resolve as credenciais só quando alguém for assinar. A versão
+        // anterior lia a configuração aqui e registrava condicionalmente — o que obrigava a
+        // resposta a existir antes de haver banco, e por tabela obrigava a clínica a definir
+        // variável de ambiente em cada máquina.
+        services.AddScoped<ProvedorOpcoesSafeID>();
 
-        services.AddSingleton(opcoes);
-        services.AddHttpClient<ClienteSafeID>(c => c.Timeout = TimeSpan.FromSeconds(30));
+        // Tempo-limite curto: quem está assinando tem um paciente na frente, e falhar em
+        // 30 s dizendo o motivo é melhor que travar a tela por dois minutos.
+        services.AddHttpClient(NomeHttpSafeID, c => c.Timeout = TimeSpan.FromSeconds(30));
     }
+
+    /// <summary>Nome do <c>HttpClient</c> configurado para falar com o PSC.</summary>
+    public const string NomeHttpSafeID = "SafeID";
 
     /// <summary>
     /// Resiliência de rede — a clínica trabalha contra um Postgres REMOTO (Neon), pela

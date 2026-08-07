@@ -39,6 +39,29 @@ public sealed record OpcoesSafeID(
         new("https://pscsafeweb-homologacao.safewebpss.com.br/Service/Microservice/OAuth/api/v0/oauth/");
 
     public Uri Base => BaseUrl ?? BasePadrao;
+
+    /// <summary>
+    /// As URIs de retorno cadastradas no portal da Safeweb para esta aplicação.
+    ///
+    /// Moram em CÓDIGO, e não em configuração, porque não são escolha de quem instala: são
+    /// parte do cadastro da aplicação no PSC, e o PSC recusa qualquer outra. Deixá-las
+    /// configuráveis por máquina só criaria a chance de alguém digitar uma quarta porta que
+    /// a Safeweb nunca vai aceitar — e o erro apareceria como "autorização recusada", sem
+    /// dizer que a causa foi um número trocado num campo.
+    ///
+    /// São três porque porta é recurso disputado: se 8123 estiver ocupada na máquina do
+    /// consultório, a escuta cai para a seguinte sozinha.
+    /// </summary>
+    public static readonly IReadOnlyList<Uri> RetornosPadrao =
+    [
+        new("http://127.0.0.1:8123/safeid/retorno"),
+        new("http://127.0.0.1:8124/safeid/retorno"),
+        new("http://127.0.0.1:8125/safeid/retorno")
+    ];
+
+    /// <summary>As de retorno em uso — as configuradas, ou o cadastro padrão.</summary>
+    public IReadOnlyList<Uri> Retornos =>
+        RedirectUris is { Count: > 0 } configuradas ? configuradas : RetornosPadrao;
 }
 
 /// <summary>

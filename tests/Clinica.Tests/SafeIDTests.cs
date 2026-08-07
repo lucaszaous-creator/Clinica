@@ -138,6 +138,26 @@ public class SafeIDTests
 
     private static Uri Loopback(int porta) => new($"http://127.0.0.1:{porta}/safeid/retorno");
 
+    [Fact]
+    public void SemConfiguracaoDeRetornoUsaOCadastroPadrao()
+    {
+        // As URIs são do cadastro da aplicação no PSC, não escolha de quem instala: sem nada
+        // configurado a clínica tem de sair funcionando, senão a instalação numa máquina nova
+        // volta a depender de ritual.
+        var opcoes = new OpcoesSafeID("id", "segredo");
+
+        Assert.Equal(OpcoesSafeID.RetornosPadrao, opcoes.Retornos);
+        Assert.All(opcoes.Retornos, uri => Assert.True(uri.IsLoopback));
+    }
+
+    [Fact]
+    public void RetornoConfiguradoVenceOPadrao()
+    {
+        var opcoes = new OpcoesSafeID("id", "segredo", RedirectUris: [Loopback(9999)]);
+
+        Assert.Equal(9999, opcoes.Retornos.Single().Port);
+    }
+
     private static OpcoesSafeID? Configuracao(string? ambiente) =>
         ConfiguracaoSafeID.DoAmbiente(chave => chave switch
         {

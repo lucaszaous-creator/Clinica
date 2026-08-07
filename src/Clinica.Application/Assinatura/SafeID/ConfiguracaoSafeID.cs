@@ -1,18 +1,24 @@
 namespace Clinica.Application.Assinatura.SafeID;
 
 /// <summary>
-/// De onde saem as credenciais do SafeID.
+/// A SOBREPOSIÇÃO por variável de ambiente das credenciais do SafeID.
 ///
-/// Por que do AMBIENTE, e não da tabela de configuração
-/// ----------------------------------------------------
-/// O <c>client_secret</c> autoriza pedir assinatura em nome da titular. Guardá-lo em
-/// <c>Configuracoes</c> daria a quem lê aquela tabela — qualquer usuário do Gerente, qualquer
-/// consulta ao banco, qualquer dump de apoio — o poder de assinar pela médica. É a mesma razão
-/// pela qual a connection string mora no <c>ConexaoStore</c> criptografado e não no banco que
-/// ela mesma abre.
+/// O lugar normal delas é o banco (<c>ParametrosService.ObterCredenciaisSafeIDAsync</c>),
+/// cadastradas uma vez pela direção e lidas por todas as máquinas — instalar o sistema num
+/// consultório novo não pode passar por digitar <c>setx</c> no Prompt de Comando.
 ///
-/// A convenção de nome segue a que o projeto já usa para
-/// <c>ConnectionStrings__Clinica</c>: duplo sublinhado separando a seção da chave.
+/// Isto aqui é o caminho de TESTE, e existe pela mesma razão que
+/// <c>ConnectionStrings__Clinica</c> (ver <c>docs/testar-sem-publicar.md</c>): apontar um
+/// build para a homologação da Safeweb sem gravar nada na base da clínica, e sem que o teste
+/// reescreva a configuração de produção pelo caminho. Por isso vence o banco, e por isso
+/// segue a mesma convenção de nome — duplo sublinhado separando a seção da chave.
+///
+/// Uma correção de rumo que vale registrar: a primeira versão guardava o
+/// <c>client_secret</c> SÓ aqui, com o argumento de que no banco ele daria a quem lê a
+/// tabela o poder de assinar pela médica. <b>Isso estava errado.</b> O segredo identifica a
+/// APLICAÇÃO, não a titular: para assinar é preciso, ainda, a médica aprovar no celular (ou
+/// o PIN dela) e o CPF de dentro do certificado bater com o do cadastro. Sozinho ele não
+/// assina nada — e o custo daquele engano era um ritual de instalação que um dia falta.
 /// </summary>
 public static class ConfiguracaoSafeID
 {
@@ -56,7 +62,7 @@ public static class ConfiguracaoSafeID
     /// foram assinados com certificado de teste — o inverso falha no primeiro clique, que é
     /// o momento certo de falhar.
     /// </summary>
-    private static bool EhHomologacao(string? valor)
+    public static bool EhHomologacao(string? valor)
         => Limpar(valor) is { } texto
            && (texto.Equals("homologacao", StringComparison.OrdinalIgnoreCase)
                || texto.Equals("homologação", StringComparison.OrdinalIgnoreCase)
