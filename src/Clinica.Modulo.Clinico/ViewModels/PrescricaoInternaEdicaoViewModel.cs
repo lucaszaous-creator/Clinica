@@ -93,7 +93,11 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     public IReadOnlyList<ViaAdministracao> Vias { get; } = Enum.GetValues<ViaAdministracao>();
 
     [ObservableProperty] private string _paciente = string.Empty;
-    [ObservableProperty] private string _numero = "—";
+    /// <summary>
+    /// Número da série anual. Fica com o aviso até a primeira gravação, porque até lá a
+    /// prescrição não existe — mostrar "—" sugeriria falha de carregamento.
+    /// </summary>
+    [ObservableProperty] private string _numero = "(será numerada ao salvar)";
     [ObservableProperty] private string? _indicacao;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private string? _mensagem;
@@ -112,26 +116,44 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     /// <summary>Sem item não se assina — e o botão diz isso antes do clique.</summary>
     public bool PodeAssinar => PodePrescrever && !Ocupado && Itens.Count > 0;
 
+    /// <param name="prescricaoId">
+    /// Rascunho existente a REABRIR. Nulo cria uma prescrição nova.
+    ///
+    /// Sem este parâmetro, salvar um rascunho e fechar a janela deixava a prescrição
+    /// inalcançável: a lista só oferecia "Abrir", que leva à folha de EXECUÇÃO (a tela da
+    /// enfermagem), e não havia caminho de volta para a edição. <c>PrescricaoInterna
+    /// .PodeEditar</c> existe no domínio desde a parcela 42 dizendo que rascunho se edita —
+    /// e nenhuma tela oferecia isso.
+    /// </param>
     public PrescricaoInternaEdicaoViewModel(
         IServiceScopeFactory escopos, IDialogoService dialogo,
-        int pacienteId, string paciente, int? profissionalId, int? agendamentoId = null)
+        int pacienteId, string paciente, int? profissionalId, int? agendamentoId = null,
+        int? prescricaoId = null)
     {
         _escopos = escopos;
         _dialogo = dialogo;
         _pacienteId = pacienteId;
         _profissionalId = profissionalId;
         _agendamentoId = agendamentoId;
+        _prescricaoId = prescricaoId ?? 0;
         Paciente = paciente;
 
         Itens.CollectionChanged += (_, _) => OnPropertyChanged(nameof(PodeAssinar));
-        AcrescentarItem();
+
+        // Só a prescrição NOVA nasce com uma linha em branco: reabrir um rascunho e ganhar
+        // um item vazio no fim faria a folha impressa sair com uma linha fantasma se
+        // ninguém reparasse.
+        if (_prescricaoId == 0) AcrescentarItem();
 
         _ = PrepararAsync();
     }
 
     partial void OnOcupadoChanged(bool value) => OnPropertyChanged(nameof(PodeAssinar));
 
-    /// <summary>Cria o rascunho no banco e carrega o contexto clínico do paciente.</summary>
+    /// <summary>
+    /// Carrega o contexto clínico do paciente e, quando se está REABRINDO, o rascunho.
+    /// Prescrição nova não é criada aqui — ver o comentário adiante.
+    /// </summary>
     private async Task PrepararAsync()
     {
         try
@@ -141,21 +163,44 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
 
-            var prescricao = await servico.CriarAsync(
-                _pacienteId, _profissionalId, _agendamentoId,
-                operador: SessaoUsuario.Atual.Operador);
+            // A prescrição NOVA não é criada aqui, e isso é decisão (parcela 45): a
+            // criação assinala um NÚMERO da série anual (PRE 2026/0001) e grava a linha.
+            // Fazer isso na abertura da janela significava que abrir e desistir deixava
+            // um rascunho vazio numerado na lista da clínica — e, agora que o rascunho
+            // pode ser reaberto, esses órfãos passariam a ser visíveis e clicáveis.
+            // Quem cria é o primeiro salvamento, que é quando existe algo para numerar.
+            if (_prescricaoId == 0)
+            {
+                await CarregarContextoAsync(servico);
+                return;
+            }
+
+            var prescricao = await servico.ObterAsync(_prescricaoId)
+                ?? throw new InvalidOperationException("Prescrição não encontrada.");
+
+            // Assinada não se edita: os bytes já foram selados, e deixar a tela abrir para
+            // edição faria a médica digitar por nada e descobrir na hora de salvar.
+            if (!prescricao.PodeEditar)
+                throw new InvalidOperationException(
+                    $"A prescrição {prescricao.Numero} já foi assinada e não pode mais ser "
+                    + "editada. Cancele e emita outra, se for o caso.");
 
             _prescricaoId = prescricao.Id;
             Numero = prescricao.Numero;
 
-            var contexto = await servico.ContextoAsync(_pacienteId);
-            Alertas.Clear();
-            foreach (var alergia in contexto.Alergias)
-                Alertas.Add($"ALERGIA: {alergia.Rotulo}");
-            foreach (var medicacao in contexto.MedicacoesEmUso)
-                Alertas.Add($"Em uso contínuo: {medicacao.Descricao}");
+            if (prescricao.Itens.Count > 0)
+            {
+                Indicacao = prescricao.Indicacao;
+                Observacoes = prescricao.Observacoes;
 
-            TemAlertas = Alertas.Count > 0;
+                Itens.Clear();
+                foreach (var item in prescricao.Itens.OrderBy(i => i.Ordem))
+                    Itens.Add(LinhaItemPrescricao.De(item));
+
+                AcrescentarItem();   // uma linha livre para acrescentar
+            }
+
+            await CarregarContextoAsync(servico);
         }
         catch (Exception ex)
         {
@@ -168,6 +213,20 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         {
             Ocupado = false;
         }
+    }
+
+    /// <summary>Alergias e medicação contínua do paciente — o que a tela avisa antes de prescrever.</summary>
+    private async Task CarregarContextoAsync(PrescricaoInternaService servico)
+    {
+        var contexto = await servico.ContextoAsync(_pacienteId);
+
+        Alertas.Clear();
+        foreach (var alergia in contexto.Alergias)
+            Alertas.Add($"ALERGIA: {alergia.Rotulo}");
+        foreach (var medicacao in contexto.MedicacoesEmUso)
+            Alertas.Add($"Em uso contínuo: {medicacao.Descricao}");
+
+        TemAlertas = Alertas.Count > 0;
     }
 
     [RelayCommand]
@@ -202,13 +261,6 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
         {
             Mensagem = "Acrescente ao menos um item antes de assinar: uma folha assinada em "
                      + "branco vira espaço para alguém escrever uma linha depois.";
-            MensagemEhErro = true;
-            return;
-        }
-
-        if (_prescricaoId == 0)
-        {
-            Mensagem = "O rascunho ainda não foi criado. Aguarde um instante e tente de novo.";
             MensagemEhErro = true;
             return;
         }
@@ -313,6 +365,17 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
             Ocupado = true;
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
+
+            // Primeira gravação: é AQUI que a prescrição passa a existir e ganha número.
+            if (_prescricaoId == 0)
+            {
+                var criada = await servico.CriarAsync(
+                    _pacienteId, _profissionalId, _agendamentoId,
+                    operador: SessaoUsuario.Atual.Operador);
+
+                _prescricaoId = criada.Id;
+                Numero = criada.Numero;
+            }
 
             var salva = await servico.SalvarRascunhoAsync(
                 _prescricaoId, Indicacao, Observacoes, itens,
