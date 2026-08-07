@@ -404,6 +404,124 @@ public class SafeIDTests
                "raw_signature":"{{Convert.ToBase64String(pkcs7)}}"}]}
             """;
 
+    // ---- O passo a passo da autorização ----
+
+    [Fact]
+    public async Task Sem_configuracao_a_autorizacao_diz_ONDE_configurar()
+    {
+        // "SafeID não configurado" mandaria procurar no portal da Safeweb. A frase tem de
+        // apontar a tela, senão o suporte da clínica passa a tarde no lugar errado.
+        var servico = new AutorizacaoSafeIDService(
+            _ => Task.FromResult<OpcoesSafeID?>(null),
+            _ => new ClienteSafeID(new HttpClient(HandlerQueResponde("{}")), Opcoes),
+            _ => throw new Xunit.Sdk.XunitException("não devia abrir o navegador"));
+
+        Assert.False(await servico.ConfiguradoAsync());
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => servico.AutorizarAsync());
+
+        Assert.Contains("Configurações", erro.Message);
+    }
+
+    [Fact]
+    public async Task Autorizacao_completa_troca_o_codigo_e_devolve_o_certificado()
+    {
+        // O fluxo inteiro, com escuta de verdade: o "navegador" é um HttpClient que bate na
+        // URI de retorno levando o code e o state, como o PSC faria.
+        var handler = new HandlerPorCaminho
+        {
+            ["token"] = """{"access_token":"tk-1","expires_in":300}""",
+            ["certificate-discovery"] =
+                $$"""{"status":"S","certificates":[{"alias":"slot-1","certificate":{{JsonSerializer.Serialize(PemDeTeste("Dra. Ana Souza", "12345678909"))}}}]}"""
+        };
+
+        var opcoes = Opcoes with { RedirectUris = [Loopback(18200)] };
+
+        var servico = new AutorizacaoSafeIDService(
+            _ => Task.FromResult<OpcoesSafeID?>(opcoes),
+            o => new ClienteSafeID(new HttpClient(handler), o),
+            url => _ = SimularNavegador(url));
+
+        var sessao = await servico.AutorizarAsync(cpf: "12345678909", espera: TimeSpan.FromSeconds(20));
+
+        Assert.Equal("tk-1", sessao.Token.AccessToken);
+        Assert.Equal("slot-1", sessao.Certificados.Single().Alias);
+
+        // A regra que faz a assinatura qualificada valer atravessa a nuvem intacta: o CPF sai
+        // de DENTRO do certificado que o PSC devolveu, não de um campo informado.
+        Assert.Equal("12345678909", sessao.Certificados.Single().Certificado.Cpf);
+
+        // O mesmo redirect_uri nas duas chamadas — divergir aqui é a recusa que o PSC não
+        // explica.
+        Assert.Contains("redirect_uri=" + Uri.EscapeDataString(Loopback(18200).ToString()),
+            handler.CorpoDe("token"));
+    }
+
+    [Fact]
+    public async Task Autorizacao_que_ninguem_confirma_expira_com_frase_propria()
+    {
+        var opcoes = Opcoes with { RedirectUris = [Loopback(18201)] };
+
+        var servico = new AutorizacaoSafeIDService(
+            _ => Task.FromResult<OpcoesSafeID?>(opcoes),
+            o => new ClienteSafeID(new HttpClient(HandlerQueResponde("{}")), o),
+            _ => { /* a médica não pegou o celular */ });
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => servico.AutorizarAsync(espera: TimeSpan.FromMilliseconds(300)));
+
+        Assert.Contains("expirou", erro.Message);
+    }
+
+    /// <summary>Faz o papel do navegador: volta na URI de retorno com o code e o state.</summary>
+    private static async Task SimularNavegador(Uri autorizacao)
+    {
+        var consulta = System.Web.HttpUtility.ParseQueryString(autorizacao.Query);
+        var retorno = new Uri(consulta["redirect_uri"]!);
+
+        using var navegador = new HttpClient();
+
+        // A escuta pode não ter terminado de subir no instante em que a URL é "aberta".
+        for (var tentativa = 0; tentativa < 40; tentativa++)
+        {
+            try
+            {
+                await navegador.GetAsync(
+                    $"{retorno}?code=cod-1&state={consulta["state"]}");
+                return;
+            }
+            catch (HttpRequestException) { await Task.Delay(50); }
+        }
+    }
+
+    private sealed class HandlerPorCaminho : HttpMessageHandler
+    {
+        private readonly Dictionary<string, string> _respostas = [];
+        private readonly Dictionary<string, string> _corpos = [];
+
+        public string this[string caminho] { set => _respostas[caminho] = value; }
+
+        public string CorpoDe(string caminho) => _corpos.GetValueOrDefault(caminho, string.Empty);
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage requisicao, CancellationToken ct)
+        {
+            var caminho = _respostas.Keys.FirstOrDefault(
+                c => requisicao.RequestUri!.ToString().Contains(c)) ?? string.Empty;
+
+            if (requisicao.Content is not null)
+                _corpos[caminho] = await requisicao.Content.ReadAsStringAsync(ct);
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    _respostas.GetValueOrDefault(caminho, "{}"),
+                    Encoding.UTF8, "application/json")
+            };
+        }
+    }
+
     private static HandlerFalso HandlerQueResponde(
         string json, HttpStatusCode status = HttpStatusCode.OK)
         => new(json, status);
