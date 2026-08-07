@@ -1,4 +1,5 @@
 using Clinica.Application.Assinatura;
+using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Regras;
@@ -46,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<AssinaturaDePrescricaoService>();
         services.AddScoped<AssinaturaDeDocumentoClinicoService>();
         services.AddSingleton(new AssinaturaDigitalService(exigirCadeiaConfiavel: true));
+        RegistrarSafeID(services);
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();
         services.AddScoped<ConsentimentoService>();
@@ -104,6 +106,28 @@ public static class DependencyInjection
         // Backup e restauração da base inteira (parcela 34).
         services.AddScoped<BackupService>();
         return services;
+    }
+
+    /// <summary>
+    /// Assinatura em nuvem pelo SafeID (parcela 44), quando a clínica a configurou.
+    ///
+    /// <b>Silencioso quando não há configuração, e isso é decisão.</b> Este método roda no
+    /// arranque de todos os aplicativos, inclusive o faturamento CONGELADO, que não assina
+    /// nada — lançar aqui por falta de uma variável de ambiente derrubaria a abertura de um
+    /// app em produção por causa de uma funcionalidade que ele não usa.
+    ///
+    /// O <see cref="HttpClient"/> é registrado com <c>AddHttpClient</c> por causa do
+    /// esgotamento de portas que <c>new HttpClient()</c> por chamada produz — e com um
+    /// tempo-limite curto, porque quem está assinando tem um paciente na frente: falhar em
+    /// 30 s dizendo o motivo é melhor que travar a tela por dois minutos.
+    /// </summary>
+    private static void RegistrarSafeID(IServiceCollection services)
+    {
+        var opcoes = ConfiguracaoSafeID.DoAmbiente();
+        if (opcoes is null) return;
+
+        services.AddSingleton(opcoes);
+        services.AddHttpClient<ClienteSafeID>(c => c.Timeout = TimeSpan.FromSeconds(30));
     }
 
     /// <summary>

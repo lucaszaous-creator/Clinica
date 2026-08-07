@@ -28,6 +28,83 @@ namespace Clinica.Tests;
 /// </summary>
 public class SafeIDTests
 {
+    // ---- Configuração vinda do ambiente ----
+    //
+    // O teste que importa aqui é o da AUSÊNCIA. `AddClinica` é chamado pelo faturamento
+    // CONGELADO, que não assina nada: se a leitura da configuração lançasse por falta de
+    // variável de ambiente, a abertura de um app em produção quebraria por causa de uma
+    // funcionalidade que ele nunca usou.
+
+    [Fact]
+    public void ConfiguracaoAusenteNaoLancaEDevolveNulo()
+    {
+        Assert.Null(ConfiguracaoSafeID.DoAmbiente(_ => null));
+    }
+
+    [Theory]
+    [InlineData("id", null)]
+    [InlineData(null, "segredo")]
+    [InlineData("id", "   ")]
+    public void MeiaConfiguracaoEhTratadaComoAusente(string? id, string? segredo)
+    {
+        // Meia configuração é pior que nenhuma: a tela apareceria e falharia no clique.
+        var lido = ConfiguracaoSafeID.DoAmbiente(chave => chave switch
+        {
+            ConfiguracaoSafeID.ChaveClientId => id,
+            ConfiguracaoSafeID.ChaveClientSecret => segredo,
+            _ => null
+        });
+
+        Assert.Null(lido);
+    }
+
+    [Fact]
+    public void AmbientePadraoEhProducao()
+    {
+        // Apontar para homologação sem perceber faria meses de documentos serem assinados
+        // com certificado de teste. O engano inverso falha no primeiro clique.
+        var lido = Configuracao(ambiente: null);
+
+        Assert.NotNull(lido);
+        Assert.Equal(OpcoesSafeID.BasePadrao, lido!.Base);
+    }
+
+    [Theory]
+    [InlineData("homologacao")]
+    [InlineData("HOMOLOGAÇÃO")]
+    [InlineData("hml")]
+    public void HomologacaoSoQuandoPedidaPorExtenso(string ambiente)
+    {
+        Assert.Equal(OpcoesSafeID.BaseHomologacao, Configuracao(ambiente)!.Base);
+    }
+
+    [Fact]
+    public void UriDeRetornoEhLidaLiteralmente()
+    {
+        // O redirect_uri é comparado como TEXTO EXATO pelo OAuth. Normalizar (tirar barra
+        // do fim, baixar caixa) produziria recusa do PSC com mensagem que não explica.
+        const string comBarra = "http://127.0.0.1:8123/safeid/retorno/";
+
+        var lido = ConfiguracaoSafeID.DoAmbiente(chave => chave switch
+        {
+            ConfiguracaoSafeID.ChaveClientId => "id",
+            ConfiguracaoSafeID.ChaveClientSecret => "segredo",
+            ConfiguracaoSafeID.ChaveRedirectUri => comBarra,
+            _ => null
+        });
+
+        Assert.Equal(comBarra, lido!.RedirectUri!.ToString());
+    }
+
+    private static OpcoesSafeID? Configuracao(string? ambiente) =>
+        ConfiguracaoSafeID.DoAmbiente(chave => chave switch
+        {
+            ConfiguracaoSafeID.ChaveClientId => "id",
+            ConfiguracaoSafeID.ChaveClientSecret => "segredo",
+            ConfiguracaoSafeID.ChaveAmbiente => ambiente,
+            _ => null
+        });
+
     private static readonly OpcoesSafeID Opcoes = new(
         ClientId: "clinica-teste",
         ClientSecret: "segredo",
