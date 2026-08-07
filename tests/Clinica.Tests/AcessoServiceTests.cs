@@ -36,6 +36,49 @@ public class AcessoServiceTests : IDisposable
     private Task<UsuarioSistema> CriarGerenteAsync(string login = "direcao")
         => _acesso.CriarAsync("Direção", login, "segredo123", PerfilAcesso.Gerente);
 
+    // ===== A junção acesso → profissional → certificado (parcela 45) =====
+
+    [Fact]
+    public async Task DoisUsuariosAtivos_NaoPodemApontarParaOMesmoProfissional()
+    {
+        // SessaoUsuario.ProfissionalId é o que faz o Consultório saber de quem é "meu dia",
+        // e a entrada por certificado casa o CPF com o profissional. Dois usuários ativos
+        // para a mesma pessoa tornam ambígua a resposta a "quem entrou?".
+        var profissional = new Profissional { Nome = "Dra. Ana Souza", Cpf = "12345678909" };
+        _db.Profissionais.Add(profissional);
+        await _db.SaveChangesAsync();
+
+        await _acesso.CriarAsync("Ana", "ana", "segredo123", PerfilAcesso.Gerente, profissional.Id);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _acesso.CriarAsync("Ana 2", "ana2", "segredo123", PerfilAcesso.Gerente, profissional.Id));
+
+        erro.Message.Should().Contain("ana");
+    }
+
+    [Fact]
+    public async Task ProfissionalDeUsuarioDESATIVADO_PodeSerVinculadoAOutro()
+    {
+        // Desativado não disputa nada: exigir que a direção apague o acesso antigo para
+        // cadastrar o substituto perderia a trilha de quem era o operador do histórico.
+        var profissional = new Profissional { Nome = "Dra. Ana Souza" };
+        _db.Profissionais.Add(profissional);
+        await _db.SaveChangesAsync();
+
+        var antigo = await _acesso.CriarAsync(
+            "Ana", "ana", "segredo123", PerfilAcesso.Gerente, profissional.Id);
+
+        await CriarGerenteAsync("suporte");   // não deixa a base sem gestor
+        await _acesso.AtualizarAsync(
+            antigo.Id, "Ana", PerfilAcesso.Gerente, profissional.Id,
+            Permissao.Nenhuma, Permissao.Nenhuma, ativo: false);
+
+        var novo = await _acesso.CriarAsync(
+            "Ana nova", "ana2", "segredo123", PerfilAcesso.Profissional, profissional.Id);
+
+        novo.ProfissionalId.Should().Be(profissional.Id);
+    }
+
     // ===== Entrada pelo certificado (SafeID, parcela 44) =====
     //
     // O método não autentica ninguém: quem autenticou foi o PSC, quando a médica confirmou
