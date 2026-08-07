@@ -11,6 +11,11 @@ namespace Clinica.Application.Assinatura;
 /// </summary>
 /// <param name="Certificado">O objeto do sistema, com a chave privada. Não é serializado.</param>
 /// <param name="Cpf">Só dígitos, extraído da extensão ICP-Brasil. Null se não for um e-CPF.</param>
+/// <param name="Provedor">
+/// Nome do provedor de chave do Windows (CSP/KSP), quando dá para saber. É ele que
+/// distingue um certificado em NUVEM de um que está mesmo na máquina — e é a única fonte
+/// honesta disso: o emissor não serve, porque a mesma AC emite os dois.
+/// </param>
 public sealed record CertificadoAssinatura(
     X509Certificate2 Certificado,
     string Titular,
@@ -18,7 +23,8 @@ public sealed record CertificadoAssinatura(
     string NumeroSerie,
     DateTime ValidoDe,
     DateTime ValidoAte,
-    string? Cpf)
+    string? Cpf,
+    string? Provedor = null)
 {
     /// <summary>
     /// Quem faz a conta da assinatura quando a chave NÃO está nesta máquina — o SafeID
@@ -33,16 +39,63 @@ public sealed record CertificadoAssinatura(
     /// </summary>
     public PdfSharp.Pdf.Signatures.IDigitalSigner? AssinadorRemoto { get; init; }
 
-    /// <summary>Está em nuvem: a chave privada não existe nesta máquina.</summary>
-    public bool EmNuvem => AssinadorRemoto is not null;
-
-    /// <summary>De onde ele veio — o seletor escreve isto na linha.</summary>
-    public string Procedencia => EmNuvem ? "SafeID — nuvem" : "nesta máquina";
-
     public bool Vigente => DateTime.Now >= ValidoDe && DateTime.Now <= ValidoAte;
 
     /// <summary>É um e-CPF ICP-Brasil (traz o CPF do titular dentro de si).</summary>
     public bool EhECpf => Cpf is not null;
+
+    /// <summary>
+    /// A chave vive em NUVEM (SafeID, Bird ID, VIDaaS) e a assinatura vai pedir
+    /// autorização no celular do titular.
+    ///
+    /// Três estados, não dois: <c>true</c> é nuvem, <c>false</c> é máquina e
+    /// <c>null</c> é <b>não sei</b> — o provedor não foi identificado (Linux, ou um
+    /// CSP que não se apresenta). Chutar "máquina" faria a tela prometer uma assinatura
+    /// instantânea que vai ficar meio minuto esperando um PIN no telefone.
+    /// </summary>
+    /// <remarks>
+    /// <b>Duas coisas diferentes desembocam aqui</b>, e a fusão é deliberada (parcela 45).
+    /// Um certificado é "em nuvem" quando assinamos por ele via API do PSC
+    /// (<see cref="AssinadorRemoto"/>, parcela 44) <i>ou</i> quando a chave está num
+    /// provedor de nuvem instalado nesta máquina (o driver da Safeweb, do Bird ID…). São
+    /// caminhos técnicos distintos e a consequência para quem usa é a MESMA: a assinatura
+    /// para e espera uma autorização no celular. Manter dois conceitos separados obrigaria
+    /// cada tela a perguntar as duas coisas, e a que esquecesse metade deixaria a janela
+    /// parecendo travada.
+    /// </remarks>
+    public bool? EmNuvem => AssinadorRemoto is not null
+        ? true
+        : Provedor is null
+            ? null
+            : ProvedoresEmNuvem.Any(p => Provedor.Contains(p, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>De onde ele veio, curto — o seletor escreve isto na linha.</summary>
+    public string Procedencia => AssinadorRemoto is not null
+        ? "SafeID — nuvem"
+        : EmNuvem switch
+        {
+            true => "nuvem (nesta máquina)",
+            false => "nesta máquina",
+            null => "origem não identificada"
+        };
+
+    /// <summary>
+    /// Pedaços de nome de provedor que denunciam chave em nuvem. Lista curta e explícita
+    /// de propósito: o que não está aqui devolve "máquina", e errar para "máquina" é o
+    /// erro barato (a tela deixa de avisar sobre o celular; não promete nada falso).
+    /// </summary>
+    private static readonly string[] ProvedoresEmNuvem =
+        ["safeweb", "safeid", "bird", "soluti", "vidaas", "valid", "cloud", "nuvem", "remot"];
+
+    /// <summary>Onde a chave está, na frase que a tela mostra.</summary>
+    public string OndeEstaAChave => AssinadorRemoto is not null
+        ? "Em nuvem pelo SafeID — a autorização vai para o celular do titular"
+        : EmNuvem switch
+        {
+            true => "Em nuvem — a autorização vai para o celular do titular",
+            false => "Nesta máquina (arquivo A1 ou token A3)",
+            null => "Origem da chave não identificada"
+        };
 
     /// <summary>Como o certificado aparece no seletor.</summary>
     public string Rotulo
@@ -160,7 +213,44 @@ public static class CertificadoIcpBrasil
             NumeroSerie: certificado.SerialNumber,
             ValidoDe: certificado.NotBefore,
             ValidoAte: certificado.NotAfter,
-            Cpf: CpfDoTitular(certificado));
+            Cpf: CpfDoTitular(certificado),
+            Provedor: ProvedorDaChave(certificado));
+
+    /// <summary>
+    /// O nome do provedor de chave (CSP/KSP) do Windows, quando existe.
+    ///
+    /// É assim que o sistema sabe que a chave está em NUVEM: o SafeID Desktop, o Bird ID e
+    /// o VIDaaS instalam um provedor próprio e o certificado aparece no repositório do
+    /// Windows apontando para ele. Ler o EMISSOR não resolveria — a mesma autoridade emite
+    /// o certificado em nuvem e o de token.
+    ///
+    /// Devolve <c>null</c> quando não dá para saber (Linux, provedor que não se apresenta,
+    /// ou qualquer falha): a tela então diz "não identificada" em vez de inventar.
+    /// Obter o handle da chave NÃO dispara pedido de autorização no celular — isso só
+    /// acontece na hora de assinar.
+    /// </summary>
+    public static string? ProvedorDaChave(X509Certificate2 certificado)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+
+        try
+        {
+            using var chave = certificado.GetRSAPrivateKey();
+
+            return chave switch
+            {
+                System.Security.Cryptography.RSACng cng => cng.Key.Provider?.Provider,
+                System.Security.Cryptography.RSACryptoServiceProvider csp
+                    => csp.CspKeyContainerInfo.ProviderName,
+                _ => null
+            };
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("CertificadoIcpBrasil.ProvedorDaChave", ex);
+            return null;
+        }
+    }
 
     /// <summary>
     /// O CPF gravado no certificado, só dígitos, ou <c>null</c> quando não é um e-CPF.

@@ -98,9 +98,16 @@
                                                TextWrapping="Wrap" Margin="0,2,0,0">
                                         <Run Text="emissor: " />
                                         <Run Text="{Binding Emissor, Mode=OneWay}" />
-                                        <Run Text=" · " />
-                                        <Run Text="{Binding Procedencia, Mode=OneWay}" />
                                     </TextBlock>
+
+                                    <!-- ONDE A CHAVE ESTÁ. Num certificado em nuvem (SafeID,
+                                         Bird ID, VIDaaS) a assinatura para e espera o PIN no
+                                         celular do titular — sem este aviso, a janela parece
+                                         travada e alguém clica de novo. -->
+                                    <TextBlock Style="{StaticResource TextoSuave}"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               TextWrapping="Wrap" Margin="0,2,0,0"
+                                               Text="{Binding Origem}" />
                                 </StackPanel>
 
                                 <!-- O impedimento aparece NA LINHA: descobrir o requisito

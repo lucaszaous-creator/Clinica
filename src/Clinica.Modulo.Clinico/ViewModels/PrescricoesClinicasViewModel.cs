@@ -343,17 +343,30 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             // do "botão que não faz nada".
             if (certificado is null) return;
 
-            DocumentoAssinado assinado;
-            using (var scope = _escopos.CreateScope())
+            // Certificado em nuvem para e ESPERA o celular. Sem esta frase a janela fica
+            // parada sem explicação, e quem está no balcão clica de novo.
+            if (certificado.EmNuvem == true)
             {
+                Mensagem = "Autorize a assinatura no seu celular (SafeID ou app do seu "
+                         + "certificado em nuvem). A janela espera aqui.";
+                MensagemEhErro = false;
+            }
+
+            int? usuarioId = SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null;
+            var operador = SessaoUsuario.Atual.Operador;
+
+            // FORA da thread da interface: com chave em nuvem a assinatura fica parada
+            // esperando o PIN no celular, e a janela congelada leva a pessoa a matar o
+            // aplicativo no meio de uma operação que grava.
+            var assinado = await Task.Run(async () =>
+            {
+                using var scope = _escopos.CreateScope();
                 var assinaturas = scope.ServiceProvider
                     .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
 
-                assinado = await assinaturas.AssinarAsync(
-                    linha.DocumentoId, certificado,
-                    SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
-                    SessaoUsuario.Atual.Operador);
-            }
+                return await assinaturas.AssinarAsync(
+                    linha.DocumentoId, certificado, usuarioId, operador);
+            });
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 assinado.Pdf, ImpressaoPdf.NomeSeguro(assinado.NomeArquivo));

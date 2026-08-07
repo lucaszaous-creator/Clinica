@@ -567,15 +567,24 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             return null;
         }
 
+        // Certificado em nuvem para e ESPERA a autorização no celular; sem esta frase a
+        // janela fica parada sem explicação.
+        if (certificado.EmNuvem == true)
+            Informar("Autorize a assinatura no seu celular (SafeID ou app do seu certificado "
+                     + "em nuvem). A janela espera aqui.");
+
         try
         {
             var assinaturas = scope.ServiceProvider
                 .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
 
-            return await assinaturas.AssinarAsync(
-                documentoId, certificado,
-                SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
-                SessaoUsuario.Atual.Operador);
+            int? usuarioId = SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null;
+            var operador = SessaoUsuario.Atual.Operador;
+
+            // Fora da thread da interface: com chave em nuvem isto bloqueia até o PIN
+            // chegar, e janela congelada faz a pessoa matar o app no meio de uma gravação.
+            return await Task.Run(() => assinaturas.AssinarAsync(
+                documentoId, certificado, usuarioId, operador));
         }
         catch (Exception ex)
         {

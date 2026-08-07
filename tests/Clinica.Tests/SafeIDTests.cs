@@ -583,13 +583,17 @@ public class SafeIDTests
     }
 
     [Fact]
-    public void Certificado_da_maquina_continua_dizendo_que_eh_da_maquina()
+    public void Certificado_sem_provedor_identificado_NAO_afirma_ser_da_maquina()
     {
+        // Três estados, não dois: sem provedor identificado a resposta é "não sei". Chutar
+        // "nesta máquina" prometeria assinatura instantânea a quem vai ficar esperando um
+        // PIN no telefone — e é por isso que EmNuvem é bool?, não bool.
         var certificado = CertificadoIcpBrasil.Ler(
             X509Certificate2.CreateFromPem(PemDeTeste("Dra. Ana Souza", "12345678909")));
 
-        Assert.False(certificado.EmNuvem);
-        Assert.Equal("nesta máquina", certificado.Procedencia);
+        Assert.Null(certificado.EmNuvem);
+        Assert.Equal("origem não identificada", certificado.Procedencia);
+        Assert.Null(certificado.AssinadorRemoto);
     }
 
     private sealed class AssinadorDeMentira(byte[] pkcs7)

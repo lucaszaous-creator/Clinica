@@ -108,11 +108,20 @@ public static class EntregaAoPaciente
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault() ?? nomePaciente;
 
-        var artigo = tipoDocumento.StartsWith("Receita", StringComparison.OrdinalIgnoreCase)
-            ? "sua" : "seu";
+        // Concordância de verdade, e não "assinado(a)": esta frase vai para o WhatsApp do
+        // paciente com o nome da clínica embaixo. Os quatro rótulos que chegam aqui são
+        // "Receita", "Atestado", "Declaração de comparecimento" e "Pedido de exame" — os
+        // dois primeiros substantivos decidem o gênero de todos.
+        var feminino =
+            tipoDocumento.StartsWith("Receita", StringComparison.OrdinalIgnoreCase) ||
+            tipoDocumento.StartsWith("Declaração", StringComparison.OrdinalIgnoreCase) ||
+            tipoDocumento.StartsWith("Anamnese", StringComparison.OrdinalIgnoreCase);
 
-        return $"Olá, {primeiroNome}! Segue {artigo} {tipoDocumento.ToLowerInvariant()} "
-             + "assinado(a) digitalmente. "
+        var artigo = feminino ? "sua" : "seu";
+        var assinado = feminino ? "assinada" : "assinado";
+
+        return $"Olá, {primeiroNome}! Segue {artigo} {tipoDocumento.ToLowerInvariant()}, "
+             + $"{assinado} digitalmente. "
              + "Apresente o ARQUIVO PDF (não a foto nem a impressão) — é nele que fica a "
              + $"assinatura. A farmácia confere em {DocumentosClinicosPdfService.ValidadorOficial}."
              + (string.IsNullOrWhiteSpace(nomeClinica) ? string.Empty : $" — {nomeClinica}");

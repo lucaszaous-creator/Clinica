@@ -84,26 +84,40 @@ A primeira leitura do problema concluiu que faltava construir um **portal públi
 validação**, e que isso seria o item caro. Estava errado: o portal existe, é do governo, e
 é feito exatamente para isto.
 
-**[assinaturadigital.iti.gov.br](https://assinaturadigital.iti.gov.br)** — o *Validador de
-Documentos Digitais em Saúde*, do ITI **com apoio do CFM e do CFF**. Ele **não é** o
-validador genérico de assinaturas (`validar.iti.gov.br`), e a diferença é justamente a
-pergunta do farmacêutico:
+**[validar.iti.gov.br](https://validar.iti.gov.br)** — o **VALIDAR**, validador oficial de
+assinaturas eletrônicas do ITI. É público, gratuito, não exige cadastro para conferir e
+aceita PDF. É para lá que o documento assinado manda o farmacêutico.
 
-| Pergunta do balcão | Validador genérico | Validador de saúde |
-|---|---|---|
-| O arquivo foi alterado depois de assinado? | sim | sim |
-| A assinatura é de quem o documento diz? | sim | sim |
-| **Quem assinou é prescritor com registro ATIVO?** | não | **sim** |
-| Registrar a dispensação | não | **sim** (farmacêutico com certificado) |
+> **Cuidado com endereço antigo.** O ITI manteve, de 2020 a 2023, dois validadores
+> separados: o `assinaturadigital.iti.gov.br` (criado na pandemia, específico para
+> documentos de saúde) e o `verificador.iti.gov.br`. **Os dois foram desativados em
+> 06/03/2023** e unificados no VALIDAR. Boa parte da orientação de CRF publicada na época
+> ainda aponta para os endereços mortos — e foi exatamente assim que uma URL 404 chegou a
+> ser impressa em receita neste projeto. Endereço que vai impresso num documento se abre
+> no navegador antes de virar código.
 
-É o endereço que os CRFs mandam usar, aceita **PDF**, é gratuito e não exige cadastro para
-conferir. Por isso o documento assinado sai com **três coisas** que a folha de papel não
-tem: o endereço escrito por extenso, um **QR** que leva direto à
-[página do farmacêutico](https://assinaturadigital.iti.gov.br/farmaceutico/) e um bloco
-**"PARA O FARMACÊUTICO"** com o passo a passo — porque um PDF assinado que chega sem uma
-palavra sobre como verificá-lo é recusado por precaução, e o farmacêutico está certo em
-recusá-lo: pela orientação dos CRFs, farmácia que não consegue verificar **não é obrigada
-a dispensar**.
+O que o VALIDAR responde, e é só isso que o documento promete: se a **assinatura ICP-Brasil
+é válida**, se o **arquivo continua íntegro** e **quem é o titular do certificado** (nome e
+CPF). O documento assinado sai com esse endereço por extenso e com um bloco **"PARA O
+FARMACÊUTICO"** com o passo a passo — porque um PDF assinado que chega sem uma palavra
+sobre como verificá-lo é recusado por precaução, e o farmacêutico está certo em recusá-lo:
+pela orientação dos CRFs, farmácia que não consegue verificar **não é obrigada a
+dispensar**.
+
+### Por que a folha NÃO tem QR
+
+Ela teve, por dois dias, e o QR levava ao endereço do VALIDAR. Parecia uma boa ideia — o
+balcão escaneia em vez de digitar. O cliente escaneou com o **app oficial VALIDAR QR
+CODE** e recebeu **"QR inválido"**.
+
+O motivo está no capítulo IV do Guia do Desenvolvedor: para o ITI, um QR num documento de
+saúde é um **QR de documento** — ele aponta para o arquivo hospedado e vem com o código de
+acesso impresso ao lado. O app lê o nosso, procura um documento, não acha, e recusa.
+
+O resultado prático é o pior possível: **uma receita legítima passa a parecer inválida no
+balcão**. Sem QR, o farmacêutico lê o endereço, envia o arquivo e recebe "assinatura
+válida". Com QR, ele lê "inválido" antes de chegar lá. O QR só volta no dia em que houver
+documento hospedado para ele apontar — ou seja, junto com a integração de plataforma.
 
 ### Os dois caminhos do validador, e por que estamos no de cima
 
@@ -120,7 +134,7 @@ O caminho do QR foi desenhado com o CFM justamente para o documento hospedado: a
 impressa é o que **libera o acesso à receita** guardada no sistema de quem prescreveu, e
 serve para evitar que qualquer um baixe a receita alheia. Um sistema **desktop**, que fala
 com o banco da própria clínica, não tem endereço na internet para hospedar coisa alguma —
-então o nosso QR leva à **página do farmacêutico** e o documento vai pelo envio do arquivo.
+então o nosso QR leva à **página do VALIDAR** e o documento vai pelo envio do arquivo.
 
 Isso está escrito no próprio documento, e não é detalhe: sem a frase *"não há código de
 acesso a digitar; o código do rodapé é da clínica"*, o balcão procura no papel uma senha
@@ -155,20 +169,35 @@ e é por isso que assinar **salva e abre o arquivo** em vez de mandar para a imp
   assinada à caneta e retida na farmácia, segue como sempre foi.
 - **LTV / PAdES-LT** (embutir CRL/OCSP para o arquivo continuar verificável depois de o
   certificado expirar). Anunciar sem implementar seria a mesma mentira do carimbo escaneado.
-- **Integração de API com PSC em nuvem** (VIDaaS, Bird ID). `CertificadoIcpBrasil` lê o
-  **repositório do Windows**, e é isso que o sistema usa.
+- **Integração de API com PSC em nuvem** (SafeID Integração, VIDaaS, Bird ID).
+  `CertificadoIcpBrasil` lê o **repositório do Windows**, e é isso que o sistema usa.
 
-  Isto **não** deixa a médica de fora do SafeID: o **SafeID Desktop** existe exatamente
-  para intermediar o certificado em nuvem com aplicativos que não são integrados ao SafeID
-  — instalado o programa, o certificado aparece no repositório do Windows, e ao assinar
-  chega uma notificação no celular para autorizar com o PIN. Ou seja, os dois caminhos da
-  clínica funcionam hoje: o certificado instalado na máquina e o SafeID com o Desktop.
+  Isto **não** deixa o SafeID de fora — pelo contrário, é como ele funciona hoje: o
+  **SafeID Desktop** intermedia o certificado em nuvem para aplicativos que não são
+  integrados ao SafeID. Instalado o programa e feito o login nele, o certificado aparece
+  no repositório do Windows, o seletor o lista como qualquer outro, e ao assinar **chega
+  uma notificação no celular** para autorizar com o PIN. Vale o mesmo para Bird ID e
+  VIDaaS. Ou seja, os dois caminhos que a clínica pediu funcionam: certificado instalado
+  na máquina **e** login pelo SafeID.
 
-  Espere a assinatura demorar o tempo da autorização no celular — é o mesmo comportamento
-  do PIN de um token A3, e é do fluxo, não do sistema.
+  O sistema reconhece a diferença em vez de fingir que não existe: `CertificadoAssinatura.
+  EmNuvem` sai do **provedor de chave** (CSP/KSP) do Windows — não do emissor, porque a
+  mesma AC emite os dois —, e são **três estados**: nuvem, máquina e *não sei*. Quando é
+  nuvem, o seletor avisa que a autorização vai para o celular e a assinatura roda **fora da
+  thread da interface**, senão a janela congela enquanto o telefone não responde. Sem
+  certificado nenhum, a mensagem cita as três formas de resolver, e a do SafeID vem
+  primeiro porque é a que mais confunde: o médico "tem" o certificado no celular e a lista
+  aparece vazia — falta o SafeID Desktop.
 
-  A integração direta por API (OAuth do PSC, sem programa intermediário) continua não
-  implementada; ver a seção de certificados em `docs/apis-integracao-prescricao.md`.
+  A integração **direta por API** (OAuth do PSC, sem programa intermediário) continua não
+  implementada, e há um obstáculo técnico já medido, que vale registrar para não ser
+  redescoberto: assinar com a chave num PSC exige montar o CMS com uma **assinatura
+  externa**, e o atalho óbvio — `X509Certificate2.CopyWithPrivateKey` com um `RSA` que
+  delega a assinatura — **não funciona no Linux**: o OpenSSL tenta exportar a chave
+  privada e estoura. Restam duas saídas, ambas a decidir quando houver credencial e
+  documentação: montar o `SignedData` à mão com `AsnWriter`, ou trazer o BouncyCastle, que
+  já tem `ISignatureFactory` externo. Ver `docs/apis-integracao-prescricao.md`.
+
 - **Base de medicamentos / autocomplete.** O campo é texto livre por decisão, e é por isso
   que a conferência de alergia compara por palavra inteira.
 - **Certificação SBIS/CFM (S-RES).** Não é requisito para prescrever nem para assinar; é
@@ -201,10 +230,9 @@ rodapé escreve exatamente isso, em vez de fingir precisão que a via não tem.
   [alteração da validade nacional (Anfarmag)](https://anfarmag.org.br/conteudos/validade-da-receita-em-todo-o-territorio-nacional-alteracao-da-lei-no-5-991-1973/)
 - [CRF-RS — orientação ao farmacêutico sobre prescrição eletrônica](https://crfrs.org.br/noticias/orientacao.ao.farmaceutico.sobre.prescricao.eletronica) ·
   [CRF-SP — dispensação de receitas com assinatura digital](http://www.crfsp.org.br/orienta%C3%A7%C3%A3o-farmac%C3%AAutica/641-fiscalizacao-parceira/farm%C3%A1cia/11248-prescri%C3%A7%C3%A3o-eletr%C3%B4nica-4.html)
-- [ITI — Validador de Documentos Digitais em Saúde](https://assinaturadigital.iti.gov.br) ·
-  [página do farmacêutico](https://assinaturadigital.iti.gov.br/farmaceutico/) ·
-  [ITI — o que o validador garante](https://www.gov.br/iti/pt-br/assuntos/noticias/indice-de-noticias/validador-de-prescricoes-e-atestados-medicos-digitais-garante-seguranca-na-relacao-medico-paciente-e-farmaceuticos) ·
-  [CRF-RJ — passo a passo para validar](https://crf-rj.org.br/noticias/4093-passo-a-passo-como-validar-uma-receita-digital-assinada-com-certificado-icp-brasil.html) ·
-  [Validar genérico de assinaturas](https://validar.iti.gov.br)
+- [ITI — VALIDAR (validador oficial de assinaturas)](https://validar.iti.gov.br) ·
+  [ITI — fim do Validador e do Verificador antigos, 06/03/2023](https://www.gov.br/iti/pt-br/assuntos/noticias/indice-de-noticias/fim-do-validador-e-do-verificador) ·
+  [Guia do Desenvolvedor do VALIDAR](https://validar.iti.gov.br/guia-desenvolvedor.html) ·
+  [CRF-RJ — passo a passo para validar](https://crf-rj.org.br/noticias/4093-passo-a-passo-como-validar-uma-receita-digital-assinada-com-certificado-icp-brasil.html)
 - [ANVISA — SNCR: documentação técnica da API](https://www.gov.br/anvisa/pt-br/assuntos/noticias-anvisa/anvisa-publica-documentacao-tecnica-para-integracao-de-sistemas-de-prescricao-eletronica-ao-sncr) ·
   [prazo prorrogado para 30/09/2026](https://www.gov.br/anvisa/pt-br/assuntos/noticias-anvisa/2026/sncr-anvisa-inicia-etapa-de-integracao-com-sistemas-de-prescricao-eletronica-e-amplia-prazo-para-implementacao)

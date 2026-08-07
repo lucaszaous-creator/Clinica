@@ -282,39 +282,34 @@ public class AssinaturaDocumentoClinicoTests : IDisposable
     // ==================== O que chega ao balcão da farmácia ====================
 
     /// <summary>
-    /// O endereço impresso é o validador de documentos de SAÚDE, não o genérico de
-    /// assinaturas — e a diferença é a pergunta do farmacêutico. O genérico responde
-    /// "está íntegro e quem assinou"; este responde também "**quem assinou é prescritor
-    /// com registro ATIVO?**", que é o que decide a dispensação.
+    /// O endereço impresso é o VALIDAR, e este teste existe porque a constante já esteve
+    /// ERRADA em produção: o ITI teve por três anos um validador separado para documentos
+    /// de saúde e outro genérico, e os dois foram desativados em 06/03/2023 e unificados
+    /// no <c>validar.iti.gov.br</c>. Orientação antiga de CRF ainda aponta para os
+    /// endereços mortos — e o endereço morto foi impresso em receita.
+    ///
+    /// O teste não substitui abrir a URL no navegador (nenhum teste faz isso); ele trava
+    /// a regressão depois que alguém conferiu.
     /// </summary>
     [Fact]
-    public void O_endereco_impresso_e_o_validador_de_saude()
+    public void O_endereco_impresso_e_o_validador_vigente_do_iti()
     {
         DocumentosClinicosPdfService.ValidadorOficial
-            .Should().Be("assinaturadigital.iti.gov.br");
+            .Should().Be("validar.iti.gov.br");
 
-        DocumentosClinicosPdfService.ValidadorFarmaceutico
-            .Should().StartWith("https://assinaturadigital.iti.gov.br/farmaceutico");
-    }
+        DocumentosClinicosPdfService.ValidadorEnderecoCompleto
+            .Should().StartWith("https://validar.iti.gov.br");
 
-    /// <summary>
-    /// O QR poupa a digitação do endereço no balcão. Ele é acessório: se a codificação
-    /// falhar, o endereço continua escrito por extenso e o documento continua conferível
-    /// — mas enquanto existir tem de sair um PNG de verdade.
-    /// </summary>
-    [Fact]
-    public void O_qr_do_validador_sai_como_png()
-    {
-        var qr = DocumentosClinicosPdfService.QrDoValidador();
-
-        qr.Should().NotBeNull();
-        qr!.Take(4).Should().Equal(0x89, (byte)'P', (byte)'N', (byte)'G');
+        // Os dois endereços aposentados não podem voltar por descuido.
+        DocumentosClinicosPdfService.ValidadorEnderecoCompleto
+            .Should().NotContain("assinaturadigital.iti.gov.br")
+            .And.NotContain("verificador.iti.gov.br");
     }
 
     /// <summary>
     /// A folha assinada carrega o que a folha em papel não precisa: a faixa do carimbo
-    /// digital, o QR e o passo a passo de quem vai conferir. Se um dia alguém "simplificar"
-    /// o rodapé, o documento sai igual ao de papel — e aí o farmacêutico recebe um arquivo
+    /// digital e o passo a passo de quem vai conferir. Se um dia alguém "simplificar" o
+    /// rodapé, o documento sai igual ao de papel — e aí o farmacêutico recebe um arquivo
     /// sem uma palavra sobre como verificá-lo, que é o caso em que ele recusa por
     /// precaução, com razão.
     /// </summary>
