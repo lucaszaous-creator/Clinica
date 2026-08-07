@@ -93,8 +93,50 @@ public class SafeIDTests
             _ => null
         });
 
-        Assert.Equal(comBarra, lido!.RedirectUri!.ToString());
+        Assert.Equal(comBarra, lido!.RedirectUris!.Single().ToString());
     }
+
+    [Fact]
+    public void VariasUrisDeRetornoNaOrdemCadastrada()
+    {
+        // As três portas registradas no portal: a queda para a seguinte é o que impede uma
+        // porta ocupada de travar a assinatura com o paciente na sala.
+        var lido = ConfiguracaoSafeID.DoAmbiente(chave => chave switch
+        {
+            ConfiguracaoSafeID.ChaveClientId => "id",
+            ConfiguracaoSafeID.ChaveClientSecret => "segredo",
+            ConfiguracaoSafeID.ChaveRedirectUri =>
+                "http://127.0.0.1:8123/safeid/retorno; http://127.0.0.1:8124/safeid/retorno",
+            _ => null
+        });
+
+        Assert.Collection(lido!.RedirectUris!,
+            primeira => Assert.Equal(8123, primeira.Port),
+            segunda => Assert.Equal(8124, segunda.Port));
+    }
+
+    [Fact]
+    public void EscutaRecusaListaVazia()
+    {
+        // Sem URL configurada a mensagem tem de dizer ONDE configurar — "nenhuma porta
+        // livre" mandaria procurar o problema no lugar errado.
+        var erro = Assert.Throws<InvalidOperationException>(() => EscutaLoopback.Abrir([]));
+        Assert.Contains(ConfiguracaoSafeID.ChaveRedirectUri, erro.Message);
+    }
+
+    [Fact]
+    public void EscutaCaiParaAPortaSeguinteQuandoAPrimeiraEstaOcupada()
+    {
+        using var primeira = EscutaLoopback.Abrir([Loopback(18123), Loopback(18124)]);
+
+        // A segunda escuta encontra 18123 ocupada pela primeira e assume 18124 sozinha.
+        using var segunda = EscutaLoopback.Abrir([Loopback(18123), Loopback(18124)]);
+
+        Assert.Equal(18123, primeira.Endereco.Port);
+        Assert.Equal(18124, segunda.Endereco.Port);
+    }
+
+    private static Uri Loopback(int porta) => new($"http://127.0.0.1:{porta}/safeid/retorno");
 
     private static OpcoesSafeID? Configuracao(string? ambiente) =>
         ConfiguracaoSafeID.DoAmbiente(chave => chave switch
@@ -108,7 +150,7 @@ public class SafeIDTests
     private static readonly OpcoesSafeID Opcoes = new(
         ClientId: "clinica-teste",
         ClientSecret: "segredo",
-        RedirectUri: new Uri("http://127.0.0.1:8123/retorno"));
+        RedirectUris: [new Uri("http://127.0.0.1:8123/retorno")]);
 
     // ---- Assinatura ----
 
@@ -251,7 +293,9 @@ public class SafeIDTests
         var cliente = new ClienteSafeID(new HttpClient(HandlerQueResponde("{}")), Opcoes);
         var desafio = DesafioPkce.Gerar();
 
-        var url = cliente.UrlDeAutorizacao(desafio, cpf: "12345678909", estado: "abc").ToString();
+        var url = cliente
+            .UrlDeAutorizacao(desafio, Opcoes.RedirectUris!.Single(), cpf: "12345678909", estado: "abc")
+            .ToString();
 
         Assert.Contains("response_type=code", url);
         Assert.Contains("code_challenge_method=S256", url);

@@ -9,16 +9,21 @@ namespace Clinica.Application.Assinatura.SafeID;
 /// já guarda a connection string (`ConexaoStore`) —, e é por isso que este record não tem um
 /// método "carregar do banco".
 /// </summary>
-/// <param name="RedirectUri">
-/// URI de retorno da autorização. Precisa estar PRÉ-CADASTRADA na Safeweb — não basta
-/// mandar na requisição. Para aplicativo nativo o padrão (RFC 8252) é um loopback
-/// <c>http://127.0.0.1:{porta}</c>, e se a Safeweb aceitar cadastrá-lo o fluxo do QR Code
-/// funciona sem a clínica ter endereço público nenhum.
+/// <param name="RedirectUris">
+/// URIs de retorno da autorização, na ordem de preferência. Precisam estar PRÉ-CADASTRADAS
+/// na Safeweb — não basta mandar na requisição —, e a Safeweb <b>aceita loopback</b>
+/// (confirmado no cadastro da aplicação da clínica), que é o padrão RFC 8252 para
+/// aplicativo nativo.
+///
+/// São VÁRIAS de propósito. A aplicação precisa abrir uma porta na máquina do consultório, e
+/// porta é recurso disputado: outro programa pode já estar em 8123. Com três registradas, o
+/// sistema cai para a seguinte sozinho — a alternativa seria a médica não conseguir assinar
+/// até alguém voltar ao portal da Safeweb, que é o pior momento possível para descobrir isso.
 /// </param>
 public sealed record OpcoesSafeID(
     string ClientId,
     string ClientSecret,
-    Uri? RedirectUri = null,
+    IReadOnlyList<Uri>? RedirectUris = null,
     Uri? BaseUrl = null)
 {
     /// <summary>Produção.</summary>

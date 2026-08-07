@@ -44,7 +44,7 @@ public static class ConfiguracaoSafeID
         return new OpcoesSafeID(
             clientId,
             clientSecret,
-            RedirectUri: LerUri(ler(ChaveRedirectUri)),
+            RedirectUris: LerUris(ler(ChaveRedirectUri)),
             BaseUrl: EhHomologacao(ler(ChaveAmbiente))
                 ? OpcoesSafeID.BaseHomologacao
                 : OpcoesSafeID.BasePadrao);
@@ -63,14 +63,27 @@ public static class ConfiguracaoSafeID
                || texto.Equals("hml", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// A URI de retorno tem de ser IDÊNTICA à cadastrada no portal — o OAuth compara como
-    /// texto, e uma barra a mais no fim vira recusa com mensagem que não explica o motivo.
-    /// Por isso ela é lida como está, sem normalizar nem completar nada.
+    /// As URIs de retorno, separadas por ponto e vírgula, na ordem de preferência —
+    /// as MESMAS cadastradas no portal da Safeweb, e na mesma grafia.
+    ///
+    /// Cada uma é lida como está, sem normalizar nem completar nada: o OAuth compara
+    /// <c>redirect_uri</c> como TEXTO, e uma barra a mais no fim vira recusa com mensagem que
+    /// não explica o motivo. "Arrumar" o que a clínica digitou produziria exatamente o erro
+    /// que ninguém consegue diagnosticar.
     /// </summary>
-    private static Uri? LerUri(string? valor)
-        => Limpar(valor) is { } texto && Uri.TryCreate(texto, UriKind.Absolute, out var uri)
-            ? uri
-            : null;
+    private static IReadOnlyList<Uri>? LerUris(string? valor)
+    {
+        if (Limpar(valor) is not { } texto) return null;
+
+        var uris = texto
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(parte => Uri.TryCreate(parte, UriKind.Absolute, out var uri) ? uri : null)
+            .Where(uri => uri is not null)
+            .Select(uri => uri!)
+            .ToList();
+
+        return uris.Count > 0 ? uris : null;
+    }
 
     private static string? Limpar(string? valor)
         => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();

@@ -70,15 +70,22 @@ public sealed class ClienteSafeID
     /// <see cref="TokenPorCodigoAsync"/> — é ele que prova que quem troca o código é quem o
     /// pediu (RFC 7636).
     /// </summary>
+    /// <param name="redirectUri">
+    /// A URI onde esta execução está de fato escutando. Vem de fora porque a porta é
+    /// escolhida em tempo de execução (ver <c>OpcoesSafeID.RedirectUris</c>), e porque o
+    /// mesmo valor tem de ir na troca do código — o OAuth compara os dois como texto exato.
+    /// </param>
     public Uri UrlDeAutorizacao(
-        DesafioPkce desafio, string escopo = EscopoSafeID.Sessao,
+        DesafioPkce desafio, Uri redirectUri, string escopo = EscopoSafeID.Sessao,
         string? cpf = null, string? estado = null, int? duracaoSegundos = null)
     {
+        ArgumentNullException.ThrowIfNull(redirectUri);
+
         var parametros = new Dictionary<string, string?>
         {
             ["response_type"] = "code",
             ["client_id"] = _opcoes.ClientId,
-            ["redirect_uri"] = _opcoes.RedirectUri?.ToString(),
+            ["redirect_uri"] = redirectUri.ToString(),
             ["state"] = estado,
             ["scope"] = escopo,
             ["code_challenge"] = desafio.Desafio,
@@ -95,20 +102,25 @@ public sealed class ClienteSafeID
     }
 
     /// <summary>Troca o <c>code</c> devolvido na URI de retorno pelo token que assina.</summary>
+    /// <param name="redirectUri">
+    /// <b>Exatamente</b> a mesma passada a <see cref="UrlDeAutorizacao"/>. O PSC recusa a
+    /// troca se divergir num único caractere, e a mensagem de erro não diz que o problema é
+    /// esse — daí ela vir por parâmetro em vez de ser relida da configuração.
+    /// </param>
     public async Task<TokenSafeID> TokenPorCodigoAsync(
-        string codigo, DesafioPkce desafio, CancellationToken ct = default)
+        string codigo, DesafioPkce desafio, Uri redirectUri, CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(redirectUri);
+
         var campos = new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code",
             ["client_id"] = _opcoes.ClientId,
             ["client_secret"] = _opcoes.ClientSecret,
             ["code"] = codigo,
-            ["code_verifier"] = desafio.Verificador
+            ["code_verifier"] = desafio.Verificador,
+            ["redirect_uri"] = redirectUri.ToString()
         };
-
-        if (_opcoes.RedirectUri is not null)
-            campos["redirect_uri"] = _opcoes.RedirectUri.ToString();
 
         return await PostFormAsync("token", campos, ct);
     }
