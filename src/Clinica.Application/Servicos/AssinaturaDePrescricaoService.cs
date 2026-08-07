@@ -140,7 +140,7 @@ public sealed class AssinaturaDePrescricaoService
     {
         var area = PrescricaoInternaPdfService.AreaDaAssinatura(ContarPaginas(pdf));
 
-        return _assinador.Assinar(pdf, certificado, new PedidoAssinatura(
+        return await _assinador.AssinarAsync(pdf, certificado, new PedidoAssinatura(
             Motivo: motivo,
             NomeExibido: nomeExibido,
             RegistroConselho: registroConselho,

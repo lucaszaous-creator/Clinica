@@ -31,10 +31,22 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Button Grid.Column="0" Content="Atualizar lista" MinWidth="130"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource BotaoSecundario}"
-                        Command="{Binding AtualizarCommand}" />
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Content="Atualizar lista" MinWidth="130"
+                            VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeInteragir}"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding AtualizarCommand}" />
+
+                    <!-- Só aparece quando a clínica cadastrou o SafeID: botão que existe e
+                         explica depois do clique é o defeito da parcela 41. -->
+                    <Button Content="Buscar no SafeID (nuvem)" Margin="8,0,0,0" MinWidth="180"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeInteragir}"
+                            Visibility="{Binding NuvemDisponivel, Converter={StaticResource BoolParaVisibilidade}}"
+                            Command="{Binding BuscarNaNuvemCommand}" />
+                </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button Content="Cancelar" IsCancel="True" MinWidth="110"
@@ -86,6 +98,8 @@
                                                TextWrapping="Wrap" Margin="0,2,0,0">
                                         <Run Text="emissor: " />
                                         <Run Text="{Binding Emissor, Mode=OneWay}" />
+                                        <Run Text=" · " />
+                                        <Run Text="{Binding Procedencia, Mode=OneWay}" />
                                     </TextBlock>
                                 </StackPanel>
 

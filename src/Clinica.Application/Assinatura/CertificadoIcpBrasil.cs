@@ -20,6 +20,25 @@ public sealed record CertificadoAssinatura(
     DateTime ValidoAte,
     string? Cpf)
 {
+    /// <summary>
+    /// Quem faz a conta da assinatura quando a chave NÃO está nesta máquina — o SafeID
+    /// (parcela 44). Nulo é o caminho de sempre: token ou arquivo, com a chave em mãos.
+    ///
+    /// Mora aqui, e não como parâmetro de quem manda assinar, porque é propriedade DESTE
+    /// certificado: um certificado em nuvem não vira local dependendo de quem o usa. A
+    /// alternativa era um parâmetro opcional atravessando dois serviços e quatro telas,
+    /// quase sempre nulo — e bastaria uma delas esquecer de repassá-lo para a assinatura
+    /// cair em silêncio no caminho local e morrer com "certificado sem chave privada", que
+    /// é a mensagem que menos ajuda a achar o defeito.
+    /// </summary>
+    public PdfSharp.Pdf.Signatures.IDigitalSigner? AssinadorRemoto { get; init; }
+
+    /// <summary>Está em nuvem: a chave privada não existe nesta máquina.</summary>
+    public bool EmNuvem => AssinadorRemoto is not null;
+
+    /// <summary>De onde ele veio — o seletor escreve isto na linha.</summary>
+    public string Procedencia => EmNuvem ? "SafeID — nuvem" : "nesta máquina";
+
     public bool Vigente => DateTime.Now >= ValidoDe && DateTime.Now <= ValidoAte;
 
     /// <summary>É um e-CPF ICP-Brasil (traz o CPF do titular dentro de si).</summary>

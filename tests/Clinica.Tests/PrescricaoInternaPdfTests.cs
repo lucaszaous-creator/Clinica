@@ -383,7 +383,7 @@ public class PrescricaoInternaPdfTests : IDisposable
         var pdf = await _pdfs.GerarPrescricaoAsync(prescricao.Id);
         var certificado = ECpfDeTeste("Dra. Ana Souza", "12345678909");
 
-        var assinado = _assinador.Assinar(pdf, certificado, new PedidoAssinatura(
+        var assinado = await _assinador.AssinarAsync(pdf, certificado, new PedidoAssinatura(
             Motivo: "Prescrição de execução interna",
             NomeExibido: "Dra. Ana Souza",
             RegistroConselho: "CRM-SP 123456",
