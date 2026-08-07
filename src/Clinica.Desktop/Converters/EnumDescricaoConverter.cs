@@ -35,6 +35,12 @@ public sealed class EnumDescricaoConverter : IValueConverter
             _ => m.ToString()
         },
         Especialidade e => EspecialidadeInfo.NomeExibicao(e),
+        FormatoNumeroGuia g => g switch
+        {
+            FormatoNumeroGuia.SomenteNumeros => "Somente números",
+            FormatoNumeroGuia.Alfanumerico => "Letras e números",
+            _ => "Sem validação"
+        },
         null => string.Empty,
         _ => value.ToString() ?? string.Empty
     };

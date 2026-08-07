@@ -18,6 +18,8 @@ namespace Clinica.Desktop.ViewModels;
 /// </summary>
 public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
 {
+    /// <summary>Metade VISÍVEL da permissão: configurar muda a regra para todo mundo, não o registro de uma guia.</summary>
+    public bool PodeConfigurar => SessaoUsuario.Atual.Pode(Permissao.ConfigurarFaturamento);
     private readonly IServiceScopeFactory _scopeFactory;
 
     public ObservableCollection<ParametroConvenio> Itens { get; } = new();
@@ -344,6 +346,8 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     private async Task Salvar()
     {
         if (Salvando) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "salvar as configurações");
 
         if (JanelaAlertaConsultaDias < 0)
         {

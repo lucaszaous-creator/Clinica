@@ -361,7 +361,15 @@ O shell ganhou três peças pequenas e uma regra:
   comportando como antes; o `ShellViewModel` filtra os itens e some com o grupo que
   ficar vazio, para não sobrar cabeçalho órfão na sidebar.
 
-O **faturamento não passa por nada disso** — continua sem login, como todo o resto dele.
+O **faturamento tem a tela de login DELE** (`Clinica.Desktop/Acesso/LoginWindow`) desde a
+parcela 45 — mesma composição, mesmo `AcessoService`, mesma `SessaoUsuario`, que subiu para
+`Clinica.Domain`. Ele não reaproveita a do shell porque **não pode referenciar
+`Clinica.Desktop.Shell`**: os dois declaram tipos no namespace `Clinica.Desktop.Controls` (o
+design system duplicado desta página), e a referência tornaria `IDialogoService` e
+`ISnackbarService` ambíguos dos dois lados. O que foi compartilhado foi a DECISÃO, não a janela.
+
+Isso **não** o transforma em módulo: ele continua sendo um `.exe` próprio, com o design system
+dele, e a Fase 4 segue cancelada.
 
 > A distribuição das features da proposta pelos quatro módulos, com o estado de cada uma,
 > está em [`features-por-modulo.md`](features-por-modulo.md); como o cliente recebe os

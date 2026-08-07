@@ -47,6 +47,15 @@ public static class RotulosEnum
         PerfilAcesso p => PerfisAcesso.Rotular(p),
         Permissao p => PerfisAcesso.Rotular(p),
 
+        // Forma do número da guia por convênio (parcela 45). Os identificadores
+        // ("SomenteNumeros") escapariam para a tela de Configurações sem isto.
+        FormatoNumeroGuia g => g switch
+        {
+            FormatoNumeroGuia.SomenteNumeros => "Somente números",
+            FormatoNumeroGuia.Alfanumerico => "Letras e números",
+            _ => "Sem validação"
+        },
+
         // ---- dinheiro ----
         FormaPagamento f => f switch
         {

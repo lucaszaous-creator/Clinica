@@ -106,28 +106,101 @@ Camadas clássicas, todas em `src/`:
 - **tests/Clinica.Tests** — xUnit; os testes de regras validam cada fluxograma de convênio de ponta a
   ponta usando repositório fake em memória (sem banco).
 
-⚠️ **O FATURAMENTO (`Clinica.Desktop`) ESTÁ CONGELADO.** Ele fatura a clínica hoje e não se encosta
-nele: nada de editar telas, ViewModels ou fluxos dele, e nada de migration que renomeie ou remova o
-que ele usa (**só aditiva**, agora conferida pela checagem 18 do `verificar-suite.py`).
+⚠️ **O FATURAMENTO (`Clinica.Desktop`) SAIU DO CONGELAMENTO NA PARCELA 45 — e o cuidado que o
+congelamento protegia continua valendo por inteiro.** A cliente pediu três coisas dentro dele
+(formato do número da guia por convênio, login com permissões granulares e filtros na consulta de
+guias), e feature pedida no app que fatura a clínica não se entrega noutro app. O que mudou foi a
+proibição de **editar arquivo**; o que NÃO mudou é a razão dela: **ele fatura a clínica hoje, roda
+em produção e não tem quem o teste antes do usuário.**
 
-**Não editar os arquivos dele é a parte fácil da regra.** A difícil é que ele LÊ as camadas
-compartilhadas, e mudança inocente lá chega à tela dele sem ninguém abrir uma pasta sua. Os três
-caminhos que já morderam: (a) **valor novo num enum embutido** — `Especialidade`,
-`ModalidadeAtendimento`, `Convenio`, `TipoCodigo` — vira opção nova no seletor do lançamento, porque
-os catálogos garantem as embutidas por `Enum.GetValues`; (b) **alerta novo num serviço que ele
-chama** (`PrevencaoGlosaService` é dele e só dele — ver parcela 36); (c) **migration destrutiva**.
-`FaturamentoCongeladoTests` fixa a superfície (a); a checagem 18 pega (c); (b) é julgamento, e a
-pergunta é sempre **"isso vai aparecer na tela de quem fatura amanhã de manhã?"**.
+Na prática, o que continua valendo:
 
-Criar entidade/serviço novo nas camadas compartilhadas é permitido;
-feature nova vai para Recepção, Financeiro ou Gerente. Por isso a **Fase 4 foi cancelada**. O que
-cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.md` e
+1. **Migration nele é SÓ ADITIVA** (checagem 18 do `verificar-suite.py`). Nada de renomear nem
+   remover coluna que ele usa.
+2. **Mudança nas camadas compartilhadas chega à tela dele sem ninguém abrir uma pasta sua.** Os
+   três caminhos que já morderam: (a) **valor novo num enum embutido** — `Especialidade`,
+   `ModalidadeAtendimento`, `Convenio`, `TipoCodigo` — vira opção nova no seletor do lançamento,
+   porque os catálogos garantem as embutidas por `Enum.GetValues`; (b) **alerta ou recusa nova num
+   serviço que ele chama** (foi por aí que a crítica do número da guia chegou às quatro portas de
+   baixa de uma vez); (c) **migration destrutiva**. `FaturamentoCongeladoTests` fixa a superfície
+   (a); a checagem 18 pega (c); (b) é julgamento, e a pergunta continua sendo **"isso vai aparecer
+   na tela de quem fatura amanhã de manhã?"** — só que agora a resposta "vai" às vezes é o objetivo,
+   e aí ela precisa vir com teste e com a lição escrita aqui.
+3. **Não tire capacidade de quem já a usava.** Foi a regra que desenhou o padrão do perfil
+   `Faturista`: ele nasceu com exatamente o que o app deixava fazer antes do login, inclusive
+   marcar na agenda e cadastrar paciente. Versão que introduz permissão e, de quebra, tira uma
+   função que a pessoa usava ontem vira chamado de suporte na segunda de manhã — e o pedido era o
+   contrário, poder **liberar ou não**, caso a caso, na tela de Acessos.
+4. **A Fase 4 continua cancelada**: o faturamento não vira módulo da suíte. Ele tem o design system
+   dele, o log dele e agora a tela de login dele — e não pode referenciar `Clinica.Desktop.Shell`,
+   porque os dois declaram tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam
+   ambíguas. Foi por isso que `SessaoUsuario` subiu para `Clinica.Domain`: compartilhar a DECISÃO
+   sem compartilhar a janela.
+
+Feature nova que não seja do faturamento continua indo para Recepção, Financeiro, Consultório ou
+Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.md` e
 `docs/entrega-ao-cliente.md`.
 
 ### Regras de negócio que não são óbvias pelo código
 
 - **Faturamento ≠ recebíveis**: "baixa" = a secretária efetivou a guia no sistema do convênio; nunca
   adicione campos de dinheiro/pagamento.
+- **O número da guia tem FORMA, e ela é do convênio** (`RegraNumeroGuia`, `ConvenioCadastro.
+  FormatoNumeroGuia`, parcela 45): a Unimed numera só com dígitos; Petrobras, Amil e Sul América
+  misturam letra e número. O que se pega com isso é o erro que o olho não vê — o **"O" digitado no
+  lugar do zero** —, que passava batido, dava a guia por baixada e só aparecia no retorno da
+  operadora, semanas depois, com boa parte do prazo de recurso já corrida. A regra mora no
+  **DOMÍNIO** e é aplicada em `FaturamentoService.DarBaixaAsync`, não na tela, porque a baixa tem
+  **quatro portas** (tela de baixa, baixa em lote, rodada de pendências e fila do Gerente): validar
+  na tela cobre uma e deixa três passando, que é o defeito recorrente do projeto vestido de
+  validação. A tela usa a MESMA regra para avisar ANTES do clique — a dica ao lado do campo é a
+  metade que explica; o serviço é a que impede.
+  O formato é **dado, não código**: fica no `ConvenioCadastro`, editável em Configurações, porque
+  "Sul América" não existe no enum `Convenio` (entrou como personalizada) e amarrar a forma à
+  família obrigaria a publicar versão nova a cada operadora. A migration **semeia os embutidos**
+  com o que a cliente informou — sem isso a regra nasceria desligada e só passaria a valer no dia
+  em que alguém abrisse Configurações, que pode ser nunca. O que ela **não** faz é conferir
+  tamanho, prefixo ou dígito verificador: cada operadora tem o seu, eles mudam sem aviso, e regra
+  apertada demais recusa guia legítima — o que é **pior** do que aceitar uma errada, porque trava
+  o faturamento do dia e o faturista não tem como contornar (ele não inventa o número). Três
+  degraus na resolução, e o terceiro é o que separa "não configurado" de "não sei quem é":
+  catálogo → padrão da família → **sem validação** para código desconhecido.
+  **Número em branco passa em qualquer formato**: quem valida FORMA não decide obrigatoriedade.
+- **Permissão granular no faturamento, e o login que a torna útil** (parcela 45): a cliente pediu
+  "permissões granulares para a gerente auditar o que está sendo feito e liberar ou não". A metade
+  das permissões não resolvia sozinha — **toda ação do faturamento gravava `Environment.UserName`
+  na auditoria**, isto é, o login do WINDOWS: as duas pessoas que dividem o balcão assinavam com o
+  mesmo nome, e a trilha da parcela 21, que existe para responder "quem fez isso?", respondia o
+  nome da MÁQUINA. Por isso o app ganhou tela de login (`Clinica.Desktop/Acesso/LoginWindow`) e
+  `SessaoUsuario` subiu para `Clinica.Domain`.
+  Os bits novos cortam pelo **ATO, não pela tela** (`BaixarGuia`, `EstornarBaixa`,
+  `RegistrarGlosa`, `GerenciarLotesTiss`, `LancarAtendimento`, `MarcarNaoConformidade`,
+  `ConfigurarFaturamento`) — quebrar por tela daria uma lista que muda a cada leiaute novo.
+  `VerFaturamento` virou **só a leitura**. Estornar é separado de baixar porque desfazer apaga o
+  trabalho de outra pessoa; NC é separado de tudo porque é a única permissão que faz uma pendência
+  **sumir do painel sem a guia ter sido faturada**.
+  Três decisões que andam junto: (a) o padrão do perfil `Faturista` reproduz **exatamente** o que
+  o app deixava fazer antes do login — a granularidade serve para a direção TIRAR, não para a
+  atualização tirar sozinha; (b) as telas do Gerente que baixam/glosam/reabrem passaram a pedir os
+  bits novos no mesmo commit, senão negar "Dar baixa" a alguém no Acessos não impediria nada e a
+  permissão seria só uma caixinha na tela; (c) a rodada BLOQUEANTE **não abre** para quem não pode
+  decidir nada — travar o sistema com uma tarefa que a pessoa não pode cumprir é o pior desfecho
+  possível de uma permissão bem-intencionada.
+  A entrada no app exige `VerFaturamento` **e diz isso na porta**: deixar entrar e mostrar sidebar
+  vazia faz a pessoa ligar para o suporte em vez de falar com a direção. E "Trocar usuário"
+  **reabre o app** em vez de repontar a sessão: as ViewModels leem a permissão quando são
+  construídas, e metade delas já está viva — permissão que parece aplicada e não está é pior do
+  que permissão nenhuma.
+- **Consultar guias filtra por modalidade e especialidade** (parcela 45): a pergunta da direção é
+  "o que vem sendo feito", e a consulta só respondia por paciente, número, data, status e
+  convênio. O filtro é pelo **enum**, não pelo código do catálogo, pela mesma razão do convênio ao
+  lado: é por FAMÍLIA, e a variante cadastrada responde junto da embutida que ela deriva — filtrar
+  por código obrigaria a escolher entre "Acupuntura" e "Acupuntura (domiciliar)" para responder
+  quantas acupunturas foram feitas. A especialidade casa com a do **CÓDIGO** e cai para a do
+  atendimento quando ele não a tem; sem esse caminho de baixo, guia de um atendimento com
+  especialidade declarada ficaria de fora do filtro da própria especialidade. E o resumo **diz que
+  está filtrado**: "12 guias" e "12 guias de acupuntura em psiquiatria" respondem perguntas
+  diferentes, e quem volta à tela depois do café não lembra o que deixou marcado no combo.
 - Cada convênio tem um fluxograma próprio (README lista os cinco modelados). O 2º código com data
   prevista +24h e a inversão de datas do BSV são requisitos do convênio, não bugs.
 - Guia exportada num lote TISS não pode entrar em outro lote; glosa ganha data-limite de recurso
@@ -1034,8 +1107,9 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   permissão efetiva é resolvida na LEITURA — `padrão do perfil + extras − negadas` —, então
   corrigir o padrão de um perfil alcança quem já está cadastrado; negada vence extra. Base sem
   usuário abre o **primeiro acesso** (nasce Gerente) em vez de trancar todo mundo do lado de fora,
-  e o serviço recusa deixar a base sem ninguém que possa gerenciar acessos. **O faturamento
-  continua sem login** — está congelado.
+  e o serviço recusa deixar a base sem ninguém que possa gerenciar acessos. **Os cinco apps pedem
+  login** — o faturamento entrou na parcela 45 (ver a regra do formato da guia e das permissões
+  granulares mais abaixo).
 - **A permissão tem DUAS barreiras, e as duas são obrigatórias**: `IsEnabled` no botão (a metade
   visível, que explica) e `SessaoUsuario.Atual.Exigir(...)` no comando (a que impede). Só
   desabilitar é enfeite — atalho de teclado passa direto. Comando novo que grava nasce com as
@@ -1081,6 +1155,11 @@ cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.m
   `FaixasFeminino`; sem leitura publicada, deixe `Faixas` vazio em vez de inventar "normal".
 - Ao adicionar um convênio fixo: nova classe em `Domain/Regras/`, registrar em `RegistroRegras`,
   adicionar ao enum `Convenio`, cobrir o fluxograma com testes em `RegrasFaturamentoTests`.
+- Ao adicionar uma **permissão**: bit novo no fim do enum `Permissao` (nunca reaproveite um bit —
+  ele é gravado como INTEIRO em bases de produção), rótulo em `PerfisAcesso.Rotular`, entrada nos
+  perfis padrão que já faziam aquilo, e as **duas barreiras** em todo comando alcançado.
+  `PermissoesFaturamentoTests` cobre bit único, rótulo em português e o padrão de cada perfil — é
+  ele que impede uma atualização de tirar em silêncio o que a pessoa fazia ontem.
 - Toda tela que escreve trata as exceções e nunca derruba o app (`DispatcherUnhandledException`
   como última rede). O **feedback tem dois canais, e a escolha não é livre**:
   - **Mensagem inline** (propriedade `Mensagem` + `MensagemEhErro` no VM, desenhada perto da

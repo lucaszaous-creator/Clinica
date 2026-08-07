@@ -46,7 +46,7 @@ public class CorrecoesIntegracaoTests : IDisposable
         var r = await atendimentos.LancarAsync(pacienteId, dia, ModalidadeAtendimento.AcupunturaComEletro);
         var codigo = r.Atendimento.Codigos.First();
 
-        await faturamento.DarBaixaAsync(codigo.Id, dia, "G-1", "sec", null);
+        await faturamento.DarBaixaAsync(codigo.Id, dia, "9001", "sec", null);
         (await _db.Codigos.FindAsync(codigo.Id))!.Baixado.Should().BeTrue();
 
         await faturamento.EstornarBaixaAsync(codigo.Id, "baixa por engano", "sec");
@@ -71,7 +71,7 @@ public class CorrecoesIntegracaoTests : IDisposable
         var alvo = r.Atendimento.Codigos.First();
         var outro = r.Atendimento.Codigos.Last();
 
-        await faturamento.DarBaixaAsync(alvo.Id, new DateOnly(2026, 7, 11), "G-1", "sec", null);
+        await faturamento.DarBaixaAsync(alvo.Id, new DateOnly(2026, 7, 11), "9001", "sec", null);
 
         (await _db.Codigos.AsNoTracking().FirstAsync(c => c.Id == alvo.Id)).Baixado.Should().BeTrue();
         (await _db.Codigos.AsNoTracking().FirstAsync(c => c.Id == outro.Id)).Baixado

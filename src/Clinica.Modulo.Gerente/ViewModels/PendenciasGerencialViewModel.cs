@@ -89,10 +89,14 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
     [ObservableProperty] private string _verdes = "—";
 
     /// <summary>
-    /// Metade VISÍVEL da permissão. Ver pendência é VerFaturamento; dar baixa é escrita no
-    /// faturamento, e por isso pede a permissão de quem fatura.
+    /// Metade VISÍVEL da permissão. Ver pendência é VerFaturamento; DAR BAIXA é escrita, e
+    /// desde a parcela 45 tem bit próprio (<see cref="Permissao.BaixarGuia"/>).
+    ///
+    /// A tela do Gerente tinha de mudar junto: enquanto ela pedisse VerFaturamento, a
+    /// direção negaria "Dar baixa em guia" a alguém, essa pessoa continuaria baixando por
+    /// aqui, e a permissão nova seria só uma caixinha na tela de Acessos.
     /// </summary>
-    public bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.VerFaturamento);
+    public bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
 
     public PendenciasGerencialViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -155,7 +159,7 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "dar baixa na guia");
+            SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
 
             var numero = _dialogo.PerguntarTexto(
                 "Dar baixa",

@@ -20,6 +20,11 @@ namespace Clinica.Desktop.ViewModels;
 /// <summary>Guias já baixadas no período, com a opção de ESTORNAR (reabrir a pendência).</summary>
 public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 {
+    /// <summary>Metade VISÍVEL da permissão: desfazer a baixa apaga o trabalho de outra pessoa.</summary>
+    public bool PodeEstornar => SessaoUsuario.Atual.Pode(Permissao.EstornarBaixa);
+
+    /// <summary>Metade VISÍVEL da permissão: anotar glosa afirma que a operadora recusou, e isso chega ao caixa.</summary>
+    public bool PodeGlosar => SessaoUsuario.Atual.Pode(Permissao.RegistrarGlosa);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
 
@@ -62,13 +67,17 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
     {
         if (codigo is null) return;
 
+        // Antes da confirmação, nunca depois: perguntar "confirmar estorno?" e só então
+        // recusar por permissão é fazer a pessoa decidir sobre algo que ela não pode fazer.
+        SessaoUsuario.Atual.Exigir(Permissao.EstornarBaixa, "estornar a baixa da guia");
+
         if (!_dialogo.Confirmar("Confirmar estorno",
             $"Estornar a baixa desta guia de {codigo.Atendimento?.Paciente?.Nome}?\n\n" +
             "A pendência voltará a aparecer no painel para ser faturada novamente.")) return;
 
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
-        await service.EstornarBaixaAsync(codigo.Id, "estorno pela tela de Faturados", Environment.UserName);
+        await service.EstornarBaixaAsync(codigo.Id, "estorno pela tela de Faturados", SessaoUsuario.Atual.Operador);
 
         await Buscar();
     }
@@ -77,6 +86,8 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
     private async Task Glosar(CodigoFaturamento? codigo)
     {
         if (codigo is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.RegistrarGlosa, "registrar glosa");
 
         var descricao = $"{codigo.Atendimento?.Paciente?.Nome} — {codigo.Tipo} (guia {codigo.NumeroGuiaReal})";
         int prazo;
@@ -88,7 +99,7 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 
         using var scope = _scopeFactory.CreateScope();
         var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-        await glosas.RegistrarAsync(codigo.Id, dialog.DataGlosa, dialog.Motivo, dialog.MotivoCodigo, Environment.UserName);
+        await glosas.RegistrarAsync(codigo.Id, dialog.DataGlosa, dialog.Motivo, dialog.MotivoCodigo, SessaoUsuario.Atual.Operador);
 
         await Buscar();
     }

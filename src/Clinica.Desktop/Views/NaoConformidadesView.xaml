@@ -71,6 +71,7 @@
                                             CommandParameter="{Binding}" />
                                     <Button Content="Reabrir" Style="{StaticResource BotaoAcaoGrid}" Margin="6,0,0,0"
                                             ToolTip="Reabrir: a guia volta a ser pendência ativa"
+                                            IsEnabled="{Binding DataContext.PodeMarcarNaoConformidade, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             Command="{Binding DataContext.ReabrirCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                             CommandParameter="{Binding}" />
                                 </StackPanel>

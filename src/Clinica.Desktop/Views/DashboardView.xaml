@@ -127,6 +127,7 @@
         <Button Grid.Column="1" Style="{StaticResource BotaoSecundario}"
                 ToolTip="Dar baixa em várias guias de uma vez (selecione as linhas com Ctrl/Shift + clique)"
                 Command="{Binding DarBaixaEmLoteCommand}"
+                IsEnabled="{Binding PodeBaixar}"
                 CommandParameter="{Binding SelectedItems, ElementName=GridPendencias}">
             <StackPanel Orientation="Horizontal">
                 <TextBlock Text="&#xE9D5;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
@@ -206,6 +207,7 @@
                                 <Button Content="NC" Style="{StaticResource BotaoAcaoGridSecundario}" Margin="6,0,0,0"
                                         ToolTip="Marcar como não conformidade (sem esperar o prazo da rodada)"
                                         AutomationProperties.Name="Marcar como não conformidade"
+                                        IsEnabled="{Binding DataContext.PodeMarcarNaoConformidade, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         Command="{Binding DataContext.NaoConformidadeCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
                             </StackPanel>

@@ -197,6 +197,7 @@ public class ClinicaDbContext : DbContext
             e.Property(c => c.FormaSegundoCodigo).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.CategoriaComApp).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.CategoriaSemApp).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.FormatoNumeroGuia).HasConversion<string>().HasMaxLength(20);
         });
 
         b.Entity<ModalidadeCadastro>(e =>

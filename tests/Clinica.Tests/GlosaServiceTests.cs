@@ -33,7 +33,7 @@ public class GlosaServiceTests : IDisposable
         var atendimentos = new AtendimentoService(_repo);
         var r = await atendimentos.LancarAsync(p.Id, new DateOnly(2026, 7, 10), ModalidadeAtendimento.AcupunturaComEletro);
         var codigo = r.Atendimento.Codigos.First();
-        await new FaturamentoService(_repo).DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "G-1", "sec", null);
+        await new FaturamentoService(_repo).DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "9001", "sec", null);
         return codigo;
     }
 

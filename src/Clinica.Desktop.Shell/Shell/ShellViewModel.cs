@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
 using Clinica.Desktop.Shell.Modulos;
 using CommunityToolkit.Mvvm.ComponentModel;

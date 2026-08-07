@@ -45,8 +45,8 @@ public class LoteTissServiceTests : IDisposable
     [Fact]
     public async Task CriarLote_ConsomeSequencial_ENaoRepeteGuias()
     {
-        await CriarCodigoBaixadoAsync("G-1");
-        await CriarCodigoBaixadoAsync("G-2");
+        await CriarCodigoBaixadoAsync("9001");
+        await CriarCodigoBaixadoAsync("9002");
 
         var lote = await _lotes.CriarAsync(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 31), "326305");
 
@@ -66,8 +66,8 @@ public class LoteTissServiceTests : IDisposable
     [Fact]
     public async Task FluxoCompleto_Enviar_ERegistrarRetornoComGlosa()
     {
-        var c1 = await CriarCodigoBaixadoAsync("G-1");
-        var c2 = await CriarCodigoBaixadoAsync("G-2");
+        var c1 = await CriarCodigoBaixadoAsync("9001");
+        var c2 = await CriarCodigoBaixadoAsync("9002");
         var lote = (await _lotes.CriarAsync(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 31), null))!;
 
         // Retorno antes do envio é inválido.

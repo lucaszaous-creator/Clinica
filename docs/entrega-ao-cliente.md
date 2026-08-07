@@ -331,8 +331,9 @@ Cinco decisões que valem registrar:
   regra do painel de pendências: falha nunca pode ser exibida como sucesso.
 - **Base sem usuário abre o "primeiro acesso" em vez de trancar a porta.** Recepção,
   Financeiro e Gerente passaram a pedir login; se não há ninguém cadastrado, a tela
-  oferece criar o primeiro usuário (Gerente). O **Faturamento continua sem login** — está
-  congelado e roda num posto só.
+  oferece criar o primeiro usuário (Gerente). O **Faturamento entrou nessa lista na
+  parcela 45**, a pedido da cliente: sem sessão, a trilha de auditoria dele assinava toda
+  baixa com o usuário do Windows — o mesmo nome para as duas pessoas que dividem o balcão.
 
 A migration (`20260727220000_CampanhasEAcesso`) é **puramente aditiva**: só as tabelas
 novas `ContatosCampanha` e `Usuarios`.

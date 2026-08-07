@@ -28,6 +28,14 @@ public partial class ConvenioEdicao : ObservableObject
 
     [ObservableProperty] private bool _ativo = true;
 
+    /// <summary>
+    /// Forma do número da guia neste convênio (parcela 45). Vale para QUALQUER entrada do
+    /// catálogo, embutida ou não — a Unimed é embutida e tem formato, a Sul América é
+    /// personalizada e também tem —, por isso fica fora do painel da regra genérica logo
+    /// abaixo, que só aparece para os personalizados.
+    /// </summary>
+    [ObservableProperty] private FormatoNumeroGuia _formatoNumeroGuia = FormatoNumeroGuia.SemValidacao;
+
     // Configuração da regra genérica (só tem efeito quando Familia == Personalizado)
     [ObservableProperty] private bool _fazEletro;
     [ObservableProperty] private bool _temSegundoCodigo;
@@ -50,6 +58,7 @@ public partial class ConvenioEdicao : ObservableObject
         _nome = c.Nome;
         _familia = c.Familia;
         _ativo = c.Ativo;
+        _formatoNumeroGuia = c.FormatoNumeroGuia;
         _fazEletro = c.FazEletro;
         _temSegundoCodigo = c.TemSegundoCodigo;
         _formaSegundoCodigo = c.FormaSegundoCodigo;
@@ -68,6 +77,7 @@ public partial class ConvenioEdicao : ObservableObject
         Nome = Nome,
         Familia = Familia,
         Ativo = Ativo,
+        FormatoNumeroGuia = FormatoNumeroGuia,
         FazEletro = FazEletro,
         TemSegundoCodigo = TemSegundoCodigo,
         FormaSegundoCodigo = FormaSegundoCodigo,

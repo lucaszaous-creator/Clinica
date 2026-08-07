@@ -205,14 +205,14 @@ public class FinanceiroServiceTests : IDisposable
         // A secretária efetiva a guia no convênio.
         var codigo = resultado.Atendimento.Codigos.First();
         codigo.DataBaixa = data;
-        codigo.NumeroGuiaReal = "G-123";
+        codigo.NumeroGuiaReal = "90123";
         await _db.SaveChangesAsync();
 
         var pendentes = await _financeiro.GuiasSemLancamentoAsync(data, data);
 
         pendentes.Should().ContainSingle(g => g.CodigoId == codigo.Id);
         pendentes.First().Paciente.Should().Be("Maria Souza");
-        pendentes.First().NumeroGuiaReal.Should().Be("G-123");
+        pendentes.First().NumeroGuiaReal.Should().Be("90123");
     }
 
     [Fact]

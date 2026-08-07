@@ -34,8 +34,11 @@ public sealed record ResultadoAutenticacao(
 ///    na trilha de auditoria no MESMO SaveChanges — a regra que já vale para baixa e
 ///    glosa. Permissão que muda sem deixar rastro é pior do que não ter permissão.
 ///
-/// O app de FATURAMENTO continua sem login (está congelado). Isso está documentado, não
-/// esquecido: ele roda num posto só, e mexer nele é o que a parcela inteira evita.
+/// Desde a parcela 45 o app de FATURAMENTO também entra por aqui. Ele foi o último posto
+/// sem login, e a razão de ganhar um não foi arquitetura: sem sessão, toda baixa, estorno e
+/// glosa iam para a trilha de auditoria assinadas pelo usuário do WINDOWS — o mesmo nome
+/// para as duas pessoas que dividem o balcão. A pergunta "quem fez isso?" não tinha
+/// resposta justamente na tela onde ela mais importa.
 /// </summary>
 public sealed class AcessoService
 {

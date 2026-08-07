@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Clinica.Desktop.Controls;
+using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -43,6 +44,15 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _pesquisaAberta;
 
+    /// <summary>
+    /// Quem está logado, no rodapé da sidebar ("Ana Souza · Faturista"). Não é enfeite:
+    /// no balcão duas pessoas dividem a máquina, e quem assume o posto precisa ver de
+    /// relance que a sessão ainda é da colega — senão a baixa dela vai para a auditoria
+    /// no nome errado, que é o defeito que o login veio corrigir.
+    /// </summary>
+    [ObservableProperty]
+    private string _usuarioRotulo = string.Empty;
+
     public ObservableCollection<ItemMenu> ResultadosPesquisa { get; } = [];
 
     public IReadOnlyList<GrupoMenu> Grupos { get; }
@@ -61,28 +71,59 @@ public partial class MainViewModel : ObservableObject
         _sp = sp;
         Snackbar = snackbar;
 
-        _itens =
-        [
-            new ItemMenu { Secao = Secao.Pendencias, Rotulo = "Pendências", Glifo = "\uE9D5", Grupo = "Painel" },
-            new ItemMenu { Secao = Secao.NaoConformidades, Rotulo = "NC", Glifo = "", Grupo = "Painel" },
-            new ItemMenu { Secao = Secao.Agenda, Rotulo = "Agenda", Glifo = "\uE787", Grupo = "Agenda" },
-            new ItemMenu { Secao = Secao.Atendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51", Grupo = "Atendimento" },
-            new ItemMenu { Secao = Secao.Consultas, Rotulo = "Consultas", Glifo = "\uE8A5", Grupo = "Atendimento" },
-            new ItemMenu { Secao = Secao.ConsultaGuias, Rotulo = "Consultar guias", Glifo = "\uE721", Grupo = "Faturamento" },
-            new ItemMenu { Secao = Secao.Faturados, Rotulo = "Faturados", Glifo = "\uE8C7", Grupo = "Faturamento" },
-            new ItemMenu { Secao = Secao.Glosas, Rotulo = "Glosas", Glifo = "\uF140", Grupo = "Faturamento" },
-            new ItemMenu { Secao = Secao.Tiss, Rotulo = "Guias TISS", Glifo = "\uE7C3", Grupo = "Faturamento" },
-            new ItemMenu { Secao = Secao.Pacientes, Rotulo = "Pacientes", Glifo = "\uE716", Grupo = "Cadastros e ajustes" },
-            new ItemMenu { Secao = Secao.Relatorios, Rotulo = "Relatórios", Glifo = "\uE9D2", Grupo = "Cadastros e ajustes" },
-            new ItemMenu { Secao = Secao.Parametros, Rotulo = "Configurações", Glifo = "\uE713", Grupo = "Cadastros e ajustes" },
-        ];
+        // A sidebar é filtrada pela permissão de quem entrou (parcela 45). Guardar a lista
+        // COMPLETA e esconder só na tela não serviria: `_itens` também alimenta a pesquisa
+        // global, e um resultado de busca que abre uma tela proibida é exatamente a porta
+        // que a permissão veio fechar.
+        _itens = TodosOsItens()
+            .Where(i => SessaoUsuario.Atual.Pode(i.Requer))
+            .ToList();
 
         Grupos = _itens.GroupBy(i => i.Grupo)
                        .Select(g => new GrupoMenu(g.Key, g.ToList()))
                        .ToList();
 
-        Navegar(Secao.Pendencias);
+        UsuarioRotulo = SessaoUsuario.Atual.Rotulo;
+
+        // Abre no primeiro item que a pessoa PODE ver. Fixar "Pendências" abriria em branco
+        // para quem não tem VerFaturamento — e tela vazia se lê como defeito, não como
+        // permissão faltando. Quem não tem seção nenhuma nem chega aqui: a abertura do app
+        // exige VerFaturamento e diz isso na porta.
+        Navegar(_itens.Count > 0 ? _itens[0].Secao : Secao.Pendencias);
     }
+
+    /// <summary>
+    /// Todos os itens da sidebar, com a permissão que cada um pede. O corte segue o ATO e
+    /// não a tela: lançar atendimento CRIA guias e configurar muda a regra para todo mundo,
+    /// e por isso os dois têm bit próprio; o resto do faturamento é leitura.
+    /// </summary>
+    private static IEnumerable<ItemMenu> TodosOsItens() =>
+    [
+        new ItemMenu { Secao = Secao.Pendencias, Rotulo = "Pendências", Glifo = "\uE9D5", Grupo = "Painel",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.NaoConformidades, Rotulo = "NC", Glifo = "", Grupo = "Painel",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Agenda, Rotulo = "Agenda", Glifo = "\uE787", Grupo = "Agenda",
+                       Requer = Permissao.VerAgenda },
+        new ItemMenu { Secao = Secao.Atendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51", Grupo = "Atendimento",
+                       Requer = Permissao.LancarAtendimento },
+        new ItemMenu { Secao = Secao.Consultas, Rotulo = "Consultas", Glifo = "\uE8A5", Grupo = "Atendimento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.ConsultaGuias, Rotulo = "Consultar guias", Glifo = "\uE721", Grupo = "Faturamento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Faturados, Rotulo = "Faturados", Glifo = "\uE8C7", Grupo = "Faturamento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Glosas, Rotulo = "Glosas", Glifo = "\uF140", Grupo = "Faturamento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Tiss, Rotulo = "Guias TISS", Glifo = "\uE7C3", Grupo = "Faturamento",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Pacientes, Rotulo = "Pacientes", Glifo = "\uE716", Grupo = "Cadastros e ajustes",
+                       Requer = Permissao.VerProntuario },
+        new ItemMenu { Secao = Secao.Relatorios, Rotulo = "Relatórios", Glifo = "\uE9D2", Grupo = "Cadastros e ajustes",
+                       Requer = Permissao.VerFaturamento },
+        new ItemMenu { Secao = Secao.Parametros, Rotulo = "Configurações", Glifo = "\uE713", Grupo = "Cadastros e ajustes",
+                       Requer = Permissao.ConfigurarFaturamento },
+    ];
 
     [RelayCommand]
     private void AlternarMenu() => MenuRecolhido = !MenuRecolhido;
@@ -140,9 +181,59 @@ public partial class MainViewModel : ObservableObject
             UpdateService.AplicarEReiniciar(); // encerra e reabre já atualizado
     }
 
+    /// <summary>
+    /// Trocar de usuário REABRE o app, em vez de só trocar a sessão em memória.
+    ///
+    /// Parece exagero e não é: as ViewModels leem a permissão quando são construídas (é o
+    /// que acende ou apaga cada botão), e metade delas já está viva na memória quando
+    /// alguém pede para trocar. Repontar a sessão deixaria a tela da colega anterior
+    /// aberta com os botões dela — permissão que parece aplicada e não está é pior do que
+    /// permissão nenhuma, porque ninguém vai conferir.
+    /// </summary>
+    [RelayCommand]
+    private void TrocarUsuario()
+    {
+        var dialogo = _sp.GetRequiredService<Controls.IDialogoService>();
+        if (!dialogo.Confirmar("Trocar usuário",
+                "O sistema vai fechar e abrir de novo na tela de entrada. "
+                + "Salve o que estiver editando antes de continuar.")) return;
+
+        try
+        {
+            var executavel = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(executavel))
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(executavel) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            // Não conseguiu reabrir: fecha assim mesmo e diz o que fazer. Continuar aberto
+            // com a sessão antiga seria fingir que a troca aconteceu.
+            Configuracao.LogErros.Registrar("Trocar usuário — reabertura do app falhou", ex);
+            Snackbar.Erro("Não foi possível reabrir o sistema automaticamente. "
+                          + "Feche e abra de novo para entrar com outro usuário.");
+            return;
+        }
+
+        System.Windows.Application.Current.Shutdown();
+    }
+
     [RelayCommand]
     private void Navegar(Secao secao)
     {
+        // Segunda barreira da navegação: a sidebar já não mostra o item, mas o ATALHO de
+        // teclado chega por outro caminho (Ctrl+N vai direto para "Novo atendimento").
+        // Sem isto, esconder o item seria enfeite.
+        //
+        // E ela FALA. Guarda que volta em silêncio é atalho que não faz nada: quem aperta
+        // Ctrl+N e não vê nada acontecer conclui que o sistema travou, e não tem como
+        // adivinhar que o acesso dele não inclui aquela tela.
+        if (_itens.All(i => i.Secao != secao))
+        {
+            Snackbar.Erro("Seu acesso não inclui esta tela. Fale com a direção da clínica.");
+            return;
+        }
+
         switch (secao)
         {
             case Secao.Pendencias: MostrarDashboard(); break;

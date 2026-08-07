@@ -252,6 +252,31 @@
                     </Button.Style>
                 </Button>
 
+                <!-- Quem está logado (rodapé; oculto quando recolhida).
+                     É LINHA de texto com um botão discreto, e não uma faixa: contexto
+                     permanente que vira caixa colorida come a sidebar e para de ser lido
+                     depois do segundo dia. -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,8">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="{Binding UsuarioRotulo}" FontSize="12" FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource Brush.Texto.Primario}"
+                               ToolTip="Usuário conectado — é este nome que vai para a trilha de auditoria" />
+                    <Button Content="Trocar usuário" Command="{Binding TrocarUsuarioCommand}"
+                            Style="{StaticResource BotaoSecundario}"
+                            Margin="0,6,0,0" Padding="10,4" FontSize="11"
+                            HorizontalAlignment="Left"
+                            ToolTip="Fecha e reabre o sistema na tela de entrada" />
+                </StackPanel>
+
                 <!-- Badge de pendências (rodapé; oculto quando recolhida) -->
                 <Border DockPanel.Dock="Bottom" Margin="12,8,12,12" CornerRadius="8"
                         Background="{StaticResource Brush.Erro.Suave}" Padding="10,8">

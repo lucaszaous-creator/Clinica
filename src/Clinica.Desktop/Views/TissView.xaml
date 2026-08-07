@@ -22,7 +22,7 @@
                     <DatePicker SelectedDate="{Binding Inicio}" Width="140" />
                     <TextBlock Text="Até:" VerticalAlignment="Center" Margin="16,0,6,0" />
                     <DatePicker SelectedDate="{Binding Fim}" Width="140" />
-                    <Button Content="Gerar lote TISS (.xml)" Command="{Binding ExportarCommand}" Margin="16,0,0,0"
+                    <Button Content="Gerar lote TISS (.xml)" Command="{Binding ExportarCommand}" IsEnabled="{Binding PodeGerenciarLotes}" Margin="16,0,0,0"
                             ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
                 </StackPanel>
                 <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Sucesso.Forte}" Margin="0,10,0,0" TextWrapping="Wrap" />
@@ -67,11 +67,13 @@
                                             <Button Content="Marcar enviado" Margin="6,0,0,0"
                                                     Style="{StaticResource BotaoAcaoGrid}"
                                                     Visibility="{Binding PodeMarcarEnviado, Converter={StaticResource BoolParaVisibilidade}}"
+                                                    IsEnabled="{Binding DataContext.PodeGerenciarLotes, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     Command="{Binding DataContext.MarcarEnviadoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Registrar retorno" Margin="6,0,0,0"
                                                     Style="{StaticResource BotaoAcaoGrid}"
                                                     Visibility="{Binding PodeRegistrarRetorno, Converter={StaticResource BoolParaVisibilidade}}"
+                                                    IsEnabled="{Binding DataContext.PodeGerenciarLotes, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     Command="{Binding DataContext.RegistrarRetornoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                     CommandParameter="{Binding}" />
                                         </StackPanel>

@@ -141,3 +141,31 @@ public enum OrigemPaciente
     /// <summary>Perguntado, e a resposta não cabe nas anteriores.</summary>
     Outro
 }
+
+/// <summary>
+/// Que forma o número da guia tem no sistema de CADA convênio (parcela 45).
+///
+/// Não é preciosismo: a Unimed numera a guia só com dígitos, e a Petrobras e a Amil
+/// misturam letra e número. Sem esta distinção, um "O" digitado no lugar de um zero
+/// entra sem reclamação, a guia é dada por baixada, e o erro só aparece no retorno da
+/// operadora — semanas depois, quando o prazo de recurso já correu boa parte.
+///
+/// O valor é do CONVÊNIO e não da família de regra, porque o catálogo permite variantes
+/// (Sul América entrou como convênio personalizado): amarrar o formato ao enum
+/// <see cref="Convenio"/> obrigaria a publicar versão nova a cada operadora nova.
+/// </summary>
+public enum FormatoNumeroGuia
+{
+    /// <summary>
+    /// Aceita o que for digitado. É o PADRÃO de quem nunca configurou, e é assim de
+    /// propósito: chutar um formato para o convênio que a clínica acabou de cadastrar
+    /// recusaria baixa legítima de uma operadora sobre a qual o sistema não sabe nada.
+    /// </summary>
+    SemValidacao,
+
+    /// <summary>Só dígitos (Unimed).</summary>
+    SomenteNumeros,
+
+    /// <summary>Letras e dígitos, misturados (Petrobras, Amil, Sul América).</summary>
+    Alfanumerico
+}

@@ -41,13 +41,13 @@ public class FaturamentoServiceTests : IDisposable
     {
         var codigo = await CriarCodigoAsync();
 
-        await _faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "G-123", "secretaria", "ok");
+        await _faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "90123", "secretaria", "ok");
 
         var salvo = await _db.Codigos.AsNoTracking().FirstAsync(c => c.Id == codigo.Id);
         salvo.Baixado.Should().BeTrue();
         salvo.Status.Should().Be(StatusCodigo.Baixado);
         salvo.DataBaixa.Should().Be(new DateOnly(2026, 7, 11));
-        salvo.NumeroGuiaReal.Should().Be("G-123");
+        salvo.NumeroGuiaReal.Should().Be("90123");
         salvo.UsuarioBaixa.Should().Be("secretaria");
     }
 
@@ -55,7 +55,7 @@ public class FaturamentoServiceTests : IDisposable
     public async Task EstornarBaixa_ReabreAPendencia()
     {
         var codigo = await CriarCodigoAsync();
-        await _faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "G-123", "secretaria", null);
+        await _faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "90123", "secretaria", null);
 
         await _faturamento.EstornarBaixaAsync(codigo.Id, "baixado por engano", "gerente");
 

@@ -58,10 +58,12 @@
                                         CommandParameter="{Binding}" />
                                 <Button Content="Glosar" Margin="6,0,0,0"
                                         Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        IsEnabled="{Binding DataContext.PodeGlosar, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         Command="{Binding DataContext.GlosarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
                                 <Button Content="Estornar" Margin="6,0,0,0"
                                         Style="{StaticResource BotaoAcaoGridPerigo}"
+                                        IsEnabled="{Binding DataContext.PodeEstornar, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                         CommandParameter="{Binding}" />
                             </StackPanel>

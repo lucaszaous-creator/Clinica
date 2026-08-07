@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using System.Windows.Input;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -14,6 +15,15 @@ namespace Clinica.Desktop.ViewModels;
 /// <summary>Tela inicial: 2º códigos e consultas pendentes com semáforo, filtros por convênio e urgência.</summary>
 public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 {
+    /// <summary>
+    /// Metade VISÍVEL da permissão (parcela 45): o botão explica, o <c>Exigir</c> do
+    /// comando impede. As duas são obrigatórias — só desabilitar é enfeite, porque atalho
+    /// de teclado e pesquisa global disparam o mesmo comando por outro caminho.
+    /// </summary>
+    public bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
+
+    /// <summary>Decidir não faturar é a permissão mais delicada do faturamento: é a única que tira uma guia do painel sem ela ter sido faturada.</summary>
+    public bool PodeMarcarNaoConformidade => SessaoUsuario.Atual.Pode(Permissao.MarcarNaoConformidade);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
     private readonly List<PendenciaCodigo> _todos = new();
@@ -195,7 +205,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         {
             using var scope = _scopeFactory.CreateScope();
             var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
-            await faturamento.RegistrarObservacaoPendenciaAsync(codigo.CodigoId, janela.Observacao, Environment.UserName);
+            await faturamento.RegistrarObservacaoPendenciaAsync(codigo.CodigoId, janela.Observacao, SessaoUsuario.Atual.Operador);
         }
         catch (Exception ex)
         {
@@ -215,6 +225,8 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         if (codigo is null) return;
 
+        SessaoUsuario.Atual.Exigir(Permissao.MarcarNaoConformidade, "marcar a guia como não conformidade");
+
         if (!_dialogo.Confirmar("Não conformidade",
                 $"Marcar a guia de {codigo.PacienteNome} como não conformidade? " +
                 "Ela sai das pendências ativas do painel e vai para a aba NC."))
@@ -230,7 +242,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         {
             using var scope = _scopeFactory.CreateScope();
             var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
-            await rodada.MarcarNaoConformidadeAsync(codigo.CodigoId, janela.Justificativa, Environment.UserName);
+            await rodada.MarcarNaoConformidadeAsync(codigo.CodigoId, janela.Justificativa, SessaoUsuario.Atual.Operador);
         }
         catch (Exception ex)
         {
@@ -332,6 +344,8 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand]
     private async Task DarBaixaEmLote(System.Collections.IList? selecionados)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa nas guias");
+
         var itens = selecionados?.OfType<PendenciaCodigo>().ToList() ?? new List<PendenciaCodigo>();
         if (itens.Count == 0)
         {
@@ -353,7 +367,7 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
             foreach (var linha in janela.Linhas.Where(l => !string.IsNullOrWhiteSpace(l.NumeroGuia)))
             {
                 await faturamento.DarBaixaAsync(linha.CodigoId, janela.DataBaixa,
-                    linha.NumeroGuia!.Trim(), Environment.UserName, "baixa em lote");
+                    linha.NumeroGuia!.Trim(), SessaoUsuario.Atual.Operador, "baixa em lote");
                 feitas++;
             }
         }

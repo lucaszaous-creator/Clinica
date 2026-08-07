@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Desktop.Shell.Modulos;

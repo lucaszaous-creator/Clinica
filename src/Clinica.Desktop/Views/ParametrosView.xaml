@@ -96,6 +96,29 @@
                                 </StackPanel>
                             </Grid>
 
+                            <!-- Formato do número da guia (parcela 45). Fica FORA do painel
+                                 da regra genérica de propósito: vale para todo convênio, e
+                                 o pedido veio justamente sobre embutidos (Unimed só números;
+                                 Petrobras e Amil alfanumérico) e sobre a Sul América, que a
+                                 clínica cadastrou como personalizada. -->
+                            <StackPanel Margin="0,12,0,0">
+                                <TextBlock Text="Número da guia neste convênio" Style="{StaticResource Rotulo}" />
+                                <ComboBox ItemsSource="{x:Static vm:FontesEnum.FormatosNumeroGuia}"
+                                          SelectedItem="{Binding FormatoNumeroGuia}"
+                                          HorizontalAlignment="Left" Width="260">
+                                    <!-- Sem template, o WPF chama ToString() e a tela ofereceria
+                                         "SomenteNumeros" à secretária (checagem 20). -->
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left" MaxWidth="620" Margin="0,4,0,0"
+                                           Text="A baixa recusa o número que não seguir esta forma. Serve para o zero digitado como &quot;O&quot; não passar batido e só aparecer no retorno da operadora, semanas depois. &quot;Sem validação&quot; aceita o que for digitado." />
+                            </StackPanel>
+
                             <!-- Ajustes da regra genérica — só fazem sentido quando a família é Personalizado -->
                             <StackPanel Visibility="{Binding EhPersonalizado, Converter={StaticResource BoolParaVisibilidade}}">
                                 <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,8,0,4" />
@@ -455,7 +478,7 @@
         </TabControl>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,16,0,0" VerticalAlignment="Center">
-            <Button Content="Salvar configurações" Command="{Binding SalvarCommand}"
+            <Button Content="Salvar configurações" Command="{Binding SalvarCommand}" IsEnabled="{Binding PodeConfigurar}"
                     Click="Salvar_Click"
                     ctrl:Ajudantes.EstaCarregando="{Binding Salvando}" />
             <TextBlock Text="{Binding Mensagem}" VerticalAlignment="Center" Margin="16,0,0,0"

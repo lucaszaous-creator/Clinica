@@ -142,7 +142,7 @@ public class RodadaPendenciasTests : IDisposable
     public async Task GuiaBaixada_NaoViraNaoConformidade()
     {
         var codigo = await CriarSegundoCodigoAsync();
-        await new FaturamentoService(_repo).DarBaixaAsync(codigo.Id, Ref, "G-1", "maria", null);
+        await new FaturamentoService(_repo).DarBaixaAsync(codigo.Id, Ref, "9001", "maria", null);
 
         var acao = () => _rodada.MarcarNaoConformidadeAsync(codigo.Id, "tentando justificar", "maria");
 

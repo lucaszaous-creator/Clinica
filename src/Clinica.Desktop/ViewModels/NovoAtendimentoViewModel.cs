@@ -27,6 +27,11 @@ public sealed record CodigoLancado(CodigoFaturamento Codigo, bool PodeBaixar, st
 /// <summary>Lança um atendimento. O sistema gera automaticamente os códigos (inclusive o 2º código +24h).</summary>
 public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 {
+    /// <summary>Metade VISÍVEL da permissão: lançar atendimento CRIA as guias pela regra do convênio.</summary>
+    public bool PodeLancar => SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
+
+    /// <summary>Metade VISÍVEL da permissão de dar baixa direto da tela do lançamento.</summary>
+    public bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
     private readonly IServiceScopeFactory _scopeFactory;
 
     /// <summary>Busca de paciente compartilhada (mesmo limite e mesmo comportamento das outras telas).</summary>
@@ -352,6 +357,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand]
     private async Task Lancar()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.LancarAtendimento, "lançar atendimento");
+
         if (Seletor.Selecionado is not { } paciente)
         {
             Mensagem = "Selecione o paciente.";
@@ -454,6 +461,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
                         $"({(linha.Codigo.Ordem == OrdemCodigo.Segundo ? "2º" : "1º")} código) " +
                         $"do atendimento {NumeroAtendimento}";
 
+        SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
+
         var janela = new Alertas.BaixaGuiaWindow(descricao)
         {
             Owner = System.Windows.Application.Current.MainWindow
@@ -465,7 +474,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             using var scope = _scopeFactory.CreateScope();
             var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
             await faturamento.DarBaixaAsync(linha.Codigo.Id, janela.DataBaixa, janela.NumeroGuia,
-                Environment.UserName, janela.Observacao);
+                SessaoUsuario.Atual.Operador, janela.Observacao);
         }
         catch (Exception ex)
         {

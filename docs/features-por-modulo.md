@@ -860,9 +860,11 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 > lado de fora da própria clínica. E o sistema recusa deixar a base sem ninguém capaz de
 > gerenciar acessos.
 
-> **O app de FATURAMENTO continua sem login.** Está congelado, roda num posto só, e
-> encostar nele é exatamente o que a parcela inteira evita. Isso está documentado, não
-> esquecido — a tela de Acessos diz isso ao usuário.
+> **O app de FATURAMENTO passou a pedir login na parcela 45**, a pedido da cliente, com
+> permissões granulares (dar baixa, estornar, glosar, gerar lote, lançar atendimento,
+> decidir não faturar, configurar). O motivo não foi arquitetura: enquanto ele não teve
+> sessão, toda ação dele ia para a auditoria assinada pelo usuário do WINDOWS, e a direção
+> não conseguia responder "quem fez isso?" justamente na tela onde a pergunta importa.
 
 ---
 

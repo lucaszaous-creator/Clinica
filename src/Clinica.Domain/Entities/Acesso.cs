@@ -32,7 +32,15 @@ public enum Permissao
     /// <summary>Lançar, realizar e cancelar movimento de caixa.</summary>
     EditarFinanceiro = 1 << 5,
 
-    /// <summary>Ler o faturamento (guias, pendências, lotes) — a visão do Gerente.</summary>
+    /// <summary>
+    /// LER o faturamento: guias, pendências, lotes, consulta de guias e relatórios.
+    ///
+    /// Até a parcela 45 este bit era o faturamento inteiro — quem podia ver podia baixar,
+    /// estornar e glosar. Agora ele é só a leitura, e cada escrita tem o bit dela logo
+    /// abaixo. Quem tinha o perfil Faturista continua podendo tudo, porque o padrão do
+    /// perfil ganhou os bits novos: a permissão é resolvida na LEITURA, então ninguém
+    /// precisou ser reeditado.
+    /// </summary>
     VerFaturamento = 1 << 6,
 
     /// <summary>Ver os indicadores gerenciais.</summary>
@@ -77,7 +85,70 @@ public enum Permissao
     /// duas (numa clínica pequena o profissional às vezes administra ele mesmo), mas os
     /// perfis padrão as mantêm separadas, e a folha imprime os dois nomes.
     /// </summary>
-    ChecarPrescricao = 1 << 14
+    ChecarPrescricao = 1 << 14,
+
+    // ------------------------------------------------------------------------
+    // Faturamento em detalhe (parcela 45)
+    //
+    // O pedido da cliente foi "permissões granulares no faturamento, para a gerente
+    // liberar ou não e auditar o que está sendo feito". Um bit só (VerFaturamento) não
+    // respondia: dar baixa, estornar uma baixa e recusar faturamento são atos de peso
+    // muito diferente, e a clínica precisava conceder um sem conceder os outros.
+    //
+    // O corte segue o que é IRREVERSÍVEL ou o que MUDA O NÚMERO do mês, não a tela onde
+    // o botão está — quebrar por tela daria uma lista que muda a cada leiaute novo.
+    // ------------------------------------------------------------------------
+
+    /// <summary>
+    /// Dar baixa na guia (individual, em lote e na rodada de pendências). É o ato central
+    /// do faturista e o único que a clínica quase sempre concede junto com a leitura.
+    /// </summary>
+    BaixarGuia = 1 << 15,
+
+    /// <summary>
+    /// Estornar uma baixa já registrada. Separada de <see cref="BaixarGuia"/> porque
+    /// desfazer é o ato que apaga o trabalho de outra pessoa: a guia volta a pendente, o
+    /// número real some da linha e a conciliação do Financeiro perde o elo. Errar a baixa
+    /// é acidente; estornar é decisão.
+    /// </summary>
+    EstornarBaixa = 1 << 16,
+
+    /// <summary>
+    /// Registrar glosa, reapresentar e marcar recuperada. Mexe no que a clínica tem a
+    /// receber e dispara o prazo de recurso — quem anota glosa está dizendo que a
+    /// operadora recusou, e essa afirmação sai do faturamento e chega ao caixa.
+    /// </summary>
+    RegistrarGlosa = 1 << 17,
+
+    /// <summary>
+    /// Gerar, exportar, enviar e dar retorno de lote TISS. É o que sai da clínica para a
+    /// operadora: guia exportada num lote não entra em outro, então um lote gerado por
+    /// engano não se desfaz com um clique.
+    /// </summary>
+    GerenciarLotesTiss = 1 << 18,
+
+    /// <summary>
+    /// Lançar atendimento — o ato que CRIA as guias pela regra do convênio, e junto dele a
+    /// consulta e a autorização de sessões que o lançamento consome.
+    /// </summary>
+    LancarAtendimento = 1 << 19,
+
+    /// <summary>
+    /// Decidir NÃO faturar uma guia (não conformidade) e reabrir o que foi decidido.
+    ///
+    /// É a permissão mais delicada do faturamento: ela é a única que faz uma pendência
+    /// sumir do painel sem que a guia tenha sido faturada. Sem bit próprio, quem tivesse
+    /// acesso à tela poderia zerar o alarme do sistema justamente sobre o trabalho que ele
+    /// existe para cobrar.
+    /// </summary>
+    MarcarNaoConformidade = 1 << 20,
+
+    /// <summary>
+    /// Mexer nas Configurações do faturamento: catálogo de convênios (incluindo o formato
+    /// do número da guia), modalidades, especialidades, prazos e dados do prestador. Muda
+    /// a regra para todo mundo, e não só o registro de uma guia.
+    /// </summary>
+    ConfigurarFaturamento = 1 << 21
 }
 
 /// <summary>
@@ -96,7 +167,7 @@ public enum PerfilAcesso
     /// <summary>Administrativo: caixa, conciliação e produção.</summary>
     Financeiro,
 
-    /// <summary>Faturista: lê o faturamento inteiro (o app de faturamento continua sem login).</summary>
+    /// <summary>Faturista: opera o faturamento inteiro, menos as Configurações dele.</summary>
     Faturista,
 
     /// <summary>
@@ -139,8 +210,24 @@ public static class PerfisAcesso
         PerfilAcesso.Financeiro =>
             Permissao.VerAgenda | Permissao.VerFinanceiro | Permissao.EditarFinanceiro,
 
+        // O faturista recebe o faturamento inteiro, MENOS as Configurações: mudar o
+        // catálogo de convênios ou o prazo da rodada muda a regra para todo mundo, e quem
+        // decide isso é a direção.
+        //
+        // O padrão foi montado para reproduzir EXATAMENTE o que o app de faturamento
+        // deixava fazer antes de ganhar login (parcela 45) — inclusive marcar na agenda e
+        // cadastrar paciente, que é o que a secretária que fatura faz o dia inteiro. Uma
+        // versão que introduz permissão e, de quebra, tira uma capacidade que a pessoa
+        // usava ontem vira chamado de suporte na segunda de manhã, e o pedido da cliente
+        // era o contrário: poder LIBERAR OU NÃO, caso a caso. Agora a direção tira o bit
+        // de quem não deve ter — que é uma decisão dela, tomada na tela de Acessos, e não
+        // um efeito colateral da atualização.
         PerfilAcesso.Faturista =>
-            Permissao.VerAgenda | Permissao.VerFaturamento | Permissao.VerProntuario,
+            Permissao.VerAgenda | Permissao.EditarAgenda |
+            Permissao.VerProntuario | Permissao.EditarProntuario |
+            Permissao.VerFaturamento | Permissao.BaixarGuia | Permissao.EstornarBaixa |
+            Permissao.RegistrarGlosa | Permissao.GerenciarLotesTiss |
+            Permissao.LancarAtendimento | Permissao.MarcarNaoConformidade,
 
         PerfilAcesso.Gerente => Todas,
 
@@ -178,6 +265,13 @@ public static class PerfisAcesso
         Permissao.VerFinanceiro => "Ver financeiro",
         Permissao.EditarFinanceiro => "Lançar no caixa",
         Permissao.VerFaturamento => "Ver faturamento",
+        Permissao.BaixarGuia => "Dar baixa em guia",
+        Permissao.EstornarBaixa => "Estornar baixa de guia",
+        Permissao.RegistrarGlosa => "Registrar e recorrer de glosa",
+        Permissao.GerenciarLotesTiss => "Gerar e enviar lote TISS",
+        Permissao.LancarAtendimento => "Lançar atendimento",
+        Permissao.MarcarNaoConformidade => "Decidir não faturar (NC)",
+        Permissao.ConfigurarFaturamento => "Configurar o faturamento",
         Permissao.VerIndicadores => "Ver indicadores",
         Permissao.GerenciarCampanhas => "Gerenciar campanhas",
         Permissao.GerenciarEquipe => "Cadastrar equipe",
@@ -204,8 +298,9 @@ public static class PerfisAcesso
 /// A senha NUNCA é guardada: só o hash PBKDF2 e o sal, um por usuário
 /// (<see cref="Clinica.Domain.HashSenha"/>).
 ///
-/// O app de FATURAMENTO continua sem login: ele está congelado, e é o único posto onde
-/// já existe uma pessoa só operando a máquina.
+/// Desde a parcela 45 o app de FATURAMENTO também exige login: ele era o único posto sem
+/// autenticação, e enquanto foi assim a auditoria dele gravava o usuário do Windows — isto
+/// é, o nome da MÁQUINA — em vez do nome de quem deu a baixa.
 /// </summary>
 public class UsuarioSistema
 {

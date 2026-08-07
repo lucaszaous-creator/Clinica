@@ -31,7 +31,12 @@ public sealed class ConvenioCatalogoService
                     Codigo = codigo,
                     Nome = ConvenioInfo.NomeExibicaoPadrao(familia),
                     Familia = familia,
-                    Ativo = true
+                    Ativo = true,
+                    // O embutido que ainda não existe no banco nasce já com o formato do
+                    // número da guia da própria família (parcela 45). Deixá-lo em
+                    // "sem validação" faria a crítica sumir justamente na base que nunca
+                    // abriu a tela de Configurações — que é a maioria delas.
+                    FormatoNumeroGuia = RegraNumeroGuia.PadraoDaFamilia(familia)
                 };
         }
 
@@ -44,7 +49,8 @@ public sealed class ConvenioCatalogoService
         var lista = await ListarAsync(ct);
         CatalogoConvenios.Atualizar(lista.Select(c => new EntradaConvenio(
             c.Codigo, c.Nome, c.Familia, c.Ativo,
-            c.Familia == Convenio.Personalizado ? c.ParaConfig() : null)));
+            c.Familia == Convenio.Personalizado ? c.ParaConfig() : null,
+            c.FormatoNumeroGuia)));
     }
 
     public async Task SalvarAsync(IEnumerable<ConvenioCadastro> convenios, CancellationToken ct = default)

@@ -59,7 +59,7 @@ public class ServicosIntegracaoTests : IDisposable
         segundo.FormaObtencao.Should().Be(FormaObtencao.Sistema);
 
         // Secretária dá baixa → sai das pendências e registra a guia real.
-        await faturamento.DarBaixaAsync(segundo.CodigoId, noDiaSeguinte, "GUIA-999", "secretaria", null);
+        await faturamento.DarBaixaAsync(segundo.CodigoId, noDiaSeguinte, "100999", "secretaria", null);
 
         (await pendencias.CodigosPendentesAsync(noDiaSeguinte))
             .Should().NotContain(p => p.CodigoId == segundo.CodigoId);

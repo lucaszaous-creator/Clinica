@@ -184,7 +184,7 @@
                 <StackPanel Grid.Row="2">
                     <Border Style="{StaticResource Divisor}" Margin="0,16,0,0" />
                     <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                        <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}"
+                        <Button Content="Lançar e gerar códigos" Command="{Binding LancarCommand}" IsEnabled="{Binding PodeLancar}"
                                 ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
                         <Button Content="Limpar" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0"
                                 Command="{Binding NovoLancamentoCommand}"
@@ -297,6 +297,7 @@
                                                 <Button Content="Dar baixa" Style="{StaticResource BotaoAcaoGrid}"
                                                         ToolTip="Registrar que a guia foi efetivada no sistema do convênio"
                                                         Visibility="{Binding PodeBaixar, Converter={StaticResource BoolParaVisibilidade}}"
+                                                        IsEnabled="{Binding DataContext.PodeBaixar, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                         Command="{Binding DataContext.DarBaixaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                         CommandParameter="{Binding}" />
                                                 <TextBlock Text="{Binding Impedimento}" VerticalAlignment="Center"

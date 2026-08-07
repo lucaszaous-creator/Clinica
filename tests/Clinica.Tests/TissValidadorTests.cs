@@ -35,7 +35,7 @@ public class TissValidadorTests
             Atendimento = atendimento,
             Tipo = TipoCodigo.Acupuntura
         };
-        codigo.DarBaixa(new DateOnly(2026, 7, 11), "G-123", "maria", null);
+        codigo.DarBaixa(new DateOnly(2026, 7, 11), "90123", "maria", null);
         return new List<CodigoFaturamento> { codigo };
     }
 
