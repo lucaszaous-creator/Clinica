@@ -312,7 +312,7 @@
                                      e Foreground é propriedade HERDADA — sem isto o nome da
                                      modalidade sairia branco sobre a superfície branca do
                                      cartão, visível só para quem abre a tela. -->
-                                <Button Width="196" Height="112" Margin="0,0,10,10"
+                                <Button Width="210" Height="132" Margin="0,0,10,10"
                                         HorizontalContentAlignment="Stretch"
                                         Foreground="{StaticResource Brush.Texto.Primario}"
                                         FontWeight="Normal"
@@ -341,8 +341,15 @@
                                                     </StackPanel>
 
                                                     <StackPanel>
+                                                        <!-- Teto de duas linhas: sem ele, o
+                                                             nome de uma modalidade
+                                                             personalizada empurra o número
+                                                             de guias para fora do cartão de
+                                                             altura fixa, e o que o olho
+                                                             procura some. -->
                                                         <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
                                                                    TextWrapping="Wrap"
+                                                                   MaxHeight="38"
                                                                    TextTrimming="CharacterEllipsis" />
                                                         <!-- Ataca o erro mais comum do balcão:
                                                              lançar a modalidade errada por

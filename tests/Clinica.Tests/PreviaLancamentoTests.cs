@@ -160,6 +160,37 @@ public class PreviaLancamentoTests : IDisposable
         pAmil.GuiasDepois.Should().Be(0, "a Amil não faz eletro nem 2º código");
     }
 
+    /// <summary>
+    /// O que os CARTÕES da tela têm de mostrar para a Unimed Intercâmbio — o caso exato
+    /// que o cliente fotografou com o número errado.
+    ///
+    /// Na tela apareceu "Acupuntura + eletroacupuntura · 1 guia · tudo hoje" e
+    /// "BSV + acupuntura · 2 guias · tudo hoje". As duas frases estão erradas e, pior,
+    /// se contradizem: o motor gera DOIS códigos nas duas modalidades, e o segundo só
+    /// libera em +24h. O defeito não era do motor — era a tela escrevendo o resultado de
+    /// uma leitura velha —, e este teste fixa a resposta certa para que a próxima
+    /// divergência apareça aqui, e não numa captura de tela.
+    /// </summary>
+    [Theory]
+    [InlineData("AcupunturaComEletro")]
+    [InlineData("BsvComAcupuntura")]
+    public async Task Modalidade_dupla_no_Intercambio_gera_duas_guias_e_a_segunda_libera_depois(
+        string modalidade)
+    {
+        var paciente = await SemearAsync(Convenio.UnimedIntercambio);
+        var data = new DateOnly(2026, 8, 8);
+
+        var previas = await new AtendimentoService(_repo)
+            .PreverModalidadesAsync(paciente.Id, data, [modalidade]);
+
+        var p = previas[modalidade];
+
+        (p.GuiasHoje + p.GuiasDepois).Should().Be(2, "o cartão precisa dizer \"2 guias\"");
+        p.GuiasDepois.Should().Be(1, "uma delas só libera depois");
+        p.LiberaEm.Should().Be(data.AddDays(1),
+            "sem isto o cartão diz \"tudo hoje\" sobre a guia que é o assunto do produto");
+    }
+
     private async Task<Paciente> SemearAsync(Convenio convenio)
     {
         var paciente = new Paciente

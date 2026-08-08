@@ -96,8 +96,20 @@
                              tema antigo desenhava em volta de tudo. -->
                         <Border DockPanel.Dock="Top" BorderThickness="0,0,0,1"
                                 BorderBrush="{StaticResource Brush.Borda}">
-                            <TabPanel IsItemsHost="True" Panel.ZIndex="1"
-                                      Background="Transparent" Margin="0,0,0,-1" />
+                            <!-- WrapPanel, e NÃO o TabPanel padrão do WPF.
+
+                                 O `TabPanel` ENCOLHE os itens quando julga que a régua não
+                                 cabe, e o resultado é o rótulo cortado no meio da palavra:
+                                 o cliente viu "Convê", "Prontu", "Documer", "Relacioname"
+                                 e "LG" numa ficha com quase mil pixels de largura sobrando.
+                                 Não é falta de espaço — é o painel decidindo espremer.
+
+                                 O WrapPanel dá a cada filho a largura que ele PEDE e, se um
+                                 dia não couber, quebra para a linha de baixo. Aba com o
+                                 nome pela metade é pior do que aba na segunda linha: a
+                                 segunda linha se lê, "Documer" não. -->
+                            <WrapPanel IsItemsHost="True" Panel.ZIndex="1"
+                                       Background="Transparent" Margin="0,0,0,-1" />
                         </Border>
 
                         <ContentPresenter ContentSource="SelectedContent"

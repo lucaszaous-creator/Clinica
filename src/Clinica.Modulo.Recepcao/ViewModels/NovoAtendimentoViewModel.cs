@@ -92,11 +92,17 @@ public sealed partial class CartaoModalidade : ObservableObject
 
     [ObservableProperty] private bool _escolhida;
 
-    /// <summary>"2 guias" / "1 guia" — o que a regra do convênio gera. Vazio enquanto a prévia não voltou.</summary>
-    [ObservableProperty] private string _quantasGuias = string.Empty;
+    /// <summary>
+    /// "2 guias" / "1 guia" — o que a regra do convênio gera.
+    ///
+    /// Nasce em "…" e não vazio: cartão sem número não se distingue de cartão que diz que
+    /// não vai gerar nada, e a leitura do banco é remota — há um instante real entre
+    /// escolher o paciente e saber a resposta.
+    /// </summary>
+    [ObservableProperty] private string _quantasGuias = "…";
 
     /// <summary>"a 2ª libera 09/08" ou "tudo hoje". A frase que faz o 2º código existir antes de nascer.</summary>
-    [ObservableProperty] private string _quando = string.Empty;
+    [ObservableProperty] private string _quando = "calculando…";
 
     /// <summary>Esta modalidade gera 2º código — o que se esquece, e o motivo de o produto existir.</summary>
     [ObservableProperty] private bool _temSegundoCodigo;
@@ -345,9 +351,22 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     partial void OnEspecialidadeSelecionadaChanged(EntradaEspecialidade? value) => _ = PreverAsync();
     partial void OnPrimeiroCodigoChanged(TipoCodigo? value) => _ = PreverAsync();
 
-    /// <summary>Preenche as opções de "qual código primeiro" conforme a modalidade e escolhe o padrão.</summary>
+    /// <summary>
+    /// Preenche as opções de "qual código primeiro" conforme a modalidade e escolhe o
+    /// padrão.
+    ///
+    /// ⚠️ <b>Só mexe em <see cref="PrimeiroCodigo"/> quando ele deixou de servir.</b>
+    /// Antes ele era reescrito sempre, e como toda escrita dispara
+    /// <c>OnPrimeiroCodigoChanged</c>, trocar de modalidade largava TRÊS prévias
+    /// concorrentes no ar (a do <c>Clear()</c> que zera a seleção da combo, a do valor
+    /// novo e a do próprio <c>OnModalidadeSelecionadaChanged</c>). Com o banco remoto,
+    /// qualquer uma delas podia responder por último — e a resposta velha sobrescrevia a
+    /// nova. Era metade do defeito que o cliente viu como "não atualiza".
+    /// </summary>
     private void AtualizarOpcoesPrimeiroCodigo()
     {
+        var escolhido = PrimeiroCodigo;
+
         OpcoesPrimeiroCodigo.Clear();
         switch (Modalidade)
         {
@@ -360,7 +379,16 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 OpcoesPrimeiroCodigo.Add(TipoCodigo.Acupuntura);
                 break;
         }
-        PrimeiroCodigo = OpcoesPrimeiroCodigo.Count > 0 ? OpcoesPrimeiroCodigo[0] : null;
+
+        // O `Clear()` acima zera o SelectedItem da combo e devolve null para cá pelo
+        // binding; reescrever o mesmo valor não dispara nada, e escrever um valor que
+        // continua válido só trocaria a escolha do usuário sem ele pedir.
+        var novo = OpcoesPrimeiroCodigo.Count == 0 ? (TipoCodigo?)null
+            : escolhido is { } atual && OpcoesPrimeiroCodigo.Contains(atual) ? atual
+            : OpcoesPrimeiroCodigo[0];
+
+        if (PrimeiroCodigo != novo) PrimeiroCodigo = novo;
+        else OnPropertyChanged(nameof(PrimeiroCodigo));
     }
 
     public async Task CarregarAsync()
@@ -497,6 +525,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
         // Os cartões e a prévia dependem do CONVÊNIO do paciente: a mesma modalidade gera
         // 2 guias na Unimed Intercâmbio e 1 na Amil.
+        //
+        // Por isso a prévia guardada é JOGADA FORA ao trocar de paciente: reaproveitá-la
+        // mostraria, por um instante, o número do paciente anterior no cartão do novo — e
+        // é exatamente sobre esse número que a recepcionista decide. Cartão dizendo
+        // "calculando…" é honesto; cartão dizendo "2 guias" para quem vai gerar 1 não é.
+        _ultimaPrevia = null;
         MontarCartoes();
         _ = PreverAsync();
 
@@ -584,6 +618,19 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// Monta os cartões de modalidade. O texto de consequência entra depois, quando a
     /// prévia voltar — o cartão nasce sem ele em vez de nascer com um palpite.
     /// </summary>
+    /// <summary>
+    /// Remonta a fileira de cartões. Reaproveita a ÚLTIMA prévia calculada, se houver.
+    ///
+    /// Sem isso a fileira nascia com os números em branco e só se preenchia quando a
+    /// próxima leitura do banco voltasse — e como trocar de paciente chama esta remontagem
+    /// e a prévia ao mesmo tempo, quem chegasse por último decidia se a tela tinha número
+    /// ou não. É a outra metade do "não atualiza" que o cliente viu.
+    ///
+    /// O reaproveitamento vale para a remontagem do MESMO paciente (recarregar o catálogo
+    /// de modalidades). Ao TROCAR de paciente a prévia guardada é jogada fora antes —
+    /// mostrar o número do paciente anterior no cartão do novo seria pior do que mostrar
+    /// "calculando…", porque é sobre esse número que a recepcionista decide.
+    /// </summary>
     private void MontarCartoes()
     {
         var habitual = PacienteSelecionado?.ModalidadePreferidaCodigo;
@@ -597,6 +644,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 EhHabitual = habitual is not null && m.Codigo == habitual,
                 Escolhida = m.Codigo == ModalidadeSelecionada?.Codigo
             });
+
+        if (_ultimaPrevia is { } previa) AplicarNosCartoes(previa);
     }
 
     /// <summary>
@@ -608,20 +657,35 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// senão "nenhuma guia" (que é o que uma lista vazia parece) viraria a informação mais
     /// perigosa possível numa tela cujo assunto é justamente não esquecer guia.
     /// </summary>
+    /// <summary>
+    /// Número da prévia mais recente pedida. Só a resposta dele pode escrever na tela.
+    ///
+    /// <b>Por que um contador, e não a comparação de estado.</b> A guarda anterior
+    /// conferia paciente e modalidade — e não pegava o caso que o cliente viu: DUAS
+    /// prévias do MESMO paciente e da MESMA modalidade no ar, uma com o "qual código sai
+    /// primeiro" antigo e outra com o novo. As duas passavam na conferência, e quem
+    /// escrevia por último era quem o banco respondesse por último. Num banco remoto isso
+    /// não tem ordem nenhuma.
+    ///
+    /// É a mesma solução que o <c>SeletorPacienteViewModel</c> já usa para descartar
+    /// resposta de busca fora de ordem: quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoPrevia;
+
     private async Task PreverAsync()
     {
+        var geracao = ++_geracaoPrevia;
+
         if (PacienteSelecionado is not { } paciente || ModalidadeSelecionada is null)
         {
-            Previa.Clear();
-            ResumoPrevia = string.Empty;
-            RotuloLancar = "Lançar e gerar as guias";
-            OnPropertyChanged(nameof(TemPrevia));
+            LimparPrevia();
             return;
         }
 
         var pacienteId = paciente.Id;
         var data = DateOnly.FromDateTime(Data);
         var codigoModalidade = ModalidadeSelecionada.Codigo;
+        var codigosDosCartoes = Modalidades.Select(m => m.Codigo).ToList();
 
         try
         {
@@ -635,35 +699,78 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
 
             var porModalidade = await atendimentos.PreverModalidadesAsync(
-                pacienteId, data, Modalidades.Select(m => m.Codigo));
+                pacienteId, data, codigosDosCartoes);
 
-            // A escolha pode ter mudado enquanto o banco respondia.
-            if (PacienteSelecionado?.Id != pacienteId
-                || ModalidadeSelecionada?.Codigo != codigoModalidade) return;
+            // Chegou tarde: alguém pediu outra prévia enquanto o banco respondia esta.
+            if (geracao != _geracaoPrevia) return;
 
             PublicarPrevia(previa);
-
-            foreach (var cartao in Cartoes)
-            {
-                if (!porModalidade.TryGetValue(cartao.Entrada.Codigo, out var p)) continue;
-
-                var total = p.GuiasHoje + p.GuiasDepois;
-                cartao.QuantasGuias = total == 1 ? "1 guia" : $"{total} guias";
-                cartao.TemSegundoCodigo = p.GuiasDepois > 0;
-                cartao.Quando = p.LiberaEm is { } quando
-                    ? $"a 2ª libera {quando:dd/MM}"
-                    : "tudo hoje";
-            }
+            AplicarNosCartoes(porModalidade);
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoPrevia) return;
+
             LogSuite.Registrar("Novo atendimento — prévia das guias não pôde ser calculada", ex);
             Previa.Clear();
             ResumoPrevia = "Não foi possível calcular a prévia das guias — o lançamento continua liberado.";
             RotuloLancar = "Lançar e gerar as guias";
             OnPropertyChanged(nameof(TemPrevia));
+
+            // Falha não pode deixar número velho na tela: cartão dizendo "1 guia" quando a
+            // conta não foi feita é falha exibida como sucesso, e é sobre esse número que a
+            // recepcionista decide.
+            foreach (var cartao in Cartoes)
+            {
+                cartao.QuantasGuias = "—";
+                cartao.Quando = "não foi possível calcular";
+                cartao.TemSegundoCodigo = false;
+            }
         }
     }
+
+    private void LimparPrevia()
+    {
+        Previa.Clear();
+        ResumoPrevia = string.Empty;
+        RotuloLancar = "Lançar e gerar as guias";
+        OnPropertyChanged(nameof(TemPrevia));
+    }
+
+    /// <summary>
+    /// Escreve nos cartões o que a regra do convênio vai gerar em cada modalidade.
+    ///
+    /// A última leitura fica GUARDADA (<see cref="_ultimaPrevia"/>) porque
+    /// <see cref="MontarCartoes"/> recria os objetos do zero — trocar de paciente
+    /// reconstruía a fileira e apagava os números que já estavam calculados, e os cartões
+    /// ficavam em branco até alguém mexer em outra coisa. Guardando, a remontagem
+    /// reaproveita na hora o que já se sabe.
+    /// </summary>
+    private void AplicarNosCartoes(IReadOnlyDictionary<string, PreviaLancamento> porModalidade)
+    {
+        _ultimaPrevia = porModalidade;
+
+        foreach (var cartao in Cartoes)
+        {
+            if (!porModalidade.TryGetValue(cartao.Entrada.Codigo, out var p))
+            {
+                cartao.QuantasGuias = "—";
+                cartao.Quando = string.Empty;
+                cartao.TemSegundoCodigo = false;
+                continue;
+            }
+
+            var total = p.GuiasHoje + p.GuiasDepois;
+            cartao.QuantasGuias = total == 1 ? "1 guia" : $"{total} guias";
+            cartao.TemSegundoCodigo = p.GuiasDepois > 0;
+            cartao.Quando = p.LiberaEm is { } quando
+                ? $"a 2ª libera {quando:dd/MM}"
+                : "tudo hoje";
+        }
+    }
+
+    /// <summary>A última prévia por modalidade, para a remontagem dos cartões não zerar a fileira.</summary>
+    private IReadOnlyDictionary<string, PreviaLancamento>? _ultimaPrevia;
 
     /// <summary>Traduz a prévia do motor de regras para as linhas da tela.</summary>
     private void PublicarPrevia(PreviaLancamento previa)

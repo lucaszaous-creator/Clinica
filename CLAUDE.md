@@ -1078,6 +1078,35 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   coluna de **Ações**, não faixa (dois falsos positivos), e trocar `BotaoPequeno` por
   `BotaoSecundario` em bloco atinge o botão de LINHA da lista, onde `BotaoPequeno` é o
   certo — e o resultado é `VerticalAlignment` duplicado, que o XML nem parseia.
+- **Resposta de banco que chega fora de ordem é "não atualiza"** (parcela 50, dois bugs
+  que o cliente achou em produção): a prévia do Novo atendimento mostrava "1 guia · tudo
+  hoje" para uma modalidade que gera duas, e não mudava ao trocar qual código o convênio
+  libera primeiro. O motor estava certo — quem errava era a TELA.
+  Duas causas somadas: (a) toda entrada disparava `_ = PreverAsync()` sem ordenar, e
+  trocar de modalidade largava **três** leituras concorrentes no ar (o `Clear()` da combo
+  de "qual código primeiro" zera a seleção e devolve `null` pelo binding, depois vem o
+  valor novo, depois a da própria modalidade); num banco remoto a mais VELHA podia
+  responder por último e sobrescrever. A guarda que existia comparava paciente e
+  modalidade, e não pegava duas leituras do MESMO paciente e da MESMA modalidade. Agora é
+  **contador de geração** — quem começou primeiro perde —, que é a mesma solução que o
+  `SeletorPacienteViewModel` já usava para busca fora de ordem. (b) `MontarCartoes()`
+  recria os objetos do zero, e ao trocar de paciente ele corria junto com a prévia: quem
+  chegasse por último decidia se a tela tinha número. A última leitura ficou **guardada**
+  para a remontagem reaproveitar — e é **jogada fora ao trocar de paciente**, porque
+  mostrar o número do paciente anterior é pior do que mostrar "calculando…".
+  A lição geral: **toda tela que dispara leitura a cada tecla ou clique precisa de
+  descarte de resposta fora de ordem.** Não é otimização; sem ele a tela mente, e mente de
+  um jeito que não reproduz na máquina de quem programa (banco local responde em ordem).
+- **`TabPanel` ENCOLHE as abas; `WrapPanel` não** (parcela 50): o cliente viu "Convê",
+  "Prontu", "Documer", "Relacioname" e "LG" na ficha do paciente, com quase mil pixels de
+  largura sobrando. Não era falta de espaço — é o painel padrão do `TabControl` decidindo
+  espremer os itens quando julga que a régua não cabe. O `WrapPanel` dá a cada filho a
+  largura que ele PEDE e, se um dia não couber, quebra para a linha de baixo: aba na
+  segunda linha se lê, "Documer" não.
+- **Cartão de altura FIXA precisa de teto no texto** (parcela 50): a mesma altura fixa que
+  acerta a base da fileira (parcela 47) corta o conteúdo quando o nome quebra em duas
+  linhas — foi o que apareceu no cartão escolhido do Novo atendimento. Altura fixa e
+  `MaxHeight` no rótulo andam juntos.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
