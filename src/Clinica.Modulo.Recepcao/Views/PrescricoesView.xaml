@@ -4,65 +4,68 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
+    <!-- ============================================================
+         LISTA DE LARGURA INTEIRA -> TELA DO PACIENTE (parcela 48).
+
+         Era a mesma coluna de 340 px do Prontuario, com a lista de pacientes repetida
+         pela terceira vez no mesmo modulo. O `README.md` proibe o padrao desde a quinta
+         reprovacao do cliente; esta e a ultima tela da Recepcao que ainda o tinha.
+         ============================================================ -->
+
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
     <Grid>
-    <DockPanel Margin="24">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Prescrições" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Receita, atestado, comparecimento, pedido de exame, relatório de evolução, consentimento e anamnese — numerados por ano, com código de conferência." />
-        </StackPanel>
+        <!-- ============ 1. A LISTA ============ -->
+        <DockPanel Margin="24"
+                   Visibility="{Binding MostrandoLista, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                <TextBlock Text="Prescrições" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="Receita, atestado, comparecimento, pedido de exame, relatório de evolução, consentimento e anamnese. Escolha o paciente para emitir ou consultar." />
+            </StackPanel>
 
-        <!-- ============ Escolha do paciente ============ -->
-        <Border DockPanel.Dock="Left" Style="{StaticResource Card}" Width="340" Margin="0,0,16,0">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                    <TextBox Style="{StaticResource CampoPesquisa}"
-                             Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                             ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
-                    <TextBlock Text="{Binding Seletor.Erro}"
-                               Style="{StaticResource TextoSuave}"
-                               Foreground="{StaticResource Brush.Erro}" Margin="0,6,0,0" />
-                </StackPanel>
+            <TextBox DockPanel.Dock="Top" Style="{StaticResource CampoPesquisa}" Margin="0,0,0,10"
+                     Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
 
+            <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}"
+                       Style="{StaticResource TextoSuave}"
+                       Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8" />
+
+            <Border Style="{StaticResource Card}">
                 <ListBox ItemsSource="{Binding Seletor.Resultados}"
                          SelectedItem="{Binding Seletor.Selecionado}"
-                         ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                         ItemTemplate="{StaticResource ItemPacienteLinha}"
                          BorderThickness="0" Background="Transparent"
-                         HorizontalContentAlignment="Stretch" />
-            </DockPanel>
-        </Border>
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+            </Border>
+        </DockPanel>
 
-        <!-- ============ Documentos do paciente ============ -->
-        <Grid>
-            <TextBlock Text="Escolha um paciente para emitir ou consultar documentos."
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Style="{StaticResource TextoSuave}"
-                       Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
+        <!-- ============ 2. OS DOCUMENTOS DO PACIENTE ============ -->
+        <Grid Visibility="{Binding MostrandoDocumentos, Converter={StaticResource BoolParaVisibilidade}}">
+        <DockPanel Margin="24">
 
-            <DockPanel>
-                <DockPanel.Style>
-                    <Style TargetType="DockPanel">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SemPaciente}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </DockPanel.Style>
-
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H2}"
-                               VerticalAlignment="Center" Margin="0" />
-                    <Button Content="Emitir documento" HorizontalAlignment="Right"
-                            Command="{Binding NovoDocumentoCommand}"
-                            IsEnabled="{Binding PodeEmitirDocumento}" />
-                </Grid>
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="&#xE72B;  Pacientes" MinHeight="36" MinWidth="130"
+                        VerticalAlignment="Center" Margin="0,0,14,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding VoltarCommand}" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0" />
+                    <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                               Text="Documentos numerados por ano, com código de conferência." />
+                </StackPanel>
+            </StackPanel>
+            <Button Content="Emitir documento" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    MinHeight="36" MinWidth="170"
+                    Command="{Binding NovoDocumentoCommand}"
+                    IsEnabled="{Binding PodeEmitirDocumento}" />
+        </Grid>
 
                 <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                         Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -185,15 +188,16 @@
                         </ScrollViewer>
                     </DockPanel>
                 </Border>
-            </DockPanel>
+        </DockPanel>
         </Grid>
-    </DockPanel>
-    <ctrl:EstadoDaTela Itens="{Binding Documentos}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE8A5;"
-                       TextoCarregando="Lendo as prescrições…"
-                       Titulo="Nenhuma prescrição emitida"
-                       Descricao="Receita, atestado e pedido de exame exigem o profissional que assina." />
+
+        <ctrl:EstadoDaTela Itens="{Binding Documentos}"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           Glifo="&#xE8A5;"
+                           TextoCarregando="Lendo as prescrições…"
+                           Titulo="Nenhuma prescrição emitida"
+                           Descricao="Receita, atestado e pedido de exame exigem o profissional que assina."
+                           Visibility="{Binding MostrandoDocumentos, Converter={StaticResource BoolParaVisibilidade}}" />
     </Grid>
 </UserControl>

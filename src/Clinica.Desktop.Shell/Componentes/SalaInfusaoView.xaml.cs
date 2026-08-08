@@ -1,7 +1,6 @@
 using System.Windows.Controls;
-using Clinica.Clinico.ViewModels;
 
-namespace Clinica.Clinico.Views;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>
 /// A fila da sala de infusão.

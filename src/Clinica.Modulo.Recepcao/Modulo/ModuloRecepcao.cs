@@ -1,3 +1,4 @@
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Recepcao.ViewModels;
@@ -24,6 +25,13 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChavePacientes = "pacientes-recepcao";
     public const string ChaveProntuario = "prontuario";
     public const string ChavePrescricoes = "prescricoes";
+    public const string ChaveRetorno = "retorno-pacientes";
+
+    /// <summary>
+    /// A sala de infusão (parcela 48). A chave é a MESMA que o Consultório publica —
+    /// é a mesma tela, e chave diferente faria a navegação da suíte abrir duas.
+    /// </summary>
+    public const string ChaveSalaInfusao = "consultorio-sala-infusao";
     public const string ChaveDocumentos = ChavesSuite.Documentos;
     public const string ChaveEquipe = "equipe";
 
@@ -88,6 +96,34 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
+        // Chamar de volta quem parou de vir (parcela 48). A rodada de recall existe desde
+        // a parcela 5 e a lista "quem parou de vir" desde a 32, e as duas moravam só no
+        // GERENTE — mas quem telefona para o paciente é o BALCÃO. É o mesmo argumento que
+        // trouxe a rodada de confirmação para cá na parcela 26, aplicado à outra ponta do
+        // relacionamento: lá se evita o buraco na agenda de amanhã; aqui se recupera o
+        // paciente que sumiu.
+        new ItemMenuModulo
+        {
+            Chave = ChaveRetorno, Rotulo = "Retorno de pacientes", Glifo = "\uE8AF",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.GerenciarCampanhas
+        },
+        // A SALA DE INFUSÃO, onde a ENFERMAGEM alcança (parcela 48).
+        //
+        // `PerfilAcesso.Enfermagem` e `Permissao.ChecarPrescricao` existem desde a parcela
+        // 42, e a única tela para checar estava no `Clinica.Modulo.Clinico` — carregado
+        // pelo exe do MÉDICO. A técnica que administra a infusão teria de usar o app dele.
+        // É o defeito recorrente do projeto na variante "a porta está no módulo de quem
+        // não usa", com o agravante de a permissão já existir e não levar a lugar nenhum.
+        //
+        // A tela não foi copiada: ela SUBIU para o shell (`Componentes/SalaInfusaoView`),
+        // como o mapa corporal e a emissão de documento na parcela 36. Os dois módulos
+        // publicam a MESMA chave, e quem PRESCREVE continua no Consultório — é a divisão
+        // que dá valor à conferência: são duas pessoas.
+        new ItemMenuModulo
+        {
+            Chave = ChaveSalaInfusao, Rotulo = "Sala de infusão", Glifo = "\uE9D5",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.ChecarPrescricao
+        },
         // As nove folhas do mockup num lugar só (parcela 24). Existiam todas e nenhuma
         // estava no mesmo lugar: quatro dentro da ficha do paciente, três no botão certo
         // da aba certa dessa ficha, o recibo no Caixa, o orçamento só dentro de um pacote
@@ -116,6 +152,8 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<PacientesViewModel>();
         servicos.AddTransient<NovoAtendimentoViewModel>();
         servicos.AddTransient<ConsultasViewModel>();
+        servicos.AddTransient<RetornoViewModel>();
+        servicos.AddTransient<SalaInfusaoViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
         servicos.AddTransient<PrescricoesViewModel>();
         servicos.AddTransient<EquipeViewModel>();
@@ -135,6 +173,11 @@ public sealed class ModuloRecepcao : IModuloApp
             DataContext = servicos.GetRequiredService<NovoAtendimentoViewModel>()
         },
         ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
+        ChaveRetorno => new RetornoView { DataContext = servicos.GetRequiredService<RetornoViewModel>() },
+        ChaveSalaInfusao => new SalaInfusaoView
+        {
+            DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()
+        },
         ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },
         ChavePrescricoes => new PrescricoesView { DataContext = servicos.GetRequiredService<PrescricoesViewModel>() },
         ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },

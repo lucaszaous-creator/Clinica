@@ -189,6 +189,21 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public ObservableCollection<LinhaAlerta> Alertas { get; } = [];
     public ObservableCollection<LinhaDocumento> Documentos { get; } = [];
 
+    /// <summary>
+    /// As autorizações de sessões — a "senha" do convênio (parcela 48).
+    ///
+    /// A recepção já era AVISADA de que a cota ia estourar (<c>ElegibilidadeService</c>,
+    /// parcela 26) e a única porta para registrar a senha nova estava no app de
+    /// FATURAMENTO. Quem recebe a senha da operadora é o balcão.
+    /// </summary>
+    public ObservableCollection<SaldoAutorizacao> Autorizacoes { get; } = [];
+
+    /// <summary>Não foi possível LER as autorizações — o terceiro estado, nunca lista vazia.</summary>
+    [ObservableProperty] private bool _autorizacoesNaoVerificadas;
+
+    /// <summary>Código do convênio do paciente, para a janela de autorização já vir escolhida.</summary>
+    private string? _convenioCodigo;
+
     [ObservableProperty] private int _pacienteId;
     [ObservableProperty] private bool _carregando;
 
@@ -260,6 +275,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     /// <summary>
+    /// Metade VISÍVEL da permissão de registrar a senha do convênio (parcela 48). É o
+    /// MESMO bit que já governa cadastrar paciente aqui — bit novo faria quem cadastra
+    /// hoje perder a função até alguém marcar a caixinha nova em Acessos.
+    /// </summary>
+    public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+
+    /// <summary>
     /// Anonimizar não tem volta, então a barreira é outra: o balcão exporta os dados do
     /// titular, mas quem apaga a identificação é quem responde pela clínica.
     /// </summary>
@@ -318,6 +340,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             await CarregarCrmAsync(scope);
             await CarregarElegibilidadeAsync(scope);
             await CarregarFaltasAsync(scope);
+            await CarregarAutorizacoesAsync(scope);
         }
         catch (Exception ex)
         {
@@ -337,7 +360,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         Documento = string.IsNullOrWhiteSpace(p.Documento) ? "—" : Cpf.Formatar(p.Documento);
         Telefone = string.IsNullOrWhiteSpace(p.Telefone) ? "—" : p.Telefone!;
         Nascimento = p.DataNascimento is { } n ? $"{n:dd/MM/yyyy} ({Idade(n)} anos)" : "—";
-        Convenio = CatalogoConvenios.Nome(p.ConvenioCodigo ?? p.Convenio.ToString());
+        _convenioCodigo = p.ConvenioCodigo ?? p.Convenio.ToString();
+        Convenio = CatalogoConvenios.Nome(_convenioCodigo);
         Carteirinha = string.IsNullOrWhiteSpace(p.Carteirinha)
             ? "—"
             : p.ValidadeCarteirinha is { } v
@@ -457,6 +481,107 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             Cancelamentos = "não verificado";
             FaltaReincidente = false;
             AvisoFaltas = string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// As senhas do convênio deste paciente, com o saldo apurado (parcela 48).
+    ///
+    /// O consumo NÃO é digitado: o <see cref="AutorizacaoService"/> conta os atendimentos
+    /// dentro da vigência de cada senha. É por isso que a coluna "usadas" muda sozinha
+    /// quando o balcão finaliza uma sessão.
+    /// </summary>
+    private async Task CarregarAutorizacoesAsync(IServiceScope scope)
+    {
+        try
+        {
+            AutorizacoesNaoVerificadas = false;
+            Autorizacoes.Clear();
+
+            var servico = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
+            foreach (var saldo in await servico.SaldosAsync(
+                         PacienteId, DateOnly.FromDateTime(DateTime.Today)))
+                Autorizacoes.Add(saldo);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — autorizações do paciente não puderam ser lidas", ex);
+            // Terceiro estado. Lista vazia aqui se lê como "este paciente não tem senha
+            // nenhuma", que é exatamente a conclusão oposta à verdadeira quando a
+            // consulta falhou — e leva alguém a marcar dez sessões sem cota.
+            AutorizacoesNaoVerificadas = true;
+        }
+    }
+
+    /// <summary>Registra a senha que o convênio liberou.</summary>
+    [RelayCommand]
+    private async Task NovaAutorizacaoAsync() => await AbrirAutorizacaoAsync(null);
+
+    /// <summary>Corrige uma senha já registrada (quantidade, validade, encerramento).</summary>
+    [RelayCommand]
+    private async Task EditarAutorizacaoAsync(SaldoAutorizacao? linha)
+        => await AbrirAutorizacaoAsync(linha?.Autorizacao.Id);
+
+    private async Task AbrirAutorizacaoAsync(int? autorizacaoId)
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "registrar autorização");
+
+        if (PacienteId == 0)
+        {
+            Mensagem = "Escolha um paciente antes de registrar a autorização.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        var vm = new AutorizacaoEdicaoViewModel(_escopos, PacienteId);
+        await vm.CarregarAsync(autorizacaoId, _convenioCodigo);
+
+        var janela = new Janelas.AutorizacaoWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() == true)
+        {
+            _snackbar.Sucesso("Autorização registrada.");
+            await CarregarAsync();
+        }
+    }
+
+    /// <summary>
+    /// Apaga uma senha registrada. Ela não é registro do que aconteceu — é o que o
+    /// convênio liberou —, então se apaga mesmo, como o modelo e o protocolo da parcela
+    /// 25. O que ficou gravado dos atendimentos não muda.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExcluirAutorizacaoAsync(SaldoAutorizacao? linha)
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "excluir autorização");
+
+        if (linha is null) return;
+
+        if (!_dialogo.ConfirmarPerigo(
+                "Excluir autorização",
+                $"Apagar a senha {linha.Autorizacao.Numero ?? "(sem número)"}? "
+                + "Os atendimentos já lançados não mudam — o que se perde é o controle de cota."))
+            return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
+            await servico.RemoverAsync(linha.Autorizacao.Id, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Sucesso("Autorização excluída.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — autorização não pôde ser excluída", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
         }
     }
 

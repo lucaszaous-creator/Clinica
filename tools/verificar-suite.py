@@ -1165,25 +1165,39 @@ for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
     if "/obj/" in str(arq) or "/bin/" in str(arq):
         continue
     corpo = arq.read_text(encoding="utf-8")
-    for antes, prop, depois in COMBO_SEM_ROTULO.findall(corpo):
+    for achado in COMBO_SEM_ROTULO.finditer(corpo):
+        antes, prop, depois = achado.groups()
         tag = antes + depois
         if "ItemTemplate" in tag or "DisplayMemberPath" in tag:
             continue
+
+        # O ItemTemplate também pode vir como ELEMENTO DE PROPRIEDADE, dentro do ComboBox —
+        # `<ComboBox.ItemTemplate><DataTemplate>…`. A regex acima só enxerga os atributos da
+        # tag de abertura (ela para no `>`), então sem esta segunda leitura a checagem
+        # acusava um ComboBox que TEM rótulo. Falso positivo é o que faz alguém desligar a
+        # ferramenta, e aí ela deixa de pegar o defeito de verdade.
+        fecha = corpo.find("</ComboBox>", achado.end())
+        dentro = corpo[achado.end(): fecha if fecha != -1 else achado.end()]
+        if "ComboBox.ItemTemplate" in dentro:
+            continue
+
         nome = prop.split(".")[-1]
         enums = _TIPOS.get(nome, set()) & _ENUMS
         if not enums:
             continue
 
-        # O FATURAMENTO está congelado: o defeito está lá e não se corrige por decreto
-        # de leiaute. Vira AVISO — fica dito, não bloqueia o push, e some no dia em que
-        # aquele app sair do congelamento. Esconder seria fingir que a suíte está limpa
-        # quando a tela do cliente não está.
-        destino = avisos if "Clinica.Desktop/" in str(arq).replace("\\", "/") else erros
-        destino.append(
+        # O faturamento tem design system PRÓPRIO (ele não referencia o shell), então o
+        # remédio lá é o conversor dele, não a chave da suíte.
+        do_faturamento = "Clinica.Desktop/" in str(arq).replace("\\", "/")
+        remedio = (
+            'ItemTemplate com Converter={StaticResource EnumDescricao}'
+            if do_faturamento
+            else 'ItemTemplate="{StaticResource ItemRotuloEnum}"'
+        )
+        erros.append(
             f"{rel(arq)}: o ComboBox de `{nome}` lista o enum "
             f"`{'/'.join(sorted(enums))}` sem rótulo — o WPF chama ToString() e o nome do "
-            f"enum vai para a tela (\"PedidoExame\"). Use "
-            f'ItemTemplate="{{StaticResource ItemRotuloEnum}}".'
+            f"enum vai para a tela (\"PedidoExame\"). Use {remedio}."
         )
 
 

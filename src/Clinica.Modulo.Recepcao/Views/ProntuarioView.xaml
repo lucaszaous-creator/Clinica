@@ -4,67 +4,73 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
+    <!-- ============================================================
+         LISTA DE LARGURA INTEIRA -> TELA DO PACIENTE (parcela 48).
+
+         Era uma coluna de 340 px com a lista grudada a esquerda para sempre, e o
+         prontuario espremido no que sobrava. E o padrao que o `README.md` proibe e que a
+         cliente reprovou sete vezes; foi o mesmo conserto de `PacientesView`. Dois
+         desenhos para "escolher um paciente" no mesmo app e o que faz a recepcionista
+         achar que abriu outro programa.
+         ============================================================ -->
+
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
     <Grid>
-    <DockPanel Margin="24">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Prontuário" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="Evolução clínica e escala de dor EVA, sessão a sessão. O mapa corporal fica dentro da sessão." />
-        </StackPanel>
+        <!-- ============ 1. A LISTA ============ -->
+        <DockPanel Margin="24"
+                   Visibility="{Binding MostrandoLista, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,14">
+                <TextBlock Text="Prontuário" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="Evolução clínica e escala de dor EVA, sessão a sessão. Escolha o paciente para abrir o prontuário dele." />
+            </StackPanel>
 
-        <!-- ============ Escolha do paciente ============ -->
-        <Border DockPanel.Dock="Left" Style="{StaticResource Card}" Width="340" Margin="0,0,16,0">
-            <DockPanel>
-                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
-                    <TextBox Style="{StaticResource CampoPesquisa}"
-                             Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                             ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
-                    <TextBlock Text="{Binding Seletor.Erro}"
-                               Style="{StaticResource TextoSuave}"
-                               Foreground="{StaticResource Brush.Erro}" Margin="0,6,0,0" />
-                </StackPanel>
+            <TextBox DockPanel.Dock="Top" Style="{StaticResource CampoPesquisa}" Margin="0,0,0,10"
+                     Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
 
+            <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}"
+                       Style="{StaticResource TextoSuave}"
+                       Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8" />
+
+            <Border Style="{StaticResource Card}">
                 <ListBox ItemsSource="{Binding Seletor.Resultados}"
                          SelectedItem="{Binding Seletor.Selecionado}"
-                         ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                         ItemTemplate="{StaticResource ItemPacienteLinha}"
                          BorderThickness="0" Background="Transparent"
-                         HorizontalContentAlignment="Stretch" />
-            </DockPanel>
-        </Border>
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+            </Border>
+        </DockPanel>
 
-        <!-- ============ Sessões do paciente ============ -->
-        <Grid>
-            <TextBlock Text="Escolha um paciente para abrir o prontuário."
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Style="{StaticResource TextoSuave}"
-                       Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}" />
+        <!-- ============ 2. O PRONTUÁRIO DO PACIENTE ============ -->
+        <Grid Visibility="{Binding MostrandoProntuario, Converter={StaticResource BoolParaVisibilidade}}">
+        <DockPanel Margin="24">
 
-            <DockPanel>
-                <DockPanel.Style>
-                    <Style TargetType="DockPanel">
-                        <Setter Property="Visibility" Value="Visible" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding SemPaciente}" Value="True">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </DockPanel.Style>
+        <!-- A identidade UMA vez, no topo, com o caminho de volta. -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Content="&#xE72B;  Pacientes" MinHeight="36" MinWidth="130"
+                        VerticalAlignment="Center" Margin="0,0,14,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding VoltarCommand}" />
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0" />
+                    <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                               Text="Prontuário — evolução clínica e EVA, sessão a sessão." />
+                </StackPanel>
+            </StackPanel>
+            <Button Content="Nova sessão" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    MinHeight="36" MinWidth="140"
+                    Command="{Binding NovaSessaoCommand}"
+                    IsEnabled="{Binding PodeEditarProntuario}" />
+        </Grid>
 
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H2}"
-                               VerticalAlignment="Center" Margin="0" />
-                    <Button Content="Nova sessão" HorizontalAlignment="Right"
-                            Command="{Binding NovaSessaoCommand}"
-                            IsEnabled="{Binding PodeEditarProntuario}" />
-                </Grid>
-
-                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+<Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                         Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
                     <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
                 </Border>
@@ -74,16 +80,20 @@
                 <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
                     <StackPanel>
                         <TextBlock Text="Evolução da dor (EVA)" Style="{StaticResource H3}" Margin="0,0,0,8" />
-                        <UniformGrid Columns="4">
-                            <StackPanel Margin="0,0,12,0">
+                        <!-- KPI em StackPanel horizontal à ESQUERDA, nunca em UniformGrid
+                             de largura inteira: agora que a tela tem a largura toda, quatro
+                             números espalhados por 1300 px viram quatro traços perdidos com
+                             meio metro de branco entre eles, e param de se ler como conjunto. -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                            <StackPanel Margin="0,0,36,0">
                                 <TextBlock Text="DOR INICIAL" Style="{StaticResource CardKpi.Rotulo}" />
                                 <TextBlock Text="{Binding DorInicial}" Style="{StaticResource CardKpi.Valor}" />
                             </StackPanel>
-                            <StackPanel Margin="0,0,12,0">
+                            <StackPanel Margin="0,0,36,0">
                                 <TextBlock Text="DOR ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
                                 <TextBlock Text="{Binding DorAtual}" Style="{StaticResource CardKpi.Valor}" />
                             </StackPanel>
-                            <StackPanel Margin="0,0,12,0">
+                            <StackPanel Margin="0,0,36,0">
                                 <TextBlock Text="GANHO ACUMULADO" Style="{StaticResource CardKpi.Rotulo}" />
                                 <TextBlock Text="{Binding GanhoAcumulado}" Style="{StaticResource CardKpi.Valor}" />
                             </StackPanel>
@@ -91,7 +101,7 @@
                                 <TextBlock Text="ALÍVIO MÉDIO" Style="{StaticResource CardKpi.Rotulo}" />
                                 <TextBlock Text="{Binding AlivioMedio}" Style="{StaticResource CardKpi.Valor}" />
                             </StackPanel>
-                        </UniformGrid>
+                        </StackPanel>
                         <TextBlock Text="{Binding ResumoEva}" Style="{StaticResource TextoSuave}"
                                    TextWrapping="Wrap" />
                         <!-- As escalas são aplicadas no Consultório e gravadas no mesmo
@@ -186,15 +196,16 @@
                         </ScrollViewer>
                     </DockPanel>
                 </Border>
-            </DockPanel>
+        </DockPanel>
         </Grid>
-    </DockPanel>
-    <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE8A5;"
-                       TextoCarregando="Lendo o prontuário…"
-                       Titulo="Nenhuma sessão registrada"
-                       Descricao="A evolução é o histórico clínico: ele não se apaga, corrige-se." />
+
+        <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           Glifo="&#xE8A5;"
+                           TextoCarregando="Lendo o prontuário…"
+                           Titulo="Nenhuma sessão registrada"
+                           Descricao="A evolução é o histórico clínico: ele não se apaga, corrige-se."
+                           Visibility="{Binding MostrandoProntuario, Converter={StaticResource BoolParaVisibilidade}}" />
     </Grid>
 </UserControl>

@@ -26,21 +26,27 @@ cobrou assim mesmo. A conferência da sidebar está em
 
 Cada estado ✅ ou 🟡 cita o arquivo que o sustenta. Estado sem evidência não entra aqui.
 
-## A regra que manda em tudo: o Faturamento está congelado
+## A regra que manda em tudo (atualizada na parcela 45)
 
-Ele fatura a clínica hoje. **Não se encosta nele.** Como todos os apps compartilham
-`Clinica.Domain`, `Clinica.Application` e `Clinica.Infrastructure`, a fronteira precisa ser
-exata — senão nada poderia ser construído:
+O faturamento **saiu do congelamento na parcela 45**, quando a cliente pediu três coisas
+dentro dele (formato do número da guia por convênio, login com permissões granulares e
+filtros na consulta de guias) — feature pedida no app que fatura a clínica não se entrega
+noutro app. O que mudou foi a proibição de **editar arquivo**; o que NÃO mudou é a razão
+dela: **ele fatura a clínica hoje, roda em produção e não tem quem o teste antes do
+usuário.**
+
+Continua valendo, e está por extenso no `CLAUDE.md`:
 
 | Pode | Não pode |
 |---|---|
-| Criar entidades e serviços novos nas camadas compartilhadas | Alterar ou remover o que o faturamento já usa |
-| Migration **aditiva** (tabela nova, coluna nova anulável) | Renomear ou remover coluna/tabela existente |
-| Ler dados do faturamento a partir de outro módulo | Editar telas, ViewModels ou fluxos de `Clinica.Desktop` |
-| Publicar release dos outros três apps | Republicar o faturamento por mudança que não é dele |
+| Criar entidades e serviços novos nas camadas compartilhadas | Migration destrutiva: renomear ou remover coluna/tabela que ele usa (checagem 18) |
+| Migration **aditiva** (tabela nova, coluna nova anulável) | Acrescentar valor a enum embutido sem perceber que ele vira opção nova no seletor dele |
+| Editar as telas dele quando a feature É dele, com teste | Tirar capacidade de quem já a usava (foi o que desenhou o perfil `Faturista`) |
+| Publicar release dos outros quatro apps | Republicar o faturamento por mudança que não é dele |
 
-**Por isso a Fase 4 da arquitetura foi cancelada** — migrar o faturamento para módulo é,
-por definição, encostar nele. Ver `arquitetura-multi-exe.md`.
+**A Fase 4 segue cancelada**: o faturamento não vira módulo da suíte — os dois declaram
+tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambíguas. Ver
+`arquitetura-multi-exe.md`.
 
 ## Onde cada feature da proposta foi parar
 
@@ -1029,6 +1035,9 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **PACIENTE** · Pacientes / CRM | Recepção | ✅ | `PacientesView` + origem/indicação/contatos (parcela 8) |
 | **PACIENTE** · Prontuário | Recepção | ✅ | `ProntuarioView` — item de menu próprio desde a parcela 8 |
 | **PACIENTE** · Prescrições | Recepção | ✅ | `PrescricoesView` — idem |
+| **PACIENTE** · Retorno de pacientes | Recepção | 🔵 | `RetornoView` (parcela 48) — o recall onde quem telefona trabalha |
+| **PACIENTE** · Convênio (senha/cota) | Recepção | 🔵 | aba na ficha + `AutorizacaoWindow` (parcela 48) |
+| **GESTÃO** · Sala de infusão | Recepção · Consultório | 🔵 | `Desktop.Shell/Componentes/SalaInfusaoView` (parcelas 42 e 48) |
 | **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
 | **PACIENTE** · Portal do paciente | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
 | **FINANCEIRO** · Pacotes / Sessões | Financeiro | ✅ | `PacotesView` |
@@ -1055,23 +1064,28 @@ arquitetura para quem só quer saber onde mexe no paciente.
 
 ## O que ainda NÃO existe
 
-Levantado no código, não na memória:
+Levantado no código, não na memória. Conferido de novo na **parcela 48**.
 
 | Falta | Módulo dono | Situação |
 |---|---|---|
 | ~~Telemedicina~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Precisa sair da arte da sidebar no material comercial |
 | ~~Portal do paciente~~ | — | **FORA DE ESCOPO** (decisão do cliente, jul/2026). Idem |
-| ~~Assinatura ICP-Brasil na prescrição~~ | Consultório | **✅ parcela 42** — assinatura qualificada PAdES (PKCS#7 SHA-256) na prescrição de infusão e no registro de execução, com carimbo do tempo RFC 3161 opcional. Os quatro documentos da feature 07 (receita, atestado, comparecimento, pedido de exame) seguem com carimbo impresso + código de conferência |
+| ~~Assinatura ICP-Brasil~~ | Consultório | **✅ parcelas 42 e 43** — assinatura qualificada PAdES (PKCS#7 SHA-256) na folha de infusão E nos quatro documentos que saem da clínica (receita, atestado, comparecimento, pedido de exame), com carimbo do tempo RFC 3161 opcional e QR para o validador de saúde do ITI |
+| ~~Agendamento em série~~ | Recepção | **✅ parcela 26** — `AgendaService.AgendarSerieAsync`; a data sai sempre da primeira mais N períodos |
+| ~~LGPD além do consentimento~~ | Recepção | **✅ parcela 26** — `TitularDadosService`: exportação e anonimização (o prontuário não se apaga, art. 16, II) |
+| ~~Metas (faturamento, ocupação)~~ | Gerente | **✅ parcela 28** — `MetaService`; teto de despesa na 31 (`OrcamentoService`) |
+| ~~Apuração mensal por tributo~~ | Gerente | **✅ parcelas 28 e 31** — ISS, PIS, COFINS, IRPJ e CSLL separados, com a retenção resolvida por recebimento |
+| ~~Cota do convênio sem porta na Recepção~~ | Recepção | **✅ parcela 48** — o balcão era avisado de que a cota ia estourar e a única porta para registrar a senha estava no faturamento |
+| ~~Saldo de pacote invisível ao marcar~~ | Recepção | **✅ parcela 48** — entrou no `ElegibilidadeService`, então chega ao agendamento, ao check-in e à ficha |
+| ~~Recall só no Gerente~~ | Recepção | **✅ parcela 48** — quem telefona é o balcão |
+| ~~Sala de infusão fora do alcance da enfermagem~~ | Recepção | **✅ parcela 48** — a tela subiu para o shell; os dois módulos publicam a mesma chave |
 | NFS-e no fechamento | Financeiro | Depende de integração fiscal municipal — decisão comercial |
 | Gerar lote TISS pelo Gerente | Gerente | **Decisão de projeto, não pendência**: o número do lote é sequência do faturamento, e dois apps gerando em paralelo produziriam dois com o mesmo número |
-| **Agendamento em série** | Recepção | Fora da proposta e a maior lacuna do dia a dia: o Financeiro vende pacote de 10 sessões e a agenda marca **uma por vez**. Precisa de entidade e migration — parcela própria |
-| **Apuração mensal por tributo** | Gerente | `TributoService` separa ISS/PIS/COFINS/IRPJ/CSLL no lançamento, mas toda tela consolida `Imposto` como **um número só**. Falta a leitura "quanto de cada guia neste mês" |
-| **Metas** (faturamento, ocupação) | Gerente | O painel compara com o mês anterior; não há alvo. A direção vê variação, não desempenho contra o que decidiu |
-| **LGPD além do consentimento** | Recepção | Há colher e revogar; não há exportar os dados do paciente nem anonimizar depois da retenção |
 | **Conciliação bancária (OFX)** | Financeiro | O extrato do banco ainda é conferido a olho contra a tela de recebíveis |
+| **Faixa lateral de 300–400 px** | Financeiro · Gerente | `ContasView`, `EstoqueView`, `PacotesView`, `RepassesView`, `AcessosView`, `CampanhasView` ainda têm o padrão que o `README.md` proíbe. A Recepção foi limpa nas parcelas 47 e 48 |
 
-> As cinco últimas **não estão na proposta comercial** — são evolução levantada no código
-> (jul/2026), não dívida com o cliente. Estão aqui para não serem redescobertas do zero.
+> Só as três últimas continuam abertas, e nenhuma delas está na proposta comercial — são
+> evolução levantada no código, não dívida com o cliente.
 
 ## Divergências da proposta
 

@@ -30,6 +30,7 @@ public sealed class ElegibilidadeService
     private readonly ConsentimentoService _consentimentos;
     private readonly ConsultaService _consultas;
     private readonly InadimplenciaService? _inadimplencia;
+    private readonly PacoteService? _pacotes;
 
     /// <summary>Dias de antecedência para começar a avisar da carteirinha.</summary>
     public const int JanelaAvisoCarteirinhaDias = 30;
@@ -41,12 +42,20 @@ public sealed class ElegibilidadeService
     /// </summary>
     public const int AtrasoMinimoParaAvisarDias = 5;
 
+    /// <summary>
+    /// Dias de antecedência para avisar que o pacote vai vencer COM SALDO. Menor que a
+    /// janela da carteirinha de propósito: renovar pacote é decisão de compra, e um mês de
+    /// antecedência transformaria o aviso em ruído de fundo em toda sessão do tratamento.
+    /// </summary>
+    public const int JanelaAvisoPacoteDias = 10;
+
     public ElegibilidadeService(
         IClinicaRepositorio repo,
         AutorizacaoService autorizacoes,
         ConsentimentoService consentimentos,
         ConsultaService consultas,
-        InadimplenciaService? inadimplencia = null)
+        InadimplenciaService? inadimplencia = null,
+        PacoteService? pacotes = null)
     {
         _repo = repo;
         _autorizacoes = autorizacoes;
@@ -60,6 +69,9 @@ public sealed class ElegibilidadeService
         // mesma escolha do ParametrosService no GlosaService. Sem ele, a conferência
         // financeira simplesmente não roda; ela não é a razão de existir desta classe.
         _inadimplencia = inadimplencia;
+        // Opcional pela mesma razão do Financeiro acima: o pacote é do módulo Financeiro,
+        // e este serviço tem de continuar construível sem ele montado.
+        _pacotes = pacotes;
     }
 
     public async Task<Elegibilidade> ConferirAsync(
@@ -76,6 +88,7 @@ public sealed class ElegibilidadeService
         await ConferirConsentimentoAsync(pacienteId, alertas, ct);
         await ConferirDebitoAsync(pacienteId, referencia, alertas, ct);
         await ConferirGlosaAsync(pacienteId, referencia, alertas, ct);
+        await ConferirPacoteAsync(pacienteId, referencia, alertas, ct);
 
         return new Elegibilidade(pacienteId, paciente.Nome, alertas);
     }
@@ -261,5 +274,94 @@ public sealed class ElegibilidadeService
             dias is >= 0 and <= 7 ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo,
             $"{quantas}: {(string.IsNullOrWhiteSpace(motivo) ? "sem motivo registrado" : motivo)} — {prazo}. "
             + "Se faltou assinatura ou documento, resolva agora, com o paciente aqui."));
+    }
+
+    /// <summary>
+    /// O pacote de sessões do paciente (parcela 48) — o Financeiro respondendo ao balcão.
+    ///
+    /// <b>Não confundir com a cota do convênio.</b> As duas contam sessões e não têm nada a
+    /// ver uma com a outra: a cota evita GLOSA, o pacote evita ATENDER DE GRAÇA. É por isso
+    /// que são dois alertas, e não um — quem lê no balcão precisa saber com quem falar, o
+    /// convênio ou o paciente.
+    ///
+    /// O que faltava não era a capacidade: <c>PacoteService.DoPacienteAsync</c> existe
+    /// desde a parcela 4. Faltava ela chegar ao momento da decisão. O pacote só aparecia no
+    /// <c>FechamentoSessaoService</c>, que roda no **Finalizar** — o último passo, quando a
+    /// sessão já aconteceu e não há mais o que combinar. Marcar a 11ª sessão de um pacote
+    /// de 10 era descoberto depois de ela ser prestada.
+    ///
+    /// <b>Só avisa quem TEM ou TEVE pacote.</b> Metade da clínica é de convênio e nunca
+    /// comprou nada; avisar "sem pacote" para essa metade é o alerta que dispara para todo
+    /// mundo — e alerta que sempre aparece é alerta que ninguém lê. É a mesma regra que a
+    /// cota já seguia logo acima.
+    ///
+    /// <b>Amarelo, nunca vermelho.</b> Vermelho neste serviço significa "a guia vai ser
+    /// recusada", que é problema do convênio. Pacote acabado é assunto de conversa e de
+    /// venda — como a dívida.
+    /// </summary>
+    private async Task ConferirPacoteAsync(
+        int pacienteId, DateOnly referencia,
+        List<AlertaElegibilidade> alertas, CancellationToken ct)
+    {
+        if (_pacotes is null) return;
+
+        var pacotes = await _pacotes.DoPacienteAsync(pacienteId, referencia, ct);
+        if (pacotes.Count == 0) return;
+
+        // Cancelado fica de fora: ele não acabou nem venceu — foi desfeito, e o motivo já
+        // está registrado. Cobrar a renovação de um pacote que a clínica cancelou seria
+        // pedir ao balcão que explicasse a própria decisão ao paciente.
+        var relevantes = pacotes
+            .Where(p => p.Situacao != StatusPacote.Cancelado)
+            .ToList();
+        if (relevantes.Count == 0) return;
+
+        // Havendo um ATIVO, é dele que se fala: o paciente tem sessão comprada para hoje, e
+        // o esgotado do mês passado não é notícia. Sem ativo nenhum é que a ausência vira
+        // aviso — e aí manda o mais recente, que é o que ele lembra ter comprado.
+        var ativo = relevantes
+            .Where(p => p.Ativo)
+            .OrderBy(p => p.ValidoAte ?? DateOnly.MaxValue)
+            .FirstOrDefault();
+
+        if (ativo is null)
+        {
+            var ultimo = relevantes.OrderByDescending(p => p.DataCompra).First();
+            var porque = ultimo.Situacao == StatusPacote.Expirado
+                ? $"venceu em {ultimo.ValidoAte:dd/MM/yyyy} com saldo sobrando"
+                : "as sessões contratadas acabaram";
+
+            alertas.Add(new AlertaElegibilidade(
+                ImpedimentoElegibilidade.PacoteEsgotado,
+                NivelUrgencia.Amarelo,
+                $"Pacote \"{ultimo.Nome}\" sem saldo — {porque}. "
+                + "Esta sessão não debita de pacote nenhum: combine a renovação ou a "
+                + "cobrança agora, com o paciente aqui."));
+            return;
+        }
+
+        // Última sessão do pacote ativo.
+        if (ativo.SaldoSessoes is 1)
+        {
+            alertas.Add(new AlertaElegibilidade(
+                ImpedimentoElegibilidade.PacoteNoFim,
+                NivelUrgencia.Amarelo,
+                $"Pacote \"{ativo.Nome}\": esta é a ÚLTIMA sessão ({ativo.SaldoRotulo}). "
+                + "É a hora barata de vender a renovação."));
+            return;
+        }
+
+        // Ou vence com saldo sobrando — o dinheiro que o paciente perde, e que a clínica
+        // devolve em forma de reclamação se ninguém avisar.
+        if (ativo.ValidoAte is { } ate)
+        {
+            var dias = ate.DayNumber - referencia.DayNumber;
+            if (dias >= 0 && dias <= JanelaAvisoPacoteDias)
+                alertas.Add(new AlertaElegibilidade(
+                    ImpedimentoElegibilidade.PacoteNoFim,
+                    NivelUrgencia.Amarelo,
+                    $"Pacote \"{ativo.Nome}\" vence em {dias} dia(s) ({ate:dd/MM/yyyy}) "
+                    + $"com {ativo.SaldoRotulo} por usar — dá para remarcar o que falta."));
+        }
     }
 }

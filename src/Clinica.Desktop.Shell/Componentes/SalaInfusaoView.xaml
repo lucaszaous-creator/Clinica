@@ -1,7 +1,7 @@
-<UserControl x:Class="Clinica.Clinico.Views.SalaInfusaoView"
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.SalaInfusaoView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>

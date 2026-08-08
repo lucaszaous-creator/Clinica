@@ -1,4 +1,5 @@
 using Clinica.Clinico.ViewModels;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Clinico.Views;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;

@@ -82,7 +82,7 @@ camadas — sem duplicar código e sem encostar no que já está em produção:
 | Projeto | Responsabilidade |
 |---|---|
 | `Clinica.Desktop.Shell` | Design system, janela genérica, contrato de módulo (`IModuloApp`) e a abertura padrão. |
-| `Clinica.Modulo.Recepcao` | Painel, agenda multiprofissional, fila do dia, pacientes e prontuário. |
+| `Clinica.Modulo.Recepcao` | Painel, agenda multiprofissional, fila do dia, pacientes, prontuário, prescrições, retorno de pacientes e a sala de infusão (a enfermagem checa aqui). |
 | `Clinica.Modulo.Clinico` | O consultório: o dia do profissional, o atendimento com EVA, o painel de evolução da dor e as escalas por especialidade. |
 | `Clinica.Modulo.Financeiro` | Caixa, Conciliação e Produção. |
 | `Clinica.Modulo.Gerente` | Indicadores (BI), campanhas (confirmação, NPS e recall), acessos e a visão de leitura do faturamento. |

@@ -76,6 +76,15 @@ public sealed partial class ShellViewModel : ObservableObject
             // Pode() já libera quando não há sessão autenticada — a regra mora nela.
             foreach (var item in modulo.Itens.Where(i => sessao?.Pode(i.Requer) != false))
             {
+                // Dois módulos podem publicar a MESMA chave quando a tela subiu para o
+                // shell e pertence aos dois (a Sala de infusão, parcela 48: a enfermagem
+                // alcança pela Recepção, o profissional pelo Consultório). No Gerente, que
+                // carrega todos, isso duplicaria a linha na sidebar — e item repetido faz
+                // a pessoa achar que são telas diferentes e clicar nas duas para descobrir
+                // que não são. Vence o PRIMEIRO módulo carregado, que é a ordem do dia de
+                // trabalho.
+                if (Itens.Any(i => i.Chave == item.Chave)) continue;
+
                 item.ModuloNome = modulo.Nome;
                 Itens.Add(item);
             }

@@ -97,8 +97,21 @@
                             </StackPanel>
                             <StackPanel Grid.Column="1" Margin="8,0,0,0">
                                 <TextBlock Text="Sexo" Style="{StaticResource Rotulo}" />
+                                <!-- ItemTemplate com o `EnumDescricao`: sem ele o WPF chama
+                                     ToString() no valor do enum. Hoje sai certo por sorte
+                                     ("Masculino"/"Feminino" são os próprios identificadores);
+                                     o dia em que alguém acrescentar `NaoInformado` a tela
+                                     escreve "NaoInformado" e ninguém descobre no build. É o
+                                     defeito da parcela 41, o mesmo que pôs "PedidoExame" na
+                                     tela do cliente. -->
                                 <ComboBox ItemsSource="{Binding Sexos}" SelectedItem="{Binding Sexo}"
-                                          ToolTip="Usado pela Petrobras na rotação de especialidades" />
+                                          ToolTip="Usado pela Petrobras na rotação de especialidades">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                             </StackPanel>
                         </Grid>
 

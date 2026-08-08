@@ -1,7 +1,6 @@
 using System.Windows;
-using Clinica.Clinico.ViewModels;
 
-namespace Clinica.Clinico.Janelas;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>
 /// A folha aberta na sala de infusão: onde a técnica checa item a item.

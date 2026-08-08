@@ -73,8 +73,13 @@ public static class ConexaoStore
                 Database = uri.AbsolutePath.Trim('/'),
                 Username = Uri.UnescapeDataString(userInfo[0]),
                 Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : null,
-                SslMode = SslMode.Require,
-                TrustServerCertificate = true
+                SslMode = SslMode.Require
+                // `TrustServerCertificate` saiu daqui: o Npgsql a marcou obsoleta e ela
+                // NÃO FAZ NADA há versões. Deixá-la escrita era pior do que inútil —
+                // sugeria que a conexão aceita certificado inválido de propósito, que é
+                // exatamente o que não se quer documentar num campo de senha de banco.
+                // `SslMode.Require` já é o comportamento correto para a Neon.
+                //
                 // channel_binding é negociado automaticamente pelo Npgsql (SCRAM).
             };
             return builder.ConnectionString;

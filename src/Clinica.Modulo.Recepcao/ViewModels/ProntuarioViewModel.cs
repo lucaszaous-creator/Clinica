@@ -98,14 +98,49 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         // já resolvidos. Tela nova que escolhe paciente usa ele — não se reescreve busca.
         Seletor = new SeletorPacienteViewModel(escopos);
         Seletor.SelecaoMudou += AoTrocarPaciente;
+
+        // A busca INICIAL. Sem ela a tela abre com a caixa de busca vazia e a lista vazia
+        // ao lado — e tela vazia se lê como sistema quebrado, não como "digite um nome".
+        // É o mesmo `_ =` que `PacientesViewModel` já fazia; faltava aqui e nas Prescrições.
+        _ = Seletor.BuscarAsync(imediato: true);
     }
+
+    /// <summary>
+    /// LISTA → TELA DO ITEM (parcela 48). Antes a lista de pacientes era uma coluna de
+    /// 340 px grudada à esquerda para sempre — o padrão que o `README.md` proíbe e que a
+    /// cliente reprovou sete vezes. É o MESMO desenho de `PacientesViewModel`: dois
+    /// desenhos para a mesma coisa é o que faz a recepcionista achar que abriu outro
+    /// programa.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrandoLista))]
+    private bool _mostrandoProntuario;
+
+    /// <summary>Estamos na lista? O par existe porque XAML não nega booleano sem conversor.</summary>
+    public bool MostrandoLista => !MostrandoProntuario;
 
     private void AoTrocarPaciente(Paciente? paciente)
     {
+        if (paciente is null) return;
+
+        MostrandoProntuario = true;
+
         // Trocar de paciente limpa a busca: "ombro" digitado para um não é pergunta sobre
         // o próximo, e a lista voltaria filtrada sem ninguém entender por quê.
         TermoSessao = string.Empty;
         _ = CarregarAsync();
+    }
+
+    /// <summary>
+    /// Volta para a lista. LIMPA a seleção de propósito: sem isso, clicar de novo no mesmo
+    /// paciente não dispararia <c>SelecaoMudou</c> e o prontuário não reabriria — botão que
+    /// funciona uma vez e depois não.
+    /// </summary>
+    [RelayCommand]
+    private void Voltar()
+    {
+        MostrandoProntuario = false;
+        Seletor.Limpar();
     }
 
     partial void OnTermoSessaoChanged(string value) => _ = CarregarAsync();
