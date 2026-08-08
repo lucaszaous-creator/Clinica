@@ -98,6 +98,11 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         // já resolvidos. Tela nova que escolhe paciente usa ele — não se reescreve busca.
         Seletor = new SeletorPacienteViewModel(escopos);
         Seletor.SelecaoMudou += AoTrocarPaciente;
+
+        // A busca INICIAL. Sem ela a tela abre com a caixa de busca vazia e a lista vazia
+        // ao lado — e tela vazia se lê como sistema quebrado, não como "digite um nome".
+        // É o mesmo `_ =` que `PacientesViewModel` já fazia; faltava aqui e nas Prescrições.
+        _ = Seletor.BuscarAsync(imediato: true);
     }
 
     private void AoTrocarPaciente(Paciente? paciente)

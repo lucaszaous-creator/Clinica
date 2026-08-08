@@ -69,6 +69,10 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         Seletor = new SeletorPacienteViewModel(escopos);
         Seletor.SelecaoMudou += AoTrocarPaciente;
+
+        // A busca INICIAL — ver o comentário em `ProntuarioViewModel`. As duas telas
+        // nasceram com a lista de pacientes em branco esperando alguém digitar.
+        _ = Seletor.BuscarAsync(imediato: true);
     }
 
     private void AoTrocarPaciente(Paciente? paciente) => _ = CarregarAsync();

@@ -42,7 +42,16 @@ public sealed class EnumDescricaoConverter : IValueConverter
             _ => "Sem validação"
         },
         null => string.Empty,
-        _ => value.ToString() ?? string.Empty
+        // O fallback delega ao rotulador do DOMÍNIO em vez de chamar ToString().
+        //
+        // `ToString()` é o que põe o identificador do enum na tela — foi assim que o
+        // cliente viu "PedidoExame" na suíte, na parcela 41. Aqui o risco era o mesmo:
+        // todo enum que este conversor não enumera acima caía no nome cru. `RotulosEnum.De`
+        // resolve pelos rótulos já escritos e, para o que não tem rótulo, humaniza
+        // ("Pedido exame") — pior que o rótulo à mão, melhor que o identificador, e de
+        // propósito visível, porque é a frase estranha que faz alguém vir escrevê-lo.
+        // Os casos acima continuam vencendo: eles são os rótulos DESTE app.
+        _ => RotulosEnum.De(value)
     };
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
