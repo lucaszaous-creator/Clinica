@@ -68,6 +68,46 @@ public sealed record CodigoLancado(CodigoFaturamento Codigo, bool Liberada, stri
 }
 
 /// <summary>
+/// Uma modalidade como CARTÃO ESCOLHÍVEL, com o que ela vai gerar escrito nela.
+///
+/// Antes a modalidade era um <c>ComboBox</c>. É a escolha que decide QUANTAS guias nascem
+/// e QUANDO cada uma libera — a decisão mais consequente da tela — e estava escondida
+/// atrás de um clique, sem dizer nada sobre o efeito. Agora as opções ficam à vista e cada
+/// uma carrega a resposta: "2 guias · a 2ª libera 09/08".
+///
+/// O texto não é escrito à mão: vem do MOTOR DE REGRAS rodando de verdade sobre este
+/// paciente e este convênio (<see cref="AtendimentoService.PreverModalidadesAsync"/>).
+/// Frase decorada na tela envelheceria no dia em que a regra de um convênio mudasse, e
+/// mentiria com toda a cara de verdade.
+/// </summary>
+public sealed partial class CartaoModalidade : ObservableObject
+{
+    public required EntradaModalidade Entrada { get; init; }
+    public required string Nome { get; init; }
+
+    /// <summary>É a modalidade habitual DESTE paciente (vem do cadastro dele).</summary>
+    public required bool EhHabitual { get; init; }
+
+    [ObservableProperty] private bool _escolhida;
+
+    /// <summary>"2 guias" / "1 guia" — o que a regra do convênio gera. Vazio enquanto a prévia não voltou.</summary>
+    [ObservableProperty] private string _quantasGuias = string.Empty;
+
+    /// <summary>"a 2ª libera 09/08" ou "tudo hoje". A frase que faz o 2º código existir antes de nascer.</summary>
+    [ObservableProperty] private string _quando = string.Empty;
+
+    /// <summary>Esta modalidade gera 2º código — o que se esquece, e o motivo de o produto existir.</summary>
+    [ObservableProperty] private bool _temSegundoCodigo;
+}
+
+/// <summary>
+/// Uma guia da PRÉVIA: o que vai nascer, antes de nascer.
+/// </summary>
+public sealed record LinhaPrevia(
+    string Tipo, string Ordem, string FaturarEm, string ComoObter,
+    string Especialidade, bool EhSegundo, string Nota);
+
+/// <summary>
 /// Lança um atendimento AVULSO — o paciente que não estava na agenda. O motor de regras
 /// gera os códigos do convênio na hora, inclusive o 2º código de +24h.
 ///
@@ -115,6 +155,29 @@ public partial class NovoAtendimentoViewModel : ObservableObject
     /// <summary>Modalidades ativas do catálogo (embutidas + variantes criadas pela clínica).</summary>
     public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
 
+    /// <summary>As mesmas modalidades, como CARTÕES à vista — com o que cada uma gera.</summary>
+    public ObservableCollection<CartaoModalidade> Cartoes { get; } = new();
+
+    /// <summary>
+    /// As guias que VÃO nascer, antes de nascerem. É a tela deixando de ser "preencha e
+    /// torça": a consequência aparece no momento da decisão, que é o único em que ainda
+    /// dá para escolher diferente.
+    /// </summary>
+    public ObservableCollection<LinhaPrevia> Previa { get; } = new();
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemPrevia))]
+    private string _resumoPrevia = string.Empty;
+
+    public bool TemPrevia => Previa.Count > 0 && !Lancado;
+
+    /// <summary>
+    /// O rótulo do botão DIZ o que vai acontecer: "Lançar e gerar 2 guias". Botão que
+    /// promete o número é o que faz alguém perceber, antes de clicar, que escolheu a
+    /// modalidade errada.
+    /// </summary>
+    [ObservableProperty] private string _rotuloLancar = "Lançar e gerar as guias";
+
     /// <summary>Especialidades ativas do catálogo (para a consulta avulsa).</summary>
     public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = new();
 
@@ -126,7 +189,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject
     [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
-    [ObservableProperty] private bool _lancado;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemPrevia))]
+    private bool _lancado;
     [ObservableProperty] private string? _numeroAtendimento;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TemMensagem))]
@@ -226,7 +291,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject
             EspecialidadeSelecionada = null;
         OnPropertyChanged(nameof(ModalidadeDupla));
         OnPropertyChanged(nameof(ModalidadeConsulta));
+
+        foreach (var c in Cartoes) c.Escolhida = c.Entrada.Codigo == value?.Codigo;
+        _ = PreverAsync();
     }
+
+    // Trocar a data, a especialidade ou qual código sai primeiro muda o que a regra gera —
+    // e a prévia mente se não acompanhar. É o preço de mostrar a consequência: ela tem de
+    // seguir TODAS as entradas que a produzem.
+    partial void OnDataChanged(DateTime value) => _ = PreverAsync();
+    partial void OnEspecialidadeSelecionadaChanged(EntradaEspecialidade? value) => _ = PreverAsync();
+    partial void OnPrimeiroCodigoChanged(TipoCodigo? value) => _ = PreverAsync();
 
     /// <summary>Preenche as opções de "qual código primeiro" conforme a modalidade e escolhe o padrão.</summary>
     private void AtualizarOpcoesPrimeiroCodigo()
@@ -263,6 +338,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject
             ?? Modalidades.FirstOrDefault(m => m.Base == ModalidadeAtendimento.AcupunturaComEletro)
             ?? Modalidades.FirstOrDefault();
 
+        MontarCartoes();
+
         var especialidadeAtual = EspecialidadeSelecionada?.Codigo;
         Especialidades.Clear();
         foreach (var e in CatalogoEspecialidades.Ativas)
@@ -296,6 +373,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject
         AvisoCarteirinha = value.CarteirinhaVencida
             ? $"A carteirinha de {value.Nome} venceu em {value.ValidadeCarteirinha:dd/MM/yyyy} — o convênio pode recusar a guia."
             : null;
+
+        // Os cartões e a prévia dependem do CONVÊNIO do paciente: a mesma modalidade gera
+        // 2 guias na Unimed Intercâmbio e 1 na Amil.
+        MontarCartoes();
+        _ = PreverAsync();
 
         _ = VerificarPendenciasAsync(value.Id);
         _ = VerificarAutorizacaoAsync(value.Id);
@@ -377,6 +459,147 @@ public partial class NovoAtendimentoViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Monta os cartões de modalidade. O texto de consequência entra depois, quando a
+    /// prévia voltar — o cartão nasce sem ele em vez de nascer com um palpite.
+    /// </summary>
+    private void MontarCartoes()
+    {
+        var habitual = PacienteSelecionado?.ModalidadePreferidaCodigo;
+
+        Cartoes.Clear();
+        foreach (var m in Modalidades)
+            Cartoes.Add(new CartaoModalidade
+            {
+                Entrada = m,
+                Nome = m.Nome,
+                EhHabitual = habitual is not null && m.Codigo == habitual,
+                Escolhida = m.Codigo == ModalidadeSelecionada?.Codigo
+            });
+    }
+
+    /// <summary>
+    /// Roda o motor de regras SEM gravar e publica o que ele geraria: a lista de guias com
+    /// data, e a frase de cada cartão de modalidade.
+    ///
+    /// Falha aqui NUNCA impede o lançamento — a prévia é um confortо, o botão é o trabalho.
+    /// Mas também não some calada: a tela apaga a prévia e diz que não deu para calcular,
+    /// senão "nenhuma guia" (que é o que uma lista vazia parece) viraria a informação mais
+    /// perigosa possível numa tela cujo assunto é justamente não esquecer guia.
+    /// </summary>
+    private async Task PreverAsync()
+    {
+        if (PacienteSelecionado is not { } paciente || ModalidadeSelecionada is null)
+        {
+            Previa.Clear();
+            ResumoPrevia = string.Empty;
+            RotuloLancar = "Lançar e gerar as guias";
+            OnPropertyChanged(nameof(TemPrevia));
+            return;
+        }
+
+        var pacienteId = paciente.Id;
+        var data = DateOnly.FromDateTime(Data);
+        var codigoModalidade = ModalidadeSelecionada.Codigo;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var atendimentos = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
+
+            var previa = await atendimentos.PreverAsync(
+                pacienteId, data, Modalidade,
+                primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
+                modalidadeCodigo: codigoModalidade,
+                especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
+
+            var porModalidade = await atendimentos.PreverModalidadesAsync(
+                pacienteId, data, Modalidades.Select(m => m.Codigo));
+
+            // A escolha pode ter mudado enquanto o banco respondia.
+            if (PacienteSelecionado?.Id != pacienteId
+                || ModalidadeSelecionada?.Codigo != codigoModalidade) return;
+
+            PublicarPrevia(previa);
+
+            foreach (var cartao in Cartoes)
+            {
+                if (!porModalidade.TryGetValue(cartao.Entrada.Codigo, out var p)) continue;
+
+                var total = p.GuiasHoje + p.GuiasDepois;
+                cartao.QuantasGuias = total == 1 ? "1 guia" : $"{total} guias";
+                cartao.TemSegundoCodigo = p.GuiasDepois > 0;
+                cartao.Quando = p.LiberaEm is { } quando
+                    ? $"a 2ª libera {quando:dd/MM}"
+                    : "tudo hoje";
+            }
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — prévia das guias não pôde ser calculada", ex);
+            Previa.Clear();
+            ResumoPrevia = "Não foi possível calcular a prévia das guias — o lançamento continua liberado.";
+            RotuloLancar = "Lançar e gerar as guias";
+            OnPropertyChanged(nameof(TemPrevia));
+        }
+    }
+
+    /// <summary>Traduz a prévia do motor de regras para as linhas da tela.</summary>
+    private void PublicarPrevia(PreviaLancamento previa)
+    {
+        Previa.Clear();
+
+        foreach (var c in previa.Codigos
+                     .Where(c => c.Status != StatusCodigo.NaoAplicavel)
+                     .OrderBy(c => c.DataPrevistaFaturamento).ThenBy(c => c.Ordem))
+        {
+            var ehSegundo = c.Ordem == OrdemCodigo.Segundo;
+            Previa.Add(new LinhaPrevia(
+                Tipo: CodigoLancado.RotularTipo(c.Tipo),
+                Ordem: ehSegundo ? "2º" : "1º",
+                FaturarEm: c.DataPrevistaFaturamento.ToString("dd/MM/yyyy"),
+                ComoObter: RotularForma(c.FormaObtencao),
+                Especialidade: c.EspecialidadeCodigo is { } cod ? CatalogoEspecialidades.Nome(cod) : "—",
+                EhSegundo: ehSegundo,
+                // A nota do 2º código é a razão de o produto existir: de 139 faturas
+                // possíveis, 103 se perdiam exatamente nesta linha.
+                Nota: ehSegundo
+                    ? "É esta que se esquece — ela entra no painel de pendências do faturamento."
+                    : "Já nasce faturável na data do atendimento."));
+        }
+
+        var total = previa.GuiasHoje + previa.GuiasDepois;
+        RotuloLancar = total switch
+        {
+            0 => "Lançar atendimento",
+            1 => "Lançar e gerar 1 guia",
+            _ => $"Lançar e gerar {total} guias"
+        };
+
+        ResumoPrevia = previa.LiberaEm is { } quando
+            ? $"{total} guia(s) — a 2ª só libera em {quando:dd/MM/yyyy}, e é ela que costuma se perder."
+            : $"{total} guia(s), todas faturáveis na data do atendimento.";
+
+        OnPropertyChanged(nameof(TemPrevia));
+    }
+
+    private static string RotularForma(FormaObtencao f) => f switch
+    {
+        FormaObtencao.NaoAplica => "—",
+        FormaObtencao.App => "Pelo app (QR Code)",
+        FormaObtencao.Sistema => "Pelo sistema",
+        FormaObtencao.Ligacao => "Ligar para o paciente",
+        _ => f.ToString()
+    };
+
+    /// <summary>Escolhe a modalidade pelo CARTÃO (o combo virou lista à vista).</summary>
+    [RelayCommand]
+    private void EscolherModalidade(CartaoModalidade? cartao)
+    {
+        if (cartao is null) return;
+        ModalidadeSelecionada = cartao.Entrada;
+    }
+
     /// <summary>Volta para a busca, para trocar o paciente escolhido.</summary>
     [RelayCommand]
     private void TrocarPaciente() => Seletor.Limpar();
@@ -396,6 +619,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject
         Data = DateTime.Today;
         Seletor.Limpar();
         Seletor.Termo = null;
+        Previa.Clear();
+        ResumoPrevia = string.Empty;
+        RotuloLancar = "Lançar e gerar as guias";
+        OnPropertyChanged(nameof(TemPrevia));
     }
 
     /// <summary>
