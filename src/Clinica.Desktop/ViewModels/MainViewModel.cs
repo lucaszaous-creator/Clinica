@@ -105,10 +105,6 @@ public partial class MainViewModel : ObservableObject
                        Requer = Permissao.VerFaturamento },
         new ItemMenu { Secao = Secao.Agenda, Rotulo = "Agenda", Glifo = "\uE787", Grupo = "Agenda",
                        Requer = Permissao.VerAgenda },
-        new ItemMenu { Secao = Secao.Atendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51", Grupo = "Atendimento",
-                       Requer = Permissao.LancarAtendimento },
-        new ItemMenu { Secao = Secao.Consultas, Rotulo = "Consultas", Glifo = "\uE8A5", Grupo = "Atendimento",
-                       Requer = Permissao.VerFaturamento },
         new ItemMenu { Secao = Secao.ConsultaGuias, Rotulo = "Consultar guias", Glifo = "\uE721", Grupo = "Faturamento",
                        Requer = Permissao.VerFaturamento },
         new ItemMenu { Secao = Secao.Faturados, Rotulo = "Faturados", Glifo = "\uE8C7", Grupo = "Faturamento",
@@ -239,8 +235,6 @@ public partial class MainViewModel : ObservableObject
             case Secao.Pendencias: MostrarDashboard(); break;
             case Secao.NaoConformidades: MostrarNaoConformidades(); break;
             case Secao.Agenda: MostrarAgenda(); break;
-            case Secao.Atendimento: MostrarNovoAtendimento(); break;
-            case Secao.Consultas: MostrarConsultas(); break;
             case Secao.ConsultaGuias: MostrarConsultaGuias(); break;
             case Secao.Faturados: MostrarFaturados(); break;
             case Secao.Glosas: MostrarGlosas(); break;
@@ -377,28 +371,10 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void MostrarNovoAtendimento()
-    {
-        var vm = _sp.GetRequiredService<NovoAtendimentoViewModel>();
-        DefinirSecao(Secao.Atendimento);
-        CurrentViewModel = vm;
-        _ = vm.CarregarAsync();
-    }
-
-    [RelayCommand]
     private void MostrarAgenda()
     {
         var vm = _sp.GetRequiredService<AgendaViewModel>();
         DefinirSecao(Secao.Agenda);
-        CurrentViewModel = vm;
-        _ = vm.CarregarAsync();
-    }
-
-    [RelayCommand]
-    private void MostrarConsultas()
-    {
-        var vm = _sp.GetRequiredService<ConsultasViewModel>();
-        DefinirSecao(Secao.Consultas);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }

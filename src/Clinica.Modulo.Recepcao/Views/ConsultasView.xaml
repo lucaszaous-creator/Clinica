@@ -1,0 +1,148 @@
+<UserControl x:Class="Clinica.Recepcao.Views.ConsultasView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top">
+            <TextBlock Text="Consultas" Style="{StaticResource H1}" />
+            <TextBlock Style="{StaticResource TextoSuave}"
+                       Text="A consulta do convênio tem validade. Renove com o paciente na frente — descobrir que ela venceu na hora de faturar é ligar para quem já foi embora." />
+        </StackPanel>
+
+        <!-- Contexto permanente é LINHA de texto com o botão ao lado, não faixa colorida:
+             faixa que está sempre lá vira moldura e para de ser lida no segundo dia. -->
+        <Grid DockPanel.Dock="Top" Margin="0,16,0,12">
+            <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" TextWrapping="Wrap"
+                       MaxWidth="640" HorizontalAlignment="Left"
+                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+            <Button Content="Atualizar" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Style="{StaticResource BotaoSecundario}" Command="{Binding RecarregarCommand}" />
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Mensagem}" Value="{x:Null}">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+            <Grid>
+                <!-- Vazio antes da resposta não é resposta: enquanto a busca não voltou, a
+                     tela não diz "nenhuma consulta". E o terceiro estado (NaoVerificado)
+                     separa "não há nada" de "não deu para conferir". -->
+                <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                   Itens="{Binding Consultas}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE8A5;"
+                                   Titulo="Nenhuma consulta a acompanhar"
+                                   Descricao="Nenhum paciente de convênio com consulta renovável foi encontrado." />
+
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="6" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="170" />
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="1" Text="PACIENTE / SITUAÇÃO" Style="{StaticResource Rotulo}" Margin="10,0,0,0" />
+                        <TextBlock Grid.Column="2" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="3" Text="VENCIMENTO" Style="{StaticResource Rotulo}" Margin="0" />
+                    </Grid>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Consultas}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="6" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Semáforo: a faixa de cor à esquerda é o padrão da
+                                             suíte (fila, pendências do Gerente). -->
+                                        <Border x:Name="Semaforo" Grid.Column="0" CornerRadius="3"
+                                                Background="{StaticResource Brush.Semaforo.Verde}" />
+
+                                        <StackPanel Grid.Column="1" Margin="10,6,8,6">
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
+                                                       HorizontalAlignment="Left"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2" Text="{Binding Convenio}" VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Vencimento}" VerticalAlignment="Center" />
+
+                                        <Button Grid.Column="4" Content="Renovar" VerticalAlignment="Center"
+                                                ToolTip="Emite a consulta de hoje, com a validade do convênio"
+                                                Command="{Binding DataContext.RenovarCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGrid}">
+                                                    <Setter Property="IsEnabled"
+                                                            Value="{Binding DataContext.PodeRenovar, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                                    <Style.Triggers>
+                                                        <!-- Convênio sem consulta renovável: não há o que renovar,
+                                                             e um botão aceso que só explica depois do clique é o
+                                                             defeito da parcela 41. -->
+                                                        <DataTrigger Binding="{Binding TemRenovacao}" Value="False">
+                                                            <Setter Property="IsEnabled" Value="False" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </Grid>
+
+                                    <DataTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding EhVermelha}" Value="True">
+                                            <Setter TargetName="Semaforo" Property="Background"
+                                                    Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding EhAmarela}" Value="True">
+                                            <Setter TargetName="Semaforo" Property="Background"
+                                                    Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                        </DataTrigger>
+                                    </DataTemplate.Triggers>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>

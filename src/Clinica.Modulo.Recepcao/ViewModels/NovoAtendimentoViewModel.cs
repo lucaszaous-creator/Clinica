@@ -1,37 +1,99 @@
-using System.Windows.Input;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.IO;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
-using Clinica.Infrastructure;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Win32;
 
-namespace Clinica.Desktop.ViewModels;
+namespace Clinica.Recepcao.ViewModels;
 
 /// <summary>
-/// Um código recém-gerado, com a informação que decide a ação da tela: dá para baixar
-/// agora ou só depois? O 1º código já nasce faturável hoje; o 2º só a partir de +24h.
+/// Um código recém-gerado, e a informação que o balcão precisa dar ao paciente: esta guia
+/// já está liberada para o faturamento cuidar hoje, ou só a partir de quando?
+///
+/// O 1º código nasce faturável na hora; o 2º só a partir de +24h — que é o defeito que dá
+/// nome ao produto, e é justamente o que esta linha existe para tornar visível no momento
+/// em que a guia nasce.
 /// </summary>
-public sealed record CodigoLancado(CodigoFaturamento Codigo, bool PodeBaixar, string? Impedimento)
+public sealed record CodigoLancado(CodigoFaturamento Codigo, bool Liberada, string? Impedimento)
 {
     public bool Baixado => Codigo.Baixado;
+
+    // Os rótulos saem resolvidos daqui, e não de conversor de XAML: os conversores
+    // `EnumDescricao` e `CodigoEspecialidade` são do design system do FATURAMENTO e não
+    // existem na suíte. Duplicá-los para uma tela seria pagar o débito do design system
+    // uma terceira vez; o padrão daqui é o `LinhaPendencia` do Gerente — resolver no VM.
+    public string TipoRotulo => RotularTipo(Codigo.Tipo);
+
+    public string EspecialidadeRotulo => Codigo.EspecialidadeCodigo is { } cod
+        ? CatalogoEspecialidades.Nome(cod)
+        : "—";
+
+    public string OrdemRotulo => Codigo.Ordem == OrdemCodigo.Segundo ? "2º" : "1º";
+
+    public string FaturarEm => Codigo.DataPrevistaFaturamento.ToString("dd/MM/yyyy");
+
+    public string ComoObter => Codigo.FormaObtencao switch
+    {
+        FormaObtencao.NaoAplica => "—",
+        FormaObtencao.App => "Pelo app (QR Code)",
+        FormaObtencao.Sistema => "Pelo sistema",
+        FormaObtencao.Ligacao => "Ligar para o paciente",
+        _ => Codigo.FormaObtencao.ToString()
+    };
+
+    /// <summary>
+    /// O que o balcão diz ao paciente. Três estados, e o do meio é o motivo de o produto
+    /// existir: a guia que só libera depois de amanhã é a que se esquece.
+    /// </summary>
+    public string Situacao => Baixado
+        ? "Já baixada pelo faturamento"
+        : Impedimento ?? "Liberada — o faturamento já pode dar baixa";
+
+    public bool TemImpedimento => Impedimento is not null;
+
+    internal static string RotularTipo(TipoCodigo t) => t switch
+    {
+        TipoCodigo.ConsultaEspecialidade => "Consulta de especialidade",
+        TipoCodigo.Eletroacupuntura => "Eletroacupuntura",
+        TipoCodigo.Bsv => "BSV",
+        TipoCodigo.Acupuntura => "Acupuntura",
+        TipoCodigo.Consulta => "Consulta",
+        _ => t.ToString()
+    };
 }
 
-/// <summary>Lança um atendimento. O sistema gera automaticamente os códigos (inclusive o 2º código +24h).</summary>
-public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
+/// <summary>
+/// Lança um atendimento AVULSO — o paciente que não estava na agenda. O motor de regras
+/// gera os códigos do convênio na hora, inclusive o 2º código de +24h.
+///
+/// Veio do app de FATURAMENTO na parcela 46. O balcão já criava atendimento pelo caminho da
+/// AGENDA (Fila → Finalizar → <c>FechamentoSessaoService</c> →
+/// <c>AgendaService.ConfirmarPresencaAsync</c> → <c>AtendimentoService.LancarAsync</c>); o
+/// que faltava aqui era o avulso, e ele morava no posto do faturamento — longe de quem
+/// recebe o paciente que chegou sem horário marcado.
+///
+/// <b>O circuito com o faturamento é o MESMO</b>: os dois caminhos desembocam em
+/// <see cref="AtendimentoService.LancarAsync"/>, que é ponto único, e é ele que grava
+/// <c>Atendimento</c> + <c>CodigoFaturamento</c> pelas regras do convênio. Não existe
+/// atendimento que nasça sem guia, e não existe guia que o faturamento não veja — a ligação
+/// é chave estrangeira no mesmo banco, não sincronização.
+///
+/// O que NÃO veio junto foi a BAIXA. Ela é o ato do faturamento, tem as quatro portas de lá
+/// (tela de baixa, baixa em lote, rodada de pendências e fila do Gerente) e o perfil que usa
+/// esta tela não tem o bit — um botão que nasce apagado para quem usa a tela é o defeito da
+/// parcela 41. A lista de códigos gerados fica como CONFIRMAÇÃO: é onde o balcão vê, na
+/// hora, que a guia nasceu e quando ela libera.
+/// </summary>
+public partial class NovoAtendimentoViewModel : ObservableObject
 {
     /// <summary>Metade VISÍVEL da permissão: lançar atendimento CRIA as guias pela regra do convênio.</summary>
     public bool PodeLancar => SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
 
-    /// <summary>Metade VISÍVEL da permissão de dar baixa direto da tela do lançamento.</summary>
-    public bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
     private readonly IServiceScopeFactory _scopeFactory;
 
     /// <summary>Busca de paciente compartilhada (mesmo limite e mesmo comportamento das outras telas).</summary>
@@ -44,7 +106,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<string> Avisos { get; } = new();
 
     /// <summary>Placar das baixas do atendimento recém-lançado ("1 de 2 guias baixadas…").</summary>
-    [ObservableProperty] private string? _resumoBaixas;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemResumoBaixas))]
+    private string? _resumoBaixas;
+
+    public bool TemResumoBaixas => !string.IsNullOrWhiteSpace(ResumoBaixas);
 
     /// <summary>Modalidades ativas do catálogo (embutidas + variantes criadas pela clínica).</summary>
     public ObservableCollection<EntradaModalidade> Modalidades { get; } = new();
@@ -62,7 +128,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty] private bool _lancado;
     [ObservableProperty] private string? _numeroAtendimento;
-    [ObservableProperty] private string? _mensagem;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemMensagem))]
+    private string? _mensagem;
+
+    public bool TemMensagem => !string.IsNullOrWhiteSpace(Mensagem);
 
     /// <summary>Aviso de guias pendentes do paciente selecionado (para a secretária cobrar na hora). Nulo = sem pendências.</summary>
     [ObservableProperty]
@@ -73,26 +143,52 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
     public bool TemAvisoPendencias => !string.IsNullOrWhiteSpace(AvisoPendencias);
 
     /// <summary>Aviso de carteirinha vencida do paciente selecionado. Separado da mensagem de erro.</summary>
-    [ObservableProperty] private string? _avisoCarteirinha;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemAvisoCarteirinha))]
+    private string? _avisoCarteirinha;
+
+    public bool TemAvisoCarteirinha => !string.IsNullOrWhiteSpace(AvisoCarteirinha);
 
     /// <summary>
     /// Consulta renovável vencida ou a vencer na data do atendimento. Fica ao lado dos
     /// outros avisos em vez de junto deles: carteirinha, cota e consulta chegam juntas e
     /// se resolvem em lugares diferentes.
     /// </summary>
-    [ObservableProperty] private string? _avisoConsulta;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemAvisoConsulta))]
+    private string? _avisoConsulta;
+
+    public bool TemAvisoConsulta => !string.IsNullOrWhiteSpace(AvisoConsulta);
 
     /// <summary>A consulta já venceu — o convênio recusa o que for faturado sem consulta vigente.</summary>
     [ObservableProperty] private bool _consultaVencida;
 
-    /// <summary>Já há paciente escolhido? Alterna a busca pelo resumo do paciente na tela.</summary>
-    [ObservableProperty] private bool _pacienteEscolhido;
+    /// <summary>
+    /// Já há paciente escolhido? Alterna a busca pelo resumo do paciente na tela.
+    ///
+    /// O par com <see cref="SemPaciente"/> substitui o conversor `BoolInvertidoParaVisibilidade`
+    /// do faturamento, que a suíte não tem — é o mesmo par que a tela de Prescrições da
+    /// Recepção já usa.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SemPaciente))]
+    private bool _pacienteEscolhido;
+
+    /// <summary>Ninguém escolhido ainda — mostra a busca.</summary>
+    public bool SemPaciente => !PacienteEscolhido;
 
     /// <summary>Nome do convênio do paciente selecionado (resolvido pelo catálogo).</summary>
     [ObservableProperty] private string? _convenioPaciente;
 
+    /// <summary>Categoria do paciente (semáforo do cadastro), como TEXTO — o conversor de cor é do faturamento.</summary>
+    [ObservableProperty] private string? _categoriaPaciente;
+
     /// <summary>Cota de sessões: "Senha 12345 · 7 de 10 usadas — restam 3". Nulo = sem autorização vigente.</summary>
-    [ObservableProperty] private string? _saldoAutorizacao;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemSaldoAutorizacao))]
+    private string? _saldoAutorizacao;
+
+    public bool TemSaldoAutorizacao => !string.IsNullOrWhiteSpace(SaldoAutorizacao);
 
     /// <summary>Cota esgotada ou autorização vencida: lançar agora é candidato à glosa 2006.</summary>
     [ObservableProperty] private bool _autorizacaoCritica;
@@ -190,6 +286,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         ConvenioPaciente = value is null
             ? null
             : CatalogoConvenios.Nome(value.ConvenioCodigo ?? value.Convenio.ToString());
+        CategoriaPaciente = value?.Categoria.ToString();
         if (value is null) return;
 
         // Pré-seleciona a modalidade habitual do paciente: primeiro pelo código salvo, senão pela base.
@@ -231,7 +328,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         {
             // Aviso é auxiliar: nunca impede o lançamento. Mas também não pode sumir
             // calado, senão a tela diria "não há consulta a renovar" sem ter olhado.
-            Configuracao.LogErros.Registrar("Novo atendimento — consulta renovável não pôde ser lida", ex);
+            LogSuite.Registrar("Novo atendimento — consulta renovável não pôde ser lida", ex);
             AvisoConsulta = "Não foi possível conferir a consulta renovável deste paciente.";
             ConsultaVencida = false;
         }
@@ -273,7 +370,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         catch (Exception ex)
         {
             // Aviso é auxiliar: nunca pode impedir o lançamento do atendimento.
-            Configuracao.LogErros.Registrar("Novo atendimento — cota de sessões não pôde ser lida", ex);
+            LogSuite.Registrar("Novo atendimento — cota de sessões não pôde ser lida", ex);
             SaldoAutorizacao = null;
             AutorizacaoCritica = false;
             AutorizacaoNaUltima = false;
@@ -325,7 +422,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
                 var itens = string.Join("; ", lista.Take(3).Select(p =>
                 {
                     var ordinal = p.Ordem == OrdemCodigo.Segundo ? "2ª" : "1ª";
-                    return $"{ordinal} guia de {RotuloTipo(p.Tipo)} de {p.DataPrevista:dd/MM}";
+                    return $"{ordinal} guia de {CodigoLancado.RotularTipo(p.Tipo).ToLowerInvariant()} de {p.DataPrevista:dd/MM}";
                 }));
                 if (lista.Count > 3) itens += $"; +{lista.Count - 3}";
                 partes.Add($"{lista.Count} guia(s) pendente(s) de baixa — cobre a guia agora! ({itens}.)");
@@ -339,20 +436,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
         catch (Exception ex)
         {
             // Aviso é auxiliar: uma falha aqui nunca pode impedir o lançamento do atendimento.
-            Configuracao.LogErros.Registrar("Novo atendimento — pendências do paciente não puderam ser lidas", ex);
+            LogSuite.Registrar("Novo atendimento — pendências do paciente não puderam ser lidas", ex);
             AvisoPendencias = null;
         }
     }
-
-    private static string RotuloTipo(TipoCodigo t) => t switch
-    {
-        TipoCodigo.ConsultaEspecialidade => "consulta de especialidade",
-        TipoCodigo.Eletroacupuntura => "eletroacupuntura",
-        TipoCodigo.Bsv => "BSV",
-        TipoCodigo.Acupuntura => "acupuntura",
-        TipoCodigo.Consulta => "consulta",
-        _ => t.ToString()
-    };
 
     [RelayCommand]
     private async Task Lancar()
@@ -421,11 +508,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
 
         foreach (var c in codigos.OrderBy(c => c.DataPrevistaFaturamento).ThenBy(c => c.Ordem))
         {
-            var podeBaixar = c.EstaPendente(hoje);
-            var impedimento = c.Baixado || podeBaixar || c.Status == StatusCodigo.NaoAplicavel
+            var liberada = c.EstaPendente(hoje);
+            var impedimento = c.Baixado || liberada || c.Status == StatusCodigo.NaoAplicavel
                 ? null
                 : $"Libera em {c.DataPrevistaFaturamento:dd/MM/yyyy}";
-            CodigosGerados.Add(new CodigoLancado(c, podeBaixar, impedimento));
+            CodigosGerados.Add(new CodigoLancado(c, liberada, impedimento));
         }
 
         AtualizarResumoBaixas(hoje);
@@ -442,66 +529,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             .OrderBy(l => l.Codigo.DataPrevistaFaturamento)
             .FirstOrDefault();
 
-        ResumoBaixas = $"{baixadas} de {faturaveis.Count} guia(s) baixada(s)"
+        ResumoBaixas = $"{baixadas} de {faturaveis.Count} guia(s) já baixada(s) pelo faturamento"
             + (proxima is null
                 ? baixadas == faturaveis.Count ? " — nada pendente deste atendimento." : "."
-                : $" — a próxima libera em {proxima.Codigo.DataPrevistaFaturamento:dd/MM/yyyy} e vai para o painel de pendências.");
-    }
-
-    /// <summary>
-    /// Baixa a guia sem sair da tela. Antes era preciso lançar o atendimento, ir ao painel
-    /// de pendências e baixar lá — sendo que a 1ª guia já sai faturável no mesmo instante.
-    /// </summary>
-    [RelayCommand]
-    private async Task DarBaixa(CodigoLancado? linha)
-    {
-        if (linha is null || !linha.PodeBaixar) return;
-
-        var descricao = $"{PacienteSelecionado?.Nome} — {RotuloTipo(linha.Codigo.Tipo)} " +
-                        $"({(linha.Codigo.Ordem == OrdemCodigo.Segundo ? "2º" : "1º")} código) " +
-                        $"do atendimento {NumeroAtendimento}";
-
-        SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
-
-        var janela = new Alertas.BaixaGuiaWindow(descricao)
-        {
-            Owner = System.Windows.Application.Current.MainWindow
-        };
-        if (janela.ShowDialog() != true) return;
-
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
-            await faturamento.DarBaixaAsync(linha.Codigo.Id, janela.DataBaixa, janela.NumeroGuia,
-                SessaoUsuario.Atual.Operador, janela.Observacao);
-        }
-        catch (Exception ex)
-        {
-            Mensagem = $"Não foi possível registrar a baixa: {ex.Message}";
-            return;
-        }
-
-        Mensagem = null;
-        await RecarregarCodigosAsync();
-    }
-
-    /// <summary>Relê os códigos do atendimento para refletir a baixa recém-registrada.</summary>
-    private async Task RecarregarCodigosAsync()
-    {
-        if (_ultimoAtendimentoId == 0) return;
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var repo = scope.ServiceProvider.GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>();
-            var atendimento = await repo.ObterAtendimentoAsync(_ultimoAtendimentoId);
-            if (atendimento is not null) MontarCodigos(atendimento.Codigos);
-        }
-        catch (Exception ex)
-        {
-            // A baixa já foi gravada; falhar aqui só deixa a tela desatualizada.
-            Configuracao.LogErros.Registrar("Novo atendimento — recarga dos códigos após a baixa falhou", ex);
-        }
+                : $" — a próxima libera em {proxima.Codigo.DataPrevistaFaturamento:dd/MM/yyyy} e entra no painel de pendências do faturamento.");
     }
 
     /// <summary>Gera a capa de faturamento (PDF) do atendimento recém-lançado e abre o arquivo.</summary>
@@ -524,19 +555,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
-        var dialog = new SaveFileDialog
-        {
-            FileName = $"Capa-INICIAL-{NumeroAtendimento ?? _ultimoAtendimentoId.ToString()}-{Data:yyyy-MM-dd}.pdf",
-            Filter = "PDF (*.pdf)|*.pdf",
-            DefaultExt = ".pdf"
-        };
-        if (dialog.ShowDialog() != true) return;
-
-        await File.WriteAllBytesAsync(dialog.FileName, pdf);
-        Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
+        // Salvar cancelado devolve null, e sair calado é o certo: diálogo que a pessoa
+        // fechou de propósito não é falha a reportar.
+        await ImpressaoPdf.SalvarEAbrirAsync(
+            pdf, $"Capa-INICIAL-{NumeroAtendimento ?? _ultimoAtendimentoId.ToString()}-{Data:yyyy-MM-dd}.pdf");
     }
-
-    // Atalhos globais do shell (IAtalhosDeTela)
-    public ICommand? AtalhoSalvar => LancarCommand;
-    public ICommand? AtalhoImprimir => GerarCapaCommand;
 }

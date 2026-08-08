@@ -1,6 +1,6 @@
 using System.Windows.Controls;
 
-namespace Clinica.Desktop.Views;
+namespace Clinica.Recepcao.Views;
 
 public partial class ConsultasView : UserControl
 {

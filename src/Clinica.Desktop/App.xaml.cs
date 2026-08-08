@@ -379,13 +379,11 @@ public partial class App : System.Windows.Application
                 services.AddTransient<DashboardViewModel>();
                 services.AddTransient<NaoConformidadesViewModel>();
                 services.AddTransient<PacientesViewModel>();
-                services.AddTransient<NovoAtendimentoViewModel>();
                 services.AddTransient<BaixaViewModel>();
                 services.AddTransient<RelatoriosViewModel>();
                 services.AddTransient<FaturadosViewModel>();
                 services.AddTransient<FichaPacienteViewModel>();
                 services.AddTransient<AgendaViewModel>();
-                services.AddTransient<ConsultasViewModel>();
                 services.AddTransient<GlosasViewModel>();
                 services.AddTransient<TissViewModel>();
                 services.AddTransient<ConsultaGuiasViewModel>();

@@ -9,8 +9,6 @@ public enum Secao
     Pendencias,
     NaoConformidades,
     Agenda,
-    Atendimento,
-    Consultas,
     ConsultaGuias,
     Faturados,
     Glosas,

@@ -81,6 +81,8 @@ camadas — sem duplicar código e sem encostar no que já está em produção:
 | `Clinica.Modulo.Clinico` | O consultório: o dia do profissional, o atendimento com EVA, o painel de evolução da dor e as escalas por especialidade. |
 | `Clinica.Modulo.Financeiro` | Caixa, Conciliação e Produção. |
 | `Clinica.Modulo.Gerente` | Indicadores (BI), campanhas (confirmação, NPS e recall), acessos e a visão de leitura do faturamento. |
+
+> **Novo atendimento** e **Consultas (convênio)** moram na Recepção desde a parcela 46 — os dois atos se fazem com o paciente na frente. O circuito com o faturamento é o mesmo: tudo passa por `AtendimentoService.LancarAsync`, que gera as guias pela regra do convênio.
 | `Clinica.Recepcao` / `Clinica.Clinico` / `Clinica.Financeiro` / `Clinica.Gerente` | Executáveis — cascas finas que só escolhem quais módulos carregar. O Gerente Geral carrega todos. |
 
 **Os cinco apps pedem login** (`SessaoUsuario`, agora no domínio); base sem usuário abre o primeiro

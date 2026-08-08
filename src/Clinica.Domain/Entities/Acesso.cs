@@ -192,9 +192,15 @@ public static class PerfisAcesso
     /// </summary>
     public static Permissao Padrao(PerfilAcesso perfil) => perfil switch
     {
+        // LancarAtendimento entrou na parcela 46, quando "Novo atendimento" e "Consultas"
+        // saíram do app de faturamento e vieram para o balcão. Sem o bit aqui, as duas
+        // telas nasceriam invisíveis para quem passou a ser dono delas — e a recepção já
+        // CRIA atendimento com guia pelo caminho da agenda (Fila → Finalizar) desde a
+        // parcela 6, então o bit não concede nada que ela não fizesse.
         PerfilAcesso.Recepcao =>
             Permissao.VerAgenda | Permissao.EditarAgenda |
             Permissao.VerProntuario | Permissao.EditarProntuario |
+            Permissao.LancarAtendimento |
             Permissao.GerenciarCampanhas,
 
         PerfilAcesso.Profissional =>

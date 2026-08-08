@@ -191,6 +191,30 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   **reabre o app** em vez de repontar a sessão: as ViewModels leem a permissão quando são
   construídas, e metade delas já está viva — permissão que parece aplicada e não está é pior do
   que permissão nenhuma.
+- **O atendimento saiu do faturamento e foi para o balcão** (parcela 46): "Novo
+  atendimento" e "Consultas" viraram itens do `Clinica.Modulo.Recepcao`, e **saíram de vez**
+  do `Clinica.Desktop`. Nenhum dos dois era feature nova — os dois existiam, no posto
+  errado. Lançar atendimento AVULSO (quem chegou sem horário) e renovar a consulta do
+  convênio são atos que se fazem **com o paciente na frente**, e moravam na máquina de quem
+  não recebe ninguém: a recepção via o selo "consulta a renovar" no cartão da agenda desde a
+  parcela 44 e **não tinha por onde renovar**. É a nona ocorrência do defeito recorrente do
+  projeto, na variante "a porta está no módulo de quem não usa".
+  **O circuito com o faturamento não mudou, e é isso que os testes fixam**: os dois caminhos
+  do atendimento — este e a Fila → Finalizar (`FechamentoSessaoService` →
+  `AgendaService.ConfirmarPresencaAsync`) — desembocam em `AtendimentoService.LancarAsync`,
+  que é **ponto único** e grava `Atendimento` + `CodigoFaturamento` pelas regras do convênio.
+  Não há atendimento que nasça sem guia. `AtendimentoNaRecepcaoTests` prova pelas consultas
+  do PRÓPRIO faturamento (`PendenciaService`, `ConsultarCodigosAsync`), e não por uma
+  consulta escrita para o teste: elo partido aqui não vira erro, vira **lista vazia**, que é
+  indistinguível de um dia fraco.
+  O que **não** foi junto foi a BAIXA. Ela é o ato do faturamento, tem as quatro portas de
+  lá, e o perfil que usa a tela nova não tem o bit — botão que nasce apagado para quem usa a
+  tela é o defeito da parcela 41. A lista de guias geradas ficou como **confirmação**: é onde
+  o balcão vê, na hora, que a guia nasceu e quando ela libera. E `PerfilAcesso.Recepcao`
+  ganhou `LancarAtendimento` no mesmo commit — sem o bit, as duas telas nasceriam invisíveis
+  para quem passou a ser dono delas.
+  O faturamento continua criando atendimento pela **agenda dele** (confirmar presença); o que
+  saiu foi a tela de lançamento avulso.
 - **Consultar guias filtra por modalidade e especialidade** (parcela 45): a pergunta da direção é
   "o que vem sendo feito", e a consulta só respondia por paciente, número, data, status e
   convênio. O filtro é pelo **enum**, não pelo código do catálogo, pela mesma razão do convênio ao

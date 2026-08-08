@@ -53,6 +53,31 @@ public class PermissoesFaturamentoTests
     }
 
     /// <summary>
+    /// A RECEPÇÃO lança atendimento (parcela 46), quando "Novo atendimento" e "Consultas"
+    /// saíram do app de faturamento e vieram para o balcão. Sem este bit as duas telas
+    /// nasceriam invisíveis para quem passou a ser dono delas — e a recepção já criava
+    /// atendimento com guia pelo caminho da agenda desde a parcela 6, então o bit não
+    /// concede nada que ela não fizesse.
+    /// </summary>
+    [Fact]
+    public void Recepcao_lanca_atendimento()
+        => PerfisAcesso.Padrao(PerfilAcesso.Recepcao)
+            .HasFlag(Permissao.LancarAtendimento).Should().BeTrue();
+
+    /// <summary>
+    /// Mas a recepção continua SEM escrever no faturamento: lançar o atendimento cria a
+    /// guia, e cuidar dela (baixar, estornar, glosar, decidir não faturar) é outro ofício.
+    /// </summary>
+    [Fact]
+    public void Recepcao_lanca_mas_nao_fatura()
+    {
+        var padrao = PerfisAcesso.Padrao(PerfilAcesso.Recepcao);
+        padrao.HasFlag(Permissao.VerFaturamento).Should().BeFalse();
+        padrao.HasFlag(Permissao.BaixarGuia).Should().BeFalse();
+        padrao.HasFlag(Permissao.MarcarNaoConformidade).Should().BeFalse();
+    }
+
+    /// <summary>
     /// Quem não é do faturamento não ganhou nenhum dos bits novos de tabela. Sem isto, um
     /// bit acrescentado ao padrão errado daria à recepção o poder de estornar baixa sem
     /// ninguém notar.

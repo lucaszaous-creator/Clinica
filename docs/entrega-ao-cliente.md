@@ -49,7 +49,7 @@ está fechada.
 
 | App | O que já entrega | O que ainda falta |
 |---|---|---|
-| **Faturamento** | Tudo: motor de regras, 2º código, lotes TISS, glosa e recurso, PDFs. **Em produção.** | Nada — está **congelado** de propósito |
+| **Faturamento** | O ciclo da guia: motor de regras, 2º código, pendências, baixa, lotes TISS, glosa e recurso, PDFs. Login com permissões granulares (parcela 45). **Em produção.** | Nada. Descongelado na parcela 45, a pedido da cliente; o lançamento de atendimento e as consultas saíram para a Recepção na 46 |
 | **Recepção** | Painel do dia, agenda multiprofissional com encaixe, lista de espera que diz **quem chamar** quando um horário vaga, fila em kanban, profissionais e salas, Pacientes 360º com foto e LGPD, prontuário com EVA e anexos, mapa corporal com protocolo, os 7 documentos clínicos e a central com as 9 folhas (incluindo a conferência pelo código impresso) | Nada da proposta |
 | **Financeiro** | Caixa do mês, lançamento manual, conciliação com o faturamento, produção do período, contas a pagar/receber com conta fixa, fluxo de caixa mês a mês, fechamento da gaveta, recebíveis de cartão, taxas e regime tributário, "quem me deve", pacotes com saldo e devolução de sessão, estoque com alerta e **custo por sessão**, repasse por profissional, plano de contas, recibo e orçamento | Nada da proposta |
 | **Gerente Geral** | Carrega Recepção + Financeiro inteiros **e** as telas da direção: painel de abertura com os alertas do dia, indicadores (ocupação, no-show, produtividade), custo de taxas e impostos, rentabilidade e tabela de preço por convênio, auditoria, campanhas (confirmação, NPS e recall), acessos com perfis e permissões, e a visão de leitura do faturamento | Nada da proposta |

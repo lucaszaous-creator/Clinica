@@ -12,8 +12,6 @@
         Background="{StaticResource Brush.Fundo}">
 
     <Window.InputBindings>
-        <KeyBinding Modifiers="Ctrl" Key="N" Command="{Binding NavegarCommand}"
-                    CommandParameter="{x:Static vm:Secao.Atendimento}" />
         <KeyBinding Modifiers="Ctrl" Key="S" Command="{Binding AtalhoSalvarCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="P" Command="{Binding AtalhoImprimirCommand}" />
         <KeyBinding Key="F5" Command="{Binding AtalhoAtualizarCommand}" />
@@ -30,9 +28,6 @@
         <DataTemplate DataType="{x:Type vm:PacientesViewModel}">
             <views:PacientesView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:NovoAtendimentoViewModel}">
-            <views:NovoAtendimentoView />
-        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:BaixaViewModel}">
             <views:BaixaView />
         </DataTemplate>
@@ -47,9 +42,6 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:AgendaViewModel}">
             <views:AgendaView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:ConsultasViewModel}">
-            <views:ConsultasView />
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:GlosasViewModel}">
             <views:GlosasView />
