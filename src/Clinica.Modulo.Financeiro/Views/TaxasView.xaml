@@ -93,7 +93,7 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
-                                            <TextBlock Text="{Binding Situacao}" />
+                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         </Border>
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal"
@@ -395,7 +395,7 @@
                             CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
                         <TextBlock Text="{Binding MesApuracao, StringFormat='{}{0:MMMM/yyyy}'}"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </Border>
                     <Button Content="▶" Command="{Binding MesApuracaoProximoCommand}"
                             Style="{StaticResource BotaoSecundario}" Width="40" />
@@ -464,19 +464,19 @@
                                             <TextBlock Grid.Column="0" Text="{Binding Sigla}"
                                                        FontWeight="SemiBold"
                                                        Foreground="{StaticResource Brush.Texto.Primario}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="1" Text="{Binding Nome}" TextWrapping="Wrap"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
                                                        VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="2" Text="{Binding Aliquota}"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="3" Text="{Binding Base}"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="4" Text="{Binding Valor}"
                                                        Foreground="{StaticResource Brush.Texto.Primario}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="5" Text="{Binding Natureza}" TextWrapping="Wrap"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
                                                        VerticalAlignment="Center" />

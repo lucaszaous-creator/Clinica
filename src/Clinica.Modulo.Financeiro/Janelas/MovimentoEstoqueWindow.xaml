@@ -14,7 +14,7 @@
         <StackPanel DockPanel.Dock="Top">
             <TextBlock Text="Movimentar estoque" Style="{StaticResource DialogoTitulo}" />
             <TextBlock Text="{Binding Item}" FontWeight="SemiBold" Margin="0,0,0,12"
-                       Foreground="{StaticResource Brush.Acento}" />
+                       Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"

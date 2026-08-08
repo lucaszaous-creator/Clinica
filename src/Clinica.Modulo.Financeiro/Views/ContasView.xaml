@@ -32,25 +32,18 @@
         </Border>
 
         <!-- ===== Faixa de totais ===== -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <!-- WrapPanel e não colunas ESTRELA (parcela 50): a coluna estrela divide a
+             largura em partes iguais e obriga o valor a caber no que sobrou — num monitor
+             de 1366 px isso corta "R$ 1.234.567,89" em 28 px negrito. Aqui cada cartão
+             pede a largura que precisa e a fileira quebra quando não couber. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
 
-            <Border Grid.Column="0" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="A PAGAR VENCIDO" Style="{StaticResource CardKpi.Rotulo}" />
                     <!-- O vencido em vermelho: é a diferença entre uma agenda de pagamentos
                          e um problema que já aconteceu. -->
-                    <TextBlock Text="{Binding APagarVencido}">
+                    <TextBlock Text="{Binding APagarVencido}" TextTrimming="CharacterEllipsis">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
                                 <Style.Triggers>
@@ -64,35 +57,35 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="A PAGAR A VENCER" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding APagarAVencer}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding APagarAVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="4" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="A RECEBER VENCIDO" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding AReceberVencido}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding AReceberVencido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="6" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="A RECEBER A VENCER" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding AReceberAVencer}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding AReceberAVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="8" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="SALDO PREVISTO" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding SaldoPrevisto}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding SaldoPrevisto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="a receber menos a pagar" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
-        </Grid>
+        </WrapPanel>
 
 
         <!-- ===== Lista do que vence ===== -->
@@ -178,13 +171,13 @@
 
                                         <TextBlock Grid.Column="1" Text="{Binding Valor}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="8,0" FontWeight="SemiBold" />
+                                                   Margin="8,0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
 
                                         <!-- O prazo em palavras e em vermelho quando venceu:
                                              ninguém calcula "10/08 menos hoje", pensa
                                              "venceu faz cinco dias". -->
                                         <TextBlock Grid.Column="2" Text="{Binding Prazo}"
-                                                   VerticalAlignment="Center" Margin="8,0">
+                                                   VerticalAlignment="Center" Margin="8,0" TextTrimming="CharacterEllipsis">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock"
                                                        BasedOn="{StaticResource TextoSuave}">

@@ -39,10 +39,10 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Profissional}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                     <Run Text="{Binding Regra, Mode=OneWay}" />
                                                     <Run Text=" · " />
                                                     <Run Text="{Binding Vigencia, Mode=OneWay}" />
@@ -84,13 +84,13 @@
                                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding Profissional}" FontWeight="SemiBold"
-                                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                         <TextBlock Text="{Binding Valor}" Margin="8,0,0,0"
-                                                                   Foreground="{StaticResource Brush.Acento}" />
+                                                                   Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     </StackPanel>
                                                     <TextBlock Margin="0,2,0,0"
                                                                FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                         <Run Text="{Binding Periodo, Mode=OneWay}" />
                                                         <Run Text=" · " />
                                                         <Run Text="{Binding Situacao, Mode=OneWay}" />

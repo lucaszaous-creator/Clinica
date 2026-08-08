@@ -39,7 +39,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Entrou em espécie"
                                        Style="{StaticResource TextoSuave}" />
-                            <TextBlock Grid.Column="1" Text="{Binding EntradasEspecie}" />
+                            <TextBlock Grid.Column="1" Text="{Binding EntradasEspecie}" TextTrimming="CharacterEllipsis" />
                         </Grid>
                         <Grid Margin="0,4,0,0">
                             <Grid.ColumnDefinitions>
@@ -48,7 +48,7 @@
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="0" Text="Saiu em espécie"
                                        Style="{StaticResource TextoSuave}" />
-                            <TextBlock Grid.Column="1" Text="{Binding SaidasEspecie}" />
+                            <TextBlock Grid.Column="1" Text="{Binding SaidasEspecie}" TextTrimming="CharacterEllipsis" />
                         </Grid>
 
                         <Border BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0"
@@ -61,7 +61,7 @@
                                 <TextBlock Grid.Column="0" Text="A gaveta deveria ter"
                                            FontWeight="SemiBold" />
                                 <TextBlock Grid.Column="1" Text="{Binding Esperado}"
-                                           FontWeight="Bold" />
+                                           FontWeight="Bold" TextTrimming="CharacterEllipsis" />
                             </Grid>
                         </Border>
 
@@ -166,7 +166,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Data}" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding Data}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <TextBlock Style="{StaticResource TextoSuave}"
                                                            FontSize="{StaticResource Fonte.Legenda}">
                                                     <Run Text="{Binding Esperado, Mode=OneWay}" />
@@ -230,7 +230,7 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock FontWeight="SemiBold">
+                                            <TextBlock FontWeight="SemiBold" TextWrapping="Wrap">
                                                 <Run Text="{Binding Data, Mode=OneWay}" />
                                                 <Run Text=" · " />
                                                 <Run Text="{Binding Situacao, Mode=OneWay}" />
@@ -245,14 +245,14 @@
                                                    Margin="6,0" Style="{StaticResource TextoSuave}" />
                                         <TextBlock Grid.Column="2" Text="{Binding Contado}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="6,0" />
+                                                   Margin="6,0" TextTrimming="CharacterEllipsis" />
 
                                         <!-- Divergência em vermelho. Reaberto NÃO é vermelho:
                                              é um dia esperando recontagem, não um problema
                                              de dinheiro. -->
                                         <TextBlock Grid.Column="3" Text="{Binding Diferenca}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="6,0">
+                                                   Margin="6,0" TextTrimming="CharacterEllipsis">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="FontWeight" Value="SemiBold" />

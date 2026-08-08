@@ -46,16 +46,16 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         <TextBlock Text="{Binding Resumo}"
                                                    FontSize="{StaticResource Fonte.Legenda}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal"
                                                 VerticalAlignment="Center">
                                         <TextBlock Text="{Binding ValorFormatado}" FontWeight="SemiBold"
                                                    VerticalAlignment="Center" Margin="0,0,8,0"
-                                                   Foreground="{StaticResource Brush.Acento}" />
+                                                   Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
                                                 Command="{Binding DataContext.ExcluirDoCatalogoCommand,
                                                           RelativeSource={RelativeSource AncestorType=ListBox}}"

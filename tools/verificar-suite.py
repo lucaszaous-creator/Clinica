@@ -1415,9 +1415,17 @@ if not [
 # da mesma família, e transformar tudo em erro de uma vez pararia o CI por dívida antiga.
 # Elas viram UMA linha de aviso com a contagem por módulo — dívida escrita, não escondida,
 # e sem encher a saída com trezentas linhas que ninguém lê.
-LIMPOS = ("Clinica.Modulo.Gerente",)
+LIMPOS = ("Clinica.Modulo.Gerente", "Clinica.Modulo.Financeiro")
 ESTILO_JA_RESOLVE = {"TextoSuave", "CardKpi.Variacao"}
+# Duas formas de amarrar texto, e a segunda escapava: `Text="{Binding X}"` na tag de
+# abertura, e `<Run Text="{Binding X}" />` como FILHO. A segunda é como a suíte monta
+# frase com pedaço variável no meio ("Sai hoje de cada recebimento: R$ 1.234"), e olhar
+# só a abertura deixava esse caso passar — foi o ponto cego que a revisão do Gerente
+# encontrou. O `(?!</?TextBlock)` impede o casamento de atravessar dois TextBlocks e
+# acusar o binding de um vizinho.
 TEXTBLOCK_ABERTURA = re.compile(r"<TextBlock\b[^>]*?/?>", re.S)
+TEXTBLOCK_COM_FILHOS = re.compile(
+    r"<TextBlock\b([^>]*)>((?:(?!</?TextBlock).)*?)</TextBlock>", re.S)
 ESTILO_DO_TEXTBLOCK = re.compile(r'Style="\{StaticResource ([^}"]+)\}"')
 
 _devedores: dict[str, int] = {}
@@ -1430,18 +1438,28 @@ for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
     corpo = arq.read_text(encoding="utf-8")
     modulo = rel(arq).split("/")[1] if "/" in rel(arq) else rel(arq)
 
+    suspeitos: list[tuple[int, str]] = []
+
     for achado in TEXTBLOCK_ABERTURA.finditer(corpo):
         tag = achado.group(0)
-        if "Binding" not in tag:
+        if "Binding" in tag and "TextWrapping" not in tag and "TextTrimming" not in tag:
+            suspeitos.append((achado.start(), tag))
+
+    for achado in TEXTBLOCK_COM_FILHOS.finditer(corpo):
+        abertura, miolo = achado.group(1), achado.group(2)
+        if "Binding" not in miolo or "<Run" not in miolo:
             continue
-        if "TextWrapping" in tag or "TextTrimming" in tag:
+        if "TextWrapping" in abertura or "TextTrimming" in abertura:
             continue
+        suspeitos.append((achado.start(), abertura))
+
+    for inicio, tag in suspeitos:
         estilo = ESTILO_DO_TEXTBLOCK.search(tag)
         if estilo and estilo.group(1) in ESTILO_JA_RESOLVE:
             continue
 
         if modulo in LIMPOS:
-            linha = corpo[: achado.start()].count("\n") + 1
+            linha = corpo[:inicio].count("\n") + 1
             erros.append(
                 f"{rel(arq)}:{linha}: TextBlock amarrado a dado do banco sem "
                 f"`TextWrapping` nem `TextTrimming` — o texto sai por cima do vizinho. "

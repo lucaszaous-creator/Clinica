@@ -80,7 +80,7 @@
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <Border Style="{StaticResource Badge.Aviso}" Margin="10,0,0,0"
                                                             Visibility="{Binding AbaixoDoMinimo,
                                                                          Converter={StaticResource BoolParaVisibilidade}}">
@@ -89,7 +89,7 @@
                                                 </StackPanel>
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                     <Run Text="saldo " />
                                                     <Run Text="{Binding Saldo, Mode=OneWay}" />
                                                     <Run Text=" · mínimo " />
@@ -168,15 +168,15 @@
 
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Sessões" Style="{StaticResource Rotulo}" />
-                                    <TextBlock Text="{Binding CustoSessoes}" Style="{StaticResource H2}" Margin="0" />
+                                    <TextBlock Text="{Binding CustoSessoes}" Style="{StaticResource H2}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1">
                                     <TextBlock Text="Custo médio" Style="{StaticResource Rotulo}" />
-                                    <TextBlock Text="{Binding CustoMedio}" Style="{StaticResource H2}" Margin="0" />
+                                    <TextBlock Text="{Binding CustoMedio}" Style="{StaticResource H2}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="Total no período" Style="{StaticResource Rotulo}" />
-                                    <TextBlock Text="{Binding CustoTotal}" Style="{StaticResource H2}" Margin="0" />
+                                    <TextBlock Text="{Binding CustoTotal}" Style="{StaticResource H2}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Grid>
 
@@ -201,9 +201,9 @@
                                                 <StackPanel Grid.Column="0">
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="{Binding Data}" FontWeight="SemiBold"
-                                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                         <TextBlock Text="{Binding Paciente}" Margin="10,0,0,0"
-                                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     </StackPanel>
                                                     <TextBlock Text="{Binding Itens}" Margin="0,2,0,0"
                                                                TextWrapping="Wrap"
@@ -214,7 +214,7 @@
                                                 <TextBlock Grid.Column="1" Text="{Binding Custo}"
                                                            VerticalAlignment="Center" FontWeight="SemiBold"
                                                            Margin="12,0,0,0"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

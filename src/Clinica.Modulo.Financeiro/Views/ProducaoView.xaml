@@ -25,36 +25,39 @@
         </Grid>
 
         <!-- ============ Indicadores ============ -->
-        <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,16">
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+        <!-- WrapPanel e não UniformGrid de largura inteira (parcela 50): o UniformGrid
+             divide a largura em partes iguais e obriga o valor a caber no que sobrou —
+             "R$ 1.234.567,89" em 28 px negrito não cabe em 1/4 de 1366 px. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="CÓDIGOS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding TotalCodigos}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                               Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="EFETIVADOS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding TotalBaixados}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Sucesso}" />
+                               Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="PENDENTES" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding TotalPendentes}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Aviso}" />
+                               Foreground="{StaticResource Brush.Aviso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200">
                 <StackPanel>
                     <TextBlock Text="TAXA DE EFETIVAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding TaxaBaixaFormatada}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Acento}" />
+                               Foreground="{StaticResource Brush.Acento}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-        </UniformGrid>
+        </WrapPanel>
 
         <!-- ============ Tabela mensal ============ -->
         <Border Background="{StaticResource Brush.Superficie}"
@@ -96,19 +99,19 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="1" Text="{Binding TotalCodigos}"
-                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="2" Text="{Binding Baixados}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="3" Text="{Binding Pendentes}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <!-- TaxaBaixa já vem em 0..100 do RelatorioService.
                                              P1 multiplicaria por 100 de novo e mostraria
                                              "9.250,0%" no lugar de "92,5%". -->
                                         <TextBlock Grid.Column="4"
                                                    Text="{Binding TaxaBaixa, StringFormat='{}{0:0.#}%'}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

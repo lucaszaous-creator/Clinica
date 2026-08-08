@@ -1130,7 +1130,14 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   A checagem 24 é **erro** só nos módulos já limpos e **um aviso com a contagem** para o
   resto: transformar centenas de ocorrências antigas em erro pararia o CI por dívida
   velha, e trezentas linhas de aviso treinam qualquer um a ignorar a saída. Corrigido um
-  módulo, acrescente-o a `LIMPOS` e a checagem passa a cobrá-lo.
+  módulo, acrescente-o a `LIMPOS` e a checagem passa a cobrá-lo. Já limpos: **Gerente e
+  Financeiro**; faltam Recepção (98), faturamento (81), Consultório (17) e shell (12).
+  ⚠️ **A primeira versão da checagem tinha um ponto cego, e a pergunta do cliente ("você
+  verificou TODAS?") foi o que o revelou**: ela só lia a TAG DE ABERTURA, e a suíte monta
+  frase com pedaço variável no meio usando `<Run Text="{Binding X}" />` como FILHO —
+  "Sai hoje de cada recebimento: R$ 1.234". Nenhum desses aparecia na contagem. Achar o
+  ponto cego mudou os números: Financeiro foi de 122 para 130 e o faturamento de 76 para
+  81. **Contagem de checagem só vale depois de alguém perguntar o que ela NÃO vê.**
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três

@@ -11,7 +11,7 @@
         <StackPanel DockPanel.Dock="Top">
             <TextBlock Text="Sessões do pacote" Style="{StaticResource DialogoTitulo}" />
             <TextBlock Text="{Binding Titulo}" FontWeight="SemiBold" Margin="0,0,0,4"
-                       Foreground="{StaticResource Brush.Acento}" />
+                       Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
             <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,8"
                        Text="Devolver uma sessão é CANCELAR COM MOTIVO, nunca apagar: o consumo continua no histórico, marcado. Apagar a linha devolveria &quot;o paciente diz que sobrou uma sessão&quot; à palavra de um contra a do outro." />
 
@@ -19,12 +19,12 @@
                 <TextBlock Text="Saldo hoje:" Style="{StaticResource Rotulo}"
                            VerticalAlignment="Center" Margin="0,0,6,0" />
                 <TextBlock Text="{Binding Saldo}" FontWeight="SemiBold" VerticalAlignment="Center"
-                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
             </StackPanel>
 
             <TextBlock Text="{Binding Resumo}" Margin="0,0,0,12"
                        FontSize="{StaticResource Fonte.Legenda}"
-                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                       Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
@@ -62,7 +62,7 @@
 
                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Data}" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <TextBlock Text="{Binding Origem}" Margin="0,2,0,0"
                                                TextWrapping="Wrap"
                                                FontSize="{StaticResource Fonte.Legenda}"

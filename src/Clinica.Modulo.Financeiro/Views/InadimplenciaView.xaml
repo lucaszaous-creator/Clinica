@@ -24,54 +24,52 @@
         </Border>
 
         <!-- ===== Faixa de totais ===== -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <!-- WrapPanel e não colunas ESTRELA (parcela 50): a coluna estrela divide a
+             largura em partes iguais e obriga o valor a caber no que sobrou — num monitor
+             de 1366 px isso corta "R$ 1.234.567,89" em 28 px negrito. Aqui cada cartão
+             pede a largura que precisa e a fileira quebra quando não couber. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,12">
 
-            <Border Grid.Column="0" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="TOTAL EM ATRASO" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Erro}" />
+                               Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="contas de paciente vencidas"
                                Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="1" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="PACIENTES" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding QuantidadePacientes}"
-                               Style="{StaticResource CardKpi.Valor}" />
+                               Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="pessoas a cobrar" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="2" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="CONTAS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding QuantidadeContas}"
-                               Style="{StaticResource CardKpi.Valor}" />
+                               Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="lançamentos em aberto" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="3" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="MÉDIO POR PACIENTE" Style="{StaticResource CardKpi.Rotulo}" />
                     <!-- "—" e não "R$ 0,00": sem ninguém devendo não há média, e zero se
                          leria como "ninguém deve quase nada". -->
                     <TextBlock Text="{Binding MedioPorPaciente}"
-                               Style="{StaticResource CardKpi.Valor}" />
+                               Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="quanto deve quem deve"
                                Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
-        </Grid>
+        </WrapPanel>
 
         <!-- ===== Envelhecimento (coluna direita) ===== -->
         <Border DockPanel.Dock="Right" Style="{StaticResource Card}" Width="320"
@@ -166,7 +164,7 @@
                                             <TextBlock Grid.Column="1" Text="{Binding Total}"
                                                        FontWeight="Bold" FontSize="{StaticResource Fonte.H3}"
                                                        VerticalAlignment="Center"
-                                                       Margin="0,0,12,0" />
+                                                       Margin="0,0,12,0" TextTrimming="CharacterEllipsis" />
 
                                             <!-- Desabilitado sem telefone no cadastro: o
                                                  botão explica por que não dá, em vez de
@@ -200,11 +198,11 @@
                                                                    FontSize="{StaticResource Fonte.Tabela}" />
                                                         <TextBlock Grid.Column="1" Text="{Binding Vencimento}"
                                                                    VerticalAlignment="Center"
-                                                                   FontSize="{StaticResource Fonte.Tabela}" />
+                                                                   FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Grid.Column="2" Text="{Binding Valor}"
                                                                    VerticalAlignment="Center"
                                                                    FontWeight="SemiBold"
-                                                                   FontSize="{StaticResource Fonte.Tabela}" />
+                                                                   FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis" />
                                                         <TextBlock Grid.Column="3" Text="{Binding Atraso}"
                                                                    Style="{StaticResource TextoSuave}"
                                                                    VerticalAlignment="Center"

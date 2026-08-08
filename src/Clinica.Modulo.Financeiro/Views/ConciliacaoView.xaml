@@ -25,7 +25,7 @@
                         CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
                     <TextBlock Text="{Binding Mes, StringFormat='{}{0:MMMM/yyyy}'}"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 </Border>
                 <Button Content="▶" Command="{Binding ProximoMesCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40" />
@@ -86,20 +86,20 @@
 
                                         <TextBlock Grid.Column="0" Text="{Binding DataBaixa}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Paciente}"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <TextBlock Text="{Binding Tipo}"
                                                        FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         </StackPanel>
                                         <TextBlock Grid.Column="2" Text="{Binding Convenio}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="3" Text="{Binding NumeroGuia}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                         <StackPanel Grid.Column="4" VerticalAlignment="Center">
                                             <!-- Guia recusada pelo convênio aparece MARCADA,
@@ -221,7 +221,7 @@
 
                                             <TextBlock Grid.Column="0" Text="{Binding DataGlosa}"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Paciente}" TextWrapping="Wrap"
@@ -238,10 +238,10 @@
 
                                             <TextBlock Grid.Column="2" Text="{Binding NumeroGuia}"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="3" Text="{Binding Valor}"
                                                        Foreground="{StaticResource Brush.Texto.Primario}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                             <StackPanel Grid.Column="4" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
