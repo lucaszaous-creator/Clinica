@@ -207,4 +207,47 @@ public sealed partial class ShellViewModel : ObservableObject
         TextoPesquisa = string.Empty;
     }
 
+    /// <summary>
+    /// Trocar de usuário REABRE o app, em vez de só trocar a sessão em memória.
+    ///
+    /// É a mesma decisão do faturamento (parcela 45), pela mesma razão: as ViewModels leem
+    /// a permissão quando são CONSTRUÍDAS — é o que acende ou apaga cada botão —, e metade
+    /// delas já está viva quando alguém pede para trocar. Repontar a sessão deixaria a tela
+    /// da colega anterior aberta com os botões dela, e permissão que parece aplicada e não
+    /// está é pior do que permissão nenhuma, porque ninguém vai conferir.
+    ///
+    /// Sem esta porta, os quatro apps da suíte pediam login e não tinham saída: no balcão,
+    /// onde duas pessoas dividem a máquina, a segunda seguia trabalhando com o login da
+    /// primeira e a auditoria assinava o nome errado — que é exatamente o defeito que a
+    /// parcela 45 existiu para corrigir, com `SessaoUsuario` no lugar de
+    /// `Environment.UserName`.
+    /// </summary>
+    [RelayCommand]
+    private void TrocarUsuario()
+    {
+        var dialogo = _servicos.GetService<Clinica.Desktop.Controls.IDialogoService>();
+        if (dialogo is not null && !dialogo.Confirmar("Trocar usuário",
+                "O sistema vai fechar e abrir de novo na tela de entrada. "
+                + "Salve o que estiver editando antes de continuar.")) return;
+
+        try
+        {
+            var executavel = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(executavel))
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(executavel) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            // Não conseguiu reabrir: NÃO fecha, e diz o que fazer. Derrubar o app sem ter
+            // conseguido abrir o outro deixaria a pessoa sem sistema nenhum no balcão.
+            Configuracao.LogSuite.Registrar("Trocar usuário — reabertura do app falhou", ex);
+            _servicos.GetService<Clinica.Desktop.Controls.ISnackbarService>()?.Erro(
+                "Não foi possível reabrir o sistema automaticamente. "
+                + "Feche e abra de novo para entrar com outro usuário.");
+            return;
+        }
+
+        System.Windows.Application.Current.Shutdown();
+    }
 }

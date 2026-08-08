@@ -1534,6 +1534,77 @@ if _devedores:
     )
 
 
+# --------------------------------------------------------------- checagem 25
+# SOBREPOSIÇÃO POSTA COMO IRMÃ, E NÃO POR CIMA.
+#
+# O `EstadoDaTela` (carregando / falhou / vazio) é uma SOBREPOSIÇÃO: ele cobre o conteúdo
+# enquanto não há o que mostrar. Isso exige um pai que empilhe os filhos no mesmo lugar —
+# um `Grid` —, e dentro dele ser o ÚLTIMO filho (ou trazer `Panel.ZIndex`), porque o WPF
+# desenha na ordem do XAML.
+#
+# Posto num painel LINEAR (`DockPanel`, `StackPanel`, `WrapPanel`), ele deixa de sobrepor e
+# passa a OCUPAR espaço, empurrando o conteúdo. E, num `DockPanel`, o estrago não para aí:
+# o irmão anterior deixa de encostar nas bordas, todo `DockPanel.Dock` dos filhos DELE vira
+# no-op — porque o pai passou a ser o `Grid` intermediário —, e a tela inteira desaba numa
+# célula só, com título, abas e texto desenhados uns por cima dos outros.
+#
+# Foi o que o cliente viu na Conciliação: cinco telas do Financeiro assim desde a parcela em
+# que o `EstadoDaTela` foi acrescentado. O XML é bem-formado, o `compilar-sombra` passa, os
+# testes passam e o compilador de marcação não tem o que reclamar — o defeito só existe na
+# tela montada. É a família de sempre, e por isso vira rede.
+SOBREPOSICOES = ("EstadoDaTela",)
+PAINEIS_LINEARES = ("DockPanel", "StackPanel", "WrapPanel", "UniformGrid")
+
+for f, raiz in arvores.items():
+    for pai in raiz.iter():
+        nome_pai = pai.tag.split("}")[-1]
+        filhos = [c for c in pai if "." not in c.tag.split("}")[-1]]
+        for i, filho in enumerate(filhos):
+            if filho.tag.split("}")[-1] not in SOBREPOSICOES:
+                continue
+            tag = filho.tag.split("}")[-1]
+            if nome_pai in PAINEIS_LINEARES:
+                erros.append(
+                    f"{rel(f)}: `<{tag}>` está dentro de um `<{nome_pai}>` — painel linear "
+                    f"não sobrepõe, ELE OCUPA ESPAÇO. Ponha-o num `<Grid>`, como último "
+                    f"filho, com o conteúdo antes dele."
+                )
+            elif nome_pai == "Grid" and i < len(filhos) - 1 and not any(
+                k.endswith("ZIndex") for k in filho.attrib
+            ):
+                erros.append(
+                    f"{rel(f)}: `<{tag}>` é o filho {i + 1} de {len(filhos)} do `<Grid>` e "
+                    f"não tem `Panel.ZIndex` — o WPF desenha na ordem do XAML, então ele "
+                    f"fica ATRÁS do conteúdo. Mova-o para o fim ou dê-lhe `Panel.ZIndex`."
+                )
+
+# Autoteste: os dois defeitos que o cliente achou na Conciliação, e os dois jeitos certos.
+_amostras_25 = (
+    ('<DockPanel {0}><Border /><ctrl:EstadoDaTela /></DockPanel>', True),
+    ('<Grid {0}><ctrl:EstadoDaTela /><Border /></Grid>', True),
+    ('<Grid {0}><Border /><ctrl:EstadoDaTela /></Grid>', False),
+    ('<Grid {0}><ctrl:EstadoDaTela Panel.ZIndex="1" /><Border /></Grid>', False),
+)
+for _xml, _deve_pegar in _amostras_25:
+    _r = ET.fromstring(
+        _xml.format('xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" '
+                    'xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"')
+    )
+    _fs = [c for c in _r if "." not in c.tag.split("}")[-1]]
+    _i = next(i for i, c in enumerate(_fs) if c.tag.split("}")[-1] == "EstadoDaTela")
+    _nome_pai = _r.tag.split("}")[-1]
+    _pegou = _nome_pai in PAINEIS_LINEARES or (
+        _nome_pai == "Grid"
+        and _i < len(_fs) - 1
+        and not any(k.endswith("ZIndex") for k in _fs[_i].attrib)
+    )
+    if _pegou != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 25 mudou de resposta para `{_xml[:40]}…` "
+            f"(esperado: {'pega' if _deve_pegar else 'deixa passar'})."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

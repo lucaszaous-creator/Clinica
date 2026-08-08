@@ -8,8 +8,8 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
-      <Grid>
+    <Grid Margin="24">
+      <DockPanel>
 
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -227,7 +227,7 @@
                 </ScrollViewer>
             </DockPanel>
         </Border>
-          </Grid>
+      </DockPanel>
         <ctrl:EstadoDaTela Itens="{Binding Devedores}"
                            Carregando="{Binding Carregando}"
                            NaoVerificado="{Binding NaoVerificado}"
@@ -235,5 +235,5 @@
                            TextoCarregando="Somando o que está em aberto…"
                            Titulo="Ninguém devendo"
                            Descricao="Só conta de PACIENTE entra: reembolso de convênio é outra conversa." />
-</DockPanel>
+    </Grid>
 </UserControl>

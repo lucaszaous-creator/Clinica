@@ -8,8 +8,8 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
-      <Grid>
+    <Grid Margin="24">
+      <DockPanel>
 
 
         <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -270,7 +270,7 @@
         </DockPanel>
         </TabItem>
         </TabControl>
-          </Grid>
+      </DockPanel>
         <ctrl:EstadoDaTela Itens="{Binding Linhas}"
                            Carregando="{Binding Carregando}"
                            NaoVerificado="{Binding NaoVerificado}"
@@ -278,5 +278,5 @@
                            TextoCarregando="Buscando guias sem receita…"
                            Titulo="Nenhuma guia baixada esperando receita"
                            Descricao="A guia sai desta lista quando passa a TER receita, não quando alguém a marca." />
-</DockPanel>
+    </Grid>
 </UserControl>

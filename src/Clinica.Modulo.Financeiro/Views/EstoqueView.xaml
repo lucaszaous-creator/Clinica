@@ -9,8 +9,8 @@
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
     </UserControl.Resources>
 
-    <DockPanel Margin="24">
-      <Grid>
+    <Grid Margin="24">
+      <DockPanel>
 
 
         <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
@@ -228,7 +228,7 @@
             </TabControl>
 
         </Grid>
-          </Grid>
+      </DockPanel>
         <ctrl:EstadoDaTela Itens="{Binding Itens}"
                            Carregando="{Binding Carregando}"
                            NaoVerificado="{Binding NaoVerificado}"
@@ -236,5 +236,5 @@
                            TextoCarregando="Lendo o estoque…"
                            Titulo="Nenhum item cadastrado"
                            Descricao="O saldo é a soma dos movimentos: cadastre o item e lance a entrada." />
-</DockPanel>
+    </Grid>
 </UserControl>
