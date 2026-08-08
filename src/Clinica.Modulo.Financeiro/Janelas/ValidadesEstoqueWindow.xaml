@@ -1,0 +1,80 @@
+<Window x:Class="Clinica.Financeiro.Janelas.ValidadesEstoqueWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Clinica.Financeiro.ViewModels"
+        Title="Validades e mínimos" Width="620" Height="640"
+        MinWidth="520" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <!-- O ALERTA SAIU DA FAIXA E VIROU BOTÃO (parcela 49).
+
+         Eram 380 px permanentes ao lado do estoque — e o `README.md` é explícito: lista
+         longa merece tela própria, e no lugar dela fica um botão com a contagem. Quando
+         não há nada vencendo (que é o caso na maior parte dos dias), a faixa gastava um
+         terço da tela para escrever "nada vencendo e nada abaixo do mínimo".
+
+         O alerta continua aparecendo sozinho no resumo do cabeçalho: quem abre o estoque
+         vê o número sem precisar clicar; o clique é para ver QUAIS. -->
+
+    <Grid Margin="24">
+                        <DockPanel>
+
+                <Border Style="{StaticResource Card}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Validades" Style="{StaticResource H3}" />
+                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,8"
+                                   Text="Lotes vencidos ou a vencer nos próximos 60 dias, só dos itens que ainda têm saldo — alertar sobre item zerado seria barulho." />
+
+                        <TextBlock DockPanel.Dock="Top" Margin="0,8"
+                                   Style="{StaticResource TextoSuave}"
+                                   Visibility="{Binding SemAlertas, Converter={StaticResource BoolParaVisibilidade}}"
+                                   Text="Nada vencendo e nada abaixo do mínimo." />
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Validades}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:LinhaValidade}">
+                                        <Border Padding="0,8"
+                                                BorderBrush="{StaticResource Brush.Borda}"
+                                                BorderThickness="0,0,0,1">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding Item}" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                    <TextBlock Text="{Binding Validade}"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                    <TextBlock Text="{Binding Situacao}" Margin="8,0,0,0"
+                                                               FontSize="{StaticResource Fonte.Legenda}">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground"
+                                                                        Value="{StaticResource Brush.Aviso}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Vencido}" Value="True">
+                                                                        <Setter Property="Foreground"
+                                                                                Value="{StaticResource Brush.Erro}" />
+                                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </DockPanel>
+                </Border>
+            </DockPanel>
+    </Grid>
+</Window>

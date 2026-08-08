@@ -9,11 +9,22 @@
 
     <DockPanel Margin="24">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Contas a pagar e a receber" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="O que vence, e quando. O caixa registra o que já aconteceu; aqui está o que ainda precisa acontecer — e o que já passou da data." />
-        </StackPanel>
+        <!-- As CONTAS FIXAS saíram da faixa lateral de 320 px e viraram botão (parcela 49):
+             "o que vence esta semana" é o trabalho de todo dia, "quais contas se repetem
+             todo mês" é cadastro que se mexe quando muda o aluguel. Duas perguntas, duas
+             telas — a terceira pergunta do README. -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+                <TextBlock Text="Contas a pagar e a receber" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="O que vence, e quando. O caixa registra o que já aconteceu; aqui está o que ainda precisa acontecer — e o que já passou da data." />
+            </StackPanel>
+            <Button Content="Contas fixas…" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    MinHeight="36" MinWidth="150"
+                    Style="{StaticResource BotaoSecundario}"
+                    Command="{Binding AbrirContasFixasCommand}"
+                    ToolTip="Os moldes que geram a conta prevista de cada mês" />
+        </Grid>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -83,74 +94,6 @@
             </Border>
         </Grid>
 
-        <!-- ===== Contas fixas (lista; o cadastro é o botão) ===== -->
-        <Border DockPanel.Dock="Left" Style="{StaticResource Card}" Width="320" Margin="0,0,16,0">
-            <DockPanel>
-                <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                    <TextBlock Text="Contas fixas" Style="{StaticResource H3}" Margin="0"
-                               VerticalAlignment="Center" />
-                    <Button Content="Nova conta fixa" HorizontalAlignment="Right"
-                            Style="{StaticResource BotaoPequeno}"
-                            Command="{Binding NovaRecorrenteCommand}"
-                            IsEnabled="{Binding PodeEditar}" />
-                </Grid>
-
-                <TextBlock TextWrapping="Wrap" DockPanel.Dock="Top"
-                           Text="Nenhuma conta fixa. Enquanto não houver, o aluguel continua sendo redigitado todo mês.">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Recorrentes.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Recorrentes}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{StaticResource Brush.Borda}"
-                                        BorderThickness="0,0,0,1" Padding="0,8">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
-                                                       TextWrapping="Wrap" />
-                                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
-                                                <Run Text="{Binding Valor, Mode=OneWay}" />
-                                                <Run Text=" · " />
-                                                <Run Text="{Binding Ritmo, Mode=OneWay}" />
-                                                <Run Text=" · " />
-                                                <Run Text="{Binding Situacao, Mode=OneWay}" />
-                                            </TextBlock>
-                                            <TextBlock Text="{Binding Vigencia}"
-                                                       Style="{StaticResource TextoSuave}"
-                                                       FontSize="{StaticResource Fonte.Legenda}" />
-                                        </StackPanel>
-
-                                        <Button Grid.Column="1" Content="Editar" VerticalAlignment="Center"
-                                                Style="{StaticResource BotaoPequeno}"
-                                                IsEnabled="{Binding DataContext.PodeEditar,
-                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                Command="{Binding DataContext.EditarRecorrenteCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-            </DockPanel>
-        </Border>
 
         <!-- ===== Lista do que vence ===== -->
         <Border Style="{StaticResource Card}">

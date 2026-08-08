@@ -1349,6 +1349,53 @@ if not _pegou:
     erros.append("verificar-suite: a checagem 22 parou de pegar o próprio caso de teste.")
 
 
+# --------------------------------------------------------------- checagem 23
+# PREFIXO DE NAMESPACE USADO E NÃO DECLARADO (MC3071).
+#
+# `<DataTemplate DataType="{x:Type vm:LinhaCatalogo}">` num arquivo que não declara
+# `xmlns:vm`. O XML continua bem-formado — a checagem 1 passa —, porque o prefixo está
+# DENTRO de um valor de atributo, e XML não resolve prefixo ali; quem resolve é o XAML.
+# O `compilar-sombra` também passa (ele não lê o corpo). Só o compilador de marcação
+# reclama, e ele só roda no runner Windows:
+#
+#   error MC3071: 'vm' is an undeclared namespace
+#
+# Aconteceu ao MOVER um bloco de uma tela para uma janela nova: o bloco levou o
+# `{x:Type vm:...}` e deixou para trás o `xmlns:vm` do arquivo de origem. É o risco de
+# toda extração de bloco, e a parcela 49 fez cinco delas.
+#
+# A checagem olha só as duas extensões de marcação que recebem tipo prefixado
+# (`x:Type` e `x:Static`), em vez de varrer todo `prefixo:` do arquivo — texto como
+# "HH:mm" e "{0:C}" está cheio de dois-pontos, e checagem com falso positivo é checagem
+# que alguém desliga.
+PREFIXO_EM_MARCACAO = re.compile(r"\{x:(?:Type|Static)\s+([A-Za-z_][A-Za-z0-9_]*):")
+PREFIXO_DECLARADO = re.compile(r'xmlns:([A-Za-z_][A-Za-z0-9_]*)\s*=')
+
+for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
+    if "/obj/" in str(arq) or "/bin/" in str(arq):
+        continue
+    corpo = arq.read_text(encoding="utf-8")
+
+    declarados = set(PREFIXO_DECLARADO.findall(corpo)) | {"x"}
+    for prefixo in sorted(set(PREFIXO_EM_MARCACAO.findall(corpo))):
+        if prefixo in declarados:
+            continue
+        erros.append(
+            f"{rel(arq)}: o prefixo `{prefixo}:` é usado num `{{x:Type}}`/`{{x:Static}}` e "
+            f"NÃO está declarado (MC3071: '{prefixo}' is an undeclared namespace). "
+            f'Acrescente o `xmlns:{prefixo}="clr-namespace:..."` no elemento raiz.'
+        )
+
+# Autoteste: a checagem 23 tem de pegar o defeito que escapou para o CI na parcela 49.
+_amostra_23 = '<Window xmlns:x="...">\n  <DataTemplate DataType="{x:Type vm:Linha}" />\n</Window>'
+if not [
+    p
+    for p in PREFIXO_EM_MARCACAO.findall(_amostra_23)
+    if p not in set(PREFIXO_DECLARADO.findall(_amostra_23)) | {"x"}
+]:
+    erros.append("verificar-suite: a checagem 23 parou de pegar o próprio caso de teste.")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

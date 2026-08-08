@@ -14,10 +14,41 @@ public sealed partial class ItemPermissao : ObservableObject
     public required Permissao Valor { get; init; }
     public required string Rotulo { get; init; }
 
-    /// <summary>Vem marcada por causa do perfil? Serve para a tela explicar de onde veio.</summary>
-    [ObservableProperty] private bool _doPerfil;
+    /// <summary>O assunto, para a tela agrupar (parcela 49).</summary>
+    public required string Assunto { get; init; }
 
-    [ObservableProperty] private bool _marcada;
+    /// <summary>
+    /// O que esta permissão deixa fazer, em uma frase. Vem do domínio
+    /// (<see cref="PerfisAcesso.Explicar"/>) e não da tela: quem concede precisa da
+    /// consequência escrita ao lado da caixinha — "Estornar baixa de guia" parece
+    /// inofensivo até alguém dizer que estornar apaga o trabalho de outra pessoa.
+    /// </summary>
+    public required string Explicacao { get; init; }
+
+    /// <summary>Vem marcada por causa do perfil? Serve para a tela explicar de onde veio.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Procedencia))]
+    [NotifyPropertyChangedFor(nameof(EhExcecao))]
+    private bool _doPerfil;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Procedencia))]
+    [NotifyPropertyChangedFor(nameof(EhExcecao))]
+    private bool _marcada;
+
+    /// <summary>
+    /// De onde veio a decisão. É o que responde "isto é o padrão da função ou alguém
+    /// mexeu?" — a pergunta da direção ao auditar, e a que a lista de caixinhas soltas
+    /// não respondia.
+    /// </summary>
+    public string Procedencia =>
+        Marcada && DoPerfil ? "padrão do perfil"
+        : Marcada ? "LIBERADA para esta pessoa"
+        : DoPerfil ? "TIRADA desta pessoa"
+        : "não concedida";
+
+    /// <summary>Difere do padrão do perfil — a tela destaca, porque é o que foi decidido à mão.</summary>
+    public bool EhExcecao => Marcada != DoPerfil;
 }
 
 /// <summary>Opção de profissional para vincular ao usuário.</summary>
@@ -41,6 +72,23 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
     private readonly int? _usuarioId;
 
     public ObservableCollection<ItemPermissao> Permissoes { get; } = [];
+
+    /// <summary>
+    /// As mesmas permissões, AGRUPADAS por assunto (parcela 49).
+    ///
+    /// Vinte e quatro caixinhas numa lista corrida não são uma decisão: são um formulário.
+    /// A direção pediu para poder dizer "o que a recepcionista faz e o que a chefia dela
+    /// faz" — e isso se lê por blocos, não por ordem de declaração do enum. É lendo por
+    /// bloco que se percebe o bit solto que ninguém queria ter concedido.
+    /// </summary>
+    public System.ComponentModel.ICollectionView PermissoesAgrupadas { get; }
+
+    /// <summary>
+    /// Quantas permissões fogem do padrão do perfil. O número existe para a direção
+    /// enxergar o que foi decidido À MÃO — é exatamente o que ela audita, e o que some
+    /// numa lista de caixinhas todas iguais.
+    /// </summary>
+    [ObservableProperty] private string _resumoExcecoes = string.Empty;
     public ObservableCollection<OpcaoProfissional> Profissionais { get; } = [];
 
     public IReadOnlyList<OpcaoPerfil> Perfis { get; } = Enum.GetValues<PerfilAcesso>()
@@ -101,7 +149,21 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
         _usuarioId = usuarioId;
 
         foreach (var p in PerfisAcesso.Individuais)
-            Permissoes.Add(new ItemPermissao { Valor = p, Rotulo = PerfisAcesso.Rotular(p) });
+            Permissoes.Add(new ItemPermissao
+            {
+                Valor = p,
+                Rotulo = PerfisAcesso.Rotular(p),
+                Assunto = PerfisAcesso.Assunto(p),
+                Explicacao = PerfisAcesso.Explicar(p)
+            });
+
+        // UMA coleção agrupada, nunca uma lista por assunto: duas ListBox amarradas ao
+        // mesmo item se limpam mutuamente (a lição da parcela 37). O agrupamento é
+        // CollectionViewSource sobre a coleção única.
+        var vista = new System.Windows.Data.CollectionViewSource { Source = Permissoes };
+        vista.GroupDescriptions.Add(
+            new System.Windows.Data.PropertyGroupDescription(nameof(ItemPermissao.Assunto)));
+        PermissoesAgrupadas = vista.View;
 
         PerfilSelecionado = Perfis.First(o => o.Valor == PerfilAcesso.Recepcao);
 
@@ -223,7 +285,35 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
         {
             item.DoPerfil = (padrao & item.Valor) == item.Valor;
             item.Marcada = (efetivas & item.Valor) == item.Valor;
+            item.PropertyChanged -= AoMudarPermissao;
+            item.PropertyChanged += AoMudarPermissao;
         }
+        AtualizarResumoExcecoes();
+    }
+
+    private void AoMudarPermissao(object? _, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ItemPermissao.Marcada)) AtualizarResumoExcecoes();
+    }
+
+    /// <summary>
+    /// Diz, em uma linha, quanto esta pessoa foge do padrão da função dela — e para que
+    /// lado. "3 exceções" sem dizer se foram concessões ou cortes obrigaria a direção a
+    /// percorrer os quatro blocos para descobrir.
+    /// </summary>
+    private void AtualizarResumoExcecoes()
+    {
+        var liberadas = Permissoes.Count(i => i.Marcada && !i.DoPerfil);
+        var tiradas = Permissoes.Count(i => !i.Marcada && i.DoPerfil);
+
+        ResumoExcecoes = (liberadas, tiradas) switch
+        {
+            (0, 0) => $"Exatamente o padrão de {PerfisAcesso.Rotular(Perfil)} — nada foi mexido à mão.",
+            (_, 0) => $"{liberadas} permissão(ões) LIBERADA(S) além do padrão de {PerfisAcesso.Rotular(Perfil)}.",
+            (0, _) => $"{tiradas} permissão(ões) TIRADA(S) do padrão de {PerfisAcesso.Rotular(Perfil)}.",
+            _ => $"{liberadas} liberada(s) e {tiradas} tirada(s) em relação ao padrão de "
+                 + $"{PerfisAcesso.Rotular(Perfil)}."
+        };
     }
 
     [RelayCommand]

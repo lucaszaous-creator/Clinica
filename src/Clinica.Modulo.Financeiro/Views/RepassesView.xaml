@@ -37,8 +37,12 @@
                             Command="{Binding ExportarCommand}" />
                     <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                             Command="{Binding CarregarCommand}" />
-                    <Button Content="Nova regra…" Margin="8,0,0,0"
-                            Command="{Binding NovaRegraCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
+                    <!-- Regras e apurações saíram da faixa de 400 px e viraram botão
+                         (parcela 49): a tela responde "quanto tenho a repassar agora"; o
+                         percentual muda em negociação e a apuração fechada é consulta. -->
+                    <Button Content="Regras e apurações…" Margin="8,0,0,0" MinWidth="180"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding AbrirRegrasCommand}" />
                 </StackPanel>
             </Grid>
 
@@ -52,14 +56,8 @@
         </Border>
 
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="400" />
-            </Grid.ColumnDefinitions>
-
             <!-- ============ Cálculo do período ============ -->
-            <Border Grid.Column="0" Style="{StaticResource Card}">
+            <Border Style="{StaticResource Card}">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="A repassar no período"
                                Style="{StaticResource H3}" Margin="0,0,0,8" />
@@ -115,102 +113,6 @@
                 </DockPanel>
             </Border>
 
-            <!-- ============ Regras e apurações ============ -->
-            <DockPanel Grid.Column="2">
-
-                <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Regras" Style="{StaticResource H3}" />
-                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,8"
-                                   Text="A regra tem vigência: subir o percentual em setembro não reescreve o repasse de agosto, que já foi pago." />
-
-                        <ItemsControl ItemsSource="{Binding Regras}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:LinhaRegraRepasse}">
-                                    <Border Padding="0,8"
-                                            BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Profissional}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                                                <TextBlock Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                    <Run Text="{Binding Regra, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Vigencia, Mode=OneWay}" />
-                                                </TextBlock>
-                                            </StackPanel>
-                                            <Button Grid.Column="1" Content="Excluir"
-                                                    VerticalAlignment="Center"
-                                                    Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                    Command="{Binding DataContext.ExcluirRegraCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </DockPanel>
-                </Border>
-
-                <Border Style="{StaticResource Card}">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Apurações" Style="{StaticResource H3}" />
-                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,8"
-                                   Text="Cada apuração cria uma saída prevista no caixa e trava o período — repasse pago duas vezes é dinheiro que não volta." />
-
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding Apuracoes}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:LinhaApuracao}">
-                                        <Border Padding="0,8"
-                                                BorderBrush="{StaticResource Brush.Borda}"
-                                                BorderThickness="0,0,0,1">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding Profissional}" FontWeight="SemiBold"
-                                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
-                                                        <TextBlock Text="{Binding Valor}" Margin="8,0,0,0"
-                                                                   Foreground="{StaticResource Brush.Acento}" />
-                                                    </StackPanel>
-                                                    <TextBlock Margin="0,2,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}">
-                                                        <Run Text="{Binding Periodo, Mode=OneWay}" />
-                                                        <Run Text=" · " />
-                                                        <Run Text="{Binding Situacao, Mode=OneWay}" />
-                                                    </TextBlock>
-                                                </StackPanel>
-                                                <Button Grid.Column="1" Content="Cancelar"
-                                                        VerticalAlignment="Center"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        IsEnabled="{Binding PodeCancelar}"
-                                                        Command="{Binding DataContext.CancelarApuracaoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </DockPanel>
-                </Border>
-            </DockPanel>
         </Grid>
     </DockPanel>
     <ctrl:EstadoDaTela

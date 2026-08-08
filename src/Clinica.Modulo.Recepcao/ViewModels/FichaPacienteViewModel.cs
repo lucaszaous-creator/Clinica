@@ -275,11 +275,12 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     /// <summary>
-    /// Metade VISÍVEL da permissão de registrar a senha do convênio (parcela 48). É o
-    /// MESMO bit que já governa cadastrar paciente aqui — bit novo faria quem cadastra
-    /// hoje perder a função até alguém marcar a caixinha nova em Acessos.
+    /// Metade VISÍVEL da permissão de escrever na FICHA: cadastro, consentimento,
+    /// autorização do convênio e documento. Separada de <c>PodeEditarProntuario</c> na
+    /// parcela 49 — digitar o telefone de alguém e escrever a evolução dele são atos de
+    /// peso diferente, e até aqui o mesmo bit dava os dois.
     /// </summary>
-    public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+    public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     /// <summary>
     /// Anonimizar não tem volta, então a barreira é outra: o balcão exporta os dados do
@@ -760,7 +761,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task RegistrarConsentimentoAsync(LinhaConsentimento? linha, bool concedido)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "registrar consentimento");
 
         if (linha is null || PacienteId == 0) return;
 
@@ -785,7 +786,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task RevogarAsync(LinhaConsentimento? linha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "revogar consentimento");
 
         if (linha?.RegistroId is not { } registroId) return;
 
@@ -817,7 +818,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoDocumentoAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
 
         if (PacienteId == 0) return;
 
@@ -856,7 +857,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task EmitirMontadoAsync(TipoDocumentoClinico tipo)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
 
         if (PacienteId == 0) return;
 
@@ -942,7 +943,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task CancelarDocumentoAsync(LinhaDocumento? linha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cancelar documento");
 
         if (linha is null || linha.Cancelado) return;
 
@@ -983,7 +984,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarDadosAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "ver o prontuário");
+        SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "exportar os dados do titular");
 
         if (PacienteId == 0) return;
 

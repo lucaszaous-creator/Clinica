@@ -155,6 +155,27 @@ public sealed partial class PacotesViewModel : ObservableObject
     // ==================== Catálogo ====================
 
     /// <summary>
+    /// Abre o CATÁLOGO — o que está à venda (parcela 49).
+    ///
+    /// Ele era uma coluna de 380 px permanente ao lado dos pacotes vendidos. A tela existe
+    /// para responder "quanto cada paciente ainda tem para usar"; o catálogo é a tabela
+    /// que a clínica define uma vez e só revisita em reajuste. É a primeira pergunta do
+    /// `README.md`: isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em
+    /// quando? O segundo caso é botão.
+    ///
+    /// A janela recebe ESTE ViewModel, não uma cópia: catálogo e vendidos saem da mesma
+    /// leitura, e dois VMs dariam duas verdades sobre a mesma tabela.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirCatalogo()
+    {
+        new Janelas.CatalogoPacotesWindow(this)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        }.ShowDialog();
+    }
+
+    /// <summary>
     /// O cadastro do catálogo saiu da página e virou janela. A tela responde "o que a
     /// clínica vende e quem tem saldo"; definir a tabela de pacotes é tarefa de
     /// implantação, e o formulário fixo tomava dois terços da coluna do catálogo.

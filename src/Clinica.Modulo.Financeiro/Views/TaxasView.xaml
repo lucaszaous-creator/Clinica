@@ -127,24 +127,50 @@
         <TabItem Header="Regime tributário">
         <DockPanel Margin="0,12,0,0">
 
-            <StackPanel DockPanel.Dock="Left" Width="320" Margin="0,0,16,0">
-            <Border Style="{StaticResource Card}">
+            <!-- A ALÍQUOTA ÚNICA SÓ APARECE QUANDO ELA VALE (parcela 49).
+
+                 Era uma faixa lateral de 320 px permanente — e ela é o modo ANTIGO: só é
+                 aplicada enquanto não houver nenhum tributo cadastrado. Numa clínica que
+                 já cadastrou os cinco tributos do Presumido, aquela coluna ocupava um
+                 terço da tela oferecendo um campo que não tem efeito nenhum, e um campo
+                 que não faz nada é pior do que campo nenhum: alguém o preenche e conclui
+                 que mexeu no imposto.
+
+                 Agora ela é uma faixa embaixo, de largura inteira, que SOME assim que
+                 existe tributo cadastrado. Continua editável enquanto vale, porque o valor
+                 já pode estar gravado na base do cliente e desligá-lo sem aviso faria um
+                 mês inteiro sair sem imposto. -->
+            <Border DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Tributos.Count}" Value="0">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+
                 <StackPanel IsEnabled="{Binding PodeEditar}">
                     <TextBlock Text="Alíquota única (modo antigo)" Style="{StaticResource H3}"
                                Margin="0,0,0,4" />
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               HorizontalAlignment="Left" MaxWidth="820"
                                FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                               Text="Só é aplicada enquanto NÃO houver nenhum tributo cadastrado acima. Continua aqui porque a clínica já pode ter um valor gravado, e desligá-lo sem aviso faria um mês inteiro sair sem imposto." />
+                               Text="É ela que vale enquanto não houver nenhum tributo cadastrado acima. Cadastre o primeiro tributo e esta faixa some — o imposto passa a ser apurado por guia." />
 
-                    <TextBlock Text="Alíquota (%)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                    <TextBox Text="{Binding AliquotaImposto, UpdateSourceTrigger=PropertyChanged}"
-                             MaxLength="6" />
-
-                    <Button Content="Salvar alíquota" Command="{Binding SalvarImpostoCommand}"
-                            HorizontalAlignment="Left" Margin="0,12,0,0" MinWidth="140" />
+                    <StackPanel Orientation="Horizontal">
+                        <StackPanel Margin="0,0,12,0">
+                            <TextBlock Text="Alíquota (%)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding AliquotaImposto, UpdateSourceTrigger=PropertyChanged}"
+                                     MaxLength="6" Width="120" />
+                        </StackPanel>
+                        <Button Content="Salvar alíquota" Command="{Binding SalvarImpostoCommand}"
+                                VerticalAlignment="Bottom" MinHeight="36" MinWidth="150" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
-            </StackPanel>
 
             <Border Style="{StaticResource Card}">
                 <DockPanel>

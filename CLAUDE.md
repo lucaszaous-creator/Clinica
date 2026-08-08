@@ -1040,6 +1040,44 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   A lição para a próxima auditoria, somada à da parcela 39 ("conte os itens de menu"):
   **procure o AVISO que a tela dá e pergunte se a porta para resolvê-lo está no mesmo
   app.** Alerta sem porta é pior que alerta nenhum — ele ensina a pessoa a ignorá-lo.
+- **Permissão granular que não distingue o que a clínica distingue não é granular**
+  (parcela 49): a direção apontou que "não adianta ter permissão granular se todo perfil
+  nasce podendo tudo". Os padrões não davam literalmente tudo — dois davam demais, e a
+  causa não era escolha, era o **bit sobrecarregado**: `VerProntuario` significava "abrir
+  a ficha E ler a evolução" e `EditarProntuario` significava "cadastrar paciente E
+  escrever no prontuário". Não havia como conceder um sem o outro, então a recepcionista,
+  que precisa do cadastro para marcar horário, lia a evolução inteira de todo mundo. A
+  granularidade existia na TELA e não no domínio.
+  O corte novo (`VerFichaPaciente`/`EditarPaciente` × `VerProntuario`/`EditarProntuario`)
+  é o da **LGPD**: dado de contato de um lado, dado sensível (art. 5º, II) do outro. As
+  três perguntas que decidiram cada linha estão em `docs/permissoes-por-perfil.md`, com a
+  tabela completa: (1) **a pessoa precisa disto para trabalhar?** — não "pode dar sem
+  risco"; bit que ninguém usa vira bit que ninguém revisa; (2) **o ato apaga o trabalho de
+  outra pessoa ou some com uma cobrança do sistema?** — daí saírem `EstornarBaixa` e
+  `MarcarNaoConformidade` do Faturista; (3) **é dado de saúde?**
+  ⚠️ **Isto TIRA capacidade de quem já a usava, e é de propósito.** A regra 3 do bloco do
+  faturamento ("não tire função de quem a tinha ontem") vale para efeito COLATERAL de
+  atualização; aqui a remoção É o pedido. O que a regra continua exigindo é que a
+  devolução seja barata: cada bit se concede de volta a uma pessoa específica em Acessos,
+  num clique, sem mexer no perfil dos outros.
+  E a tela passou a **mostrar a decisão**: agrupada por assunto, com a CONSEQUÊNCIA ao
+  lado de cada caixinha (`PerfisAcesso.Explicar`) e a PROCEDÊNCIA de cada uma (padrão da
+  função, liberada à mão, tirada à mão). Vinte e quatro caixinhas numa lista corrida não
+  são uma decisão, são um formulário — e é lendo por bloco que se percebe o bit solto que
+  ninguém queria ter concedido.
+- **Cadastro grudado ao lado da operação é faixa lateral** (parcela 49): as últimas cinco
+  faixas da suíte estavam no Financeiro, e todas eram a mesma coisa — o CADASTRO (raro)
+  ocupando 320–400 px permanentes ao lado da OPERAÇÃO (diária). Catálogo de pacotes,
+  contas fixas, regras de repasse, validades do estoque e a alíquota única. Viraram botão
+  + janela, e a janela recebe **o MESMO ViewModel** da tela de trás: catálogo e vendidos
+  saem da mesma leitura, e dois VMs dariam duas verdades sobre a mesma tabela.
+  A alíquota única do Taxas ganhou o tratamento que faltava: ela **só é aplicada enquanto
+  não há tributo cadastrado**, e agora **some** quando há. Campo que não faz nada é pior
+  que campo nenhum — alguém o preenche e conclui que mexeu no imposto.
+  Duas armadilhas da varredura: coluna de 300–400 px numa tabela de largura inteira é a
+  coluna de **Ações**, não faixa (dois falsos positivos), e trocar `BotaoPequeno` por
+  `BotaoSecundario` em bloco atinge o botão de LINHA da lista, onde `BotaoPequeno` é o
+  certo — e o resultado é `VerticalAlignment` duplicado, que o XML nem parseia.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três

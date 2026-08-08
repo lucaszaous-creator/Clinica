@@ -66,7 +66,7 @@ public partial class AutorizacaoEdicaoViewModel : ObservableObject
     /// caixinha nova em Acessos. Versão que introduz permissão e, de quebra, tira uma
     /// função que a pessoa usava ontem vira chamado de suporte na segunda de manhã.
     /// </summary>
-    public bool PodeSalvar => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+    public bool PodeSalvar => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     public string Titulo => EditandoId is null ? "Nova autorização" : "Editar autorização";
 
@@ -128,7 +128,7 @@ public partial class AutorizacaoEdicaoViewModel : ObservableObject
     [RelayCommand]
     private async Task Salvar()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "registrar autorização");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "registrar autorização");
 
         if (Ocupado) return;
 

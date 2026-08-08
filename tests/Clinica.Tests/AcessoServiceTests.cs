@@ -319,11 +319,11 @@ public class AcessoServiceTests : IDisposable
         var usuario = new UsuarioSistema
         {
             Perfil = PerfilAcesso.Recepcao,
-            PermissoesNegadas = Permissao.EditarProntuario
+            PermissoesNegadas = Permissao.EditarPaciente
         };
 
-        usuario.Pode(Permissao.EditarProntuario).Should().BeFalse();
-        usuario.Pode(Permissao.VerProntuario).Should().BeTrue();
+        usuario.Pode(Permissao.EditarPaciente).Should().BeFalse();
+        usuario.Pode(Permissao.VerFichaPaciente).Should().BeTrue();
     }
 
     [Fact]
