@@ -23,7 +23,7 @@
                             Command="{Binding MesAnteriorCommand}" />
                     <TextBlock Text="{Binding PeriodoRotulo}" Margin="12,0" VerticalAlignment="Center"
                                FontWeight="SemiBold" FontSize="{StaticResource Fonte.H3}"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     <Button Content="▶" Style="{StaticResource BotaoSecundario}" MinWidth="44"
                             Command="{Binding ProximoMesCommand}" />
                 </StackPanel>
@@ -47,7 +47,7 @@
             </Grid>
 
             <TextBlock Text="{Binding Resumo}" Margin="0,10,0,0" FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.Acento}" />
+                       Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
         </StackPanel>
 
         <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
@@ -77,10 +77,10 @@
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Profissional}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                     <Run Text="{Binding Atendimentos, Mode=OneWay}" />
                                                     <Run Text=" atendimento(s) · receita " />
                                                     <Run Text="{Binding Receita, Mode=OneWay}" />
@@ -89,7 +89,7 @@
                                                 </TextBlock>
                                                 <TextBlock Text="{Binding Situacao}" Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" Orientation="Horizontal"
@@ -97,7 +97,7 @@
                                                 <TextBlock Text="{Binding Valor}" VerticalAlignment="Center"
                                                            Margin="0,0,12,0" FontWeight="Bold"
                                                            FontSize="{StaticResource Fonte.H3}"
-                                                           Foreground="{StaticResource Brush.Acento}" />
+                                                           Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <Button Content="Apurar" Style="{StaticResource BotaoPequeno}"
                                                         IsEnabled="{Binding PodeApurar}"
                                                         Command="{Binding DataContext.ApurarCommand,

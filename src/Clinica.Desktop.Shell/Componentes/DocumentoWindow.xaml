@@ -14,7 +14,7 @@
     <DockPanel Margin="24">
 
         <TextBlock DockPanel.Dock="Top" Text="{Binding TituloJanela}"
-                   Style="{StaticResource DialogoTitulo}" />
+                   Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
 
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,16,0,0">
@@ -204,7 +204,7 @@
                     <StackPanel>
                         <Grid>
                             <TextBlock Text="{Binding RotuloItens}" Style="{StaticResource H3}" Margin="0"
-                                       VerticalAlignment="Center" />
+                                       VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             <Button Content="Adicionar linha" HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
                                     Style="{StaticResource BotaoSecundario}"

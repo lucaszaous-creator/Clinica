@@ -45,13 +45,13 @@
                                                 BorderThickness="0,0,0,1">
                                             <StackPanel>
                                                 <TextBlock Text="{Binding Item}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
                                                     <TextBlock Text="{Binding Validade}"
                                                                FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock Text="{Binding Situacao}" Margin="8,0,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}">
+                                                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" HorizontalAlignment="Left">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Foreground"

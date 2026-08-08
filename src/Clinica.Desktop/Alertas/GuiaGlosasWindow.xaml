@@ -41,7 +41,7 @@
                                 <StackPanel>
                                     <TextBlock Text="{Binding Codigo}" FontWeight="Bold"
                                                Foreground="{StaticResource Brush.Acento}"
-                                               FontSize="{StaticResource Fonte.Legenda}" />
+                                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <TextBlock Text="{Binding Descricao}" TextWrapping="Wrap"
                                                FontWeight="SemiBold" Margin="0,2,0,0" />
                                 </StackPanel>

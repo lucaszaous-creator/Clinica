@@ -1311,42 +1311,68 @@ for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
 # A regra geral do XAML é que `<A.B>` tem de ser filho direto de um `<A>` — mas ela sozinha
 # daria falso positivo, porque HERANÇA vale: `<ItemsControl.ItemTemplate>` dentro de um
 # `<ListBox>` é legal e é o que a suíte escreve o tempo todo. Por isso a checagem se limita
-# aos três donos que nunca são herdados (DataTemplate, ControlTemplate e Style), que são
-# justamente onde o erro acontece — o bloco de gatilhos fica no fim, longe do `<DataTemplate>`
-# que o abriu, e é o `</Grid>` que aparece embaixo dele.
+# aos donos que nunca são herdados uns dos outros.
+#
+# São dois grupos, e o segundo entrou na parcela 50 depois de o mesmo MC3015 escapar de novo:
+#
+#   (a) DataTemplate, ControlTemplate e Style — onde o erro nasce de o bloco de gatilhos
+#       ficar no fim, longe do `<DataTemplate>` que o abriu, com um `</Grid>` embaixo dele.
+#
+#   (b) os PAINÉIS. Nenhum deriva do outro (todos descendem de `Panel` direto), então
+#       `<UniformGrid.Style>` dentro de um `<WrapPanel>` é recusado. Foi exatamente o que
+#       aconteceu ao trocar UniformGrid por WrapPanel nos KPIs: a troca pegou as tags de
+#       abertura e fechamento e deixou o elemento de propriedade com o dono antigo.
+#
+# A ressalva do grupo (b) são as propriedades ANEXADAS: `<Grid.Row>` escrito como elemento
+# dentro de um `<Border>` é XAML legal. Ninguém na suíte escreve assim — mas inventar erro
+# onde não há é o que faz alguém desligar a checagem.
 NUNCA_HERDADOS = ("DataTemplate", "ControlTemplate", "Style")
+PAINEIS = ("Grid", "StackPanel", "WrapPanel", "DockPanel", "Canvas", "UniformGrid", "VirtualizingStackPanel")
+ANEXADAS_DE_PAINEL = {
+    "Row", "Column", "RowSpan", "ColumnSpan", "IsSharedSizeScope",
+    "Dock", "Left", "Top", "Right", "Bottom", "ZIndex",
+}
+
+def _elemento_de_propriedade_no_pai_errado(nome_pai: str, tag: str) -> bool:
+    """`<A.B>` escrito dentro de um `<C>` que não é um `A`. Ver o comentário acima."""
+    if "." not in tag:
+        return False
+    dono, _, membro = tag.partition(".")
+    if nome_pai == dono:
+        return False
+    if dono in NUNCA_HERDADOS:
+        return True
+    return dono in PAINEIS and nome_pai in PAINEIS and membro not in ANEXADAS_DE_PAINEL
+
 
 for f, raiz in arvores.items():
     for pai in raiz.iter():
         nome_pai = pai.tag.split("}")[-1]
         for filho in pai:
             tag = filho.tag.split("}")[-1]
-            if "." not in tag:
-                continue
-            dono, _, membro = tag.partition(".")
-            if dono not in NUNCA_HERDADOS or nome_pai == dono:
+            if not _elemento_de_propriedade_no_pai_errado(nome_pai, tag):
                 continue
             erros.append(
                 f"{rel(f)}: `<{tag}>` está dentro de `<{nome_pai}>` — o compilador de "
                 f"marcação recusa (MC3015: '{tag}' is not defined on '{nome_pai}'). "
-                f"Ele tem de ser filho direto do `<{dono}>`, irmão do conteúdo."
+                f"Ele tem de ser filho direto do `<{tag.partition('.')[0]}>`, irmão do conteúdo."
             )
 
-# Autoteste: a checagem 22 tem de pegar o defeito que escapou para o CI na parcela 47.
-_amostra_22 = ET.fromstring(
-    '<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">'
-    "<Grid><DataTemplate.Triggers /></Grid></DataTemplate>"
-)
-_pegou = [
-    True
-    for pai in _amostra_22.iter()
-    for filho in pai
-    if "." in filho.tag.split("}")[-1]
-    and filho.tag.split("}")[-1].partition(".")[0] in NUNCA_HERDADOS
-    and pai.tag.split("}")[-1] != filho.tag.split("}")[-1].partition(".")[0]
-]
-if not _pegou:
-    erros.append("verificar-suite: a checagem 22 parou de pegar o próprio caso de teste.")
+# Autoteste. Os dois primeiros são os defeitos REAIS que escaparam para o CI (parcelas 47 e
+# 50); os outros três são os falsos positivos que a checagem não pode inventar — herança de
+# controle, propriedade anexada escrita como elemento, e o caso normal do dono certo.
+for _pai, _tag, _esperado in (
+    ("Grid", "DataTemplate.Triggers", True),
+    ("WrapPanel", "UniformGrid.Style", True),
+    ("ListBox", "ItemsControl.ItemTemplate", False),
+    ("StackPanel", "Grid.Row", False),
+    ("WrapPanel", "WrapPanel.Style", False),
+):
+    if _elemento_de_propriedade_no_pai_errado(_pai, _tag) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 22 mudou de resposta para `<{_tag}>` "
+            f"dentro de `<{_pai}>` (esperado: {'pega' if _esperado else 'deixa passar'})."
+        )
 
 
 # --------------------------------------------------------------- checagem 23
@@ -1394,6 +1420,118 @@ if not [
     if p not in set(PREFIXO_DECLARADO.findall(_amostra_23)) | {"x"}
 ]:
     erros.append("verificar-suite: a checagem 23 parou de pegar o próprio caso de teste.")
+
+
+# --------------------------------------------------------------- checagem 24
+# TEXTO QUE ESTOURA: dado do banco sem quebra nem reticências.
+#
+# O cliente reclamou de "MUITOS textos estourando" no Gerente, e a família é sempre a
+# mesma: um `TextBlock` amarrado a dado do BANCO — nome de paciente, convênio, valor em
+# reais — dentro de uma célula de largura fixa. O WPF não corta nada por conta própria: o
+# texto sai por cima do vizinho.
+#
+# A checagem só olha texto vindo de `{Binding}`. Literal o programador mede ao escrever;
+# dado do banco é o que tem tamanho imprevisível — o nome do paciente pode ter 12 ou 60
+# caracteres, e o valor pode ter três dígitos ou nove.
+#
+# Estilos que JÁ resolvem no próprio estilo ficam de fora (`TextoSuave` quebra,
+# `CardKpi.Variacao` corta), senão a checagem cobraria o que já está certo.
+#
+# ⚠️ Por que ERRO só nos módulos já limpos: o resto da suíte tem centenas de ocorrências
+# da mesma família, e transformar tudo em erro de uma vez pararia o CI por dívida antiga.
+# Elas viram UMA linha de aviso com a contagem por módulo — dívida escrita, não escondida,
+# e sem encher a saída com trezentas linhas que ninguém lê.
+LIMPOS = (
+    "Clinica.Desktop",
+    "Clinica.Desktop.Shell",
+    "Clinica.Modulo.Clinico",
+    "Clinica.Modulo.Financeiro",
+    "Clinica.Modulo.Gerente",
+    "Clinica.Modulo.Recepcao",
+)
+
+
+def _estilos_que_ja_resolvem() -> set[str]:
+    """
+    Os estilos de TextBlock que já tratam o estouro no PRÓPRIO estilo.
+
+    Lido dos dicionários de estilo, não escrito à mão: são DOIS design systems (o da suíte
+    e o do faturamento, que não se referenciam — o débito permanente da parcela 7), e uma
+    lista fixa aqui só conheceria um deles. Foi o que aconteceu: os seis `FichaValor` do
+    faturamento apareceram como dívida sem serem — aquele estilo corta desde sempre.
+    """
+    achados: set[str] = set()
+    for arq in RAIZ.rglob("src/**/Styles/**/*.xaml"):
+        corpo = arq.read_text(encoding="utf-8")
+        for m in re.finditer(
+            r'<Style x:Key="([^"]+)" TargetType="TextBlock"[^>]*>(.*?)</Style>', corpo, re.S
+        ):
+            if "TextWrapping" in m.group(2) or "TextTrimming" in m.group(2):
+                achados.add(m.group(1))
+    return achados
+
+
+ESTILO_JA_RESOLVE = _estilos_que_ja_resolvem()
+# Duas formas de amarrar texto, e a segunda escapava: `Text="{Binding X}"` na tag de
+# abertura, e `<Run Text="{Binding X}" />` como FILHO. A segunda é como a suíte monta
+# frase com pedaço variável no meio ("Sai hoje de cada recebimento: R$ 1.234"), e olhar
+# só a abertura deixava esse caso passar — foi o ponto cego que a revisão do Gerente
+# encontrou. O `(?!</?TextBlock)` impede o casamento de atravessar dois TextBlocks e
+# acusar o binding de um vizinho.
+TEXTBLOCK_ABERTURA = re.compile(r"<TextBlock\b[^>]*?/?>", re.S)
+TEXTBLOCK_COM_FILHOS = re.compile(
+    r"<TextBlock\b([^>]*)>((?:(?!</?TextBlock).)*?)</TextBlock>", re.S)
+ESTILO_DO_TEXTBLOCK = re.compile(r'Style="\{StaticResource ([^}"]+)\}"')
+
+_devedores: dict[str, int] = {}
+
+for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
+    caminho = str(arq).replace("\\", "/")
+    if "/obj/" in caminho or "/bin/" in caminho or "/Styles/" in caminho:
+        continue
+
+    corpo = arq.read_text(encoding="utf-8")
+    modulo = rel(arq).split("/")[1] if "/" in rel(arq) else rel(arq)
+
+    suspeitos: list[tuple[int, str]] = []
+
+    for achado in TEXTBLOCK_ABERTURA.finditer(corpo):
+        tag = achado.group(0)
+        if "Binding" in tag and "TextWrapping" not in tag and "TextTrimming" not in tag:
+            suspeitos.append((achado.start(), tag))
+
+    for achado in TEXTBLOCK_COM_FILHOS.finditer(corpo):
+        abertura, miolo = achado.group(1), achado.group(2)
+        if "Binding" not in miolo or "<Run" not in miolo:
+            continue
+        if "TextWrapping" in abertura or "TextTrimming" in abertura:
+            continue
+        suspeitos.append((achado.start(), abertura))
+
+    for inicio, tag in suspeitos:
+        estilo = ESTILO_DO_TEXTBLOCK.search(tag)
+        if estilo and estilo.group(1) in ESTILO_JA_RESOLVE:
+            continue
+
+        if modulo in LIMPOS:
+            linha = corpo[:inicio].count("\n") + 1
+            erros.append(
+                f"{rel(arq)}:{linha}: TextBlock amarrado a dado do banco sem "
+                f"`TextWrapping` nem `TextTrimming` — o texto sai por cima do vizinho. "
+                f"Célula de tabela leva `TextTrimming=\"CharacterEllipsis\"`; texto de "
+                f"cartão leva `TextWrapping=\"Wrap\"`."
+            )
+        else:
+            _devedores[modulo] = _devedores.get(modulo, 0) + 1
+
+if _devedores:
+    resumo = " · ".join(f"{m.replace('Clinica.Modulo.', '')}: {n}" for m, n in sorted(_devedores.items()))
+    avisos.append(
+        f"texto que pode estourar (dado do banco sem quebra nem reticências) — {resumo}. "
+        f"Já limpos: {', '.join(m.replace('Clinica.Modulo.', '') for m in LIMPOS)}. "
+        f"Acrescente o módulo a LIMPOS quando ele for corrigido, e a checagem passa a "
+        f"cobrá-lo."
+    )
 
 
 # ---------------------------------------------------------------------- saída

@@ -91,7 +91,7 @@
                                              voltar sozinho. -->
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock FontWeight="SemiBold"
-                                                       Text="{Binding DiasSemVir, StringFormat='{}{0} dias'}" />
+                                                       Text="{Binding DiasSemVir, StringFormat='{}{0} dias'}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <TextBlock Text="sem vir"
                                                        FontSize="{StaticResource Fonte.Legenda}"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}" />
@@ -103,7 +103,7 @@
                                                        TextWrapping="Wrap" />
                                             <TextBlock Margin="0,2,0,0"
                                                        FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                 <Run Text="{Binding UltimaVez, Mode=OneWay}" />
                                                 <Run Text=" · " />
                                                 <Run Text="{Binding Situacao, Mode=OneWay}" />

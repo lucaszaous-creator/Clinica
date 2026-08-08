@@ -70,10 +70,10 @@
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                     <Run Text="{Binding Registro, Mode=OneWay}" />
                                                     <Run Text="·" />
                                                     <Run Text="{Binding Duracao, Mode=OneWay}" />
@@ -141,10 +141,10 @@
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                     <Run Text="{Binding Capacidade, Mode=OneWay}" />
                                                     <Run Text="·" />
                                                     <Run Text="{Binding Situacao, Mode=OneWay}" />

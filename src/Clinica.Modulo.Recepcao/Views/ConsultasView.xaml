@@ -104,7 +104,7 @@
 
                                         <TextBlock Grid.Column="2" Text="{Binding Convenio}" VerticalAlignment="Center"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="3" Text="{Binding Vencimento}" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Vencimento}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                         <Button Grid.Column="4" Content="Renovar" VerticalAlignment="Center"
                                                 ToolTip="Emite a consulta de hoje, com a validade do convênio"

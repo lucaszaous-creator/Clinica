@@ -83,7 +83,7 @@
 
                                     <TextBlock Grid.Column="1" Text="{Binding Faixa}"
                                                VerticalAlignment="Center"
-                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
 
                                     <Button Grid.Column="2" Content="Chamar de volta"
                                             VerticalAlignment="Center"

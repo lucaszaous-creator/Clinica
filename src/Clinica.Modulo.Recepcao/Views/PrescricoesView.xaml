@@ -56,7 +56,7 @@
                         Style="{StaticResource BotaoSecundario}"
                         Command="{Binding VoltarCommand}" />
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0" />
+                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
                                Text="Documentos numerados por ano, com código de conferência." />
                 </StackPanel>
@@ -124,10 +124,10 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <TextBlock Grid.Column="0" Text="{Binding Numero}"
-                                                           FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                           FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                                 <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Tipo}" />
+                                                    <TextBlock Text="{Binding Tipo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
                                                         <Run Text="{Binding Profissional, Mode=OneWay}" />
                                                         <Run Text=" · conferência " />
@@ -136,10 +136,10 @@
                                                 </StackPanel>
 
                                                 <TextBlock Grid.Column="2" Text="{Binding Data}"
-                                                           VerticalAlignment="Center" />
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                                 <TextBlock Grid.Column="3" Text="{Binding Situacao}"
-                                                           VerticalAlignment="Center">
+                                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
                                                     <TextBlock.Style>
                                                         <Style TargetType="TextBlock">
                                                             <Style.Triggers>

@@ -43,9 +43,9 @@
                     <!-- Linha 1: horário + espera -->
                     <Grid>
                         <TextBlock Text="{Binding Horario}" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                         <TextBlock Text="{Binding Espera}" HorizontalAlignment="Right"
-                                   FontSize="{StaticResource Fonte.Legenda}">
+                                   FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap">
                             <!-- Espera longa fica vermelha; o estilo sai só daqui (MC3024). -->
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -199,7 +199,7 @@
                     <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Texto.Primario}"
-                               VerticalAlignment="Center" />
+                               VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 </Border>
                 <Button Content="▶" Command="{Binding ProximoDiaCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40" />

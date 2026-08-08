@@ -32,32 +32,27 @@
         </Border>
 
         <!-- ===== Faixa de totais ===== -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <!-- WrapPanel e não colunas ESTRELA (parcela 50): a coluna estrela divide a
+             largura em partes iguais e obriga o valor a caber no que sobrou — num monitor
+             de 1366 px isso corta "R$ 1.234.567,89" em 28 px negrito. Aqui cada cartão
+             pede a largura que precisa e a fileira quebra quando não couber. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
 
-            <Border Grid.Column="0" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="A RECEBER" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding AVencer}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding AVencer}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="líquido, já descontada a taxa"
                                Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="ATRASADO" Style="{StaticResource CardKpi.Rotulo}" />
                     <!-- Vermelho só quando há atraso: é a única linha desta tela que pede
                          ação, e o resto é só esperar. -->
-                    <TextBlock Text="{Binding Atrasado}">
+                    <TextBlock Text="{Binding Atrasado}" TextTrimming="CharacterEllipsis">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
                                 <Style.Triggers>
@@ -71,20 +66,20 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="4" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="TOTAL" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Total}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="6" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="PRÓXIMO DEPÓSITO" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Proximo}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Proximo}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-        </Grid>
+        </WrapPanel>
 
         <TabControl Background="Transparent" BorderThickness="0">
 
@@ -139,7 +134,7 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock FontWeight="SemiBold">
+                                            <TextBlock FontWeight="SemiBold" TextWrapping="Wrap">
                                                 <Run Text="{Binding Adquirente, Mode=OneWay}" />
                                                 <Run Text=" · " />
                                                 <Run Text="{Binding Previsao, Mode=OneWay}" />
@@ -172,7 +167,7 @@
                                                    Margin="6,0" Style="{StaticResource TextoSuave}" />
                                         <TextBlock Grid.Column="3" Text="{Binding Liquido}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="6,0" FontWeight="SemiBold" />
+                                                   Margin="6,0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
 
                                         <Button Grid.Column="4" Content="Caiu" VerticalAlignment="Center"
                                                 Style="{StaticResource BotaoPequeno}"
@@ -201,7 +196,7 @@
                                    Text="As duas datas ficam gravadas separadas — a prevista e a real —, e é por isso que o atraso continua visível depois de o dinheiro entrar. Confirmação lançada no dia errado se desfaz aqui: o lançamento continua no caixa, só a data do crédito é apagada." />
                         <TextBlock Text="{Binding ResumoConfirmados}" Margin="0,8,0,0"
                                    FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Acento}" />
+                                   Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -218,7 +213,7 @@
                                             </Grid.ColumnDefinitions>
 
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                <TextBlock FontWeight="SemiBold">
+                                                <TextBlock FontWeight="SemiBold" TextWrapping="Wrap">
                                                     <Run Text="{Binding Adquirente, Mode=OneWay}" />
                                                     <Run Text=" · caiu em " />
                                                     <Run Text="{Binding Creditado, Mode=OneWay}" />
@@ -243,7 +238,7 @@
 
                                             <TextBlock Grid.Column="1" Text="{Binding Liquido}"
                                                        VerticalAlignment="Center" TextAlignment="Right"
-                                                       Margin="6,0" FontWeight="SemiBold" />
+                                                       Margin="6,0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
 
                                             <Button Grid.Column="2" Content="Desfazer" VerticalAlignment="Center"
                                                     Style="{StaticResource BotaoAcaoGridPerigo}"

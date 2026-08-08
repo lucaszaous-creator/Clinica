@@ -85,7 +85,7 @@
                                                    Foreground="{StaticResource Brush.Texto.Secundario}" />
 
                                         <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Dor}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Dor}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <TextBlock Text="{Binding Ganho}" TextWrapping="Wrap"
                                                        Margin="0,2,0,0"
                                                        FontSize="{StaticResource Fonte.Legenda}"

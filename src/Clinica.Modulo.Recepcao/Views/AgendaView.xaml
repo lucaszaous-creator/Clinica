@@ -17,10 +17,10 @@
                 <StackPanel>
                     <Grid>
                         <TextBlock Text="{Binding Faixa}" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                         <TextBlock Text="{Binding StatusRotulo}" HorizontalAlignment="Right"
                                    FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" />
                     </Grid>
 
                     <TextBlock Text="{Binding Paciente}" Margin="0,4,0,0"
@@ -155,7 +155,7 @@
                     <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Texto.Primario}"
-                               VerticalAlignment="Center" />
+                               VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 </Border>
                 <Button Content="▶" Command="{Binding ProximoDiaCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40" />
@@ -207,7 +207,7 @@
                 <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
                     <!-- O título diz o que a lista está mostrando: filtrada por um
                          horário ou inteira. Filtro invisível é filtro que engana. -->
-                    <TextBlock Text="{Binding TituloEspera}" Style="{StaticResource H3}" Margin="0" />
+                    <TextBlock Text="{Binding TituloEspera}" Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0"
                                Text="Quando um horário vaga, é aqui que está quem chamar." />
@@ -264,7 +264,7 @@
                                                    Foreground="{StaticResource Brush.Texto.Secundario}" />
                                         <TextBlock Text="{Binding Desde}" Margin="0,2,0,0"
                                                    FontSize="{StaticResource Fonte.Legenda}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                             <Button Content="Chamar" Style="{StaticResource BotaoPequeno}"
                                                     Command="{Binding DataContext.ChamarDaEsperaCommand,

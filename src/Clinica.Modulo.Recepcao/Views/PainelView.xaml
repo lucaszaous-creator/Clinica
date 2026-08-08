@@ -29,7 +29,7 @@
                     <TextBlock Text="{Binding Dia, StringFormat='{}{0:dd/MM/yyyy}'}"
                                FontWeight="SemiBold"
                                Foreground="{StaticResource Brush.Texto.Primario}"
-                               VerticalAlignment="Center" />
+                               VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 </Border>
                 <Button Content="▶" Command="{Binding ProximoDiaCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40" />
@@ -50,62 +50,67 @@
             <StackPanel>
 
                 <!-- ============ KPIs do dia ============ -->
-                <UniformGrid Columns="5" Margin="0,0,0,16">
-                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <!-- WrapPanel e não UniformGrid de largura inteira (parcela 50): o UniformGrid
+             divide a largura em partes IGUAIS e obriga o valor a caber no que sobrou —
+             "R$ 1.234.567,89" em 28 px negrito não cabe num quinto de 1366 px, e o número
+             saía por cima do cartão vizinho. Aqui cada cartão pede a largura que precisa
+             e a fileira quebra quando não couber. -->
+        <WrapPanel Margin="0,0,0,16">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding Agendados}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding Agendados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Na recepção" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding NaRecepcao}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding NaRecepcao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Em atendimento" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding EmAtendimento}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding EmAtendimento}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200">
                         <StackPanel>
                             <TextBlock Text="Espera média" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding EsperaMedia}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding EsperaMedia}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                </UniformGrid>
+                </WrapPanel>
 
                 <UniformGrid Columns="4" Margin="0,0,0,16">
                     <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Taxa de falta" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding TaxaFalta}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding TaxaFalta}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Encaixes" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding Encaixes}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding Encaixes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource CardKpi}">
                         <StackPanel>
                             <TextBlock Text="Na lista de espera" Style="{StaticResource CardKpi.Rotulo}" />
-                            <TextBlock Text="{Binding ListaDeEspera}" Style="{StaticResource CardKpi.Valor}" />
+                            <TextBlock Text="{Binding ListaDeEspera}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
                 </UniformGrid>
@@ -145,10 +150,10 @@
                                         <StackPanel Margin="0,0,0,14">
                                             <Grid>
                                                 <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <TextBlock HorizontalAlignment="Right"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                     <Run Text="{Binding Horarios, Mode=OneWay}" />
                                                     <Run Text="·" />
                                                     <Run Text="{Binding Carga, Mode=OneWay}" />
@@ -219,10 +224,10 @@
 
                                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                     <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock Margin="0,2,0,0"
                                                                FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                         <Run Text="{Binding Descricao, Mode=OneWay}" />
                                                         <Run Text="·" />
                                                         <Run Text="{Binding Atraso, Mode=OneWay}" />

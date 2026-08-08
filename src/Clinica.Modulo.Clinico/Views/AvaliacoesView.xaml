@@ -113,7 +113,7 @@
                                             </Grid.ColumnDefinitions>
 
                                             <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center"
                                                         Margin="12,0">

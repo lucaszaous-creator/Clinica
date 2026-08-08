@@ -136,7 +136,7 @@
                                         Background="{StaticResource Brush.Superficie}">
                                     <StackPanel>
                                         <TextBlock Text="{Binding Grupo}"
-                                                   Style="{StaticResource CardKpi.Rotulo}" />
+                                                   Style="{StaticResource CardKpi.Rotulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
                                                    FontSize="{StaticResource Fonte.Corpo}" TextWrapping="Wrap"
                                                    Margin="0,2,0,4" />
@@ -216,7 +216,7 @@
 
                                             <TextBlock Grid.Column="0" Text="{Binding Numero}"
                                                        VerticalAlignment="Center"
-                                                       FontSize="{StaticResource Fonte.Tabela}" />
+                                                       FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="1" Text="{Binding Folha}"
                                                        VerticalAlignment="Center" TextWrapping="Wrap"
                                                        FontSize="{StaticResource Fonte.Tabela}" />
@@ -249,7 +249,7 @@
 
                                             <TextBlock Grid.Column="3" Text="{Binding Data}"
                                                        VerticalAlignment="Center"
-                                                       FontSize="{StaticResource Fonte.Tabela}" />
+                                                       FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis" />
 
                                             <StackPanel Grid.Column="4" Orientation="Horizontal"
                                                         VerticalAlignment="Center">

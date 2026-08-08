@@ -4,7 +4,7 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
     <Border Style="{StaticResource Card}" Margin="24" MaxWidth="480" HorizontalAlignment="Left" VerticalAlignment="Top">
         <StackPanel>
-            <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}" Margin="0,0,0,12">
+            <TextBlock FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}" Margin="0,0,0,12" TextWrapping="Wrap">
                 <Run Text="Dar baixa — " /><Run Text="{Binding PacienteNome, Mode=OneWay}" />
             </TextBlock>
 
@@ -14,7 +14,7 @@
 
             <Border Style="{StaticResource AlertaInfo}" Margin="0,0,0,4">
                 <StackPanel>
-                    <TextBlock Text="{Binding Codigo.Tipo, Converter={StaticResource EnumDescricao}}" FontWeight="Bold" />
+                    <TextBlock Text="{Binding Codigo.Tipo, Converter={StaticResource EnumDescricao}}" FontWeight="Bold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     <TextBlock Text="{Binding Codigo.Descricao}" TextWrapping="Wrap"
                                Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,4,0,0" />
                 </StackPanel>

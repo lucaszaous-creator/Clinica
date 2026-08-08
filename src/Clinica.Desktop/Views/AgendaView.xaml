@@ -61,17 +61,17 @@
                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding Hora}" FontWeight="Bold"
-                                       Foreground="{StaticResource Brush.Acento}" Margin="0,0,8,0" />
+                                       Foreground="{StaticResource Brush.Acento}" Margin="0,0,8,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                            <TextBlock Text="{Binding Modalidade}" Style="{StaticResource FichaRotulo}" Margin="0" />
+                            <TextBlock Text="{Binding Modalidade}" Style="{StaticResource FichaRotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             <TextBlock Text="  •  " Style="{StaticResource FichaRotulo}" Margin="0"
-                                       Visibility="{Binding Convenio, Converter={StaticResource TextoParaVisibilidade}}" />
-                            <TextBlock Text="{Binding Convenio}" Style="{StaticResource FichaRotulo}" Margin="0" />
+                                       Visibility="{Binding Convenio, Converter={StaticResource TextoParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding Convenio}" Style="{StaticResource FichaRotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             <TextBlock Text="  •  " Style="{StaticResource FichaRotulo}" Margin="0"
-                                       Visibility="{Binding Observacoes, Converter={StaticResource TextoParaVisibilidade}}" />
+                                       Visibility="{Binding Observacoes, Converter={StaticResource TextoParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             <TextBlock Text="{Binding Observacoes}" Style="{StaticResource FichaRotulo}" Margin="0"
                                        TextTrimming="CharacterEllipsis" MaxWidth="260" />
                         </StackPanel>
@@ -97,7 +97,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <TextBlock Text="{Binding SeloConsulta}" />
+                            <TextBlock Text="{Binding SeloConsulta}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                         </Border>
                         <Border Margin="0,0,4,0">
                             <Border.Style>
@@ -114,7 +114,7 @@
                                     </Style.Triggers>
                                 </Style>
                             </Border.Style>
-                            <TextBlock Text="{Binding Situacao}" />
+                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                         </Border>
                     </StackPanel>
 
@@ -172,7 +172,7 @@
                     <Border Grid.Column="0" Style="{StaticResource TarjaStatus}" Margin="0,0,8,0" />
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="{Binding Hora}" FontWeight="Bold" FontSize="{StaticResource Fonte.Legenda}"
-                                   Foreground="{StaticResource Brush.Acento}" />
+                                   Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                         <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
                                    FontSize="{StaticResource Fonte.Tabela}"
                                    TextTrimming="CharacterEllipsis" />
@@ -246,10 +246,10 @@
 
             <TextBlock Grid.Column="3" Text="{Binding TituloDia}" FontSize="{StaticResource Fonte.H3}"
                        FontWeight="SemiBold" Foreground="{StaticResource Brush.Texto.Primario}"
-                       VerticalAlignment="Center" />
+                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
             <Border Grid.Column="4" Style="{StaticResource Badge.Info}" Margin="10,0,0,0"
                     Visibility="{Binding SeloDia, Converter={StaticResource TextoParaVisibilidade}}">
-                <TextBlock Text="{Binding SeloDia}" />
+                <TextBlock Text="{Binding SeloDia}" TextWrapping="Wrap" HorizontalAlignment="Left" />
             </Border>
 
             <CheckBox Grid.Column="6" Content="Visão de semana" IsChecked="{Binding ModoSemana}"
@@ -292,38 +292,43 @@
         </StackPanel>
 
         <!-- ===== Placar do período ===== -->
-        <UniformGrid Grid.Row="3" Columns="4" Margin="0,0,0,16">
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+        <!-- WrapPanel e não UniformGrid de largura inteira (parcela 50): o UniformGrid
+             divide a largura em partes IGUAIS e obriga o valor a caber no que sobrou —
+             "R$ 1.234.567,89" em 28 px negrito não cabe num quinto de 1366 px, e o número
+             saía por cima do cartão vizinho. Aqui cada cartão pede a largura que precisa
+             e a fileira quebra quando não couber. -->
+        <WrapPanel Grid.Row="3" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Agendados" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding TotalAgendados}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding TotalAgendados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Sucesso.Suave}"
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Sucesso.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Atendidos" Style="{StaticResource CardKpi.Rotulo}"
                                Foreground="{StaticResource Brush.Sucesso.Forte}" />
                     <TextBlock Text="{Binding TotalRealizados}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                               Foreground="{StaticResource Brush.Sucesso.Forte}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Aviso.Suave}"
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Aviso.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}"
                                Foreground="{StaticResource Brush.Aviso.Texto}" />
                     <TextBlock Text="{Binding TotalFaltas}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Aviso.Texto}" />
+                               Foreground="{StaticResource Brush.Aviso.Texto}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200">
                 <StackPanel>
                     <TextBlock Text="Cancelados" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding TotalCancelados}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding TotalCancelados}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-        </UniformGrid>
+        </WrapPanel>
 
         <!-- ===== Grade ===== -->
         <Border Grid.Row="4" Style="{StaticResource Card}">
@@ -347,7 +352,7 @@
 
                                         <!-- Hora cheia em destaque; meia hora discreta -->
                                         <TextBlock Grid.Column="0" Text="{Binding Hora}" Margin="0,10,12,0"
-                                                   VerticalAlignment="Top" TextAlignment="Right">
+                                                   VerticalAlignment="Top" TextAlignment="Right" TextTrimming="CharacterEllipsis">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
@@ -414,7 +419,7 @@
                                             <StackPanel>
                                                 <TextBlock Text="{Binding DiaSemana}" TextAlignment="Center"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <Border CornerRadius="{StaticResource Raio.Pilula}" Padding="10,2" Margin="0,4,0,0">
                                                     <Border.Style>
                                                         <Style TargetType="Border">
@@ -428,7 +433,7 @@
                                                         </Style>
                                                     </Border.Style>
                                                     <TextBlock Text="{Binding DataCurta}" TextAlignment="Center"
-                                                               FontWeight="SemiBold" />
+                                                               FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </Border>
                                             </StackPanel>
                                         </Button>

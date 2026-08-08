@@ -41,13 +41,13 @@
                         <!-- Badges: convênio, categoria (semáforo), app e modalidade -->
                         <WrapPanel Margin="0,8,0,0">
                             <Border Style="{StaticResource Badge.Info}" Margin="0,0,8,4">
-                                <TextBlock Text="{Binding NomeConvenio}" />
+                                <TextBlock Text="{Binding NomeConvenio}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </Border>
                             <Border Style="{StaticResource Badge}" Margin="0,0,8,4">
                                 <StackPanel Orientation="Horizontal">
                                     <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
                                              Fill="{Binding Paciente.Categoria, Converter={StaticResource CategoriaParaCor}}" />
-                                    <TextBlock Text="{Binding Paciente.Categoria}" />
+                                    <TextBlock Text="{Binding Paciente.Categoria}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Border>
                             <Border Margin="0,0,8,4" Style="{StaticResource Badge.Sucesso}"
@@ -55,7 +55,7 @@
                                 <TextBlock Text="Tem app da Unimed" />
                             </Border>
                             <Border Style="{StaticResource Badge}" Margin="0,0,8,4">
-                                <TextBlock Text="{Binding ModalidadeTexto}" />
+                                <TextBlock Text="{Binding ModalidadeTexto}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </Border>
 
                             <!-- Situação da consulta autorizada: vira alerta quando está perto de vencer -->
@@ -72,7 +72,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <TextBlock Text="{Binding ConsultaTexto}" />
+                                <TextBlock Text="{Binding ConsultaTexto}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </Border>
 
                             <!-- Cota de sessões: vira alerta quando acaba ou está na última -->
@@ -89,7 +89,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <TextBlock Text="{Binding AutorizacaoTexto}" />
+                                <TextBlock Text="{Binding AutorizacaoTexto}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </Border>
                         </WrapPanel>
                     </StackPanel>
@@ -133,38 +133,43 @@
         <!-- ============================================================
              Indicadores
              ============================================================ -->
-        <UniformGrid Grid.Row="2" Columns="4" Margin="0,0,0,16">
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+        <!-- WrapPanel e não UniformGrid de largura inteira (parcela 50): o UniformGrid
+             divide a largura em partes IGUAIS e obriga o valor a caber no que sobrou —
+             "R$ 1.234.567,89" em 28 px negrito não cabe num quinto de 1366 px, e o número
+             saía por cima do cartão vizinho. Aqui cada cartão pede a largura que precisa
+             e a fileira quebra quando não couber. -->
+        <WrapPanel Grid.Row="2" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Sessões realizadas" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding TotalSessoes}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding TotalSessoes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Sucesso.Suave}"
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Sucesso.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Guias baixadas" Style="{StaticResource CardKpi.Rotulo}"
                                Foreground="{StaticResource Brush.Sucesso.Forte}" />
                     <TextBlock Text="{Binding TotalBaixados}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Sucesso.Forte}" />
+                               Foreground="{StaticResource Brush.Sucesso.Forte}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Background="{StaticResource Brush.Erro.Suave}"
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Background="{StaticResource Brush.Erro.Suave}"
                     BorderThickness="0" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="Pendentes hoje" Style="{StaticResource CardKpi.Rotulo}"
                                Foreground="{StaticResource Brush.Erro.Texto}" />
                     <TextBlock Text="{Binding TotalPendentes}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Erro.Texto}" />
+                               Foreground="{StaticResource Brush.Erro.Texto}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200">
                 <StackPanel>
                     <TextBlock Text="Última sessão" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding UltimaSessao}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding UltimaSessao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-        </UniformGrid>
+        </WrapPanel>
 
         <!-- ============================================================
              Dados cadastrais + histórico de códigos
@@ -279,7 +284,7 @@
                                                             </Style>
                                                         </Ellipse.Style>
                                                     </Ellipse>
-                                                    <TextBlock Text="{Binding Situacao}" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Situacao}" VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
@@ -392,7 +397,7 @@
                                                                 </Style>
                                                             </Ellipse.Style>
                                                         </Ellipse>
-                                                        <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" />
+                                                        <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>

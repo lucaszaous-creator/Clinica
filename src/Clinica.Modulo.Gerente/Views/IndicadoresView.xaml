@@ -30,14 +30,24 @@
         </Grid>
 
         <!-- ============ KPIs ============ -->
-        <UniformGrid DockPanel.Dock="Top" Columns="5" Margin="0,0,0,8">
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+        <!-- WrapPanel, e NÃO UniformGrid de largura inteira (parcela 50).
+
+             O `UniformGrid` divide a largura em partes IGUAIS e obriga o valor a caber no
+             que sobrou: num monitor de 1366 px, cinco colunas dão ~250 px por cartão, e
+             "R$ 1.234.567,89" em 28 px negrito não cabe — o número estourava o cartão e
+             invadia o vizinho. Era a causa de boa parte do texto estourando no Gerente.
+
+             O `WrapPanel` dá a cada cartão a largura que ele PEDE (com um piso, para a
+             fileira não ficar irregular) e quebra para a linha de baixo quando não couber.
+             É também o que o `README.md` manda: KPI não se espalha por largura inteira. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="ATENDIDOS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Sucesso}" />
+                               Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                     <!-- Some quando não há mês anterior: seta sem base é invenção. -->
-                    <TextBlock Text="{Binding VariacaoAtendidos}">
+                    <TextBlock Text="{Binding VariacaoAtendidos}" TextWrapping="Wrap" HorizontalAlignment="Left">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Variacao}">
                                 <Style.Triggers>
@@ -56,13 +66,13 @@
                     </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="FALTAS (NO-SHOW)" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding NoShowFormatado}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Erro}" />
+                               Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                     <!-- Em PONTOS, não em % de %: "subiu 50%" sobre 4% confunde. -->
-                    <TextBlock Text="{Binding VariacaoNoShow}">
+                    <TextBlock Text="{Binding VariacaoNoShow}" TextWrapping="Wrap" HorizontalAlignment="Left">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Variacao}">
                                 <Style.Triggers>
@@ -81,29 +91,29 @@
                     </TextBlock>
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="OCUPAÇÃO" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding OcupacaoFormatada}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Acento}" />
+                               Foreground="{StaticResource Brush.Acento}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="PACIENTES ATENDIDOS" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding PacientesDistintos}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding PacientesDistintos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190">
                 <StackPanel>
                     <TextBlock Text="NPS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding NpsFormatado}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Marca.Medio}" />
+                               Foreground="{StaticResource Brush.Marca.Medio}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding NpsDetalhe}" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" Margin="0,2,0,0" />
                 </StackPanel>
             </Border>
-        </UniformGrid>
+        </WrapPanel>
 
         <TextBlock DockPanel.Dock="Top" Text="{Binding JornadaFormatada}"
                    Style="{StaticResource TextoSuave}"
@@ -166,27 +176,27 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Nome}"
                                                        FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="1" Text="{Binding Atendidos}"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="2" Text="{Binding Faltas}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="3"
                                                        Text="{Binding TaxaNoShow, StringFormat='{}{0:0.#}%'}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="4"
                                                        Text="{Binding HorasOcupadas, StringFormat='{}{0:0.#} h'}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="5" Text="{Binding Evolucoes}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                             <!-- "—" quando não houve sessão atendida: 0% acusaria
                                                  de negligência quem tirou férias. -->
                                             <TextBlock Grid.Column="6"
                                                        Text="{Binding CompletudeProntuario, StringFormat='{}{0:0.#}%', TargetNullValue='—'}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="7"
                                                        Text="{Binding MelhoraMediaEva, StringFormat='{}{0:0.#} pontos', TargetNullValue='—'}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
@@ -243,16 +253,16 @@
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="1"
                                                        Text="{Binding Atendidos, StringFormat='{}{0} atendidos'}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="2"
                                                        Text="{Binding TaxaNoShow, StringFormat='no-show {0:0.#}%'}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="3"
                                                        Text="{Binding OcupacaoPercentual, StringFormat='ocupação {0:0.#}%', TargetNullValue='ocupação —'}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

@@ -26,7 +26,7 @@
                         CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
                     <TextBlock Text="{Binding Mes, StringFormat='{}{0:MMMM/yyyy}'}"
                                FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 </Border>
                 <Button Content="▶" Command="{Binding ProximoMesCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40" />
@@ -44,36 +44,39 @@
 
         <!-- Indicadores. O liquido so aparece quando houve desconto: sem cartao nem
              imposto, bruto e liquido sao o mesmo numero e a coluna seria ruido. -->
-        <UniformGrid DockPanel.Dock="Top" Columns="4" Margin="0,0,0,16">
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+        <!-- WrapPanel e não UniformGrid de largura inteira (parcela 50): o UniformGrid
+             divide a largura em partes iguais e obriga o valor a caber no que sobrou —
+             "R$ 1.234.567,89" em 28 px negrito não cabe em 1/4 de 1366 px. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="ENTRADAS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Entradas}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Sucesso}" />
+                               Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="SAÍDAS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Saidas}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Erro}" />
+                               Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="SALDO REALIZADO" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Saldo}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                               Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200">
                 <StackPanel>
                     <TextBlock Text="SALDO COM PREVISTO" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Previsto}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Acento}" />
+                               Foreground="{StaticResource Brush.Acento}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-        </UniformGrid>
+        </WrapPanel>
 
         <!-- Recebido de verdade, depois da maquininha e do fisco. -->
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,16"
@@ -85,7 +88,7 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="RECEBIDO LIQUIDO" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                FontSize="{StaticResource Fonte.Legenda}"
                                Text="E este numero que bate com o extrato da adquirente. O bruto acima e o que o paciente pagou." />
@@ -93,7 +96,7 @@
                 <StackPanel Grid.Column="1">
                     <TextBlock Text="TAXAS E IMPOSTOS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Deducoes}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Erro}" />
+                               Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -148,7 +151,7 @@
 
                                         <TextBlock Grid.Column="0" Text="{Binding Data}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Descricao}"
@@ -158,19 +161,19 @@
                                                        FontSize="{StaticResource Fonte.Legenda}"
                                                        Foreground="{StaticResource Brush.Acento}"
                                                        Visibility="{Binding VeioDoFaturamento,
-                                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                                                                    Converter={StaticResource BoolParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         </StackPanel>
 
                                         <TextBlock Grid.Column="2" Text="{Binding Categoria}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="3" Text="{Binding StatusRotulo}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="4" Text="{Binding ValorFormatado}"
                                                    FontWeight="SemiBold"
                                                    Foreground="{StaticResource Brush.Texto.Primario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                         <StackPanel Grid.Column="5" Orientation="Horizontal"
                                                     VerticalAlignment="Center">

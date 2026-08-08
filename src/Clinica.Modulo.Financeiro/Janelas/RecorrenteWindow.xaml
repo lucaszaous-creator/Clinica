@@ -12,7 +12,7 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
-        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
                    Text="Aluguel, luz, contador, mensalidade de software. O molde não entra em total nenhum: quem entra é a conta prevista que ele gera, e que dali em diante tem vida própria — a luz nunca vem igual." />
 

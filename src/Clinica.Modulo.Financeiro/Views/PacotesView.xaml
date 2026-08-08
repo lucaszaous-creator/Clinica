@@ -72,13 +72,13 @@
                                             <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock Text="{Binding Nome}" Margin="10,0,0,0"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </StackPanel>
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                     <Run Text="{Binding Saldo, Mode=OneWay}" />
                                                     <Run Text=" · comprado em " />
                                                     <Run Text="{Binding Compra, Mode=OneWay}" />
@@ -90,7 +90,7 @@
                                             <StackPanel Grid.Column="1" Orientation="Horizontal"
                                                         VerticalAlignment="Center">
                                                 <Border Style="{StaticResource Badge}" Margin="0,0,8,0">
-                                                    <TextBlock Text="{Binding Situacao}" />
+                                                    <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </Border>
                                                 <Button Content="Usar sessão" Style="{StaticResource BotaoPequeno}"
                                                         IsEnabled="{Binding Ativo}"

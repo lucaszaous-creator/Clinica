@@ -118,7 +118,7 @@
                                             </Grid.ColumnDefinitions>
 
                                             <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                             <TextBlock Grid.Column="1" VerticalAlignment="Center"
                                                        TextWrapping="Wrap"

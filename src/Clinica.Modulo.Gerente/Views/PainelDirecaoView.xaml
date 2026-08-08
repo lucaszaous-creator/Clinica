@@ -20,7 +20,7 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="{Binding Saudacao}" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                    <TextBlock Text="{Binding Saudacao}" Style="{StaticResource H1}" Margin="0,0,0,4" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     <TextBlock Text="{Binding DataFormatada}" Style="{StaticResource TextoSuave}"
                                Margin="0" />
                 </StackPanel>
@@ -43,22 +43,21 @@
             </Border>
 
             <!-- ===== Dinheiro do mês ===== -->
-            <Grid Margin="0,0,0,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <!-- WrapPanel e não colunas ESTRELA (parcela 50): a coluna estrela divide a
+                 largura em partes iguais e obriga o valor a caber no que sobrou. Num
+                 monitor de 1366 px isso corta "R$ 1.234.567,89" no meio. Aqui cada cartão
+                 pede a largura que precisa e a fileira quebra quando não couber. -->
+            <WrapPanel Margin="0,0,0,12">
 
-                <Border Grid.Column="0" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
                         <TextBlock Text="ENTROU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" />
                         <TextBlock Text="{Binding EntradasMes}" Style="{StaticResource CardKpi.Valor}"
-                                   Foreground="{StaticResource Brush.Sucesso}" />
+                                   Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                         <!-- A comparação é com o MESMO TRECHO do mês anterior. No dia 5,
                              cinco dias contra trinta apontariam queda de 80% todo começo
                              de mês, e a direção aprenderia a ignorar a seta. -->
-                        <TextBlock Text="{Binding VariacaoEntradas}">
+                        <TextBlock Text="{Binding VariacaoEntradas}" TextWrapping="Wrap" HorizontalAlignment="Left">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Variacao}">
                                     <Style.Triggers>
@@ -79,19 +78,19 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
                         <TextBlock Text="SAIU NO MÊS" Style="{StaticResource CardKpi.Rotulo}" />
                         <TextBlock Text="{Binding SaidasMes}" Style="{StaticResource CardKpi.Valor}"
-                                   Foreground="{StaticResource Brush.Erro}" />
+                                   Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="pago e conciliado" Style="{StaticResource CardKpi.Variacao}" />
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+                <Border Style="{StaticResource CardKpi}" MinWidth="200">
                     <StackPanel>
                         <TextBlock Text="SALDO DO MÊS" Style="{StaticResource CardKpi.Rotulo}" />
-                        <TextBlock Text="{Binding SaldoMes}">
+                        <TextBlock Text="{Binding SaldoMes}" TextWrapping="Wrap" HorizontalAlignment="Left">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
                                     <Style.Triggers>
@@ -109,55 +108,53 @@
                                    Style="{StaticResource CardKpi.Variacao}" />
                     </StackPanel>
                 </Border>
-            </Grid>
+            </WrapPanel>
 
             <!-- ===== Os quatro números que a direção cobra ===== -->
-            <Grid Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <!-- WrapPanel e não colunas ESTRELA (parcela 50): a coluna estrela divide a
+                 largura em partes iguais e obriga o valor a caber no que sobrou. Num
+                 monitor de 1366 px isso corta "R$ 1.234.567,89" no meio. Aqui cada cartão
+                 pede a largura que precisa e a fileira quebra quando não couber. -->
+            <WrapPanel Margin="0,0,0,20">
 
-                <Border Grid.Column="0" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
                         <TextBlock Text="CONTAS VENCIDAS" Style="{StaticResource CardKpi.Rotulo}" />
-                        <TextBlock Text="{Binding ContasVencidas}" Style="{StaticResource CardKpi.Valor}" />
+                        <TextBlock Text="{Binding ContasVencidas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding ContasVencidasDetalhe}"
                                    Style="{StaticResource CardKpi.Variacao}" />
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
                         <TextBlock Text="SEM DEPÓSITO" Style="{StaticResource CardKpi.Rotulo}" />
-                        <TextBlock Text="{Binding DepositoAtrasado}" Style="{StaticResource CardKpi.Valor}" />
+                        <TextBlock Text="{Binding DepositoAtrasado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding DepositoAtrasadoDetalhe}"
                                    Style="{StaticResource CardKpi.Variacao}" />
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="2" Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                     <StackPanel>
                         <TextBlock Text="GUIAS NO PRAZO VENCIDO" Style="{StaticResource CardKpi.Rotulo}" />
                         <TextBlock Text="{Binding PendenciasFaturamento}"
-                                   Style="{StaticResource CardKpi.Valor}" />
+                                   Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding PendenciasDetalhe}"
                                    Style="{StaticResource CardKpi.Variacao}" />
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="3" Style="{StaticResource CardKpi}">
+                <Border Style="{StaticResource CardKpi}" MinWidth="200">
                     <StackPanel>
                         <TextBlock Text="A RECEBER (PREVISTO)" Style="{StaticResource CardKpi.Rotulo}" />
                         <TextBlock Text="{Binding AReceberPrevisto}"
-                                   Style="{StaticResource CardKpi.Valor}" />
+                                   Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         <TextBlock Text="{Binding AReceberDetalhe}"
                                    Style="{StaticResource CardKpi.Variacao}" />
                     </StackPanel>
                 </Border>
-            </Grid>
+            </WrapPanel>
 
             <!-- ===== O que exige ação hoje ===== -->
             <TextBlock Text="O que exige ação hoje" Style="{StaticResource H3}" Margin="0,0,0,4" />

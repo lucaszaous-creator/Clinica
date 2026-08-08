@@ -177,7 +177,7 @@
                                                 <TextBlock Grid.Column="0" Text="{Binding Data}"
                                                            VerticalAlignment="Center"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
 
                                                 <StackPanel Grid.Column="1" Margin="8,0"
                                                             VerticalAlignment="Center">

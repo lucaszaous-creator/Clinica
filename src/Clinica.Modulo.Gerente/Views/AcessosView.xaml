@@ -79,21 +79,21 @@
 
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <TextBlock Text="{Binding Situacao}" Style="{StaticResource TextoSuave}"
                                                        FontSize="{StaticResource Fonte.Legenda}" Margin="0" />
                                         </StackPanel>
 
                                         <TextBlock Grid.Column="1" Text="{Binding Login}" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="2" Text="{Binding Perfil}" VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="3" Text="{Binding Profissional}"
                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}" />
                                         <TextBlock Grid.Column="4" Text="{Binding UltimoAcesso}"
                                                    VerticalAlignment="Center"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
 
                                         <StackPanel Grid.Column="5" Orientation="Horizontal"
                                                     VerticalAlignment="Center">

@@ -1107,6 +1107,40 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   acerta a base da fileira (parcela 47) corta o conteúdo quando o nome quebra em duas
   linhas — foi o que apareceu no cartão escolhido do Novo atendimento. Altura fixa e
   `MaxHeight` no rótulo andam juntos.
+- **Texto que estoura é dado do BANCO sem quebra nem reticências** (parcela 50): o
+  cliente reclamou de "muitos textos estourando" no Gerente, e a família é sempre a mesma
+  — um `TextBlock` amarrado a `{Binding}` dentro de uma célula de largura fixa. O WPF não
+  corta nada por conta própria: o texto sai por cima do vizinho. A regra de decisão é
+  curta: **célula de tabela leva `TextTrimming="CharacterEllipsis"`; texto de cartão leva
+  `TextWrapping="Wrap"`**. Texto LITERAL o programador mede ao escrever; dado do banco é o
+  que tem tamanho imprevisível (nome de 12 ou 60 caracteres, valor de três ou nove
+  dígitos), e é por isso que a **checagem 24** só olha o amarrado.
+  Dois casos foram resolvidos no ESTILO, que é onde valem para a suíte inteira:
+  `TextoSuave` já quebrava desde a parcela 37, e `Rotulo` passou a quebrar agora — ele
+  mora acima de campo em coluna de formulário ("Certificado em nuvem (SafeID) — opcional"
+  em 290 px) e como cabeçalho de coluna de tabela ("Queda média da dor" em 110 px), e as
+  duas estouravam. O **alinhamento não veio junto**: rótulo de tabela às vezes é
+  centralizado sobre a coluna, e forçar `Left` desalinharia a régua das tabelas — é a
+  meia-regra do `TextoSuave` pelo avesso.
+  E a causa RAIZ dos KPIs era o padrão que o `README.md` já proibia: **`UniformGrid` (ou
+  coluna estrela) de largura inteira**. Ele divide a largura em partes iguais e obriga o
+  valor a caber no que sobrou — num monitor de 1366 px, cinco colunas dão ~250 px, e
+  "R$ 1.234.567,89" em 28 px negrito não cabe. Virou `WrapPanel` com piso de largura: cada
+  cartão pede o que precisa e a fileira quebra quando não couber.
+  A checagem 24 cobre hoje os **SEIS módulos** — a dívida foi zerada de uma vez (338
+  ocorrências) e `LIMPOS` os lista todos. O mecanismo de aviso por módulo continua ali
+  porque é o caminho de volta: módulo novo entra fora da lista, aparece como aviso com a
+  contagem, e passa a ser erro quando alguém o limpar.
+  ⚠️ **A lista de estilos que "já resolvem" é LIDA dos dicionários, não escrita à mão.**
+  São DOIS design systems (o da suíte e o do faturamento, que não se referenciam — o
+  débito permanente da parcela 7), e a lista fixa só conhecia um: os seis `FichaValor` do
+  faturamento apareciam como dívida sem serem, porque aquele estilo corta desde sempre.
+  ⚠️ **A primeira versão da checagem tinha um ponto cego, e a pergunta do cliente ("você
+  verificou TODAS?") foi o que o revelou**: ela só lia a TAG DE ABERTURA, e a suíte monta
+  frase com pedaço variável no meio usando `<Run Text="{Binding X}" />` como FILHO —
+  "Sai hoje de cada recebimento: R$ 1.234". Nenhum desses aparecia na contagem. Achar o
+  ponto cego mudou os números: Financeiro foi de 122 para 130 e o faturamento de 76 para
+  81. **Contagem de checagem só vale depois de alguém perguntar o que ela NÃO vê.**
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três

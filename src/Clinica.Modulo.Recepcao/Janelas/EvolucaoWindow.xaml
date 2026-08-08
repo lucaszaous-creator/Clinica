@@ -26,7 +26,7 @@
                                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1">
                             <TextBlock Text="{TemplateBinding Content}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                       Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
@@ -63,7 +63,7 @@
     <DockPanel Margin="24">
 
         <TextBlock DockPanel.Dock="Top" Text="{Binding Titulo}"
-                   Style="{StaticResource DialogoTitulo}" />
+                   Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
 
         <!-- ===== Ações ===== -->
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
@@ -147,7 +147,7 @@
 
                             <TextBlock Text="{Binding VariacaoRotulo}" Margin="0,12,0,0"
                                        FontWeight="SemiBold"
-                                       Foreground="{StaticResource Brush.Acento}" />
+                                       Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                         </StackPanel>
                     </Border>
 
@@ -206,7 +206,7 @@
                                                                Foreground="{StaticResource Brush.Texto.Primario}" />
                                                     <TextBlock Margin="0,2,0,0"
                                                                FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                         <Run Text="{Binding TamanhoFormatado, Mode=OneWay}" />
                                                         <Run Text=" · " />
                                                         <Run Text="{Binding CriadoEm, StringFormat='{}{0:dd/MM/yyyy}', Mode=OneWay}" />

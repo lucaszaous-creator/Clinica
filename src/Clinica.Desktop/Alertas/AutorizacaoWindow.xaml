@@ -10,7 +10,7 @@
          o rodapé com os botões sairia da área visível do monitor do balcão. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="620">
     <StackPanel Margin="24">
-        <TextBlock Text="{Binding Titulo}" Style="{StaticResource H2}" Margin="0,0,0,2" />
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource H2}" Margin="0,0,0,2" TextWrapping="Wrap" HorizontalAlignment="Left" />
         <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,12"
                    Text="A cota que o convênio liberou. Com ela cadastrada, o Novo atendimento avisa quando as sessões estão acabando — antes de virar glosa por quantidade acima da autorizada." />
 

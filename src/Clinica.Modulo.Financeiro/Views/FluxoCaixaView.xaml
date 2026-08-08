@@ -35,38 +35,33 @@
         </Border>
 
         <!-- ===== Faixa do período ===== -->
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="12" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <!-- WrapPanel e não colunas ESTRELA (parcela 50): a coluna estrela divide a
+             largura em partes iguais e obriga o valor a caber no que sobrou — num monitor
+             de 1366 px isso corta "R$ 1.234.567,89" em 28 px negrito. Aqui cada cartão
+             pede a largura que precisa e a fileira quebra quando não couber. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
 
-            <Border Grid.Column="0" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="ENTRADAS" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding TotalEntradas}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding TotalEntradas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Periodo}" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="2" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="SAÍDAS" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding TotalSaidas}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding TotalSaidas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="4" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="RESULTADO" Style="{StaticResource CardKpi.Rotulo}" />
                     <!-- Vermelho quando o período fecha negativo. Quem decide se o número
                          é bom é a TELA, não o componente — aqui "menos" é sempre ruim. -->
-                    <TextBlock Text="{Binding Resultado}">
+                    <TextBlock Text="{Binding Resultado}" TextTrimming="CharacterEllipsis">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource CardKpi.Valor}">
                                 <Style.Triggers>
@@ -80,17 +75,17 @@
                 </StackPanel>
             </Border>
 
-            <Border Grid.Column="6" Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="MARGEM" Style="{StaticResource CardKpi.Rotulo}" />
                     <!-- "—" quando não houve receita: 0% diria "não sobrou nada", que é
                          diagnóstico diferente de "não teve receita para sobrar". -->
-                    <TextBlock Text="{Binding Margem}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Margem}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="do que entrou, quanto sobrou"
                                Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
-        </Grid>
+        </WrapPanel>
 
         <ScrollViewer VerticalScrollBarVisibility="Auto">
             <StackPanel>
@@ -178,13 +173,13 @@
                                             </Grid.ColumnDefinitions>
 
                                             <TextBlock Grid.Column="0" Text="{Binding Mes}"
-                                                       FontWeight="SemiBold" />
+                                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="1" Text="{Binding Entradas}"
-                                                       TextAlignment="Right" />
+                                                       TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="2" Text="{Binding Saidas}"
-                                                       TextAlignment="Right" />
+                                                       TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="3" Text="{Binding Resultado}"
-                                                       TextAlignment="Right">
+                                                       TextAlignment="Right" TextTrimming="CharacterEllipsis">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="FontWeight" Value="SemiBold" />
@@ -202,7 +197,7 @@
                                                        Style="{StaticResource TextoSuave}"
                                                        TextAlignment="Right" />
                                             <TextBlock Grid.Column="5" Text="{Binding Acumulado}"
-                                                       TextAlignment="Right" />
+                                                       TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

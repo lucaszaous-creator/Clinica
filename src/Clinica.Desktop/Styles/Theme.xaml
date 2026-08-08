@@ -42,6 +42,14 @@
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
         <Setter Property="Margin" Value="0,8,0,4" />
+        <!-- QUEBRA por padrão (parcela 50). Mesma decisão do design system da suíte, e
+             pelo mesmo motivo: o rótulo mora acima de campo em coluna de formulário e
+             como cabeçalho de coluna de tabela, e as duas situações o estouram. Rótulo em
+             duas linhas se lê; rótulo cortado pela metade, não.
+
+             O alinhamento NÃO vem junto: cabeçalho de tabela às vezes é centralizado ou
+             alinhado à direita sobre a coluna, e forçá-lo aqui desalinharia a régua. -->
+        <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
     <!-- Texto de apoio (dica sob campos) -->
     <Style x:Key="TextoSuave" TargetType="TextBlock">
