@@ -469,16 +469,16 @@
                                                        VerticalAlignment="Center" TextWrapping="Wrap"
                                                        HorizontalAlignment="Left" />
 
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding EhSegundo}" Value="True">
-                                                    <Setter TargetName="traco" Property="Background"
-                                                            Value="{StaticResource Brush.Semaforo.Amarelo}" />
-                                                    <Setter TargetName="nota" Property="Foreground"
-                                                            Value="{StaticResource Brush.Aviso}" />
-                                                    <Setter TargetName="nota" Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
                                         </Grid>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding EhSegundo}" Value="True">
+                                                <Setter TargetName="traco" Property="Background"
+                                                        Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                <Setter TargetName="nota" Property="Foreground"
+                                                        Value="{StaticResource Brush.Aviso}" />
+                                                <Setter TargetName="nota" Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -541,18 +541,18 @@
                                                        VerticalAlignment="Center" TextWrapping="Wrap"
                                                        HorizontalAlignment="Left" />
 
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding TemImpedimento}" Value="True">
-                                                    <Setter TargetName="sit" Property="Foreground"
-                                                            Value="{StaticResource Brush.Aviso}" />
-                                                    <Setter TargetName="sit" Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding Baixado}" Value="True">
-                                                    <Setter TargetName="sit" Property="Foreground"
-                                                            Value="{StaticResource Brush.Sucesso.Forte}" />
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
                                         </Grid>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding TemImpedimento}" Value="True">
+                                                <Setter TargetName="sit" Property="Foreground"
+                                                        Value="{StaticResource Brush.Aviso}" />
+                                                <Setter TargetName="sit" Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding Baixado}" Value="True">
+                                                <Setter TargetName="sit" Property="Foreground"
+                                                        Value="{StaticResource Brush.Sucesso.Forte}" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -652,14 +652,14 @@
                                                 <TextBlock Text="{Binding Convenio}" />
                                             </Border>
 
-                                            <DataTemplate.Triggers>
-                                                <DataTrigger Binding="{Binding TemPendencia}" Value="True">
-                                                    <Setter TargetName="pendente" Property="Foreground"
-                                                            Value="{StaticResource Brush.Aviso}" />
-                                                    <Setter TargetName="pendente" Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                            </DataTemplate.Triggers>
                                         </Grid>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding TemPendencia}" Value="True">
+                                                <Setter TargetName="pendente" Property="Foreground"
+                                                        Value="{StaticResource Brush.Aviso}" />
+                                                <Setter TargetName="pendente" Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>

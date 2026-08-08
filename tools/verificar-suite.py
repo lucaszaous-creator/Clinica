@@ -1281,6 +1281,60 @@ for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
             f"Ligue o `IsEnabled` à pré-condição, e faça a guarda DIZER por que saiu."
         )
 
+# --------------------------------------------------------------- checagem 22
+# ELEMENTO DE PROPRIEDADE NO PAI ERRADO (MC3015).
+#
+# `<DataTemplate.Triggers>` escrito DENTRO do `<Grid>` que é o conteúdo do template, em vez
+# de irmão dele. O XML continua bem-formado — a checagem 1 passa —, o `compilar-sombra`
+# passa (ele não lê o corpo do XAML) e os testes passam. Quem reclama é o compilador de
+# marcação, que só roda no runner Windows:
+#
+#   error MC3015: The attached property 'DataTemplate.Triggers' is not defined on 'Grid'
+#
+# É o pior tipo de defeito para este projeto: as três redes locais ficam verdes e o erro
+# aparece cinco minutos depois, no CI, num arquivo que já foi empurrado.
+#
+# A regra geral do XAML é que `<A.B>` tem de ser filho direto de um `<A>` — mas ela sozinha
+# daria falso positivo, porque HERANÇA vale: `<ItemsControl.ItemTemplate>` dentro de um
+# `<ListBox>` é legal e é o que a suíte escreve o tempo todo. Por isso a checagem se limita
+# aos três donos que nunca são herdados (DataTemplate, ControlTemplate e Style), que são
+# justamente onde o erro acontece — o bloco de gatilhos fica no fim, longe do `<DataTemplate>`
+# que o abriu, e é o `</Grid>` que aparece embaixo dele.
+NUNCA_HERDADOS = ("DataTemplate", "ControlTemplate", "Style")
+
+for f, raiz in arvores.items():
+    for pai in raiz.iter():
+        nome_pai = pai.tag.split("}")[-1]
+        for filho in pai:
+            tag = filho.tag.split("}")[-1]
+            if "." not in tag:
+                continue
+            dono, _, membro = tag.partition(".")
+            if dono not in NUNCA_HERDADOS or nome_pai == dono:
+                continue
+            erros.append(
+                f"{rel(f)}: `<{tag}>` está dentro de `<{nome_pai}>` — o compilador de "
+                f"marcação recusa (MC3015: '{tag}' is not defined on '{nome_pai}'). "
+                f"Ele tem de ser filho direto do `<{dono}>`, irmão do conteúdo."
+            )
+
+# Autoteste: a checagem 22 tem de pegar o defeito que escapou para o CI na parcela 47.
+_amostra_22 = ET.fromstring(
+    '<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">'
+    "<Grid><DataTemplate.Triggers /></Grid></DataTemplate>"
+)
+_pegou = [
+    True
+    for pai in _amostra_22.iter()
+    for filho in pai
+    if "." in filho.tag.split("}")[-1]
+    and filho.tag.split("}")[-1].partition(".")[0] in NUNCA_HERDADOS
+    and pai.tag.split("}")[-1] != filho.tag.split("}")[-1].partition(".")[0]
+]
+if not _pegou:
+    erros.append("verificar-suite: a checagem 22 parou de pegar o próprio caso de teste.")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
