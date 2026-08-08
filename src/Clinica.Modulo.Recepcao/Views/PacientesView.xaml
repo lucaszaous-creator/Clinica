@@ -274,13 +274,13 @@
                         <!-- Sem par EVA não há o que mostrar: os KPIs somem, em vez de
                              exibirem travessões que parecem dado. -->
                         <!-- WrapPanel e não UniformGrid de largura inteira (parcela 50): o UniformGrid
-             divide a largura em partes IGUAIS e obriga o valor a caber no que sobrou —
-             "R$ 1.234.567,89" em 28 px negrito não cabe num quinto de 1366 px, e o número
-             saía por cima do cartão vizinho. Aqui cada cartão pede a largura que precisa
-             e a fileira quebra quando não couber. -->
-        <WrapPanel >
-                            <UniformGrid.Style>
-                                <Style TargetType="UniformGrid">
+                             divide a largura em partes IGUAIS e obriga o valor a caber no que sobrou —
+                             "R$ 1.234.567,89" em 28 px negrito não cabe num quinto de 1366 px, e o número
+                             saía por cima do cartão vizinho. Aqui cada cartão pede a largura que precisa
+                             e a fileira quebra quando não couber. -->
+                        <WrapPanel>
+                            <WrapPanel.Style>
+                                <Style TargetType="WrapPanel">
                                     <Setter Property="Visibility" Value="Visible" />
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding SemMedidaEva}" Value="True">
@@ -288,7 +288,7 @@
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
-                            </UniformGrid.Style>
+                            </WrapPanel.Style>
                             <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                                 <StackPanel>
                                     <TextBlock Text="Dor no início" Style="{StaticResource CardKpi.Rotulo}" />

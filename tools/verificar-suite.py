@@ -1311,42 +1311,68 @@ for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
 # A regra geral do XAML é que `<A.B>` tem de ser filho direto de um `<A>` — mas ela sozinha
 # daria falso positivo, porque HERANÇA vale: `<ItemsControl.ItemTemplate>` dentro de um
 # `<ListBox>` é legal e é o que a suíte escreve o tempo todo. Por isso a checagem se limita
-# aos três donos que nunca são herdados (DataTemplate, ControlTemplate e Style), que são
-# justamente onde o erro acontece — o bloco de gatilhos fica no fim, longe do `<DataTemplate>`
-# que o abriu, e é o `</Grid>` que aparece embaixo dele.
+# aos donos que nunca são herdados uns dos outros.
+#
+# São dois grupos, e o segundo entrou na parcela 50 depois de o mesmo MC3015 escapar de novo:
+#
+#   (a) DataTemplate, ControlTemplate e Style — onde o erro nasce de o bloco de gatilhos
+#       ficar no fim, longe do `<DataTemplate>` que o abriu, com um `</Grid>` embaixo dele.
+#
+#   (b) os PAINÉIS. Nenhum deriva do outro (todos descendem de `Panel` direto), então
+#       `<UniformGrid.Style>` dentro de um `<WrapPanel>` é recusado. Foi exatamente o que
+#       aconteceu ao trocar UniformGrid por WrapPanel nos KPIs: a troca pegou as tags de
+#       abertura e fechamento e deixou o elemento de propriedade com o dono antigo.
+#
+# A ressalva do grupo (b) são as propriedades ANEXADAS: `<Grid.Row>` escrito como elemento
+# dentro de um `<Border>` é XAML legal. Ninguém na suíte escreve assim — mas inventar erro
+# onde não há é o que faz alguém desligar a checagem.
 NUNCA_HERDADOS = ("DataTemplate", "ControlTemplate", "Style")
+PAINEIS = ("Grid", "StackPanel", "WrapPanel", "DockPanel", "Canvas", "UniformGrid", "VirtualizingStackPanel")
+ANEXADAS_DE_PAINEL = {
+    "Row", "Column", "RowSpan", "ColumnSpan", "IsSharedSizeScope",
+    "Dock", "Left", "Top", "Right", "Bottom", "ZIndex",
+}
+
+def _elemento_de_propriedade_no_pai_errado(nome_pai: str, tag: str) -> bool:
+    """`<A.B>` escrito dentro de um `<C>` que não é um `A`. Ver o comentário acima."""
+    if "." not in tag:
+        return False
+    dono, _, membro = tag.partition(".")
+    if nome_pai == dono:
+        return False
+    if dono in NUNCA_HERDADOS:
+        return True
+    return dono in PAINEIS and nome_pai in PAINEIS and membro not in ANEXADAS_DE_PAINEL
+
 
 for f, raiz in arvores.items():
     for pai in raiz.iter():
         nome_pai = pai.tag.split("}")[-1]
         for filho in pai:
             tag = filho.tag.split("}")[-1]
-            if "." not in tag:
-                continue
-            dono, _, membro = tag.partition(".")
-            if dono not in NUNCA_HERDADOS or nome_pai == dono:
+            if not _elemento_de_propriedade_no_pai_errado(nome_pai, tag):
                 continue
             erros.append(
                 f"{rel(f)}: `<{tag}>` está dentro de `<{nome_pai}>` — o compilador de "
                 f"marcação recusa (MC3015: '{tag}' is not defined on '{nome_pai}'). "
-                f"Ele tem de ser filho direto do `<{dono}>`, irmão do conteúdo."
+                f"Ele tem de ser filho direto do `<{tag.partition('.')[0]}>`, irmão do conteúdo."
             )
 
-# Autoteste: a checagem 22 tem de pegar o defeito que escapou para o CI na parcela 47.
-_amostra_22 = ET.fromstring(
-    '<DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">'
-    "<Grid><DataTemplate.Triggers /></Grid></DataTemplate>"
-)
-_pegou = [
-    True
-    for pai in _amostra_22.iter()
-    for filho in pai
-    if "." in filho.tag.split("}")[-1]
-    and filho.tag.split("}")[-1].partition(".")[0] in NUNCA_HERDADOS
-    and pai.tag.split("}")[-1] != filho.tag.split("}")[-1].partition(".")[0]
-]
-if not _pegou:
-    erros.append("verificar-suite: a checagem 22 parou de pegar o próprio caso de teste.")
+# Autoteste. Os dois primeiros são os defeitos REAIS que escaparam para o CI (parcelas 47 e
+# 50); os outros três são os falsos positivos que a checagem não pode inventar — herança de
+# controle, propriedade anexada escrita como elemento, e o caso normal do dono certo.
+for _pai, _tag, _esperado in (
+    ("Grid", "DataTemplate.Triggers", True),
+    ("WrapPanel", "UniformGrid.Style", True),
+    ("ListBox", "ItemsControl.ItemTemplate", False),
+    ("StackPanel", "Grid.Row", False),
+    ("WrapPanel", "WrapPanel.Style", False),
+):
+    if _elemento_de_propriedade_no_pai_errado(_pai, _tag) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 22 mudou de resposta para `<{_tag}>` "
+            f"dentro de `<{_pai}>` (esperado: {'pega' if _esperado else 'deixa passar'})."
+        )
 
 
 # --------------------------------------------------------------- checagem 23
