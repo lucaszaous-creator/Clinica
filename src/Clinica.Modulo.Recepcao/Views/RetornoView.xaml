@@ -1,0 +1,149 @@
+<UserControl x:Class="Clinica.Recepcao.Views.RetornoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
+             Background="{StaticResource Brush.Fundo}">
+
+    <!-- ============================================================
+         CHAMAR DE VOLTA QUEM PAROU DE VIR (parcela 48).
+
+         A capacidade existe desde a parcela 5 e a leitura "quem parou de vir" desde a 32,
+         e as duas moravam só no GERENTE. Quem telefona para o paciente é o BALCÃO — o
+         mesmo argumento que trouxe a rodada de confirmação para cá na parcela 26.
+
+         A tela responde UMA pergunta: "quem eu chamo de volta hoje?". Por isso ela é
+         LISTA de largura inteira, sem faixa lateral e sem detalhe grudado ao lado.
+         ============================================================ -->
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel>
+
+        <StackPanel DockPanel.Dock="Top" Margin="24,20,24,14">
+            <TextBlock Text="Retorno de pacientes" Style="{StaticResource H1}" Margin="0" />
+            <TextBlock Style="{StaticResource TextoSuave}"
+                       Text="Quem parou de vir e não tem horário marcado. Gerar é o trabalho automático; chamar é um clique por paciente, porque o número é o WhatsApp da clínica." />
+        </StackPanel>
+
+        <!-- Contexto e ação em UMA linha: faixa permanente vira moldura, e o número
+             que interessa é o da lista logo abaixo. -->
+        <Grid DockPanel.Dock="Top" Margin="24,0,24,10">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Sem vir há" Style="{StaticResource Rotulo}"
+                           VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBox Text="{Binding DiasSemVir, UpdateSourceTrigger=LostFocus}"
+                         Width="70" MaxLength="4" VerticalAlignment="Center" />
+                <TextBlock Text="dias ou mais" Style="{StaticResource Rotulo}"
+                           VerticalAlignment="Center" Margin="8,0,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <Button Content="Atualizar" MinHeight="36" MinWidth="110" Margin="0,0,8,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding RecarregarCommand}" />
+                <Button Content="Gerar rodada do mês" MinHeight="36" MinWidth="190"
+                        VerticalAlignment="Center"
+                        Command="{Binding GerarCommand}"
+                        IsEnabled="{Binding PodeEditar}" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding Resumo}" FontWeight="SemiBold"
+                   Margin="24,0,24,10" TextWrapping="Wrap" HorizontalAlignment="Left"
+                   Foreground="{StaticResource Brush.Acento}" />
+
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="24,0,24,10"
+                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <Border Margin="24,0,24,20" Style="{StaticResource Card}">
+            <Grid>
+                <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                   Itens="{Binding Pacientes}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE77B;"
+                                   Titulo="Ninguém sumido nesta janela"
+                                   Descricao="Não há paciente sem vir há tanto tempo e sem horário marcado. Diminua os dias acima para olhar mais perto." />
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Pacientes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:LinhaRetorno}">
+                                <Border Padding="0,10"
+                                        BorderBrush="{StaticResource Brush.Borda}"
+                                        BorderThickness="0,0,0,1">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- O tempo sem vir é o que ordena a decisão: quem
+                                             sumiu há mais tempo é quem tem menos chance de
+                                             voltar sozinho. -->
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock FontWeight="SemiBold"
+                                                       Text="{Binding DiasSemVir, StringFormat='{}{0} dias'}" />
+                                            <TextBlock Text="sem vir"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                    Margin="0,0,12,0">
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock Margin="0,2,0,0"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                <Run Text="{Binding UltimaVez, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Situacao, Mode=OneWay}" />
+                                            </TextBlock>
+
+                                            <!-- Quem NÃO dá para chamar fica na lista, com o
+                                                 motivo escrito. Sumir da tela esconderia uma
+                                                 pendência de cadastro que a recepção resolve
+                                                 na próxima visita — e faria a clínica achar
+                                                 que menos gente está sumindo. -->
+                                            <TextBlock Text="{Binding Impedimento}" Margin="0,2,0,0"
+                                                       TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Foreground="{StaticResource Brush.Aviso}"
+                                                       Visibility="{Binding TemImpedimento,
+                                                                    Converter={StaticResource BoolParaVisibilidade}}" />
+                                        </StackPanel>
+
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="WhatsApp" MinHeight="32" MinWidth="100"
+                                                    VerticalAlignment="Center" Margin="0,0,8,0"
+                                                    IsEnabled="{Binding PodeChamar}"
+                                                    Command="{Binding DataContext.ChamarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Respondeu" MinHeight="32" MinWidth="110"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource BotaoSecundario}"
+                                                    Command="{Binding DataContext.RespondeuCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>

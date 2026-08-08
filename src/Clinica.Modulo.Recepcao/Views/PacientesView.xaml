@@ -315,6 +315,124 @@
                     </ScrollViewer>
                 </TabItem>
 
+                <!-- ============ Convênio: a senha que a operadora liberou ============
+                     Parcela 48. O balcão já era AVISADO de que a cota ia estourar desde a
+                     parcela 26 ("a próxima sessão vira glosa 2006") e a única porta para
+                     registrar a senha nova estava no app de FATURAMENTO, que é de outra
+                     pessoa. Quem recebe a senha da operadora é quem atende o telefone. -->
+                <TabItem Header="Convênio">
+                    <DockPanel Margin="0,14,0,0">
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                       MaxWidth="620" HorizontalAlignment="Left"
+                                       Text="As sessões que o convênio autorizou. O consumo é contado sozinho pelos atendimentos dentro da vigência — não se digita." />
+                            <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    MinHeight="36" MinWidth="170"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding NovaAutorizacaoCommand}"
+                                    IsEnabled="{Binding PodeEditarCadastro}"
+                                    Content="Nova autorização"
+                                    ToolTip="Registrar a senha que o convênio liberou" />
+                        </Grid>
+
+                        <!-- Terceiro estado: a leitura NÃO rodou. Lista vazia aqui se lê
+                             como "não tem senha nenhuma", que é a conclusão oposta. -->
+                        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,10"
+                                Visibility="{Binding AutorizacoesNaoVerificadas,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock TextWrapping="Wrap"
+                                       Text="Não foi possível ler as autorizações deste paciente — a lista abaixo NÃO significa que ele não tem senha." />
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" MinHeight="180">
+                            <Grid>
+                                <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                                   Itens="{Binding Autorizacoes}"
+                                                   Glifo="&#xE9D9;"
+                                                   Titulo="Nenhuma autorização registrada"
+                                                   Descricao="Cadastre a senha que o convênio liberou e o balcão passa a ser avisado quando as sessões estiverem acabando — antes de a próxima virar glosa 2006." />
+
+                                <ItemsControl ItemsSource="{Binding Autorizacoes}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="3" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="200" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Semáforo no traço, como no resto da
+                                                     suíte: a cota esgotada é a que custa. -->
+                                                <Border x:Name="traco" Grid.Column="0" CornerRadius="2"
+                                                        Background="{StaticResource Brush.Semaforo.Verde}" />
+
+                                                <StackPanel Grid.Column="1" Margin="10,0,8,0">
+                                                    <TextBlock FontWeight="SemiBold"
+                                                               Text="{Binding Autorizacao.Numero, TargetNullValue='(sem número)'}" />
+                                                    <TextBlock x:Name="resumo" Text="{Binding Resumo}"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               Margin="0,2,0,0" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                    <TextBlock FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               Text="{Binding Autorizacao.DataEmissao, StringFormat='emitida {0:dd/MM/yyyy}'}" />
+                                                    <TextBlock FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               Text="{Binding Autorizacao.DataValidade, StringFormat='válida até {0:dd/MM/yyyy}'}" />
+                                                </StackPanel>
+
+                                                <StackPanel Grid.Column="3" Orientation="Horizontal"
+                                                            VerticalAlignment="Center">
+                                                    <Button Content="Editar" MinHeight="30" MinWidth="80"
+                                                            VerticalAlignment="Center" Margin="0,0,6,0"
+                                                            Style="{StaticResource BotaoSecundario}"
+                                                            IsEnabled="{Binding DataContext.PodeEditarCadastro,
+                                                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            Command="{Binding DataContext.EditarAutorizacaoCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                    <Button Content="Excluir" MinHeight="30" MinWidth="80"
+                                                            VerticalAlignment="Center"
+                                                            Style="{StaticResource BotaoSecundarioPerigo}"
+                                                            IsEnabled="{Binding DataContext.PodeEditarCadastro,
+                                                                        RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            Command="{Binding DataContext.ExcluirAutorizacaoCommand,
+                                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                            CommandParameter="{Binding}" />
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding NaUltima}" Value="True">
+                                                    <Setter TargetName="traco" Property="Background"
+                                                            Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                    <Setter TargetName="resumo" Property="Foreground"
+                                                            Value="{StaticResource Brush.Aviso}" />
+                                                    <Setter TargetName="resumo" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Utilizavel}" Value="False">
+                                                    <Setter TargetName="traco" Property="Background"
+                                                            Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                    <Setter TargetName="resumo" Property="Foreground"
+                                                            Value="{StaticResource Brush.Erro}" />
+                                                    <Setter TargetName="resumo" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Grid>
+                        </Border>
+                    </DockPanel>
+                </TabItem>
+
                 <TabItem Header="Prontuário">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                         <StackPanel Margin="0,0,0,24">

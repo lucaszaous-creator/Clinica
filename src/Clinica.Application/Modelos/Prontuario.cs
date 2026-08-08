@@ -130,7 +130,22 @@ public enum ImpedimentoElegibilidade
     /// Faturamento. Glosa por assinatura ou documento faltando se resolve com o paciente
     /// presente; descobri-la depois custa o recurso inteiro.
     /// </summary>
-    GuiaGlosada
+    GuiaGlosada,
+
+    /// <summary>
+    /// O pacote de sessões do paciente acabou ou venceu (parcela 48). Vem do Financeiro.
+    ///
+    /// É o par comercial da cota do convênio, e o mesmo tipo de prejuízo pelo avesso: a
+    /// cota estourada vira glosa, o pacote esgotado vira **sessão dada de graça**. Até
+    /// aqui ele só aparecia no Finalizar — o ÚLTIMO passo, quando a sessão já aconteceu.
+    /// </summary>
+    PacoteEsgotado,
+
+    /// <summary>
+    /// O pacote está na última sessão, ou vence em poucos dias com saldo sobrando. É a
+    /// hora barata de vender a renovação: o paciente está no balcão.
+    /// </summary>
+    PacoteNoFim
 }
 
 /// <summary>Um alerta de elegibilidade, com a gravidade que a recepção precisa ver.</summary>

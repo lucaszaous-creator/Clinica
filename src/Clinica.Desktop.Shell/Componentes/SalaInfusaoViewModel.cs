@@ -1,5 +1,4 @@
 using Clinica.Application.Servicos;
-using Clinica.Clinico.Janelas;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
@@ -9,7 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.ObjectModel;
 
-namespace Clinica.Clinico.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Uma folha na fila da sala.</summary>
 public sealed class LinhaSalaInfusao

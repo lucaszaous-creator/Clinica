@@ -1010,6 +1010,36 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   a porta existe, o serviço existe, o teste passa. O contrato resolve no **ponto único**
   por onde toda tela da suíte passa (`ShellViewModel.Navegar`), em vez de repetir a linha
   em cada construtor e depender de alguém lembrar dela na próxima porta.
+- **A Recepção estava completa em FEATURE e furada em PORTA** (parcela 48): a auditoria do
+  módulo achou quatro lacunas, todas da mesma família — a décima ocorrência do defeito
+  recorrente do projeto — e nenhuma pedia capacidade nova.
+  (a) **A cota do convênio: o balcão LIA e não ESCREVIA.** O `ElegibilidadeService` avisa
+  desde a parcela 26 que a cota vai estourar (*"a próxima sessão vira glosa 2006"*), e a
+  única porta para registrar a senha nova estava no app de FATURAMENTO. Quem recebe a
+  senha da operadora é quem atende o telefone. É a variante que a parcela 46 já tinha
+  corrigido para a consulta a renovar, e que ninguém procurou ao lado.
+  (b) **O pacote só aparecia no Finalizar** — o ÚLTIMO passo, quando a sessão já
+  aconteceu. Marcar a 11ª sessão de um pacote de 10 era descoberto tarde demais. A
+  correção foi no **ponto único** (`ElegibilidadeService`), não na tela: de lá o alerta
+  chega sozinho ao agendamento, ao check-in, à ficha e ao Consultório. **Cota e pacote são
+  DOIS alertas, nunca um** — as duas contam sessões e não têm nada a ver uma com a outra:
+  a cota evita GLOSA, o pacote evita ATENDER DE GRAÇA, e quem lê no balcão precisa saber
+  se fala com o convênio ou com o paciente. Só avisa quem TEM ou TEVE pacote, pela regra
+  de sempre: metade da clínica é de convênio e nunca comprou nada.
+  (c) **O recall só rodava no Gerente**, e quem telefona é o balcão — o mesmo argumento
+  que trouxe a rodada de confirmação na parcela 26, aplicado à outra ponta. A lista traz
+  **todo candidato, inclusive quem a rodada não pôde gerar** (sem telefone, sem
+  consentimento), com o motivo escrito: quem some da lista some da cabeça, e "12
+  pacientes" que eram 30 faz a clínica concluir que quase ninguém está sumindo.
+  (d) **`PerfilAcesso.Enfermagem` existia desde a parcela 42 e não levava a lugar nenhum**:
+  a sala de infusão só estava no `ModuloClinico`, carregado pelo exe do MÉDICO. A tela não
+  foi copiada — **subiu para o shell**, como o mapa corporal na parcela 36 —, e os dois
+  módulos publicam a **MESMA chave**. Foi isso que exigiu a dedupe por chave no
+  `ShellViewModel`: no Gerente, que carrega todos, a linha apareceria duas vezes, e item
+  repetido faz a pessoa clicar nos dois para descobrir que são a mesma tela.
+  A lição para a próxima auditoria, somada à da parcela 39 ("conte os itens de menu"):
+  **procure o AVISO que a tela dá e pergunte se a porta para resolvê-lo está no mesmo
+  app.** Alerta sem porta é pior que alerta nenhum — ele ensina a pessoa a ignorá-lo.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três

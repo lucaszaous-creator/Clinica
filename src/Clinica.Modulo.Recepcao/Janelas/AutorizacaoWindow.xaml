@@ -1,0 +1,116 @@
+<Window x:Class="Clinica.Recepcao.Janelas.AutorizacaoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Autorização de sessões" Width="560" SizeToContent="Height"
+        MinWidth="480"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- A SENHA DO CONVÊNIO, REGISTRADA NO BALCÃO (parcela 48).
+
+         Esta janela é o outro lado de um aviso que a recepção já recebia desde a parcela
+         26: "Cota esgotada — a próxima sessão vira glosa 2006". Ele existia, era lido, e
+         a única porta para resolvê-lo estava no app de FATURAMENTO, que é de outra
+         pessoa. Quem recebe a senha da operadora é o balcão. -->
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <!-- Rola por inteiro: com a escala do Windows em 150% um diálogo de 600 px vira 900 px
+         físicos, e sem isto os botões do rodapé ficam atrás da barra de tarefas. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="24">
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   Text="O que o convênio liberou. É este registro que faz o balcão ser avisado antes de a cota estourar — depois vira glosa 2006, com a sessão já prestada." />
+
+        <Grid Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Senha / número" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding Numero, UpdateSourceTrigger=PropertyChanged}" MaxLength="40"
+                         ctrl:Ajudantes.Placeholder="Como veio da operadora" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
+                <ComboBox ItemsSource="{Binding Convenios}"
+                          SelectedValue="{Binding ConvenioCodigo}"
+                          SelectedValuePath="Codigo" DisplayMemberPath="Nome" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Emitida em" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding DataEmissao}" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Válida até" Style="{StaticResource Rotulo}" />
+                <DatePicker SelectedDate="{Binding DataValidade}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Margin="0,12,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0">
+                <TextBlock Text="Sessões autorizadas" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding QuantidadeAutorizada}" MaxLength="4" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2">
+                <TextBlock Text="Já usadas antes do sistema" Style="{StaticResource Rotulo}" />
+                <TextBox Text="{Binding QuantidadeUtilizadaManual}" MaxLength="4" />
+                <!-- O consumo NORMAL é contado pelos atendimentos dentro da vigência. Este
+                     campo é só para a senha que já vinha sendo usada no papel — sem ele o
+                     saldo nasceria cheio e o aviso chegaria tarde. -->
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,3,0,0"
+                           Text="Deixe zero: o sistema conta sozinho pelos atendimentos." />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />
+        <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
+
+        <CheckBox Content="Encerrada (não conta mais como vigente)"
+                  IsChecked="{Binding Encerrada}" Margin="0,12,0,0" />
+
+        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
+                Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                    VerticalAlignment="Center" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" MinHeight="36" Margin="0,0,8,0"
+                    VerticalAlignment="Center" />
+            <Button Content="Salvar autorização" Command="{Binding SalvarCommand}"
+                    IsEnabled="{Binding PodeSalvar}"
+                    ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}"
+                    IsDefault="True" MinWidth="170" MinHeight="36"
+                    VerticalAlignment="Center" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

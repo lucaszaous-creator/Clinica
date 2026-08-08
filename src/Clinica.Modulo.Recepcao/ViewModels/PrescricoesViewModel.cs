@@ -75,7 +75,36 @@ public sealed partial class PrescricoesViewModel : ObservableObject
         _ = Seletor.BuscarAsync(imediato: true);
     }
 
-    private void AoTrocarPaciente(Paciente? paciente) => _ = CarregarAsync();
+    /// <summary>
+    /// LISTA → TELA DO ITEM (parcela 48). Era uma coluna de 340 px com a lista grudada à
+    /// esquerda para sempre — o padrão que o `README.md` proíbe. Mesmo desenho de
+    /// `PacientesViewModel` e `ProntuarioViewModel`.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrandoLista))]
+    private bool _mostrandoDocumentos;
+
+    /// <summary>Estamos na lista? O par existe porque XAML não nega booleano sem conversor.</summary>
+    public bool MostrandoLista => !MostrandoDocumentos;
+
+    private void AoTrocarPaciente(Paciente? paciente)
+    {
+        if (paciente is null) return;
+
+        MostrandoDocumentos = true;
+        _ = CarregarAsync();
+    }
+
+    /// <summary>
+    /// Volta para a lista. LIMPA a seleção: sem isso, clicar de novo no mesmo paciente não
+    /// dispararia <c>SelecaoMudou</c> e a tela não reabriria.
+    /// </summary>
+    [RelayCommand]
+    private void Voltar()
+    {
+        MostrandoDocumentos = false;
+        Seletor.Limpar();
+    }
 
     private int PacienteId => Seletor.Selecionado?.Id ?? 0;
 

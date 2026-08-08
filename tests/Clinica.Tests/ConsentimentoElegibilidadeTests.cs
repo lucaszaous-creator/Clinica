@@ -498,6 +498,127 @@ public class ConsentimentoElegibilidadeTests : IDisposable
             || a.Motivo == ImpedimentoElegibilidade.ConsultaARenovar);
     }
 
+    // ==================== O PACOTE NO BALCÃO (parcela 48) ====================
+    //
+    // A cota do convênio evita GLOSA; o pacote evita ATENDER DE GRAÇA. As duas contam
+    // sessões e não têm nada a ver uma com a outra — por isso são dois alertas.
+    //
+    // O que estes testes protegem é o MOMENTO: até a parcela 48 o pacote só aparecia no
+    // Finalizar, o último passo, quando a sessão já tinha acontecido.
+
+    private ElegibilidadeService ComPacotes() => new(
+        _repo, _autorizacoes, _consentimentos, _consultas,
+        inadimplencia: null, pacotes: new PacoteService(_repo));
+
+    private async Task<PacotePaciente> VenderPacoteAsync(
+        int pacienteId, int sessoes, DateOnly? validoAte = null)
+    {
+        return await new PacoteService(_repo).RegistrarVendaAsync(new PacotePaciente
+        {
+            PacienteId = pacienteId,
+            Nome = "Pacote 10 sessões",
+            Tipo = TipoPacote.Sessoes,
+            SessoesContratadas = sessoes,
+            Valor = 1000m,
+            DataCompra = Hoje.AddDays(-30),
+            ValidoAte = validoAte
+        });
+    }
+
+    [Fact]
+    public async Task Elegibilidade_PacoteEsgotado_AvisaNoBalcao()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var pacote = await VenderPacoteAsync(pacienteId, sessoes: 2);
+        var pacotes = new PacoteService(_repo);
+        await pacotes.ConsumirAsync(pacote.Id, Hoje.AddDays(-2));
+        await pacotes.ConsumirAsync(pacote.Id, Hoje.AddDays(-1));
+
+        var resultado = await ComPacotes().ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().Contain(a =>
+            a.Motivo == ImpedimentoElegibilidade.PacoteEsgotado);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_UltimaSessaoDoPacote_AvisaAntesDeAcabar()
+    {
+        // A hora barata de vender a renovação é com o paciente na frente — não depois,
+        // por telefone, quando ele já foi embora sem saber que acabou.
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var pacote = await VenderPacoteAsync(pacienteId, sessoes: 2);
+        await new PacoteService(_repo).ConsumirAsync(pacote.Id, Hoje.AddDays(-1));
+
+        var resultado = await ComPacotes().ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().Contain(a =>
+            a.Motivo == ImpedimentoElegibilidade.PacoteNoFim);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_PacienteSemPacoteNenhum_NaoAvisa()
+    {
+        // Metade da clínica é de convênio e nunca comprou pacote. Avisar "sem pacote"
+        // para essa metade é o alerta que dispara para todo mundo — e alerta que sempre
+        // aparece é alerta que ninguém lê. Mesma regra da cota.
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+
+        var resultado = await ComPacotes().ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().NotContain(a =>
+            a.Motivo == ImpedimentoElegibilidade.PacoteEsgotado
+            || a.Motivo == ImpedimentoElegibilidade.PacoteNoFim);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_PacoteComSaldo_NaoAvisa()
+    {
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+        await VenderPacoteAsync(pacienteId, sessoes: 10);
+
+        var resultado = await ComPacotes().ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().NotContain(a =>
+            a.Motivo == ImpedimentoElegibilidade.PacoteEsgotado
+            || a.Motivo == ImpedimentoElegibilidade.PacoteNoFim);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_PacoteVenceComSaldoSobrando_Avisa()
+    {
+        // É dinheiro que o paciente perde — e que a clínica devolve em forma de
+        // reclamação, se ninguém avisar enquanto dava para remarcar.
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+        await VenderPacoteAsync(pacienteId, sessoes: 10, validoAte: Hoje.AddDays(3));
+
+        var resultado = await ComPacotes().ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().Contain(a =>
+            a.Motivo == ImpedimentoElegibilidade.PacoteNoFim);
+    }
+
+    [Fact]
+    public async Task Elegibilidade_SemPacoteServiceMontado_NaoQuebra()
+    {
+        // O pacote é do módulo Financeiro: este serviço tem de continuar construível sem
+        // ele — a mesma escolha que o InadimplenciaService já seguia.
+        var pacienteId = await CriarPacienteAsync(Hoje.AddYears(1));
+        await ConsentirAsync(pacienteId);
+        await VenderPacoteAsync(pacienteId, sessoes: 1);
+
+        var resultado = await _elegibilidade.ConferirAsync(pacienteId, Hoje);
+
+        resultado.Alertas.Should().NotContain(a =>
+            a.Motivo == ImpedimentoElegibilidade.PacoteNoFim);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

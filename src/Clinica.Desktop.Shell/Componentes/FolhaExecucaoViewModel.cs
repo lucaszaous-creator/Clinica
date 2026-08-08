@@ -8,7 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.ObjectModel;
 
-namespace Clinica.Clinico.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>
 /// Um item da folha, do ponto de vista de quem executa.
