@@ -2,7 +2,8 @@ namespace Clinica.Domain.Regras;
 
 /// <summary>Uma entrada do catálogo de convênios (dado de referência carregado do banco).</summary>
 public sealed record EntradaConvenio(string Codigo, string Nome, Convenio Familia, bool Ativo,
-    ConfiguracaoRegraGenerica? Config = null);
+    ConfiguracaoRegraGenerica? Config = null,
+    FormatoNumeroGuia FormatoNumeroGuia = FormatoNumeroGuia.SemValidacao);
 
 /// <summary>
 /// Cache em memória do catálogo de convênios, para servir NOME e FAMÍLIA de forma
@@ -52,6 +53,34 @@ public static class CatalogoConvenios
         if (e?.Familia == Convenio.Personalizado)
             return e.Config?.ValidadeConsultaDias;
         return ConvenioInfo.ValidadeConsultaDias(Familia(codigo));
+    }
+
+    /// <summary>
+    /// Forma do número da guia deste convênio (parcela 45), para a baixa criticar o que
+    /// foi digitado.
+    ///
+    /// A resolução tem três degraus, e o terceiro é o que separa "não configurado" de
+    /// "não sei quem é":
+    ///
+    /// 1. Está no catálogo → vale o que a clínica marcou, inclusive "sem validação".
+    ///    A escolha dela ganha de qualquer padrão nosso.
+    /// 2. Não está, mas o código É uma família embutida → padrão da família. É o caso do
+    ///    banco anterior ao catálogo e o dos testes: devolver "aceita tudo" faria a regra
+    ///    sumir sem uma linha de erro, que é a forma mais silenciosa de uma validação
+    ///    deixar de existir.
+    /// 3. Código desconhecido (variante excluída do catálogo, por exemplo) → SEM
+    ///    validação. Aqui não se sabe de que operadora é a guia, e chutar o formato
+    ///    recusaria baixa legítima por causa de um dado que falta do NOSSO lado.
+    ///    <see cref="Familia"/> devolve <c>UnimedPadrao</c> nesse caso, e usá-la aqui
+    ///    exigiria número só de dígitos de um convênio que talvez nem seja Unimed.
+    /// </summary>
+    public static FormatoNumeroGuia FormatoDoNumeroDaGuia(string? codigo)
+    {
+        if (Buscar(codigo) is { } entrada) return entrada.FormatoNumeroGuia;
+
+        return Enum.TryParse<Convenio>(codigo, out var familia)
+            ? RegraNumeroGuia.PadraoDaFamilia(familia)
+            : FormatoNumeroGuia.SemValidacao;
     }
 
     /// <summary>Convênios ativos (código + nome), ordenados por nome — para os combos de cadastro.</summary>

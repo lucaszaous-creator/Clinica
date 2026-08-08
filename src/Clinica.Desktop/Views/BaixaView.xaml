@@ -30,6 +30,12 @@
 
             <TextBlock Text="Número da guia gerada (sistema do convênio)" Style="{StaticResource Rotulo}" />
             <TextBox Text="{Binding NumeroGuia, UpdateSourceTrigger=PropertyChanged}" />
+            <!-- O que ESTE convênio aceita, antes de a pessoa errar (parcela 45). Some
+                 quando o convênio não tem formato declarado: dica que não diz nada ensina
+                 a ignorar o lugar onde as dicas aparecem. -->
+            <TextBlock Text="{Binding DicaNumeroGuia}" Style="{StaticResource TextoSuave}"
+                       TextWrapping="Wrap" Margin="0,4,0,0"
+                       Visibility="{Binding TemDicaNumeroGuia, Converter={StaticResource BoolParaVisibilidade}}" />
 
             <TextBlock Text="Data da baixa" Style="{StaticResource Rotulo}" />
             <DatePicker SelectedDate="{Binding DataBaixa, StringFormat=dd/MM/yyyy}" HorizontalAlignment="Left" Width="160" />
@@ -40,7 +46,7 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
                 <Button Content="Cancelar" Command="{Binding CancelarCommand}"
                         Style="{StaticResource BotaoSecundario}" Margin="0,0,8,0" />
-                <Button Content="Confirmar baixa" Command="{Binding ConfirmarCommand}"
+                <Button Content="Confirmar baixa" Command="{Binding ConfirmarCommand}" IsEnabled="{Binding PodeBaixar}"
                         ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}" />
             </StackPanel>
             <TextBlock Text="{Binding Mensagem}" Foreground="{StaticResource Brush.Erro}" Margin="0,10,0,0" TextWrapping="Wrap" />

@@ -1,11 +1,17 @@
-using Clinica.Domain.Entities;
-
-namespace Clinica.Desktop.Shell;
+namespace Clinica.Domain.Entities;
 
 /// <summary>
 /// Quem está usando o app NESTE processo. Registrada como singleton no host: as
 /// ViewModels perguntam a ela quem assina a ação (o "operador" da auditoria, o
 /// "EnviadoPor" da campanha) em vez de cada tela inventar um nome.
+///
+/// MORA NO DOMÍNIO desde a parcela 45, e não no shell da suíte, porque o app de
+/// FATURAMENTO passou a ter login e precisa da mesma sessão. Ele não pode referenciar
+/// `Clinica.Desktop.Shell`: os dois declaram tipos no namespace `Clinica.Desktop.Controls`
+/// (o design system duplicado, débito assumido em docs/arquitetura-multi-exe.md), e a
+/// referência tornaria `IDialogoService` e `ISnackbarService` ambíguos nos dois lados.
+/// Duplicar a sessão seria pior: duas respostas para "quem assina esta ação" é
+/// exatamente o buraco que ela existe para fechar.
 ///
 /// Guarda uma FOTOGRAFIA do usuário no momento do login, não a entidade rastreada —
 /// segurar a entidade do EF presa a um scope morto é fonte garantida de

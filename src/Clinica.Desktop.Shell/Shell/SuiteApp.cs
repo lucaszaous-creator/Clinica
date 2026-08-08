@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using System.Windows;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Configuracao;

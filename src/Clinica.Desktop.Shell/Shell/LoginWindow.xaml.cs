@@ -18,7 +18,10 @@ namespace Clinica.Desktop.Shell;
 /// 2. Base com usuário → login e senha.
 /// 3. Senha provisória → obriga a trocar antes de abrir a janela principal.
 ///
-/// O app de FATURAMENTO não passa por aqui: está congelado, e continua sem login.
+/// O app de FATURAMENTO tem a tela DELE (`Clinica.Desktop/Acesso/LoginWindow`) desde a
+/// parcela 45 — mesma composição, mesmo `AcessoService`, mesma `SessaoUsuario`. Ele não
+/// reaproveita esta porque não pode referenciar este projeto: os dois declaram tipos no
+/// namespace `Clinica.Desktop.Controls` e as referências ficariam ambíguas.
 /// </summary>
 public partial class LoginWindow : Window
 {

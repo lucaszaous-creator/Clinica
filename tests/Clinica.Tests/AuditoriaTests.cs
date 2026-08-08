@@ -44,14 +44,14 @@ public class AuditoriaTests : IDisposable
         var codigo = await CriarCodigoAsync();
 
         await new FaturamentoService(_repo).DarBaixaAsync(
-            codigo.Id, new DateOnly(2026, 7, 11), "G-123", "maria", null);
+            codigo.Id, new DateOnly(2026, 7, 11), "90123", "maria", null);
 
         var eventos = await _repo.EventosAuditoriaAsync();
         eventos.Should().ContainSingle(e => e.Acao == "BaixaGuia");
         var evento = eventos.Single(e => e.Acao == "BaixaGuia");
         evento.Operador.Should().Be("maria");
         evento.CodigoId.Should().Be(codigo.Id);
-        evento.Detalhe.Should().Contain("G-123");
+        evento.Detalhe.Should().Contain("90123");
     }
 
     [Fact]
@@ -59,21 +59,21 @@ public class AuditoriaTests : IDisposable
     {
         var codigo = await CriarCodigoAsync();
         var faturamento = new FaturamentoService(_repo);
-        await faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "G-123", "maria", null);
+        await faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "90123", "maria", null);
 
         await faturamento.EstornarBaixaAsync(codigo.Id, "baixa por engano", "joana");
 
         var eventos = await _repo.EventosAuditoriaAsync();
         var estorno = eventos.Should().ContainSingle(e => e.Acao == "EstornoBaixa").Subject;
         estorno.Operador.Should().Be("joana");
-        estorno.Detalhe.Should().Contain("baixa por engano").And.Contain("G-123");
+        estorno.Detalhe.Should().Contain("baixa por engano").And.Contain("90123");
     }
 
     [Fact]
     public async Task Glosa_GravaEventosDoCicloCompleto()
     {
         var codigo = await CriarCodigoAsync();
-        await new FaturamentoService(_repo).DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "G-9", "maria", null);
+        await new FaturamentoService(_repo).DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "9009", "maria", null);
 
         var glosas = new GlosaService(_repo);
         await glosas.RegistrarAsync(codigo.Id, new DateOnly(2026, 7, 20), "carteirinha inválida", "1801", "maria");
@@ -99,13 +99,13 @@ public class AuditoriaTests : IDisposable
     {
         var codigo = await CriarCodigoAsync();
         var faturamento = new FaturamentoService(_repo);
-        await faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "G-1", "a", null);
+        await faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "9001", "a", null);
         await faturamento.EstornarBaixaAsync(codigo.Id, "engano", "b");
-        await faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 12), "G-2", "c", null);
+        await faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 12), "9002", "c", null);
 
         var todos = await _repo.EventosAuditoriaAsync();
         todos.Should().HaveCount(3);
-        todos.First().Detalhe.Should().Contain("G-2"); // o mais recente primeiro
+        todos.First().Detalhe.Should().Contain("9002"); // o mais recente primeiro
 
         (await _repo.EventosAuditoriaAsync(limite: 2)).Should().HaveCount(2);
     }

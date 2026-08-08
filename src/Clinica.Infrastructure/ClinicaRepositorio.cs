@@ -103,6 +103,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (filtro.Convenio is { } conv)
             q = q.Where(c => c.Atendimento!.Paciente!.Convenio == conv);
 
+        if (filtro.Modalidade is { } modalidade)
+            q = q.Where(c => c.Atendimento!.Modalidade == modalidade);
+
+        // A especialidade da GUIA vem primeiro; a do atendimento é o caminho de baixo,
+        // para a guia de acupuntura de um atendimento de Clínica da Dor não sumir do
+        // filtro da própria especialidade.
+        if (filtro.Especialidade is { } especialidade)
+            q = q.Where(c => c.Especialidade == especialidade
+                             || (c.Especialidade == null
+                                 && c.Atendimento!.EspecialidadeConsulta == especialidade));
+
         q = filtro.Status switch
         {
             Clinica.Application.Modelos.FiltroStatusGuia.Aberto =>
@@ -216,8 +227,21 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    /// <summary>
+    /// Um código pelo id, com o atendimento e o PACIENTE juntos.
+    ///
+    /// O Include entrou na parcela 45, quando a baixa passou a criticar o número da guia
+    /// pelo formato do convênio — e o convênio é do paciente. Ele conserta de quebra um
+    /// defeito silencioso: <c>FaturamentoService</c> gravava
+    /// <c>PacienteId = codigo.Atendimento?.PacienteId</c> na auditoria da baixa, do estorno
+    /// e da glosa, e sem o atendimento carregado isso era null sempre que o contexto ainda
+    /// não tivesse visto aquele atendimento por outro caminho. A trilha registrava a ação
+    /// sem dizer de quem era a guia.
+    /// </summary>
     public Task<CodigoFaturamento?> ObterCodigoAsync(int codigoId, CancellationToken ct = default)
-        => _db.Codigos.FirstOrDefaultAsync(c => c.Id == codigoId, ct);
+        => _db.Codigos
+            .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
+            .FirstOrDefaultAsync(c => c.Id == codigoId, ct);
 
     public async Task AdicionarAtendimentoAsync(Atendimento atendimento, CancellationToken ct = default)
         => await _db.Atendimentos.AddAsync(atendimento, ct);
@@ -412,6 +436,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             existe.ValidadeConsultaDias = convenio.ValidadeConsultaDias;
             existe.CategoriaComApp = convenio.CategoriaComApp;
             existe.CategoriaSemApp = convenio.CategoriaSemApp;
+            existe.FormatoNumeroGuia = convenio.FormatoNumeroGuia;
         }
     }
 

@@ -41,8 +41,8 @@ public class TissRetornoImportTests
     [Fact]
     public void GuiaGlosadaNoXml_VemComoGlosadaEComMotivo()
     {
-        var lote = new[] { Guia(1, "G-1"), Guia(2, "G-2") };
-        var xml = Demonstrativo(("G-1", "2001"), ("G-2", null));
+        var lote = new[] { Guia(1, "9001"), Guia(2, "9002") };
+        var xml = Demonstrativo(("9001", "2001"), ("9002", null));
 
         var r = TissRetornoImport.Ler(xml, lote);
 
@@ -55,14 +55,14 @@ public class TissRetornoImportTests
     [Fact]
     public void DataDoDemonstrativo_ELida()
     {
-        var r = TissRetornoImport.Ler(Demonstrativo(("G-1", null)), new[] { Guia(1, "G-1") });
+        var r = TissRetornoImport.Ler(Demonstrativo(("9001", null)), new[] { Guia(1, "9001") });
         r.DataDemonstrativo.Should().Be(new DateOnly(2026, 7, 25));
     }
 
     [Fact]
     public void GuiaNoXmlQueNaoEstaNoLote_EReportada()
     {
-        var r = TissRetornoImport.Ler(Demonstrativo(("G-99", "2001")), new[] { Guia(1, "G-1") });
+        var r = TissRetornoImport.Ler(Demonstrativo(("G-99", "2001")), new[] { Guia(1, "9001") });
 
         r.GuiasForaDoLote.Should().Contain("G-99");
         r.Decisoes.Should().BeEmpty();
@@ -71,16 +71,16 @@ public class TissRetornoImportTests
     [Fact]
     public void GuiaDoLoteAusenteNoXml_EReportadaComoSemRetorno()
     {
-        var lote = new[] { Guia(1, "G-1"), Guia(2, "G-2") };
-        var r = TissRetornoImport.Ler(Demonstrativo(("G-1", "2001")), lote);
+        var lote = new[] { Guia(1, "9001"), Guia(2, "9002") };
+        var r = TissRetornoImport.Ler(Demonstrativo(("9001", "2001")), lote);
 
-        r.GuiasSemRetorno.Should().Contain("G-2");
+        r.GuiasSemRetorno.Should().Contain("9002");
     }
 
     [Fact]
     public void CodigoForaDoCatalogo_ViraOutrosComCodigoNoTexto()
     {
-        var r = TissRetornoImport.Ler(Demonstrativo(("G-1", "7777")), new[] { Guia(1, "G-1") });
+        var r = TissRetornoImport.Ler(Demonstrativo(("9001", "7777")), new[] { Guia(1, "9001") });
 
         var decisao = r.Decisoes.Single();
         decisao.MotivoCodigo.Should().Be(MotivosGlosaCodigoOutros);
@@ -90,14 +90,14 @@ public class TissRetornoImportTests
     [Fact]
     public void ArquivoInvalido_LancaMensagemAmigavel()
     {
-        var acao = () => TissRetornoImport.Ler("não é xml", new[] { Guia(1, "G-1") });
+        var acao = () => TissRetornoImport.Ler("não é xml", new[] { Guia(1, "9001") });
         acao.Should().Throw<InvalidOperationException>().WithMessage("*não é um XML*");
     }
 
     [Fact]
     public void XmlSemMensagemTiss_LancaMensagemAmigavel()
     {
-        var acao = () => TissRetornoImport.Ler("<outraCoisa/>", new[] { Guia(1, "G-1") });
+        var acao = () => TissRetornoImport.Ler("<outraCoisa/>", new[] { Guia(1, "9001") });
         acao.Should().Throw<InvalidOperationException>().WithMessage("*TISS*");
     }
 

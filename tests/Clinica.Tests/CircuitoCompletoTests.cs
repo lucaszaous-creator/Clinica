@@ -165,7 +165,7 @@ public class CircuitoCompletoTests : IDisposable
         (await _financeiro.GuiasSemLancamentoAsync(Dia.AddDays(-30), Dia.AddDays(30)))
             .Should().NotContain(g => g.CodigoId == primeiro.Id);
 
-        await _faturamento.DarBaixaAsync(primeiro.Id, Dia, "GUIA-001", "secretaria", null);
+        await _faturamento.DarBaixaAsync(primeiro.Id, Dia, "100001", "secretaria", null);
         await _repo.SalvarAsync();
 
         // --- Financeiro: a guia baixada aparece para conciliar ---
@@ -236,7 +236,7 @@ public class CircuitoCompletoTests : IDisposable
             new DecisaoFechamento(agendamento.Id, DebitarPacote: false));
         var codigo = resultado.Atendimento.Codigos.OrderBy(c => c.Ordem).First();
 
-        await _faturamento.DarBaixaAsync(codigo.Id, Dia, "GUIA-002", "secretaria", null);
+        await _faturamento.DarBaixaAsync(codigo.Id, Dia, "100002", "secretaria", null);
         await _repo.SalvarAsync();
 
         var guia = (await _financeiro.GuiasSemLancamentoAsync(Dia.AddDays(-30), Dia.AddDays(30)))
@@ -289,7 +289,7 @@ public class CircuitoCompletoTests : IDisposable
             new DecisaoFechamento(agendamento.Id, DebitarPacote: false));
         var codigo = resultado.Atendimento.Codigos.OrderBy(c => c.Ordem).First();
 
-        await _faturamento.DarBaixaAsync(codigo.Id, Dia, "GUIA-003", "secretaria", null);
+        await _faturamento.DarBaixaAsync(codigo.Id, Dia, "100003", "secretaria", null);
         await _glosas.RegistrarAsync(codigo.Id, Dia.AddDays(5), "Divergência de código");
         await _repo.SalvarAsync();
 
@@ -394,7 +394,7 @@ public class CircuitoCompletoTests : IDisposable
             new DecisaoFechamento(agendamento.Id, DebitarPacote: false));
         var codigo = resultado.Atendimento.Codigos.OrderBy(c => c.Ordem).First();
 
-        await _faturamento.DarBaixaAsync(codigo.Id, Dia, "GUIA-004", "secretaria", null);
+        await _faturamento.DarBaixaAsync(codigo.Id, Dia, "100004", "secretaria", null);
         await _repo.SalvarAsync();
 
         // A guia baixada e ainda sem receita é o que a direção precisa ver primeiro.
@@ -429,7 +429,7 @@ public class CircuitoCompletoTests : IDisposable
             new DecisaoFechamento(agendamento.Id, DebitarPacote: false));
         var codigo = resultado.Atendimento.Codigos.OrderBy(c => c.Ordem).First();
 
-        await _faturamento.DarBaixaAsync(codigo.Id, Dia, "GUIA-005", "secretaria", null);
+        await _faturamento.DarBaixaAsync(codigo.Id, Dia, "100005", "secretaria", null);
         await _repo.SalvarAsync();
 
         var guia = (await _financeiro.GuiasSemLancamentoAsync(Dia.AddDays(-30), Dia.AddDays(30)))

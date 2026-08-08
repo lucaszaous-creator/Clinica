@@ -19,6 +19,8 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChavePainel = "painel-recepcao";
     public const string ChaveAgenda = "agenda-recepcao";
     public const string ChaveFila = "fila";
+    public const string ChaveNovoAtendimento = "novo-atendimento";
+    public const string ChaveConsultas = "consultas";
     public const string ChavePacientes = "pacientes-recepcao";
     public const string ChaveProntuario = "prontuario";
     public const string ChavePrescricoes = "prescricoes";
@@ -50,6 +52,27 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             Chave = ChavePacientes, Rotulo = "Pacientes / CRM", Glifo = "\uE77B",
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        // Novo atendimento e Consultas vieram do app de FATURAMENTO na parcela 46.
+        //
+        // Nenhum dos dois era feature nova: os dois existiam, no posto errado. Lançar
+        // atendimento AVULSO (quem chegou sem horário) e renovar a consulta do convênio
+        // são atos que se fazem com o PACIENTE NA FRENTE, e moravam na máquina de quem
+        // não recebe ninguém. A recepção via o selo "consulta a renovar" no cartão da
+        // agenda desde a parcela 44 e não tinha por onde renovar.
+        //
+        // O circuito com o faturamento não mudou: os dois caminhos do atendimento (este e
+        // a Fila → Finalizar) desembocam em AtendimentoService.LancarAsync, que é ponto
+        // único e grava Atendimento + CodigoFaturamento pelas regras do convênio.
+        new ItemMenuModulo
+        {
+            Chave = ChaveNovoAtendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveConsultas, Rotulo = "Consultas (conv\u00EAnio)", Glifo = "\uE8A5",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
         },
         // Prontu\u00E1rio e Prescri\u00E7\u00F5es s\u00E3o itens de PRIMEIRO N\u00CDVEL na proposta e, at\u00E9 aqui,
         // s\u00F3 existiam por dentro da ficha do paciente \u2014 sem entrada de menu em lugar
@@ -91,6 +114,8 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<DocumentosViewModel>();
         servicos.AddTransient<FilaViewModel>();
         servicos.AddTransient<PacientesViewModel>();
+        servicos.AddTransient<NovoAtendimentoViewModel>();
+        servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
         servicos.AddTransient<PrescricoesViewModel>();
         servicos.AddTransient<EquipeViewModel>();
@@ -105,6 +130,11 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
         ChavePacientes => new PacientesView { DataContext = servicos.GetRequiredService<PacientesViewModel>() },
+        ChaveNovoAtendimento => new NovoAtendimentoView
+        {
+            DataContext = servicos.GetRequiredService<NovoAtendimentoViewModel>()
+        },
+        ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
         ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },
         ChavePrescricoes => new PrescricoesView { DataContext = servicos.GetRequiredService<PrescricoesViewModel>() },
         ChaveDocumentos => new DocumentosView { DataContext = servicos.GetRequiredService<DocumentosViewModel>() },

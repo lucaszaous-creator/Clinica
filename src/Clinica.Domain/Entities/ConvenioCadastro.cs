@@ -20,6 +20,19 @@ public class ConvenioCadastro
     /// <summary>Disponível para novos cadastros. Inativo some das listas; o histórico é preservado.</summary>
     public bool Ativo { get; set; } = true;
 
+    /// <summary>
+    /// Que forma o número da guia tem no sistema DESTE convênio (parcela 45). Vale para
+    /// qualquer entrada do catálogo, embutida ou não — é por isso que mora aqui e não na
+    /// configuração da regra genérica logo abaixo: a Unimed é embutida e tem formato, e a
+    /// Sul América é personalizada e também tem.
+    ///
+    /// Nasce <see cref="FormatoNumeroGuia.SemValidacao"/> (o zero do enum) porque é o que
+    /// as linhas já gravadas passam a valer quando a coluna aparece — recusar baixa de
+    /// convênio nenhum é o único comportamento honesto para um campo que ninguém preencheu.
+    /// A migration semeia os embutidos; o resto a clínica marca em Configurações.
+    /// </summary>
+    public FormatoNumeroGuia FormatoNumeroGuia { get; set; } = FormatoNumeroGuia.SemValidacao;
+
     // ---- Configuração da regra GENÉRICA (usada apenas quando Familia == Personalizado) ----
 
     public bool FazEletro { get; set; }

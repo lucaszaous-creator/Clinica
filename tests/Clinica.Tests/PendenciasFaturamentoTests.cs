@@ -36,7 +36,7 @@ public class PendenciasFaturamentoTests : IDisposable
         await _db.SaveChangesAsync();
         var r = await new AtendimentoService(_repo).LancarAsync(p.Id, dataGlosa.AddDays(-5), ModalidadeAtendimento.AcupunturaSimples);
         var codigo = r.Atendimento.Codigos.First();
-        await new FaturamentoService(_repo).DarBaixaAsync(codigo.Id, dataGlosa.AddDays(-4), "G-1", "sec", null);
+        await new FaturamentoService(_repo).DarBaixaAsync(codigo.Id, dataGlosa.AddDays(-4), "9001", "sec", null);
         codigo.RegistrarGlosa(dataGlosa, "motivo", "1201", prazoDias);
         await _db.SaveChangesAsync();
         return codigo;

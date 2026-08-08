@@ -399,7 +399,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.CancelarAsync(cartao.Item.Id, Environment.UserName);
+            await agenda.CancelarAsync(cartao.Item.Id, SessaoUsuario.Atual.Operador);
         }
         await Recarregar();
     }
@@ -411,7 +411,7 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.MarcarFaltaAsync(cartao.Item.Id, Environment.UserName);
+            await agenda.MarcarFaltaAsync(cartao.Item.Id, SessaoUsuario.Atual.Operador);
         }
         await Recarregar();
     }

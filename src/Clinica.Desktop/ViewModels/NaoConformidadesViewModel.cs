@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Clinica.Application.Modelos;
@@ -16,6 +17,8 @@ namespace Clinica.Desktop.ViewModels;
 /// </summary>
 public partial class NaoConformidadesViewModel : ObservableObject, IAtalhosDeTela
 {
+    /// <summary>Metade VISÍVEL da permissão: reabrir devolve a guia à cobrança do painel.</summary>
+    public bool PodeMarcarNaoConformidade => SessaoUsuario.Atual.Pode(Permissao.MarcarNaoConformidade);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IDialogoService _dialogo;
 
@@ -55,6 +58,9 @@ public partial class NaoConformidadesViewModel : ObservableObject, IAtalhosDeTel
     private async Task Reabrir(NaoConformidadeItem? item)
     {
         if (item is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.MarcarNaoConformidade, "reabrir a não conformidade");
+
         if (!_dialogo.Confirmar("Reabrir não conformidade",
                 $"Reabrir a guia de {item.PacienteNome}? Ela volta a ser pendência ativa (aba Pendências).")) return;
 
@@ -62,7 +68,7 @@ public partial class NaoConformidadesViewModel : ObservableObject, IAtalhosDeTel
         {
             using var scope = _scopeFactory.CreateScope();
             var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
-            await rodada.ReabrirNaoConformidadeAsync(item.CodigoId, Environment.UserName);
+            await rodada.ReabrirNaoConformidadeAsync(item.CodigoId, SessaoUsuario.Atual.Operador);
         }
         catch (Exception ex)
         {

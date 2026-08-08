@@ -100,7 +100,7 @@ public class TissExportServiceTests
         var recuperada = new CodigoFaturamento
         {
             Id = 101, AtendimentoId = 10, Atendimento = codigo.Atendimento,
-            Tipo = TipoCodigo.Acupuntura, NumeroGuiaReal = "GUIA-999",
+            Tipo = TipoCodigo.Acupuntura, NumeroGuiaReal = "100999",
             DataBaixa = new DateOnly(2026, 7, 11)
         };
         recuperada.RegistrarGlosa(new DateOnly(2026, 7, 15), "x", "1201", 30);

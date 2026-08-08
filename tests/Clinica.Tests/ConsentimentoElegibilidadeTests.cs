@@ -356,7 +356,7 @@ public class ConsentimentoElegibilidadeTests : IDisposable
 
         var codigo = (await _repo.CodigosNoPeriodoAsync(Hoje.AddDays(-10), Hoje.AddDays(-10)))
             .First(c => c.Atendimento!.PacienteId == pacienteId);
-        codigo.DarBaixa(Hoje.AddDays(-8), "G-1", "secretaria", null);
+        codigo.DarBaixa(Hoje.AddDays(-8), "9001", "secretaria", null);
         await _db.SaveChangesAsync();
 
         // Glosa de ontem: o prazo de recurso ainda corre inteiro.
@@ -384,7 +384,7 @@ public class ConsentimentoElegibilidadeTests : IDisposable
 
         var codigo = (await _repo.CodigosNoPeriodoAsync(Hoje.AddDays(-40), Hoje.AddDays(-40)))
             .First(c => c.Atendimento!.PacienteId == pacienteId);
-        codigo.DarBaixa(Hoje.AddDays(-38), "G-2", "secretaria", null);
+        codigo.DarBaixa(Hoje.AddDays(-38), "9002", "secretaria", null);
         await _db.SaveChangesAsync();
 
         // Glosada há 27 dias: com o prazo padrão de 30, restam 3 para recorrer.

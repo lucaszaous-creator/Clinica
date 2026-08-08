@@ -54,6 +54,26 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                     </StackPanel>
+                    <StackPanel Width="220" Margin="0,0,12,8">
+                        <TextBlock Text="Modalidade" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding OpcoesModalidade}" SelectedItem="{Binding ModalidadeSelecionada}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <StackPanel Width="180" Margin="0,0,12,8">
+                        <TextBlock Text="Especialidade" Style="{StaticResource Rotulo}" />
+                        <ComboBox ItemsSource="{Binding OpcoesEspecialidade}" SelectedItem="{Binding EspecialidadeSelecionada}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
                 </WrapPanel>
                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                     <Button Command="{Binding BuscarCommand}">
@@ -63,7 +83,12 @@
                         </StackPanel>
                     </Button>
                     <Button Content="Limpar" Command="{Binding LimparCommand}" Style="{StaticResource BotaoSecundario}" Margin="8,0,0,0" />
-                    <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="{StaticResource Brush.Texto.Secundario}" />
+                    <!-- StackPanel horizontal dá a cada filho a largura que ele PEDE e nunca
+                         dobra a linha: sem o teto + TextWrapping, o resumo com o recorte do
+                         filtro sai pela direita da tela (checagem 17). -->
+                    <TextBlock Text="{Binding Resumo}" VerticalAlignment="Center" Margin="16,0,0,0"
+                               TextWrapping="Wrap" MaxWidth="520"
+                               Foreground="{StaticResource Brush.Texto.Secundario}" />
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -90,6 +115,10 @@
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
                                     Binding="{Binding Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                <DataGridTextColumn Header="Modalidade"
+                                    Binding="{Binding Atendimento.Modalidade, Converter={StaticResource EnumDescricao}}" Width="*" />
+                <DataGridTextColumn Header="Especialidade"
+                                    Binding="{Binding Especialidade, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Código"
                                     Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="Auto" />

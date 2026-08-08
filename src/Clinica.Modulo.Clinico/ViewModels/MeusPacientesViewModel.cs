@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;

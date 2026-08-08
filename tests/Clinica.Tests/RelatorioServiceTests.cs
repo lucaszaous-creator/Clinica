@@ -45,7 +45,7 @@ public class RelatorioServiceTests : IDisposable
         // Acu+Eletro gera 2 códigos; damos baixa em 1 → taxa 50%.
         var r = await atendimentos.LancarAsync(pacienteId, dia, ModalidadeAtendimento.AcupunturaComEletro);
         var primeiro = r.Atendimento.Codigos.First();
-        await faturamento.DarBaixaAsync(primeiro.Id, dia, "G-1", "sec", null);
+        await faturamento.DarBaixaAsync(primeiro.Id, dia, "9001", "sec", null);
 
         var rel = await relatorios.GerarAsync(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 31), new DateOnly(2026, 7, 20));
 

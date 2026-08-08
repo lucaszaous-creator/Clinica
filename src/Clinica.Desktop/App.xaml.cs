@@ -4,6 +4,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Alertas;
 using Clinica.Desktop.Configuracao;
 using Clinica.Desktop.ViewModels;
+using Clinica.Domain.Entities;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -125,6 +126,16 @@ public partial class App : System.Windows.Application
             }
         }
 
+        // Login (parcela 45). Vem DEPOIS das migrations — a tabela de usuários pode estar
+        // sendo criada agora — e ANTES da janela principal: sem sessão, toda ação gravaria
+        // o usuário do Windows na auditoria, que é o buraco que a permissão granular veio
+        // fechar. Recusar entrar encerra o app; não há modo "sem login".
+        if (!await AutenticarAsync())
+        {
+            Shutdown();
+            return;
+        }
+
         var window = _host!.Services.GetRequiredService<MainWindow>();
         window.DataContext = _host.Services.GetRequiredService<MainViewModel>();
         MainWindow = window;
@@ -158,6 +169,60 @@ public partial class App : System.Windows.Application
         // Checagem inicial: se a atualização da abertura não pegou (rede lenta) ou já há
         // uma versão pronta, o botão "Atualizar" aparece logo, sem esperar o 1º ciclo de 2h.
         await VerificarAtualizacaoAsync();
+    }
+
+    /// <summary>
+    /// Abre a tela de entrada e grava a sessão do processo. Devolve false quando o usuário
+    /// desistiu de entrar (o app fecha).
+    ///
+    /// Uma falha de LEITURA ("existe usuário ativo?") não pode virar app que não abre: se o
+    /// banco tossir nessa consulta, tratamos como base sem usuário e a tela de login diz o
+    /// que houve — pedir a senha de uma base que não respondeu seria pior, porque a pessoa
+    /// tentaria três vezes achando que errou a digitação.
+    /// </summary>
+    private async Task<bool> AutenticarAsync()
+    {
+        var escopos = _host!.Services.GetRequiredService<IServiceScopeFactory>();
+
+        bool primeiroAcesso;
+        try
+        {
+            using var scope = escopos.CreateScope();
+            var acesso = scope.ServiceProvider.GetRequiredService<AcessoService>();
+            primeiroAcesso = !await acesso.ExisteUsuarioAtivoAsync();
+        }
+        catch (Exception ex)
+        {
+            LogErros.Registrar("Faturamento — leitura dos usuários na abertura", ex);
+            MessageBox.Show(
+                "Não foi possível ler os usuários cadastrados:\n\n" + ex.Message,
+                "Entrar", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
+        }
+
+        while (true)
+        {
+            var login = new Acesso.LoginWindow(escopos, primeiroAcesso);
+            if (login.ShowDialog() != true || login.Usuario is null) return false;
+
+            // Este é o app do FATURAMENTO: quem não tem a leitura dele não tem seção
+            // nenhuma para abrir. Dizer isso na porta é melhor do que deixar entrar e
+            // mostrar uma sidebar vazia — tela vazia se lê como defeito do sistema, e a
+            // pessoa liga para o suporte em vez de falar com a direção.
+            if (!login.Usuario.Pode(Permissao.VerFaturamento))
+            {
+                MessageBox.Show(
+                    $"O acesso de {login.Usuario.Nome} não inclui o faturamento.\n\n"
+                    + "A direção libera a permissão \"Ver faturamento\" em Acessos, "
+                    + "no Gerente Geral.",
+                    "Entrar", MessageBoxButton.OK, MessageBoxImage.Warning);
+                primeiroAcesso = false;
+                continue; // volta para a tela de entrada, para outra pessoa entrar
+            }
+
+            _host.Services.GetRequiredService<SessaoUsuario>().Entrar(login.Usuario);
+            return true;
+        }
     }
 
     /// <summary>Checa/baixa atualização e, havendo versão nova pronta, mostra o botão "Atualizar" e avisa.</summary>
@@ -305,17 +370,20 @@ public partial class App : System.Windows.Application
                 services.AddSingleton<Controls.ISnackbarService>(sp => sp.GetRequiredService<Controls.SnackbarService>());
                 services.AddSingleton<Controls.IDialogoService, Controls.DialogoService>();
 
+                // Quem está usando o app NESTE processo (parcela 45). Singleton como na
+                // suíte: `SessaoUsuario.Atual` aponta para esta mesma instância assim que
+                // alguém entra, e é dela que sai o operador gravado na auditoria.
+                services.AddSingleton<SessaoUsuario>();
+
                 services.AddSingleton<MainViewModel>();
                 services.AddTransient<DashboardViewModel>();
                 services.AddTransient<NaoConformidadesViewModel>();
                 services.AddTransient<PacientesViewModel>();
-                services.AddTransient<NovoAtendimentoViewModel>();
                 services.AddTransient<BaixaViewModel>();
                 services.AddTransient<RelatoriosViewModel>();
                 services.AddTransient<FaturadosViewModel>();
                 services.AddTransient<FichaPacienteViewModel>();
                 services.AddTransient<AgendaViewModel>();
-                services.AddTransient<ConsultasViewModel>();
                 services.AddTransient<GlosasViewModel>();
                 services.AddTransient<TissViewModel>();
                 services.AddTransient<ConsultaGuiasViewModel>();

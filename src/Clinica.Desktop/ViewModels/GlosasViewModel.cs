@@ -39,6 +39,8 @@ public sealed record MotivoRecorrente(string Codigo, string Descricao, int Ocorr
 /// </summary>
 public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
 {
+    /// <summary>Metade VISÍVEL da permissão de mexer em glosa (reapresentar, recuperar, recurso).</summary>
+    public bool PodeRegistrarGlosa => SessaoUsuario.Atual.Pode(Permissao.RegistrarGlosa);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
 
@@ -130,10 +132,12 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
         if (linha is null) return;
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.RegistrarGlosa, "reapresentar a guia glosada");
+
             using (var scope = _scopeFactory.CreateScope())
             {
                 var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-                await glosas.ReapresentarAsync(linha.Codigo.Id, DateOnly.FromDateTime(DateTime.Today), Environment.UserName);
+                await glosas.ReapresentarAsync(linha.Codigo.Id, DateOnly.FromDateTime(DateTime.Today), SessaoUsuario.Atual.Operador);
             }
             await Buscar();
         }
@@ -147,6 +151,9 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
     private async Task Recuperar(GlosaLinha? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.RegistrarGlosa, "marcar a glosa como recuperada");
+
         if (!_dialogo.Confirmar("Confirmar",
             "Marcar esta glosa como recuperada (aceita pelo convênio)?")) return;
 
@@ -155,7 +162,7 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
             {
                 var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
-                await glosas.MarcarRecuperadaAsync(linha.Codigo.Id, Environment.UserName);
+                await glosas.MarcarRecuperadaAsync(linha.Codigo.Id, SessaoUsuario.Atual.Operador);
             }
             await Buscar();
         }

@@ -61,7 +61,7 @@ public sealed partial class NaoConformidadesGerencialViewModel : ObservableObjec
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
-    public bool PodeAgir => SessaoUsuario.Atual.Pode(Permissao.VerFaturamento);
+    public bool PodeAgir => SessaoUsuario.Atual.Pode(Permissao.MarcarNaoConformidade);
 
     public NaoConformidadesGerencialViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -107,7 +107,7 @@ public sealed partial class NaoConformidadesGerencialViewModel : ObservableObjec
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "reabrir a não conformidade");
+            SessaoUsuario.Atual.Exigir(Permissao.MarcarNaoConformidade, "reabrir a não conformidade");
 
             if (!_dialogo.ConfirmarPerigo("Reabrir guia",
                     $"A guia de {linha.Paciente} volta para as pendências ativas e passa a "

@@ -12,8 +12,6 @@
         Background="{StaticResource Brush.Fundo}">
 
     <Window.InputBindings>
-        <KeyBinding Modifiers="Ctrl" Key="N" Command="{Binding NavegarCommand}"
-                    CommandParameter="{x:Static vm:Secao.Atendimento}" />
         <KeyBinding Modifiers="Ctrl" Key="S" Command="{Binding AtalhoSalvarCommand}" />
         <KeyBinding Modifiers="Ctrl" Key="P" Command="{Binding AtalhoImprimirCommand}" />
         <KeyBinding Key="F5" Command="{Binding AtalhoAtualizarCommand}" />
@@ -30,9 +28,6 @@
         <DataTemplate DataType="{x:Type vm:PacientesViewModel}">
             <views:PacientesView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:NovoAtendimentoViewModel}">
-            <views:NovoAtendimentoView />
-        </DataTemplate>
         <DataTemplate DataType="{x:Type vm:BaixaViewModel}">
             <views:BaixaView />
         </DataTemplate>
@@ -47,9 +42,6 @@
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:AgendaViewModel}">
             <views:AgendaView />
-        </DataTemplate>
-        <DataTemplate DataType="{x:Type vm:ConsultasViewModel}">
-            <views:ConsultasView />
         </DataTemplate>
         <DataTemplate DataType="{x:Type vm:GlosasViewModel}">
             <views:GlosasView />
@@ -251,6 +243,31 @@
                         </Style>
                     </Button.Style>
                 </Button>
+
+                <!-- Quem está logado (rodapé; oculto quando recolhida).
+                     É LINHA de texto com um botão discreto, e não uma faixa: contexto
+                     permanente que vira caixa colorida come a sidebar e para de ser lido
+                     depois do segundo dia. -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,8">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MenuRecolhido}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="{Binding UsuarioRotulo}" FontSize="12" FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Foreground="{StaticResource Brush.Texto.Primario}"
+                               ToolTip="Usuário conectado — é este nome que vai para a trilha de auditoria" />
+                    <Button Content="Trocar usuário" Command="{Binding TrocarUsuarioCommand}"
+                            Style="{StaticResource BotaoSecundario}"
+                            Margin="0,6,0,0" Padding="10,4" FontSize="11"
+                            HorizontalAlignment="Left"
+                            ToolTip="Fecha e reabre o sistema na tela de entrada" />
+                </StackPanel>
 
                 <!-- Badge de pendências (rodapé; oculto quando recolhida) -->
                 <Border DockPanel.Dock="Bottom" Margin="12,8,12,12" CornerRadius="8"

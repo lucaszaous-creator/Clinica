@@ -309,7 +309,7 @@ public partial class FichaPacienteViewModel : ObservableObject
         using (var scope = _scopeFactory.CreateScope())
         {
             var service = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
-            await service.RemoverAsync(saldo.Autorizacao.Id, Environment.UserName);
+            await service.RemoverAsync(saldo.Autorizacao.Id, SessaoUsuario.Atual.Operador);
         }
         await CarregarAsync(_pacienteId);
     }
@@ -356,7 +356,7 @@ public partial class FichaPacienteViewModel : ObservableObject
 
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
-        await service.EstornarBaixaAsync(codigo.Id, "estorno pela ficha do paciente", Environment.UserName);
+        await service.EstornarBaixaAsync(codigo.Id, "estorno pela ficha do paciente", SessaoUsuario.Atual.Operador);
 
         await CarregarAsync(_pacienteId);
     }

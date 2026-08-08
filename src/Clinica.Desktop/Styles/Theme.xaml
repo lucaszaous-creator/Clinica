@@ -54,6 +54,13 @@
              linha na volta. O limite não muda nada no monitor de 1366 do balcão, onde a
              área de conteúdo já é menor que isto; ele só impede o esticão. -->
         <Setter Property="MaxWidth" Value="820" />
+        <!-- O alinhamento anda JUNTO do teto, e a falta dele é um defeito de verdade.
+             Num painel largo o TextBlock recebe a fatia inteira, o MaxWidth o encolhe para
+             820 — e o WPF CENTRALIZA o que sobrou. Resultado: num monitor de 1920 o
+             subtítulo da página nasce flutuando no meio da tela, com o título alinhado à
+             esquerda logo acima dele. Parece leiaute quebrado porque é. A suíte corrigiu
+             isso na parcela 37; o faturamento estava congelado e ficou para trás. -->
+        <Setter Property="HorizontalAlignment" Value="Left" />
         <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
 

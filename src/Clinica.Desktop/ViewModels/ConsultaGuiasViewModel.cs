@@ -20,6 +20,17 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
     public Array Status => Enum.GetValues(typeof(FiltroStatusGuia));
     public IReadOnlyList<object> OpcoesConvenio { get; }
 
+    /// <summary>
+    /// Modalidades para o filtro (parcela 45), com "Todas" na frente. Mesma construção do
+    /// convênio: a primeira opção é uma STRING, e o <c>EnumDescricao</c> a devolve como
+    /// veio — é o que permite "sem filtro" e "filtrado por" viverem no mesmo combo sem um
+    /// valor de enum inventado para significar "nenhum".
+    /// </summary>
+    public IReadOnlyList<object> OpcoesModalidade { get; }
+
+    /// <summary>Especialidades para o filtro, com "Todas" na frente.</summary>
+    public IReadOnlyList<object> OpcoesEspecialidade { get; }
+
     [ObservableProperty] private string? _termoPaciente;
     [ObservableProperty] private string? _numeroGuia;
     [ObservableProperty] private string? _termoObservacao;
@@ -27,7 +38,12 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
     [ObservableProperty] private DateTime? _fim;
     [ObservableProperty] private FiltroStatusGuia _statusSelecionado = FiltroStatusGuia.Todos;
     [ObservableProperty] private object _convenioSelecionado = "Todos";
+    [ObservableProperty] private object _modalidadeSelecionada = TodasAsModalidades;
+    [ObservableProperty] private object _especialidadeSelecionada = TodasAsEspecialidades;
     [ObservableProperty] private string? _resumo;
+
+    private const string TodasAsModalidades = "Todas";
+    private const string TodasAsEspecialidades = "Todas";
 
     public ConsultaGuiasViewModel(IServiceScopeFactory scopeFactory)
     {
@@ -35,6 +51,14 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
         var ops = new List<object> { "Todos" };
         ops.AddRange(Enum.GetValues<Convenio>().Cast<object>());
         OpcoesConvenio = ops;
+
+        var modalidades = new List<object> { TodasAsModalidades };
+        modalidades.AddRange(Enum.GetValues<ModalidadeAtendimento>().Cast<object>());
+        OpcoesModalidade = modalidades;
+
+        var especialidades = new List<object> { TodasAsEspecialidades };
+        especialidades.AddRange(Enum.GetValues<Especialidade>().Cast<object>());
+        OpcoesEspecialidade = especialidades;
     }
 
     public Task CarregarAsync() => Buscar();
@@ -50,7 +74,9 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
             Inicio = Inicio is { } i ? DateOnly.FromDateTime(i) : null,
             Fim = Fim is { } f ? DateOnly.FromDateTime(f) : null,
             Status = StatusSelecionado,
-            Convenio = ConvenioSelecionado is Convenio c ? c : null
+            Convenio = ConvenioSelecionado is Convenio c ? c : null,
+            Modalidade = ModalidadeSelecionada is ModalidadeAtendimento m ? m : null,
+            Especialidade = EspecialidadeSelecionada is Especialidade esp ? esp : null
         };
 
         using var scope = _scopeFactory.CreateScope();
@@ -59,7 +85,17 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
 
         Resultados.Clear();
         foreach (var g in lista) Resultados.Add(g);
-        Resumo = $"{lista.Count} guia(s) encontrada(s)" + (lista.Count == 500 ? " (mostrando as 500 mais recentes)" : "");
+
+        // A lista filtrada DIZ que está filtrada: "12 guias" e "12 guias de acupuntura em
+        // psiquiatria" respondem perguntas diferentes, e quem volta à tela depois do café
+        // não lembra o que deixou marcado no combo.
+        var recorte = new List<string>();
+        if (filtro.Modalidade is { } mod) recorte.Add(ModalidadeInfo.NomeExibicao(mod));
+        if (filtro.Especialidade is { } espec) recorte.Add(EspecialidadeInfo.NomeExibicao(espec));
+
+        Resumo = $"{lista.Count} guia(s) encontrada(s)"
+                 + (recorte.Count > 0 ? $" — {string.Join(" · ", recorte)}" : string.Empty)
+                 + (lista.Count == 500 ? " (mostrando as 500 mais recentes)" : "");
     }
 
     [RelayCommand]
@@ -72,6 +108,8 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
         Fim = null;
         StatusSelecionado = FiltroStatusGuia.Todos;
         ConvenioSelecionado = "Todos";
+        ModalidadeSelecionada = TodasAsModalidades;
+        EspecialidadeSelecionada = TodasAsEspecialidades;
         await Buscar();
     }
 

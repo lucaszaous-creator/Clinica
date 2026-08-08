@@ -39,14 +39,14 @@ public class RelatorioMetricasTests : IDisposable
         // Guia 1: baixada em +1 dia, depois glosada.
         var r1 = await atendimentos.LancarAsync(p.Id, new DateOnly(2026, 7, 6), ModalidadeAtendimento.AcupunturaSimples);
         var c1 = r1.Atendimento.Codigos.First();
-        await faturamento.DarBaixaAsync(c1.Id, new DateOnly(2026, 7, 7), "G-1", "sec", null);
+        await faturamento.DarBaixaAsync(c1.Id, new DateOnly(2026, 7, 7), "9001", "sec", null);
         c1.RegistrarGlosa(new DateOnly(2026, 7, 15), "m", "1201", 30);
         await _db.SaveChangesAsync();
 
         // Guia 2: baixada em +3 dias, sem glosa.
         var r2 = await atendimentos.LancarAsync(p.Id, new DateOnly(2026, 7, 13), ModalidadeAtendimento.AcupunturaSimples);
         var c2 = r2.Atendimento.Codigos.First();
-        await faturamento.DarBaixaAsync(c2.Id, new DateOnly(2026, 7, 16), "G-2", "sec", null);
+        await faturamento.DarBaixaAsync(c2.Id, new DateOnly(2026, 7, 16), "9002", "sec", null);
 
         var rel = await new RelatorioService(_repo).GerarAsync(
             new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 31), new DateOnly(2026, 7, 19));

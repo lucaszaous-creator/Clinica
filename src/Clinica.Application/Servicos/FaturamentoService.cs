@@ -1,5 +1,7 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
@@ -16,6 +18,12 @@ public sealed class FaturamentoService
     {
         var codigo = await _repo.ObterCodigoAsync(codigoId, ct)
             ?? throw new InvalidOperationException($"Código {codigoId} não encontrado.");
+
+        // A crítica de formato mora AQUI, e não em cada tela, porque a baixa tem quatro
+        // portas (tela de baixa, baixa em lote, rodada de pendências e fila do Gerente).
+        // Validar na tela cobriria uma; validar no caminho único cobre as quatro.
+        if (RegraNumeroGuia.Criticar(numeroGuia, FormatoDaGuia(codigo)) is { } critica)
+            throw new InvalidOperationException(critica);
 
         codigo.DarBaixa(dataBaixa, numeroGuia, usuario, observacao);
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
@@ -71,5 +79,23 @@ public sealed class FaturamentoService
             PacienteId = codigo.Atendimento?.PacienteId
         }, ct);
         await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
+    /// Formato do número da guia que vale para ESTA guia — o do convênio do paciente.
+    ///
+    /// Sem paciente carregado devolve <see cref="FormatoNumeroGuia.SemValidacao"/>: não dá
+    /// para afirmar o formato de um convênio que não se sabe qual é, e recusar a baixa por
+    /// isso travaria o faturamento por causa de um dado que falta no NOSSO lado.
+    /// </summary>
+    private static FormatoNumeroGuia FormatoDaGuia(CodigoFaturamento codigo)
+    {
+        var paciente = codigo.Atendimento?.Paciente;
+        if (paciente is null) return FormatoNumeroGuia.SemValidacao;
+
+        // ConvenioCodigo nulo significa convênio embutido, e aí o código é o nome da
+        // família — a mesma convenção que o catálogo usa em todo o resto do sistema.
+        return CatalogoConvenios.FormatoDoNumeroDaGuia(
+            paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
     }
 }

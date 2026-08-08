@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -23,6 +24,22 @@ internal static class RodadaPendenciasFluxo
     /// </summary>
     public static async Task<bool> ExecutarAsync(IServiceScopeFactory scopeFactory, Window? owner, bool bloqueante)
     {
+        // Quem não pode dar baixa NEM marcar não conformidade não tem como resolver uma
+        // única linha desta janela — e ela é BLOQUEANTE. Abri-la para essa pessoa trancaria
+        // o sistema com uma tarefa que ela não pode cumprir, que é o pior desfecho possível
+        // de uma permissão bem intencionada. Ela é avisada e o app segue: a cobrança volta
+        // no próximo login de quem decide.
+        if (!PodeDecidir())
+        {
+            MessageBox.Show(
+                "Há guias com o prazo de decisão vencido, e o seu acesso não permite dar "
+                + "baixa nem registrar não conformidade.\n\n"
+                + "Avise a direção da clínica: as guias continuam pendentes até alguém com "
+                + "essa permissão rodar as pendências.",
+                "Rodar pendências", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return false;
+        }
+
         using var scope = scopeFactory.CreateScope();
         var sp = scope.ServiceProvider;
         var rodada = sp.GetRequiredService<RodadaPendenciasService>();
@@ -51,10 +68,17 @@ internal static class RodadaPendenciasFluxo
             try
             {
                 if (!string.IsNullOrWhiteSpace(l.NumeroGuia))
+                {
+                    SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
                     await faturamento.DarBaixaAsync(l.CodigoId, janela.DataBaixa, l.NumeroGuia!.Trim(),
-                        Environment.UserName, "baixa na rodada de pendências");
+                        SessaoUsuario.Atual.Operador, "baixa na rodada de pendências");
+                }
                 else if (!string.IsNullOrWhiteSpace(l.Justificativa))
-                    await rodada.MarcarNaoConformidadeAsync(l.CodigoId, l.Justificativa!.Trim(), Environment.UserName);
+                {
+                    SessaoUsuario.Atual.Exigir(
+                        Permissao.MarcarNaoConformidade, "registrar a não conformidade");
+                    await rodada.MarcarNaoConformidadeAsync(l.CodigoId, l.Justificativa!.Trim(), SessaoUsuario.Atual.Operador);
+                }
             }
             catch (Exception ex)
             {
@@ -72,4 +96,13 @@ internal static class RodadaPendenciasFluxo
 
         return true;
     }
+
+    /// <summary>
+    /// A rodada só faz sentido para quem consegue tomar ALGUMA das duas decisões que ela
+    /// cobra. Com uma das duas já dá para andar: quem só pode baixar resolve as guias que
+    /// saíram, e as demais continuam pendentes — que é a verdade sobre elas.
+    /// </summary>
+    private static bool PodeDecidir()
+        => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia)
+           || SessaoUsuario.Atual.Pode(Permissao.MarcarNaoConformidade);
 }

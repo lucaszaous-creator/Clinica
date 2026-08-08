@@ -90,7 +90,7 @@ public sealed partial class GlosasGerencialViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
-    public bool PodeAgir => SessaoUsuario.Atual.Pode(Permissao.VerFaturamento);
+    public bool PodeAgir => SessaoUsuario.Atual.Pode(Permissao.RegistrarGlosa);
 
     public GlosasGerencialViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -169,7 +169,7 @@ public sealed partial class GlosasGerencialViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "mexer na glosa");
+            SessaoUsuario.Atual.Exigir(Permissao.RegistrarGlosa, "mexer na glosa");
 
             using var scope = _escopos.CreateScope();
             var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();

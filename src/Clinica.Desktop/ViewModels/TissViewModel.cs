@@ -31,6 +31,8 @@ public sealed record LoteLinha(
 /// </summary>
 public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 {
+    /// <summary>Metade VISÍVEL da permissão: o lote é o que SAI da clínica para a operadora.</summary>
+    public bool PodeGerenciarLotes => SessaoUsuario.Atual.Pode(Permissao.GerenciarLotesTiss);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly Controls.IDialogoService _dialogo;
 
@@ -83,6 +85,8 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         Ocupado = true;
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "gerar lote TISS");
+
             await ExportarInterno();
         }
         catch (Exception ex)
@@ -149,7 +153,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         };
         if (dialog.ShowDialog() != true) return;
 
-        var lote = await lotes.CriarAsync(inicio, fim, dados.RegistroAnsOperadora, Environment.UserName);
+        var lote = await lotes.CriarAsync(inicio, fim, dados.RegistroAnsOperadora, SessaoUsuario.Atual.Operador);
         if (lote is null) return; // corrida improvável: outra máquina exportou no meio-tempo
 
         var xml = tiss.GerarLoteXml(lote.Codigos, dados, lote.Numero.ToString());
@@ -211,6 +215,9 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
     private async Task MarcarEnviado(LoteLinha? linha)
     {
         if (linha is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "registrar o envio do lote");
+
         var janela = new Alertas.EnvioLoteWindow(linha.Numero)
         {
             Owner = System.Windows.Application.Current.MainWindow
@@ -221,7 +228,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         {
             using var scope = _scopeFactory.CreateScope();
             var lotes = scope.ServiceProvider.GetRequiredService<LoteTissService>();
-            await lotes.MarcarEnviadoAsync(linha.Id, janela.DataEnvio, janela.Protocolo, Environment.UserName);
+            await lotes.MarcarEnviadoAsync(linha.Id, janela.DataEnvio, janela.Protocolo, SessaoUsuario.Atual.Operador);
             await CarregarAsync();
         }
         catch (Exception ex)
@@ -237,6 +244,8 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         if (linha is null) return;
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarLotesTiss, "registrar o retorno do lote");
+
             LoteTiss lote;
             using (var scope = _scopeFactory.CreateScope())
                 lote = await scope.ServiceProvider.GetRequiredService<LoteTissService>().ObterAsync(linha.Id);
@@ -275,7 +284,7 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
             {
                 var lotes = scope.ServiceProvider.GetRequiredService<LoteTissService>();
-                await lotes.RegistrarRetornoAsync(linha.Id, janela.DataRetorno, janela.Decisoes, janela.Observacao, Environment.UserName);
+                await lotes.RegistrarRetornoAsync(linha.Id, janela.DataRetorno, janela.Decisoes, janela.Observacao, SessaoUsuario.Atual.Operador);
             }
 
             var glosadas = janela.Decisoes.Count(d => d.Glosada);

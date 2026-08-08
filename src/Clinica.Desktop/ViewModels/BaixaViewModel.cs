@@ -2,7 +2,9 @@ using System.Windows.Input;
 using System.Diagnostics;
 using System.IO;
 using Clinica.Application.Servicos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Infrastructure;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -32,6 +34,29 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
     public bool TemObservacaoPendencia => !string.IsNullOrWhiteSpace(ObservacaoPendencia);
     partial void OnObservacaoPendenciaChanged(string? value) => OnPropertyChanged(nameof(TemObservacaoPendencia));
 
+    /// <summary>
+    /// Forma do número da guia no sistema DESTE convênio (parcela 45) — o que decide se o
+    /// campo aceita letra. Resolvida ao carregar a guia, e não no clique: é ela que
+    /// escreve a dica ao lado do campo.
+    /// </summary>
+    public FormatoNumeroGuia FormatoGuia { get; private set; } = FormatoNumeroGuia.SemValidacao;
+
+    /// <summary>
+    /// "Este convênio aceita somente números." — a frase ao lado do campo, ANTES de a
+    /// pessoa errar. Vazia quando o convênio não tem formato declarado: dica que não diz
+    /// nada ocupa a linha e ensina a ignorar o lugar onde as dicas aparecem.
+    /// </summary>
+    [ObservableProperty] private string? _dicaNumeroGuia;
+    public bool TemDicaNumeroGuia => !string.IsNullOrWhiteSpace(DicaNumeroGuia);
+    partial void OnDicaNumeroGuiaChanged(string? value) => OnPropertyChanged(nameof(TemDicaNumeroGuia));
+
+    /// <summary>
+    /// Metade VISÍVEL da barreira de permissão: o botão explica. A que IMPEDE é o
+    /// <c>Exigir</c> dentro do comando — só desabilitar seria enfeite, porque o atalho
+    /// Ctrl+S do shell dispara o mesmo comando por outro caminho.
+    /// </summary>
+    public bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
+
     public event Action? BaixaConcluida;
     public event Action? Cancelado;
 
@@ -50,6 +75,13 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
             .Include(c => c.Atendimento!).ThenInclude(a => a.Paciente!)
             .FirstOrDefaultAsync(c => c.Id == codigoId);
         PacienteNome = Codigo?.Atendimento?.Paciente?.Nome ?? string.Empty;
+
+        var paciente = Codigo?.Atendimento?.Paciente;
+        FormatoGuia = paciente is null
+            ? FormatoNumeroGuia.SemValidacao
+            : CatalogoConvenios.FormatoDoNumeroDaGuia(
+                paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
+        DicaNumeroGuia = RegraNumeroGuia.Dica(FormatoGuia);
         ObservacaoPendencia = Codigo?.ObservacaoPendencia is { } obs && Codigo.ObservacaoPendenciaEm is { } quando
             ? $"{obs}  (anotado em {quando:dd/MM/yyyy HH:mm})"
             : Codigo?.ObservacaoPendencia;
@@ -58,9 +90,20 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand]
     private async Task Confirmar()
     {
+        SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
+
         if (string.IsNullOrWhiteSpace(NumeroGuia))
         {
             Mensagem = "Informe o número da guia gerada no sistema do convênio.";
+            return;
+        }
+
+        // Crítica do formato ANTES da confirmação: o serviço recusa de qualquer jeito
+        // (é lá que a regra mora, porque a baixa tem quatro portas), mas descobrir o
+        // requisito depois de confirmar é o que faz a pessoa desistir da tela.
+        if (RegraNumeroGuia.Criticar(NumeroGuia, FormatoGuia) is { } critica)
+        {
+            Mensagem = critica;
             return;
         }
 
@@ -78,7 +121,7 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
             {
                 var service = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
                 await service.DarBaixaAsync(_codigoId, DateOnly.FromDateTime(DataBaixa),
-                    NumeroGuia, Environment.UserName, Observacao);
+                    NumeroGuia, SessaoUsuario.Atual.Operador, Observacao);
             }
         }
         catch (Exception ex)
