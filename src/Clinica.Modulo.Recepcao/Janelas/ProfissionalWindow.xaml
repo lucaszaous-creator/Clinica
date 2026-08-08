@@ -14,7 +14,7 @@
          ficam atrás da barra de tarefas. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
-        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
 
         <TextBlock Text="Nome" Style="{StaticResource Rotulo}" />
         <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" MaxLength="120" />

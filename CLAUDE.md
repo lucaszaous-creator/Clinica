@@ -1127,11 +1127,14 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   valor a caber no que sobrou — num monitor de 1366 px, cinco colunas dão ~250 px, e
   "R$ 1.234.567,89" em 28 px negrito não cabe. Virou `WrapPanel` com piso de largura: cada
   cartão pede o que precisa e a fileira quebra quando não couber.
-  A checagem 24 é **erro** só nos módulos já limpos e **um aviso com a contagem** para o
-  resto: transformar centenas de ocorrências antigas em erro pararia o CI por dívida
-  velha, e trezentas linhas de aviso treinam qualquer um a ignorar a saída. Corrigido um
-  módulo, acrescente-o a `LIMPOS` e a checagem passa a cobrá-lo. Já limpos: **Gerente e
-  Financeiro**; faltam Recepção (98), faturamento (81), Consultório (17) e shell (12).
+  A checagem 24 cobre hoje os **SEIS módulos** — a dívida foi zerada de uma vez (338
+  ocorrências) e `LIMPOS` os lista todos. O mecanismo de aviso por módulo continua ali
+  porque é o caminho de volta: módulo novo entra fora da lista, aparece como aviso com a
+  contagem, e passa a ser erro quando alguém o limpar.
+  ⚠️ **A lista de estilos que "já resolvem" é LIDA dos dicionários, não escrita à mão.**
+  São DOIS design systems (o da suíte e o do faturamento, que não se referenciam — o
+  débito permanente da parcela 7), e a lista fixa só conhecia um: os seis `FichaValor` do
+  faturamento apareciam como dívida sem serem, porque aquele estilo corta desde sempre.
   ⚠️ **A primeira versão da checagem tinha um ponto cego, e a pergunta do cliente ("você
   verificou TODAS?") foi o que o revelou**: ela só lia a TAG DE ABERTURA, e a suíte monta
   frase com pedaço variável no meio usando `<Run Text="{Binding X}" />` como FILHO —

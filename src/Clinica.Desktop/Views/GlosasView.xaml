@@ -56,7 +56,7 @@
                                 </Grid.ColumnDefinitions>
                                 <Border Grid.Column="0" Style="{StaticResource Badge.Erro}" VerticalAlignment="Top"
                                         Margin="0,0,10,0">
-                                    <TextBlock Text="{Binding Rotulo}" />
+                                    <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </Border>
                                 <TextBlock Grid.Column="1" Text="{Binding ComoEvitar}" TextWrapping="Wrap"
                                            VerticalAlignment="Center" Style="{StaticResource FichaRotulo}" Margin="0" />

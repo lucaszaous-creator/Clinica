@@ -139,7 +139,7 @@
                                                FontSize="{StaticResource Fonte.Legenda}"
                                                FontWeight="SemiBold"
                                                Foreground="{StaticResource Brush.Texto.Secundario}"
-                                               Style="{StaticResource SomeAoRecolher}" />
+                                               Style="{StaticResource SomeAoRecolher}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <ItemsControl ItemsSource="{Binding Itens}">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate DataType="{x:Type modulos:ItemMenuModulo}">
@@ -156,7 +156,7 @@
                                                         <TextBlock Text="{Binding Glifo}"
                                                                    FontFamily="{StaticResource FonteIcones}"
                                                                    FontSize="{StaticResource Fonte.Corpo}" Width="22"
-                                                                   VerticalAlignment="Center" />
+                                                                   VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                         <TextBlock Text="{Binding Rotulo}"
                                                                    VerticalAlignment="Center"
                                                                    TextTrimming="CharacterEllipsis"
@@ -197,13 +197,13 @@
                         <TextBlock Text="{Binding UsuarioRotulo}"
                                    VerticalAlignment="Center"
                                    Foreground="{StaticResource Brush.Texto.Primario}"
-                                   FontSize="{StaticResource Fonte.Tabela}" />
+                                   FontSize="{StaticResource Fonte.Tabela}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
 
                     <TextBlock DockPanel.Dock="Right" Text="{Binding DataHoje}"
                                VerticalAlignment="Center" Margin="16,0,0,0"
                                Foreground="{StaticResource Brush.Texto.Secundario}"
-                               FontSize="{StaticResource Fonte.Legenda}" />
+                               FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" HorizontalAlignment="Left" />
 
                     <!-- Pesquisa global: paleta de seções. Enter vai na primeira. -->
                     <Grid DockPanel.Dock="Right" Width="280" VerticalAlignment="Center"
@@ -235,8 +235,8 @@
                                                     <TextBlock Text="{Binding Glifo}"
                                                                FontFamily="{StaticResource FonteIcones}"
                                                                FontSize="{StaticResource Fonte.Corpo}" Width="22"
-                                                               VerticalAlignment="Center" />
-                                                    <TextBlock Text="{Binding Rotulo}" VerticalAlignment="Center" />
+                                                               VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    <TextBlock Text="{Binding Rotulo}" VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </StackPanel>
                                             </Button>
                                         </DataTemplate>
@@ -251,7 +251,7 @@
                         <TextBlock Text="{Binding ModuloAtual}"
                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                    FontSize="{StaticResource Fonte.Tabela}"
-                                   VerticalAlignment="Center" />
+                                   VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                         <TextBlock Text="  ›  "
                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                    VerticalAlignment="Center" />
@@ -259,7 +259,7 @@
                                    Foreground="{StaticResource Brush.Texto.Primario}"
                                    FontWeight="SemiBold"
                                    FontSize="{StaticResource Fonte.Tabela}"
-                                   VerticalAlignment="Center" />
+                                   VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
                 </DockPanel>
             </Border>

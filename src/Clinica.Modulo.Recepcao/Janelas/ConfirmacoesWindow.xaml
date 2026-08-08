@@ -63,7 +63,7 @@
 
                                 <TextBlock Grid.Column="0" Text="{Binding Horario}"
                                            FontWeight="SemiBold" VerticalAlignment="Center"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                           Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
 
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
@@ -71,7 +71,7 @@
                                                Foreground="{StaticResource Brush.Texto.Primario}" />
                                     <TextBlock Margin="0,2,0,0"
                                                FontSize="{StaticResource Fonte.Legenda}"
-                                               Foreground="{StaticResource Brush.Texto.Secundario}">
+                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                         <Run Text="{Binding Profissional, Mode=OneWay}" />
                                         <Run Text=" · " />
                                         <Run Text="{Binding Situacao, Mode=OneWay}" />

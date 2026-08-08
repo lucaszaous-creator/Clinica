@@ -223,7 +223,7 @@
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                               FontWeight="SemiBold" />
+                                                               FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                                     <TextBlock Grid.Column="1" Text="{Binding Eva}"
                                                                Margin="8,0,0,0" TextWrapping="Wrap"
                                                                FontSize="{StaticResource Fonte.Legenda}"

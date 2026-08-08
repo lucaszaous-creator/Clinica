@@ -65,27 +65,27 @@
             <TextBlock Text="ATENDIMENTO" Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,12" />
             <WrapPanel>
                 <StackPanel Style="{StaticResource Kpi}">
-                    <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Atendidos}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="sessões atendidas" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
-                    <TextBlock Text="{Binding Pacientes}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Pacientes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="pacientes distintos" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
-                    <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="faltas" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
-                    <TextBlock Text="{Binding NoShow}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding NoShow}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="taxa de falta" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
-                    <TextBlock Text="{Binding Ocupacao}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Ocupacao}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="ocupação da agenda" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                 </StackPanel>
@@ -97,17 +97,17 @@
             <TextBlock Text="PRONTUÁRIO" Style="{StaticResource CardKpi.Rotulo}" Margin="0,0,0,12" />
             <WrapPanel>
                 <StackPanel Style="{StaticResource Kpi}">
-                    <TextBlock Text="{Binding Completude}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Completude}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="completude do prontuário" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
-                    <TextBlock Text="{Binding Evolucoes}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Evolucoes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="evoluções escritas" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel Style="{StaticResource Kpi}">
-                    <TextBlock Text="{Binding MelhoraDor}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding MelhoraDor}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="melhora média da dor (EVA)" Style="{StaticResource TextoSuave}"
                                FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap" />
                 </StackPanel>

@@ -49,7 +49,7 @@
                 <TextBlock Text="{Binding Numero}" FontWeight="Bold"
                            FontSize="{StaticResource Fonte.Legenda}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Foreground="{StaticResource Brush.Texto.Invertido}" />
+                           Foreground="{StaticResource Brush.Texto.Invertido}" TextWrapping="Wrap" />
             </Border>
         </DataTemplate>
 

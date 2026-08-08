@@ -76,10 +76,10 @@
                                     <TextBlock x:Name="icone" Text="{Binding Glifo}"
                                                FontFamily="{StaticResource FonteIcones}" FontSize="16"
                                                Foreground="{StaticResource Brush.Sidebar.Texto}"
-                                               VerticalAlignment="Center" />
+                                               VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <TextBlock x:Name="rotulo" Text="{Binding Rotulo}" Margin="12,0,0,0"
                                                FontSize="14" VerticalAlignment="Center"
-                                               Foreground="{StaticResource Brush.Sidebar.Texto}" />
+                                               Foreground="{StaticResource Brush.Sidebar.Texto}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </Grid>
                         </Border>
@@ -117,7 +117,7 @@
             <StackPanel>
                 <TextBlock x:Name="cabecalho" Text="{Binding Nome}" Margin="20,14,12,4"
                            FontSize="11" FontWeight="SemiBold"
-                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 <ItemsControl ItemsSource="{Binding Itens}" ItemTemplate="{StaticResource TemplateItemMenu}"
                               Focusable="False" />
             </StackPanel>
@@ -288,7 +288,7 @@
                         <TextBlock Text="&#xEA8F;" FontFamily="{StaticResource FonteIcones}" FontSize="13"
                                    Foreground="{StaticResource Brush.Erro}" VerticalAlignment="Center" />
                         <TextBlock Margin="8,0,0,0" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Erro}" VerticalAlignment="Center">
+                                   Foreground="{StaticResource Brush.Erro}" VerticalAlignment="Center" TextWrapping="Wrap">
                             <Run Text="Pendências: " /><Run Text="{Binding PendenciasBadge, Mode=OneWay}" />
                         </TextBlock>
                     </StackPanel>
@@ -339,7 +339,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Border.Style>
-                                <TextBlock Text="{Binding PendenciasBadge}" />
+                                <TextBlock Text="{Binding PendenciasBadge}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </Border>
                         </Grid>
                         <Button Style="{StaticResource BotaoIcone}" Content="&#xE713;"
@@ -383,17 +383,17 @@
                                                             <StackPanel Orientation="Horizontal">
                                                                 <TextBlock Text="{Binding Glifo}" FontFamily="{StaticResource FonteIcones}"
                                                                            FontSize="14" Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                                           VerticalAlignment="Center" />
+                                                                           VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                                 <TextBlock Text="{Binding Grupo}" Margin="10,0,0,0" FontSize="13"
                                                                            Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                                           VerticalAlignment="Center" />
+                                                                           VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                                 <TextBlock Text="&#xE76C;" FontFamily="{StaticResource FonteIcones}"
                                                                            FontSize="9" Margin="6,0"
                                                                            Foreground="{StaticResource Brush.Texto.Secundario}"
                                                                            VerticalAlignment="Center" />
                                                                 <TextBlock Text="{Binding Rotulo}" FontSize="13" FontWeight="SemiBold"
                                                                            Foreground="{StaticResource Brush.Texto.Primario}"
-                                                                           VerticalAlignment="Center" />
+                                                                           VerticalAlignment="Center" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                             </StackPanel>
                                                         </Border>
                                                         <ControlTemplate.Triggers>
@@ -417,9 +417,9 @@
             <!-- Breadcrumb -->
             <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="24,12,24,0">
                 <TextBlock Text="{Binding BreadcrumbModulo}" Style="{StaticResource BreadcrumbAtual}"
-                           Foreground="{StaticResource Brush.Texto.Secundario}" FontWeight="Normal" />
+                           Foreground="{StaticResource Brush.Texto.Secundario}" FontWeight="Normal" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 <TextBlock Style="{StaticResource BreadcrumbSeparador}" />
-                <TextBlock Text="{Binding BreadcrumbTela}" Style="{StaticResource BreadcrumbAtual}" />
+                <TextBlock Text="{Binding BreadcrumbTela}" Style="{StaticResource BreadcrumbAtual}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 <StackPanel Orientation="Horizontal">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
@@ -431,7 +431,7 @@
                         </Style>
                     </StackPanel.Style>
                     <TextBlock Style="{StaticResource BreadcrumbSeparador}" />
-                    <TextBlock Text="{Binding BreadcrumbDetalhe}" Style="{StaticResource BreadcrumbAtual}" />
+                    <TextBlock Text="{Binding BreadcrumbDetalhe}" Style="{StaticResource BreadcrumbAtual}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 </StackPanel>
             </StackPanel>
 

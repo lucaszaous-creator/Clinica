@@ -65,7 +65,7 @@
                          cartões da mesma raia terem alturas diferentes sem motivo. -->
                     <TextBlock Text="{Binding Espera}" Margin="0,2,0,0"
                                FontSize="{StaticResource Fonte.Legenda}"
-                               Foreground="{StaticResource Brush.Texto.Secundario}">
+                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Visibility" Value="Visible" />

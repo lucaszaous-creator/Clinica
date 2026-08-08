@@ -70,7 +70,7 @@
                 <StackPanel Grid.Column="2"
                             Visibility="{Binding TemSegundoValor,
                                          Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="{Binding RotuloSegundoValor}" Style="{StaticResource Rotulo}" />
+                    <TextBlock Text="{Binding RotuloSegundoValor}" Style="{StaticResource Rotulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     <TextBox Text="{Binding ValorSecundarioNovo, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
             </Grid>

@@ -41,7 +41,7 @@
                                     <TextBlock Text="{Binding Descricao}" TextTrimming="CharacterEllipsis"
                                                Foreground="{StaticResource Brush.Texto.Primario}" />
                                     <TextBlock Text="{Binding Situacao}" FontSize="12"
-                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </StackPanel>
                                 <TextBox Grid.Column="1" Text="{Binding NumeroGuia, UpdateSourceTrigger=PropertyChanged}"
                                          VerticalAlignment="Center" Margin="0,0,8,0"

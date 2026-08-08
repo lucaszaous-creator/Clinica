@@ -1415,8 +1415,37 @@ if not [
 # da mesma família, e transformar tudo em erro de uma vez pararia o CI por dívida antiga.
 # Elas viram UMA linha de aviso com a contagem por módulo — dívida escrita, não escondida,
 # e sem encher a saída com trezentas linhas que ninguém lê.
-LIMPOS = ("Clinica.Modulo.Gerente", "Clinica.Modulo.Financeiro")
-ESTILO_JA_RESOLVE = {"TextoSuave", "CardKpi.Variacao"}
+LIMPOS = (
+    "Clinica.Desktop",
+    "Clinica.Desktop.Shell",
+    "Clinica.Modulo.Clinico",
+    "Clinica.Modulo.Financeiro",
+    "Clinica.Modulo.Gerente",
+    "Clinica.Modulo.Recepcao",
+)
+
+
+def _estilos_que_ja_resolvem() -> set[str]:
+    """
+    Os estilos de TextBlock que já tratam o estouro no PRÓPRIO estilo.
+
+    Lido dos dicionários de estilo, não escrito à mão: são DOIS design systems (o da suíte
+    e o do faturamento, que não se referenciam — o débito permanente da parcela 7), e uma
+    lista fixa aqui só conheceria um deles. Foi o que aconteceu: os seis `FichaValor` do
+    faturamento apareceram como dívida sem serem — aquele estilo corta desde sempre.
+    """
+    achados: set[str] = set()
+    for arq in RAIZ.rglob("src/**/Styles/**/*.xaml"):
+        corpo = arq.read_text(encoding="utf-8")
+        for m in re.finditer(
+            r'<Style x:Key="([^"]+)" TargetType="TextBlock"[^>]*>(.*?)</Style>', corpo, re.S
+        ):
+            if "TextWrapping" in m.group(2) or "TextTrimming" in m.group(2):
+                achados.add(m.group(1))
+    return achados
+
+
+ESTILO_JA_RESOLVE = _estilos_que_ja_resolvem()
 # Duas formas de amarrar texto, e a segunda escapava: `Text="{Binding X}"` na tag de
 # abertura, e `<Run Text="{Binding X}" />` como FILHO. A segunda é como a suíte monta
 # frase com pedaço variável no meio ("Sai hoje de cada recebimento: R$ 1.234"), e olhar

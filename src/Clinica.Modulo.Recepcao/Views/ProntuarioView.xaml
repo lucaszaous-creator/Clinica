@@ -59,7 +59,7 @@
                         Style="{StaticResource BotaoSecundario}"
                         Command="{Binding VoltarCommand}" />
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0" />
+                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     <TextBlock Style="{StaticResource TextoSuave}" Margin="0"
                                Text="Prontuário — evolução clínica e EVA, sessão a sessão." />
                 </StackPanel>
@@ -87,19 +87,19 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                             <StackPanel Margin="0,0,36,0">
                                 <TextBlock Text="DOR INICIAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding DorInicial}" Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="{Binding DorInicial}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                             <StackPanel Margin="0,0,36,0">
                                 <TextBlock Text="DOR ATUAL" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding DorAtual}" Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="{Binding DorAtual}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                             <StackPanel Margin="0,0,36,0">
                                 <TextBlock Text="GANHO ACUMULADO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding GanhoAcumulado}" Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="{Binding GanhoAcumulado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                             <StackPanel>
                                 <TextBlock Text="ALÍVIO MÉDIO" Style="{StaticResource CardKpi.Rotulo}" />
-                                <TextBlock Text="{Binding AlivioMedio}" Style="{StaticResource CardKpi.Valor}" />
+                                <TextBlock Text="{Binding AlivioMedio}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
                         </StackPanel>
                         <TextBlock Text="{Binding ResumoEva}" Style="{StaticResource TextoSuave}"
@@ -161,7 +161,7 @@
                                                 </Grid.ColumnDefinitions>
 
                                                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Data}" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding Data}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock Text="{Binding Profissional}"
                                                                Style="{StaticResource TextoSuave}" Margin="0,2,0,0" />
                                                 </StackPanel>

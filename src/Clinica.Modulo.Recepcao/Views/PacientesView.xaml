@@ -159,25 +159,25 @@
                 <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
                     <StackPanel Margin="0,0,28,0">
                         <TextBlock Text="SESSÕES" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Text="{Binding TotalSessoes}" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Text="{Binding TotalSessoes}" Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
                     <StackPanel Margin="0,0,28,0">
                         <TextBlock Text="GUIAS EM ABERTO" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Text="{Binding GuiasEmAberto}" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Text="{Binding GuiasEmAberto}" Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
                     <StackPanel Margin="0,0,28,0">
                         <TextBlock Text="ÚLTIMA SESSÃO" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Text="{Binding UltimaSessao}" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Text="{Binding UltimaSessao}" Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
                     <!-- Padrão de falta (parcela 28): a agenda registra "Faltou" desde a
                          parcela 1, e a taxa DO PACIENTE nunca era lida em lugar nenhum. -->
                     <StackPanel Margin="0,0,28,0">
                         <TextBlock Text="FALTAS" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Text="{Binding Faltas}" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Text="{Binding Faltas}" Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
                     <StackPanel>
                         <TextBlock Text="CANCELAMENTOS" Style="{StaticResource Rotulo}" Margin="0" />
-                        <TextBlock Text="{Binding Cancelamentos}" Style="{StaticResource H3}" Margin="0" />
+                        <TextBlock Text="{Binding Cancelamentos}" Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
@@ -273,7 +273,12 @@
 
                         <!-- Sem par EVA não há o que mostrar: os KPIs somem, em vez de
                              exibirem travessões que parecem dado. -->
-                        <UniformGrid Columns="4">
+                        <!-- WrapPanel e não UniformGrid de largura inteira (parcela 50): o UniformGrid
+             divide a largura em partes IGUAIS e obriga o valor a caber no que sobrou —
+             "R$ 1.234.567,89" em 28 px negrito não cabe num quinto de 1366 px, e o número
+             saía por cima do cartão vizinho. Aqui cada cartão pede a largura que precisa
+             e a fileira quebra quando não couber. -->
+        <WrapPanel >
                             <UniformGrid.Style>
                                 <Style TargetType="UniformGrid">
                                     <Setter Property="Visibility" Value="Visible" />
@@ -284,31 +289,31 @@
                                     </Style.Triggers>
                                 </Style>
                             </UniformGrid.Style>
-                            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                                 <StackPanel>
                                     <TextBlock Text="Dor no início" Style="{StaticResource CardKpi.Rotulo}" />
-                                    <TextBlock Text="{Binding DorInicial}" Style="{StaticResource CardKpi.Valor}" />
+                                    <TextBlock Text="{Binding DorInicial}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                                 <StackPanel>
                                     <TextBlock Text="Dor atual" Style="{StaticResource CardKpi.Rotulo}" />
-                                    <TextBlock Text="{Binding DorAtual}" Style="{StaticResource CardKpi.Valor}" />
+                                    <TextBlock Text="{Binding DorAtual}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                            <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                                 <StackPanel>
                                     <TextBlock Text="Ganho no tratamento" Style="{StaticResource CardKpi.Rotulo}" />
-                                    <TextBlock Text="{Binding GanhoAcumulado}" Style="{StaticResource CardKpi.Valor}" />
+                                    <TextBlock Text="{Binding GanhoAcumulado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource CardKpi}">
+                            <Border Style="{StaticResource CardKpi}" MinWidth="200">
                                 <StackPanel>
                                     <TextBlock Text="Alívio médio" Style="{StaticResource CardKpi.Rotulo}" />
-                                    <TextBlock Text="{Binding AlivioMedio}" Style="{StaticResource CardKpi.Valor}" />
+                                    <TextBlock Text="{Binding AlivioMedio}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                                 </StackPanel>
                             </Border>
-                        </UniformGrid>
+                        </WrapPanel>
                     </StackPanel>
                 </Border>
                         </StackPanel>
@@ -371,7 +376,7 @@
 
                                                 <StackPanel Grid.Column="1" Margin="10,0,8,0">
                                                     <TextBlock FontWeight="SemiBold"
-                                                               Text="{Binding Autorizacao.Numero, TargetNullValue='(sem número)'}" />
+                                                               Text="{Binding Autorizacao.Numero, TargetNullValue='(sem número)'}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock x:Name="resumo" Text="{Binding Resumo}"
                                                                TextWrapping="Wrap" HorizontalAlignment="Left"
                                                                FontSize="{StaticResource Fonte.Legenda}"
@@ -382,10 +387,10 @@
                                                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,8,0">
                                                     <TextBlock FontSize="{StaticResource Fonte.Legenda}"
                                                                Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                               Text="{Binding Autorizacao.DataEmissao, StringFormat='emitida {0:dd/MM/yyyy}'}" />
+                                                               Text="{Binding Autorizacao.DataEmissao, StringFormat='emitida {0:dd/MM/yyyy}'}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock FontSize="{StaticResource Fonte.Legenda}"
                                                                Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                               Text="{Binding Autorizacao.DataValidade, StringFormat='válida até {0:dd/MM/yyyy}'}" />
+                                                               Text="{Binding Autorizacao.DataValidade, StringFormat='válida até {0:dd/MM/yyyy}'}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </StackPanel>
 
                                                 <StackPanel Grid.Column="3" Orientation="Horizontal"
@@ -468,11 +473,11 @@
 
                                             <TextBlock Grid.Column="0" Text="{Binding Data}"
                                                        FontWeight="SemiBold" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Eva}" FontWeight="SemiBold">
+                                                    <TextBlock Text="{Binding Eva}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left">
                                                         <TextBlock.Style>
                                                             <Style TargetType="TextBlock">
                                                                 <Setter Property="Foreground"
@@ -493,11 +498,11 @@
                                                     <TextBlock Text="{Binding Profissional}" Margin="10,0,0,0"
                                                                FontSize="{StaticResource Fonte.Legenda}"
                                                                VerticalAlignment="Center"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock Text="{Binding Anexos}" Margin="10,0,0,0"
                                                                FontSize="{StaticResource Fonte.Legenda}"
                                                                VerticalAlignment="Center"
-                                                               Foreground="{StaticResource Brush.Acento}" />
+                                                               Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </StackPanel>
                                                 <TextBlock Text="{Binding Resumo}" Margin="0,2,0,0"
                                                            TextTrimming="CharacterEllipsis"
@@ -583,18 +588,18 @@
 
                                             <TextBlock Grid.Column="0" Text="{Binding Data}"
                                                        FontWeight="SemiBold" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                 <StackPanel Orientation="Horizontal">
                                                     <TextBlock Text="{Binding Tipo}" FontWeight="SemiBold"
-                                                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                     <TextBlock Text="{Binding Numero}" Margin="8,0,0,0"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </StackPanel>
                                                 <TextBlock Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap">
                                                     <Run Text="{Binding Profissional, Mode=OneWay}" />
                                                     <Run Text=" · conferência " />
                                                     <Run Text="{Binding Codigo, Mode=OneWay}" />
@@ -606,7 +611,7 @@
                                                 <Border Style="{StaticResource Badge.Erro}" Margin="0,0,8,0"
                                                         Visibility="{Binding Cancelado,
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
-                                                    <TextBlock Text="{Binding Situacao}" />
+                                                    <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </Border>
                                                 <Button Content="Imprimir" Style="{StaticResource BotaoPequeno}"
                                                         Command="{Binding DataContext.ImprimirDocumentoCommand,
@@ -644,7 +649,7 @@
                             <TextBlock Text="ORIGEM" Style="{StaticResource Rotulo}" Margin="0"
                                        VerticalAlignment="Center" />
                             <TextBlock Text="{Binding Origem}" HorizontalAlignment="Right"
-                                       VerticalAlignment="Center" FontWeight="SemiBold" />
+                                       VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap" />
                         </Grid>
 
                         <TextBlock Text="Nenhum contato de campanha registrado.">
@@ -672,17 +677,17 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                       VerticalAlignment="Center" />
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <StackPanel Grid.Column="1" Margin="8,0"
                                                         VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Tipo}" />
+                                                <TextBlock Text="{Binding Tipo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <TextBlock Text="{Binding Detalhe}"
                                                            Style="{StaticResource TextoSuave}"
                                                            Margin="0,2,0,0" />
                                             </StackPanel>
                                             <Border Grid.Column="2" Style="{StaticResource Badge}"
                                                     VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Situacao}" />
+                                                <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             </Border>
                                         </Grid>
                                     </Border>
@@ -722,7 +727,7 @@
                                                            Foreground="{StaticResource Brush.Texto.Primario}" />
                                                 <TextBlock Text="{Binding Situacao}" Margin="0,2,0,0"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" Orientation="Horizontal"

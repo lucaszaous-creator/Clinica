@@ -24,14 +24,14 @@
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Pacientes" Style="{StaticResource H1}" Margin="0" />
                 <Border Style="{StaticResource Badge}" VerticalAlignment="Center" Margin="12,4,0,0">
-                    <TextBlock>
+                    <TextBlock TextWrapping="Wrap">
                         <Run Text="{Binding Seletor.Resultados.Count, Mode=OneWay}" /><Run Text=" cadastrado(s)" />
                     </TextBlock>
                 </Border>
                 <Border Style="{StaticResource Badge.Erro}" VerticalAlignment="Center" Margin="8,4,0,0"
                         ToolTip="Pacientes listados cuja carteirinha já venceu — a guia será recusada"
                         Visibility="{Binding TotalCarteirinhasVencidas, Converter={StaticResource ZeroParaVisibilidade}}">
-                    <TextBlock>
+                    <TextBlock TextWrapping="Wrap">
                         <Run Text="{Binding TotalCarteirinhasVencidas, Mode=OneWay}" /><Run Text=" com carteirinha vencida" />
                     </TextBlock>
                 </Border>
@@ -100,14 +100,14 @@
                                            TextTrimming="CharacterEllipsis" />
                                 <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                     <TextBlock Text="{Binding Documento, Converter={StaticResource Cpf}}"
-                                               Style="{StaticResource FichaRotulo}" Margin="0" />
+                                               Style="{StaticResource FichaRotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <TextBlock Text="  •  " Style="{StaticResource FichaRotulo}" Margin="0"
-                                               Visibility="{Binding DataNascimento, Converter={StaticResource NuloParaVisibilidade}}" />
+                                               Visibility="{Binding DataNascimento, Converter={StaticResource NuloParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <TextBlock Text="{Binding DataNascimento, Converter={StaticResource Idade}}"
-                                               Style="{StaticResource FichaRotulo}" Margin="0" />
+                                               Style="{StaticResource FichaRotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <TextBlock Text="  •  " Style="{StaticResource FichaRotulo}" Margin="0"
-                                               Visibility="{Binding Telefone, Converter={StaticResource TextoParaVisibilidade}}" />
-                                    <TextBlock Text="{Binding Telefone}" Style="{StaticResource FichaRotulo}" Margin="0" />
+                                               Visibility="{Binding Telefone, Converter={StaticResource TextoParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    <TextBlock Text="{Binding Telefone}" Style="{StaticResource FichaRotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </StackPanel>
 
@@ -119,13 +119,13 @@
                                     <TextBlock Text="Carteirinha vencida" />
                                 </Border>
                                 <Border Style="{StaticResource Badge}" Margin="0,0,8,0">
-                                    <TextBlock Text="{Binding Path=., Converter={StaticResource ConvenioPaciente}}" />
+                                    <TextBlock Text="{Binding Path=., Converter={StaticResource ConvenioPaciente}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 </Border>
                                 <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
                                          ToolTip="{Binding Categoria}"
                                          Fill="{Binding Categoria, Converter={StaticResource CategoriaParaCor}}" />
                                 <TextBlock Text="{Binding Categoria}" VerticalAlignment="Center"
-                                           Style="{StaticResource FichaRotulo}" Margin="0" />
+                                           Style="{StaticResource FichaRotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </StackPanel>
 
                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
