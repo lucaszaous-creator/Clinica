@@ -42,7 +42,7 @@ public sealed class LinhaConsulta
     {
         Status = s,
         Paciente = s.PacienteNome,
-        Convenio = CatalogoConvenios.Nome(s.Convenio),
+        Convenio = CatalogoConvenios.Nome(s.ConvenioCodigo, s.Convenio),
         UltimaEmissao = s.UltimaEmissao?.ToString("dd/MM/yyyy") ?? "nunca emitida",
         Vencimento = s.Vencimento?.ToString("dd/MM/yyyy") ?? "—",
 

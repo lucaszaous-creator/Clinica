@@ -1605,6 +1605,49 @@ for _xml, _deve_pegar in _amostras_25:
         )
 
 
+# --------------------------------------------------------------- checagem 26
+# ESTILO DE PARÁGRAFO USADO COMO CÉLULA DE TABELA.
+#
+# `TextoSuave` fixa `HorizontalAlignment="Left"` (parcela 37, e por um bom motivo: sem ele
+# o subtítulo da página nasce flutuando no meio da tela). O efeito colateral é que o
+# TextBlock passa a ter a largura do TEXTO, e não a da célula — então um
+# `TextAlignment="Right"` escrito ao lado não alinha nada, porque não sobra espaço dentro
+# do bloco para alinhar. O número desgruda da borda direita da coluna e vai colar no valor
+# da coluna anterior; o `Margin="0,4,0,0"` do mesmo estilo ainda o desce 4 px.
+#
+# Foi assim que o cliente viu "6R$ 0,00" e "R$ 0,00R$ 0,00" nos relatórios do Gerente.
+#
+# As duas propriedades juntas são uma CONTRADIÇÃO declarada no mesmo elemento, e é isso
+# que a checagem procura — não "TextoSuave em tabela", que exigiria adivinhar o que é
+# tabela e daria falso positivo em legenda centralizada sob uma foto. Quem quer texto
+# secundário em célula usa `CelulaSuave`.
+for f, raiz in arvores.items():
+    for el in raiz.iter():
+        if el.tag.split("}")[-1] not in ("TextBlock", "Run"):
+            continue
+        if "TextoSuave" not in el.attrib.get("Style", ""):
+            continue
+        if "TextAlignment" not in el.attrib:
+            continue
+        erros.append(
+            f"{rel(f)}: `TextoSuave` + `TextAlignment=\"{el.attrib['TextAlignment']}\"` no "
+            f"mesmo TextBlock é contradição — o estilo fixa `HorizontalAlignment=\"Left\"`, "
+            f"o bloco encolhe até o texto e o alinhamento não tem onde acontecer. "
+            f"Em célula de tabela use `CelulaSuave`; em parágrafo, tire o `TextAlignment`."
+        )
+
+# Autoteste: os dois estilos existem nos DOIS design systems? Uma checagem que manda usar
+# `CelulaSuave` num dicionário onde ela não foi declarada trocaria um defeito por um
+# crash em runtime (StaticResource não resolvido não quebra o build).
+for _ds in ("src/Clinica.Desktop.Shell/Styles/Theme.xaml", "src/Clinica.Desktop/Styles/Theme.xaml"):
+    _p = RAIZ / _ds
+    if not _p.exists() or 'x:Key="CelulaSuave"' not in _p.read_text(encoding="utf-8"):
+        erros.append(
+            f"{_ds}: a checagem 26 manda usar `CelulaSuave` e este design system não a "
+            f"declara — StaticResource que não resolve não quebra o build, quebra a tela."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

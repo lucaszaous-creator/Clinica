@@ -79,7 +79,10 @@ public sealed class PendenciaService
             Descricao: c.Descricao,
             PacienteTelefone: paciente?.Telefone,
             ObservacaoPendencia: c.ObservacaoPendencia,
-            ObservacaoPendenciaEm: c.ObservacaoPendenciaEm);
+            ObservacaoPendenciaEm: c.ObservacaoPendenciaEm)
+        {
+            ConvenioCodigo = paciente?.ConvenioCodigo
+        };
     }
 
     /// <summary>
@@ -120,7 +123,10 @@ public sealed class PendenciaService
                     PacienteTelefone: paciente?.Telefone,
                     ObservacaoPendencia: c.NaoConformidadeJustificativa,
                     ObservacaoPendenciaEm: c.NaoConformidadeEm,
-                    EhNaoConformidade: true);
+                    EhNaoConformidade: true)
+                {
+                    ConvenioCodigo = paciente?.ConvenioCodigo
+                };
             })
             .OrderBy(p => p.PacienteNome)
             .ToList();

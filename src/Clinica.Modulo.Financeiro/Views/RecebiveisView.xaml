@@ -161,10 +161,10 @@
 
                                         <TextBlock Grid.Column="1" Text="{Binding Bruto}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="6,0" Style="{StaticResource TextoSuave}" />
+                                                   Margin="6,0" Style="{StaticResource CelulaSuave}" />
                                         <TextBlock Grid.Column="2" Text="{Binding Taxa}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="6,0" Style="{StaticResource TextoSuave}" />
+                                                   Margin="6,0" Style="{StaticResource CelulaSuave}" />
                                         <TextBlock Grid.Column="3" Text="{Binding Liquido}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
                                                    Margin="6,0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />

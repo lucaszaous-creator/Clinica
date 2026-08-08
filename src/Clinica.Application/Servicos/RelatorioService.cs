@@ -49,7 +49,10 @@ public sealed class RelatorioService
                     c.Ordem,
                     c.DataPrevistaFaturamento,
                     c.NaoConformidadeJustificativa ?? string.Empty,
-                    c.NaoConformidadeEm);
+                    c.NaoConformidadeEm)
+                {
+                    ConvenioCodigo = paciente?.ConvenioCodigo
+                };
             })
             .OrderByDescending(n => n.Em)
             .ThenBy(n => n.PacienteNome)

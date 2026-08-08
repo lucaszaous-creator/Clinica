@@ -242,7 +242,7 @@
 
                                         <TextBlock Grid.Column="1" Text="{Binding Esperado}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="6,0" Style="{StaticResource TextoSuave}" />
+                                                   Margin="6,0" Style="{StaticResource CelulaSuave}" />
                                         <TextBlock Grid.Column="2" Text="{Binding Contado}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
                                                    Margin="6,0" TextTrimming="CharacterEllipsis" />

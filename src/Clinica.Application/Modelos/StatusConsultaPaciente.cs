@@ -16,6 +16,14 @@ public sealed record StatusConsultaPaciente(
     NivelUrgencia Urgencia)
 {
     /// <summary>
+    /// Código do convênio no catálogo. <see cref="Convenio"/> é a FAMÍLIA de REGRA — duas
+    /// operadoras podem compartilhá-la —, então é só por ele que se chega ao nome que a
+    /// clínica cadastrou. Resolver pela família faria toda operadora personalizada
+    /// aparecer na tela como "Personalizado".
+    /// </summary>
+    public string? ConvenioCodigo { get; init; }
+
+    /// <summary>
     /// Há consulta EMITIDA pedindo renovação (vencida ou a vencer dentro da janela).
     ///
     /// Diferente de <see cref="PrecisaRenovar"/>, que também é verdadeiro para quem nunca

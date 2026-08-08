@@ -124,7 +124,10 @@ public sealed class RodadaPendenciasService
                     Ordem: c.Ordem,
                     DataPrevista: c.DataPrevistaFaturamento,
                     Justificativa: c.NaoConformidadeJustificativa ?? string.Empty,
-                    Em: c.NaoConformidadeEm);
+                    Em: c.NaoConformidadeEm)
+                {
+                    ConvenioCodigo = paciente?.ConvenioCodigo
+                };
             })
             .OrderByDescending(n => n.Em)
             .ThenBy(n => n.PacienteNome)

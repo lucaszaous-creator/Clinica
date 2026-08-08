@@ -170,10 +170,10 @@
                                                        TextAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="2" Text="{Binding Bruto}"
                                                        TextAlignment="Right" VerticalAlignment="Center"
-                                                       Style="{StaticResource TextoSuave}" />
+                                                       Style="{StaticResource CelulaSuave}" />
                                             <TextBlock Grid.Column="3" Text="{Binding Retido}"
                                                        TextAlignment="Right" VerticalAlignment="Center"
-                                                       Style="{StaticResource TextoSuave}" />
+                                                       Style="{StaticResource CelulaSuave}" />
                                             <TextBlock Grid.Column="4" Text="{Binding Liquido}"
                                                        TextAlignment="Right" VerticalAlignment="Center"
                                                        FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
@@ -183,7 +183,7 @@
                                                        FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="6" Text="{Binding Prazo}"
                                                        TextAlignment="Right" VerticalAlignment="Center"
-                                                       Style="{StaticResource TextoSuave}" />
+                                                       Style="{StaticResource CelulaSuave}" />
                                         </Grid>
 
                                         <ProgressBar Style="{StaticResource BarraDado}" Margin="0,8,0,0"
