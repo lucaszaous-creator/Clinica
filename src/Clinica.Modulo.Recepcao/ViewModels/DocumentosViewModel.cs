@@ -113,7 +113,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
     partial void OnConferidoChanged(string? value) => OnPropertyChanged(nameof(TemConferido));
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeEmitir => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+    public bool PodeEmitir => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     public DocumentosViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -394,7 +394,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     private async Task AbrirJanelaAsync(FolhaCatalogo folha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "emitir documento");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
 
         if (Seletor.Selecionado is not { } paciente || folha.TipoClinico is not { } tipo) return;
 
@@ -440,7 +440,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     private async Task EmitirMontadaAsync(FolhaCatalogo folha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "emitir documento");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
 
         if (Seletor.Selecionado is not { } paciente || folha.TipoClinico is not { } tipo) return;
 
@@ -572,7 +572,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "cancelar documento");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cancelar documento");
 
             var motivo = _dialogo.PerguntarTexto(
                 "Cancelar documento",

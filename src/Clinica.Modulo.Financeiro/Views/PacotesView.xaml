@@ -17,8 +17,23 @@
             <TextBlock Text="Pacotes, planos e vouchers" Style="{StaticResource H1}" Margin="0,0,0,4" />
             <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
                        Text="O que a clínica vende e quanto cada paciente ainda tem para usar. Não confundir com a cota do convênio: aquilo o convênio autoriza, isto a clínica vendeu." />
-            <TextBlock Text="{Binding Resumo}" Margin="0,8,0,0" FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.Acento}" />
+            <Grid Margin="0,8,0,0">
+                <TextBlock Text="{Binding Resumo}" FontWeight="SemiBold" VerticalAlignment="Center"
+                           HorizontalAlignment="Left" TextWrapping="Wrap" MaxWidth="820"
+                           Foreground="{StaticResource Brush.Acento}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            VerticalAlignment="Center">
+                    <Button Content="Catálogo…" MinHeight="36" MinWidth="130" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding AbrirCatalogoCommand}"
+                            ToolTip="O que está à venda — a tabela que a clínica define uma vez" />
+                    <Button Content="Orçamento…" MinHeight="36" MinWidth="130"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding OrcarCommand}" />
+                </StackPanel>
+            </Grid>
         </StackPanel>
 
         <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
@@ -27,71 +42,8 @@
         </Border>
 
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="380" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <!-- ============ Catálogo ============ -->
-            <Border Grid.Column="0" Style="{StaticResource Card}">
-                <DockPanel>
-                    <StackPanel DockPanel.Dock="Top">
-                        <TextBlock Text="Catálogo" Style="{StaticResource H3}" Margin="0" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,10"
-                                   Text="O que está à venda. A venda copia estes dados — mudar o preço aqui não reescreve o que alguém já comprou." />
-
-                        <!-- Lista e botões: cadastrar pacote é raro (a clínica define a
-                             tabela uma vez), e o formulário ocupava dois terços da coluna
-                             do catálogo em todas as visitas. -->
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                            <Button Content="Novo pacote"
-                                    Command="{Binding NovoPacoteCommand}"
-                                    IsEnabled="{Binding PodeEditarFinanceiro}" />
-                            <Button Content="Orçamento…" Margin="8,0,0,0"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding OrcarCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-
-                    <ListBox ItemsSource="{Binding Catalogo}"
-                             SelectedItem="{Binding CatalogoSelecionado}"
-                             BorderThickness="0" Background="Transparent"
-                             HorizontalContentAlignment="Stretch">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate DataType="{x:Type vm:LinhaCatalogo}">
-                                <Grid Margin="0,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
-                                        <TextBlock Text="{Binding Resumo}"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding ValorFormatado}" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center" Margin="0,0,8,0"
-                                                   Foreground="{StaticResource Brush.Acento}" />
-                                        <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                Command="{Binding DataContext.ExcluirDoCatalogoCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                                CommandParameter="{Binding}" />
-                                    </StackPanel>
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </DockPanel>
-            </Border>
-
             <!-- ============ Vendidos ============ -->
-            <Border Grid.Column="2" Style="{StaticResource Card}">
+            <Border Style="{StaticResource Card}">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBlock Text="Pacotes vendidos" Style="{StaticResource H3}" Margin="0"

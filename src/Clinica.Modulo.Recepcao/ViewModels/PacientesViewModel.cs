@@ -62,7 +62,7 @@ public sealed partial class PacientesViewModel : ObservableObject
     /// botão apagado explica por que não dá; a guarda no comando é que impede.
     /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
     /// </summary>
-    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     public PacientesViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -119,7 +119,7 @@ public sealed partial class PacientesViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoPacienteAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "cadastrar paciente");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cadastrar paciente");
 
         var vm = new PacienteEdicaoViewModel(_escopos);
         var janela = new Janelas.PacienteWindow(vm)

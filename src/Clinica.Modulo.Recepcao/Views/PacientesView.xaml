@@ -57,7 +57,7 @@
 
                 <Button Grid.Column="2" Content="Novo paciente" VerticalAlignment="Center"
                         Command="{Binding NovoPacienteCommand}"
-                        IsEnabled="{Binding PodeEditarProntuario}" />
+                        IsEnabled="{Binding PodeEditarCadastro}" />
             </Grid>
 
             <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}"
@@ -149,7 +149,7 @@
                                 Command="{Binding AbrirWhatsappCommand}" />
                         <Button Content="Editar cadastro" Margin="8,0,0,0"
                                 Command="{Binding EditarCommand}"
-                                IsEnabled="{Binding PodeEditarProntuario}" />
+                                IsEnabled="{Binding PodeEditarCadastro}" />
                     </StackPanel>
                 </Grid>
 
@@ -537,7 +537,7 @@
                                        VerticalAlignment="Center" />
                             <Button Content="Novo documento…" HorizontalAlignment="Right"
                                     Style="{StaticResource BotaoPequeno}"
-                                    Command="{Binding NovoDocumentoCommand}" IsEnabled="{Binding PodeEditarProntuario}" />
+                                    Command="{Binding NovoDocumentoCommand}" IsEnabled="{Binding PodeEditarCadastro}" />
                         </Grid>
 
                         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"

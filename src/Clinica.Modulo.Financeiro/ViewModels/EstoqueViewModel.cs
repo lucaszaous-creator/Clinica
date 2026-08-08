@@ -92,6 +92,23 @@ public sealed partial class EstoqueViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
+    /// <summary>
+    /// Abre VALIDADES E MÍNIMOS (parcela 49). Era uma faixa de 380 px permanente ao lado
+    /// do estoque — e no dia em que não há nada vencendo, que é a maioria, ela gastava um
+    /// terço da tela para escrever "nada vencendo".
+    ///
+    /// O número continua no resumo do cabeçalho: quem abre o estoque vê QUANTOS sem
+    /// clicar; o clique é para ver QUAIS.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirValidades()
+    {
+        new Janelas.ValidadesEstoqueWindow(this)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        }.ShowDialog();
+    }
+
     [RelayCommand]
     private async Task CarregarAsync()
     {

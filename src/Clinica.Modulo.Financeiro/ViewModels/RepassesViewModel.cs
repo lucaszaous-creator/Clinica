@@ -285,6 +285,23 @@ public sealed partial class RepassesViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Abre as REGRAS e as APURAÇÕES (parcela 49) — as duas eram uma coluna de 400 px
+    /// permanente ao lado do cálculo do período.
+    ///
+    /// A janela recebe ESTE ViewModel: mudar uma regra ou cancelar uma apuração muda o
+    /// número que está na tela de trás, e dois VMs dariam duas respostas para a mesma
+    /// pergunta.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirRegras()
+    {
+        new Janelas.RegrasRepasseWindow(this)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        }.ShowDialog();
+    }
+
     [RelayCommand]
     private async Task NovaRegraAsync()
     {

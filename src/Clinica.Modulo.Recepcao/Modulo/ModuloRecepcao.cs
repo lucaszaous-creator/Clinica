@@ -59,7 +59,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChavePacientes, Rotulo = "Pacientes / CRM", Glifo = "\uE77B",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
         },
         // Novo atendimento e Consultas vieram do app de FATURAMENTO na parcela 46.
         //
@@ -94,7 +94,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
         },
         // Chamar de volta quem parou de vir (parcela 48). A rodada de recall existe desde
         // a parcela 5 e a lista "quem parou de vir" desde a 32, e as duas moravam só no
@@ -132,7 +132,7 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveDocumentos, Rotulo = "Documentos", Glifo = "\uE8B7",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
         },
         // Cadastro da equipe \u00E9 gest\u00E3o da cl\u00EDnica, n\u00E3o do paciente: quem mexe aqui est\u00E1
         // organizando quem atende e onde, n\u00E3o atendendo algu\u00E9m.

@@ -79,23 +79,89 @@
 
         <CheckBox Content="Ativo (pode entrar no sistema)" IsChecked="{Binding Ativo}" Margin="0,8,0,0" />
 
+        <!-- ============ O QUE ESTA PESSOA PODE FAZER (parcela 49) ============
+             Era uma grade de duas colunas com 24 caixinhas soltas, só o rótulo, na ordem
+             de declaração do enum. Isso não é uma decisão, é um formulário: quem precisa
+             responder "o que a recepcionista faz e o que a chefia dela faz" não consegue
+             ler a resposta, e o bit solto que ninguém queria conceder passa despercebido.
+
+             Agora: agrupado por ASSUNTO, com a CONSEQUÊNCIA escrita ao lado de cada
+             caixinha e a PROCEDÊNCIA de cada decisão (padrão da função, liberada à mão ou
+             tirada à mão). -->
         <TextBlock Text="O que esta pessoa pode fazer" Style="{StaticResource Rotulo}" Margin="0,16,0,0" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,6"
-                   Text="O perfil já marca o conjunto padrão. Marque ou desmarque só as exceções — sem isso, a exceção vira senha compartilhada, e a auditoria deixa de valer." />
+                   Text="O perfil já marca o padrão da função. Marque ou desmarque só as exceções — sem isso, a exceção vira senha compartilhada, e a auditoria deixa de valer." />
+
+        <Border Background="{StaticResource Brush.Acento.Suave}"
+                CornerRadius="{StaticResource Raio.Medio}" Padding="12,8" Margin="0,0,0,8">
+            <TextBlock Text="{Binding ResumoExcecoes}" TextWrapping="Wrap"
+                       HorizontalAlignment="Left" FontWeight="SemiBold" />
+        </Border>
 
         <Border Background="{StaticResource Brush.Superficie}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                 CornerRadius="{StaticResource Raio.Medio}" Padding="12">
-            <ItemsControl ItemsSource="{Binding Permissoes}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <UniformGrid Columns="2" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
+            <ItemsControl ItemsSource="{Binding PermissoesAgrupadas}">
+                <ItemsControl.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.ContainerStyle>
+                            <Style TargetType="GroupItem">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="GroupItem">
+                                            <StackPanel Margin="0,0,0,14">
+                                                <TextBlock Text="{Binding Name}"
+                                                           Style="{StaticResource Rotulo}"
+                                                           Margin="0,0,0,2" />
+                                                <Separator Margin="0,0,0,6" />
+                                                <ItemsPresenter />
+                                            </StackPanel>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </GroupStyle.ContainerStyle>
+                    </GroupStyle>
+                </ItemsControl.GroupStyle>
+
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <CheckBox Content="{Binding Rotulo}" IsChecked="{Binding Marcada}" Margin="0,3" />
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <CheckBox Grid.Column="0" IsChecked="{Binding Marcada}"
+                                      VerticalAlignment="Top" Margin="0,2,8,0" />
+
+                            <StackPanel Grid.Column="1" Margin="0,0,10,0">
+                                <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                           TextWrapping="Wrap" />
+                                <!-- A consequência ao lado da caixinha. Sem ela, conceder
+                                     permissão é marcar caixinha com nome bonito. -->
+                                <TextBlock Text="{Binding Explicacao}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left" Margin="0,2,0,0"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                            </StackPanel>
+
+                            <!-- A procedência: padrão da função, ou decisão à mão. É o que
+                                 a direção audita, e some numa lista de caixinhas iguais. -->
+                            <Border x:Name="selo" Grid.Column="2" VerticalAlignment="Top"
+                                    Style="{StaticResource Badge}">
+                                <TextBlock Text="{Binding Procedencia}" />
+                            </Border>
+
+                        </Grid>
+                        <DataTemplate.Triggers>
+                            <DataTrigger Binding="{Binding EhExcecao}" Value="True">
+                                <Setter TargetName="selo" Property="Style"
+                                        Value="{StaticResource Badge.Aviso}" />
+                            </DataTrigger>
+                        </DataTemplate.Triggers>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>

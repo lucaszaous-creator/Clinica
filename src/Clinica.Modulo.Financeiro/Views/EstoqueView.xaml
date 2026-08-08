@@ -17,8 +17,16 @@
             <TextBlock Text="Estoque" Style="{StaticResource H1}" Margin="0,0,0,4" />
             <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
                        Text="Agulhas, moxa, ventosas, algodão. O saldo é a soma dos movimentos — nunca um número guardado, que é como o estoque para de bater." />
-            <TextBlock Text="{Binding Resumo}" Margin="0,8,0,0" FontWeight="SemiBold"
-                       Foreground="{StaticResource Brush.Acento}" />
+            <Grid Margin="0,8,0,0">
+                <TextBlock Text="{Binding Resumo}" FontWeight="SemiBold" VerticalAlignment="Center"
+                           HorizontalAlignment="Left" TextWrapping="Wrap" MaxWidth="820"
+                           Foreground="{StaticResource Brush.Acento}" />
+                <Button Content="Validades e mínimos…" HorizontalAlignment="Right"
+                        VerticalAlignment="Center" MinHeight="36" MinWidth="190"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding AbrirValidadesCommand}"
+                        ToolTip="Lotes vencendo e itens abaixo do mínimo" />
+            </Grid>
         </StackPanel>
 
         <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
@@ -27,13 +35,7 @@
         </Border>
 
         <Grid>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="16" />
-                <ColumnDefinition Width="380" />
-            </Grid.ColumnDefinitions>
-
-            <TabControl Grid.Column="0" Background="Transparent" BorderThickness="0">
+            <TabControl Background="Transparent" BorderThickness="0">
 
             <!-- ============ Itens e saldo ============ -->
             <TabItem Header="Itens">
@@ -225,61 +227,6 @@
 
             </TabControl>
 
-            <!-- ============ Alertas e cadastro ============ -->
-            <DockPanel Grid.Column="2">
-
-                <Border Style="{StaticResource Card}">
-                    <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Validades" Style="{StaticResource H3}" />
-                        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,8"
-                                   Text="Lotes vencidos ou a vencer nos próximos 60 dias, só dos itens que ainda têm saldo — alertar sobre item zerado seria barulho." />
-
-                        <TextBlock DockPanel.Dock="Top" Margin="0,8"
-                                   Style="{StaticResource TextoSuave}"
-                                   Visibility="{Binding SemAlertas, Converter={StaticResource BoolParaVisibilidade}}"
-                                   Text="Nada vencendo e nada abaixo do mínimo." />
-
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding Validades}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate DataType="{x:Type vm:LinhaValidade}">
-                                        <Border Padding="0,8"
-                                                BorderBrush="{StaticResource Brush.Borda}"
-                                                BorderThickness="0,0,0,1">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding Item}" FontWeight="SemiBold"
-                                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                                    <TextBlock Text="{Binding Validade}"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                                    <TextBlock Text="{Binding Situacao}" Margin="8,0,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground"
-                                                                        Value="{StaticResource Brush.Aviso}" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Vencido}" Value="True">
-                                                                        <Setter Property="Foreground"
-                                                                                Value="{StaticResource Brush.Erro}" />
-                                                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </DockPanel>
-                </Border>
-            </DockPanel>
         </Grid>
           </Grid>
         <ctrl:EstadoDaTela Itens="{Binding Itens}"

@@ -20,10 +20,20 @@ public enum Permissao
     /// <summary>Marcar, remarcar, cancelar, dar check-in e concluir atendimento.</summary>
     EditarAgenda = 1 << 1,
 
-    /// <summary>Abrir a ficha do paciente e o prontuário.</summary>
+    /// <summary>
+    /// Ler o PRONTUÁRIO CLÍNICO: evolução, EVA, mapa corporal, anexos, medidas, escalas e
+    /// a lista de problemas/alergias.
+    ///
+    /// <b>Deixou de significar "abrir a ficha do paciente" na parcela 49.</b> Até aqui um
+    /// bit só governava o cadastro administrativo e o registro clínico, e o efeito era o
+    /// que a cliente apontou: quem marca horário no balcão lia a evolução inteira de todo
+    /// mundo. São coisas de natureza diferente — o telefone do paciente é dado de
+    /// contato, a evolução é dado de SAÚDE, e a LGPD trata o segundo como sensível
+    /// (art. 5º, II). Quem precisa dos dois recebe os dois.
+    /// </summary>
     VerProntuario = 1 << 2,
 
-    /// <summary>Escrever evolução, anexar arquivo e registrar consentimento.</summary>
+    /// <summary>Escrever evolução, aplicar escala, colher medida e anexar arquivo clínico.</summary>
     EditarProntuario = 1 << 3,
 
     /// <summary>Ver caixa, conciliação e produção.</summary>
@@ -148,7 +158,38 @@ public enum Permissao
     /// do número da guia), modalidades, especialidades, prazos e dados do prestador. Muda
     /// a regra para todo mundo, e não só o registro de uma guia.
     /// </summary>
-    ConfigurarFaturamento = 1 << 21
+    ConfigurarFaturamento = 1 << 21,
+
+    // ------------------------------------------------------------------------
+    // A ficha do paciente, separada do prontuário clínico (parcela 49)
+    //
+    // O pedido da direção foi direto: "não faz sentido a recepção ter acesso a dados
+    // pessoais dos pacientes". A causa não era o padrão do perfil — era o BIT: um só
+    // (`VerProntuario`) abria a ficha administrativa E a evolução clínica, então não
+    // havia como conceder um sem o outro. Permissão granular que não distingue o que a
+    // clínica distingue não é granular; é uma caixinha a mais na tela.
+    //
+    // O corte é o da LGPD: dado de contato de um lado, dado de SAÚDE do outro.
+    // ------------------------------------------------------------------------
+
+    /// <summary>
+    /// Abrir a FICHA do paciente: cadastro, contato, convênio e carteirinha,
+    /// elegibilidade, autorizações de sessões, consentimentos e os documentos emitidos.
+    ///
+    /// É o que o balcão precisa para marcar, receber e cobrar o documento — e não inclui
+    /// uma linha do que foi feito na sessão.
+    /// </summary>
+    VerFichaPaciente = 1 << 22,
+
+    /// <summary>
+    /// Escrever na FICHA: cadastrar e editar paciente, registrar consentimento LGPD,
+    /// registrar a autorização do convênio e emitir/cancelar documento.
+    ///
+    /// Separada de <see cref="EditarProntuario"/> pela mesma razão de cima: digitar o
+    /// telefone de alguém e escrever a evolução dele são atos de peso diferente, e antes
+    /// da parcela 49 o mesmo bit dava os dois.
+    /// </summary>
+    EditarPaciente = 1 << 23
 }
 
 /// <summary>
@@ -190,50 +231,110 @@ public static class PerfisAcesso
     /// é resolvido na leitura, para que corrigir o padrão de um perfil valha para todo
     /// mundo que o usa, em vez de exigir reeditar usuário por usuário.
     /// </summary>
+    /// <summary>
+    /// O PADRÃO de cada perfil — o que a direção decidiu que cada função faz (parcela 49).
+    ///
+    /// O que mudou, e por quê
+    /// ----------------------
+    /// A direção apontou o buraco: <i>"não adianta ter permissão granular se todo perfil
+    /// nasce podendo tudo"</i>. Os padrões não davam literalmente tudo, mas dois deles
+    /// davam demais, e por um motivo que não era escolha — era o BIT sobrecarregado. Até
+    /// a parcela 48, <c>VerProntuario</c> significava "abrir a ficha E ler a evolução", e
+    /// <c>EditarProntuario</c> significava "cadastrar paciente E escrever no prontuário".
+    /// Não havia como dar um sem o outro; a granularidade existia na tela e não no
+    /// domínio. A parcela 49 separou os dois (<see cref="Permissao.VerFichaPaciente"/> e
+    /// <see cref="Permissao.EditarPaciente"/>) e refez os padrões em cima do corte novo.
+    ///
+    /// ⚠️ <b>Isto TIRA capacidade de quem já a usava, e é de propósito.</b> A regra do
+    /// projeto ("não tire função de quem a tinha ontem") vale para efeito COLATERAL de
+    /// atualização; aqui a remoção É o pedido — a direção quer poder auditar e liberar
+    /// caso a caso. O que a regra continua exigindo é que a devolução seja barata: cada
+    /// bit tirado se concede de volta a uma pessoa específica em Acessos, num clique, sem
+    /// mexer no perfil dos outros.
+    ///
+    /// As três perguntas que decidiram cada linha
+    /// ------------------------------------------
+    /// 1. <b>A pessoa precisa disto para fazer o trabalho dela?</b> Não é "pode dar sem
+    ///    risco" — é "sem isto, ela para". Bit que ninguém usa vira bit que ninguém
+    ///    revisa.
+    /// 2. <b>O ato apaga o trabalho de outra pessoa, ou some com uma cobrança do
+    ///    sistema?</b> Se sim, é da chefia (estorno de baixa, não conformidade,
+    ///    anonimização).
+    /// 3. <b>É dado de SAÚDE?</b> Se sim, só quem cuida do paciente — a LGPD trata
+    ///    prontuário como dado sensível, e o balcão não precisa dele para marcar horário.
+    /// </summary>
     public static Permissao Padrao(PerfilAcesso perfil) => perfil switch
     {
-        // LancarAtendimento entrou na parcela 46, quando "Novo atendimento" e "Consultas"
-        // saíram do app de faturamento e vieram para o balcão. Sem o bit aqui, as duas
-        // telas nasceriam invisíveis para quem passou a ser dono delas — e a recepção já
-        // CRIA atendimento com guia pelo caminho da agenda (Fila → Finalizar) desde a
-        // parcela 6, então o bit não concede nada que ela não fizesse.
+        // ===== BALCÃO =====
+        // Marca, recebe, cadastra, cobra o documento e chama de volta quem sumiu.
+        //
+        // NÃO recebe o prontuário CLÍNICO (parcela 49). Era o exemplo que a direção deu, e
+        // ele é o corte da LGPD: telefone e convênio são dado de contato; a evolução da
+        // sessão é dado de SAÚDE, e não é preciso lê-la para marcar um horário. Clínica
+        // pequena em que a recepcionista também digita a evolução do profissional
+        // continua possível — a direção concede `EditarProntuario` àquela pessoa em
+        // Acessos, que é exatamente o controle que ela pediu.
+        //
+        // LancarAtendimento fica: a recepção JÁ cria atendimento com guia pelo caminho da
+        // agenda (Fila → Finalizar) desde a parcela 6, e tirá-lo quebraria o fluxo do dia.
         PerfilAcesso.Recepcao =>
             Permissao.VerAgenda | Permissao.EditarAgenda |
-            Permissao.VerProntuario | Permissao.EditarProntuario |
+            Permissao.VerFichaPaciente | Permissao.EditarPaciente |
             Permissao.LancarAtendimento |
             Permissao.GerenciarCampanhas,
 
+        // ===== QUEM ATENDE =====
+        // A ficha para saber quem é, o prontuário para saber o que foi feito, e a receita.
+        // Não mexe em agenda de terceiros nem em dinheiro.
         PerfilAcesso.Profissional =>
-            Permissao.VerAgenda | Permissao.VerProntuario | Permissao.EditarProntuario |
+            Permissao.VerAgenda |
+            Permissao.VerFichaPaciente |
+            Permissao.VerProntuario | Permissao.EditarProntuario |
             Permissao.Prescrever,
 
+        // ===== ENFERMAGEM =====
         // A técnica vê a agenda (para saber quem está na sala), lê o prontuário (alergia
         // antes de infundir não é opcional) e CHECA. Não recebe EditarProntuario nem
-        // Prescrever: a checagem já é o registro dela, e é assinado.
+        // Prescrever: a checagem já é o registro dela, e é assinado. A conferência vale
+        // porque foram duas pessoas.
         PerfilAcesso.Enfermagem =>
-            Permissao.VerAgenda | Permissao.VerProntuario | Permissao.ChecarPrescricao,
+            Permissao.VerAgenda |
+            Permissao.VerFichaPaciente | Permissao.VerProntuario |
+            Permissao.ChecarPrescricao,
 
+        // ===== ADMINISTRATIVO/CAIXA =====
+        // Ganhou a FICHA na parcela 49: sem ela a tela de inadimplência mostrava dívida de
+        // gente que o operador não podia abrir para conferir o telefone. Continua sem o
+        // prontuário — cobrar não precisa saber o diagnóstico de ninguém.
         PerfilAcesso.Financeiro =>
-            Permissao.VerAgenda | Permissao.VerFinanceiro | Permissao.EditarFinanceiro,
+            Permissao.VerAgenda |
+            Permissao.VerFichaPaciente |
+            Permissao.VerFinanceiro | Permissao.EditarFinanceiro,
 
-        // O faturista recebe o faturamento inteiro, MENOS as Configurações: mudar o
-        // catálogo de convênios ou o prazo da rodada muda a regra para todo mundo, e quem
-        // decide isso é a direção.
+        // ===== FATURISTA =====
+        // Opera o faturamento do dia: lê, dá baixa, glosa e manda o lote. O que saiu na
+        // parcela 49, e por quê:
         //
-        // O padrão foi montado para reproduzir EXATAMENTE o que o app de faturamento
-        // deixava fazer antes de ganhar login (parcela 45) — inclusive marcar na agenda e
-        // cadastrar paciente, que é o que a secretária que fatura faz o dia inteiro. Uma
-        // versão que introduz permissão e, de quebra, tira uma capacidade que a pessoa
-        // usava ontem vira chamado de suporte na segunda de manhã, e o pedido da cliente
-        // era o contrário: poder LIBERAR OU NÃO, caso a caso. Agora a direção tira o bit
-        // de quem não deve ter — que é uma decisão dela, tomada na tela de Acessos, e não
-        // um efeito colateral da atualização.
+        //  · EstornarBaixa — desfazer apaga o trabalho de outra pessoa e desfaz o elo com
+        //    a conciliação do Financeiro. Errar a baixa é acidente; estornar é decisão, e
+        //    decisão é da chefia.
+        //  · MarcarNaoConformidade — foi o segundo exemplo da direção. É a ÚNICA permissão
+        //    que faz uma pendência sumir do painel sem a guia ter sido faturada: quem a
+        //    tem pode zerar o alarme do sistema justamente sobre o trabalho que ele existe
+        //    para cobrar. Reabrir uma NC é da mesma família.
+        //  · VerProntuario / EditarProntuario — faturar não exige ler a evolução. Ficou a
+        //    FICHA, que é o que a baixa realmente usa (convênio, carteirinha, autorização).
+        //  · VerIndicadores nunca esteve aqui, e é o que agora guarda os RELATÓRIOS
+        //    gerenciais do faturamento — o terceiro exemplo da direção.
+        //
+        // Continua sem ConfigurarFaturamento: mudar catálogo de convênio ou prazo da
+        // rodada muda a regra para todo mundo.
         PerfilAcesso.Faturista =>
             Permissao.VerAgenda | Permissao.EditarAgenda |
-            Permissao.VerProntuario | Permissao.EditarProntuario |
-            Permissao.VerFaturamento | Permissao.BaixarGuia | Permissao.EstornarBaixa |
+            Permissao.VerFichaPaciente | Permissao.EditarPaciente |
+            Permissao.VerFaturamento | Permissao.BaixarGuia |
             Permissao.RegistrarGlosa | Permissao.GerenciarLotesTiss |
-            Permissao.LancarAtendimento | Permissao.MarcarNaoConformidade,
+            Permissao.LancarAtendimento,
 
         PerfilAcesso.Gerente => Todas,
 
@@ -266,7 +367,9 @@ public static class PerfisAcesso
     {
         Permissao.VerAgenda => "Ver agenda e fila",
         Permissao.EditarAgenda => "Marcar e remarcar",
-        Permissao.VerProntuario => "Ver prontuário",
+        Permissao.VerFichaPaciente => "Ver ficha do paciente",
+        Permissao.EditarPaciente => "Cadastrar e editar paciente",
+        Permissao.VerProntuario => "Ver prontuário clínico",
         Permissao.EditarProntuario => "Escrever no prontuário",
         Permissao.VerFinanceiro => "Ver financeiro",
         Permissao.EditarFinanceiro => "Lançar no caixa",
@@ -292,6 +395,102 @@ public static class PerfisAcesso
     /// <summary>Bits individuais (sem <see cref="Permissao.Nenhuma"/>), para montar a tela.</summary>
     public static IReadOnlyList<Permissao> Individuais { get; } =
         Enum.GetValues<Permissao>().Where(p => p != Permissao.Nenhuma).ToList();
+
+    /// <summary>
+    /// O ASSUNTO de cada permissão, para a tela de Acessos agrupar (parcela 49).
+    ///
+    /// Vinte e quatro caixinhas numa lista corrida não são uma decisão: são um formulário.
+    /// Quem precisa responder "o que a recepcionista pode fazer?" tem de conseguir ler a
+    /// resposta por blocos — e é lendo por blocos que se percebe o bit solto que ninguém
+    /// queria ter concedido.
+    /// </summary>
+    public static string Assunto(Permissao permissao) => permissao switch
+    {
+        Permissao.VerAgenda or Permissao.EditarAgenda => "Agenda e balcão",
+
+        Permissao.VerFichaPaciente or Permissao.EditarPaciente => "Paciente (cadastro)",
+
+        Permissao.VerProntuario or Permissao.EditarProntuario
+            or Permissao.Prescrever or Permissao.ChecarPrescricao => "Clínico (dado sensível)",
+
+        Permissao.VerFinanceiro or Permissao.EditarFinanceiro => "Financeiro",
+
+        Permissao.VerFaturamento or Permissao.BaixarGuia or Permissao.EstornarBaixa
+            or Permissao.RegistrarGlosa or Permissao.GerenciarLotesTiss
+            or Permissao.LancarAtendimento or Permissao.MarcarNaoConformidade
+            or Permissao.ConfigurarFaturamento => "Faturamento",
+
+        _ => "Direção"
+    };
+
+    /// <summary>
+    /// O que a permissão deixa fazer, EM UMA FRASE — e, quando o bit é dos delicados, por
+    /// que ele é separado.
+    ///
+    /// Existe porque o rótulo sozinho não decide nada: "Estornar baixa de guia" parece
+    /// inofensivo até alguém dizer que estornar apaga o trabalho de outra pessoa. Quem
+    /// concede permissão precisa da consequência escrita ao lado da caixinha, não num
+    /// manual que ninguém abre.
+    /// </summary>
+    public static string Explicar(Permissao permissao) => permissao switch
+    {
+        Permissao.VerAgenda => "Abrir a agenda, a fila do dia e o painel do balcão.",
+        Permissao.EditarAgenda => "Marcar, remarcar, cancelar, dar check-in e concluir.",
+
+        Permissao.VerFichaPaciente =>
+            "Cadastro, contato, convênio, carteirinha, autorizações e documentos emitidos. "
+            + "NÃO inclui o que foi feito nas sessões.",
+        Permissao.EditarPaciente =>
+            "Cadastrar e editar paciente, colher consentimento LGPD, registrar a senha do "
+            + "convênio e emitir documento.",
+
+        Permissao.VerProntuario =>
+            "Ler evolução, EVA, mapa corporal, anexos, medidas e alergias — DADO DE SAÚDE. "
+            + "Quem não cuida do paciente não precisa disto para trabalhar.",
+        Permissao.EditarProntuario =>
+            "Escrever evolução, aplicar escala e colher medida.",
+        Permissao.Prescrever =>
+            "Escrever e assinar receita e prescrição de infusão. É mandar administrar "
+            + "medicação em alguém.",
+        Permissao.ChecarPrescricao =>
+            "Afirmar que o prescrito foi realizado. Vale porque são DUAS pessoas: quem "
+            + "checa não deve ser quem prescreve.",
+
+        Permissao.VerFinanceiro => "Caixa, conciliação, contas e produção.",
+        Permissao.EditarFinanceiro => "Lançar, realizar e cancelar movimento de caixa.",
+
+        Permissao.VerFaturamento => "Ler guias, pendências, lotes e a consulta de guias.",
+        Permissao.BaixarGuia =>
+            "Efetivar a guia no sistema do convênio. É o ato central do faturista.",
+        Permissao.EstornarBaixa =>
+            "Desfazer uma baixa. APAGA o trabalho de outra pessoa e desfaz o elo com a "
+            + "conciliação — errar a baixa é acidente, estornar é decisão.",
+        Permissao.RegistrarGlosa =>
+            "Anotar que a operadora recusou, recorrer e marcar recuperada. Dispara o prazo "
+            + "de recurso e chega ao caixa.",
+        Permissao.GerenciarLotesTiss =>
+            "Gerar, enviar e dar retorno de lote. Guia exportada num lote não entra em outro.",
+        Permissao.LancarAtendimento =>
+            "Criar o atendimento — e, com ele, as guias, pela regra do convênio.",
+        Permissao.MarcarNaoConformidade =>
+            "Decidir NÃO faturar uma guia, e reabrir o que foi decidido. É a única "
+            + "permissão que faz uma pendência sumir do painel sem a guia ter sido faturada.",
+        Permissao.ConfigurarFaturamento =>
+            "Catálogo de convênios, modalidades, prazos e dados do prestador. Muda a regra "
+            + "para todo mundo, não o registro de uma guia.",
+
+        Permissao.VerIndicadores =>
+            "Indicadores gerenciais, BI e os relatórios do faturamento.",
+        Permissao.GerenciarCampanhas => "Gerar e disparar confirmação, NPS e recall.",
+        Permissao.GerenciarEquipe => "Cadastrar profissionais e salas.",
+        Permissao.GerenciarUsuarios => "Criar usuário, trocar senha e mexer em permissão.",
+        Permissao.VerAuditoria => "Ler a trilha de quem fez o quê.",
+        Permissao.AnonimizarDados =>
+            "Anonimizar o cadastro a pedido do titular. NÃO TEM VOLTA — nome, documento e "
+            + "telefone não voltam.",
+
+        _ => string.Empty
+    };
 }
 
 /// <summary>

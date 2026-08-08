@@ -280,6 +280,22 @@ public sealed partial class ContasViewModel : ObservableObject
     /// lançamento: não entra em total nenhum, e mexer nela é tarefa de quando o contrato
     /// muda — não de todo dia.
     /// </summary>
+    /// <summary>
+    /// Abre as CONTAS FIXAS (parcela 49). Elas eram uma faixa de 320 px permanente ao lado
+    /// das contas do período; são cadastro, e a tela existe para responder "o que vence".
+    ///
+    /// A janela recebe ESTE ViewModel: gerar a série lá dentro tem de aparecer na lista de
+    /// trás sem ninguém clicar em atualizar.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirContasFixas()
+    {
+        new Janelas.ContasFixasWindow(this)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        }.ShowDialog();
+    }
+
     [RelayCommand]
     private async Task NovaRecorrenteAsync() => await AbrirRecorrenteAsync(0);
 

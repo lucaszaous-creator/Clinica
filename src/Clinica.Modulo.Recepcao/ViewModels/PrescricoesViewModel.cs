@@ -49,7 +49,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
     [ObservableProperty] private string _paciente = string.Empty;
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     /// <summary>
     /// Emitir exige paciente escolhido, além da permissão. Sem isto o botão ficava aceso
@@ -159,7 +159,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
 
             var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
             var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
@@ -237,7 +237,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "assinar documento clínico");
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "assinar documento clínico");
 
             var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Assinar {linha.Tipo.ToLowerInvariant()} {linha.Numero}",
@@ -354,7 +354,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
 
             var motivo = _dialogo.PerguntarTexto(
                 "Cancelar documento",

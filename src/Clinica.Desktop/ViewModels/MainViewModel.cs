@@ -114,9 +114,9 @@ public partial class MainViewModel : ObservableObject
         new ItemMenu { Secao = Secao.Tiss, Rotulo = "Guias TISS", Glifo = "\uE7C3", Grupo = "Faturamento",
                        Requer = Permissao.VerFaturamento },
         new ItemMenu { Secao = Secao.Pacientes, Rotulo = "Pacientes", Glifo = "\uE716", Grupo = "Cadastros e ajustes",
-                       Requer = Permissao.VerProntuario },
+                       Requer = Permissao.VerFichaPaciente },
         new ItemMenu { Secao = Secao.Relatorios, Rotulo = "Relatórios", Glifo = "\uE9D2", Grupo = "Cadastros e ajustes",
-                       Requer = Permissao.VerFaturamento },
+                       Requer = Permissao.VerIndicadores },
         new ItemMenu { Secao = Secao.Parametros, Rotulo = "Configurações", Glifo = "\uE713", Grupo = "Cadastros e ajustes",
                        Requer = Permissao.ConfigurarFaturamento },
     ];
