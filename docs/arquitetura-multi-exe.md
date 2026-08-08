@@ -330,6 +330,25 @@ Mudar um token de cor passa a ser duas edições, para sempre. É barato perto d
 que fatura — e o espelho de tokens (`tokens/verificar-espelho.py`) já trava divergência de
 cor no CI.
 
+**O que o espelho de tokens NÃO cobre é o ESTILO**, e a parcela 45 mostrou a conta. Enquanto
+o faturamento esteve congelado, a suíte ganhou correções de componente que ele não recebeu, e
+as duas cópias silenciosamente divergiram:
+
+- **`PasswordBox` não tinha estilo nenhum** no lado do faturamento. Não aparecia porque não
+  havia um campo de senha no app inteiro — até a tela de login trazer cinco de uma vez, todos
+  no visual cru do WPF (cantos vivos, sem padding, 2px mais baixos que o `TextBox` acima e sem
+  anel de foco). Numa coluna de campos empilhados, é a diferença de altura e de borda que faz
+  a tela parecer torta.
+- **`TextoSuave` não tinha `HorizontalAlignment="Left"`**, a correção da parcela 37: com
+  `MaxWidth` e sem alinhamento, o WPF CENTRALIZA o que sobra, e o subtítulo nasce flutuando no
+  meio da tela com o título alinhado à esquerda logo acima.
+
+As duas foram portadas do shell **sem alterar uma medida**. A lição para a próxima divergência:
+ao mexer numa tela do faturamento depois de um período parado, **compare as CHAVES dos dois
+design systems antes de escrever XAML** — `grep -oE 'x:Key="[^"]+"'` nos dois lados, e também
+os estilos implícitos (`<Style TargetType=` sem `x:Key`), que são justamente os que ninguém
+procura porque não são citados por nome em lugar nenhum.
+
 ### E o Gerente Geral, que "reflete tudo"?
 
 Sem a Fase 4 ele não herda as telas do faturamento. A saída é melhor que a original: o

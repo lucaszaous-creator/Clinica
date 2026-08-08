@@ -1,10 +1,9 @@
 <Window x:Class="Clinica.Desktop.Acesso.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Entrar — Faturamento" Width="820" Height="560"
-        MinWidth="640" MinHeight="460"
+        Title="Entrar" Width="820" Height="520"
         Icon="/Assets/Marca/icone.png"
-        WindowStartupLocation="CenterScreen"
+        WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="{StaticResource Brush.Superficie}" FontFamily="Segoe UI">
 
     <!--
