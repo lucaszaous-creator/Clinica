@@ -956,25 +956,36 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   caso ruim: o paciente com quatro problemas era o que empurrava a Modalidade para fora da
   vista. A região inteira **some** quando não há aviso — em vez de quatro caixas vazias
   ocupando o lugar para dizer que não há nada.
-- **O lançamento avulso virou JANELA, e a prévia é o que ele passou a oferecer**
-  (parcela 47, 2ª rodada — a 6ª reprovação do cliente): a consolidação dos avisos foi
+- **O lançamento avulso é TELA CHEIA — nem faixa lateral, nem pop-up** (parcela 47,
+  2ª e 3ª rodadas — a 6ª e a 7ª reprovações do cliente): a consolidação dos avisos foi
   cosmética e a tela continuava sendo o que o `README.md` proíbe — uma **faixa lateral**
   de 420 px com o formulário grudado à esquerda, permanente, para um ato que acontece
-  algumas vezes por dia. A pergunta que a regra manda fazer responde sozinha: lançar um
-  avulso é o que a pessoa **FAZ de vez em quando**, e o segundo caso é botão ou janela —
-  foi o mesmo caminho do mapa corporal e do formulário de medida na parcela 37. A seção
-  (`LancamentoAvulsoView`, renomeada para casar com o VM, que é como a checagem 21 acha o
-  comando) ficou com o que se OLHA: um botão que abre a `NovoAtendimentoWindow` e a
-  **conferência dos avulsos de hoje**, que não existia em lugar nenhum — quem lançava não
-  tinha como revisar sem abrir o app de faturamento, que é de outra pessoa.
-  A janela é 1040×680 (**não 720**: a checagem 15 mede contra os 728 px úteis do monitor
-  de 1366×768 do balcão), com cabeçalho fixo, **rodapé declarado ANTES do miolo** no
-  `DockPanel` — senão o miolo rolante come o rodapé — e três passos numerados: QUEM, O QUE
-  FOI FEITO, O QUE VAI SAIR. Ela **não fecha ao lançar**: o resultado — as guias com a
-  data em que cada uma libera — é a informação pela qual o produto existe, e fechar na
-  hora do sucesso a levaria embora com o paciente ainda na frente. "Lançar outro" zera o
-  formulário sem fechar, porque no balcão a fila vem em três.
-  O que a janela destravou não é leiaute, é **capacidade**: `AtendimentoService.PreverAsync`
+  algumas vezes por dia. A primeira correção tirou o formulário da faixa e o pôs numa
+  **janela modal**; o cliente recusou também, e com razão: *"não precisa abrir uma nova
+  tela, pode ser esse leiaute aí só que na mesma tela e com janela cheia"*.
+  A lição corrige pela metade a regra do `README.md` — "o que a pessoa FAZ de vez em
+  quando é botão ou janela" vale para o ato que acontece **DENTRO de outra tela** (o mapa
+  corporal na evolução, o formulário de medida na tela de medidas). Quando o ato **É** a
+  tela — o item de menu se chama "Novo atendimento" e existe só para isso —, o clique na
+  sidebar já é a abertura, e exigir um segundo clique para abrir uma janela por cima é
+  cerimônia sem função. **A pergunta é "isto acontece dentro de outra coisa?", não só "com
+  que frequência?"**
+  O desenho que ficou é o da janela com a largura da tela: cabeçalho, **barra de ação
+  ancorada declarada ANTES do miolo** no `DockPanel` (senão o miolo rolante come a barra, e
+  a barra é onde está o botão), miolo rolante e três passos numerados — QUEM, O QUE FOI
+  FEITO, O QUE VAI SAIR. Ao fim, **LANÇADOS HOJE**: a conferência do dia, que não existia
+  em lugar nenhum — quem lançava não tinha como revisar sem abrir o app de faturamento,
+  que é de outra pessoa.
+  Três defeitos de alinhamento que a rodada corrigiu e que valem para qualquer tela:
+  (a) **barra de botões precisa de `VerticalAlignment="Center"`** — sem ele, uma mensagem
+  de erro que quebra em duas linhas estica a linha da `Grid` e o WPF estica os BOTÕES
+  junto; (b) **cartão em `WrapPanel` usa `Height`, não `MinHeight`** — cada filho fica com
+  a altura que pede, e um nome que quebra em duas linhas deixa a fileira com a base
+  serrilhada; (c) **`Button` com `Button.Template` próprio precisa declarar `Foreground`**,
+  porque o estilo implícito de `Button` na suíte é o PRIMÁRIO (texto invertido) e
+  `Foreground` é propriedade HERDADA — o rótulo saía branco sobre a superfície branca do
+  cartão, e isso não aparece em build nenhum: só para quem abre a tela.
+  O que a tela nova destravou não é leiaute, é **capacidade**: `AtendimentoService.PreverAsync`
   / `PreverModalidadesAsync`. O motor de regras sempre foi **puro** (`IRegraConvenio.Gerar`
   não grava nada), e ninguém tinha usado isso — dava para MOSTRAR o que a regra vai gerar
   antes de gerar. Cada cartão de modalidade escreve a própria consequência ("2 guias · a 2ª
@@ -988,6 +999,17 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   central é `Previa_promete_exatamente_o_que_o_lancamento_entrega`: **prévia que não bate
   com o lançamento é pior do que prévia nenhuma** — ela promete duas guias, a pessoa
   confirma, e sai uma.
+- **Tela da suíte que precisa buscar ao abrir declara `ICarregarAoAbrir`** (parcela 47,
+  3ª rodada): o shell monta a tela em `IModuloApp.CriarTela` e só resolve o `DataContext`
+  — ele não chama método nenhum. A maioria das ViewModels dispara a busca no próprio
+  construtor e funciona; as duas que vieram do FATURAMENTO na parcela 46 (Novo atendimento
+  e Consultas) não faziam assim, porque lá quem chamava o `CarregarAsync` era a navegação
+  do `MainViewModel` — que não existe aqui. As duas chegaram à suíte abrindo com o
+  catálogo de modalidades VAZIO e a lista de consultas em branco, e **tela vazia se lê
+  como sistema quebrado, não como "ninguém chamou o carregar"**. Nada disso quebra build:
+  a porta existe, o serviço existe, o teste passa. O contrato resolve no **ponto único**
+  por onde toda tela da suíte passa (`ShellViewModel.Navegar`), em vez de repetir a linha
+  em cada construtor e depender de alguém lembrar dela na próxima porta.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três

@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Configuracao;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -107,6 +109,18 @@ public sealed record LinhaPrevia(
     string Tipo, string Ordem, string FaturarEm, string ComoObter,
     string Especialidade, bool EhSegundo, string Nota);
 
+/// <summary>Um avulso lançado hoje, na conferência do fim do dia.</summary>
+public sealed class LinhaAvulso
+{
+    public required string Paciente { get; init; }
+    public required string Modalidade { get; init; }
+    public required string Convenio { get; init; }
+    public required string Numero { get; init; }
+    public required string Guias { get; init; }
+    public required string Pendencia { get; init; }
+    public required bool TemPendencia { get; init; }
+}
+
 /// <summary>
 /// Lança um atendimento AVULSO — o paciente que não estava na agenda. O motor de regras
 /// gera os códigos do convênio na hora, inclusive o 2º código de +24h.
@@ -129,7 +143,7 @@ public sealed record LinhaPrevia(
 /// parcela 41. A lista de códigos gerados fica como CONFIRMAÇÃO: é onde o balcão vê, na
 /// hora, que a guia nasceu e quando ela libera.
 /// </summary>
-public partial class NovoAtendimentoViewModel : ObservableObject
+public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbrir
 {
     /// <summary>Metade VISÍVEL da permissão: lançar atendimento CRIA as guias pela regra do convênio.</summary>
     public bool PodeLancar => SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
@@ -144,6 +158,34 @@ public partial class NovoAtendimentoViewModel : ObservableObject
 
     public ObservableCollection<CodigoLancado> CodigosGerados { get; } = new();
     public ObservableCollection<string> Avisos { get; } = new();
+
+    /// <summary>
+    /// A conferência do fim do dia: os avulsos que JÁ foram lançados hoje. Ela vive na
+    /// mesma tela do lançamento de propósito — quem lança é quem confere, e até aqui não
+    /// havia onde conferir: era preciso abrir o app de faturamento, que é de outra pessoa.
+    /// </summary>
+    public ObservableCollection<LinhaAvulso> LancadosHoje { get; } = new();
+
+    /// <summary>Carregando o registro do dia — separado do <see cref="Ocupado"/> do lançamento.</summary>
+    [ObservableProperty] private bool _carregandoDia;
+
+    /// <summary>
+    /// A leitura do registro FALHOU — o terceiro estado. Lista vazia por erro é idêntica a
+    /// lista vazia por não ter havido avulso nenhum, e as duas levam a conclusões opostas.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
+
+    /// <summary>
+    /// Erro do REGISTRO, separado do <c>Mensagem</c> do formulário: um banco lento na
+    /// leitura da conferência não pode apagar da barra o "Selecione a modalidade".
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemAvisoRegistro))]
+    private string? _avisoRegistro;
+
+    public bool TemAvisoRegistro => !string.IsNullOrWhiteSpace(AvisoRegistro);
+
+    public bool TemLancadosHoje => LancadosHoje.Count > 0;
 
     /// <summary>Placar das baixas do atendimento recém-lançado ("1 de 2 guias baixadas…").</summary>
     [ObservableProperty]
@@ -325,6 +367,85 @@ public partial class NovoAtendimentoViewModel : ObservableObject
     {
         CarregarCatalogos();
         await Seletor.BuscarAsync(imediato: true);
+        await CarregarDoDiaAsync();
+    }
+
+    /// <summary>
+    /// Os avulsos de hoje. O lançamento avulso registra o atendimento também na agenda
+    /// (<c>registrarNaAgenda: true</c>) com <see cref="OrigemAgendamento.Manual"/> — é por
+    /// esse par que se distingue quem entrou por aqui de quem veio da agenda pela Fila.
+    /// </summary>
+    [RelayCommand]
+    public async Task CarregarDoDiaAsync()
+    {
+        try
+        {
+            CarregandoDia = true;
+            NaoVerificado = false;
+            AvisoRegistro = null;
+
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+
+            var hoje = DateTime.Today;
+            var agendamentos = await repo.AgendamentosNoPeriodoAsync(hoje, hoje.AddDays(1).AddTicks(-1));
+
+            LancadosHoje.Clear();
+            foreach (var ag in agendamentos
+                         .Where(a => a.Origem == OrigemAgendamento.Manual && a.AtendimentoId is not null)
+                         .OrderByDescending(a => a.AtendimentoId))
+            {
+                var atendimento = await repo.ObterAtendimentoAsync(ag.AtendimentoId!.Value);
+                if (atendimento is null) continue;
+
+                LancadosHoje.Add(MontarLinhaAvulso(atendimento, hoje));
+            }
+        }
+        catch (Exception ex)
+        {
+            NaoVerificado = true;
+            LogSuite.Registrar("Novo atendimento — avulsos do dia não puderam ser lidos", ex);
+            AvisoRegistro = $"Não foi possível ler os atendimentos de hoje: {ex.Message}";
+        }
+        finally
+        {
+            CarregandoDia = false;
+            OnPropertyChanged(nameof(TemLancadosHoje));
+        }
+    }
+
+    private static LinhaAvulso MontarLinhaAvulso(Atendimento atendimento, DateTime hoje)
+    {
+        var faturaveis = atendimento.Codigos
+            .Where(c => c.Status != StatusCodigo.NaoAplicavel)
+            .ToList();
+
+        // A guia que só libera depois é o assunto do produto. Ela vem marcada aqui também,
+        // na conferência do fim do dia: é a última chance de alguém notar antes de o dia
+        // fechar e a guia virar pendência de amanhã.
+        var depois = faturaveis
+            .Where(c => !c.Baixado && c.DataPrevistaFaturamento > DateOnly.FromDateTime(hoje))
+            .OrderBy(c => c.DataPrevistaFaturamento)
+            .ToList();
+
+        var paciente = atendimento.Paciente;
+
+        return new LinhaAvulso
+        {
+            Paciente = paciente?.Nome ?? "—",
+            Modalidade = atendimento.ModalidadeCodigo is { } cod
+                ? CatalogoModalidades.Nome(cod)
+                : ModalidadeInfo.NomeExibicao(atendimento.Modalidade),
+            Convenio = paciente is null
+                ? "—"
+                : CatalogoConvenios.Nome(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()),
+            Numero = atendimento.Numero ?? $"#{atendimento.Id}",
+            Guias = faturaveis.Count == 1 ? "1 guia" : $"{faturaveis.Count} guias",
+            TemPendencia = depois.Count > 0,
+            Pendencia = depois.Count == 0
+                ? "todas liberadas"
+                : $"{depois.Count} libera(m) a partir de {depois[0].DataPrevistaFaturamento:dd/MM}"
+        };
     }
 
     /// <summary>Recarrega as opções de modalidade/especialidade do cache (reflete o que foi salvo em Configurações).</summary>
@@ -713,6 +834,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject
             _ultimoAtendimentoId = resultado.Atendimento.Id;
             NumeroAtendimento = resultado.Atendimento.Numero;
             Lancado = true;
+
+            // A conferência do dia acompanha na hora: o que acabou de nascer aparece lá
+            // embaixo sem ninguém precisar clicar em Atualizar.
+            await CarregarDoDiaAsync();
         }
         catch (Exception ex)
         {

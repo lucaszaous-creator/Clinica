@@ -114,9 +114,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<DocumentosViewModel>();
         servicos.AddTransient<FilaViewModel>();
         servicos.AddTransient<PacientesViewModel>();
-        servicos.AddTransient<LancamentoAvulsoViewModel>();
-        // NovoAtendimentoViewModel é construído à mão pelo lançador: ele é o formulário da
-        // JANELA, e cada abertura precisa de um estado limpo.
+        servicos.AddTransient<NovoAtendimentoViewModel>();
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
         servicos.AddTransient<PrescricoesViewModel>();
@@ -132,9 +130,9 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveAgenda => new AgendaView { DataContext = servicos.GetRequiredService<AgendaViewModel>() },
         ChaveFila => new FilaView { DataContext = servicos.GetRequiredService<FilaViewModel>() },
         ChavePacientes => new PacientesView { DataContext = servicos.GetRequiredService<PacientesViewModel>() },
-        ChaveNovoAtendimento => new LancamentoAvulsoView
+        ChaveNovoAtendimento => new NovoAtendimentoView
         {
-            DataContext = servicos.GetRequiredService<LancamentoAvulsoViewModel>()
+            DataContext = servicos.GetRequiredService<NovoAtendimentoViewModel>()
         },
         ChaveConsultas => new ConsultasView { DataContext = servicos.GetRequiredService<ConsultasViewModel>() },
         ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },

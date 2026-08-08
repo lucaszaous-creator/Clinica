@@ -3,6 +3,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Configuracao;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -69,7 +70,7 @@ public sealed class LinhaConsulta
 /// compartilhado, e a consulta renovada aqui é a MESMA linha que
 /// <c>PendenciaService.ConsultasAVencerAsync</c> lê do outro lado. O que mudou foi a porta.
 /// </summary>
-public partial class ConsultasViewModel : ObservableObject
+public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
 {
     private readonly IServiceScopeFactory _escopos;
     private readonly IDialogoService _dialogo;

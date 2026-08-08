@@ -137,6 +137,12 @@ public sealed partial class ShellViewModel : ObservableObject
             var tela = modulo.CriarTela(item.Chave, _servicos);
             if (tela is null) continue;
 
+            // A ViewModel que declara ICarregarAoAbrir é carregada aqui — o ponto único por
+            // onde TODA tela da suíte passa. Sem isto, uma tela cuja carga dependia da
+            // navegação do app de origem abre em branco, e branco se lê como defeito.
+            if (tela is System.Windows.FrameworkElement { DataContext: ICarregarAoAbrir carregavel })
+                _ = carregavel.CarregarAsync();
+
             TelaAtual = tela;
             TituloTela = item.Rotulo;
             ModuloAtual = GruposSidebar.Rotulo(item.Grupo);

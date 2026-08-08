@@ -1,55 +1,57 @@
-<Window x:Class="Clinica.Recepcao.Janelas.NovoAtendimentoWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-        Title="Novo atendimento" Width="1040" Height="680"
-        MinWidth="900" MinHeight="560"
-        WindowStartupLocation="CenterOwner"
-        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+<UserControl x:Class="Clinica.Recepcao.Views.NovoAtendimentoView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
 
     <!-- ============================================================
-         LANÇAR ATENDIMENTO É UM ATO, E ATO MORA EM JANELA.
+         LANÇAR ATENDIMENTO ACONTECE NESTA TELA, DE TELA CHEIA.
 
-         Era uma seção com uma coluna de 420 px à esquerda: a faixa lateral que o README
-         proíbe, e que o cliente reprovou de novo em voz alta. A pergunta que a regra manda
-         fazer é "isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?" —
-         e lançar um avulso é claramente o segundo. Foi o mesmo caminho do mapa corporal e
-         do formulário de medida, que viraram janela na parcela 37.
+         Duas coisas ficaram para trás, e as duas por decisão do cliente:
 
-         O que a janela ganha, e a faixa não tinha: LARGURA. Os cinco cartões de modalidade
-         cabem em LINHA, lado a lado, em vez de empilhados numa coluna estreita com rolagem;
-         e a prévia fica embaixo, com a tela toda para as guias. O fluxo lê de cima para
-         baixo na ordem em que a pessoa decide — quem, o quê, e o que vai sair —, sem nada
-         disputando espaço com o formulário.
+         1. A FAIXA LATERAL. Era uma coluna de 420 px à esquerda com o formulário dentro e
+            o resto da tela para o resultado — o defeito que o `README.md` proíbe.
+         2. A JANELA. A primeira correção tirou o formulário da faixa e o pôs num pop-up.
+            O cliente recusou: o lançamento é o ASSUNTO desta seção, e o item de menu já é
+            o clique que abre o ato. Pedir um segundo clique para abrir uma janela por
+            cima da tela que existe para isso é cerimônia sem função — e janela modal, no
+            balcão, é a coisa que fica presa atrás da janela principal quando alguém
+            alterna de aplicativo com o paciente esperando.
 
-         Rola por inteiro: com a escala do Windows em 150% uma janela de 720 px vira 1080 px
-         físicos, e sem a rolagem o rodapé sai da vista — e o rodapé é onde está o botão.
+         O que sobrou é o desenho da janela com a LARGURA da tela: o fluxo lê de cima para
+         baixo na ordem em que a pessoa decide — QUEM, O QUE FOI FEITO, O QUE VAI SAIR —,
+         os cartões de modalidade cabem em linha, e a barra de ação fica ancorada embaixo,
+         sempre à vista, com o botão que diz quantas guias vão nascer.
+
+         O miolo ROLA e a barra NÃO: com a escala do Windows em 150% a área útil de uma
+         tela de 768 px vira pouco mais de 500, e um botão que sai da vista é um botão que
+         não existe.
          ============================================================ -->
 
-    <Window.Resources>
+    <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
-    </Window.Resources>
+    </UserControl.Resources>
 
     <DockPanel>
 
         <!-- ===== Cabeçalho ===== -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1"
-                Padding="24,16">
-            <StackPanel>
-                <TextBlock Text="Novo atendimento" Style="{StaticResource H2}" Margin="0" />
-                <TextBlock Style="{StaticResource TextoSuave}"
-                           Text="Para quem chegou sem horário marcado. Quem está na agenda entra pela Fila, no Finalizar." />
-            </StackPanel>
-        </Border>
+        <StackPanel DockPanel.Dock="Top" Margin="24,20,24,14">
+            <TextBlock Text="Novo atendimento" Style="{StaticResource H1}" Margin="0" />
+            <TextBlock Style="{StaticResource TextoSuave}"
+                       Text="Para quem chegou sem horário marcado. Quem está na agenda entra pela Fila, no Finalizar — e ali a guia nasce do mesmo jeito." />
+        </StackPanel>
 
-        <!-- ===== Rodapé fixo =====
-             Declarado ANTES do miolo de propósito: num DockPanel o último filho ocupa o
-             resto, e é o miolo que tem de rolar — não o rodapé, que precisa ficar à vista
-             com o botão que diz quantas guias vão nascer. -->
+        <!-- ===== Barra de ação (ancorada) =====
+             Declarada ANTES do miolo de propósito: num DockPanel o último filho ocupa o
+             resto, e é o miolo que tem de rolar — não a barra.
+
+             Os botões: MESMA altura (40), MESMO alinhamento vertical e a barra com altura
+             própria. Sem o `VerticalAlignment` do painel, uma mensagem de erro que quebra
+             em duas linhas estica a linha do Grid e o WPF ESTICA os botões junto — foi o
+             desalinhamento que apareceu na tela. -->
         <Border DockPanel.Dock="Bottom" Background="{StaticResource Brush.Superficie}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0"
-                Padding="24,14">
+                Padding="24,12">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -58,22 +60,21 @@
 
                 <TextBlock Grid.Column="0" Text="{Binding Mensagem}" TextWrapping="Wrap"
                            VerticalAlignment="Center" HorizontalAlignment="Left"
-                           MaxWidth="520" Margin="0,0,16,0"
+                           MaxWidth="560" Margin="0,0,16,0"
                            Foreground="{StaticResource Brush.Erro}"
                            Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}" />
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="Fechar" MinWidth="110" Margin="0,0,8,0"
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <Button Content="Limpar" MinWidth="110" MinHeight="40" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
-                            IsCancel="True" />
-                    <Button Content="Lançar outro" MinWidth="130" Margin="0,0,8,0"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding NovoLancamentoCommand}"
-                            Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}" />
+                            Command="{Binding NovoLancamentoCommand}" />
                     <!-- O rótulo DIZ o número: "Lançar e gerar 2 guias". Botão que promete o
                          número é o que faz alguém perceber, antes de clicar, que escolheu a
                          modalidade errada. -->
-                    <Button Content="{Binding RotuloLancar}" MinWidth="210"
+                    <Button Content="{Binding RotuloLancar}" MinWidth="230" MinHeight="40"
+                            VerticalAlignment="Center"
                             Command="{Binding LancarCommand}"
                             IsEnabled="{Binding PodeLancar}"
                             ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}">
@@ -91,21 +92,25 @@
                             </Style>
                         </Button.Style>
                     </Button>
+                    <Button Content="Lançar outro" MinWidth="230" MinHeight="40"
+                            VerticalAlignment="Center"
+                            Command="{Binding NovoLancamentoCommand}"
+                            Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}" />
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- ===== Miolo ===== -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,0,24,20">
             <StackPanel>
 
                 <!-- ============ 1 · QUEM ============ -->
                 <TextBlock Text="1 · QUEM" Style="{StaticResource Rotulo}" Margin="0" />
                 <Separator Margin="0,4,0,10" />
 
-                <!-- Sem paciente: a busca com a LARGURA da janela. Na faixa lateral de
-                     420 px a lista de resultados era um vão de três linhas com rolagem; aqui
-                     cabem seis nomes com telefone e convênio à vista. -->
+                <!-- Sem paciente: a busca com a LARGURA da tela. Na faixa lateral de 420 px
+                     a lista de resultados era um vão de três linhas com rolagem; aqui cabem
+                     seis nomes com telefone e convênio à vista. -->
                 <Border Style="{StaticResource Card}"
                         Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
                     <DockPanel>
@@ -159,8 +164,12 @@
                                     </Border>
                                 </StackPanel>
                             </StackPanel>
+                            <!-- Botão ao lado de conteúdo de formulário usa a altura do
+                                 formulário: `BotaoAcaoGrid*` tem 26 px e é para linha densa
+                                 de tabela; aqui ele sairia esticado pela linha da Grid. -->
                             <Button Grid.Column="2" Content="Trocar" VerticalAlignment="Center"
-                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                    MinHeight="36" MinWidth="90"
+                                    Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding TrocarPacienteCommand}"
                                     ToolTip="Escolher outro paciente" />
                         </Grid>
@@ -268,17 +277,24 @@
                     <Grid Margin="0,20,0,0">
                         <TextBlock Text="2 · O QUE FOI FEITO" Style="{StaticResource Rotulo}"
                                    VerticalAlignment="Center" Margin="0" />
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
                             <TextBlock Text="Data" Style="{StaticResource Rotulo}"
                                        VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <DatePicker SelectedDate="{Binding Data}" Width="150" />
+                            <DatePicker SelectedDate="{Binding Data}" Width="150"
+                                        VerticalAlignment="Center" />
                         </StackPanel>
                     </Grid>
                     <Separator Margin="0,4,0,10" />
 
-                    <!-- Os cartões em LINHA. É o que a janela ganhou e a faixa lateral não
-                         tinha: largura. Na coluna de 420 px eles ficavam empilhados, com
-                         rolagem, e a quinta opção nascia fora da vista. -->
+                    <!-- Os cartões em LINHA — é o que a tela cheia dá e a faixa lateral não
+                         dava: largura. Na coluna de 420 px eles ficavam empilhados, com
+                         rolagem, e a quinta opção nascia fora da vista.
+
+                         `Height` FIXA, não `MinHeight`: num WrapPanel cada filho fica com a
+                         altura que pede, então um nome que quebra em duas linhas deixava o
+                         cartão mais alto que os vizinhos e a fileira saía com a base
+                         serrilhada. -->
                     <ItemsControl ItemsSource="{Binding Cartoes}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -291,14 +307,21 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Button Width="182" Margin="0,0,10,10"
+                                <!-- `Foreground` e `FontWeight` explícitos: o estilo implícito
+                                     de Button é o PRIMÁRIO (fundo de acento, texto invertido),
+                                     e Foreground é propriedade HERDADA — sem isto o nome da
+                                     modalidade sairia branco sobre a superfície branca do
+                                     cartão, visível só para quem abre a tela. -->
+                                <Button Width="196" Height="112" Margin="0,0,10,10"
                                         HorizontalContentAlignment="Stretch"
+                                        Foreground="{StaticResource Brush.Texto.Primario}"
+                                        FontWeight="Normal"
                                         Command="{Binding DataContext.EscolherModalidadeCommand,
                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                         CommandParameter="{Binding}">
                                     <Button.Template>
                                         <ControlTemplate TargetType="Button">
-                                            <Border x:Name="cx" Padding="14,12" MinHeight="104"
+                                            <Border x:Name="cx" Padding="14,12"
                                                     Background="{StaticResource Brush.Superficie}"
                                                     BorderBrush="{StaticResource Brush.Borda}"
                                                     BorderThickness="1"
@@ -313,12 +336,14 @@
                                                         <TextBlock x:Name="quando" Text="{Binding Quando}"
                                                                    FontSize="{StaticResource Fonte.Legenda}"
                                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                                   TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                                   TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                                   TextTrimming="CharacterEllipsis" />
                                                     </StackPanel>
 
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                                   TextWrapping="Wrap" />
+                                                                   TextWrapping="Wrap"
+                                                                   TextTrimming="CharacterEllipsis" />
                                                         <!-- Ataca o erro mais comum do balcão:
                                                              lançar a modalidade errada por
                                                              distração num paciente que faz a
@@ -469,7 +494,7 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
                                 <TextBlock Text="{Binding NumeroAtendimento, StringFormat='Atendimento nº {0} lançado'}"
                                            FontWeight="Bold" />
                                 <TextBlock Text="{Binding ResumoBaixas}" TextWrapping="Wrap"
@@ -477,7 +502,7 @@
                                            FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
                             </StackPanel>
                             <Button Grid.Column="1" Content="Capa inicial (PDF)"
-                                    VerticalAlignment="Center"
+                                    VerticalAlignment="Center" MinHeight="36"
                                     Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding GerarCapaCommand}" />
                         </Grid>
@@ -545,7 +570,104 @@
                     </Border>
                 </StackPanel>
 
+                <!-- ============ Lançados hoje ============
+                     A conferência do fim do dia, que não existia em lugar nenhum: quem
+                     lançava um avulso não tinha como revisar o que lançou sem abrir o app
+                     de faturamento, que é de outra pessoa. -->
+                <Grid Margin="0,26,0,0">
+                    <TextBlock Text="LANÇADOS HOJE" Style="{StaticResource Rotulo}"
+                               VerticalAlignment="Center" Margin="0" />
+                    <Button Content="Atualizar" HorizontalAlignment="Right"
+                            VerticalAlignment="Center" MinHeight="30" MinWidth="96"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding CarregarDoDiaCommand}" />
+                </Grid>
+                <Separator Margin="0,4,0,10" />
+
+                <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,10"
+                        Visibility="{Binding TemAvisoRegistro, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="{Binding AvisoRegistro}" TextWrapping="Wrap" />
+                </Border>
+
+                <Border Style="{StaticResource Card}" MinHeight="140">
+                    <Grid>
+                        <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                           Itens="{Binding LancadosHoje}"
+                                           Carregando="{Binding CarregandoDia}"
+                                           NaoVerificado="{Binding NaoVerificado}"
+                                           Glifo="&#xEB51;"
+                                           Titulo="Nenhum avulso lançado hoje"
+                                           Descricao="Quem chegou sem horário marcado entra por aqui. Quem estava na agenda aparece na Fila." />
+
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,8"
+                                  Visibility="{Binding TemLancadosHoje, Converter={StaticResource BoolParaVisibilidade}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="200" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE" Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Grid.Column="1" Text="GUIAS" Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Grid.Column="2" Text="ATENDIMENTO" Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                            </Grid>
+
+                            <ItemsControl ItemsSource="{Binding LancadosHoje}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="200" />
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Modalidade}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+
+                                            <!-- A guia que falta é o assunto do produto: ela vem em
+                                                 âmbar aqui também, na conferência do fim do dia. -->
+                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding Guias}" />
+                                                <TextBlock x:Name="pendente" Text="{Binding Pendencia}"
+                                                           TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                           Margin="0,2,0,0" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="2" Text="{Binding Numero}" VerticalAlignment="Center" />
+
+                                            <Border Grid.Column="3" Style="{StaticResource Badge}"
+                                                    VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Convenio}" />
+                                            </Border>
+
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding TemPendencia}" Value="True">
+                                                    <Setter TargetName="pendente" Property="Foreground"
+                                                            Value="{StaticResource Brush.Aviso}" />
+                                                    <Setter TargetName="pendente" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </DockPanel>
+                    </Grid>
+                </Border>
+
             </StackPanel>
         </ScrollViewer>
     </DockPanel>
-</Window>
+</UserControl>
