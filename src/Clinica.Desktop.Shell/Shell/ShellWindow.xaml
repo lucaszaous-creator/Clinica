@@ -189,7 +189,13 @@
                         <TextBlock Text="&#xE700;" Style="{StaticResource Icone}" />
                     </Button>
 
-                    <!-- Quem está usando: a ação registrada na auditoria é dele. -->
+                    <!-- Quem está usando: a ação registrada na auditoria é dele — e por
+                         isso trocar de pessoa precisa de porta AQUI. No balcão duas
+                         pessoas dividem a máquina; sem esta saída a segunda seguiria
+                         trabalhando com o login da primeira, e a trilha assinaria o nome
+                         errado. O nome fica ao lado do botão, e não dentro dele, porque
+                         quem passa o olho quer LER quem está conectado, não descobrir
+                         clicando. -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
                                 VerticalAlignment="Center" Margin="16,0,0,0">
                         <ctrl:Avatar Nome="{Binding UsuarioRotulo}" Tamanho="28"
@@ -198,6 +204,16 @@
                                    VerticalAlignment="Center"
                                    Foreground="{StaticResource Brush.Texto.Primario}"
                                    FontSize="{StaticResource Fonte.Tabela}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                        <!-- Texto, e não ícone: "trocar usuário" não tem glifo que se leia
+                             sozinho, e o custo de errar aqui é alguém não achar a saída. É
+                             o mesmo rótulo do faturamento — dois nomes para o mesmo ato
+                             fariam parecer que fazem coisas diferentes. -->
+                        <Button Content="Trocar usuário"
+                                Command="{Binding TrocarUsuarioCommand}"
+                                Style="{StaticResource BotaoSecundario}"
+                                VerticalAlignment="Center" Margin="12,0,0,0"
+                                Padding="10,4" FontSize="{StaticResource Fonte.Legenda}"
+                                ToolTip="Fecha e reabre o sistema na tela de entrada" />
                     </StackPanel>
 
                     <TextBlock DockPanel.Dock="Right" Text="{Binding DataHoje}"

@@ -1078,6 +1078,36 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   coluna de **Ações**, não faixa (dois falsos positivos), e trocar `BotaoPequeno` por
   `BotaoSecundario` em bloco atinge o botão de LINHA da lista, onde `BotaoPequeno` é o
   certo — e o resultado é `VerticalAlignment` duplicado, que o XML nem parseia.
+- **Sobreposição posta como IRMÃ desaba a tela inteira** (parcela 50, 2ª rodada — o cliente
+  mandou a foto da Conciliação com título, abas e texto desenhados uns por cima dos
+  outros). O `EstadoDaTela` (carregando · falhou · vazio) é uma SOBREPOSIÇÃO, e por isso
+  precisa de um pai que empilhe os filhos no mesmo lugar — um `Grid` —, sendo o ÚLTIMO
+  filho dele (o WPF desenha na ordem do XAML). Ele foi escrito como irmão, dentro de um
+  `DockPanel`, com o conteúdo embrulhado num `Grid` intermediário. Daí saem **dois**
+  estragos, e o segundo é o que se vê: o `EstadoDaTela` deixa de sobrepor e passa a OCUPAR
+  espaço; e todo `DockPanel.Dock` do conteúdo vira **no-op**, porque o pai dele passou a ser
+  o `Grid` — então a tela inteira desaba numa célula só.
+  A correção é uma troca de papéis entre os dois elementos, não um remendo: `Grid` por fora
+  (hospeda a sobreposição), `DockPanel` por dentro (devolve o empilhamento vertical). Eram
+  **cinco telas do Financeiro**, todas assim desde a parcela em que o estado vazio foi
+  acrescentado. Nenhuma rede pegava: o XML é bem-formado, o `compilar-sombra` não lê o
+  corpo do XAML e o compilador de marcação não tem o que reclamar — **o defeito só existe
+  na tela montada**. Virou a **checagem 25**, que cobra as duas metades (painel linear
+  nunca sobrepõe; dentro de `Grid`, ou é o último filho ou traz `Panel.ZIndex`) e é
+  autotestada contra o caso real.
+- **Login sem saída faz a auditoria assinar o nome errado** (parcela 50, 2ª rodada): os
+  quatro apps da SUÍTE pediam login e não tinham "Trocar usuário" — só o faturamento tinha,
+  desde a parcela 45. Parece conforto e não é: é a nona ocorrência do defeito recorrente do
+  projeto (capacidade com porta num app só), com o agravante de **desfazer em silêncio a
+  razão de o login existir**. No balcão duas pessoas dividem a máquina; sem saída, a segunda
+  segue trabalhando com o login da primeira, e a trilha da parcela 21 volta a responder o
+  nome errado para "quem fez isso?" — exatamente o que `SessaoUsuario` substituiu quando
+  tirou o `Environment.UserName` de lá.
+  Trocar de usuário **reabre o app** na suíte pela mesma razão do faturamento: as ViewModels
+  leem a permissão quando são CONSTRUÍDAS, metade delas já está viva, e repontar a sessão
+  deixaria a tela da colega anterior aberta com os botões dela. Uma diferença: aqui, se a
+  reabertura FALHA, o app **não fecha** — derrubar o sistema sem ter conseguido abrir o
+  outro deixaria o balcão sem nada.
 - **Resposta de banco que chega fora de ordem é "não atualiza"** (parcela 50, dois bugs
   que o cliente achou em produção): a prévia do Novo atendimento mostrava "1 guia · tudo
   hoje" para uma modalidade que gera duas, e não mudava ao trocar qual código o convênio
