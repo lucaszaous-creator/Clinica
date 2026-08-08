@@ -15,6 +15,7 @@
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Selecao.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Tabelas.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Navegacao.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Abas.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Feedback.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Sobreposicao.xaml" />
         <ResourceDictionary Source="pack://application:,,,/Clinica.Desktop.Shell;component/Styles/Componentes/Cartoes.xaml" />

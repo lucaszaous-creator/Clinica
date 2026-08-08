@@ -10,11 +10,23 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Recepcao.ViewModels;
 
 /// <summary>
-/// Pacientes na Recepção: lista à esquerda, ficha 360º à direita.
+/// Pacientes na Recepção: LISTA de largura inteira, e a ficha do paciente atrás de um
+/// clique.
 ///
-/// É master-detail numa tela só de propósito — o balcão trabalha com o paciente na
-/// frente, e obrigar a navegar para outra seção para ver a ficha custaria um clique e
-/// o contexto a cada atendimento.
+/// O que mudou, e por quê (parcela 47)
+/// -----------------------------------
+/// Até aqui era mestre-detalhe numa tela só: uma coluna de 360 px com a lista, grudada à
+/// esquerda para sempre, e a ficha à direita como uma PILHA de oito cartões com moldura.
+/// As duas metades são o defeito que o `README.md` proíbe em letras maiúsculas — a faixa
+/// lateral permanente ("metade da largura útil gasta com a mesma lista") e a colcha de
+/// retalhos ("cinco molduras lado a lado leem-se como cinco telas costuradas"). A regra
+/// existe porque o cliente reprovou isso em voz alta, e a saída prescrita é literalmente
+/// esta: <b>tela de LISTA (largura inteira) → tela do ITEM atrás de um clique, com abas</b>.
+///
+/// O padrão não foi inventado aqui: é o mesmo <c>PacienteWorkspaceView</c> que o
+/// Consultório usa desde a parcela 37 — cabeçalho da pessoa uma vez, e as seções em abas.
+/// Ter dois desenhos diferentes para "ficha do paciente" no mesmo sistema é o que faz a
+/// recepcionista achar que abriu outro programa.
 ///
 /// A busca NÃO é reescrita aqui: usa o <see cref="SeletorPacienteViewModel"/> da suíte,
 /// que já resolve limite no SQL, agrupamento das teclas e descarte de resposta fora de
@@ -30,6 +42,20 @@ public sealed partial class PacientesViewModel : ObservableObject
     public FichaPacienteViewModel Ficha { get; }
 
     [ObservableProperty] private string _resumo = string.Empty;
+
+    /// <summary>
+    /// Estamos na ficha de alguém? É o que troca a LISTA pela tela do paciente.
+    ///
+    /// Mora no ViewModel e não numa navegação do shell porque as duas telas são a mesma
+    /// seção da sidebar: "Pacientes" continua sendo um item só, e voltar da ficha não
+    /// pode custar reencontrar o item no menu.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MostrandoLista))]
+    private bool _mostrandoFicha;
+
+    /// <summary>Estamos na lista? O par existe porque XAML não nega booleano sem conversor.</summary>
+    public bool MostrandoLista => !MostrandoFicha;
 
     /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
@@ -56,8 +82,31 @@ public sealed partial class PacientesViewModel : ObservableObject
         _ = Seletor.BuscarAsync(imediato: true);
     }
 
+    /// <summary>
+    /// Escolher alguém na lista ABRE a ficha. A ficha carrega antes de a tela trocar
+    /// (não se espera o await): o cabeçalho já tem nome e foto vindos da linha clicada, e
+    /// segurar a troca até o banco responder faria o clique parecer engolido num banco
+    /// remoto de quinze segundos.
+    /// </summary>
     private void AoTrocarPaciente(Paciente? paciente)
-        => _ = Ficha.AbrirAsync(paciente?.Id);
+    {
+        if (paciente is null) return;
+
+        MostrandoFicha = true;
+        _ = Ficha.AbrirAsync(paciente.Id);
+    }
+
+    /// <summary>
+    /// Volta para a lista. LIMPA a seleção de propósito: sem isso, clicar de novo no mesmo
+    /// paciente não dispararia `SelecaoMudou` (o item já estava selecionado) e a ficha não
+    /// reabriria — botão que funciona uma vez e depois não.
+    /// </summary>
+    [RelayCommand]
+    private void Voltar()
+    {
+        MostrandoFicha = false;
+        Seletor.Limpar();
+    }
 
     private void AtualizarResumo()
         => Resumo = Seletor.Resultados.Count switch

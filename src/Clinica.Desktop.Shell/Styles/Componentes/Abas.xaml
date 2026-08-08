@@ -1,0 +1,111 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ============================================================
+         ABAS — o sublinhado, não a "pastinha".
+
+         Por que este arquivo existe
+         A suíte usa `TabControl` desde a parcela 37 (o workspace do paciente, no
+         Consultório) e o Faturamento (TISS) do Gerente, e NUNCA teve estilo para ele.
+         Sem estilo, o WPF desenha o tema clássico: abas em forma de pasta, com gradiente
+         cinza, borda em relevo e um retângulo 3D em volta do conteúdo. É o visual do
+         Windows XP dentro de um app que no resto é plano — e é a peça que mais denuncia
+         idade numa tela, porque fica no topo, sempre visível.
+
+         O desenho é o que todo produto de clínica usa hoje: rótulo em texto, sublinhado
+         de 2 px na aba ativa, sem moldura em volta do conteúdo. A aba ativa é a única
+         colorida, e a linha fina que atravessa a régua inteira é o que separa o cabeçalho
+         do conteúdo — sem gastar uma moldura para isso.
+
+         Isto NÃO tem x:Key de propósito: é implícito, para as abas que já existem no
+         Consultório e no Gerente ficarem modernas sem tocar numa linha delas.
+         ============================================================ -->
+
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="../Tokens.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+    <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+        <Setter Property="Padding" Value="2,0" />
+        <Setter Property="Margin" Value="0,0,24,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ContentPresenter x:Name="rotulo" Grid.Row="0"
+                                          ContentSource="Header"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Center"
+                                          TextElement.FontSize="{TemplateBinding FontSize}"
+                                          TextElement.Foreground="{TemplateBinding Foreground}" />
+
+                        <!-- O sublinhado ocupa o lugar mesmo apagado (Transparent, não
+                             Collapsed): se ele sumisse, o rótulo subiria 2 px ao ser
+                             escolhido e a régua inteira tremeria a cada troca de aba. -->
+                        <Border x:Name="sublinhado" Grid.Row="1" Height="2" Margin="0,8,0,0"
+                                Background="Transparent"
+                                CornerRadius="{StaticResource Raio.Pequeno}" />
+                    </Grid>
+
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="rotulo" Property="TextElement.Foreground"
+                                    Value="{StaticResource Brush.Texto.Primario}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="rotulo" Property="TextElement.Foreground"
+                                    Value="{StaticResource Brush.Acento}" />
+                            <Setter TargetName="rotulo" Property="TextElement.FontWeight" Value="SemiBold" />
+                            <Setter TargetName="sublinhado" Property="Background"
+                                    Value="{StaticResource Brush.Acento}" />
+                        </Trigger>
+                        <!-- Teclado: a aba é navegável por Ctrl+Tab e por seta, e sem
+                             marca de foco quem navega assim fica sem saber onde está. -->
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="rotulo" Property="TextElement.Foreground"
+                                    Value="{StaticResource Brush.Acento}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="TabControl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <DockPanel>
+                        <!-- Régua das abas + a linha que separa do conteúdo. A linha vai de
+                             ponta a ponta porque é ela que faz o papel da moldura que o
+                             tema antigo desenhava em volta de tudo. -->
+                        <Border DockPanel.Dock="Top" BorderThickness="0,0,0,1"
+                                BorderBrush="{StaticResource Brush.Borda}">
+                            <TabPanel IsItemsHost="True" Panel.ZIndex="1"
+                                      Background="Transparent" Margin="0,0,0,-1" />
+                        </Border>
+
+                        <ContentPresenter ContentSource="SelectedContent"
+                                          Margin="{TemplateBinding Padding}" />
+                    </DockPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

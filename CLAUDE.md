@@ -934,8 +934,84 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   que de quebra deu ao mapa os 960 px de mínimo que a Recepção já lhe dava. A pergunta que
   decide: **isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?** O
   segundo caso é botão.
+- **A ficha do paciente é LISTA → TELA DO ITEM, e as abas têm estilo** (parcela 47): a
+  tela de Pacientes da Recepção era o defeito do README inteiro numa tela só — coluna de
+  360 px com a lista grudada à esquerda para sempre, e a ficha à direita como pilha de
+  **oito `Card` com moldura**. Virou o que a regra manda: lista de largura inteira
+  (`ItemPacienteLinha`, com telefone, que só existia dentro da ficha) e a ficha atrás de um
+  clique, com cabeçalho da pessoa uma vez e cinco **abas** — o MESMO desenho do
+  `PacienteWorkspaceView` do Consultório. Dois desenhos para "ficha do paciente" no mesmo
+  sistema é o que faz a recepcionista achar que abriu outro programa.
+  O que destravou isso foi o `Styles/Componentes/Abas.xaml`: a suíte usava `TabControl`
+  desde a parcela 37 e **nunca teve estilo para ele**, então o WPF desenhava o tema
+  clássico — abas em forma de pasta, gradiente cinza, moldura 3D em volta do conteúdo.
+  Visual de Windows XP no topo da tela, sempre visível, dentro de um app que no resto é
+  plano; é a peça que mais denuncia idade. O estilo é **implícito, sem `x:Key`**, de
+  propósito: as abas que já existiam no Consultório e no Gerente ficaram modernas sem
+  tocar numa linha delas. O sublinhado ocupa o lugar mesmo apagado (`Transparent`, não
+  `Collapsed`), senão o rótulo sobe 2 px ao ser escolhido e a régua treme a cada troca.
+  No **Novo atendimento**, os quatro `Border` empilhados de aviso (carteirinha, consulta,
+  cota, pendências) viraram **uma superfície com uma linha por aviso**, cor no traço de
+  3 px à esquerda. Eles somavam até 280 px acima do formulário, e pioravam justamente no
+  caso ruim: o paciente com quatro problemas era o que empurrava a Modalidade para fora da
+  vista. A região inteira **some** quando não há aviso — em vez de quatro caixas vazias
+  ocupando o lugar para dizer que não há nada.
+- **O lançamento avulso é TELA CHEIA — nem faixa lateral, nem pop-up** (parcela 47,
+  2ª e 3ª rodadas — a 6ª e a 7ª reprovações do cliente): a consolidação dos avisos foi
+  cosmética e a tela continuava sendo o que o `README.md` proíbe — uma **faixa lateral**
+  de 420 px com o formulário grudado à esquerda, permanente, para um ato que acontece
+  algumas vezes por dia. A primeira correção tirou o formulário da faixa e o pôs numa
+  **janela modal**; o cliente recusou também, e com razão: *"não precisa abrir uma nova
+  tela, pode ser esse leiaute aí só que na mesma tela e com janela cheia"*.
+  A lição corrige pela metade a regra do `README.md` — "o que a pessoa FAZ de vez em
+  quando é botão ou janela" vale para o ato que acontece **DENTRO de outra tela** (o mapa
+  corporal na evolução, o formulário de medida na tela de medidas). Quando o ato **É** a
+  tela — o item de menu se chama "Novo atendimento" e existe só para isso —, o clique na
+  sidebar já é a abertura, e exigir um segundo clique para abrir uma janela por cima é
+  cerimônia sem função. **A pergunta é "isto acontece dentro de outra coisa?", não só "com
+  que frequência?"**
+  O desenho que ficou é o da janela com a largura da tela: cabeçalho, **barra de ação
+  ancorada declarada ANTES do miolo** no `DockPanel` (senão o miolo rolante come a barra, e
+  a barra é onde está o botão), miolo rolante e três passos numerados — QUEM, O QUE FOI
+  FEITO, O QUE VAI SAIR. Ao fim, **LANÇADOS HOJE**: a conferência do dia, que não existia
+  em lugar nenhum — quem lançava não tinha como revisar sem abrir o app de faturamento,
+  que é de outra pessoa.
+  Três defeitos de alinhamento que a rodada corrigiu e que valem para qualquer tela:
+  (a) **barra de botões precisa de `VerticalAlignment="Center"`** — sem ele, uma mensagem
+  de erro que quebra em duas linhas estica a linha da `Grid` e o WPF estica os BOTÕES
+  junto; (b) **cartão em `WrapPanel` usa `Height`, não `MinHeight`** — cada filho fica com
+  a altura que pede, e um nome que quebra em duas linhas deixa a fileira com a base
+  serrilhada; (c) **`Button` com `Button.Template` próprio precisa declarar `Foreground`**,
+  porque o estilo implícito de `Button` na suíte é o PRIMÁRIO (texto invertido) e
+  `Foreground` é propriedade HERDADA — o rótulo saía branco sobre a superfície branca do
+  cartão, e isso não aparece em build nenhum: só para quem abre a tela.
+  O que a tela nova destravou não é leiaute, é **capacidade**: `AtendimentoService.PreverAsync`
+  / `PreverModalidadesAsync`. O motor de regras sempre foi **puro** (`IRegraConvenio.Gerar`
+  não grava nada), e ninguém tinha usado isso — dava para MOSTRAR o que a regra vai gerar
+  antes de gerar. Cada cartão de modalidade escreve a própria consequência ("2 guias · a 2ª
+  libera 09/08"), então a escolha deixa de ser às cegas: o 2º código, que é o assunto do
+  produto, passa a ser anunciado no instante da decisão em vez de virar pendência amanhã.
+  As regras da prévia: ela **não persiste nada** — nem atendimento, nem código, nem linha
+  na agenda —, **não reabre NC**, **não renova consulta** e **não toca `paciente.Categoria`**
+  (a entidade está rastreada, e a categoria calculada vazaria no próximo `SaveChanges` de
+  quem quer que fosse). São N simulações em memória sobre **uma** leitura de banco, porque
+  a recepcionista compara três modalidades antes de decidir e o banco é remoto. E o teste
+  central é `Previa_promete_exatamente_o_que_o_lancamento_entrega`: **prévia que não bate
+  com o lançamento é pior do que prévia nenhuma** — ela promete duas guias, a pessoa
+  confirma, e sai uma.
+- **Tela da suíte que precisa buscar ao abrir declara `ICarregarAoAbrir`** (parcela 47,
+  3ª rodada): o shell monta a tela em `IModuloApp.CriarTela` e só resolve o `DataContext`
+  — ele não chama método nenhum. A maioria das ViewModels dispara a busca no próprio
+  construtor e funciona; as duas que vieram do FATURAMENTO na parcela 46 (Novo atendimento
+  e Consultas) não faziam assim, porque lá quem chamava o `CarregarAsync` era a navegação
+  do `MainViewModel` — que não existe aqui. As duas chegaram à suíte abrindo com o
+  catálogo de modalidades VAZIO e a lista de consultas em branco, e **tela vazia se lê
+  como sistema quebrado, não como "ninguém chamou o carregar"**. Nada disso quebra build:
+  a porta existe, o serviço existe, o teste passa. O contrato resolve no **ponto único**
+  por onde toda tela da suíte passa (`ShellViewModel.Navegar`), em vez de repetir a linha
+  em cada construtor e depender de alguém lembrar dela na próxima porta.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
-  arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **cinco** reprovações do
+  arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
   perguntas que decidem: (1) *isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez
   em quando?* — o segundo caso é botão/janela, nunca painel aberto; (2) *esta seção existe

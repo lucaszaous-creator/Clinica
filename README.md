@@ -14,7 +14,7 @@ esquecido**, através de um dashboard de pendências com semáforo de urgência.
 
 **Nunca mais entregue uma tela picada em várias caixas empilhadas.**
 
-Foi reprovado em voz alta pelo cliente **quatro vezes**, e toda vez pelo mesmo defeito:
+Foi reprovado em voz alta pelo cliente **sete vezes**, e toda vez pelo mesmo defeito:
 faixas e molduras empilhadas verticalmente, cada uma respondendo a uma pergunta diferente,
 e o conteúdo de verdade espremido no que sobrou. Não é preferência estética — é a diferença
 entre o produto e o de um concorrente. Antes de escrever qualquer XAML, leia isto.
@@ -29,6 +29,8 @@ entre o produto e o de um concorrente. Antes de escrever qualquer XAML, leia ist
 | **Faixa permanente** para um aviso que nunca sai (ex.: "sem vínculo") | Faixa permanente vira moldura | Uma linha discreta sob o subtítulo |
 | **Banner de largura inteira para dizer que não há nada** | Gasta 70 px para escrever "ninguém aguardando" | **Botão desabilitado** já diz isso, e não ocupa a tela para dizê-lo |
 | **Mestre-detalhe espremido**: faixa lateral de 300 px com a lista de pacientes em toda tela | Metade da largura útil gasta com a mesma lista repetida em seis telas | **Tela de LISTA** (largura inteira) → **tela do item** atrás de um clique, com abas |
+| **Formulário grudado numa faixa lateral** permanente (ex.: coluna de 420 px "Novo atendimento") | Ocupa espaço o dia inteiro e o formulário nunca tem largura para respirar | **Tela cheia**, com o fluxo lido de cima para baixo |
+| **Pop-up para o ato que É a tela** (item de menu "Novo atendimento" que abre uma janela modal) | O clique na sidebar já foi a abertura; um segundo clique para uma janela por cima é cerimônia sem função | O ato acontece **na própria tela**. Janela é para o ato que acontece DENTRO de outra tela |
 | **Repetir num resumo** os números que já estão nos blocos | O olho tem de casar número com bloco pela ordem | O número mora **junto do que ele conta** |
 | **Coluna/bloco vazio sem marca nenhuma** | Quatro colunas vazias viram um buraco de mil pixels e a tela parece quebrada | Traço (`—`) ou estado vazio — a raia tem de continuar legível |
 | **KPI num `UniformGrid` de largura inteira** | Cinco números viram cinco traços perdidos com meio metro de branco entre eles | `StackPanel` horizontal à esquerda |
@@ -39,6 +41,9 @@ entre o produto e o de um concorrente. Antes de escrever qualquer XAML, leia ist
 1. **Isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?**
    O segundo caso é **botão ou janela**, nunca painel aberto ocupando espaço permanente.
    *(Foi assim que o mapa corporal e o formulário de medida viraram janela.)*
+   Mas cuidado com a metade que falta: isso vale para o ato que acontece **DENTRO de outra
+   tela**. Quando o ato **É** a tela — o item de menu existe só para ele —, o clique na
+   sidebar já foi a abertura, e pôr uma janela por cima é cerimônia. Aí é **tela cheia**.
 
 2. **Esta seção existe sem um item escolhido?**
    Se não existe, **não é item de menu** — como item ela abre em branco pedindo que você vá
