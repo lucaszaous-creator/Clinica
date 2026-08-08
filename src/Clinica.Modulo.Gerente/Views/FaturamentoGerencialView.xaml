@@ -27,41 +27,51 @@
         </Grid>
 
         <!-- ============ KPIs ============ -->
-        <UniformGrid DockPanel.Dock="Top" Columns="5" Margin="0,0,0,16">
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+        <!-- WrapPanel, e NÃO UniformGrid de largura inteira (parcela 50).
+
+             O `UniformGrid` divide a largura em partes IGUAIS e obriga o valor a caber no
+             que sobrou: num monitor de 1366 px, cinco colunas dão ~250 px por cartão, e
+             "R$ 1.234.567,89" em 28 px negrito não cabe — o número estourava o cartão e
+             invadia o vizinho. Era a causa de boa parte do texto estourando no Gerente.
+
+             O `WrapPanel` dá a cada cartão a largura que ele PEDE (com um piso, para a
+             fileira não ficar irregular) e quebra para a linha de baixo quando não couber.
+             É também o que o `README.md` manda: KPI não se espalha por largura inteira. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="GUIAS NO PERÍODO" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding TotalGuias}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding TotalGuias}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="TAXA DE BAIXA" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding TaxaBaixaFormatada}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Sucesso}" />
+                               Foreground="{StaticResource Brush.Sucesso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="TAXA DE GLOSA" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding TaxaGlosaFormatada}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Erro}" />
+                               Foreground="{StaticResource Brush.Erro}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="ATENDIMENTO → BAIXA" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding TempoMedioFormatado}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding TempoMedioFormatado}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190">
                 <StackPanel>
                     <TextBlock Text="PENDENTES HOJE" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding PendenciasEmAberto}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Aviso}" />
+                               Foreground="{StaticResource Brush.Aviso}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-        </UniformGrid>
+        </WrapPanel>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -83,10 +93,10 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <StackPanel Margin="0,0,16,0">
-                                <TextBlock Text="{Binding Faixa}" Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Text="{Binding Faixa}" Style="{StaticResource Rotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 <TextBlock Text="{Binding Quantidade}" FontSize="{StaticResource Fonte.H2}"
                                            FontWeight="Bold"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" />
+                                           Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -141,19 +151,19 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Convenio}"
                                                    FontWeight="SemiBold"
-                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="1" Text="{Binding Total}"
-                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="2" Text="{Binding Baixados}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="3" Text="{Binding Pendentes}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="4" Text="{Binding TaxaBaixa}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="5" Text="{Binding TaxaGlosa}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="6" Text="{Binding TempoMedio}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -178,16 +188,16 @@
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
-                                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="1"
                                                    Text="{Binding TotalCodigos, StringFormat='{}{0} guias'}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="2"
                                                    Text="{Binding Baixados, StringFormat='{}{0} baixadas'}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="3"
                                                    Text="{Binding TaxaBaixa, StringFormat='{}{0:0.#}%'}"
-                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

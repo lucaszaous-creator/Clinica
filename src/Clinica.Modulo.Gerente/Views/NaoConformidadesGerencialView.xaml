@@ -56,7 +56,7 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
                                                 <Run Text="{Binding Convenio, Mode=OneWay}" />
                                                 <Run Text=" · " />

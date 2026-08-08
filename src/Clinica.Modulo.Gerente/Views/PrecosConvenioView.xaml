@@ -83,7 +83,7 @@
 
                                         <TextBlock Grid.Column="1" Text="{Binding Valor}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
-                                                   Margin="8,0" FontWeight="SemiBold" />
+                                                   Margin="8,0" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
 
                                         <!-- "Valendo agora" é o que responde à pergunta real:
                                              o cadastro tem o histórico inteiro, e sem a marca

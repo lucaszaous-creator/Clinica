@@ -1396,6 +1396,71 @@ if not [
     erros.append("verificar-suite: a checagem 23 parou de pegar o próprio caso de teste.")
 
 
+# --------------------------------------------------------------- checagem 24
+# TEXTO QUE ESTOURA: dado do banco sem quebra nem reticências.
+#
+# O cliente reclamou de "MUITOS textos estourando" no Gerente, e a família é sempre a
+# mesma: um `TextBlock` amarrado a dado do BANCO — nome de paciente, convênio, valor em
+# reais — dentro de uma célula de largura fixa. O WPF não corta nada por conta própria: o
+# texto sai por cima do vizinho.
+#
+# A checagem só olha texto vindo de `{Binding}`. Literal o programador mede ao escrever;
+# dado do banco é o que tem tamanho imprevisível — o nome do paciente pode ter 12 ou 60
+# caracteres, e o valor pode ter três dígitos ou nove.
+#
+# Estilos que JÁ resolvem no próprio estilo ficam de fora (`TextoSuave` quebra,
+# `CardKpi.Variacao` corta), senão a checagem cobraria o que já está certo.
+#
+# ⚠️ Por que ERRO só nos módulos já limpos: o resto da suíte tem centenas de ocorrências
+# da mesma família, e transformar tudo em erro de uma vez pararia o CI por dívida antiga.
+# Elas viram UMA linha de aviso com a contagem por módulo — dívida escrita, não escondida,
+# e sem encher a saída com trezentas linhas que ninguém lê.
+LIMPOS = ("Clinica.Modulo.Gerente",)
+ESTILO_JA_RESOLVE = {"TextoSuave", "CardKpi.Variacao"}
+TEXTBLOCK_ABERTURA = re.compile(r"<TextBlock\b[^>]*?/?>", re.S)
+ESTILO_DO_TEXTBLOCK = re.compile(r'Style="\{StaticResource ([^}"]+)\}"')
+
+_devedores: dict[str, int] = {}
+
+for arq in sorted(RAIZ.rglob("src/**/*.xaml")):
+    caminho = str(arq).replace("\\", "/")
+    if "/obj/" in caminho or "/bin/" in caminho or "/Styles/" in caminho:
+        continue
+
+    corpo = arq.read_text(encoding="utf-8")
+    modulo = rel(arq).split("/")[1] if "/" in rel(arq) else rel(arq)
+
+    for achado in TEXTBLOCK_ABERTURA.finditer(corpo):
+        tag = achado.group(0)
+        if "Binding" not in tag:
+            continue
+        if "TextWrapping" in tag or "TextTrimming" in tag:
+            continue
+        estilo = ESTILO_DO_TEXTBLOCK.search(tag)
+        if estilo and estilo.group(1) in ESTILO_JA_RESOLVE:
+            continue
+
+        if modulo in LIMPOS:
+            linha = corpo[: achado.start()].count("\n") + 1
+            erros.append(
+                f"{rel(arq)}:{linha}: TextBlock amarrado a dado do banco sem "
+                f"`TextWrapping` nem `TextTrimming` — o texto sai por cima do vizinho. "
+                f"Célula de tabela leva `TextTrimming=\"CharacterEllipsis\"`; texto de "
+                f"cartão leva `TextWrapping=\"Wrap\"`."
+            )
+        else:
+            _devedores[modulo] = _devedores.get(modulo, 0) + 1
+
+if _devedores:
+    resumo = " · ".join(f"{m.replace('Clinica.Modulo.', '')}: {n}" for m, n in sorted(_devedores.items()))
+    avisos.append(
+        f"texto que pode estourar (dado do banco sem quebra nem reticências) — {resumo}. "
+        f"Já limpos: {', '.join(m.replace('Clinica.Modulo.', '') for m in LIMPOS)}. "
+        f"Acrescente o módulo a LIMPOS quando ele for corrigido, e a checagem passa a "
+        f"cobrá-lo."
+    )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

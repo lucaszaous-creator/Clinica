@@ -24,7 +24,7 @@
                         BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                         CornerRadius="{StaticResource Raio.Medio}" Padding="16,8" Margin="8,0">
                     <TextBlock Text="{Binding Ano}" FontWeight="SemiBold"
-                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                               Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                 </Border>
                 <Button Content="▶" Command="{Binding ProximoAnoCommand}"
                         Style="{StaticResource BotaoSecundario}" Width="40" />
@@ -99,19 +99,19 @@
 
                                         <TextBlock Grid.Column="0" Text="{Binding Periodo}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="1" Text="{Binding Rotulo}"
                                                    Foreground="{StaticResource Brush.Texto.Primario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="2" Text="{Binding Dono}" TextWrapping="Wrap"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}"
                                                    VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="3" Text="{Binding Alvo}"
                                                    Foreground="{StaticResource Brush.Texto.Primario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Grid.Column="4" Text="{Binding Realizado}"
                                                    Foreground="{StaticResource Brush.Texto.Primario}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                         <StackPanel Grid.Column="5" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"

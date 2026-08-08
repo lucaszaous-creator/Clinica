@@ -14,7 +14,7 @@
          ficam atrás da barra de tarefas. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
-        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
 
         <Grid>
             <Grid.ColumnDefinitions>
@@ -113,7 +113,7 @@
                                             <StackPanel Margin="0,0,0,14">
                                                 <TextBlock Text="{Binding Name}"
                                                            Style="{StaticResource Rotulo}"
-                                                           Margin="0,0,0,2" />
+                                                           Margin="0,0,0,2" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 <Separator Margin="0,0,0,6" />
                                                 <ItemsPresenter />
                                             </StackPanel>
@@ -152,7 +152,7 @@
                                  a direção audita, e some numa lista de caixinhas iguais. -->
                             <Border x:Name="selo" Grid.Column="2" VerticalAlignment="Top"
                                     Style="{StaticResource Badge}">
-                                <TextBlock Text="{Binding Procedencia}" />
+                                <TextBlock Text="{Binding Procedencia}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </Border>
 
                         </Grid>

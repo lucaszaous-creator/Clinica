@@ -61,7 +61,7 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
                                                 <Run Text="{Binding Convenio, Mode=OneWay}" />
                                                 <Run Text=" · guia " />
@@ -76,10 +76,10 @@
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center"
                                                     Margin="8,0">
-                                            <TextBlock Text="{Binding Situacao}" />
+                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <!-- Prazo vencido em vermelho: é a diferença entre
                                                  caso a perseguir e prejuízo já consumado. -->
-                                            <TextBlock Text="{Binding Prazo}" Margin="0,2,0,0">
+                                            <TextBlock Text="{Binding Prazo}" Margin="0,2,0,0" TextWrapping="Wrap" HorizontalAlignment="Left">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock"
                                                            BasedOn="{StaticResource TextoSuave}">

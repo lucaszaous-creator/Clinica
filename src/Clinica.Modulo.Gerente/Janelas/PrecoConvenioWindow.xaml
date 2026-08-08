@@ -12,7 +12,7 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
-        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
                    Text="Quanto a operadora paga por esta guia. É PROPOSTA para a conciliação do Financeiro, não imposição: a operadora pode ter pago menos (glosa parcial), e a linha mostra de onde veio o número." />
 

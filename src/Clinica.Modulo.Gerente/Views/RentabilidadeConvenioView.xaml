@@ -9,7 +9,11 @@
 
     <DockPanel Margin="24">
 
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+        <!-- WrapPanel e não colunas ESTRELA (parcela 50): coluna estrela divide a largura
+             em partes iguais e obriga o valor a caber no que sobrou — num monitor de
+             1366 px isso corta "R$ 1.234.567,89". Aqui cada cartão pede a largura que
+             precisa, e a fileira quebra quando não couber. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Rentabilidade por convênio" Style="{StaticResource H1}"
                            Margin="0,0,0,4" />
@@ -27,7 +31,7 @@
                 <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                         Command="{Binding CarregarCommand}" />
             </StackPanel>
-        </Grid>
+        </WrapPanel>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -51,7 +55,7 @@
             <Border Grid.Column="0" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="GUIAS" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Guias}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Guias}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Periodo}" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
@@ -59,14 +63,14 @@
             <Border Grid.Column="2" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="RECEBIDO (BRUTO)" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Bruto}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Bruto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
             <Border Grid.Column="4" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="RETIDO NA FONTE" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Retido}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Retido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding PercentualRetido}"
                                Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
@@ -75,14 +79,14 @@
             <Border Grid.Column="6" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="SOBROU (LÍQUIDO)" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
 
             <Border Grid.Column="8" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="GLOSA" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding TaxaGlosa}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding TaxaGlosa}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="das guias efetivadas"
                                Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
@@ -163,7 +167,7 @@
                                                        FontWeight="SemiBold" TextWrapping="Wrap"
                                                        VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="{Binding Guias}"
-                                                       TextAlignment="Right" VerticalAlignment="Center" />
+                                                       TextAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="2" Text="{Binding Bruto}"
                                                        TextAlignment="Right" VerticalAlignment="Center"
                                                        Style="{StaticResource TextoSuave}" />
@@ -172,11 +176,11 @@
                                                        Style="{StaticResource TextoSuave}" />
                                             <TextBlock Grid.Column="4" Text="{Binding Liquido}"
                                                        TextAlignment="Right" VerticalAlignment="Center"
-                                                       FontWeight="SemiBold" />
+                                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                             <!-- O número que responde "vale a pena?" -->
                                             <TextBlock Grid.Column="5" Text="{Binding PorGuia}"
                                                        TextAlignment="Right" VerticalAlignment="Center"
-                                                       FontWeight="SemiBold" />
+                                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="6" Text="{Binding Prazo}"
                                                        TextAlignment="Right" VerticalAlignment="Center"
                                                        Style="{StaticResource TextoSuave}" />

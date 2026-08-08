@@ -14,7 +14,7 @@
          540px vira 810px físicos, e sem isto o rodapé fica atrás da barra de tarefas. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto">
     <StackPanel Margin="24">
-        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
 
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
@@ -56,7 +56,7 @@
                  painel, com o mês já andando. -->
             <TextBlock Grid.Column="1" Text="{Binding UnidadeAtual}" Margin="8,0,0,0"
                        VerticalAlignment="Center"
-                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                       Foreground="{StaticResource Brush.Texto.Secundario}" TextTrimming="CharacterEllipsis" />
         </Grid>
 
         <TextBlock Text="De quem" Style="{StaticResource Rotulo}" Margin="0,12,0,0" />

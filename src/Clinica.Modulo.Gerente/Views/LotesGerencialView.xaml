@@ -57,7 +57,7 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Numero}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Numero}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <TextBlock Text="{Binding Guias}"
                                                        Style="{StaticResource TextoSuave}" Margin="0,2,0,0" />
                                         </StackPanel>
@@ -85,7 +85,7 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Border.Style>
-                                            <TextBlock Text="{Binding Situacao}" />
+                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                         </Border>
                                     </Grid>
                                 </Border>

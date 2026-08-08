@@ -10,7 +10,11 @@
 
     <DockPanel Margin="24">
 
-        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+        <!-- WrapPanel e não colunas ESTRELA (parcela 50): coluna estrela divide a largura
+             em partes iguais e obriga o valor a caber no que sobrou — num monitor de
+             1366 px isso corta "R$ 1.234.567,89". Aqui cada cartão pede a largura que
+             precisa, e a fileira quebra quando não couber. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,16">
             <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Taxas e impostos" Style="{StaticResource H1}" Margin="0,0,0,4" />
                 <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
@@ -27,7 +31,7 @@
                 <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                         Command="{Binding CarregarCommand}" />
             </StackPanel>
-        </Grid>
+        </WrapPanel>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -49,7 +53,7 @@
             <Border Grid.Column="0" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="ENTROU (BRUTO)" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Bruto}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Bruto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding Periodo}" Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
             </Border>
@@ -57,7 +61,7 @@
             <Border Grid.Column="2" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="MAQUININHA" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Taxa}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Taxa}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <!-- O percentual embaixo é o que transforma o número em decisão:
                          "R$ 14.200" não diz nada; "3,9% de tudo que entrou" diz. -->
                     <TextBlock Text="{Binding PercentualTaxa}"
@@ -68,7 +72,7 @@
             <Border Grid.Column="4" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="IMPOSTO" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Imposto}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Imposto}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding PercentualImposto}"
                                Style="{StaticResource CardKpi.Variacao}" />
                 </StackPanel>
@@ -77,7 +81,7 @@
             <Border Grid.Column="6" Style="{StaticResource CardKpi}">
                 <StackPanel>
                     <TextBlock Text="SOBROU (LÍQUIDO)" Style="{StaticResource CardKpi.Rotulo}" />
-                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" />
+                    <TextBlock Text="{Binding Liquido}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                     <TextBlock Style="{StaticResource CardKpi.Variacao}">
                         <Run Text="deduções: " />
                         <Run Text="{Binding PercentualDeducoes, Mode=OneWay}" />
@@ -156,10 +160,14 @@
                                         <Grid>
                                             <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
                                                        TextTrimming="CharacterEllipsis" />
+                                            <!-- Alinhado à DIREITA de propósito (é o valor
+                                                 da barra); a quebra fica, o alinhamento não
+                                                 vira "Left" por causa dela. -->
                                             <TextBlock Text="{Binding ValorRotulo}"
                                                        HorizontalAlignment="Right"
                                                        Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                       FontSize="{StaticResource Fonte.Legenda}" />
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       TextTrimming="CharacterEllipsis" />
                                         </Grid>
                                         <ProgressBar Style="{StaticResource BarraDado}" Margin="0,6,0,0"
                                                      Value="{Binding Fracao, Mode=OneWay}" />
@@ -235,9 +243,9 @@
                                             </Grid.ColumnDefinitions>
 
                                             <TextBlock Grid.Column="0" Text="{Binding Mes}"
-                                                       FontWeight="SemiBold" />
+                                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="1" Text="{Binding Bruto}"
-                                                       TextAlignment="Right" />
+                                                       TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="2" Text="{Binding Taxa}"
                                                        TextAlignment="Right"
                                                        Style="{StaticResource TextoSuave}" />
@@ -245,9 +253,9 @@
                                                        TextAlignment="Right"
                                                        Style="{StaticResource TextoSuave}" />
                                             <TextBlock Grid.Column="4" Text="{Binding Liquido}"
-                                                       TextAlignment="Right" FontWeight="SemiBold" />
+                                                       TextAlignment="Right" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="5" Text="{Binding Percentual}"
-                                                       TextAlignment="Right" />
+                                                       TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

@@ -26,29 +26,39 @@
         </Border>
 
         <!-- O semáforo em números: é a leitura que a direção faz de longe. -->
-        <UniformGrid DockPanel.Dock="Top" Columns="3" Margin="0,0,0,16">
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+        <!-- WrapPanel, e NÃO UniformGrid de largura inteira (parcela 50).
+
+             O `UniformGrid` divide a largura em partes IGUAIS e obriga o valor a caber no
+             que sobrou: num monitor de 1366 px, cinco colunas dão ~250 px por cartão, e
+             "R$ 1.234.567,89" em 28 px negrito não cabe — o número estourava o cartão e
+             invadia o vizinho. Era a causa de boa parte do texto estourando no Gerente.
+
+             O `WrapPanel` dá a cada cartão a largura que ele PEDE (com um piso, para a
+             fileira não ficar irregular) e quebra para a linha de baixo quando não couber.
+             É também o que o `README.md` manda: KPI não se espalha por largura inteira. -->
+        <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="ATRASADAS" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Vermelhas}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Semaforo.Vermelho}" />
+                               Foreground="{StaticResource Brush.Semaforo.Vermelho}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,0">
                 <StackPanel>
                     <TextBlock Text="VENCEM AGORA" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Amarelas}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Semaforo.Amarelo}" />
+                               Foreground="{StaticResource Brush.Semaforo.Amarelo}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-            <Border Style="{StaticResource CardKpi}">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190">
                 <StackPanel>
                     <TextBlock Text="EM DIA" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Verdes}" Style="{StaticResource CardKpi.Valor}"
-                               Foreground="{StaticResource Brush.Semaforo.Verde}" />
+                               Foreground="{StaticResource Brush.Semaforo.Verde}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-        </UniformGrid>
+        </WrapPanel>
 
         <Border Style="{StaticResource Card}">
             <DockPanel>
@@ -105,7 +115,7 @@
 
                                         <StackPanel Grid.Column="1" Margin="10,0,0,0"
                                                     VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                             <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0">
                                                 <Run Text="{Binding Convenio, Mode=OneWay}" />
                                                 <Run Text=" · " />
@@ -117,10 +127,10 @@
                                         </StackPanel>
 
                                         <TextBlock Grid.Column="2" Text="{Binding Prevista}"
-                                                   VerticalAlignment="Center" />
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
 
                                         <TextBlock Grid.Column="3" Text="{Binding Atraso}"
-                                                   VerticalAlignment="Center">
+                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Style.Triggers>

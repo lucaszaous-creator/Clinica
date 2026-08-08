@@ -42,6 +42,16 @@
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
         <Setter Property="Margin" Value="0,8,0,4" />
+        <!-- QUEBRA por padrão (parcela 50). O rótulo mora em duas situações e as duas
+             estouram: acima de um campo dentro de uma coluna de formulário ("Certificado
+             em nuvem (SafeID) — opcional" numa coluna de 290 px) e como CABEÇALHO de
+             coluna de tabela ("COMPLETUDE PRONTUÁRIO" numa coluna de 90 px). Rótulo em
+             duas linhas se lê; rótulo cortado pela metade, não.
+
+             O alinhamento NÃO vem junto: rótulo de tabela às vezes é centralizado ou
+             alinhado à direita sobre a coluna, e forçar "Left" aqui desalinharia a régua
+             das tabelas inteiras — é a meia-regra do `TextoSuave` pelo avesso. -->
+        <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
     <!-- Texto de apoio (dica sob campos) -->
     <Style x:Key="TextoSuave" TargetType="TextBlock">
