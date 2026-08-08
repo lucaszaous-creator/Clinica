@@ -1,0 +1,551 @@
+<Window x:Class="Clinica.Recepcao.Janelas.NovoAtendimentoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Novo atendimento" Width="1040" Height="680"
+        MinWidth="900" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================
+         LANÇAR ATENDIMENTO É UM ATO, E ATO MORA EM JANELA.
+
+         Era uma seção com uma coluna de 420 px à esquerda: a faixa lateral que o README
+         proíbe, e que o cliente reprovou de novo em voz alta. A pergunta que a regra manda
+         fazer é "isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?" —
+         e lançar um avulso é claramente o segundo. Foi o mesmo caminho do mapa corporal e
+         do formulário de medida, que viraram janela na parcela 37.
+
+         O que a janela ganha, e a faixa não tinha: LARGURA. Os cinco cartões de modalidade
+         cabem em LINHA, lado a lado, em vez de empilhados numa coluna estreita com rolagem;
+         e a prévia fica embaixo, com a tela toda para as guias. O fluxo lê de cima para
+         baixo na ordem em que a pessoa decide — quem, o quê, e o que vai sair —, sem nada
+         disputando espaço com o formulário.
+
+         Rola por inteiro: com a escala do Windows em 150% uma janela de 720 px vira 1080 px
+         físicos, e sem a rolagem o rodapé sai da vista — e o rodapé é onde está o botão.
+         ============================================================ -->
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel>
+
+        <!-- ===== Cabeçalho ===== -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1"
+                Padding="24,16">
+            <StackPanel>
+                <TextBlock Text="Novo atendimento" Style="{StaticResource H2}" Margin="0" />
+                <TextBlock Style="{StaticResource TextoSuave}"
+                           Text="Para quem chegou sem horário marcado. Quem está na agenda entra pela Fila, no Finalizar." />
+            </StackPanel>
+        </Border>
+
+        <!-- ===== Rodapé fixo =====
+             Declarado ANTES do miolo de propósito: num DockPanel o último filho ocupa o
+             resto, e é o miolo que tem de rolar — não o rodapé, que precisa ficar à vista
+             com o botão que diz quantas guias vão nascer. -->
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0"
+                Padding="24,14">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="{Binding Mensagem}" TextWrapping="Wrap"
+                           VerticalAlignment="Center" HorizontalAlignment="Left"
+                           MaxWidth="520" Margin="0,0,16,0"
+                           Foreground="{StaticResource Brush.Erro}"
+                           Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button Content="Fechar" MinWidth="110" Margin="0,0,8,0"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsCancel="True" />
+                    <Button Content="Lançar outro" MinWidth="130" Margin="0,0,8,0"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding NovoLancamentoCommand}"
+                            Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <!-- O rótulo DIZ o número: "Lançar e gerar 2 guias". Botão que promete o
+                         número é o que faz alguém perceber, antes de clicar, que escolheu a
+                         modalidade errada. -->
+                    <Button Content="{Binding RotuloLancar}" MinWidth="210"
+                            Command="{Binding LancarCommand}"
+                            IsEnabled="{Binding PodeLancar}"
+                            ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}">
+                        <Button.Style>
+                            <!-- A suíte não tem conversor de booleano invertido; o gatilho faz
+                                 o mesmo e não acrescenta uma chave ao design system por causa
+                                 de uma tela. -->
+                            <Style TargetType="Button">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Lancado}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ===== Miolo ===== -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,20">
+            <StackPanel>
+
+                <!-- ============ 1 · QUEM ============ -->
+                <TextBlock Text="1 · QUEM" Style="{StaticResource Rotulo}" Margin="0" />
+                <Separator Margin="0,4,0,10" />
+
+                <!-- Sem paciente: a busca com a LARGURA da janela. Na faixa lateral de
+                     420 px a lista de resultados era um vão de três linhas com rolagem; aqui
+                     cabem seis nomes com telefone e convênio à vista. -->
+                <Border Style="{StaticResource Card}"
+                        Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+                    <DockPanel>
+                        <TextBox DockPanel.Dock="Top" Margin="0,0,0,10"
+                                 Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource CampoPesquisa}"
+                                 ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF…" />
+
+                        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Seletor.Erro}"
+                                   Style="{StaticResource TextoSuave}"
+                                   Foreground="{StaticResource Brush.Erro}" />
+
+                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                                 SelectedItem="{Binding Seletor.Selecionado}"
+                                 ItemTemplate="{StaticResource ItemPacienteLinha}"
+                                 BorderThickness="0" Background="Transparent"
+                                 HorizontalContentAlignment="Stretch"
+                                 MinHeight="180" MaxHeight="300"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </DockPanel>
+                </Border>
+
+                <!-- Escolhido: a identidade numa faixa compacta, com os avisos ao lado —
+                     não empilhados acima do formulário. -->
+                <Grid Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" MinWidth="330" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ctrl:Avatar Grid.Column="0" Tamanho="48" VerticalAlignment="Center"
+                                         Margin="0,0,12,0"
+                                         Nome="{Binding PacienteSelecionado.Nome}"
+                                         Foto="{Binding PacienteSelecionado.FotoMiniatura}" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock Text="{Binding PacienteSelecionado.Nome}" FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                    <Border Style="{StaticResource Badge.Info}" Margin="0,0,6,0">
+                                        <TextBlock Text="{Binding ConvenioPaciente}" />
+                                    </Border>
+                                    <Border Style="{StaticResource Badge}">
+                                        <TextBlock Text="{Binding CategoriaPaciente}" />
+                                    </Border>
+                                </StackPanel>
+                            </StackPanel>
+                            <Button Grid.Column="2" Content="Trocar" VerticalAlignment="Center"
+                                    Style="{StaticResource BotaoAcaoGridSecundario}"
+                                    Command="{Binding TrocarPacienteCommand}"
+                                    ToolTip="Escolher outro paciente" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Os avisos: uma superfície, uma linha por aviso, cor no traço. A
+                         região inteira some quando não há nada a dizer. -->
+                    <Border Grid.Column="1">
+                        <Border.Style>
+                            <Style TargetType="Border" BasedOn="{StaticResource Card}">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding TemAvisoCarteirinha}" Value="False" />
+                                            <Condition Binding="{Binding TemAvisoConsulta}" Value="False" />
+                                            <Condition Binding="{Binding TemSaldoAutorizacao}" Value="False" />
+                                            <Condition Binding="{Binding TemAvisoPendencias}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Hidden" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+
+                        <StackPanel>
+                            <TextBlock Text="ANTES DE LANÇAR" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+
+                            <Grid Visibility="{Binding TemAvisoCarteirinha, Converter={StaticResource BoolParaVisibilidade}}"
+                                  Margin="0,0,0,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" CornerRadius="2"
+                                        Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                                <TextBlock Grid.Column="1" Text="{Binding AvisoCarteirinha}"
+                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            </Grid>
+
+                            <Grid Visibility="{Binding TemAvisoConsulta, Converter={StaticResource BoolParaVisibilidade}}"
+                                  Margin="0,0,0,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" CornerRadius="2">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding ConsultaVencida}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="{Binding AvisoConsulta}"
+                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            </Grid>
+
+                            <Grid Visibility="{Binding TemSaldoAutorizacao, Converter={StaticResource BoolParaVisibilidade}}"
+                                  Margin="0,0,0,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" CornerRadius="2">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Verde}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding AutorizacaoNaUltima}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding AutorizacaoCritica}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                </Border>
+                                <TextBlock Grid.Column="1" Text="{Binding SaldoAutorizacao}"
+                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            </Grid>
+
+                            <Grid Visibility="{Binding TemAvisoPendencias, Converter={StaticResource BoolParaVisibilidade}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" CornerRadius="2"
+                                        Background="{StaticResource Brush.Semaforo.Amarelo}" />
+                                <TextBlock Grid.Column="1" Text="{Binding AvisoPendencias}"
+                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- ============ 2 · O QUE FOI FEITO ============ -->
+                <StackPanel Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
+
+                    <Grid Margin="0,20,0,0">
+                        <TextBlock Text="2 · O QUE FOI FEITO" Style="{StaticResource Rotulo}"
+                                   VerticalAlignment="Center" Margin="0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock Text="Data" Style="{StaticResource Rotulo}"
+                                       VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <DatePicker SelectedDate="{Binding Data}" Width="150" />
+                        </StackPanel>
+                    </Grid>
+                    <Separator Margin="0,4,0,10" />
+
+                    <!-- Os cartões em LINHA. É o que a janela ganhou e a faixa lateral não
+                         tinha: largura. Na coluna de 420 px eles ficavam empilhados, com
+                         rolagem, e a quinta opção nascia fora da vista. -->
+                    <ItemsControl ItemsSource="{Binding Cartoes}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <!-- WrapPanel e não UniformGrid: numa clínica que cadastrou
+                                     variantes de modalidade a lista passa de cinco, e o
+                                     UniformGrid espremeria todas numa linha até o texto
+                                     virar reticências. -->
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Width="182" Margin="0,0,10,10"
+                                        HorizontalContentAlignment="Stretch"
+                                        Command="{Binding DataContext.EscolherModalidadeCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="cx" Padding="14,12" MinHeight="104"
+                                                    Background="{StaticResource Brush.Superficie}"
+                                                    BorderBrush="{StaticResource Brush.Borda}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="{StaticResource Raio.Medio}">
+                                                <DockPanel>
+                                                    <!-- O número de guias em BAIXO, grande: é a
+                                                         consequência, e é o que o olho procura
+                                                         ao comparar as opções. -->
+                                                    <StackPanel DockPanel.Dock="Bottom">
+                                                        <TextBlock Text="{Binding QuantasGuias}"
+                                                                   Style="{StaticResource H3}" Margin="0" />
+                                                        <TextBlock x:Name="quando" Text="{Binding Quando}"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                   TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    </StackPanel>
+
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                                   TextWrapping="Wrap" />
+                                                        <!-- Ataca o erro mais comum do balcão:
+                                                             lançar a modalidade errada por
+                                                             distração num paciente que faz a
+                                                             mesma coisa há quarenta sessões. -->
+                                                        <TextBlock Text="o de sempre dele"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Acento}"
+                                                                   Margin="0,2,0,0"
+                                                                   Visibility="{Binding EhHabitual,
+                                                                                Converter={StaticResource BoolParaVisibilidade}}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </Border>
+
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="cx" Property="BorderBrush"
+                                                            Value="{StaticResource Brush.Borda.Hover}" />
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding Escolhida}" Value="True">
+                                                    <Setter TargetName="cx" Property="BorderBrush"
+                                                            Value="{StaticResource Brush.Acento}" />
+                                                    <Setter TargetName="cx" Property="BorderThickness" Value="2" />
+                                                    <Setter TargetName="cx" Property="Background"
+                                                            Value="{StaticResource Brush.Acento.Suave}" />
+                                                    <Setter TargetName="cx" Property="Padding" Value="13,11" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding TemSegundoCodigo}" Value="True">
+                                                    <Setter TargetName="quando" Property="Foreground"
+                                                            Value="{StaticResource Brush.Aviso}" />
+                                                    <Setter TargetName="quando" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <!-- Especialidade e "qual código primeiro": aparecem só quando a
+                         modalidade escolhida os pede. -->
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,10,0"
+                                    Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding Especialidades}"
+                                      SelectedItem="{Binding EspecialidadeSelecionada}"
+                                      DisplayMemberPath="Nome" />
+                            <TextBlock Style="{StaticResource TextoSuave}"
+                                       Text="Fica registrada na guia e nos relatórios." />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1"
+                                    Visibility="{Binding ModalidadeDupla, Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Qual código o convênio libera primeiro (hoje)?"
+                                       Style="{StaticResource Rotulo}" />
+                            <ComboBox ItemsSource="{Binding OpcoesPrimeiroCodigo}"
+                                      SelectedItem="{Binding PrimeiroCodigo}"
+                                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
+                            <TextBlock Style="{StaticResource TextoSuave}"
+                                       Text="O outro vira o 2º código, previsto para +24h." />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+                    <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"
+                             MinHeight="52" MaxHeight="96" VerticalScrollBarVisibility="Auto"
+                             ctrl:Ajudantes.Placeholder="Opcional — fica no atendimento e na capa." />
+
+                    <!-- ============ 3 · O QUE VAI SAIR ============ -->
+                    <TextBlock Text="3 · O QUE VAI SAIR" Style="{StaticResource Rotulo}" Margin="0,20,0,0"
+                               Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}" />
+                    <Separator Margin="0,4,0,10"
+                               Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}" />
+
+                    <Border Style="{StaticResource Card}"
+                            Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}">
+                        <StackPanel>
+                            <Border Background="{StaticResource Brush.Acento.Suave}"
+                                    CornerRadius="{StaticResource Raio.Medio}"
+                                    Padding="12,10" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="PRÉVIA — NADA FOI GRAVADO AINDA"
+                                               Style="{StaticResource Rotulo}" Margin="0" />
+                                    <TextBlock Text="{Binding ResumoPrevia}" TextWrapping="Wrap"
+                                               HorizontalAlignment="Left" Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <ItemsControl ItemsSource="{Binding Previa}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="52" />
+                                                <ColumnDefinition Width="106" />
+                                                <ColumnDefinition Width="176" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <Border x:Name="traco" Grid.Column="0" CornerRadius="2"
+                                                    Background="{StaticResource Brush.Semaforo.Verde}" />
+
+                                            <StackPanel Grid.Column="1" Margin="10,0,8,0">
+                                                <TextBlock Text="{Binding Tipo}" FontWeight="SemiBold" />
+                                                <TextBlock x:Name="nota" Text="{Binding Nota}"
+                                                           TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                           Margin="0,2,0,0" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="2" Text="{Binding Ordem}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding FaturarEm}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding ComoObter}"
+                                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                                       HorizontalAlignment="Left" />
+
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding EhSegundo}" Value="True">
+                                                    <Setter TargetName="traco" Property="Background"
+                                                            Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                    <Setter TargetName="nota" Property="Foreground"
+                                                            Value="{StaticResource Brush.Aviso}" />
+                                                    <Setter TargetName="nota" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ============ Lançado ============ -->
+                <StackPanel Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}">
+                    <Border Style="{StaticResource AlertaSucesso}" Margin="0,16,0,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding NumeroAtendimento, StringFormat='Atendimento nº {0} lançado'}"
+                                           FontWeight="Bold" />
+                                <TextBlock Text="{Binding ResumoBaixas}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left"
+                                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Capa inicial (PDF)"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding GerarCapaCommand}" />
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="Guias geradas" Style="{StaticResource H3}" Margin="0,0,0,10" />
+
+                            <ItemsControl ItemsSource="{Binding CodigosGerados}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="126" />
+                                                <ColumnDefinition Width="52" />
+                                                <ColumnDefinition Width="106" />
+                                                <ColumnDefinition Width="176" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                <TextBlock Text="{Binding TipoRotulo}" FontWeight="SemiBold" />
+                                                <TextBlock x:Name="sit" Text="{Binding Situacao}"
+                                                           TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                           Margin="0,2,0,0" />
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" Text="{Binding EspecialidadeRotulo}"
+                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="2" Text="{Binding OrdemRotulo}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding FaturarEm}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding ComoObter}"
+                                                       VerticalAlignment="Center" TextWrapping="Wrap"
+                                                       HorizontalAlignment="Left" />
+
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding TemImpedimento}" Value="True">
+                                                    <Setter TargetName="sit" Property="Foreground"
+                                                            Value="{StaticResource Brush.Aviso}" />
+                                                    <Setter TargetName="sit" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding Baixado}" Value="True">
+                                                    <Setter TargetName="sit" Property="Foreground"
+                                                            Value="{StaticResource Brush.Sucesso.Forte}" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <ItemsControl ItemsSource="{Binding Avisos}" Margin="0,4,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,6">
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

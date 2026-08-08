@@ -956,8 +956,40 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   caso ruim: o paciente com quatro problemas era o que empurrava a Modalidade para fora da
   vista. A região inteira **some** quando não há aviso — em vez de quatro caixas vazias
   ocupando o lugar para dizer que não há nada.
+- **O lançamento avulso virou JANELA, e a prévia é o que ele passou a oferecer**
+  (parcela 47, 2ª rodada — a 6ª reprovação do cliente): a consolidação dos avisos foi
+  cosmética e a tela continuava sendo o que o `README.md` proíbe — uma **faixa lateral**
+  de 420 px com o formulário grudado à esquerda, permanente, para um ato que acontece
+  algumas vezes por dia. A pergunta que a regra manda fazer responde sozinha: lançar um
+  avulso é o que a pessoa **FAZ de vez em quando**, e o segundo caso é botão ou janela —
+  foi o mesmo caminho do mapa corporal e do formulário de medida na parcela 37. A seção
+  (`LancamentoAvulsoView`, renomeada para casar com o VM, que é como a checagem 21 acha o
+  comando) ficou com o que se OLHA: um botão que abre a `NovoAtendimentoWindow` e a
+  **conferência dos avulsos de hoje**, que não existia em lugar nenhum — quem lançava não
+  tinha como revisar sem abrir o app de faturamento, que é de outra pessoa.
+  A janela é 1040×680 (**não 720**: a checagem 15 mede contra os 728 px úteis do monitor
+  de 1366×768 do balcão), com cabeçalho fixo, **rodapé declarado ANTES do miolo** no
+  `DockPanel` — senão o miolo rolante come o rodapé — e três passos numerados: QUEM, O QUE
+  FOI FEITO, O QUE VAI SAIR. Ela **não fecha ao lançar**: o resultado — as guias com a
+  data em que cada uma libera — é a informação pela qual o produto existe, e fechar na
+  hora do sucesso a levaria embora com o paciente ainda na frente. "Lançar outro" zera o
+  formulário sem fechar, porque no balcão a fila vem em três.
+  O que a janela destravou não é leiaute, é **capacidade**: `AtendimentoService.PreverAsync`
+  / `PreverModalidadesAsync`. O motor de regras sempre foi **puro** (`IRegraConvenio.Gerar`
+  não grava nada), e ninguém tinha usado isso — dava para MOSTRAR o que a regra vai gerar
+  antes de gerar. Cada cartão de modalidade escreve a própria consequência ("2 guias · a 2ª
+  libera 09/08"), então a escolha deixa de ser às cegas: o 2º código, que é o assunto do
+  produto, passa a ser anunciado no instante da decisão em vez de virar pendência amanhã.
+  As regras da prévia: ela **não persiste nada** — nem atendimento, nem código, nem linha
+  na agenda —, **não reabre NC**, **não renova consulta** e **não toca `paciente.Categoria`**
+  (a entidade está rastreada, e a categoria calculada vazaria no próximo `SaveChanges` de
+  quem quer que fosse). São N simulações em memória sobre **uma** leitura de banco, porque
+  a recepcionista compara três modalidades antes de decidir e o banco é remoto. E o teste
+  central é `Previa_promete_exatamente_o_que_o_lancamento_entrega`: **prévia que não bate
+  com o lançamento é pior do que prévia nenhuma** — ela promete duas guias, a pessoa
+  confirma, e sai uma.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
-  arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **cinco** reprovações do
+  arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
   perguntas que decidem: (1) *isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez
   em quando?* — o segundo caso é botão/janela, nunca painel aberto; (2) *esta seção existe
