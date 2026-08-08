@@ -62,4 +62,70 @@
         </Grid>
     </DataTemplate>
 
+
+    <!-- ============================================================
+         LINHA de paciente — a lista de LARGURA INTEIRA.
+
+         O `ItemPacienteSeletor` acima é para a coluna estreita de escolha (360 px), onde
+         só cabem nome, documento e um selo. Esta é a outra coisa: a lista que RESPONDE
+         "quem são meus pacientes", com a largura da tela inteira à disposição.
+
+         A distinção não é cosmética. O `README.md` proíbe a faixa lateral de 300 px com a
+         lista de pacientes repetida em toda tela — o defeito custou quatro reprovações —,
+         e a saída prescrita é "tela de LISTA (largura inteira) → tela do item atrás de um
+         clique". Sem uma linha larga de verdade, a tela de lista continuaria mostrando o
+         mesmo cartãozinho de 360 px esticado, com um deserto branco à direita.
+
+         O que cada coluna responde, e por que ela está aqui:
+         · avatar + nome + documento — quem é;
+         · telefone — a coluna que a recepção mais usa, e que só existia dentro da ficha;
+         · convênio + carteirinha — se dá para atender hoje;
+         · o selo de carteirinha vencida vem ANTES do clique, porque é o que decide se a
+           guia vai ser recusada.
+         ============================================================ -->
+    <DataTemplate x:Key="ItemPacienteLinha">
+        <Grid Margin="0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ctrl:Avatar Grid.Column="0" Tamanho="40" VerticalAlignment="Center" Margin="0,0,14,0"
+                         Nome="{Binding Nome}" Foto="{Binding FotoMiniatura}" />
+
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                           Foreground="{StaticResource Brush.Texto.Primario}"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Documento}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <TextBlock Grid.Column="2" Text="{Binding Telefone}" VerticalAlignment="Center"
+                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                       TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+
+            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                <Border Style="{StaticResource Badge.Erro}" Margin="0,0,6,0"
+                        ToolTip="Carteirinha vencida — o convênio recusa a guia">
+                    <Border.Visibility>
+                        <Binding Path="CarteirinhaVencida">
+                            <Binding.Converter>
+                                <BooleanToVisibilityConverter />
+                            </Binding.Converter>
+                        </Binding>
+                    </Border.Visibility>
+                    <TextBlock Text="Carteirinha vencida" />
+                </Border>
+                <Border Style="{StaticResource Badge}">
+                    <TextBlock Text="{Binding Convenio}" />
+                </Border>
+            </StackPanel>
+        </Grid>
+    </DataTemplate>
+
 </ResourceDictionary>

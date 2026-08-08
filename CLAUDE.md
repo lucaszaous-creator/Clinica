@@ -934,6 +934,28 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   que de quebra deu ao mapa os 960 px de mínimo que a Recepção já lhe dava. A pergunta que
   decide: **isto é o que a pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?** O
   segundo caso é botão.
+- **A ficha do paciente é LISTA → TELA DO ITEM, e as abas têm estilo** (parcela 47): a
+  tela de Pacientes da Recepção era o defeito do README inteiro numa tela só — coluna de
+  360 px com a lista grudada à esquerda para sempre, e a ficha à direita como pilha de
+  **oito `Card` com moldura**. Virou o que a regra manda: lista de largura inteira
+  (`ItemPacienteLinha`, com telefone, que só existia dentro da ficha) e a ficha atrás de um
+  clique, com cabeçalho da pessoa uma vez e cinco **abas** — o MESMO desenho do
+  `PacienteWorkspaceView` do Consultório. Dois desenhos para "ficha do paciente" no mesmo
+  sistema é o que faz a recepcionista achar que abriu outro programa.
+  O que destravou isso foi o `Styles/Componentes/Abas.xaml`: a suíte usava `TabControl`
+  desde a parcela 37 e **nunca teve estilo para ele**, então o WPF desenhava o tema
+  clássico — abas em forma de pasta, gradiente cinza, moldura 3D em volta do conteúdo.
+  Visual de Windows XP no topo da tela, sempre visível, dentro de um app que no resto é
+  plano; é a peça que mais denuncia idade. O estilo é **implícito, sem `x:Key`**, de
+  propósito: as abas que já existiam no Consultório e no Gerente ficaram modernas sem
+  tocar numa linha delas. O sublinhado ocupa o lugar mesmo apagado (`Transparent`, não
+  `Collapsed`), senão o rótulo sobe 2 px ao ser escolhido e a régua treme a cada troca.
+  No **Novo atendimento**, os quatro `Border` empilhados de aviso (carteirinha, consulta,
+  cota, pendências) viraram **uma superfície com uma linha por aviso**, cor no traço de
+  3 px à esquerda. Eles somavam até 280 px acima do formulário, e pioravam justamente no
+  caso ruim: o paciente com quatro problemas era o que empurrava a Modalidade para fora da
+  vista. A região inteira **some** quando não há aviso — em vez de quatro caixas vazias
+  ocupando o lugar para dizer que não há nada.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **cinco** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
