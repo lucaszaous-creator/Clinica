@@ -76,6 +76,7 @@ public static class DependencyInjection
         // Parcela 52 — a metade de LEITURA da trilha e a guarda de 20 anos.
         services.AddScoped<AcessoProntuarioService>();
         services.AddScoped<GuardaProntuarioService>();
+        services.AddScoped<ExportacaoProntuarioService>();
         services.AddScoped<PainelDirecaoService>();
         services.AddScoped<InadimplenciaService>();
         services.AddScoped<CentralDocumentosService>();
@@ -109,6 +110,9 @@ public static class DependencyInjection
         services.AddScoped<PixService>();
         // Backup e restauração da base inteira (parcela 34).
         services.AddScoped<BackupService>();
+
+        // Parcela 52 — a POLÍTICA em volta da ferramenta: prazo, destino e rotação.
+        services.AddScoped<PoliticaBackupService>();
         return services;
     }
 

@@ -154,6 +154,80 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Política de backup (parcela 52) ----
+
+    public const string ChavePastaBackup = "BackupPasta";
+    public const string ChaveIntervaloBackup = "BackupIntervaloDias";
+    public const string ChaveUltimoBackup = "BackupUltimoEm";
+    public const string ChaveCopiasBackup = "BackupCopiasAGuardar";
+
+    public const int IntervaloBackupPadrao = 7;
+    public const int CopiasBackupPadrao = 8;
+
+    /// <summary>
+    /// Onde a cópia é gravada. Null = a clínica ainda não escolheu, e aí o backup só
+    /// acontece por clique — que é o estado que a auditoria de fornecedor reprovou.
+    /// </summary>
+    public async Task<string?> ObterPastaBackupAsync(CancellationToken ct = default)
+    {
+        var valor = await _repo.ObterConfiguracaoAsync(ChavePastaBackup, ct);
+        return string.IsNullOrWhiteSpace(valor) ? null : valor;
+    }
+
+    public async Task SalvarPastaBackupAsync(string? pasta, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChavePastaBackup, pasta?.Trim() ?? string.Empty, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>De quantos em quantos dias a cópia deve ser feita (padrão 7).</summary>
+    public async Task<int> ObterIntervaloBackupAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveIntervaloBackup, ct), out var d) && d >= 1
+            ? d
+            : IntervaloBackupPadrao;
+
+    public async Task SalvarIntervaloBackupAsync(int dias, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveIntervaloBackup, Math.Max(1, dias).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>
+    /// Quantas cópias ficam na pasta (padrão 8 — com o intervalo padrão, dois meses).
+    ///
+    /// Guardar só a última é o erro clássico: a corrupção que ninguém percebeu na
+    /// sexta-feira é copiada por cima da única cópia boa no sábado.
+    /// </summary>
+    public async Task<int> ObterCopiasBackupAsync(CancellationToken ct = default)
+        => int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveCopiasBackup, ct), out var n) && n >= 1
+            ? n
+            : CopiasBackupPadrao;
+
+    public async Task SalvarCopiasBackupAsync(int copias, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveCopiasBackup, Math.Max(1, copias).ToString(), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    /// <summary>Quando a última cópia foi gravada com sucesso. Null = nunca.</summary>
+    public async Task<DateTime?> ObterUltimoBackupAsync(CancellationToken ct = default)
+        => DateTime.TryParse(
+                await _repo.ObterConfiguracaoAsync(ChaveUltimoBackup, ct),
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.RoundtripKind, out var d)
+            ? d
+            : null;
+
+    /// <summary>
+    /// Grava o momento da cópia. Formato "O" (ISO), pelo mesmo motivo do backup: data
+    /// escrita na cultura da máquina vira 08/03 noutro computador.
+    /// </summary>
+    public async Task SalvarUltimoBackupAsync(DateTime quando, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveUltimoBackup, quando.ToString("O"), ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // O VALOR da chave continua "InicioRodadaPorAtendimento" de propósito: é o que já está gravado
     // nas instalações que ancoraram a carência. Renomeá-lo perderia a âncora e reiniciaria o período
     // de carência do zero. Só o nome em C# acompanhou a mudança do prazo para a data prevista.
