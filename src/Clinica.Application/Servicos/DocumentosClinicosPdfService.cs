@@ -656,7 +656,35 @@ public sealed class DocumentosClinicosPdfService
         var assinaPaciente = documento.Tipo is TipoDocumentoClinico.Consentimento
                                  or TipoDocumentoClinico.Anamnese;
 
-        if (assinaturaEletronica && !assinaPaciente) return;
+        // Na via ASSINADA não há linha para assinar — mas o prescritor tem de aparecer.
+        //
+        // O art. 35 da Lei 5.991/1973 lista o NÚMERO DE INSCRIÇÃO NO CONSELHO como
+        // conteúdo da receita, não como parte da assinatura. Até aqui o documento assinado
+        // saía sem nome e sem CRM em lugar nenhum do corpo: a identidade existia só dentro
+        // do certificado, visível no validador do ITI ou no painel de assinatura do leitor
+        // de PDF. O farmacêutico que abre o arquivo via uma receita sem prescritor.
+        //
+        // Descoberto GERANDO a receita assinada, não lendo o código — e é exatamente o
+        // documento que a clínica quer que a farmácia atenda.
+        if (assinaturaEletronica && !assinaPaciente)
+        {
+            col.Item().PaddingTop(28).AlignCenter().Column(c =>
+            {
+                c.Item().AlignCenter()
+                    .Text(documento.Profissional?.Nome ?? "Profissional responsável")
+                    .SemiBold().FontSize(9.5f);
+
+                var conselho = documento.Profissional?.RegistroConselho;
+                if (!string.IsNullOrWhiteSpace(conselho))
+                    c.Item().AlignCenter().Text(conselho!)
+                        .FontSize(8.5f).FontColor(TextoSecundario);
+
+                c.Item().AlignCenter()
+                    .Text("Assinado eletronicamente — não requer assinatura manuscrita")
+                    .FontSize(8f).FontColor(TextoSecundario);
+            });
+            return;
+        }
 
         col.Item().PaddingTop(36).Row(row =>
         {
