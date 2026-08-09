@@ -174,6 +174,9 @@ public sealed partial class ProntuarioViewModel : ObservableObject
 
     private int PacienteId => Seletor.Selecionado?.Id ?? 0;
 
+    /// <summary>Último paciente cujo acesso já foi registrado nesta tela (parcela 52).</summary>
+    private int _acessoRegistradoDe;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
@@ -196,6 +199,18 @@ public sealed partial class ProntuarioViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
+
+            // Trilha de LEITURA (parcela 52). Esta tela é item PRÓPRIO da sidebar: chega-se
+            // a ela sem passar pela ficha, escolhe-se qualquer paciente no seletor e lê-se
+            // o prontuário inteiro. Era o maior buraco que sobrou do registro de acesso —
+            // e justamente na porta mais fácil de usar para ler o que não se deve.
+            if (_acessoRegistradoDe != PacienteId)
+            {
+                _acessoRegistradoDe = PacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ProntuarioClinico);
+            }
 
             var todas = await prontuario.DoPacienteAsync(PacienteId);
             var termo = TermoSessao.Trim();
@@ -340,15 +355,20 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            if (!_dialogo.ConfirmarPerigo("Excluir do prontuário",
-                    $"Apagar a sessão de {linha.Data}? Os anexos dela vão junto, e o prontuário "
-                    + "é documento clínico — a exclusão fica registrada na auditoria.")) return;
+            // Cancelar, nunca apagar (parcela 52): a Lei 13.787/2018 manda guardar o
+            // prontuário por 20 anos, e o motivo escrito é o que separa a correção da
+            // reescrita.
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar sessão do prontuário",
+                $"Por que a sessão de {linha.Data} está sendo cancelada? Ela NÃO é apagada — "
+                + "sai do prontuário que se lê e fica guardada, com este motivo ao lado.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.ExcluirAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
+            await prontuario.CancelarAsync(linha.EvolucaoId, motivo, SessaoUsuario.Atual.Operador);
 
-            _snackbar.Info("Sessão excluída do prontuário.");
+            _snackbar.Info("Sessão cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)

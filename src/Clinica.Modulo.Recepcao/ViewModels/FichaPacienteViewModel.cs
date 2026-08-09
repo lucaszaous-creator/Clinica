@@ -308,6 +308,17 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         PacienteId = pacienteId.Value;
         TemPaciente = true;
+
+        // A trilha de LEITURA (parcela 52). Fica em AbrirAsync, e não em CarregarAsync,
+        // porque este é o ponto em que o paciente MUDA — CarregarAsync é rechamado a cada
+        // gravação da própria ficha, e ali o acesso já foi registrado.
+        using (var escopo = _escopos.CreateScope())
+        {
+            await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                    OrigemAcessoProntuario.FichaPaciente);
+        }
+
         await CarregarAsync();
     }
 
@@ -721,7 +732,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         {
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.ExcluirAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
+            await prontuario.CancelarAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Sessão excluída do prontuário.");
             await CarregarAsync();
         }

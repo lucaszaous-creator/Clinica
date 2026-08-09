@@ -141,6 +141,62 @@ Feature nova que não seja do faturamento continua indo para Recepção, Finance
 Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.md` e
 `docs/entrega-ao-cliente.md`.
 
+### ⛔ COMPROMISSO DE CONFORMIDADE — leia antes de mexer em qualquer coisa clínica
+
+A cliente enviou, por escrito, os **dez pontos** que ela verificaria ao contratar um
+prontuário eletrônico (LGPD 13.709/2018 + Lei 13.787/2018). Eles deixaram de ser uma
+avaliação e viraram **compromisso do produto**: o mapa completo, com o que atendemos e o
+que não, está em `docs/conformidade-lgpd.md`, e é lá que se atualiza o placar.
+
+Aqui ficam só as regras que a construção não pode violar. **Toda parcela nova passa por
+esta lista**, e a pergunta é sempre a mesma: *isto tira, esconde ou enfraquece alguma
+garantia que já demos?*
+
+1. **Registro clínico NÃO SE APAGA.** Nunca acrescente `Remove()`, `ExecuteDelete` nem
+   método `Remover*Async` para evolução, anexo, avaliação, medida, documento ou
+   prescrição. Cancela-se com **motivo obrigatório**, e a linha fica. Vale para entidade
+   clínica NOVA também — nascer com exclusão é nascer fora da lei da guarda de 20 anos.
+   `ConformidadeProntuarioTests` falha se um desses métodos voltar à interface.
+2. **Alterar registro clínico guarda o que ele dizia antes.** Sobrescrever no lugar é
+   apagar devagar. Se a entidade nova é editável e é prontuário, ela precisa do
+   equivalente a `VersaoEvolucao` — e de leitura para recuperá-la.
+3. **Migration que mexe em tabela clínica é ADITIVA.** Coluna que guarda dado de saúde não
+   se renomeia nem se remove: o dado tem de sobreviver 20 anos, e migration destrutiva é o
+   caminho mais rápido de perdê-lo. (A checagem 18 já cobre o faturamento; aqui a regra é
+   por decisão, não por ferramenta.)
+4. **Tela nova que ABRE prontuário registra o acesso.** `AcessoProntuarioService.
+   RegistrarAsync`, disparado na **troca de paciente** (nunca a cada `CarregarAsync` — as
+   telas recarregam a cada tecla). Sem isso o ponto 3 tem buraco, e buraco em trilha de
+   acesso só aparece quando alguém precisa investigar.
+5. **Permissão nova separa dado SENSÍVEL de dado cadastral.** `VerFichaPaciente` /
+   `EditarPaciente` são contato; `VerProntuario` / `EditarProntuario` são saúde (art. 5º,
+   II). Bit que junte os dois desfaz a parcela 49 e devolve a evolução inteira a quem só
+   precisa marcar horário.
+6. **Quem assina a ação é quem fez LOGIN.** `SessaoUsuario.Atual.Operador`, jamais
+   `Environment.UserName` — no balcão duas pessoas dividem a máquina, e a trilha
+   responderia o nome da máquina para "quem fez isso?".
+7. **Auditoria grava no MESMO `SaveChanges` do ato.** Ação que possa acontecer sem a linha
+   correspondente é ação sem trilha.
+8. **Entidade clínica nova entra na EXPORTAÇÃO e na GUARDA.** `ExportacaoProntuarioService`
+   e `GuardaProntuarioService` precisam enxergá-la, senão a clínica exporta um prontuário
+   incompleto e calcula o prazo pelo registro errado. O backup pega a tabela sozinho (ele
+   lê o modelo do EF) — a exportação e a guarda, não.
+9. **Não prometa garantia que o código não dá.** É a regra mais antiga do projeto (parcela
+   3, o carimbo escaneado) e a que mais aparece aqui: sem LTV, o rodapé diz que a
+   assinatura é PAdES-B; sem certificação SBIS/CFM, o sistema não substitui o papel; o
+   backup não sabe se a pasta está fora da máquina, então isso é orientação na tela e não
+   promessa. **Garantia aparente é pior que ausência de garantia.**
+10. **Dado clínico novo em serviço externo é transferência internacional** (art. 33) até
+    que se prove o contrário. Nenhuma integração nova manda prontuário para fora sem passar
+    pela decisão do ponto 10 do documento.
+
+⚠️ **Motor não é porta, e a auditoria olha a porta.** Vários pontos estão com o serviço
+pronto e sem tela (guarda, exportação, trilha de acesso, configuração de backup) — a lista
+viva está no placar de `docs/conformidade-lgpd.md`. Enquanto a porta não existe, **a
+resposta honesta a quem pergunta é "o motor existe, a clínica ainda não alcança"**, e é
+assim que se escreve no documento. Marcar ✅ porque o teste passa é a variante mais cara do
+defeito recorrente do projeto: aqui ela vira promessa a um cliente que está auditando.
+
 ### Regras de negócio que não são óbvias pelo código
 
 - **Faturamento ≠ recebíveis**: "baixa" = a secretária efetivou a guia no sistema do convênio; nunca
@@ -1257,6 +1313,74 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   "Sai hoje de cada recebimento: R$ 1.234". Nenhum desses aparecia na contagem. Achar o
   ponto cego mudou os números: Financeiro foi de 122 para 130 e o faturamento de 76 para
   81. **Contagem de checagem só vale depois de alguém perguntar o que ela NÃO vê.**
+- **O prontuário NÃO SE APAGA, e "alterar" sem guardar o anterior é apagar devagar**
+  (parcela 52 — auditoria de fornecedor feita pela própria cliente, com dez pontos por
+  escrito; o mapa completo está em `docs/conformidade-lgpd.md`). Dois deles o sistema
+  não atendia, e o pior era o que ele fazia ATIVAMENTE: havia `Remove()` de verdade em
+  **quatro** caminhos clínicos (evolução — levando os anexos junto —, anexo, avaliação e
+  medida), e a evolução era sobrescrita no lugar, com a trilha gravando
+  `"EvolucaoAlterada — sessão de 12/03"` enquanto **o texto anterior sumia**. Isso
+  contradiz a Lei 13.787/2018 (art. 3º: integridade, autenticidade e rastreabilidade da
+  retificação) e inviabiliza a guarda de 20 anos do art. 6º — não há como garantir
+  retenção com um botão que destrói o registro.
+  O mais revelador é que **a regra já estava escrita neste arquivo** e aplicada em toda
+  parte: documento clínico cancela com motivo, NC não some, checagem de enfermagem
+  retifica com linha nova, problema descarta com motivo. Ela só não tinha sido aplicada
+  no prontuário — o lugar onde mais importa e o único com respaldo legal explícito. A
+  lição generaliza: **quando uma regra do projeto vale "em toda parte", procure o lugar
+  onde ela é mais óbvia e confira se está lá.** É justamente onde ninguém olha.
+  As decisões: (a) **os métodos de exclusão saíram do `IClinicaRepositorio`**, e há teste
+  que falha se voltarem — enquanto existirem, alguma tela futura os chama; (b) o
+  versionamento é **tabela de versões** (`VersaoEvolucao`), e não o padrão de retificação
+  da checagem, porque a evolução é salva várias vezes na MESMA sessão e uma linha nova
+  por Salvar faria o prontuário mentir sobre quantas vezes o paciente veio; (c) o motivo
+  da correção é **opcional** e o do cancelamento é **obrigatório** — exigir justificativa
+  a cada Salvar produziria trinta "ajuste" por dia, que é rastro com aparência de
+  controle e nenhum conteúdo, enquanto cancelar sem motivo é apagar com uma etapa a mais;
+  (d) o prazo de guarda conta do **ÚLTIMO registro de qualquer natureza**, nunca do
+  primeiro, e é `const` e não configuração — é prazo LEGAL, e editável numa tela alguém o
+  baixa para 5 anos sem ninguém perceber; (e) **o sistema não elimina nada** ao vencer o
+  prazo: o prontuário fica ELEGÍVEL, e a decisão é da clínica com a comissão do art. 7º —
+  eliminar sozinho seria ler um PISO de guarda como agendamento de destruição.
+- **Controle de acesso responde "quem PODE"; só a trilha responde "quem FEZ"** (parcela
+  52): a auditoria da parcela 21 gravava 55 tipos de ação e **todas eram escrita**. A
+  cliente pediu três coisas — *"quem acessou, quando acessou e o que realizou"* — e o
+  sistema respondia só a terceira: abrir o prontuário de alguém e ler tudo não deixava
+  rastro nenhum. E o acesso indevido clássico numa clínica é **LEITURA** (a funcionária
+  que abre o prontuário da vizinha, do ex, de um conhecido), que é exatamente o caso que
+  a permissão granular da parcela 49 **não** cobre: numa clínica pequena quase todo mundo
+  tem permissão legítima sobre quase todo mundo.
+  `AcessoProntuarioService` registra quem abriu, quando e **por qual porta** (ficha,
+  prontuário clínico, atendimento, documento, exportação) — a porta entra porque "leu o
+  telefone no balcão" e "abriu a evolução inteira" são acessos de natureza diferente ao
+  mesmo paciente. Três regras: **janela de silêncio de 30 min** (um atendimento entre
+  quatro abas não são quatro acessos, e trilha que ninguém consegue ler é trilha que
+  ninguém lê), mas **curta de propósito** — quem abre o mesmo prontuário de manhã e à
+  tarde fez DOIS acessos, e fundi-los esconderia o padrão que uma investigação procura;
+  a comparação de operador dentro da janela é **exata**, porque o filtro casa por trecho
+  e "ana" dentro de "mariana" faria o acesso da segunda pessoa desaparecer; e **falhar
+  não derruba a tela** (banco lento não pode impedir alguém de ler o prontuário do
+  paciente que está na frente), mas também não passa calado — vai para o log, senão a
+  clínica acredita estar coberta e não está.
+  Na tela, o registro é disparado na **troca de paciente**, nunca em todo `CarregarAsync`:
+  as telas recarregam a cada tecla da busca, e a janela de silêncio cobriria a duplicata
+  só DEPOIS de ir ao banco perguntar.
+- **Ferramenta não é política** (parcela 52): o `BackupService` existia desde a parcela
+  34, era bom (base inteira, manifesto conferível, restauração que recusa gravar por
+  cima) e era **um botão**. A auditoria pediu *"política de backup, redundância e
+  recuperação"* — e a clínica tinha a ferramenta, não a política. Backup que depende de
+  alguém lembrar de clicar toda semana existe no manual e não no disco. É primo do
+  defeito recorrente do projeto: ali é capacidade sem porta; aqui é **capacidade com
+  porta que ninguém atravessa na hora certa**.
+  `PoliticaBackupService` põe prazo, destino e **rotação de várias cópias** — guardar só
+  a última é o erro clássico, porque a corrupção que ninguém viu na sexta é copiada por
+  cima da única cópia boa no sábado. Roda na **abertura do Gerente**, e não num
+  agendador: o sistema é desktop, não tem serviço residente, e inventar um daria mais uma
+  peça para quebrar em silêncio. É o único lugar desta parcela em que **apagar é certo** —
+  cópia velha é redundância, não registro clínico.
+  O que o código **não** consegue garantir vai escrito na tela e no documento, não numa
+  promessa: nenhum caminho de arquivo diz onde ele fisicamente está, então "grave fora da
+  máquina" é orientação à clínica.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três

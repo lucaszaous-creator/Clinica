@@ -272,15 +272,19 @@ public class MedidasClinicasTests : IDisposable
     }
 
     [Fact]
-    public async Task Excluir_deixa_rastro_na_auditoria()
+    public async Task Cancelar_tira_da_serie_e_guarda_a_linha()
     {
         var p = await CriarPacienteAsync();
         var medida = await ColherAsync(p, CatalogoMedidas.Peso, 80, Hoje);
 
-        await _medidas.ExcluirAsync(medida.Id, "dra.ana");
+        await _medidas.CancelarAsync(medida.Id, "dedo no teclado", "dra.ana");
 
+        // Fora da curva, dentro do banco: sem o registro da retirada não há como
+        // distinguir "não foi pesado" de "alguém apagou o peso que não gostou".
         (await _medidas.DoPacienteAsync(p)).Should().BeEmpty();
-        _db.Auditoria.Should().Contain(e => e.Acao == "MedidaExcluida");
+        _db.MedidasClinicas.Single(m => m.Id == medida.Id)
+            .MotivoCancelamento.Should().Be("dedo no teclado");
+        _db.Auditoria.Should().Contain(e => e.Acao == "MedidaCancelada");
     }
 
     // ------------------------------------------------------------ o catálogo

@@ -346,6 +346,32 @@ public class DocumentoClinico
 
     public string? CarimboTempoAutoridade { get; set; }
 
+    // ---- Publicação do arquivo assinado (parcela 53) ----
+
+    /// <summary>
+    /// Token do link público. Nasce ANTES de o PDF ser gerado, porque a URL vai no QR e o
+    /// QR é selado pela assinatura — descobrir o endereço depois obrigaria a mexer no
+    /// arquivo assinado, o que quebraria a assinatura que ele carrega.
+    ///
+    /// É ESTÁVEL: renovar a publicação reusa o mesmo token, para o QR do PDF que o paciente
+    /// já tem continuar funcionando. Null = nunca publicado, ou tipo que não se publica
+    /// (ver <see cref="PublicacaoDocumento.PodePublicar"/>).
+    /// </summary>
+    public string? TokenPublicacao { get; set; }
+
+    /// <summary>Quando o arquivo foi enviado ao armazenamento pela última vez.</summary>
+    public DateTime? PublicadoEm { get; set; }
+
+    /// <summary>
+    /// Até quando o link responde. Vencido, o objeto sai do ar e a clínica republica —
+    /// deixá-lo no ar para sempre seria manter um acervo público de dado de saúde.
+    /// </summary>
+    public DateOnly? PublicadoAte { get; set; }
+
+    /// <summary>O link está no ar nesta data.</summary>
+    public bool LinkNoAr(DateOnly hoje)
+        => TokenPublicacao is not null && PublicadoAte is { } ate && hoje <= ate;
+
     /// <summary>
     /// O PDF assinado, guardado byte a byte.
     ///

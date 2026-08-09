@@ -88,11 +88,26 @@ public static class ConexaoStore
                 Database = uri.AbsolutePath.Trim('/'),
                 Username = Uri.UnescapeDataString(userInfo[0]),
                 Password = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : null,
-                // `SslMode.Require` no Npgsql 8 já significa "criptografa e não valida o
-                // certificado", que é o que o Neon precisa. O `TrustServerCertificate`
-                // que ficava aqui foi marcado obsoleto e não faz nada — mantê-lo dava a
-                // impressão de que a decisão de confiança estava sendo tomada nesta linha.
-                SslMode = SslMode.Require
+                // `VerifyFull` (parcela 52): criptografa E valida o certificado do
+                // servidor contra as âncoras do sistema, conferindo também o nome do host.
+                //
+                // Antes era `Require`, que no Npgsql 8 criptografa e NÃO valida nada: o
+                // tráfego fica ilegível para quem observa e continua sendo entregue a quem
+                // se apresentar como sendo o banco. Contra man-in-the-middle isso não
+                // protege, e é prontuário que passa por este cano. A auditoria de
+                // fornecedor da cliente (ponto 5 — "medidas técnicas contra invasão,
+                // adequadas ao risco e ao estado da tecnologia") é o que tirou a diferença
+                // do comentário e a pôs no código.
+                //
+                // O Neon apresenta certificado público válido, então isto NÃO exige
+                // configuração da clínica. Se um dia o servidor passar a usar certificado
+                // próprio, a conexão falha dizendo o que é — bem melhor do que seguir
+                // aceitando qualquer um em silêncio.
+                //
+                // O `TrustServerCertificate` que ficava aqui foi marcado obsoleto e não
+                // faz nada — mantê-lo dava a impressão de que a decisão de confiança
+                // estava sendo tomada nesta linha.
+                SslMode = SslMode.VerifyFull
             };
             return builder.ConnectionString;
         }

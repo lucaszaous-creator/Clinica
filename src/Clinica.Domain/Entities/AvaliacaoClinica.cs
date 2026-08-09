@@ -87,6 +87,20 @@ public class AvaliacaoClinica
 
     public List<RespostaAvaliacao> Respostas { get; set; } = new();
 
+    /// <summary>
+    /// Quando a avaliação foi CANCELADA. Não se apaga (parcela 52): a escala aplicada é
+    /// registro de saúde e responde por uma conduta tomada na época. Vale mais aqui do
+    /// que na evolução, inclusive — é o escore que decidiu encaminhar (ou não) um
+    /// paciente que marcou o item 9 do PHQ-9.
+    /// </summary>
+    public DateTime? CanceladaEm { get; set; }
+
+    public string? MotivoCancelamento { get; set; }
+
+    public string? CanceladaPor { get; set; }
+
+    public bool Cancelada => CanceladaEm is not null;
+
     /// <summary>Escore como a tela mostra: "12 de 27 pontos", "38 %".</summary>
     public string PontuacaoFormatada => Unidade == "%"
         ? $"{Pontuacao} %"

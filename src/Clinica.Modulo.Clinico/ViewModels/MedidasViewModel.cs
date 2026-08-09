@@ -354,16 +354,19 @@ public sealed partial class MedidasViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            if (!_dialogo.ConfirmarPerigo("Excluir medida",
-                    $"Apagar {linha.Tipo} de {linha.Valor} em {linha.Data}? "
-                    + "A exclusão fica registrada na auditoria."))
-                return;
+            // Cancelar, nunca apagar (parcela 52) — Lei 13.787/2018, guarda de 20 anos.
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar medida",
+                $"Por que {linha.Tipo} de {linha.Valor} em {linha.Data} está sendo cancelada? "
+                + "Ela sai da curva e fica guardada, com este motivo — sem ele não haveria "
+                + "como distinguir \"não foi medido\" de \"apagaram o valor\".");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
 
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<MedidaClinicaService>();
-            await servico.ExcluirAsync(linha.MedidaId, SessaoUsuario.Atual.Operador);
+            await servico.CancelarAsync(linha.MedidaId, motivo, SessaoUsuario.Atual.Operador);
 
-            _snackbar.Info("Medida excluída.");
+            _snackbar.Info("Medida cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)

@@ -57,7 +57,39 @@ public class Evolucao
 
     public DateTime? AtualizadoEm { get; set; }
 
+    /// <summary>
+    /// Quando a sessão foi CANCELADA. Cancelar não apaga (parcela 52): a linha fica no
+    /// prontuário, marcada, com o motivo — é o que a Lei 13.787/2018 chama de integridade
+    /// e autenticidade, e é o mesmo padrão do documento clínico, da não conformidade do
+    /// faturamento e da checagem de enfermagem.
+    ///
+    /// Até esta parcela havia <c>Remove()</c> de verdade aqui, e ele levava os anexos
+    /// junto.
+    /// </summary>
+    public DateTime? CanceladaEm { get; set; }
+
+    /// <summary>Por que a sessão foi cancelada. Obrigatório — cancelar sem motivo é apagar com etapa a mais.</summary>
+    public string? MotivoCancelamento { get; set; }
+
+    /// <summary>Quem cancelou (o login, nunca o usuário do Windows).</summary>
+    public string? CanceladaPor { get; set; }
+
     public List<AnexoProntuario> Anexos { get; set; } = new();
+
+    /// <summary>
+    /// O conteúdo que esta sessão já teve antes das correções. Ver <see cref="VersaoEvolucao"/>.
+    /// </summary>
+    public List<VersaoEvolucao> Versoes { get; set; } = new();
+
+    /// <summary>Sessão cancelada: continua no prontuário, fora das contas.</summary>
+    public bool Cancelada => CanceladaEm is not null;
+
+    /// <summary>
+    /// A sessão já foi corrigida ao menos uma vez. A tela usa isto para oferecer o
+    /// histórico — retificação que não se consegue LER não é rastreável, e rastreabilidade
+    /// é o que o art. 3º da Lei 13.787 exige.
+    /// </summary>
+    public bool Retificada => Versoes.Count > 0;
 
     /// <summary>Faixa mínima e máxima aceitas na escala de dor.</summary>
     public const int EvaMinima = 0;
@@ -124,6 +156,104 @@ public class AnexoProntuario
     public DateTime CriadoEm { get; set; } = DateTime.Now;
 
     public string? CriadoPor { get; set; }
+
+    /// <summary>
+    /// Quando o anexo foi RETIRADO do prontuário. Como a evolução, ele não se apaga
+    /// (parcela 52): o laudo que sustentou uma conduta continua sendo parte da prova de
+    /// que a conduta era razoável, mesmo depois de alguém concluir que o arquivo estava
+    /// errado.
+    /// </summary>
+    public DateTime? CanceladoEm { get; set; }
+
+    public string? MotivoCancelamento { get; set; }
+
+    public string? CanceladoPor { get; set; }
+
+    public bool Cancelado => CanceladoEm is not null;
+}
+
+/// <summary>
+/// O CONTEÚDO ANTERIOR de uma evolução, guardado antes de ser sobrescrito (parcela 52).
+///
+/// O problema que ela resolve
+/// --------------------------
+/// Até aqui, corrigir uma sessão sobrescrevia os campos no lugar. A auditoria gravava
+/// <c>"EvolucaoAlterada — Sessão de 12/03/2026"</c> e mais nada: o texto anterior
+/// desaparecia. Isso é o oposto do que a Lei 13.787/2018 (art. 3º) pede — integridade,
+/// autenticidade e, havendo retificação, RASTREABILIDADE —, e é a única pergunta que
+/// uma perícia faz sobre um prontuário eletrônico: <i>"o que estava escrito antes?"</i>.
+/// Trilha que registra QUE mudou sem registrar o QUE mudou não responde nada.
+///
+/// Por que uma tabela de versões, e não o padrão de retificação da checagem
+/// -----------------------------------------------------------------------
+/// A checagem de enfermagem retifica gravando uma LINHA NOVA que aponta a anterior, e as
+/// duas aparecem na folha. Ali funciona porque a checagem é um fato pontual, feito uma
+/// vez. A evolução não: ela é escrita, relida e completada — o profissional salva várias
+/// vezes a mesma sessão. Aplicar o mesmo padrão criaria seis "sessões" no prontuário
+/// para uma consulta que houve uma vez, e o prontuário passaria a MENTIR sobre quantas
+/// vezes o paciente veio, que é pior do que o problema que se quis resolver.
+///
+/// Então a sessão continua sendo UMA linha — a atual, a que se lê — e o que ela já foi
+/// fica ao lado, em ordem, sem poluir o prontuário de quem só quer ler o tratamento.
+///
+/// <b>Guarda-se o conteúdo ANTES da alteração</b>, e não depois: a versão N é o que o
+/// registro dizia até o momento em que alguém o mudou, e é isso que se quer recuperar.
+/// A versão vigente é a própria <see cref="Evolucao"/>, e não se duplica aqui — duas
+/// cópias do texto atual dariam duas verdades sobre o mesmo registro.
+/// </summary>
+public class VersaoEvolucao
+{
+    public int Id { get; set; }
+
+    public int EvolucaoId { get; set; }
+    public Evolucao? Evolucao { get; set; }
+
+    /// <summary>1 para o conteúdo original, 2 para o seguinte, e assim por diante.</summary>
+    public int Versao { get; set; }
+
+    // ---- O conteúdo congelado, como estava antes desta alteração ----
+
+    public DateOnly Data { get; set; }
+    public int? EvaAntes { get; set; }
+    public int? EvaDepois { get; set; }
+    public string? QueixaPrincipal { get; set; }
+    public string? Conduta { get; set; }
+    public string? TextoEvolucao { get; set; }
+    public string? Orientacoes { get; set; }
+    public int? ProfissionalId { get; set; }
+
+    /// <summary>Quando esta versão foi SUBSTITUÍDA (isto é, o momento da correção).</summary>
+    public DateTime SubstituidaEm { get; set; } = DateTime.Now;
+
+    /// <summary>Quem fez a correção que aposentou esta versão.</summary>
+    public string? SubstituidaPor { get; set; }
+
+    /// <summary>
+    /// Por que foi corrigida, quando informado.
+    ///
+    /// Não é obrigatório, e isso é decisão: a evolução é escrita em várias passadas
+    /// durante o atendimento, e exigir justificativa a cada Salvar faria o profissional
+    /// digitar "ajuste" trinta vezes por dia — o que produz rastro com aparência de
+    /// controle e nenhum conteúdo. O que a lei pede é poder recuperar o que estava
+    /// escrito, e isso a versão entrega com ou sem o motivo.
+    /// </summary>
+    public string? Motivo { get; set; }
+
+    /// <summary>Resumo de uma linha, para a lista do histórico não precisar abrir cada versão.</summary>
+    public string Resumo
+    {
+        get
+        {
+            var partes = new List<string>();
+            if (!string.IsNullOrWhiteSpace(QueixaPrincipal)) partes.Add("queixa");
+            if (!string.IsNullOrWhiteSpace(Conduta)) partes.Add("conduta");
+            if (!string.IsNullOrWhiteSpace(TextoEvolucao)) partes.Add("evolução");
+            if (!string.IsNullOrWhiteSpace(Orientacoes)) partes.Add("orientações");
+            if (EvaAntes is not null || EvaDepois is not null) partes.Add("EVA");
+
+            return partes.Count == 0 ? "(sem conteúdo)" : string.Join(" · ", partes);
+        }
+    }
 }
 
 /// <summary>Para que o paciente deu (ou negou) consentimento.</summary>

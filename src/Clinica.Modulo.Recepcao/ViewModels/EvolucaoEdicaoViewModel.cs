@@ -4,6 +4,7 @@ using Clinica.Application.Modelos;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -279,13 +280,23 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     {
         if (anexo is null) return;
 
+        // Retirar, nunca apagar (parcela 52): o laudo que sustentou uma conduta é parte da
+        // prova de que ela era razoável, e a guarda de 20 anos não admite que um clique o
+        // destrua.
+        using var escopoDialogo = _escopos.CreateScope();
+        var motivo = escopoDialogo.ServiceProvider.GetRequiredService<IDialogoService>().PerguntarTexto(
+            "Retirar anexo",
+            $"Por que \"{anexo.NomeArquivo}\" está saindo do prontuário? O arquivo NÃO é "
+            + "apagado — sai da lista e fica guardado, com este motivo.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
         try
         {
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.RemoverAnexoAsync(anexo.Id);
+            await prontuario.CancelarAnexoAsync(anexo.Id, motivo, SessaoUsuario.Atual.Operador);
             await RecarregarAnexosAsync(prontuario);
-            Mensagem = "Anexo removido.";
+            Mensagem = "Anexo retirado (guardado no prontuário).";
             MensagemEhErro = false;
         }
         catch (Exception ex)

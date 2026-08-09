@@ -121,9 +121,17 @@ public sealed class DocumentosClinicosPdfService
     /// carimbo e troca o rodapé — a via impressa deixa de ser o documento e passa a ser
     /// cópia dele.
     /// </param>
+    /// <param name="urlDoArquivo">
+    /// Endereço público do arquivo assinado (parcela 53). Quando vem preenchido, o QR passa
+    /// a apontar para o DOCUMENTO em vez de para o validador — o farmacêutico escaneia da
+    /// tela do celular do paciente e baixa o arquivo, sem ninguém enviar nada.
+    ///
+    /// Precisa chegar aqui ANTES da assinatura, porque a assinatura sela os bytes e o QR é
+    /// um deles. Quem garante a ordem é o <c>PublicacaoDocumentoService.GarantirTokenAsync</c>.
+    /// </param>
     public byte[] Gerar(
         DocumentoClinico documento, DadosPrestador? prestador = null,
-        bool paraAssinaturaEletronica = false)
+        bool paraAssinaturaEletronica = false, string? urlDoArquivo = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -244,12 +252,11 @@ public sealed class DocumentosClinicosPdfService
                             t.Span(documento.Observacoes!).FontSize(9.5f);
                         });
 
-                    if (paraAssinaturaEletronica) ComoConferir(col, documento);
 
                     Assinaturas(col, documento, paraAssinaturaEletronica);
                 });
 
-                Rodape(page, documento, paraAssinaturaEletronica);
+                Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo);
             });
         }).GeneratePdf();
     }
@@ -273,7 +280,8 @@ public sealed class DocumentosClinicosPdfService
     ///    comum de uma receita eletrônica legítima voltar recusada do balcão.
     /// </summary>
     private static void Rodape(
-        PageDescriptor page, DocumentoClinico documento, bool assinaturaEletronica)
+        PageDescriptor page, DocumentoClinico documento, bool assinaturaEletronica,
+        string? urlDoArquivo = null)
     {
         page.Footer().Height(assinaturaEletronica ? AlturaRodape : 34).Column(col =>
         {
@@ -289,7 +297,8 @@ public sealed class DocumentosClinicosPdfService
                     // hospedado: nós não hospedamos nada, e prometer que o QR "abre a
                     // receita" seria mentir sobre o que ele faz. Ele poupa a digitação do
                     // endereço no balcão, e o arquivo continua sendo o que se confere lá.
-                    if (QrDoValidador() is { } qr)
+                    var qrDaFolha = urlDoArquivo is null ? QrDoValidador() : Qr(urlDoArquivo);
+                    if (qrDaFolha is { } qr)
                     {
                         row.ConstantItem(AlturaFaixaAssinatura - 6).AlignBottom().Image(qr);
                         row.ConstantItem(8);
@@ -299,10 +308,20 @@ public sealed class DocumentosClinicosPdfService
                     {
                         c.Item().Text("Assinado digitalmente — ICP-Brasil")
                             .SemiBold().FontSize(8.5f);
-                        c.Item().Text($"Confira em {ValidadorOficial}")
+                        // Uma linha só, discreta, como fazem os sistemas do mercado.
+                        // O bloco de três passos e o aviso de "impressão é cópia" saíram
+                        // na parcela 52: NENHUMA norma os exigia — nem o art. 35 da Lei
+                        // 5.991/1973 (que lista o CONTEÚDO da receita), nem a Lei
+                        // 14.063/2020 (que trata da assinatura). Eram escolha nossa, e
+                        // ocupavam um terço da folha com instrução que o farmacêutico já
+                        // recebe do próprio CRF.
+                        // Com link, o QR ENTREGA o arquivo e o ITI continua sendo quem
+                        // valida — a linha tem de dizer as duas coisas, senão o balcão
+                        // baixa o PDF e não sabe o que fazer com ele.
+                        c.Item().Text(urlDoArquivo is null
+                                ? $"Validar em {ValidadorOficial}"
+                                : $"Escaneie para baixar · validar em {ValidadorOficial}")
                             .FontSize(8).FontColor(TextoSecundario);
-                        c.Item().Text("Esta impressão é CÓPIA; a via válida é o arquivo.")
-                            .FontSize(7.5f).FontColor(VermelhoForte);
                     });
                 });
 
@@ -343,87 +362,30 @@ public sealed class DocumentosClinicosPdfService
     /// causa de um quadradinho seria trocar o essencial pelo acessório.
     /// </summary>
     public static byte[]? QrDoValidador()
-    {
-        if (_qrValidador is not null) return _qrValidador;
+        => _qrValidador ??= Qr(ValidadorFarmaceutico);
 
+    /// <summary>
+    /// QR de uma URL qualquer. Sem cache quando é o link do DOCUMENTO (parcela 53): ele é
+    /// único por receita, e cachear devolveria o QR de outro paciente — o pior defeito
+    /// possível nesta folha.
+    /// </summary>
+    private static byte[]? Qr(string url)
+    {
         try
         {
             using var gerador = new QRCodeGenerator();
-            using var dados = gerador.CreateQrCode(
-                ValidadorFarmaceutico, QRCodeGenerator.ECCLevel.M);
-
-            return _qrValidador = new PngByteQRCode(dados).GetGraphic(6);
+            using var dados = gerador.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
+            return new PngByteQRCode(dados).GetGraphic(6);
         }
         catch (Exception ex)
         {
-            Diagnostico.Registrar("DocumentosClinicosPdfService.QrDoValidador", ex);
+            Diagnostico.Registrar("DocumentosClinicosPdfService.Qr", ex);
             return null;
         }
     }
 
     private static byte[]? _qrValidador;
 
-    /// <summary>
-    /// O passo a passo de quem vai CONFERIR o documento — farmacêutico, RH ou convênio.
-    ///
-    /// Existe porque a pergunta da clínica não era "a receita é válida?" (é, desde que
-    /// assinada), e sim "<b>o balcão consegue conferir?</b>". Consegue, e de graça — mas
-    /// só se souber que dá e por onde. Um PDF assinado que chega sem instrução nenhuma é
-    /// recusado por precaução, e o farmacêutico está certo em recusá-lo: pela orientação
-    /// dos CRFs, farmácia que não consegue verificar não é obrigada a dispensar.
-    ///
-    /// As três linhas dizem o que ele vai VER, não só onde clicar: é a resposta do
-    /// validador (íntegro, assinado por quem diz, com registro ativo) que decide a
-    /// dispensação.
-    /// </summary>
-    private static void ComoConferir(ColumnDescriptor col, DocumentoClinico documento)
-    {
-        var quem = documento.Tipo == TipoDocumentoClinico.Receita
-            ? "PARA O FARMACÊUTICO"
-            : "PARA QUEM VAI CONFERIR ESTE DOCUMENTO";
-
-        col.Item().Background(FundoSuave).Border(1).BorderColor(Borda).Padding(10).Column(c =>
-        {
-            c.Item().Text(quem).Bold().FontSize(8)
-                .FontColor(TextoSecundario).LetterSpacing(0.08f);
-
-            c.Item().PaddingTop(4).Text(t =>
-            {
-                t.Span("1.  ").SemiBold().FontSize(9);
-                t.Span("Peça ao paciente o ARQUIVO PDF (celular, e-mail ou pen drive). ")
-                    .FontSize(9);
-                t.Span("A folha impressa é cópia — a assinatura está nos bytes do arquivo.")
-                    .FontSize(9).FontColor(TextoSecundario);
-            });
-
-            c.Item().PaddingTop(2).Text(t =>
-            {
-                t.Span("2.  ").SemiBold().FontSize(9);
-                t.Span($"ENVIE O ARQUIVO em {ValidadorOficial}").FontSize(9);
-                t.Span("  (validador oficial do ITI, com apoio do CFM e do CFF — gratuito, "
-                       + "sem cadastro para conferir).").FontSize(9).FontColor(TextoSecundario);
-            });
-
-
-            c.Item().PaddingTop(2).Text(t =>
-            {
-                t.Span("3.  ").SemiBold().FontSize(9);
-                t.Span("O validador responde se o documento está íntegro, se a assinatura é "
-                       + "de quem ele diz e se o prescritor tem registro ativo.").FontSize(9);
-            });
-
-            // Sem esta linha o balcão procura no papel um "código de acesso" que não
-            // existe: no fluxo por QR do validador, a senha impressa serve para BUSCAR a
-            // receita hospedada por uma plataforma. Esta aqui não é hospedada — ela é
-            // conferida pelo próprio arquivo, e o código do rodapé é da clínica, para
-            // achar o documento na ficha do paciente. Deixar a dúvida no ar faria o
-            // farmacêutico concluir que falta alguma coisa e devolver o paciente.
-            c.Item().PaddingTop(4).Text(
-                    "Este documento é conferido pelo envio do próprio arquivo — não há "
-                    + "código de acesso a digitar. O código no rodapé é da clínica.")
-                .FontSize(8).FontColor(TextoSecundario);
-        });
-    }
 
     private static void PainelPaciente(
         ColumnDescriptor col, Paciente? paciente, bool comEndereco = false)
@@ -656,7 +618,35 @@ public sealed class DocumentosClinicosPdfService
         var assinaPaciente = documento.Tipo is TipoDocumentoClinico.Consentimento
                                  or TipoDocumentoClinico.Anamnese;
 
-        if (assinaturaEletronica && !assinaPaciente) return;
+        // Na via ASSINADA não há linha para assinar — mas o prescritor tem de aparecer.
+        //
+        // O art. 35 da Lei 5.991/1973 lista o NÚMERO DE INSCRIÇÃO NO CONSELHO como
+        // conteúdo da receita, não como parte da assinatura. Até aqui o documento assinado
+        // saía sem nome e sem CRM em lugar nenhum do corpo: a identidade existia só dentro
+        // do certificado, visível no validador do ITI ou no painel de assinatura do leitor
+        // de PDF. O farmacêutico que abre o arquivo via uma receita sem prescritor.
+        //
+        // Descoberto GERANDO a receita assinada, não lendo o código — e é exatamente o
+        // documento que a clínica quer que a farmácia atenda.
+        if (assinaturaEletronica && !assinaPaciente)
+        {
+            col.Item().PaddingTop(28).AlignCenter().Column(c =>
+            {
+                c.Item().AlignCenter()
+                    .Text(documento.Profissional?.Nome ?? "Profissional responsável")
+                    .SemiBold().FontSize(9.5f);
+
+                var conselho = documento.Profissional?.RegistroConselho;
+                if (!string.IsNullOrWhiteSpace(conselho))
+                    c.Item().AlignCenter().Text(conselho!)
+                        .FontSize(8.5f).FontColor(TextoSecundario);
+
+                c.Item().AlignCenter()
+                    .Text("Assinado eletronicamente — não requer assinatura manuscrita")
+                    .FontSize(8f).FontColor(TextoSecundario);
+            });
+            return;
+        }
 
         col.Item().PaddingTop(36).Row(row =>
         {

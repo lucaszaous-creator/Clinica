@@ -322,16 +322,19 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            if (!_dialogo.ConfirmarPerigo("Excluir avaliação",
-                    $"Apagar a aplicação de {linha.Instrumento} em {linha.Data}? "
-                    + "Ela sai da curva do tratamento, e a exclusão fica registrada na auditoria."))
-                return;
+            // Cancelar, nunca apagar (parcela 52) — Lei 13.787/2018, guarda de 20 anos.
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar avaliação",
+                $"Por que a aplicação de {linha.Instrumento} em {linha.Data} está sendo "
+                + "cancelada? Ela sai da curva do tratamento e fica guardada, com as "
+                + "respostas e este motivo.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
 
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<AvaliacaoClinicaService>();
-            await servico.ExcluirAsync(linha.AvaliacaoId, SessaoUsuario.Atual.Operador);
+            await servico.CancelarAsync(linha.AvaliacaoId, motivo, SessaoUsuario.Atual.Operador);
 
-            _snackbar.Info("Avaliação excluída do prontuário.");
+            _snackbar.Info("Avaliação cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)

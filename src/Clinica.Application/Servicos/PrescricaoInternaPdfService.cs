@@ -261,17 +261,30 @@ public sealed class PrescricaoInternaPdfService
     /// <summary>
     /// O aviso que impede o mal-entendido mais provável desta folha.
     ///
-    /// Ela tem cara de receita e NÃO é: é prescrição de execução no próprio consultório,
-    /// não vale para dispensação em farmácia. Sem a linha, o paciente que a leva embora
-    /// tenta comprar com ela — e a farmácia recusa, o que fica parecendo defeito da clínica.
+    /// Ela tem cara de receita e NÃO é. Não é escolha de leiaute: esta folha não cumpre o
+    /// art. 35 da Lei 5.991/1973 — não traz o endereço residencial do paciente nem passa
+    /// pela conferência de conteúdo que a receita passa —, então a farmácia não pode
+    /// aviá-la. Sem a linha, o paciente que a leva embora tenta comprar com ela, a
+    /// farmácia recusa, e o que fica parecendo defeito é a clínica.
+    ///
+    /// A frase DIZ O QUE FAZER no lugar (parcela 52). A versão anterior só dizia o que a
+    /// folha não era, e isso deixava sem resposta o caso legítimo: a médica faz a infusão
+    /// aqui E quer que o paciente compre algo para casa. Nesse caso são dois documentos, e
+    /// o segundo já existe a um clique — Prescrições → Receita, que sai com o endereço, a
+    /// posologia conferida e o QR do validador do ITI para o farmacêutico.
+    ///
+    /// É a mesma regra do <c>FolhaCatalogo.Exigencia</c>: descobrir o requisito errando é
+    /// o que faz a pessoa desistir do sistema.
     /// </summary>
     private static void AvisoDeUsoInterno(ColumnDescriptor col)
         => col.Item().Background(FundoCabecalhoTabela).Border(1).BorderColor(Borda)
             .Padding(8).Text(t =>
             {
                 t.Span("Uso interno  ").Bold().FontSize(8.5f).FontColor(AzulEscuro);
-                t.Span("Prescrição destinada à administração no próprio consultório. "
-                     + "Não é receita para dispensação em farmácia.")
+                t.Span("Medicação administrada no próprio consultório, pela equipe. "
+                     + "Para o paciente comprar medicamento na farmácia, emita uma "
+                     + "Receita — ela sai com o endereço do paciente e o código de "
+                     + "conferência que o farmacêutico precisa.")
                     .FontSize(8.5f).FontColor(TextoSecundario);
             });
 
@@ -453,7 +466,7 @@ public sealed class PrescricaoInternaPdfService
             {
                 c.ConstantColumn(22);    // nº
                 c.RelativeColumn(5);     // medicamento
-                c.ConstantColumn(52);    // via
+                c.ConstantColumn(68);    // via — 52 quebrava "Endovenosa (EV)" no meio da palavra
                 c.ConstantColumn(74);    // checagem
                 c.RelativeColumn(2);     // executante
             });
@@ -502,6 +515,23 @@ public sealed class PrescricaoInternaPdfService
     }
 
     /// <summary>
+    /// Famílias tentadas para desenhar o ✓ (U+2713), em ordem.
+    ///
+    /// A fonte embutida do QuestPDF é a Lato, e ela NÃO tem este glifo — sem a cadeia
+    /// abaixo, o "chequezinho" sai como um quadrado vazio (tofu) em toda linha executada.
+    /// Isso foi descoberto gerando a folha de verdade, não lendo o código: nenhum teste
+    /// falhava, porque nenhum deles OLHA o PDF.
+    ///
+    /// É o símbolo central da checagem de enfermagem — a folha inteira existe para dizer
+    /// "foi feito" —, então ele não podia depender de o computador ter a fonte certa por
+    /// acaso. A ordem cobre Windows (onde os cinco apps rodam) e Linux (onde o CI e os
+    /// testes rodam); a última é a Lato, que falha desenhando o quadrado, mas só é
+    /// alcançada se nenhuma das anteriores existir.
+    /// </summary>
+    private static readonly string[] FamiliasDoVisto =
+        ["Segoe UI Symbol", "Segoe UI", "DejaVu Sans", "FreeSerif", "Lato"];
+
+    /// <summary>
     /// O ✓ com o horário, ou o horário dentro de uma "rodela".
     ///
     /// A rodela é uma cápsula de canto totalmente arredondado com contorno grosso —
@@ -527,7 +557,8 @@ public sealed class PrescricaoInternaPdfService
         {
             celula.Row(row =>
             {
-                row.ConstantItem(14).Text("✓").Bold().FontSize(12).FontColor(VerdeForte);
+                row.ConstantItem(14).Text("✓").Bold().FontSize(12).FontColor(VerdeForte)
+                    .FontFamily(FamiliasDoVisto);
                 row.RelativeItem().PaddingTop(1)
                     .Text($"{checagem.HoraRealizacao:HH\\:mm}").SemiBold().FontSize(10);
             });

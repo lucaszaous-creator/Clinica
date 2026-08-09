@@ -486,7 +486,7 @@ public class ConsultorioTests : IDisposable
     }
 
     [Fact]
-    public async Task Excluir_avaliacao_deixa_rastro_e_leva_as_respostas_junto()
+    public async Task Cancelar_avaliacao_tira_da_serie_e_guarda_a_linha()
     {
         var paciente = await CriarPacienteAsync();
         IInstrumentoAvaliacao gad7 = new InstrumentoGad7();
@@ -494,19 +494,27 @@ public class ConsultorioTests : IDisposable
         var salva = await _avaliacoes.AplicarAsync(paciente, gad7.Codigo,
             gad7.Itens.ToDictionary(i => i.Codigo, _ => 1), Hoje);
 
-        await _avaliacoes.ExcluirAsync(salva.Id, "dra.ana");
+        await _avaliacoes.CancelarAsync(salva.Id, "aplicada no paciente errado", "dra.ana");
 
+        // Sai da série e do gráfico…
         (await _avaliacoes.DoPacienteAsync(paciente)).Should().BeEmpty();
-        (await _db.RespostasAvaliacao.CountAsync()).Should().Be(0, "resposta órfã não é registro de nada");
+
+        // …e continua guardada, com as respostas. É o escore que decidiu (ou não)
+        // encaminhar alguém, e a Lei 13.787/2018 pede que ele sobreviva à opinião
+        // posterior de quem quer apagá-lo.
+        (await _db.RespostasAvaliacao.CountAsync()).Should().BeGreaterThan(0);
+        (await _db.AvaliacoesClinicas.AsNoTracking().SingleAsync(a => a.Id == salva.Id))
+            .MotivoCancelamento.Should().Be("aplicada no paciente errado");
         (await _db.Auditoria.ToListAsync())
-            .Should().Contain(e => e.Acao == "AvaliacaoExcluida");
+            .Should().Contain(e => e.Acao == "AvaliacaoCancelada");
     }
 
     [Fact]
-    public async Task Avaliacao_sobrevive_a_exclusao_da_sessao_a_que_pertencia()
+    public async Task Avaliacao_sobrevive_ao_cancelamento_da_sessao_a_que_pertencia()
     {
-        // O vínculo com a evolução é SetNull de propósito: perder o escore porque um texto
-        // foi apagado quebraria a curva do tratamento inteiro.
+        // Antes da parcela 52 a sessão era APAGADA e o vínculo caía para null (SetNull).
+        // Agora ela é cancelada, então o escore mantém a procedência — que é melhor: a
+        // curva do tratamento continua inteira E continua sabendo de onde veio.
         var paciente = await CriarPacienteAsync();
         var evolucao = await EscreverAsync(paciente, Hoje);
         IInstrumentoAvaliacao gad7 = new InstrumentoGad7();
@@ -514,11 +522,11 @@ public class ConsultorioTests : IDisposable
         await _avaliacoes.AplicarAsync(paciente, gad7.Codigo,
             gad7.Itens.ToDictionary(i => i.Codigo, _ => 1), Hoje, evolucaoId: evolucao.Id);
 
-        await _prontuario.ExcluirAsync(evolucao.Id, "dra.ana");
+        await _prontuario.CancelarAsync(evolucao.Id, "sessão duplicada", "dra.ana");
 
         var restantes = await _avaliacoes.DoPacienteAsync(paciente);
         restantes.Should().HaveCount(1);
-        restantes[0].EvolucaoId.Should().BeNull();
+        restantes[0].EvolucaoId.Should().Be(evolucao.Id);
     }
 
     [Fact]

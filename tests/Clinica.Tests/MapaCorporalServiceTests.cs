@@ -204,15 +204,17 @@ public class MapaCorporalServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Apagar_a_sessao_leva_o_mapa_junto()
+    public async Task Cancelar_a_sessao_NAO_apaga_o_mapa()
     {
         var pacienteId = await CriarPacienteAsync();
         var sessaoId = await CriarSessaoAsync(pacienteId, Dia);
         await _mapas.SalvarAsync(sessaoId, new[] { Ponto(0.5, 0.5) });
 
-        await _prontuario.ExcluirAsync(sessaoId, "secretaria");
+        await _prontuario.CancelarAsync(sessaoId, "sessão duplicada", "secretaria");
 
-        (await _mapas.DaEvolucaoAsync(sessaoId)).Should().BeNull();
+        // O mapa é 1:1 com a evolução e a acompanha: cancelada a sessão, ele fica
+        // guardado com ela pelos 20 anos da Lei 13.787/2018.
+        (await _mapas.DaEvolucaoAsync(sessaoId)).Should().NotBeNull();
     }
 
     [Fact]

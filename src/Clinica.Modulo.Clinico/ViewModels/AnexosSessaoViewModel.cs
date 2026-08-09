@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -178,16 +179,24 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
     {
         if (anexo is null) return;
 
+        // Retirar, nunca apagar (parcela 52) — ver EvolucaoEdicaoViewModel.
+        using var escopoDialogo = _escopos.CreateScope();
+        var motivo = escopoDialogo.ServiceProvider.GetRequiredService<IDialogoService>().PerguntarTexto(
+            "Retirar anexo",
+            $"Por que \"{anexo.NomeArquivo}\" está saindo do prontuário? O arquivo NÃO é "
+            + "apagado — sai da lista e fica guardado, com este motivo.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
+
         try
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "mexer no prontuário");
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.RemoverAnexoAsync(anexo.Id);
+            await prontuario.CancelarAnexoAsync(anexo.Id, motivo, SessaoUsuario.Atual.Operador);
 
             await CarregarAsync();
-            Mensagem = "Anexo removido da sessão.";
+            Mensagem = "Anexo retirado (guardado na sessão).";
             MensagemEhErro = false;
         }
         catch (Exception ex)

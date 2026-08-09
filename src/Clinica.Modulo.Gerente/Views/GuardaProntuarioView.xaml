@@ -1,0 +1,155 @@
+<UserControl x:Class="Clinica.Gerente.Views.GuardaProntuarioView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <!-- Grid POR FORA (hospeda a sobreposição do EstadoDaTela) e DockPanel por dentro:
+         a lição da parcela 50. Sobreposição posta como irmã de um painel linear deixa de
+         sobrepor e passa a ocupar espaço, e todo Dock do conteúdo vira no-op. -->
+    <Grid>
+        <DockPanel Margin="24">
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                <TextBlock Text="Guarda do prontuário" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
+                           Text="O que está guardado, e até quando. A Lei 13.787/2018 (art. 6º) exige guardar o prontuário por, no mínimo, 20 anos a partir do ÚLTIMO registro — e é esta tela que responde a quem auditar a clínica." />
+            </StackPanel>
+
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" MaxWidth="820" />
+            </Border>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+
+                    <!-- ===== A clínica ===== -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="A clínica inteira" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                       Text="A conta varre paciente a paciente e pode demorar numa base grande — por isso só roda quando você pede. É leitura de auditoria, feita algumas vezes por ano." />
+
+                            <Button Content="Calcular a guarda" Command="{Binding CarregarClinicaCommand}"
+                                    HorizontalAlignment="Left" MinWidth="170" Margin="0,0,0,14" />
+
+                            <!-- WrapPanel com piso de largura, nunca UniformGrid: num monitor
+                                 de 1366 px cinco colunas iguais espremem o número até ele não
+                                 caber (a lição da parcela 50). -->
+                            <WrapPanel>
+                                <StackPanel MinWidth="150" Margin="0,0,28,12">
+                                    <TextBlock Text="Prazo legal" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding AnosDeGuarda}" Style="{StaticResource H2}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel MinWidth="150" Margin="0,0,28,12">
+                                    <TextBlock Text="Pacientes" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding Pacientes}" Style="{StaticResource H2}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel MinWidth="170" Margin="0,0,28,12">
+                                    <TextBlock Text="Com prontuário" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding ComRegistro}" Style="{StaticResource H2}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel MinWidth="190" Margin="0,0,28,12">
+                                    <TextBlock Text="Registros guardados" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding RegistrosGuardados}" Style="{StaticResource H2}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel MinWidth="170" Margin="0,0,28,12">
+                                    <TextBlock Text="Já cumpriram o prazo" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding Elegiveis}" Style="{StaticResource H2}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <StackPanel MinWidth="190" Margin="0,0,0,12">
+                                    <TextBlock Text="Registro mais antigo" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding MaisAntigo}" Style="{StaticResource H2}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </WrapPanel>
+
+                            <TextBlock Text="{Binding ResumoClinica}" TextWrapping="Wrap" MaxWidth="820"
+                                       Style="{StaticResource TextoSuave}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ===== Um paciente ===== -->
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Um paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,10"
+                                       Text="Quando vence a guarda do prontuário de uma pessoa, e o que está guardado nele." />
+
+                            <TextBox Style="{StaticResource CampoPesquisa}" Width="360"
+                                     HorizontalAlignment="Left" Margin="0,0,0,10"
+                                     Text="{Binding Paciente.Termo, UpdateSourceTrigger=PropertyChanged}"
+                                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+
+                            <Border Style="{StaticResource Card}" MaxHeight="180" Margin="0,0,0,12"
+                                    Visibility="{Binding Paciente.TemResultados, Converter={StaticResource BoolParaVisibilidade}}">
+                                <ListBox ItemsSource="{Binding Paciente.Resultados}"
+                                         SelectedItem="{Binding Paciente.Selecionado}"
+                                         ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                                         BorderThickness="0" Background="Transparent"
+                                         HorizontalContentAlignment="Stretch"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                            </Border>
+
+                            <StackPanel Visibility="{Binding TemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="{Binding NomePaciente}" Style="{StaticResource H3}"
+                                           TextWrapping="Wrap" MaxWidth="820" Margin="0,4,0,4" />
+                                <TextBlock Text="{Binding SituacaoPaciente}" TextWrapping="Wrap"
+                                           MaxWidth="820" Margin="0,0,0,6" />
+                                <TextBlock Text="{Binding DetalhePaciente}" TextWrapping="Wrap" MaxWidth="820"
+                                           Style="{StaticResource TextoSuave}"
+                                           FontSize="{StaticResource Fonte.Legenda}" />
+
+                                <Button Content="Exportar o prontuário desta pessoa"
+                                        Command="{Binding ExportarPacienteCommand}"
+                                        IsEnabled="{Binding PodeExportar}"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        HorizontalAlignment="Left" Margin="0,12,0,0" MinWidth="250" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ===== Exportação ===== -->
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Exportar o prontuário" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                       Text="Arquivos CSV que qualquer sistema importa — é o que garante que a clínica não fique refém do fornecedor. Saem as sessões, as correções feitas nelas, as avaliações, as medidas, os documentos e a lista de anexos. Os ARQUIVOS anexados em si saem no backup completo, e o LEIA-ME da exportação explica isso." />
+
+                            <Button Content="Exportar a clínica inteira" Command="{Binding ExportarTudoCommand}"
+                                    IsEnabled="{Binding PodeExportar}"
+                                    HorizontalAlignment="Left" MinWidth="220" />
+
+                            <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0">
+                                <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Text="A exportação leva dado de saúde de todos os pacientes em arquivos que qualquer pessoa abre. Grave em local controlado, entregue só a quem tem direito de receber, e lembre que quem recebe assume junto a obrigação de guardar por 20 anos." />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource AlertaInfo}" Margin="0,12,0,0">
+                        <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="Não há botão para ELIMINAR prontuário vencido, e isso é decisão: os 20 anos são um piso de guarda, não um agendamento de destruição. Cumprido o prazo, o prontuário fica elegível — eliminar é decisão da clínica com a comissão de revisão prevista no art. 7º da Lei 13.787/2018, e não tem volta." />
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+
+        <ctrl:EstadoDaTela Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           TextoCarregando="Lendo a guarda do prontuário…"
+                           TextoNaoVerificado="Não foi possível ler a guarda." />
+    </Grid>
+</UserControl>

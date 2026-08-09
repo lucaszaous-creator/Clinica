@@ -142,25 +142,42 @@ public sealed class MedidaClinicaService
     }
 
     /// <summary>
-    /// Apaga uma colheita. Medida errada é medida errada — diferente da NC e do documento
-    /// clínico, ela não descreve uma decisão que alguém tomou, e mantê-la na série faria a
-    /// curva mentir para sempre por causa de um dedo no teclado. O rastro fica na auditoria.
+    /// CANCELA uma colheita. Não apaga (parcela 52).
+    ///
+    /// O argumento antigo para apagar era bom — o dedo no teclado faria a curva mentir
+    /// para sempre — e continua atendido: a medida cancelada sai da série e do gráfico.
+    /// O que ele não considerava é que a curva já mentia do outro lado: uma medida
+    /// RETIRADA muda a inclinação de tudo o que veio depois, e sem registro de que houve
+    /// retirada não há como distinguir "o paciente não foi pesado" de "alguém apagou o
+    /// peso que não gostou". Guardar as duas coisas custa uma linha.
     /// </summary>
-    public async Task ExcluirAsync(
-        int medidaId, string? operador = null, CancellationToken ct = default)
+    public async Task CancelarAsync(
+        int medidaId, string motivo, string? operador = null, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new InvalidOperationException(
+                "Diga por que a medida está sendo cancelada (erro de digitação, "
+                + "paciente trocado, aparelho descalibrado).");
+
         var medida = await _repo.ObterMedidaAsync(medidaId, ct)
             ?? throw new InvalidOperationException("Medida não encontrada.");
+
+        if (medida.Cancelada)
+            throw new InvalidOperationException("Esta medida já está cancelada.");
+
+        medida.CanceladaEm = DateTime.Now;
+        medida.MotivoCancelamento = motivo.Trim();
+        medida.CanceladaPor = operador;
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
-            Acao = "MedidaExcluida",
-            Detalhe = $"{medida.TipoNome} {medida.ValorFormatado} em {medida.Data:dd/MM/yyyy}",
+            Acao = "MedidaCancelada",
+            Detalhe = $"{medida.TipoNome} {medida.ValorFormatado} em "
+                    + $"{medida.Data:dd/MM/yyyy} — {motivo.Trim()}",
             PacienteId = medida.PacienteId
         }, ct);
 
-        await _repo.RemoverMedidaAsync(medidaId, ct);
         await _repo.SalvarAsync(ct);
     }
 

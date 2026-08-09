@@ -1,0 +1,84 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.VersoesEvolucaoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Correções da sessão" Width="760" Height="620"
+        MinWidth="600" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <Grid>
+        <DockPanel Margin="24">
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                           TextWrapping="Wrap" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
+                    Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaInfo}" Margin="0,12,0,0">
+                <TextBlock TextWrapping="Wrap" FontSize="{StaticResource Fonte.Legenda}"
+                           Text="Não há como restaurar uma versão antiga, e isso é decisão: reverter em silêncio uma correção é o gesto que a rastreabilidade existe para impedir. Para voltar atrás, corrija de novo — a correção entra como versão nova." />
+            </Border>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Versoes}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Card}" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <DockPanel Margin="0,0,0,6">
+                                        <TextBlock Text="{Binding Titulo}" Style="{StaticResource H3}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <!-- O selo diz qual é a que vale. Sem ele, a lista de
+                                             versões parece um monte de sessões repetidas. -->
+                                        <Border Style="{StaticResource Badge.Sucesso}" Margin="10,0,0,0"
+                                                VerticalAlignment="Center"
+                                                Visibility="{Binding Vigente, Converter={StaticResource BoolParaVisibilidade}}">
+                                            <TextBlock Text="EM VIGOR" />
+                                        </Border>
+                                        <TextBlock Text="{Binding Quando}" Style="{StaticResource TextoSuave}"
+                                                   TextWrapping="Wrap" Margin="10,0,0,0"
+                                                   VerticalAlignment="Center" />
+                                    </DockPanel>
+
+                                    <TextBlock Text="{Binding Motivo}" TextWrapping="Wrap"
+                                               Style="{StaticResource TextoSuave}"
+                                               FontSize="{StaticResource Fonte.Legenda}"
+                                               Margin="0,0,0,8" />
+
+                                    <TextBlock Text="{Binding Eva}" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+                                    <TextBlock Text="Queixa" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding Queixa}" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+                                    <TextBlock Text="Conduta" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding Conduta}" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+                                    <TextBlock Text="Evolução" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding Evolucao}" TextWrapping="Wrap" Margin="0,0,0,6" />
+
+                                    <TextBlock Text="Orientações" Style="{StaticResource Rotulo}" />
+                                    <TextBlock Text="{Binding Orientacoes}" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </DockPanel>
+
+        <ctrl:EstadoDaTela Carregando="{Binding Carregando}"
+                           TextoCarregando="Lendo o histórico de correções…" />
+    </Grid>
+</Window>

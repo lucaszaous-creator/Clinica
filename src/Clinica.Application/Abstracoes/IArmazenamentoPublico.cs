@@ -1,0 +1,41 @@
+namespace Clinica.Application.Abstracoes;
+
+/// <summary>
+/// Onde o arquivo assinado fica acessível por URL (parcela 53).
+///
+/// Por que é uma abstração
+/// -----------------------
+/// A escolha do provedor é comercial e vai mudar — Magalu, AWS `sa-east-1`, ou qualquer
+/// outro S3-compatível. Toda a lógica de publicação (token, prazo, renovação, o que pode e
+/// o que não pode virar link) mora na camada de aplicação e no domínio; o provedor conhece
+/// só dois verbos. Trocar de fornecedor é escrever outra implementação e nada mais.
+///
+/// <b>Isto NÃO é um serviço de validação.</b> Ele entrega bytes. Quem responde se o
+/// documento é válido continua sendo o validador do ITI — é o que dispensa a farmácia de
+/// confiar na clínica.
+///
+/// Sobre segurança
+/// ---------------
+/// O caminho é a única barreira: quem tem a URL tem o arquivo. Por isso o token é de 128
+/// bits (<see cref="Clinica.Domain.PublicacaoDocumento.TamanhoToken"/>) e a implementação
+/// tem de garantir, no provedor, que o balde <b>não lista conteúdo</b>. Balde com listagem
+/// aberta transforma "inadivinhável" em "está tudo aqui".
+/// </summary>
+public interface IArmazenamentoPublico
+{
+    /// <summary>
+    /// Publica (ou substitui) o objeto no caminho indicado. O caminho vem do domínio —
+    /// ver <see cref="Clinica.Domain.PublicacaoDocumento.CaminhoDoObjeto"/>.
+    /// </summary>
+    Task PublicarAsync(
+        string caminho, byte[] conteudo, string tipoConteudo, CancellationToken ct = default);
+
+    /// <summary>
+    /// Tira o objeto do ar. Usado quando o prazo vence e quando o documento é CANCELADO —
+    /// receita cancelada que continua baixável é a pior espécie de documento no ar.
+    ///
+    /// Apagar aqui não fere a regra do "não se apaga": o registro e os bytes assinados
+    /// continuam no banco pelos 20 anos. O que sai é a PUBLICAÇÃO.
+    /// </summary>
+    Task RemoverAsync(string caminho, CancellationToken ct = default);
+}

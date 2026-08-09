@@ -72,6 +72,20 @@ public static class DependencyInjection
         services.AddScoped<RentabilidadeConvenioService>();
         services.AddScoped<PrecoConvenioService>();
         services.AddScoped<AuditoriaService>();
+
+        // Parcela 52 — a metade de LEITURA da trilha e a guarda de 20 anos.
+        services.AddScoped<AcessoProntuarioService>();
+        services.AddScoped<GuardaProntuarioService>();
+        services.AddScoped<ExportacaoProntuarioService>();
+
+        // Parcela 53 — publicação do documento assinado. O serviço é registrado SEMPRE; a
+        // implementação de armazenamento é que só existe quando a clínica contrata um
+        // provedor. Sem ela, o AssinaturaDeDocumentoClinicoService recebe null e o sistema
+        // funciona exatamente como antes (QR para o validador do ITI).
+        services.AddScoped<PublicacaoDocumentoService>();
+        // Objeto-nulo enquanto não há provedor contratado. Trocar por uma implementação
+        // S3-compatível é a ÚNICA coisa que a escolha do fornecedor exige do código.
+        services.AddScoped<IArmazenamentoPublico, ArmazenamentoIndisponivel>();
         services.AddScoped<PainelDirecaoService>();
         services.AddScoped<InadimplenciaService>();
         services.AddScoped<CentralDocumentosService>();
@@ -105,6 +119,9 @@ public static class DependencyInjection
         services.AddScoped<PixService>();
         // Backup e restauração da base inteira (parcela 34).
         services.AddScoped<BackupService>();
+
+        // Parcela 52 — a POLÍTICA em volta da ferramenta: prazo, destino e rotação.
+        services.AddScoped<PoliticaBackupService>();
         return services;
     }
 

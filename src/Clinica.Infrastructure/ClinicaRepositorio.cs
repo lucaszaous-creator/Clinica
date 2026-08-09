@@ -734,32 +734,69 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarEvolucaoAsync(Evolucao evolucao, CancellationToken ct = default)
         => await _db.Evolucoes.AddAsync(evolucao, ct);
 
+    // Com Include das VERSÕES (parcela 52): quem obtém a evolução para EDITAR precisa
+    // delas carregadas, senão `Versoes.Count + 1` recomeçaria do 1 a cada correção e a
+    // numeração do histórico se repetiria. É a única leitura que as traz — as listas não
+    // precisam do texto antigo.
     public Task<Evolucao?> ObterEvolucaoAsync(int evolucaoId, CancellationToken ct = default)
         => _db.Evolucoes
             .Include(e => e.Profissional)
+            .Include(e => e.Versoes)
             .FirstOrDefaultAsync(e => e.Id == evolucaoId, ct);
 
     // Sem Include dos anexos de propósito: os bytes só saem do banco quando alguém
     // pede um arquivo específico (ver ConteudoDoAnexoAsync).
+    //
+    // Cancelada NÃO entra (parcela 52): ela continua no banco, guardada pelos 20 anos da
+    // Lei 13.787, mas fora do prontuário que se lê — que é exatamente o que "cancelar em
+    // vez de apagar" quer dizer. Quem precisa vê-las usa EvolucoesDoPacienteAsync com
+    // `incluirCanceladas`.
     public async Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
+        => await EvolucoesDoPacienteAsync(pacienteId, false, ct);
+
+    public async Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
+        int pacienteId, bool incluirCanceladas, CancellationToken ct = default)
         => await _db.Evolucoes.AsNoTracking()
             .Include(e => e.Profissional)
             .Where(e => e.PacienteId == pacienteId)
+            .Where(e => incluirCanceladas || e.CanceladaEm == null)
             .OrderByDescending(e => e.Data).ThenByDescending(e => e.Id)
             .ToListAsync(ct);
 
-    public async Task RemoverEvolucaoAsync(int evolucaoId, CancellationToken ct = default)
+    /// <summary>As versões anteriores de uma sessão, da mais antiga para a mais nova.</summary>
+    public async Task<IReadOnlyList<VersaoEvolucao>> VersoesDaEvolucaoAsync(
+        int evolucaoId, CancellationToken ct = default)
+        => await _db.VersoesEvolucao.AsNoTracking()
+            .Where(v => v.EvolucaoId == evolucaoId)
+            .OrderBy(v => v.Versao)
+            .ToListAsync(ct);
+
+    // Uma consulta para o prontuário inteiro, como a contagem de anexos: o agrupamento é
+    // do SQL, e o que volta são dois inteiros por sessão CORRIGIDA — as outras nem aparecem.
+    public async Task<IReadOnlyDictionary<int, int>> ContagemDeVersoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
     {
-        var evolucao = await _db.Evolucoes.FirstOrDefaultAsync(e => e.Id == evolucaoId, ct);
-        if (evolucao is not null)
-            _db.Evolucoes.Remove(evolucao);
+        if (evolucaoIds.Count == 0) return new Dictionary<int, int>();
+
+        var contagens = await _db.VersoesEvolucao.AsNoTracking()
+            .Where(v => evolucaoIds.Contains(v.EvolucaoId))
+            .GroupBy(v => v.EvolucaoId)
+            .Select(g => new { EvolucaoId = g.Key, Quantas = g.Count() })
+            .ToListAsync(ct);
+
+        return contagens.ToDictionary(c => c.EvolucaoId, c => c.Quantas);
     }
+
+    public Task<AnexoProntuario?> ObterAnexoAsync(int anexoId, CancellationToken ct = default)
+        => _db.AnexosProntuario
+            .Include(a => a.Evolucao)
+            .FirstOrDefaultAsync(a => a.Id == anexoId, ct);
 
     public async Task<IReadOnlyList<Clinica.Application.Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
         int evolucaoId, CancellationToken ct = default)
         => await _db.AnexosProntuario.AsNoTracking()
-            .Where(a => a.EvolucaoId == evolucaoId)
+            .Where(a => a.EvolucaoId == evolucaoId && a.CanceladoEm == null)
             .OrderBy(a => a.CriadoEm).ThenBy(a => a.Id)
             // A projeção é o ponto: o SELECT não inclui Conteudo.
             .Select(a => new Clinica.Application.Modelos.AnexoResumo(
@@ -776,13 +813,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task AdicionarAnexoAsync(AnexoProntuario anexo, CancellationToken ct = default)
         => await _db.AnexosProntuario.AddAsync(anexo, ct);
 
-    public async Task RemoverAnexoAsync(int anexoId, CancellationToken ct = default)
-    {
-        var anexo = await _db.AnexosProntuario.FirstOrDefaultAsync(a => a.Id == anexoId, ct);
-        if (anexo is not null)
-            _db.AnexosProntuario.Remove(anexo);
-    }
-
     // Uma consulta para o prontuário inteiro: o agrupamento é do SQL, e o que volta são
     // dois inteiros por sessão COM anexo — as outras nem aparecem.
     public async Task<IReadOnlyDictionary<int, int>> ContagemDeAnexosAsync(
@@ -791,7 +821,7 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         if (evolucaoIds.Count == 0) return new Dictionary<int, int>();
 
         var contagens = await _db.AnexosProntuario.AsNoTracking()
-            .Where(a => evolucaoIds.Contains(a.EvolucaoId))
+            .Where(a => evolucaoIds.Contains(a.EvolucaoId) && a.CanceladoEm == null)
             .GroupBy(a => a.EvolucaoId)
             .Select(g => new { EvolucaoId = g.Key, Quantos = g.Count() })
             .ToListAsync(ct);
@@ -810,9 +840,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<MedidaClinica>> MedidasDoPacienteAsync(
         int pacienteId, string? tipoCodigo = null, CancellationToken ct = default)
     {
+        // Cancelada fora da série (parcela 52): ela fica no banco pelos 20 anos, mas a
+        // curva desenha o que vale hoje.
         var consulta = _db.MedidasClinicas.AsNoTracking()
             .Include(m => m.Profissional)
-            .Where(m => m.PacienteId == pacienteId);
+            .Where(m => m.PacienteId == pacienteId && m.CanceladaEm == null);
 
         if (!string.IsNullOrWhiteSpace(tipoCodigo))
             consulta = consulta.Where(m => m.TipoCodigo == tipoCodigo);
@@ -820,13 +852,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await consulta
             .OrderByDescending(m => m.Data).ThenByDescending(m => m.Id)
             .ToListAsync(ct);
-    }
-
-    public async Task RemoverMedidaAsync(int medidaId, CancellationToken ct = default)
-    {
-        var medida = await _db.MedidasClinicas.FirstOrDefaultAsync(m => m.Id == medidaId, ct);
-        if (medida is not null)
-            _db.MedidasClinicas.Remove(medida);
     }
 
     // ---- Lista de problemas (parcela 37) ----
@@ -876,9 +901,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<AvaliacaoClinica>> AvaliacoesDoPacienteAsync(
         int pacienteId, string? instrumentoCodigo = null, CancellationToken ct = default)
     {
+        // Cancelada fora da série, como a medida (parcela 52).
         var consulta = _db.AvaliacoesClinicas.AsNoTracking()
             .Include(a => a.Profissional)
-            .Where(a => a.PacienteId == pacienteId);
+            .Where(a => a.PacienteId == pacienteId && a.CanceladaEm == null);
 
         if (!string.IsNullOrWhiteSpace(instrumentoCodigo))
             consulta = consulta.Where(a => a.InstrumentoCodigo == instrumentoCodigo);
@@ -886,14 +912,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await consulta
             .OrderByDescending(a => a.Data).ThenByDescending(a => a.Id)
             .ToListAsync(ct);
-    }
-
-    public async Task RemoverAvaliacaoAsync(int avaliacaoId, CancellationToken ct = default)
-    {
-        var avaliacao = await _db.AvaliacoesClinicas
-            .FirstOrDefaultAsync(a => a.Id == avaliacaoId, ct);
-        if (avaliacao is not null)
-            _db.AvaliacoesClinicas.Remove(avaliacao);
     }
 
     // O agrupamento vai no SQL: um profissional com dois anos de casa tem milhares de
@@ -1011,6 +1029,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // Sem os itens: a lista da ficha mostra número, tipo e data — o corpo só é lido
     // quando alguém abre ou reimprime um documento específico.
+    public async Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
+        DateOnly hoje, CancellationToken ct = default)
+        => await _db.DocumentosClinicos
+            .Where(d => d.TokenPublicacao != null
+                        && d.PublicadoAte != null
+                        && d.PublicadoAte < hoje)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
         => await _db.DocumentosClinicos.AsNoTracking()

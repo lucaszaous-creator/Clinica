@@ -69,6 +69,19 @@ public class MedidaClinica
 
     public string? CriadoPor { get; set; }
 
+    /// <summary>
+    /// Quando a colheita foi CANCELADA. Não se apaga (parcela 52): a série é o dado, e
+    /// medida que some da curva reescreve a história do tratamento — um peso retirado
+    /// muda a inclinação de tudo o que veio depois.
+    /// </summary>
+    public DateTime? CanceladaEm { get; set; }
+
+    public string? MotivoCancelamento { get; set; }
+
+    public string? CanceladaPor { get; set; }
+
+    public bool Cancelada => CanceladaEm is not null;
+
     /// <summary>O par completo, como o prontuário o escreve ("128/84 mmHg").</summary>
     public string ValorFormatado
     {

@@ -101,6 +101,19 @@ public static class ImpressaoPdf
         return dialogo.ShowDialog() == true ? dialogo.FileName : null;
     }
 
+    /// <summary>
+    /// Pede uma PASTA. <c>null</c> = desistiu.
+    ///
+    /// Usa o <c>OpenFolderDialog</c> do WPF (.NET 8), que é o seletor nativo do Windows —
+    /// e não o antigo <c>FolderBrowserDialog</c> do WinForms, que obrigaria a suíte a
+    /// referenciar WinForms inteiro para desenhar uma árvore de 1998.
+    /// </summary>
+    public static string? EscolherPasta(string titulo)
+    {
+        var dialogo = new Microsoft.Win32.OpenFolderDialog { Title = titulo };
+        return dialogo.ShowDialog() == true ? dialogo.FolderName : null;
+    }
+
     /// <summary>Nome de arquivo sem os caracteres que o Windows recusa.</summary>
     public static string NomeSeguro(string bruto)
     {
