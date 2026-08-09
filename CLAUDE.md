@@ -141,6 +141,62 @@ Feature nova que não seja do faturamento continua indo para Recepção, Finance
 Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.md` e
 `docs/entrega-ao-cliente.md`.
 
+### ⛔ COMPROMISSO DE CONFORMIDADE — leia antes de mexer em qualquer coisa clínica
+
+A cliente enviou, por escrito, os **dez pontos** que ela verificaria ao contratar um
+prontuário eletrônico (LGPD 13.709/2018 + Lei 13.787/2018). Eles deixaram de ser uma
+avaliação e viraram **compromisso do produto**: o mapa completo, com o que atendemos e o
+que não, está em `docs/conformidade-lgpd.md`, e é lá que se atualiza o placar.
+
+Aqui ficam só as regras que a construção não pode violar. **Toda parcela nova passa por
+esta lista**, e a pergunta é sempre a mesma: *isto tira, esconde ou enfraquece alguma
+garantia que já demos?*
+
+1. **Registro clínico NÃO SE APAGA.** Nunca acrescente `Remove()`, `ExecuteDelete` nem
+   método `Remover*Async` para evolução, anexo, avaliação, medida, documento ou
+   prescrição. Cancela-se com **motivo obrigatório**, e a linha fica. Vale para entidade
+   clínica NOVA também — nascer com exclusão é nascer fora da lei da guarda de 20 anos.
+   `ConformidadeProntuarioTests` falha se um desses métodos voltar à interface.
+2. **Alterar registro clínico guarda o que ele dizia antes.** Sobrescrever no lugar é
+   apagar devagar. Se a entidade nova é editável e é prontuário, ela precisa do
+   equivalente a `VersaoEvolucao` — e de leitura para recuperá-la.
+3. **Migration que mexe em tabela clínica é ADITIVA.** Coluna que guarda dado de saúde não
+   se renomeia nem se remove: o dado tem de sobreviver 20 anos, e migration destrutiva é o
+   caminho mais rápido de perdê-lo. (A checagem 18 já cobre o faturamento; aqui a regra é
+   por decisão, não por ferramenta.)
+4. **Tela nova que ABRE prontuário registra o acesso.** `AcessoProntuarioService.
+   RegistrarAsync`, disparado na **troca de paciente** (nunca a cada `CarregarAsync` — as
+   telas recarregam a cada tecla). Sem isso o ponto 3 tem buraco, e buraco em trilha de
+   acesso só aparece quando alguém precisa investigar.
+5. **Permissão nova separa dado SENSÍVEL de dado cadastral.** `VerFichaPaciente` /
+   `EditarPaciente` são contato; `VerProntuario` / `EditarProntuario` são saúde (art. 5º,
+   II). Bit que junte os dois desfaz a parcela 49 e devolve a evolução inteira a quem só
+   precisa marcar horário.
+6. **Quem assina a ação é quem fez LOGIN.** `SessaoUsuario.Atual.Operador`, jamais
+   `Environment.UserName` — no balcão duas pessoas dividem a máquina, e a trilha
+   responderia o nome da máquina para "quem fez isso?".
+7. **Auditoria grava no MESMO `SaveChanges` do ato.** Ação que possa acontecer sem a linha
+   correspondente é ação sem trilha.
+8. **Entidade clínica nova entra na EXPORTAÇÃO e na GUARDA.** `ExportacaoProntuarioService`
+   e `GuardaProntuarioService` precisam enxergá-la, senão a clínica exporta um prontuário
+   incompleto e calcula o prazo pelo registro errado. O backup pega a tabela sozinho (ele
+   lê o modelo do EF) — a exportação e a guarda, não.
+9. **Não prometa garantia que o código não dá.** É a regra mais antiga do projeto (parcela
+   3, o carimbo escaneado) e a que mais aparece aqui: sem LTV, o rodapé diz que a
+   assinatura é PAdES-B; sem certificação SBIS/CFM, o sistema não substitui o papel; o
+   backup não sabe se a pasta está fora da máquina, então isso é orientação na tela e não
+   promessa. **Garantia aparente é pior que ausência de garantia.**
+10. **Dado clínico novo em serviço externo é transferência internacional** (art. 33) até
+    que se prove o contrário. Nenhuma integração nova manda prontuário para fora sem passar
+    pela decisão do ponto 10 do documento.
+
+⚠️ **Motor não é porta, e a auditoria olha a porta.** Vários pontos estão com o serviço
+pronto e sem tela (guarda, exportação, trilha de acesso, configuração de backup) — a lista
+viva está no placar de `docs/conformidade-lgpd.md`. Enquanto a porta não existe, **a
+resposta honesta a quem pergunta é "o motor existe, a clínica ainda não alcança"**, e é
+assim que se escreve no documento. Marcar ✅ porque o teste passa é a variante mais cara do
+defeito recorrente do projeto: aqui ela vira promessa a um cliente que está auditando.
+
 ### Regras de negócio que não são óbvias pelo código
 
 - **Faturamento ≠ recebíveis**: "baixa" = a secretária efetivou a guia no sistema do convênio; nunca

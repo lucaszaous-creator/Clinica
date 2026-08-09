@@ -13,18 +13,51 @@ está respondendo o que o cliente quer ouvir, não o que o sistema faz.
 
 ## Placar
 
-| # | Exigência | Estado |
-|---|---|---|
-| 1 | Acesso individualizado por usuário | ✅ Atende |
-| 2 | Controle de acesso por perfil | ✅ Atende |
-| 3 | Registro de auditoria (quem acessou, quando, o que fez) | ✅ Atende (desde a parcela 52) |
-| 4 | Proteção contra alteração indevida do prontuário | ✅ Atende (desde a parcela 52) |
-| 5 | Segurança do armazenamento e da transmissão | ✅ Atende — com uma parte que é do subprocessador |
-| 6 | Backup e recuperação | ✅ Atende (desde a parcela 52) |
-| 7 | Prazo de guarda adequado (20 anos) | ✅ Atende (desde a parcela 52) |
-| 8 | Exportação do prontuário | ✅ Atende (desde a parcela 52) |
-| 9 | Política para incidentes de segurança | ⚠️ Parcial — o sistema detecta e registra; o **procedimento** é da clínica |
-| 10 | Contrato de tratamento de dados | ⚠️ Pendente — **não é código**, e há um ponto que exige decisão |
+Duas colunas de propósito. **Motor** é a regra existir, estar testada e valer para quem
+usa o sistema; **porta** é a clínica CONSEGUIR demonstrá-la a quem a audita. As duas
+importam, e confundi-las é o defeito recorrente deste projeto — quem contrata não audita
+o código-fonte, audita a tela.
+
+| # | Exigência | Motor | Porta |
+|---|---|---|---|
+| 1 | Acesso individualizado por usuário | ✅ | ✅ tela de Acessos |
+| 2 | Controle de acesso por perfil | ✅ | ✅ tela de Acessos |
+| 3 | Registro de auditoria | ✅ grava acesso e escrita | ⚠️ **falta a tela de "quem abriu este prontuário"** |
+| 4 | Proteção contra alteração indevida | ✅ | ⚠️ falta ver o histórico de versões na tela |
+| 5 | Segurança do armazenamento e da transmissão | ✅ | ✅ (nada a operar) |
+| 6 | Backup e recuperação | ✅ | ❌ **não configurável e não automático ainda** |
+| 7 | Prazo de guarda de 20 anos | ✅ | ❌ **sem tela** |
+| 8 | Exportação do prontuário | ✅ | ❌ **sem botão** |
+| 9 | Política para incidentes | ⚠️ parcial | — procedimento é da clínica |
+| 10 | Contrato de tratamento de dados | — não é código | — e exige uma decisão (ver o item) |
+
+### O que está pendente, sem rodeio
+
+**Portas que faltam** (o serviço existe, está testado e ninguém alcança):
+
+| O que falta | Sem isso… |
+|---|---|
+| Tela "quem acessou este prontuário" | o ponto 3 é gravado e **não pode ser demonstrado**, que é metade do que ela pediu |
+| Histórico de versões da sessão na tela | a rastreabilidade do ponto 4 existe só na exportação |
+| Tela da guarda (por paciente e da clínica) | a pergunta "como você garante 20 anos?" não tem onde ser respondida |
+| Botão de exportar o prontuário | o ponto 8 depende de alguém com acesso ao banco |
+| Configuração do backup (pasta, prazo, cópias) | **a política não roda**: sem destino escolhido ela não faz nada |
+| Chamada do backup na abertura do Gerente | `ExecutarSeVencidoAsync` **não tem chamador** — o automático está desenhado e desligado |
+
+⚠️ As duas últimas linhas são a mesma falha em dois pontos, e ela é séria: **hoje o backup
+continua sendo só o botão manual da parcela 35.** O `PoliticaBackupService` está pronto e
+testado e não é invocado por ninguém. Enquanto isso não for ligado, o ponto 6 responde
+"existe ferramenta", não "existe política".
+
+**Pendências técnicas:**
+
+| O que falta | Afeta |
+|---|---|
+| LTV / PAdES-LT na assinatura | ponto 7 — o PDF assinado deixa de se validar sozinho quando o certificado expira |
+| Certificação SBIS/CFM (S-RES, NGS2) | a clínica poder descartar o papel |
+
+**Pendências que não são código:** os pontos 9 e 10 — procedimento de incidentes, DPA e a
+base legal para a transferência internacional do art. 33.
 
 ---
 
