@@ -1,3 +1,5 @@
+using Clinica.Domain.Regras;
+
 namespace Clinica.Domain.Entities;
 
 /// <summary>Ficha do paciente. Convênio, modalidade e app determinam as regras de faturamento aplicadas.</summary>
@@ -80,6 +82,17 @@ public class Paciente
 
     /// <summary>Atalho de leitura para a UI: o paciente já tem retrato cadastrado?</summary>
     public bool TemFoto => FotoAtualizadaEm is not null;
+
+    /// <summary>
+    /// Nome do convênio como a clínica o chama — é este que vai para a tela, nunca
+    /// <see cref="Convenio"/>, que é a FAMÍLIA de regra.
+    ///
+    /// Amarrar `{Binding Convenio}` num TextBlock faz o WPF chamar `ToString()` e escrever
+    /// "UnimedIntercambio" no crachá do paciente; e resolver só pela família escreve
+    /// "Personalizado" para toda operadora que a clínica cadastrou. As duas coisas foram
+    /// vistas na lista de pacientes em produção.
+    /// </summary>
+    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
 
     /// <summary>Carteirinha com validade já passada — guia recusada na hora pelo convênio.</summary>
     public bool CarteirinhaVencida =>

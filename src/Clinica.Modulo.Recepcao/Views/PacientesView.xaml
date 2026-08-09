@@ -75,16 +75,25 @@
                                        Titulo="Nenhum paciente encontrado"
                                        Descricao="Ajuste a busca ou cadastre alguém em “Novo paciente”." />
 
-                    <DockPanel>
-                        <Grid DockPanel.Dock="Top" Margin="54,0,0,6">
+                    <!-- O escopo do tamanho compartilhado. Ele é o que faz o cabeçalho e
+                         as linhas — que são Grids SEPARADOS, um por item da lista —
+                         concordarem sobre onde cada coluna começa. Ver o comentário do
+                         `ItemPacienteLinha`. -->
+                    <DockPanel Grid.IsSharedSizeScope="True">
+                        <!-- As MESMAS quatro colunas da linha, com os mesmos grupos. A
+                             primeira fica vazia aqui: ela existe para acompanhar a largura
+                             do avatar, que antes era imitada por uma margem de 54 px
+                             escrita à mão — e margem à mão não segue quem a mudar. -->
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinha.Avatar" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="160" />
-                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinha.Selos" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="1" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />
-                            <TextBlock Grid.Column="2" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="1" Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
                         </Grid>
 
                         <ListBox ItemsSource="{Binding Seletor.Resultados}"

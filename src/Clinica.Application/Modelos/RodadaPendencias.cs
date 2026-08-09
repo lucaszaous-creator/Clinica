@@ -36,4 +36,12 @@ public sealed record NaoConformidadeItem(
     OrdemCodigo Ordem,
     DateOnly DataPrevista,
     string Justificativa,
-    DateTime? Em);
+    DateTime? Em)
+{
+    /// <summary>
+    /// Código do convênio no catálogo. <see cref="Convenio"/> é a FAMÍLIA de REGRA, e
+    /// resolver o nome por ela faria toda operadora personalizada aparecer na tela como
+    /// "Personalizado".
+    /// </summary>
+    public string? ConvenioCodigo { get; init; }
+}

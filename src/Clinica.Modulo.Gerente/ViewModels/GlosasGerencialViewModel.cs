@@ -40,7 +40,7 @@ public sealed class LinhaGlosa
             CodigoId = c.Id,
             Paciente = c.Atendimento?.Paciente?.Nome ?? "(paciente removido)",
             Convenio = c.Atendimento?.Paciente is { } p
-                ? CatalogoConvenios.Nome(p.Convenio)
+                ? p.ConvenioNome
                 : "—",
             Guia = string.IsNullOrWhiteSpace(c.NumeroGuiaReal)
                 ? $"{c.Tipo} · {c.Ordem}"

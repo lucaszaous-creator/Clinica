@@ -55,8 +55,13 @@
                     </Border.Visibility>
                     <TextBlock Text="Carteirinha vencida" />
                 </Border>
+                <!-- `ConvenioNome`, nunca `Convenio`: o segundo é a FAMÍLIA de regra, e o
+                     WPF o escreveria com `ToString()` — "UnimedIntercambio" no crachá, e
+                     "Personalizado" no lugar do nome que a clínica cadastrou. -->
                 <Border Style="{StaticResource Badge}">
-                    <TextBlock Text="{Binding Convenio}" />
+                    <TextBlock Text="{Binding ConvenioNome}" MaxWidth="180"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding ConvenioNome}" />
                 </Border>
             </StackPanel>
         </Grid>
@@ -84,12 +89,19 @@
            guia vai ser recusada.
          ============================================================ -->
     <DataTemplate x:Key="ItemPacienteLinha">
+        <!-- CADA LINHA É UM GRID PRÓPRIO, e é isso que exige os `SharedSizeGroup`.
+             Sem eles, `Auto` e `*` são resolvidos POR LINHA: a linha que tem o selo
+             "Carteirinha vencida" fica com a última coluna mais larga, e o telefone
+             daquela linha desliza para a esquerda em relação a todas as outras. A tabela
+             deixa de ter colunas — vira uma pilha de linhas que por acaso se parecem —, e
+             o cabeçalho, que é um Grid separado, não casa com nenhuma delas.
+             O escopo (`Grid.IsSharedSizeScope`) é declarado por quem monta a lista. -->
         <Grid Margin="0,1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinha.Avatar" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="160" />
-                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinha.Selos" />
             </Grid.ColumnDefinitions>
 
             <ctrl:Avatar Grid.Column="0" Tamanho="40" VerticalAlignment="Center" Margin="0,0,14,0"
@@ -121,8 +133,13 @@
                     </Border.Visibility>
                     <TextBlock Text="Carteirinha vencida" />
                 </Border>
+                <!-- `ConvenioNome`, nunca `Convenio`: o segundo é a FAMÍLIA de regra, e o
+                     WPF o escreveria com `ToString()` — "UnimedIntercambio" no crachá, e
+                     "Personalizado" no lugar do nome que a clínica cadastrou. -->
                 <Border Style="{StaticResource Badge}">
-                    <TextBlock Text="{Binding Convenio}" />
+                    <TextBlock Text="{Binding ConvenioNome}" MaxWidth="180"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding ConvenioNome}" />
                 </Border>
             </StackPanel>
         </Grid>

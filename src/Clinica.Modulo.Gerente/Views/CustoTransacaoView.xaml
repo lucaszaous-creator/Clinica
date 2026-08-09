@@ -248,10 +248,10 @@
                                                        TextAlignment="Right" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="2" Text="{Binding Taxa}"
                                                        TextAlignment="Right"
-                                                       Style="{StaticResource TextoSuave}" />
+                                                       Style="{StaticResource CelulaSuave}" />
                                             <TextBlock Grid.Column="3" Text="{Binding Imposto}"
                                                        TextAlignment="Right"
-                                                       Style="{StaticResource TextoSuave}" />
+                                                       Style="{StaticResource CelulaSuave}" />
                                             <TextBlock Grid.Column="4" Text="{Binding Liquido}"
                                                        TextAlignment="Right" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Grid.Column="5" Text="{Binding Percentual}"

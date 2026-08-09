@@ -1078,6 +1078,35 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   coluna de **Ações**, não faixa (dois falsos positivos), e trocar `BotaoPequeno` por
   `BotaoSecundario` em bloco atinge o botão de LINHA da lista, onde `BotaoPequeno` é o
   certo — e o resultado é `VerticalAlignment` duplicado, que o XML nem parseia.
+- **Estilo de PARÁGRAFO não serve de CÉLULA de tabela** (parcela 50, 3ª rodada — o cliente
+  mandou a foto de "6R$ 0,00" e "R$ 0,00R$ 0,00" nos relatórios do Gerente). O `TextoSuave`
+  fixa `HorizontalAlignment="Left"` desde a parcela 37, e por um bom motivo — sem ele o
+  subtítulo da página nasce flutuando no meio da tela. O efeito colateral é que o TextBlock
+  passa a ter a largura do TEXTO, e não a da célula: o `TextAlignment="Right"` escrito ao
+  lado **não alinha nada**, porque não sobra espaço dentro do bloco onde alinhar. O número
+  desgruda da borda direita da coluna e vai colar no valor da coluna anterior; o
+  `Margin="0,4,0,0"` do mesmo estilo ainda o desce 4 px, e a linha sai com as células em
+  alturas diferentes.
+  Daí o `CelulaSuave`, nos DOIS design systems: mesma cor e mesmo tamanho, sem os três
+  ajustes de parágrafo, e com **reticências** (regra de tabela — a coluna tem largura fixa,
+  e quebrar em duas linhas desalinharia a altura da linha inteira). A **checagem 26** cobra
+  a CONTRADIÇÃO declarada (`TextoSuave` + `TextAlignment` no mesmo elemento), e não
+  "TextoSuave em tabela": adivinhar o que é tabela daria falso positivo em legenda
+  centralizada sob uma foto — **três** das doze conversões automáticas eram exatamente
+  isso, e foram revertidas à mão.
+- **O nome do convênio é da OPERADORA; o enum é da REGRA** (parcela 50, 3ª rodada): o
+  crachá do paciente escrevia "UnimedIntercambio" e "Personalizado". São dois ângulos do
+  mesmo erro — a tela perguntou a FAMÍLIA quando queria a operadora. `{Binding Convenio}`
+  faz o WPF chamar `ToString()` no enum (o defeito da parcela 41, que a checagem 20 não
+  pega porque só olha `ComboBox`); e `CatalogoConvenios.Nome(p.Convenio)` devolve
+  "Personalizado" para **toda** operadora que a clínica cadastrou, porque
+  `Convenio.Personalizado` é a regra que todas compartilham — a clínica cadastra "Sul
+  América" em Configurações, o nome fica no banco e a tela não o alcança.
+  O ponto único é `CatalogoConvenios.Nome(codigo, familia)` (o código vence; a família é o
+  caminho de baixo) e, para quem tem a entidade, `Paciente.ConvenioNome`. O par
+  código+família teve de ser levado a três records de serviço que só carregavam a família
+  — aditivo, `init` com padrão nulo, porque `PendenciaService` é compartilhado com o
+  faturamento em produção.
 - **Sobreposição posta como IRMÃ desaba a tela inteira** (parcela 50, 2ª rodada — o cliente
   mandou a foto da Conciliação com título, abas e texto desenhados uns por cima dos
   outros). O `EstadoDaTela` (carregando · falhou · vazio) é uma SOBREPOSIÇÃO, e por isso

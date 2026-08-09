@@ -26,6 +26,13 @@ public sealed record ReceitaGlosada(
     DateOnly DataLancamento)
 {
     /// <summary>
+    /// Código do convênio no catálogo. <see cref="Convenio"/> é a FAMÍLIA de regra, e é
+    /// só por ele que a tela chegaria ao nome — o que faria toda operadora cadastrada
+    /// pela clínica aparecer como "Personalizado".
+    /// </summary>
+    public string? ConvenioCodigo { get; init; }
+
+    /// <summary>
     /// A receita ainda é só promessa — é este caso que infla o previsto e o que a tela
     /// resolve com um clique.
     /// </summary>
@@ -138,7 +145,10 @@ public sealed class ReceitaGlosadaService
                     lancamento.Id,
                     lancamento.Valor,
                     lancamento.Status,
-                    lancamento.Data);
+                    lancamento.Data)
+                {
+                    ConvenioCodigo = c.Atendimento.Paciente.ConvenioCodigo
+                };
             })
             // A mais antiga primeiro: o prazo de recurso corre contra ela, e é a que
             // está há mais tempo mentindo no fluxo de caixa.

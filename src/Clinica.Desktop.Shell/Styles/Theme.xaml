@@ -73,4 +73,26 @@
         <Setter Property="Margin" Value="0,4,0,0" />
     </Style>
 
+    <!-- Texto SECUNDÁRIO dentro de CÉLULA DE TABELA.
+         Mesma cor e mesmo tamanho do `TextoSuave`, e é só isso que os dois têm em comum:
+         aquele é estilo de PARÁGRAFO, e os três ajustes que o fazem bom parágrafo o
+         tornam errado numa célula.
+           · `HorizontalAlignment="Left"` encolhe o TextBlock até a largura do texto e o
+             gruda na esquerda da célula — e com isso o `TextAlignment="Right"` da coluna
+             de valores para de ter efeito, porque não sobra espaço dentro do bloco para
+             alinhar coisa nenhuma. O número deixa de encostar na borda direita da coluna
+             e vai colar no valor da coluna anterior: foi assim que o cliente viu
+             "6R$ 0,00" numa linha só.
+           · `Margin="0,4,0,0"` desce o texto 4 px, e a linha da tabela sai com as células
+             em alturas diferentes.
+           · `MaxWidth="820"` não faz mal numa coluna estreita, mas também não significa
+             nada ali.
+         Célula leva reticências, nunca quebra (regra de tabela da parcela 50): a coluna
+         tem largura fixa, e quebrar em duas linhas desalinharia a altura da linha inteira. -->
+    <Style x:Key="CelulaSuave" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
 </ResourceDictionary>

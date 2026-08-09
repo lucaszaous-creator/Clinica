@@ -194,7 +194,7 @@
                                                 </TextBlock.Style>
                                             </TextBlock>
                                             <TextBlock Grid.Column="4" Text="{Binding Previsto}"
-                                                       Style="{StaticResource TextoSuave}"
+                                                       Style="{StaticResource CelulaSuave}"
                                                        TextAlignment="Right" />
                                             <TextBlock Grid.Column="5" Text="{Binding Acumulado}"
                                                        TextAlignment="Right" TextTrimming="CharacterEllipsis" />

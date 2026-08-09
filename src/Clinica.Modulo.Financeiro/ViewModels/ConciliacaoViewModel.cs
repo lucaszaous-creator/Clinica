@@ -3,6 +3,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -185,7 +186,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
                     Guia = g,
                     DataBaixa = g.DataBaixa.ToString("dd/MM/yyyy"),
                     Paciente = g.Paciente,
-                    Convenio = g.Convenio.ToString(),
+                    Convenio = CatalogoConvenios.Nome(g.ConvenioCodigo, g.Convenio),
                     NumeroGuia = g.NumeroGuiaReal ?? "—",
                     Tipo = g.Tipo.ToString(),
                     Valor = proposto.Houve ? proposto.Valor.ToString("0.##") : string.Empty,
@@ -236,7 +237,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
                 {
                     Receita = r,
                     Paciente = r.Paciente,
-                    Convenio = r.Convenio.ToString(),
+                    Convenio = CatalogoConvenios.Nome(r.ConvenioCodigo, r.Convenio),
                     NumeroGuia = r.NumeroGuiaReal ?? "—",
                     DataGlosa = r.DataGlosa.ToString("dd/MM/yyyy"),
                     Valor = r.Valor.ToString("C"),

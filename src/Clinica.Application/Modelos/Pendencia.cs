@@ -33,6 +33,14 @@ public sealed record PendenciaCodigo(
     /// <summary>True quando esta linha é uma NÃO CONFORMIDADE parada (semáforo cinza, reabrível).</summary>
     bool EhNaoConformidade = false)
 {
+    /// <summary>
+    /// Código do convênio no catálogo. <see cref="Convenio"/> é a FAMÍLIA de REGRA — duas
+    /// operadoras podem compartilhá-la —, então é só por ele que se chega ao nome que a
+    /// clínica cadastrou. Resolver pela família faria toda operadora personalizada
+    /// aparecer na tela como "Personalizado".
+    /// </summary>
+    public string? ConvenioCodigo { get; init; }
+
     /// <summary>True quando há uma observação registrada (para destacar a linha na tela).</summary>
     public bool TemObservacao => !string.IsNullOrWhiteSpace(ObservacaoPendencia);
 }

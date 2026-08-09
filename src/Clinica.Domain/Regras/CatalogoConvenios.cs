@@ -43,6 +43,22 @@ public static class CatalogoConvenios
     /// <summary>Nome de um convênio embutido (pela família), refletindo rename salvo no catálogo.</summary>
     public static string Nome(Convenio familia) => Nome(familia.ToString());
 
+    /// <summary>
+    /// Nome exibido a partir do par que TODA entidade carrega: o código (que identifica a
+    /// operadora) e a família (que identifica a REGRA). Este é o jeito certo, e existe
+    /// porque o jeito errado é fácil demais de escrever.
+    ///
+    /// Resolver só pela FAMÍLIA — <c>Nome(p.Convenio)</c> — devolve "Personalizado" para
+    /// toda operadora que a clínica cadastrou, porque `Convenio.Personalizado` é a regra
+    /// compartilhada por todas elas. A clínica cadastra "Sul América" em Configurações e a
+    /// tela escreve "Personalizado": o nome existe no banco e a tela não o alcança.
+    ///
+    /// O código vence quando existe; a família é o caminho de baixo, para o embutido cujo
+    /// código é o próprio nome do enum.
+    /// </summary>
+    public static string Nome(string? codigo, Convenio familia)
+        => Nome(string.IsNullOrWhiteSpace(codigo) ? familia.ToString() : codigo);
+
     /// <summary>Config da regra genérica de um convênio personalizado (nulo se não for personalizado).</summary>
     public static ConfiguracaoRegraGenerica? Config(string? codigo) => Buscar(codigo)?.Config;
 

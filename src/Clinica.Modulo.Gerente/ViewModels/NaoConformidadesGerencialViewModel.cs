@@ -26,7 +26,7 @@ public sealed class LinhaNaoConformidade
     {
         CodigoId = n.CodigoId,
         Paciente = n.PacienteNome,
-        Convenio = CatalogoConvenios.Nome(n.Convenio),
+        Convenio = CatalogoConvenios.Nome(n.ConvenioCodigo, n.Convenio),
         Guia = $"{n.Tipo} · {n.Ordem}",
         Prevista = n.DataPrevista.ToString("dd/MM/yyyy"),
         Justificativa = string.IsNullOrWhiteSpace(n.Justificativa)

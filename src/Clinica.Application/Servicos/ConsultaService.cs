@@ -159,12 +159,14 @@ public sealed class ConsultaService
 
         if (!usaConsulta)
             return new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, false,
-                vigente?.DataEmissao, vigente?.DataVencimento, null, false, false, NivelUrgencia.Verde);
+                vigente?.DataEmissao, vigente?.DataVencimento, null, false, false, NivelUrgencia.Verde)
+                { ConvenioCodigo = p.ConvenioCodigo };
 
         if (vigente is null)
             // Convênio usa consulta, mas o paciente ainda não tem nenhuma emitida.
             return new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, true,
-                null, null, null, false, true, NivelUrgencia.Amarelo);
+                null, null, null, false, true, NivelUrgencia.Amarelo)
+                { ConvenioCodigo = p.ConvenioCodigo };
 
         var dias = vigente.DiasParaVencer(referencia);
         var vencida = vigente.EstaVencida(referencia);
@@ -174,6 +176,7 @@ public sealed class ConsultaService
             : NivelUrgencia.Verde;
 
         return new StatusConsultaPaciente(p.Id, p.Nome, p.Convenio, true,
-            vigente.DataEmissao, vigente.DataVencimento, dias, vencida, precisaRenovar, urgencia);
+            vigente.DataEmissao, vigente.DataVencimento, dias, vencida, precisaRenovar, urgencia)
+            { ConvenioCodigo = p.ConvenioCodigo };
     }
 }
