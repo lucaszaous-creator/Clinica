@@ -269,6 +269,90 @@ public class ConformidadeProntuarioTests : IDisposable
             "ler a ficha e abrir o prontuário inteiro são acessos de natureza diferente");
     }
 
+    // ========================= a folha de infusão também é prontuário (regra 8 do CLAUDE)
+
+    /// <summary>
+    /// Cria uma folha assinada com um item já checado — o estado em que ela fica depois
+    /// que a enfermagem executou.
+    /// </summary>
+    private async Task<PrescricaoInterna> FolhaExecutadaAsync(int pacienteId, DateOnly data)
+    {
+        var folha = new PrescricaoInterna
+        {
+            Numero = $"PRE {data.Year}/0001",
+            CodigoVerificacao = "ABCD2345",
+            PacienteId = pacienteId,
+            Data = data,
+            Hora = new TimeOnly(14, 0),
+            Situacao = SituacaoPrescricao.Encerrada,
+            AssinadaEm = data.ToDateTime(new TimeOnly(13, 55)),
+            EncerradaEm = data.ToDateTime(new TimeOnly(15, 30))
+        };
+
+        folha.Itens.Add(new ItemPrescricaoInterna
+        {
+            Ordem = 1,
+            Descricao = "Dipirona 500mg",
+            Dose = "1 ampola",
+            Via = ViaAdministracao.Endovenosa,
+            Checagens =
+            {
+                new ChecagemPrescricao
+                {
+                    Situacao = SituacaoChecagem.NaoRealizado,
+                    HoraRealizacao = new TimeOnly(14, 20),
+                    Justificativa = "paciente apresentou reação alérgica",
+                    ExecutanteNome = "tec.carla",
+                    ExecutanteConselho = "COREN 123456",
+                    RegistradoEm = data.ToDateTime(new TimeOnly(14, 35))
+                }
+            }
+        });
+
+        _db.PrescricoesInternas.Add(folha);
+        await _db.SaveChangesAsync();
+        return folha;
+    }
+
+    [Fact]
+    public async Task A_folha_de_infusao_conta_para_o_prazo_de_guarda()
+    {
+        var paciente = await CriarPacienteAsync();
+        await SessaoAsync(paciente, new DateOnly(2026, 1, 10));
+        await FolhaExecutadaAsync(paciente, new DateOnly(2026, 8, 3));
+
+        var situacao = await _guarda.DoPacienteAsync(paciente);
+
+        situacao.Prescricoes.Should().Be(1);
+        situacao.UltimoRegistro.Should().Be(new DateOnly(2026, 8, 3),
+            "a folha diz o que entrou no paciente — ignorá-la calcularia o prazo pelo "
+            + "registro errado, e para MENOS");
+        situacao.Origem.Should().Contain("prescrição");
+    }
+
+    [Fact]
+    public async Task A_exportacao_leva_a_folha_os_itens_e_a_EXECUCAO()
+    {
+        var paciente = await CriarPacienteAsync("Joana");
+        await FolhaExecutadaAsync(paciente, Dia);
+
+        var arquivos = await _exportacao.ExportarAsync();
+
+        arquivos.Single(a => a.Nome == "prontuario-prescricoes.csv")
+            .Conteudo.Should().Contain("PRE 2026/0001").And.Contain("ABCD2345");
+
+        arquivos.Single(a => a.Nome == "prontuario-prescricoes-itens.csv")
+            .Conteudo.Should().Contain("Dipirona 500mg");
+
+        // A execução é a parte que uma auditoria de enfermagem procura: o que entrou, a
+        // que horas e por quem — e o horário INFORMADO ao lado do relógio do registro.
+        var execucao = arquivos.Single(a => a.Nome == "prontuario-prescricoes-checagens.csv").Conteudo;
+        execucao.Should().Contain("tec.carla")
+                .And.Contain("COREN 123456")
+                .And.Contain("14:20")
+                .And.Contain("reação alérgica");
+    }
+
     // ================================================ ponto 8 — exportação sem reféns
 
     [Fact]

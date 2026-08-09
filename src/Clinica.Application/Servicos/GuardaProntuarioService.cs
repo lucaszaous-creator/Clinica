@@ -20,7 +20,8 @@ public sealed record SituacaoGuarda(
     int SessoesCanceladas,
     int Documentos,
     int Avaliacoes,
-    int Medidas)
+    int Medidas,
+    int Prescricoes)
 {
     /// <summary>Não há nada guardado para este paciente — nem prazo a contar.</summary>
     public bool SemRegistro => UltimoRegistro is null;
@@ -37,7 +38,7 @@ public sealed record SituacaoGuarda(
 
     /// <summary>Tudo o que está sob guarda, somado. É o número que a clínica mostra a quem a audita.</summary>
     public int TotalDeRegistros
-        => Sessoes + SessoesCanceladas + Documentos + Avaliacoes + Medidas;
+        => Sessoes + SessoesCanceladas + Documentos + Avaliacoes + Medidas + Prescricoes;
 }
 
 /// <summary>O retrato da guarda na clínica inteira.</summary>
@@ -104,6 +105,12 @@ public sealed class GuardaProntuarioService
         var avaliacoes = await _repo.AvaliacoesDoPacienteAsync(pacienteId, null, ct);
         var medidas = await _repo.MedidasDoPacienteAsync(pacienteId, null, ct);
         var documentos = await _repo.DocumentosDoPacienteAsync(pacienteId, ct);
+        // A folha de infusão é registro clínico como qualquer outro: ela diz o que entrou
+        // no paciente e a que horas. Ficou de fora da primeira versão desta classe, o que
+        // contrariava a própria regra 8 do CLAUDE.md — entidade clínica entra na guarda e
+        // na exportação. Sem ela, o prazo de um paciente que só recebe infusão seria
+        // calculado pelo registro errado (ou não seria calculado).
+        var prescricoes = await _repo.PrescricoesInternasDoPacienteAsync(pacienteId, int.MaxValue, ct);
 
         var candidatos = new List<(DateOnly Data, string Origem)>();
 
@@ -113,6 +120,7 @@ public sealed class GuardaProntuarioService
         // DocumentoClinico.Data é a data do ato (a do atestado, a da receita) — é ela
         // que interessa à guarda, e não o carimbo de criação da linha.
         foreach (var d in documentos) candidatos.Add((d.Data, "documento emitido"));
+        foreach (var pr in prescricoes) candidatos.Add((pr.Data, "prescrição de infusão"));
 
         var ultimo = candidatos.Count == 0
             ? default((DateOnly Data, string Origem)?)
@@ -127,7 +135,8 @@ public sealed class GuardaProntuarioService
             SessoesCanceladas: sessoes.Count(s => s.Cancelada),
             Documentos: documentos.Count,
             Avaliacoes: avaliacoes.Count,
-            Medidas: medidas.Count);
+            Medidas: medidas.Count,
+            Prescricoes: prescricoes.Count);
     }
 
     /// <summary>

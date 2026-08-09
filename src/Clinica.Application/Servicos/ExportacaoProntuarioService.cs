@@ -84,6 +84,18 @@ public sealed class ExportacaoProntuarioService
             "CodigoVerificacao", "Assinado", "Situacao");
         var anexos = Cabecalho("PacienteId", "SessaoId", "NomeArquivo", "Tipo",
             "TamanhoBytes", "CriadoEm", "Situacao");
+        // A folha de infusão e sua EXECUÇÃO. Ficaram de fora da primeira versão, o que
+        // contrariava a regra 8 do CLAUDE.md — e a execução é a parte que uma auditoria
+        // de enfermagem procura: o que entrou no paciente, a que horas e por quem.
+        var prescricoes = Cabecalho("PacienteId", "Paciente", "Numero", "Data", "Hora",
+            "Situacao", "Prescritor", "Indicacao", "CodigoVerificacao", "AssinadaEm",
+            "EncerradaEm", "MotivoCancelamento");
+        var itensPrescricao = Cabecalho("PacienteId", "PrescricaoNumero", "Ordem",
+            "Item", "Dose", "Diluente", "Volume", "Via", "TempoInfusao", "SeNecessario",
+            "Situacao", "MotivoSuspensao");
+        var checagens = Cabecalho("PacienteId", "PrescricaoNumero", "ItemOrdem", "Item",
+            "Situacao", "HoraRealizacao", "RegistradoEm", "Executante", "Conselho",
+            "Justificativa", "Retificacao", "MotivoRetificacao");
 
         foreach (var p in pacientes)
         {
@@ -121,6 +133,33 @@ public sealed class ExportacaoProntuarioService
                     m.ValorSecundario?.ToString("0.##", Fixa), m.Unidade, m.FaixaNome,
                     m.Cancelada ? "Cancelada" : "Vigente");
 
+            foreach (var pr in await _repo.PrescricoesInternasDoPacienteAsync(p.Id, int.MaxValue, ct))
+            {
+                Linha(prescricoes, p.Id, p.Nome, pr.Numero, Data(pr.Data),
+                    pr.Hora.ToString("HH\\:mm"), RotulosEnum.De(pr.Situacao),
+                    pr.Profissional?.Rotulo, pr.Indicacao, pr.CodigoVerificacao,
+                    pr.AssinadaEm?.ToString("O", Fixa), pr.EncerradaEm?.ToString("O", Fixa),
+                    pr.MotivoCancelamento);
+
+                foreach (var item in pr.Itens.OrderBy(i => i.Ordem))
+                {
+                    Linha(itensPrescricao, p.Id, pr.Numero, item.Ordem, item.Descricao,
+                        item.Dose, item.Diluente, item.Volume, RotulosEnum.De(item.Via),
+                        item.TempoInfusao, item.SeNecessario,
+                        item.Suspenso ? "Suspenso" : "Vigente", item.MotivoSuspensao);
+
+                    // TODAS as checagens, inclusive as retificadas: apagar e regravar é o
+                    // gesto que a auditoria de enfermagem procura, e a folha mostra as duas.
+                    foreach (var c in item.Checagens.OrderBy(c => c.RegistradoEm))
+                        Linha(checagens, p.Id, pr.Numero, item.Ordem, item.Descricao,
+                            RotulosEnum.De(c.Situacao), c.HoraRealizacao.ToString("HH\\:mm"),
+                            c.RegistradoEm.ToString("O", Fixa), c.ExecutanteNome,
+                            c.ExecutanteConselho, c.Justificativa,
+                            c.RetificaChecagemId is null ? string.Empty : "retifica anterior",
+                            c.MotivoRetificacao);
+                }
+            }
+
             foreach (var d in await _repo.DocumentosDoPacienteAsync(p.Id, ct))
                 Linha(documentos, p.Id, p.Nome, d.Numero,
                     TipoDocumentoInfo.Rotular(d.Tipo), Data(d.Data),
@@ -137,6 +176,9 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-medidas.csv", medidas.ToString()),
             new("prontuario-documentos.csv", documentos.ToString()),
             new("prontuario-anexos.csv", anexos.ToString()),
+            new("prontuario-prescricoes.csv", prescricoes.ToString()),
+            new("prontuario-prescricoes-itens.csv", itensPrescricao.ToString()),
+            new("prontuario-prescricoes-checagens.csv", checagens.ToString()),
             new("LEIA-ME.txt", LeiaMe(pacientes.Count))
         ];
     }
@@ -203,6 +245,9 @@ public sealed class ExportacaoProntuarioService
          - prontuario-medidas.csv ............ medidas seriadas (peso, PA, glicemia…)
          - prontuario-documentos.csv ......... documentos emitidos
          - prontuario-anexos.csv ............. LISTA dos arquivos anexados (ver abaixo)
+         - prontuario-prescricoes.csv ........ folhas de infusão (prescrição interna)
+         - prontuario-prescricoes-itens.csv .. o que foi prescrito em cada folha
+         - prontuario-prescricoes-checagens... o que a enfermagem executou, com horário
 
          O QUE ESTÁ INCLUÍDO E QUE COSTUMA SURPREENDER
          As sessões CANCELADAS vêm juntas, marcadas na coluna Situacao, e o mesmo vale para
