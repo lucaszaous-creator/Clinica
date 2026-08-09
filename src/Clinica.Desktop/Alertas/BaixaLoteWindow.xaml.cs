@@ -1,6 +1,8 @@
 using System.Windows;
 using Clinica.Application.Modelos;
+using System.Linq;
 using Clinica.Domain;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Desktop.Alertas;
 
@@ -16,6 +18,13 @@ public partial class BaixaLoteWindow : Window
         public required int CodigoId { get; init; }
         public required string Descricao { get; init; }
         public string? NumeroGuia { get; set; }
+
+        /// <summary>
+        /// Forma do número da guia NESTE convênio. Resolvida na montagem da lista, porque
+        /// aqui cada linha pode ser de uma operadora diferente — é o caso normal de uma
+        /// baixa em lote, e é por isso que não há uma dica única no alto da janela.
+        /// </summary>
+        public FormatoNumeroGuia Formato { get; init; } = FormatoNumeroGuia.SemValidacao;
     }
 
     public List<Linha> Linhas { get; }
@@ -28,11 +37,39 @@ public partial class BaixaLoteWindow : Window
         Linhas = itens.Select(i => new Linha
         {
             CodigoId = i.CodigoId,
-            Descricao = $"{i.PacienteNome} — {i.Tipo} ({(i.Ordem == OrdemCodigo.Primeiro ? "1º" : "2º")} código)"
+            Descricao = $"{i.PacienteNome} — {i.Tipo} ({(i.Ordem == OrdemCodigo.Primeiro ? "1º" : "2º")} código)",
+            Formato = CatalogoConvenios.FormatoDoNumeroDaGuia(i.ConvenioCodigo ?? i.Convenio.ToString())
         }).ToList();
         Lista.ItemsSource = Linhas;
         DpData.SelectedDate = DateTime.Today;
     }
 
-    private void Confirmar_Click(object sender, RoutedEventArgs e) => DialogResult = true;
+    /// <summary>
+    /// Critica os números ANTES de processar. O serviço recusa cada guia de qualquer jeito
+    /// — é lá que a regra mora —, mas aqui a recusa chegaria NO MEIO do lote: as linhas
+    /// anteriores já teriam sido baixadas, e a pessoa ficaria com um lote pela metade e uma
+    /// mensagem sobre uma guia que ela precisa procurar na lista.
+    ///
+    /// Linha em branco continua sendo ignorada, como sempre foi: "ainda não tenho o número"
+    /// é resposta legítima num lote.
+    /// </summary>
+    private void Confirmar_Click(object sender, RoutedEventArgs e)
+    {
+        var recusadas = Linhas
+            .Select(l => (l, critica: RegraNumeroGuia.Criticar(l.NumeroGuia, l.Formato)))
+            .Where(x => x.critica is not null)
+            .ToList();
+
+        if (recusadas.Count > 0)
+        {
+            var detalhe = string.Join("\n", recusadas.Select(x => $"• {x.l.Descricao}: {x.critica}"));
+            MessageBox.Show(this,
+                $"{recusadas.Count} guia(s) com o número fora do formato do convênio. "
+                + "Corrija antes de confirmar — nenhuma baixa foi feita.\n\n" + detalhe,
+                "Baixa em lote", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        DialogResult = true;
+    }
 }

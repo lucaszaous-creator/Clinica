@@ -1078,6 +1078,23 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   coluna de **Ações**, não faixa (dois falsos positivos), e trocar `BotaoPequeno` por
   `BotaoSecundario` em bloco atinge o botão de LINHA da lista, onde `BotaoPequeno` é o
   certo — e o resultado é `VerticalAlignment` duplicado, que o XML nem parseia.
+- **Dica ESTÁTICA não é aviso: o campo precisa criticar a cada tecla** (parcela 51 — o
+  cliente digitou oito letras num convênio "só números" e perguntou por que conseguia).
+  Deixar digitar é por desenho: quem recusa é `FaturamentoService.DarBaixaAsync`, porque a
+  baixa tem QUATRO portas e validar na tela cobriria uma. O que faltava era a outra metade
+  da regra já escrita aqui — "a tela usa a MESMA regra para avisar ANTES do clique". Ela
+  existia como **dica fixa** ("aceita somente números"), resolvida uma vez ao carregar a
+  guia, e **nada acontecia enquanto se digitava**: oito letras sem uma palavra do sistema
+  se leem como "aceitou", e a recusa só aparecia no Confirmar.
+  Agora a crítica é derivada do que está no campo (`CriticaNumeroGuia`, a mesma
+  `RegraNumeroGuia.Criticar` — sem cópia) e o botão fica apagado enquanto o número não
+  serve. E as outras **duas portas com campo de número não tinham nem a dica**: a baixa em
+  lote e a rodada passaram a criticar **linha a linha ANTES de processar**, cada uma com o
+  formato do convênio DAQUELA linha. Não é preciosismo: o serviço recusa guia a guia, então
+  uma linha ruim no meio de dez deixava as anteriores baixadas — e, na rodada BLOQUEANTE,
+  o sistema travado com a pessoa sem saber qual linha corrigir.
+  De quebra, a rodada escrevia `{i.Convenio}` na situação da linha — o enum de novo,
+  "UnimedIntercambio · atrasada há 3 dias".
 - **A rede que não cobre o app em PRODUÇÃO** (parcela 51): o `compilar-sombra` nasceu com
   nove projetos e o faturamento **de fora**, com o motivo escrito ao lado — "está
   congelado, ninguém o edita". Ele saiu do congelamento na parcela 45, e a exclusão
