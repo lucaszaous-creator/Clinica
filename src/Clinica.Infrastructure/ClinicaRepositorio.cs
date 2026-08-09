@@ -772,6 +772,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderBy(v => v.Versao)
             .ToListAsync(ct);
 
+    // Uma consulta para o prontuário inteiro, como a contagem de anexos: o agrupamento é
+    // do SQL, e o que volta são dois inteiros por sessão CORRIGIDA — as outras nem aparecem.
+    public async Task<IReadOnlyDictionary<int, int>> ContagemDeVersoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
+    {
+        if (evolucaoIds.Count == 0) return new Dictionary<int, int>();
+
+        var contagens = await _db.VersoesEvolucao.AsNoTracking()
+            .Where(v => evolucaoIds.Contains(v.EvolucaoId))
+            .GroupBy(v => v.EvolucaoId)
+            .Select(g => new { EvolucaoId = g.Key, Quantas = g.Count() })
+            .ToListAsync(ct);
+
+        return contagens.ToDictionary(c => c.EvolucaoId, c => c.Quantas);
+    }
+
     public Task<AnexoProntuario?> ObterAnexoAsync(int anexoId, CancellationToken ct = default)
         => _db.AnexosProntuario
             .Include(a => a.Evolucao)

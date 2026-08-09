@@ -307,6 +307,13 @@ public interface IClinicaRepositorio
     // A remoção destes quatro métodos é DE PROPÓSITO irreversível pela interface: enquanto
     // eles existirem, alguma tela futura vai chamá-los.
 
+    /// <summary>
+    /// Quantas correções cada sessão já teve, numa consulta só. É o que faz a lista do
+    /// prontuário marcar "corrigida 2x" sem uma ida ao banco por linha.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, int>> ContagemDeVersoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default);
+
     /// <summary>Anexo com a evolução carregada (entidade rastreada, para cancelar).</summary>
     Task<AnexoProntuario?> ObterAnexoAsync(int anexoId, CancellationToken ct = default);
 

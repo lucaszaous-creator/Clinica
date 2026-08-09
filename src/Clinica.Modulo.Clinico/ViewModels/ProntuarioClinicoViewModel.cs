@@ -28,6 +28,22 @@ public sealed class LinhaSessaoProntuario
     /// <summary>Quantos arquivos a sessão tem — o clipe da linha.</summary>
     public required int Anexos { get; init; }
 
+    /// <summary>
+    /// Quantas vezes a sessão foi CORRIGIDA (parcela 52). Marcar isto na lista é o que
+    /// torna a retificação visível — a Lei 13.787/2018 pede rastreabilidade, e rastro que
+    /// só existe no banco não é rastreável por ninguém.
+    /// </summary>
+    public required int Correcoes { get; init; }
+
+    public bool Retificada => Correcoes > 0;
+
+    public string CorrecoesTexto => Correcoes switch
+    {
+        0 => "Correções",
+        1 => "1 correção",
+        _ => $"{Correcoes} correções"
+    };
+
     public bool TemAnexos => Anexos > 0;
 
     public string AnexosTexto => Anexos switch
@@ -37,7 +53,7 @@ public sealed class LinhaSessaoProntuario
         _ => $"{Anexos} anexos"
     };
 
-    public static LinhaSessaoProntuario De(Evolucao e, int anexos) => new()
+    public static LinhaSessaoProntuario De(Evolucao e, int anexos, int correcoes) => new()
     {
         EvolucaoId = e.Id,
         Data = e.Data.ToString("dd/MM/yyyy"),
@@ -47,7 +63,8 @@ public sealed class LinhaSessaoProntuario
         Conduta = string.IsNullOrWhiteSpace(e.Conduta) ? "—" : e.Conduta!,
         Evolucao = string.IsNullOrWhiteSpace(e.TextoEvolucao) ? "—" : e.TextoEvolucao!,
         Orientacoes = string.IsNullOrWhiteSpace(e.Orientacoes) ? "—" : e.Orientacoes!,
-        Anexos = anexos
+        Anexos = anexos,
+        Correcoes = correcoes
     };
 }
 
@@ -240,9 +257,14 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
             var contagens = await prontuario.ContagemDeAnexosAsync(
                 filtradas.Select(e => e.Id).ToList());
 
+            var correcoes = await prontuario.ContagemDeVersoesAsync(
+                filtradas.Select(e => e.Id).ToList());
+
             foreach (var e in filtradas)
                 Sessoes.Add(LinhaSessaoProntuario.De(
-                    e, contagens.TryGetValue(e.Id, out var quantos) ? quantos : 0));
+                    e,
+                    contagens.TryGetValue(e.Id, out var quantos) ? quantos : 0,
+                    correcoes.TryGetValue(e.Id, out var vezes) ? vezes : 0));
 
             ResumoSessoes = termo.Length == 0
                 ? $"{todas.Count} sessão(ões) no prontuário."
@@ -325,6 +347,35 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     }
 
     // ---------------------------------------------------------------- anexos
+
+    /// <summary>
+    /// Abre o histórico de correções da sessão (parcela 52) — a porta que faltava para a
+    /// rastreabilidade do art. 3º da Lei 13.787/2018 ser LIDA, e não só guardada.
+    /// </summary>
+    [RelayCommand]
+    private void VerCorrecoes(LinhaSessaoProntuario? linha)
+    {
+        // Guarda sobre PARÂMETRO: nunca dispara vindo de botão de linha, e por isso pode
+        // sair calada (a exceção declarada da checagem 21).
+        if (linha is null) return;
+
+        try
+        {
+            new VersoesEvolucaoWindow
+            {
+                DataContext = new VersoesEvolucaoViewModel(
+                    _escopos, linha.EvolucaoId, $"{linha.Data} — {Paciente}"),
+                Owner = System.Windows.Application.Current?.MainWindow
+            }.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — histórico de correções", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
 
     /// <summary>
     /// Abre os anexos de uma sessão — o laudo que voltou do exame que ESTE app pediu.

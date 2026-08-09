@@ -148,6 +148,11 @@ public sealed class ProntuarioService
             Motivo = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim()
         });
 
+    /// <summary>Quantas correções cada sessão teve — para a lista marcar quais foram mexidas.</summary>
+    public Task<IReadOnlyDictionary<int, int>> ContagemDeVersoesAsync(
+        IReadOnlyCollection<int> evolucaoIds, CancellationToken ct = default)
+        => _repo.ContagemDeVersoesAsync(evolucaoIds, ct);
+
     /// <summary>
     /// O que esta sessão já disse antes das correções, da versão mais antiga para a mais
     /// nova (parcela 52).

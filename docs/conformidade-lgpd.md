@@ -23,7 +23,7 @@ o código-fonte, audita a tela.
 | 1 | Acesso individualizado por usuário | ✅ | ✅ tela de Acessos |
 | 2 | Controle de acesso por perfil | ✅ | ✅ tela de Acessos |
 | 3 | Registro de auditoria | ✅ grava acesso e escrita | ✅ Auditoria filtra por paciente e por "quem abriu" |
-| 4 | Proteção contra alteração indevida | ✅ | ⚠️ falta ver o histórico de versões na tela |
+| 4 | Proteção contra alteração indevida | ✅ | ✅ botão "N correções" na sessão do prontuário |
 | 5 | Segurança do armazenamento e da transmissão | ✅ | ✅ (nada a operar) |
 | 6 | Backup e recuperação | ✅ | ✅ Configurações → Backup, e automático na abertura do Gerente |
 | 7 | Prazo de guarda de 20 anos | ✅ | ✅ Guarda do prontuário |
@@ -43,11 +43,10 @@ o código-fonte, audita a tela.
 | "Com que frequência há cópia?" | Gerente → **Configurações** → *Backup da clínica* |
 | "Quem pode ver o quê?" | Gerente → **Acessos** |
 
-**Porta que ainda falta:**
+| "O que estava escrito antes nesta sessão?" | Consultório → **Prontuário** → botão *N correções* na sessão |
 
-| O que falta | Sem isso… |
-|---|---|
-| Histórico de versões da sessão na tela | a rastreabilidade do ponto 4 existe, é exportável e **não se lê na tela do prontuário** — hoje só sai no CSV da exportação |
+**Todas as portas dos oito pontos que dependem de código estão construídas.** O que resta
+é técnico ou contratual, abaixo.
 
 **Pendências técnicas:**
 

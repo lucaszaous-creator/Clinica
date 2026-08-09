@@ -229,24 +229,37 @@
                                                 </TextBlock>
                                             </StackPanel>
 
-                                            <Button Grid.Column="1" VerticalAlignment="Top"
-                                                    Content="{Binding AnexosTexto}" MinWidth="110"
-                                                    Command="{Binding DataContext.VerAnexosCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}">
-                                                <Button.Style>
-                                                    <Style TargetType="Button"
-                                                           BasedOn="{StaticResource BotaoAcaoGridSecundario}">
-                                                        <Style.Triggers>
-                                                            <!-- Sessão COM anexo se destaca: é ela
-                                                                 que tem o laudo que voltou. -->
-                                                            <DataTrigger Binding="{Binding TemAnexos}" Value="True">
-                                                                <Setter Property="FontWeight" Value="SemiBold" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Button.Style>
-                                            </Button>
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Top">
+                                                <Button Content="{Binding AnexosTexto}" MinWidth="110"
+                                                        Command="{Binding DataContext.VerAnexosCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button"
+                                                               BasedOn="{StaticResource BotaoAcaoGridSecundario}">
+                                                            <Style.Triggers>
+                                                                <!-- Sessão COM anexo se destaca: é ela
+                                                                     que tem o laudo que voltou. -->
+                                                                <DataTrigger Binding="{Binding TemAnexos}" Value="True">
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+
+                                                <!-- Histórico de correções (parcela 52). O botão
+                                                     SÓ aparece na sessão que foi corrigida: aceso
+                                                     em todas, ele diria "nada a ver aqui" quarenta
+                                                     vezes e ninguém o leria na que importa. -->
+                                                <Button Content="{Binding CorrecoesTexto}" MinWidth="110"
+                                                        Margin="0,6,0,0" FontWeight="SemiBold"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        Visibility="{Binding Retificada, Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.VerCorrecoesCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
