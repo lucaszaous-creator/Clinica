@@ -51,11 +51,49 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
     partial void OnDicaNumeroGuiaChanged(string? value) => OnPropertyChanged(nameof(TemDicaNumeroGuia));
 
     /// <summary>
+    /// A crítica do que está DIGITADO AGORA — nula enquanto o número serve.
+    ///
+    /// A dica acima é estática ("aceita somente números") e, sozinha, deixava digitar oito
+    /// letras sem nada acontecer até o clique em Confirmar: quem digita conclui que o
+    /// sistema aceita. O serviço recusa de qualquer jeito — é lá que a regra mora, porque
+    /// a baixa tem quatro portas —, mas descobrir o requisito DEPOIS de confirmar é o que
+    /// faz a pessoa desistir da tela.
+    ///
+    /// É a mesma regra do domínio, sem cópia: quem decide continua sendo
+    /// <see cref="RegraNumeroGuia.Criticar"/>.
+    /// </summary>
+    public string? CriticaNumeroGuia => RegraNumeroGuia.Criticar(NumeroGuia, FormatoGuia);
+    public bool TemCriticaNumeroGuia => CriticaNumeroGuia is not null;
+
+    /// <summary>
+    /// O número serve? Falso também com o campo VAZIO — não porque a forma o recuse (número
+    /// em branco passa em qualquer formato, por decisão do domínio), mas porque a baixa
+    /// exige o número, e o botão precisa dizer isso antes do clique.
+    /// </summary>
+    public bool NumeroGuiaServe =>
+        !string.IsNullOrWhiteSpace(NumeroGuia) && CriticaNumeroGuia is null;
+
+    partial void OnNumeroGuiaChanged(string? value)
+    {
+        OnPropertyChanged(nameof(CriticaNumeroGuia));
+        OnPropertyChanged(nameof(TemCriticaNumeroGuia));
+        OnPropertyChanged(nameof(NumeroGuiaServe));
+        OnPropertyChanged(nameof(PodeConfirmar));
+    }
+
+    /// <summary>
     /// Metade VISÍVEL da barreira de permissão: o botão explica. A que IMPEDE é o
     /// <c>Exigir</c> dentro do comando — só desabilitar seria enfeite, porque o atalho
     /// Ctrl+S do shell dispara o mesmo comando por outro caminho.
     /// </summary>
     public bool PodeBaixar => SessaoUsuario.Atual.Pode(Permissao.BaixarGuia);
+
+    /// <summary>
+    /// As DUAS pré-condições do botão, juntas: permissão e número que serve. A guarda
+    /// dentro do comando continua existindo e continua DIZENDO por quê — botão apagado
+    /// explica, guarda impede, e guarda que volta calada é botão que não faz nada.
+    /// </summary>
+    public bool PodeConfirmar => PodeBaixar && NumeroGuiaServe;
 
     public event Action? BaixaConcluida;
     public event Action? Cancelado;
@@ -82,6 +120,13 @@ public partial class BaixaViewModel : ObservableObject, IAtalhosDeTela
             : CatalogoConvenios.FormatoDoNumeroDaGuia(
                 paciente.ConvenioCodigo ?? paciente.Convenio.ToString());
         DicaNumeroGuia = RegraNumeroGuia.Dica(FormatoGuia);
+
+        // O formato só é conhecido AQUI, depois de ler o paciente — e é ele que decide a
+        // crítica. Sem reavaliar, o campo já preenchido ficaria sem julgamento nenhum.
+        OnPropertyChanged(nameof(CriticaNumeroGuia));
+        OnPropertyChanged(nameof(TemCriticaNumeroGuia));
+        OnPropertyChanged(nameof(NumeroGuiaServe));
+        OnPropertyChanged(nameof(PodeConfirmar));
         ObservacaoPendencia = Codigo?.ObservacaoPendencia is { } obs && Codigo.ObservacaoPendenciaEm is { } quando
             ? $"{obs}  (anotado em {quando:dd/MM/yyyy HH:mm})"
             : Codigo?.ObservacaoPendencia;

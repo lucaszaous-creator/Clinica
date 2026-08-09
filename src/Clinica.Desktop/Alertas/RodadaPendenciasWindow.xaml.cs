@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows;
 using Clinica.Application.Modelos;
 using Clinica.Domain;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Desktop.Alertas;
 
@@ -23,6 +24,9 @@ public partial class RodadaPendenciasWindow : Window
         public required string Situacao { get; init; }
         public string? NumeroGuia { get; set; }
         public string? Justificativa { get; set; }
+
+        /// <summary>Forma do número da guia NESTE convênio — cada linha pode ser de uma operadora.</summary>
+        public FormatoNumeroGuia Formato { get; init; } = FormatoNumeroGuia.SemValidacao;
     }
 
     public List<Linha> Linhas { get; }
@@ -41,9 +45,12 @@ public partial class RodadaPendenciasWindow : Window
         {
             CodigoId = i.CodigoId,
             Descricao = $"{i.PacienteNome} — {i.Tipo} ({(i.Ordem == OrdemCodigo.Primeiro ? "1º" : "2º")} código)",
+            Formato = CatalogoConvenios.FormatoDoNumeroDaGuia(i.ConvenioCodigo ?? i.Convenio.ToString()),
+            // Nome do CATÁLOGO, nunca o enum: `{i.Convenio}` escrevia "UnimedIntercambio"
+            // na linha, e "Personalizado" no lugar do nome que a clínica cadastrou.
             Situacao = i.DiasEmAtraso > 0
-                ? $"{i.Convenio} · atrasada há {i.DiasEmAtraso} dia(s)"
-                : $"{i.Convenio} · vence hoje"
+                ? $"{CatalogoConvenios.Nome(i.ConvenioCodigo, i.Convenio)} · atrasada há {i.DiasEmAtraso} dia(s)"
+                : $"{CatalogoConvenios.Nome(i.ConvenioCodigo, i.Convenio)} · vence hoje"
         }).ToList();
         Lista.ItemsSource = Linhas;
         DpData.SelectedDate = DateTime.Today;
@@ -77,6 +84,25 @@ public partial class RodadaPendenciasWindow : Window
             MessageBox.Show(this,
                 "Enquanto a rodada estiver vencida, decida todas as guias: informe o número da guia " +
                 "(baixa) ou uma justificativa (não conformidade).",
+                "Rodar pendências", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        // Formato do número ANTES de processar. Aqui isso importa mais que na baixa em
+        // lote: no modo BLOQUEANTE o sistema está travado, e uma recusa vinda do serviço
+        // no meio da rodada deixaria parte das guias decidida, a janela aberta e a pessoa
+        // sem saber qual linha corrigir para poder voltar a trabalhar.
+        var recusadas = Linhas
+            .Select(l => (l, critica: RegraNumeroGuia.Criticar(l.NumeroGuia, l.Formato)))
+            .Where(x => x.critica is not null)
+            .ToList();
+
+        if (recusadas.Count > 0)
+        {
+            var detalhe = string.Join("\n", recusadas.Select(x => $"• {x.l.Descricao}: {x.critica}"));
+            MessageBox.Show(this,
+                $"{recusadas.Count} guia(s) com o número fora do formato do convênio. "
+                + "Corrija antes de concluir — nada foi gravado.\n\n" + detalhe,
                 "Rodar pendências", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }

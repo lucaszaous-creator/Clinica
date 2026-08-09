@@ -253,6 +253,66 @@ public class NumeroGuiaPorConvenioTests : IDisposable
         return resultado.Atendimento.Codigos.First().Id;
     }
 
+    /// <summary>
+    /// A CRÍTICA VIVA da tela, e por que ela existe (parcela 51 — o cliente perguntou "por
+    /// que ainda consigo colocar letras?").
+    ///
+    /// O campo sempre deixou digitar: quem recusa é o serviço, no confirmar, porque a baixa
+    /// tem quatro portas e validar só na tela cobriria uma. Mas a tela tinha apenas uma DICA
+    /// estática ("aceita somente números") e nada acontecia enquanto se digitava — oito
+    /// letras sem uma palavra do sistema se leem como "aceitou".
+    ///
+    /// O teste fixa a regra que a tela consulta a cada tecla. Ele não monta WPF: o que
+    /// precisa estar certo é a RESPOSTA, e ela é do domínio — a tela só a exibe.
+    /// </summary>
+    [Theory]
+    [InlineData("aaaaaaaa")]
+    [InlineData("9077O7")]     // a letra O no lugar do zero: o erro que o olho não vê
+    [InlineData("G-777")]
+    public void Numero_com_letra_em_convenio_de_digitos_e_criticado_a_cada_tecla(string digitado)
+    {
+        RegraNumeroGuia.Criticar(digitado, FormatoNumeroGuia.SomenteNumeros)
+            .Should().NotBeNull("é isto que a tela mostra em vermelho enquanto a pessoa digita");
+    }
+
+    /// <summary>
+    /// O contrário, que é o que impede a crítica de virar ruído: enquanto o número serve,
+    /// a tela não diz nada. Campo que reclama do que está certo ensina a ignorar o aviso.
+    /// </summary>
+    [Theory]
+    [InlineData("90777")]
+    [InlineData("1")]
+    public void Numero_que_serve_nao_e_criticado(string digitado)
+    {
+        RegraNumeroGuia.Criticar(digitado, FormatoNumeroGuia.SomenteNumeros).Should().BeNull();
+    }
+
+    /// <summary>
+    /// A baixa em LOTE e a RODADA critican antes de processar, e é isso que este teste
+    /// protege: o serviço recusa guia a guia, então uma linha ruim no meio de dez deixaria
+    /// as anteriores baixadas e a rodada pela metade. A conferência prévia usa a MESMA
+    /// regra, uma vez por linha, com o formato do convênio DAQUELA linha.
+    /// </summary>
+    [Fact]
+    public void Lote_com_convenios_diferentes_crita_linha_a_linha()
+    {
+        var linhas = new (string numero, FormatoNumeroGuia formato)[]
+        {
+            ("90777", FormatoNumeroGuia.SomenteNumeros),   // Unimed, serve
+            ("G-777", FormatoNumeroGuia.Alfanumerico),     // Amil, mas com pontuação: não serve
+            ("AB12",  FormatoNumeroGuia.Alfanumerico),     // Amil, serve
+            ("aaa",   FormatoNumeroGuia.SomenteNumeros),   // Unimed com letra: não serve
+            ("",      FormatoNumeroGuia.SomenteNumeros)    // em branco é resposta legítima no lote
+        };
+
+        var recusadas = linhas
+            .Where(l => RegraNumeroGuia.Criticar(l.numero, l.formato) is not null)
+            .Select(l => l.numero)
+            .ToList();
+
+        recusadas.Should().BeEquivalentTo(["G-777", "aaa"]);
+    }
+
     public void Dispose()
     {
         _db.Dispose();
