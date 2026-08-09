@@ -72,6 +72,10 @@ public static class DependencyInjection
         services.AddScoped<RentabilidadeConvenioService>();
         services.AddScoped<PrecoConvenioService>();
         services.AddScoped<AuditoriaService>();
+
+        // Parcela 52 — a metade de LEITURA da trilha e a guarda de 20 anos.
+        services.AddScoped<AcessoProntuarioService>();
+        services.AddScoped<GuardaProntuarioService>();
         services.AddScoped<PainelDirecaoService>();
         services.AddScoped<InadimplenciaService>();
         services.AddScoped<CentralDocumentosService>();

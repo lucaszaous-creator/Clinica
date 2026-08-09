@@ -340,15 +340,20 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
 
-            if (!_dialogo.ConfirmarPerigo("Excluir do prontuário",
-                    $"Apagar a sessão de {linha.Data}? Os anexos dela vão junto, e o prontuário "
-                    + "é documento clínico — a exclusão fica registrada na auditoria.")) return;
+            // Cancelar, nunca apagar (parcela 52): a Lei 13.787/2018 manda guardar o
+            // prontuário por 20 anos, e o motivo escrito é o que separa a correção da
+            // reescrita.
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar sessão do prontuário",
+                $"Por que a sessão de {linha.Data} está sendo cancelada? Ela NÃO é apagada — "
+                + "sai do prontuário que se lê e fica guardada, com este motivo ao lado.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.ExcluirAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
+            await prontuario.CancelarAsync(linha.EvolucaoId, motivo, SessaoUsuario.Atual.Operador);
 
-            _snackbar.Info("Sessão excluída do prontuário.");
+            _snackbar.Info("Sessão cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)

@@ -160,16 +160,113 @@ public class ProntuarioServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Excluir_TiraDoProntuarioEDeixaRastro()
+    public async Task Cancelar_tira_do_prontuario_mas_NAO_apaga_a_linha()
     {
         var pacienteId = await CriarPacienteAsync();
         var evolucao = await RegistrarAsync(pacienteId, Dia, 8, 3);
 
-        await _prontuario.ExcluirAsync(evolucao.Id, "secretaria");
+        await _prontuario.CancelarAsync(evolucao.Id, "lançada no paciente errado", "secretaria");
 
+        // Sai do prontuário que se lê…
         (await _prontuario.DoPacienteAsync(pacienteId)).Should().BeEmpty();
+
+        // …e CONTINUA no banco, que é o que a Lei 13.787/2018 exige guardar por 20 anos.
+        var guardada = await _db.Evolucoes.AsNoTracking().SingleAsync(e => e.Id == evolucao.Id);
+        guardada.CanceladaEm.Should().NotBeNull();
+        guardada.MotivoCancelamento.Should().Be("lançada no paciente errado");
+        guardada.CanceladaPor.Should().Be("secretaria");
+
         (await _db.Auditoria.AsNoTracking().ToListAsync())
-            .Should().Contain(e => e.Acao == "EvolucaoExcluida");
+            .Should().Contain(e => e.Acao == "EvolucaoCancelada");
+    }
+
+    [Fact]
+    public async Task Cancelar_exige_motivo()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var evolucao = await RegistrarAsync(pacienteId, Dia, 8, 3);
+
+        var acao = () => _prontuario.CancelarAsync(evolucao.Id, "  ", "secretaria");
+
+        await acao.Should().ThrowAsync<InvalidOperationException>();
+        (await _prontuario.DoPacienteAsync(pacienteId)).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task Sessao_cancelada_nao_se_edita()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var evolucao = await RegistrarAsync(pacienteId, Dia, 8, 3);
+        await _prontuario.CancelarAsync(evolucao.Id, "engano", "secretaria");
+
+        var acao = () => _prontuario.SalvarAsync(
+            new Evolucao { Id = evolucao.Id, PacienteId = pacienteId, Data = Dia, TextoEvolucao = "outro" },
+            "secretaria");
+
+        await acao.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    // ===== Retificação rastreável (Lei 13.787/2018, art. 3º) =====
+
+    [Fact]
+    public async Task Corrigir_a_sessao_GUARDA_o_que_estava_escrito_antes()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var evolucao = await RegistrarAsync(pacienteId, Dia, 8, 3);
+
+        await _prontuario.SalvarAsync(new Evolucao
+        {
+            Id = evolucao.Id,
+            PacienteId = pacienteId,
+            Data = Dia,
+            EvaAntes = 8,
+            EvaDepois = 3,
+            TextoEvolucao = "texto corrigido"
+        }, "dra.ana", "corrigido o lado da queixa");
+
+        var versoes = await _prontuario.VersoesAsync(evolucao.Id);
+
+        versoes.Should().HaveCount(1, "a versão anterior tem de sobreviver à correção");
+        versoes[0].Versao.Should().Be(1);
+        versoes[0].QueixaPrincipal.Should().Be("dor lombar",
+            "é EXATAMENTE esta a pergunta que uma perícia faz: o que estava escrito antes?");
+        versoes[0].Motivo.Should().Be("corrigido o lado da queixa");
+        versoes[0].SubstituidaPor.Should().Be("dra.ana");
+
+        // E a sessão continua sendo UMA no prontuário — o histórico não vira sessão nova.
+        (await _prontuario.DoPacienteAsync(pacienteId)).Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task Correcoes_sucessivas_empilham_versoes_em_ordem()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var evolucao = await RegistrarAsync(pacienteId, Dia, 8, 3);
+
+        foreach (var texto in new[] { "segunda", "terceira" })
+            await _prontuario.SalvarAsync(new Evolucao
+            {
+                Id = evolucao.Id,
+                PacienteId = pacienteId,
+                Data = Dia,
+                TextoEvolucao = texto
+            }, "dra.ana");
+
+        var versoes = await _prontuario.VersoesAsync(evolucao.Id);
+
+        versoes.Select(v => v.Versao).Should().Equal(1, 2);
+        versoes.Select(v => v.QueixaPrincipal).Should().Equal("dor lombar", null);
+        versoes.Select(v => v.TextoEvolucao).Should().Equal(null, "segunda");
+    }
+
+    [Fact]
+    public async Task Sessao_nova_nao_cria_versao()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var evolucao = await RegistrarAsync(pacienteId, Dia, 8, 3);
+
+        (await _prontuario.VersoesAsync(evolucao.Id)).Should().BeEmpty(
+            "a versão 1 é a própria sessão; duplicá-la daria duas verdades sobre o mesmo registro");
     }
 
     // ===== Evolução da dor =====
@@ -279,16 +376,32 @@ public class ProntuarioServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ExcluirEvolucao_LevaOsAnexosJunto()
+    public async Task Cancelar_a_sessao_NAO_apaga_os_anexos()
     {
         var pacienteId = await CriarPacienteAsync();
         var evolucao = await RegistrarAsync(pacienteId, Dia, 8, 3);
-        await _prontuario.AnexarAsync(evolucao.Id, "foto.jpg", [1, 2, 3], TipoAnexo.Imagem);
+        await _prontuario.AnexarAsync(evolucao.Id, "laudo.pdf", [1, 2, 3], TipoAnexo.Documento);
 
-        await _prontuario.ExcluirAsync(evolucao.Id, "secretaria");
+        await _prontuario.CancelarAsync(evolucao.Id, "paciente trocado", "secretaria");
 
+        // Antes da parcela 52 este método fazia Remove() e levava o anexo junto. O laudo
+        // que sustentou uma conduta é parte da prova de que a conduta era razoável — e a
+        // guarda de 20 anos não admite que um clique o destrua.
         (await _db.AnexosProntuario.AsNoTracking().ToListAsync())
-            .Should().BeEmpty("anexo órfão não é prontuário");
+            .Should().HaveCount(1, "o anexo é registro clínico e fica guardado com a sessão");
+    }
+
+    [Fact]
+    public async Task Anexo_retirado_sai_da_lista_e_continua_no_banco()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var evolucao = await RegistrarAsync(pacienteId, Dia, 8, 3);
+        var anexo = await _prontuario.AnexarAsync(evolucao.Id, "errado.pdf", [1, 2, 3], TipoAnexo.Documento);
+
+        await _prontuario.CancelarAnexoAsync(anexo.Id, "laudo de outro paciente", "secretaria");
+
+        (await _prontuario.AnexosAsync(evolucao.Id)).Should().BeEmpty();
+        (await _db.AnexosProntuario.AsNoTracking().ToListAsync()).Should().HaveCount(1);
     }
 
     public void Dispose()

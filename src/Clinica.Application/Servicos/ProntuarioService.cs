@@ -33,7 +33,17 @@ public sealed class ProntuarioService
     /// Registra (ou atualiza) a evolução de uma sessão. Grava auditoria no mesmo
     /// SaveChanges: prontuário é documento clínico, e alteração sem rastro não presta.
     /// </summary>
-    public async Task<Evolucao> SalvarAsync(Evolucao dados, string? operador = null, CancellationToken ct = default)
+    /// <param name="motivoDaCorrecao">
+    /// Por que a sessão está sendo corrigida. Só vale ao ALTERAR uma já existente, e é
+    /// opcional de propósito — ver <see cref="VersaoEvolucao.Motivo"/>: a evolução é
+    /// escrita em várias passadas durante o atendimento, e exigir justificativa a cada
+    /// Salvar produziria trinta "ajuste" por dia, que é rastro com aparência de controle
+    /// e nenhum conteúdo. O que a lei exige — recuperar o que estava escrito — a versão
+    /// entrega com ou sem ele.
+    /// </param>
+    public async Task<Evolucao> SalvarAsync(
+        Evolucao dados, string? operador = null, string? motivoDaCorrecao = null,
+        CancellationToken ct = default)
     {
         if (await _repo.ObterPacienteAsync(dados.PacienteId, ct) is null)
             throw new InvalidOperationException("Paciente não encontrado.");
@@ -67,6 +77,18 @@ public sealed class ProntuarioService
         {
             destino = await _repo.ObterEvolucaoAsync(dados.Id, ct)
                 ?? throw new InvalidOperationException("Evolução não encontrada.");
+
+            if (destino.Cancelada)
+                throw new InvalidOperationException(
+                    "Esta sessão foi cancelada e não se edita. Registre uma sessão nova — "
+                    + "editar a cancelada faria o prontuário desdizer o cancelamento.");
+
+            // A METADE QUE FALTAVA (parcela 52): antes de sobrescrever, guarda o que o
+            // registro dizia. Sem isto a auditoria gravava "EvolucaoAlterada" e o texto
+            // anterior sumia — trilha que diz QUE mudou sem dizer O QUE mudou não responde
+            // a única pergunta que se faz a um prontuário eletrônico numa perícia.
+            GuardarVersao(destino, operador, motivoDaCorrecao);
+
             destino.AtualizadoEm = DateTime.Now;
         }
 
@@ -86,7 +108,13 @@ public sealed class ProntuarioService
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = novo ? "EvolucaoRegistrada" : "EvolucaoAlterada",
             Detalhe = $"Sessão de {destino.Data:dd/MM/yyyy}"
-                      + (destino.TemParEva ? $" — EVA {destino.EvaAntes}→{destino.EvaDepois}" : string.Empty),
+                      + (destino.TemParEva ? $" — EVA {destino.EvaAntes}→{destino.EvaDepois}" : string.Empty)
+                      // A trilha diz que existe versão anterior guardada, e qual. Sem esta
+                      // frase, quem lê a auditoria não sabe que dá para recuperar o texto.
+                      + (novo ? string.Empty : $" — versão anterior guardada (v{destino.Versoes.Count})")
+                      + (string.IsNullOrWhiteSpace(motivoDaCorrecao)
+                          ? string.Empty
+                          : $" — motivo: {motivoDaCorrecao.Trim()}"),
             PacienteId = destino.PacienteId
         }, ct);
 
@@ -94,21 +122,94 @@ public sealed class ProntuarioService
         return destino;
     }
 
-    /// <summary>Apaga uma evolução (e seus anexos). Deixa rastro na auditoria.</summary>
-    public async Task ExcluirAsync(int evolucaoId, string? operador = null, CancellationToken ct = default)
+    /// <summary>
+    /// Congela o conteúdo ATUAL da sessão como versão anterior, antes de ele ser
+    /// sobrescrito pela correção.
+    ///
+    /// A numeração sai da contagem do que já existe, e não de um contador guardado na
+    /// evolução: um campo a mais seria uma segunda verdade sobre a mesma coisa, e as duas
+    /// divergiriam no primeiro caminho que gravasse a versão sem incrementar o contador.
+    /// </summary>
+    private static void GuardarVersao(Evolucao atual, string? operador, string? motivo)
+        => atual.Versoes.Add(new VersaoEvolucao
+        {
+            EvolucaoId = atual.Id,
+            Versao = atual.Versoes.Count + 1,
+            Data = atual.Data,
+            EvaAntes = atual.EvaAntes,
+            EvaDepois = atual.EvaDepois,
+            QueixaPrincipal = atual.QueixaPrincipal,
+            Conduta = atual.Conduta,
+            TextoEvolucao = atual.TextoEvolucao,
+            Orientacoes = atual.Orientacoes,
+            ProfissionalId = atual.ProfissionalId,
+            SubstituidaEm = DateTime.Now,
+            SubstituidaPor = operador,
+            Motivo = string.IsNullOrWhiteSpace(motivo) ? null : motivo.Trim()
+        });
+
+    /// <summary>
+    /// O que esta sessão já disse antes das correções, da versão mais antiga para a mais
+    /// nova (parcela 52).
+    ///
+    /// Guardar a versão e não ter por onde lê-la seria o defeito recorrente do projeto na
+    /// variante mais cara: aqui o leitor que falta é uma perícia.
+    /// </summary>
+    public Task<IReadOnlyList<VersaoEvolucao>> VersoesAsync(
+        int evolucaoId, CancellationToken ct = default)
+        => _repo.VersoesDaEvolucaoAsync(evolucaoId, ct);
+
+    /// <summary>
+    /// O prontuário INTEIRO do paciente, canceladas incluídas — a leitura da guarda de 20
+    /// anos e da exportação. A tela do dia a dia usa <see cref="DoPacienteAsync"/>.
+    /// </summary>
+    public Task<IReadOnlyList<Evolucao>> DoPacienteComCanceladasAsync(
+        int pacienteId, CancellationToken ct = default)
+        => _repo.EvolucoesDoPacienteAsync(pacienteId, true, ct);
+
+    /// <summary>
+    /// CANCELA uma sessão do prontuário. Não apaga (parcela 52).
+    ///
+    /// Até aqui este método chamava <c>Remove()</c> no banco, e levava os anexos junto.
+    /// Isso contradizia frontalmente a Lei 13.787/2018 (art. 3º — integridade e
+    /// autenticidade) e o prazo de guarda de 20 anos do art. 6º: não há como garantir
+    /// retenção com um botão que destrói o registro. Contradizia também o resto deste
+    /// projeto, que já cancelava com motivo no documento clínico, na não conformidade do
+    /// faturamento e no descarte de problema — a regra existia e não tinha sido aplicada
+    /// justamente onde mais importa.
+    ///
+    /// A sessão cancelada sai das listas e das contas, mas continua no prontuário,
+    /// marcada e legível. O caso real que motivava a exclusão — a sessão lançada no
+    /// paciente errado — fica melhor resolvido assim: some do tratamento de quem não a
+    /// teve e continua provando o que aconteceu.
+    /// </summary>
+    public async Task CancelarAsync(
+        int evolucaoId, string motivo, string? operador = null, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new InvalidOperationException(
+                "Diga por que a sessão está sendo cancelada. Sem o motivo, quem ler o "
+                + "prontuário amanhã não sabe se houve engano de paciente ou de digitação — "
+                + "e cancelar sem justificativa é apagar com uma etapa a mais.");
+
         var evolucao = await _repo.ObterEvolucaoAsync(evolucaoId, ct)
             ?? throw new InvalidOperationException("Evolução não encontrada.");
+
+        if (evolucao.Cancelada)
+            throw new InvalidOperationException("Esta sessão já está cancelada.");
+
+        evolucao.CanceladaEm = DateTime.Now;
+        evolucao.MotivoCancelamento = motivo.Trim();
+        evolucao.CanceladaPor = operador;
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
-            Acao = "EvolucaoExcluida",
-            Detalhe = $"Sessão de {evolucao.Data:dd/MM/yyyy}",
+            Acao = "EvolucaoCancelada",
+            Detalhe = $"Sessão de {evolucao.Data:dd/MM/yyyy} — {motivo.Trim()}",
             PacienteId = evolucao.PacienteId
         }, ct);
 
-        await _repo.RemoverEvolucaoAsync(evolucaoId, ct);
         await _repo.SalvarAsync(ct);
     }
 
@@ -195,9 +296,38 @@ public sealed class ProntuarioService
         return anexo;
     }
 
-    public async Task RemoverAnexoAsync(int anexoId, CancellationToken ct = default)
+    /// <summary>
+    /// RETIRA um anexo do prontuário sem apagá-lo (parcela 52).
+    ///
+    /// O laudo que sustentou uma conduta continua sendo parte da prova de que a conduta
+    /// era razoável — mesmo depois de alguém concluir que o arquivo estava errado, e
+    /// especialmente nesse caso. Como o resto do prontuário, ele sai da lista e fica.
+    /// </summary>
+    public async Task CancelarAnexoAsync(
+        int anexoId, string motivo, string? operador = null, CancellationToken ct = default)
     {
-        await _repo.RemoverAnexoAsync(anexoId, ct);
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new InvalidOperationException(
+                "Diga por que o anexo está sendo retirado do prontuário.");
+
+        var anexo = await _repo.ObterAnexoAsync(anexoId, ct)
+            ?? throw new InvalidOperationException("Anexo não encontrado.");
+
+        if (anexo.Cancelado)
+            throw new InvalidOperationException("Este anexo já foi retirado.");
+
+        anexo.CanceladoEm = DateTime.Now;
+        anexo.MotivoCancelamento = motivo.Trim();
+        anexo.CanceladoPor = operador;
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "AnexoRetirado",
+            Detalhe = $"{anexo.NomeArquivo} — {motivo.Trim()}",
+            PacienteId = anexo.Evolucao?.PacienteId
+        }, ct);
+
         await _repo.SalvarAsync(ct);
     }
 

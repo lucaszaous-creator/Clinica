@@ -138,24 +138,40 @@ public sealed class AvaliacaoClinicaService
     }
 
     /// <summary>
-    /// Apaga uma aplicação. Existe pelo mesmo motivo que a exclusão de evolução existe —
-    /// o questionário aplicado no paciente errado precisa sair do prontuário de quem não
-    /// o respondeu — e, como ela, deixa rastro na auditoria.
+    /// CANCELA uma aplicação. Não apaga (parcela 52).
+    ///
+    /// O caso que motivava a exclusão — o questionário aplicado no paciente errado —
+    /// continua resolvido: a avaliação sai da série, do gráfico e do relatório. O que
+    /// muda é que ela não deixa de existir, e aqui isso pesa mais do que na evolução: é
+    /// o escore que decidiu encaminhar (ou não) um paciente que marcou o item 9 do
+    /// PHQ-9, e a Lei 13.787/2018 pede justamente que esse registro sobreviva à opinião
+    /// posterior de alguém sobre ele.
     /// </summary>
-    public async Task ExcluirAsync(int avaliacaoId, string? operador = null, CancellationToken ct = default)
+    public async Task CancelarAsync(
+        int avaliacaoId, string motivo, string? operador = null, CancellationToken ct = default)
     {
+        if (string.IsNullOrWhiteSpace(motivo))
+            throw new InvalidOperationException(
+                "Diga por que a avaliação está sendo cancelada.");
+
         var avaliacao = await _repo.ObterAvaliacaoAsync(avaliacaoId, ct)
             ?? throw new InvalidOperationException("Avaliação não encontrada.");
+
+        if (avaliacao.Cancelada)
+            throw new InvalidOperationException("Esta avaliação já está cancelada.");
+
+        avaliacao.CanceladaEm = DateTime.Now;
+        avaliacao.MotivoCancelamento = motivo.Trim();
+        avaliacao.CanceladaPor = operador;
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
             Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
-            Acao = "AvaliacaoExcluida",
-            Detalhe = $"{avaliacao.InstrumentoNome} de {avaliacao.Data:dd/MM/yyyy}",
+            Acao = "AvaliacaoCancelada",
+            Detalhe = $"{avaliacao.InstrumentoNome} de {avaliacao.Data:dd/MM/yyyy} — {motivo.Trim()}",
             PacienteId = avaliacao.PacienteId
         }, ct);
 
-        await _repo.RemoverAvaliacaoAsync(avaliacaoId, ct);
         await _repo.SalvarAsync(ct);
     }
 

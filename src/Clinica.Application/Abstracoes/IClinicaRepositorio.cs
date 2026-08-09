@@ -275,11 +275,40 @@ public interface IClinicaRepositorio
     /// <summary>
     /// Prontuário do paciente, da sessão mais recente para a mais antiga. NÃO traz os
     /// anexos — abrir o prontuário não pode arrastar os arquivos junto.
+    ///
+    /// Sessão CANCELADA fica de fora (parcela 52).
     /// </summary>
     Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
         int pacienteId, CancellationToken ct = default);
 
-    Task RemoverEvolucaoAsync(int evolucaoId, CancellationToken ct = default);
+    /// <summary>
+    /// O mesmo, podendo incluir as canceladas — é o que a guarda de 20 anos e a
+    /// exportação do prontuário precisam ver.
+    /// </summary>
+    Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
+        int pacienteId, bool incluirCanceladas, CancellationToken ct = default);
+
+    /// <summary>
+    /// As versões anteriores de uma sessão, da mais antiga para a mais nova.
+    ///
+    /// É a leitura que torna a retificação RASTREÁVEL (Lei 13.787/2018, art. 3º).
+    /// Guardar a versão e não ter por onde lê-la seria o defeito recorrente do projeto —
+    /// dado gravado sem leitor — na variante mais cara, porque aqui o leitor é uma perícia.
+    /// </summary>
+    Task<IReadOnlyList<VersaoEvolucao>> VersoesDaEvolucaoAsync(
+        int evolucaoId, CancellationToken ct = default);
+
+    // NÃO existe RemoverEvolucaoAsync (parcela 52). Registro clínico não se apaga: a Lei
+    // 13.787/2018 manda guardar por 20 anos a partir do último registro, e não há como
+    // garantir isso mantendo um método que destrói a linha. Cancela-se com motivo, pelo
+    // ProntuarioService.CancelarAsync — o mesmo padrão do documento clínico, da não
+    // conformidade do faturamento e da checagem de enfermagem.
+    //
+    // A remoção destes quatro métodos é DE PROPÓSITO irreversível pela interface: enquanto
+    // eles existirem, alguma tela futura vai chamá-los.
+
+    /// <summary>Anexo com a evolução carregada (entidade rastreada, para cancelar).</summary>
+    Task<AnexoProntuario?> ObterAnexoAsync(int anexoId, CancellationToken ct = default);
 
     /// <summary>Anexos de uma evolução, por projeção — sem os bytes (corte no SQL).</summary>
     Task<IReadOnlyList<Modelos.AnexoResumo>> AnexosDaEvolucaoAsync(
@@ -289,7 +318,6 @@ public interface IClinicaRepositorio
     Task<byte[]?> ConteudoDoAnexoAsync(int anexoId, CancellationToken ct = default);
 
     Task AdicionarAnexoAsync(AnexoProntuario anexo, CancellationToken ct = default);
-    Task RemoverAnexoAsync(int anexoId, CancellationToken ct = default);
 
     /// <summary>
     /// Quantos anexos tem cada sessão de um prontuário, em UMA consulta (parcela 37).
@@ -312,7 +340,6 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<MedidaClinica>> MedidasDoPacienteAsync(
         int pacienteId, string? tipoCodigo = null, CancellationToken ct = default);
 
-    Task RemoverMedidaAsync(int medidaId, CancellationToken ct = default);
 
     // ---- Lista de problemas (parcela 37) ----
 
@@ -344,7 +371,6 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<AvaliacaoClinica>> AvaliacoesDoPacienteAsync(
         int pacienteId, string? instrumentoCodigo = null, CancellationToken ct = default);
 
-    Task RemoverAvaliacaoAsync(int avaliacaoId, CancellationToken ct = default);
 
     /// <summary>
     /// Pacientes que este profissional atende, do que veio por último para o mais antigo.

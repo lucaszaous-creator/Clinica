@@ -185,6 +185,9 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
     private int PacienteId => _foco.PacienteId ?? 0;
 
+    /// <summary>Último paciente cujo acesso já foi registrado nesta tela (parcela 52).</summary>
+    private int _acessoRegistradoDe;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
@@ -204,6 +207,15 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
+
+            // A trilha de LEITURA (parcela 52), registrada na troca de paciente.
+            if (_acessoRegistradoDe != PacienteId)
+            {
+                _acessoRegistradoDe = PacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.Atendimento);
+            }
 
             var sessoes = await prontuario.DoPacienteAsync(PacienteId);
 

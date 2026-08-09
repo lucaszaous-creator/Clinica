@@ -29,6 +29,13 @@ public class ClinicaDbContext : DbContext
     public DbSet<Sala> Salas => Set<Sala>();
     public DbSet<ListaEspera> ListaEspera => Set<ListaEspera>();
     public DbSet<Evolucao> Evolucoes => Set<Evolucao>();
+
+    /// <summary>
+    /// O conteúdo que cada sessão já teve antes das correções (parcela 52) — é o que
+    /// torna a retificação rastreável, como a Lei 13.787/2018 (art. 3º) exige.
+    /// </summary>
+    public DbSet<VersaoEvolucao> VersoesEvolucao => Set<VersaoEvolucao>();
+
     public DbSet<AnexoProntuario> AnexosProntuario => Set<AnexoProntuario>();
     public DbSet<ConsentimentoLgpd> Consentimentos => Set<ConsentimentoLgpd>();
     public DbSet<MedidaClinica> MedidasClinicas => Set<MedidaClinica>();

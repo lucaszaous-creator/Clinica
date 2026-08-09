@@ -179,6 +179,17 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
     private int PacienteId => _foco.PacienteId ?? 0;
 
+    /// <summary>
+    /// Último paciente cujo acesso já foi registrado nesta tela.
+    ///
+    /// A trilha de LEITURA (parcela 52) é registrada quando o PACIENTE muda, e não a cada
+    /// <c>CarregarAsync</c>: a tela recarrega a cada tecla da busca de sessão, e uma
+    /// consulta ao banco por tecla digitada seria caro sem responder nada de novo — quem
+    /// filtra já está com o prontuário aberto, e o acesso é o mesmo. A janela de silêncio
+    /// do serviço cobriria a duplicata, mas só depois de ir ao banco perguntar.
+    /// </summary>
+    private int _acessoRegistradoDe;
+
     partial void OnTermoSessaoChanged(string value) => _ = CarregarAsync();
 
     partial void OnIncluirProblemasEncerradosChanged(bool value) => _ = CarregarAsync();
@@ -206,6 +217,17 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
+
+            // Quem abriu este prontuário, e quando. A LGPD e o dever de prestação de
+            // contas alcançam a LEITURA, e até a parcela 52 a trilha só via escrita.
+            // Não bloqueia nem derruba a tela: o serviço engole a falha com rastro.
+            if (_acessoRegistradoDe != PacienteId)
+            {
+                _acessoRegistradoDe = PacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ProntuarioClinico);
+            }
 
             var todas = await prontuario.DoPacienteAsync(PacienteId);
             var termo = TermoSessao.Trim();
