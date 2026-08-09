@@ -148,8 +148,8 @@
         </DockPanel>
 
         <ctrl:EstadoDaTela Carregando="{Binding Carregando}"
-                           Falhou="{Binding NaoVerificado}"
+                           NaoVerificado="{Binding NaoVerificado}"
                            TextoCarregando="Lendo a guarda do prontuário…"
-                           TextoFalhou="Não foi possível ler a guarda." />
+                           TextoNaoVerificado="Não foi possível ler a guarda." />
     </Grid>
 </UserControl>
