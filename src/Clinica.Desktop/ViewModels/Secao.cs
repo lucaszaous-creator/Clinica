@@ -15,6 +15,7 @@ public enum Secao
     Tiss,
     Pacientes,
     Relatorios,
+    Acessos,
     Parametros
 }
 

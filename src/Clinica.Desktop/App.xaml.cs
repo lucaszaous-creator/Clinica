@@ -388,6 +388,7 @@ public partial class App : System.Windows.Application
                 services.AddTransient<TissViewModel>();
                 services.AddTransient<ConsultaGuiasViewModel>();
                 services.AddTransient<ParametrosViewModel>();
+                services.AddTransient<AcessosViewModel>();
                 services.AddSingleton<MainWindow>();
             })
             .Build();

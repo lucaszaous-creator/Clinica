@@ -55,6 +55,9 @@
         <DataTemplate DataType="{x:Type vm:ParametrosViewModel}">
             <views:ParametrosView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:AcessosViewModel}">
+            <views:AcessosView />
+        </DataTemplate>
 
         <!-- Item da sidebar: barra ativa à esquerda, ícone + rótulo; só ícone quando recolhida -->
         <DataTemplate x:Key="TemplateItemMenu" DataType="{x:Type vm:ItemMenu}">

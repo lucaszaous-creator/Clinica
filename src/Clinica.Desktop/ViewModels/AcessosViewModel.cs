@@ -1,14 +1,13 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
-using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
-using Clinica.Gerente.Janelas;
+using Clinica.Desktop.Alertas;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Clinica.Gerente.ViewModels;
+namespace Clinica.Desktop.ViewModels;
 
 /// <summary>Uma linha do cadastro de usuários.</summary>
 public sealed class LinhaUsuario
@@ -95,7 +94,7 @@ public sealed partial class AcessosViewModel : ObservableObject
         catch (Exception ex)
         {
             NaoVerificado = true;
-            Clinica.Application.Diagnostico.Registrar("Gerente — usuários não puderam ser carregados", ex);
+            Clinica.Application.Diagnostico.Registrar("Faturamento — usuários não puderam ser carregados", ex);
             Mensagem = $"Não foi possível carregar os usuários: {ex.Message}";
             MensagemEhErro = true;
         }
@@ -212,7 +211,7 @@ public sealed partial class AcessosViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar("Gerente — ação de acesso falhou", ex);
+            Clinica.Application.Diagnostico.Registrar("Faturamento — ação de acesso falhou", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

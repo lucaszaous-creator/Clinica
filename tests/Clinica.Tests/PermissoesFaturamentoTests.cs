@@ -169,6 +169,32 @@ public class PermissoesFaturamentoTests
     }
 
     /// <summary>
+    /// A tela de Acessos passou a existir também no FATURAMENTO, e a direção pediu que só
+    /// a gerência a alcance. A trava não é o perfil, é o BIT — é assim que o projeto decide
+    /// desde a parcela 45, e é o que permite conceder a uma pessoa específica sem promovê-la
+    /// a Gerente Geral.
+    ///
+    /// O teste fixa os dois lados da frase: o Gerente TEM, e é o ÚNICO que tem por padrão.
+    /// Sem a segunda metade, acrescentar o bit a um perfil operacional numa parcela futura
+    /// abriria o cadastro de usuários para o balcão sem nada falhar — e quem pode mexer em
+    /// permissão pode conceder permissão, inclusive a si mesmo.
+    /// </summary>
+    [Fact]
+    public void So_o_gerente_geral_gerencia_acessos_por_padrao()
+    {
+        PerfisAcesso.Padrao(PerfilAcesso.Gerente)
+            .HasFlag(Permissao.GerenciarUsuarios).Should().BeTrue();
+
+        var outros = Enum.GetValues<PerfilAcesso>()
+            .Where(p => p != PerfilAcesso.Gerente)
+            .Where(p => PerfisAcesso.Padrao(p).HasFlag(Permissao.GerenciarUsuarios))
+            .ToList();
+
+        outros.Should().BeEmpty(
+            "quem gerencia acesso pode conceder acesso a si mesmo — o bit é da direção");
+    }
+
+    /// <summary>
     /// Nenhum perfil recebe TUDO, salvo o Gerente Geral. É a tradução direta do pedido: se
     /// um perfil operacional acumular todos os bits, a granularidade virou enfeite.
     /// </summary>

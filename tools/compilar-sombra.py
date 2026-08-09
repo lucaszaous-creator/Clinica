@@ -70,9 +70,13 @@ URL_WD = (
     f"{VERSAO_WD}/microsoft.windowsdesktop.app.ref.{VERSAO_WD}.nupkg"
 )
 
-# Os nove projetos WPF da suíte. O faturamento (Clinica.Desktop) fica de fora de
-# propósito: está congelado, ninguém o edita, e compilá-lo só gastaria tempo.
+# Os DEZ projetos WPF. O faturamento (Clinica.Desktop) ficou fora daqui enquanto esteve
+# congelado — "ninguém o edita" era verdade e deixou de ser na parcela 45, quando a
+# cliente pediu três features dentro dele. A exclusão sobreviveu ao motivo dela, que é
+# como uma rede deixa de cobrir justamente o app em PRODUÇÃO: cada linha nova ali só era
+# compilada no runner Windows, minutos depois do push.
 PROJETOS_WPF = [
+    "Clinica.Desktop",
     "Clinica.Desktop.Shell",
     "Clinica.Modulo.Recepcao",
     "Clinica.Modulo.Financeiro",
