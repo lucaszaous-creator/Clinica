@@ -22,32 +22,32 @@ o código-fonte, audita a tela.
 |---|---|---|---|
 | 1 | Acesso individualizado por usuário | ✅ | ✅ tela de Acessos |
 | 2 | Controle de acesso por perfil | ✅ | ✅ tela de Acessos |
-| 3 | Registro de auditoria | ✅ grava acesso e escrita | ⚠️ **falta a tela de "quem abriu este prontuário"** |
+| 3 | Registro de auditoria | ✅ grava acesso e escrita | ✅ Auditoria filtra por paciente e por "quem abriu" |
 | 4 | Proteção contra alteração indevida | ✅ | ⚠️ falta ver o histórico de versões na tela |
 | 5 | Segurança do armazenamento e da transmissão | ✅ | ✅ (nada a operar) |
-| 6 | Backup e recuperação | ✅ | ❌ **não configurável e não automático ainda** |
-| 7 | Prazo de guarda de 20 anos | ✅ | ❌ **sem tela** |
-| 8 | Exportação do prontuário | ✅ | ❌ **sem botão** |
+| 6 | Backup e recuperação | ✅ | ✅ Configurações → Backup, e automático na abertura do Gerente |
+| 7 | Prazo de guarda de 20 anos | ✅ | ✅ Guarda do prontuário |
+| 8 | Exportação do prontuário | ✅ | ✅ Guarda do prontuário → Exportar |
 | 9 | Política para incidentes | ⚠️ parcial | — procedimento é da clínica |
 | 10 | Contrato de tratamento de dados | — não é código | — e exige uma decisão (ver o item) |
 
 ### O que está pendente, sem rodeio
 
-**Portas que faltam** (o serviço existe, está testado e ninguém alcança):
+**Onde cada porta está, para quem for auditar:**
+
+| Pergunta | Onde responder no sistema |
+|---|---|
+| "Quem abriu o prontuário desta pessoa?" | Gerente → **Auditoria**, campo *Prontuário de* + *Só quem ABRIU o prontuário* |
+| "Como vocês garantem os 20 anos?" | Gerente → **Guarda do prontuário** |
+| "E se eu trocar de fornecedor?" | Gerente → **Guarda do prontuário** → *Exportar* |
+| "Com que frequência há cópia?" | Gerente → **Configurações** → *Backup da clínica* |
+| "Quem pode ver o quê?" | Gerente → **Acessos** |
+
+**Porta que ainda falta:**
 
 | O que falta | Sem isso… |
 |---|---|
-| Tela "quem acessou este prontuário" | o ponto 3 é gravado e **não pode ser demonstrado**, que é metade do que ela pediu |
-| Histórico de versões da sessão na tela | a rastreabilidade do ponto 4 existe só na exportação |
-| Tela da guarda (por paciente e da clínica) | a pergunta "como você garante 20 anos?" não tem onde ser respondida |
-| Botão de exportar o prontuário | o ponto 8 depende de alguém com acesso ao banco |
-| Configuração do backup (pasta, prazo, cópias) | **a política não roda**: sem destino escolhido ela não faz nada |
-| Chamada do backup na abertura do Gerente | `ExecutarSeVencidoAsync` **não tem chamador** — o automático está desenhado e desligado |
-
-⚠️ As duas últimas linhas são a mesma falha em dois pontos, e ela é séria: **hoje o backup
-continua sendo só o botão manual da parcela 35.** O `PoliticaBackupService` está pronto e
-testado e não é invocado por ninguém. Enquanto isso não for ligado, o ponto 6 responde
-"existe ferramenta", não "existe política".
+| Histórico de versões da sessão na tela | a rastreabilidade do ponto 4 existe, é exportável e **não se lê na tela do prontuário** — hoje só sai no CSV da exportação |
 
 **Pendências técnicas:**
 

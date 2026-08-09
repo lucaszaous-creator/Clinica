@@ -29,6 +29,13 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChavePrecos = "precos-convenio";
     public const string ChaveCampanhas = "campanhas";
     public const string ChaveAuditoria = "auditoria";
+
+    /// <summary>
+    /// A guarda do prontuário (parcela 52) — a tela que responde "como você garante 20
+    /// anos?" a quem audita a clínica. Fica no Gerente porque quem responde a auditoria é
+    /// a direção, e porque exportar a base inteira não é ato de balcão.
+    /// </summary>
+    public const string ChaveGuarda = "guarda-prontuario";
     public const string ChaveAcessos = "acessos";
     public const string ChaveConfiguracoes = "configuracoes";
     public const string ChaveMetas = "metas";
@@ -106,6 +113,13 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
+            // Ao lado da Auditoria de propósito: as duas respondem à mesma pergunta de
+            // quem fiscaliza — uma diz quem mexeu, a outra diz o que está guardado.
+            Chave = ChaveGuarda, Rotulo = "Guarda do prontu\u00E1rio", Glifo = "\uE7B8",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveAcessos, Rotulo = "Acessos", Glifo = "\uE72E",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
         },
@@ -127,6 +141,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<RentabilidadeConvenioViewModel>();
         servicos.AddTransient<CampanhasViewModel>();
         servicos.AddTransient<AuditoriaViewModel>();
+        servicos.AddTransient<GuardaProntuarioViewModel>();
         servicos.AddTransient<AcessosViewModel>();
         servicos.AddTransient<ConfiguracoesViewModel>();
         servicos.AddTransient<MetasViewModel>();
@@ -168,6 +183,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveAuditoria => new AuditoriaView
         {
             DataContext = servicos.GetRequiredService<AuditoriaViewModel>()
+        },
+        ChaveGuarda => new GuardaProntuarioView
+        {
+            DataContext = servicos.GetRequiredService<GuardaProntuarioViewModel>()
         },
         ChaveAcessos => new AcessosView
         {
