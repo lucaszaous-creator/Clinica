@@ -1648,6 +1648,51 @@ for _ds in ("src/Clinica.Desktop.Shell/Styles/Theme.xaml", "src/Clinica.Desktop/
         )
 
 
+# --------------------------------------------------------------- checagem 27
+# `SharedSizeGroup` COM NOME INVÁLIDO — explode ao ABRIR A TELA.
+#
+# O WPF valida o valor no `set` da propriedade e exige um IDENTIFICADOR: começa por letra
+# ou sublinhado e segue com letras, dígitos ou sublinhado. Ponto, hífen e espaço não
+# passam. Quem escreve `SharedSizeGroup="PacLinha.Avatar"` — porque parece um nome
+# qualificado, e todo o resto do XAML aceita ponto — recebe isto na cara do usuário:
+#
+#   A propriedade definida 'System.Windows.Controls.DefinitionBase.SharedSizeGroup'
+#   iniciou uma exceção.
+#
+# É a pior categoria de defeito do projeto por uma razão nova: as três redes ficam verdes
+# E O COMPILADOR DE MARCAÇÃO TAMBÉM. O XAML está bem-formado, a propriedade existe e o
+# tipo é string — o erro só nasce quando a tela é MONTADA, e derruba a tela inteira. Foi
+# assim que ele chegou à `main` e à mão do cliente.
+IDENT_XAML = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+for f, raiz in arvores.items():
+    for el in raiz.iter():
+        grupo = el.attrib.get("SharedSizeGroup")
+        if grupo is None or IDENT_XAML.match(grupo):
+            continue
+        erros.append(
+            f"{rel(f)}: `SharedSizeGroup=\"{grupo}\"` não é um identificador válido — o "
+            f"WPF valida no `set` e LANÇA ao montar a tela (\"a propriedade "
+            f"'DefinitionBase.SharedSizeGroup' iniciou uma exceção\"). Só letras, dígitos "
+            f"e sublinhado, começando por letra: use \"{re.sub(r'[^A-Za-z0-9_]', '', grupo)}\"."
+        )
+
+# Autoteste: o nome que quebrou a tela de Pacientes, e os que têm de passar.
+for _valor, _deve_pegar in (
+    ("PacLinha.Avatar", True),   # o defeito real
+    ("Pac-Linha", True),
+    ("Pac Linha", True),
+    ("1Coluna", True),
+    ("PacLinhaAvatar", False),
+    ("_coluna1", False),
+):
+    if bool(IDENT_XAML.match(_valor)) == _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 27 mudou de resposta para "
+            f"`SharedSizeGroup=\"{_valor}\"`."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

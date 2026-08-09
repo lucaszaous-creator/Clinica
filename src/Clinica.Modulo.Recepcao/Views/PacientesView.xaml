@@ -86,10 +86,10 @@
                              escrita à mão — e margem à mão não segue quem a mudar. -->
                         <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinha.Avatar" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaAvatar" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="160" />
-                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinha.Selos" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaSelos" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Grid.Column="1" Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
                             <TextBlock Grid.Column="2" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />

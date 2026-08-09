@@ -1078,6 +1078,19 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   coluna de **Ações**, não faixa (dois falsos positivos), e trocar `BotaoPequeno` por
   `BotaoSecundario` em bloco atinge o botão de LINHA da lista, onde `BotaoPequeno` é o
   certo — e o resultado é `VerticalAlignment` duplicado, que o XML nem parseia.
+- **Valor de propriedade que o WPF valida em RUNTIME passa pelas quatro redes** (parcela 50,
+  4ª rodada — a tela de Pacientes abriu com "a propriedade
+  'DefinitionBase.SharedSizeGroup' iniciou uma exceção", e o cliente mandou a foto).
+  `SharedSizeGroup` exige um IDENTIFICADOR — letra ou sublinhado, depois letras, dígitos e
+  sublinhado. Escrevi `"PacLinha.Avatar"` porque parece um nome qualificado e todo o resto
+  do XAML aceita ponto; o WPF valida no `set` e LANÇA.
+  A novidade não é o erro, é ONDE ele passou: **as três redes locais ficaram verdes e o
+  compilador de marcação também** — o XAML é bem-formado, a propriedade existe e o tipo é
+  string. Até aqui, "só o CI pega" era o pior caso; este é a categoria seguinte, **só a
+  tela montada pega**, e o estrago é a tela inteira, não um desalinhamento. A lição
+  generaliza: **propriedade cujo valor é validado em runtime precisa de checagem textual**,
+  porque não existe compilador que a cubra. Virou a **checagem 27**, autotestada contra o
+  nome que quebrou.
 - **Estilo de PARÁGRAFO não serve de CÉLULA de tabela** (parcela 50, 3ª rodada — o cliente
   mandou a foto de "6R$ 0,00" e "R$ 0,00R$ 0,00" nos relatórios do Gerente). O `TextoSuave`
   fixa `HorizontalAlignment="Left"` desde a parcela 37, e por um bom motivo — sem ele o
