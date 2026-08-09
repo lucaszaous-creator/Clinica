@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Gerente.Views.AuditoriaView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -23,6 +24,50 @@
         <!-- ===== Filtro ===== -->
         <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
             <StackPanel>
+
+                <!-- ===== Por PACIENTE (parcela 52) =====
+                     A pergunta do ponto 3 da auditoria de fornecedor: "quem acessou
+                     determinado prontuário". Fica em linha PRÓPRIA acima dos demais
+                     filtros porque é a pergunta com que se chega a esta tela quando há
+                     suspeita — e não mais um campo no meio de onze. -->
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="320" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Prontuário de" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                        <TextBox Style="{StaticResource CampoPesquisa}"
+                                 Text="{Binding Paciente.Termo, UpdateSourceTrigger=PropertyChanged}"
+                                 ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+                    </StackPanel>
+
+                    <CheckBox Grid.Column="2" IsChecked="{Binding SomenteAcessos}"
+                              Content="Só quem ABRIU o prontuário"
+                              VerticalAlignment="Bottom" Margin="0,0,0,8" />
+
+                    <TextBlock Grid.Column="3" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap" VerticalAlignment="Bottom"
+                               MaxWidth="420" Margin="16,0,0,8"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Text="Sem marcar, a lista traz também o que foi ESCRITO no prontuário desta pessoa." />
+                </Grid>
+
+                <!-- Some quando não há o que escolher: lista vazia permanente ocuparia a
+                     tela para dizer que não há nada. -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,14" MaxHeight="180"
+                        Visibility="{Binding Paciente.TemResultados, Converter={StaticResource BoolParaVisibilidade}}">
+                    <ListBox ItemsSource="{Binding Paciente.Resultados}"
+                             SelectedItem="{Binding Paciente.Selecionado}"
+                             ItemTemplate="{StaticResource ItemPacienteSeletor}"
+                             BorderThickness="0" Background="Transparent"
+                             HorizontalContentAlignment="Stretch"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                </Border>
+
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

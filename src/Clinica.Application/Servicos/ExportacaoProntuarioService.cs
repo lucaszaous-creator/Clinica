@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
+using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
 
@@ -88,8 +89,8 @@ public sealed class ExportacaoProntuarioService
         {
             ct.ThrowIfCancellationRequested();
 
-            Linha(cadastro, p.Id, p.Nome, p.Documento, Data(p.DataNascimento), p.Sexo,
-                p.Telefone, p.ConvenioNome, p.Carteirinha);
+            Linha(cadastro, p.Id, p.Nome, p.Documento, Data(p.DataNascimento),
+                RotulosEnum.De(p.Sexo), p.Telefone, p.ConvenioNome, p.Carteirinha);
 
             // Canceladas INCLUÍDAS: ver o resumo da classe.
             foreach (var e in await _repo.EvolucoesDoPacienteAsync(p.Id, true, ct))
@@ -105,7 +106,7 @@ public sealed class ExportacaoProntuarioService
                         v.QueixaPrincipal, v.Conduta, v.TextoEvolucao, v.Orientacoes);
 
                 foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
-                    Linha(anexos, p.Id, e.Id, a.NomeArquivo, a.Tipo, a.Tamanho,
+                    Linha(anexos, p.Id, e.Id, a.NomeArquivo, RotulosEnum.De(a.Tipo), a.Tamanho,
                         a.CriadoEm.ToString("O", Fixa), "Vigente");
             }
 
@@ -121,7 +122,8 @@ public sealed class ExportacaoProntuarioService
                     m.Cancelada ? "Cancelada" : "Vigente");
 
             foreach (var d in await _repo.DocumentosDoPacienteAsync(p.Id, ct))
-                Linha(documentos, p.Id, p.Nome, d.Numero, d.Tipo, Data(d.Data),
+                Linha(documentos, p.Id, p.Nome, d.Numero,
+                    TipoDocumentoInfo.Rotular(d.Tipo), Data(d.Data),
                     d.CodigoVerificacao, d.AssinadoEletronicamente ? "sim" : "não",
                     d.Cancelado ? "Cancelado" : "Válido");
         }
@@ -138,6 +140,12 @@ public sealed class ExportacaoProntuarioService
             new("LEIA-ME.txt", LeiaMe(pacientes.Count))
         ];
     }
+
+    // Os enums saem ROTULADOS, nunca por ToString() (a lição da parcela 41). Este arquivo
+    // vai para a cliente e para o próximo fornecedor: "PedidoExame" e "Feminino" cru são o
+    // identificador do programador vazando para fora do produto. O CSV é para pessoa E
+    // para máquina, e o rótulo serve às duas — o que a máquina precisa é de coluna estável,
+    // e ela é.
 
     // ---- Montagem do CSV ----
     //

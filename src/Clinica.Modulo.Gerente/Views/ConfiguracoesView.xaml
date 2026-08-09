@@ -227,9 +227,67 @@
                         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
                                    Text="Uma cópia de tudo: pacientes, prontuário, agenda, financeiro, estoque e acessos. Guarde FORA desta máquina — pendrive ou nuvem. Cópia que fica no mesmo computador do banco não é plano B." />
 
+                        <!-- Cópia AUTOMÁTICA (parcela 52). Até aqui o backup era só o botão
+                             de baixo: a clínica tinha a ferramenta e não a política, e a
+                             auditoria de fornecedor pediu política. -->
+                        <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,12"
+                                Visibility="{Binding BackupDesligado, Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="A cópia automática está DESLIGADA: nenhuma pasta de destino foi escolhida. Enquanto isso, a clínica só tem backup nos dias em que alguém clicar no botão abaixo." />
+                        </Border>
+
+                        <TextBlock Text="Cópia automática" Style="{StaticResource Rotulo}" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,8"
+                                   Text="Gravada na abertura do Gerente quando o prazo vence. Escolha uma pasta de REDE ou de nuvem sincronizada — o sistema não tem como saber onde a pasta fica fisicamente, e cópia no mesmo computador não protege contra incêndio, furto nem ransomware." />
+
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox Grid.Column="0" Text="{Binding PastaBackup}" IsReadOnly="True"
+                                     VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Content="Escolher pasta…"
+                                    Command="{Binding EscolherPastaBackupCommand}"
+                                    IsEnabled="{Binding PodeEditar}"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="140" />
+                        </Grid>
+
+                        <WrapPanel Margin="0,0,0,10">
+                            <StackPanel Margin="0,0,20,8">
+                                <TextBlock Text="Copiar a cada (dias)" Style="{StaticResource Rotulo}" />
+                                <TextBox Text="{Binding IntervaloBackupDias}" Width="90"
+                                         IsEnabled="{Binding PodeEditar}" HorizontalAlignment="Left" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,8">
+                                <TextBlock Text="Cópias a guardar" Style="{StaticResource Rotulo}" />
+                                <TextBox Text="{Binding CopiasBackup}" Width="90"
+                                         IsEnabled="{Binding PodeEditar}" HorizontalAlignment="Left" />
+                            </StackPanel>
+                            <Button Content="Salvar política" Command="{Binding SalvarPoliticaBackupCommand}"
+                                    IsEnabled="{Binding PodeEditar}"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    VerticalAlignment="Bottom" Margin="0,0,0,8" MinWidth="140" />
+                        </WrapPanel>
+
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,4"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="Guardar várias cópias não é excesso: a corrupção que ninguém percebeu na sexta é copiada por cima da única cópia boa no sábado." />
+
+                        <TextBlock Text="{Binding SituacaoBackup}" TextWrapping="Wrap" Margin="0,0,0,14"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+
+                        <Separator Margin="0,0,0,14" />
+
                         <StackPanel Orientation="Horizontal">
-                            <Button Content="Gerar backup" Command="{Binding FazerBackupCommand}"
-                                    MinWidth="150" />
+                            <Button Content="Copiar agora" Command="{Binding CopiarAgoraCommand}"
+                                    IsEnabled="{Binding PodeEditar}" MinWidth="150" />
+                            <Button Content="Salvar cópia em…" Command="{Binding FazerBackupCommand}"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    Margin="12,0,0,0" MinWidth="150" />
                             <Button Content="Conferir um backup" Command="{Binding ConferirBackupCommand}"
                                     Style="{StaticResource BotaoSecundario}"
                                     Margin="12,0,0,0" MinWidth="170" />

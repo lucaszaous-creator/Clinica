@@ -144,6 +144,10 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var p = scope.ServiceProvider.GetRequiredService<ParametrosService>();
 
+            // A situação da cópia automática (parcela 52) entra junto do resto: ela é
+            // configuração, e a tela que a configura tem de abrir dizendo como está.
+            await CarregarPoliticaBackupAsync();
+
             var prestador = await p.ObterPrestadorAsync();
             RazaoSocial = prestador.RazaoSocial;
             NomeFantasia = prestador.NomeFantasia;
@@ -308,6 +312,136 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     // vez por semana pela direção, e não trabalho do dia.
 
     [ObservableProperty] private string _resumoBackup = string.Empty;
+
+    // ---- Cópia AUTOMÁTICA (parcela 52) ----
+    //
+    // A parcela 35 deu porta ao BackupService e parou no botão. A auditoria de fornecedor
+    // da cliente pediu "política de backup, redundância e recuperação" — e botão não é
+    // política: backup que depende de alguém lembrar de clicar toda semana existe no
+    // manual, não no disco.
+    //
+    // Estes quatro campos são a política; quem a executa é a abertura do Gerente
+    // (`App.xaml.cs` → `PoliticaBackupService.ExecutarSeVencidoAsync`).
+
+    [ObservableProperty] private string _pastaBackup = string.Empty;
+    [ObservableProperty] private int _intervaloBackupDias = ParametrosService.IntervaloBackupPadrao;
+    [ObservableProperty] private int _copiasBackup = ParametrosService.CopiasBackupPadrao;
+
+    /// <summary>Frase pronta sobre a situação — vem do serviço para a tela não recontar.</summary>
+    [ObservableProperty] private string _situacaoBackup = string.Empty;
+
+    /// <summary>
+    /// Sem pasta escolhida a cópia automática não roda. É o que faz a tela avisar em vez
+    /// de deixar a direção acreditar que está coberta.
+    /// </summary>
+    [ObservableProperty] private bool _backupDesligado = true;
+
+    [RelayCommand]
+    private async Task EscolherPastaBackupAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "configurar o backup");
+
+            var escolhida = ImpressaoPdf.EscolherPasta(
+                "Onde gravar as cópias de segurança da clínica");
+            if (escolhida is null) return;
+
+            using var scope = _escopos.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<ParametrosService>()
+                .SalvarPastaBackupAsync(escolhida);
+
+            PastaBackup = escolhida;
+            await CarregarPoliticaBackupAsync();
+            _snackbar.Sucesso("Pasta da cópia automática definida.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — pasta de backup", ex);
+            ResumoBackup = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SalvarPoliticaBackupAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "configurar o backup");
+
+            using var scope = _escopos.CreateScope();
+            var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+
+            await parametros.SalvarIntervaloBackupAsync(IntervaloBackupDias);
+            await parametros.SalvarCopiasBackupAsync(CopiasBackup);
+
+            // Recarrega porque o serviço aplica limites: a tela tem de mostrar o que ficou
+            // GRAVADO, não o que foi digitado.
+            await CarregarPoliticaBackupAsync();
+            _snackbar.Sucesso("Política de cópia salva.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — política de backup", ex);
+            ResumoBackup = ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// Grava uma cópia agora na pasta configurada, pelo MESMO caminho do automático — os
+    /// dois não podem divergir no que produzem nem em como rotacionam.
+    /// </summary>
+    [RelayCommand]
+    private async Task CopiarAgoraAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "gerar o backup da base");
+
+            if (string.IsNullOrWhiteSpace(PastaBackup))
+            {
+                ResumoBackup = "Escolha primeiro a pasta onde as cópias devem ser gravadas.";
+                return;
+            }
+
+            ResumoBackup = "Copiando a base…";
+
+            using var scope = _escopos.CreateScope();
+            var resultado = await scope.ServiceProvider
+                .GetRequiredService<PoliticaBackupService>()
+                .ExecutarAsync(PastaBackup, CopiasBackup);
+
+            ResumoBackup = resultado.Falhou
+                ? $"Não foi possível copiar: {resultado.Erro}"
+                : $"Cópia gravada em {resultado.Caminho} — "
+                  + $"{resultado.Manifesto!.TotalLinhas} registro(s) em "
+                  + $"{resultado.Manifesto.TotalTabelas} tabela(s)."
+                  + (resultado.CopiasApagadas > 0
+                      ? $" {resultado.CopiasApagadas} cópia(s) antiga(s) saíram da pasta."
+                      : string.Empty);
+
+            await CarregarPoliticaBackupAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — cópia agora", ex);
+            ResumoBackup = ex.Message;
+        }
+    }
+
+    /// <summary>Lê a situação da política. Chamado no carregamento da tela e após salvar.</summary>
+    private async Task CarregarPoliticaBackupAsync()
+    {
+        using var scope = _escopos.CreateScope();
+        var situacao = await scope.ServiceProvider
+            .GetRequiredService<PoliticaBackupService>().SituacaoAsync();
+
+        PastaBackup = situacao.Pasta ?? string.Empty;
+        IntervaloBackupDias = situacao.IntervaloDias;
+        CopiasBackup = situacao.CopiasAGuardar;
+        SituacaoBackup = situacao.Descrever();
+        BackupDesligado = !situacao.Configurada;
+    }
 
     /// <summary>
     /// Gera o backup completo e deixa o usuário escolher onde gravar.

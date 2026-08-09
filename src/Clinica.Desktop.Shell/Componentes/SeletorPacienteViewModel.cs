@@ -50,6 +50,16 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
 
     public ObservableCollection<Paciente> Resultados { get; } = new();
 
+    /// <summary>
+    /// Há o que escolher agora (parcela 52). Existe para a tela poder ESCONDER a lista
+    /// quando ela está vazia, em vez de reservar espaço permanente para dizer que não há
+    /// nada — a regra de leiaute do projeto.
+    ///
+    /// É atualizada por <see cref="Atualizou"/>, e não por CollectionChanged, pela mesma
+    /// razão da parcela 37: aquele dispara uma vez por linha inserida.
+    /// </summary>
+    [ObservableProperty] private bool _temResultados;
+
     [ObservableProperty] private string? _termo;
     [ObservableProperty] private Paciente? _selecionado;
     [ObservableProperty] private bool _buscando;
@@ -112,6 +122,7 @@ public sealed partial class SeletorPacienteViewModel : ObservableObject
                 Resultados.Add(p);
 
             Erro = null;
+            TemResultados = Resultados.Count > 0;
             Atualizou?.Invoke();
         }
         catch (OperationCanceledException)

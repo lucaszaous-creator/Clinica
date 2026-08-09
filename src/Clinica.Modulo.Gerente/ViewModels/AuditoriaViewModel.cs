@@ -18,7 +18,12 @@ public sealed class LinhaAuditoria
     public required string Detalhe { get; init; }
     public required string Referencias { get; init; }
 
-    public static LinhaAuditoria De(EventoAuditoria e) => new()
+    /// <summary>
+    /// Nome do paciente do evento (parcela 52). A trilha mostrava "paciente #123": para
+    /// investigar um acesso indevido era preciso saber o número da pessoa, o que ninguém
+    /// sabe — e é justamente esta tela que responde "quem abriu o prontuário da Maria?".
+    /// </summary>
+    public static LinhaAuditoria De(EventoAuditoria e, string? nomePaciente = null) => new()
     {
         // Com HORA: a trilha responde "quem fez isso?", e num balcão em que duas pessoas
         // dividem a máquina a hora é o que separa um turno do outro.
@@ -29,7 +34,9 @@ public sealed class LinhaAuditoria
         Referencias = string.Join(" · ", new[]
             {
                 e.CodigoId is { } c ? $"guia #{c}" : null,
-                e.PacienteId is { } p ? $"paciente #{p}" : null,
+                e.PacienteId is { } p
+                    ? (string.IsNullOrWhiteSpace(nomePaciente) ? $"paciente #{p}" : nomePaciente)
+                    : null,
                 e.LoteTissId is { } l ? $"lote #{l}" : null
             }.Where(x => x is not null))
     };
@@ -68,6 +75,22 @@ public sealed partial class AuditoriaViewModel : ObservableObject
 
     public IReadOnlyList<int> Limites { get; } = [100, 300, 1000];
 
+    /// <summary>
+    /// Filtrar por PACIENTE (parcela 52) — a pergunta que a cliente pôs no ponto 3 da
+    /// auditoria de fornecedor: "quem acessou determinado prontuário".
+    ///
+    /// Usa o seletor padrão do projeto em vez de um campo de id: ninguém investiga um
+    /// acesso indevido sabendo o número da pessoa, e a convenção manda não reescrever a
+    /// busca de paciente.
+    /// </summary>
+    public SeletorPacienteViewModel Paciente { get; }
+
+    /// <summary>
+    /// Atalho para o que esta tela ganhou nesta parcela: só os eventos de LEITURA. Sem
+    /// ele, achar os acessos exigiria saber que a ação se chama "ProntuarioAcessado".
+    /// </summary>
+    [ObservableProperty] private bool _somenteAcessos;
+
     [ObservableProperty] private string? _acao;
     [ObservableProperty] private string? _operador;
     [ObservableProperty] private string? _termo;
@@ -83,8 +106,20 @@ public sealed partial class AuditoriaViewModel : ObservableObject
     public AuditoriaViewModel(IServiceScopeFactory escopos)
     {
         _escopos = escopos;
+        Paciente = new SeletorPacienteViewModel(escopos);
+
+        // Trocar de paciente refaz a consulta: o seletor é filtro, e filtro que exige um
+        // segundo clique para valer é filtro que a pessoa acha que não funcionou.
+        Paciente.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(SeletorPacienteViewModel.Selecionado))
+                _ = CarregarAsync();
+        };
+
         _ = CarregarAsync();
     }
+
+    partial void OnSomenteAcessosChanged(bool value) => _ = CarregarAsync();
 
     [RelayCommand]
     public async Task CarregarAsync()
@@ -99,7 +134,9 @@ public sealed partial class AuditoriaViewModel : ObservableObject
 
             var filtro = new FiltroAuditoria
             {
-                Acao = Acao,
+                PacienteId = Paciente.Selecionado?.Id,
+                // O atalho VENCE o combo de ação: quem marcou "só acessos" pediu isso.
+                Acao = SomenteAcessos ? AcessoProntuarioService.PrefixoAcao : Acao,
                 Operador = Operador,
                 Termo = Termo,
                 Inicio = Inicio is { } i ? DateOnly.FromDateTime(i) : null,
@@ -113,8 +150,12 @@ public sealed partial class AuditoriaViewModel : ObservableObject
 
             var eventos = await auditoria.ConsultarAsync(filtro);
 
+            // O nome sai do seletor quando há paciente filtrado — uma consulta a menos,
+            // e é o único caso em que a lista inteira fala da mesma pessoa.
+            var nome = Paciente.Selecionado?.Nome;
+
             Eventos.Clear();
-            foreach (var e in eventos) Eventos.Add(LinhaAuditoria.De(e));
+            foreach (var e in eventos) Eventos.Add(LinhaAuditoria.De(e, nome));
 
             var r = await auditoria.ResumoAsync(filtro);
 
@@ -150,6 +191,8 @@ public sealed partial class AuditoriaViewModel : ObservableObject
     private void Limpar()
     {
         Acao = Operador = Termo = null;
+        SomenteAcessos = false;
+        Paciente.Selecionado = null;
         Inicio = DateTime.Today.AddDays(-30);
         Fim = DateTime.Today;
         Limite = 300;

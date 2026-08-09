@@ -1,6 +1,9 @@
 using System.Windows;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Desktop.Shell.Modulos;
+using Clinica.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using ModuloClinico = Clinica.Clinico.Modulo.ModuloClinico;
 using ModuloFinanceiro = Clinica.Financeiro.Modulo.ModuloFinanceiro;
@@ -40,6 +43,41 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
         _host = await SuiteApp.IniciarAsync(this, "Gerente Geral", "Gerente Geral — Clínica SemDor", _modulos);
+
+        if (_host is not null) await CopiaDeSegurancaAsync(_host);
+    }
+
+    /// <summary>
+    /// Grava a cópia de segurança se estiver vencida (parcela 52).
+    ///
+    /// <b>Mora AQUI, e não no <c>SuiteApp</c>, porque a casca é compartilhada</b> pelos
+    /// quatro executáveis: rodar o backup na abertura da Recepção faria a máquina do
+    /// balcão despejar a base inteira numa pasta de rede no começo do expediente, quatro
+    /// vezes por dia, uma por posto. O Gerente é a máquina da direção — é dele a decisão
+    /// e é dele o gancho.
+    ///
+    /// <b>Depois da janela abrir, e sem esperar.</b> A cópia lê a base inteira e leva
+    /// tempo; prender a abertura do app a ela faria a direção olhar para uma tela cinza
+    /// sem saber por quê. Falha não derruba nada — o serviço registra no log e a tela de
+    /// Configurações mostra a situação.
+    ///
+    /// Sem pasta escolhida em Configurações, isto não faz nada e não reclama: a política
+    /// desligada é um estado legítimo, e um aviso a cada abertura ensinaria a fechá-lo
+    /// sem ler.
+    /// </summary>
+    private static async Task CopiaDeSegurancaAsync(IHost host)
+    {
+        try
+        {
+            using var escopo = host.Services.CreateScope();
+            await escopo.ServiceProvider
+                .GetRequiredService<PoliticaBackupService>()
+                .ExecutarSeVencidoAsync();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Gerente — cópia de segurança automática", ex);
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

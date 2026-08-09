@@ -174,6 +174,9 @@ public sealed partial class ProntuarioViewModel : ObservableObject
 
     private int PacienteId => Seletor.Selecionado?.Id ?? 0;
 
+    /// <summary>Último paciente cujo acesso já foi registrado nesta tela (parcela 52).</summary>
+    private int _acessoRegistradoDe;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
@@ -196,6 +199,18 @@ public sealed partial class ProntuarioViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
+
+            // Trilha de LEITURA (parcela 52). Esta tela é item PRÓPRIO da sidebar: chega-se
+            // a ela sem passar pela ficha, escolhe-se qualquer paciente no seletor e lê-se
+            // o prontuário inteiro. Era o maior buraco que sobrou do registro de acesso —
+            // e justamente na porta mais fácil de usar para ler o que não se deve.
+            if (_acessoRegistradoDe != PacienteId)
+            {
+                _acessoRegistradoDe = PacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ProntuarioClinico);
+            }
 
             var todas = await prontuario.DoPacienteAsync(PacienteId);
             var termo = TermoSessao.Trim();
