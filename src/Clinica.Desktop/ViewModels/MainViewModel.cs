@@ -117,6 +117,13 @@ public partial class MainViewModel : ObservableObject
                        Requer = Permissao.VerFichaPaciente },
         new ItemMenu { Secao = Secao.Relatorios, Rotulo = "Relatórios", Glifo = "\uE9D2", Grupo = "Cadastros e ajustes",
                        Requer = Permissao.VerIndicadores },
+        // ACESSOS — a mesma tela do Gerente Geral, agora também aqui (pedido da direção).
+        // `GerenciarUsuarios` é a trava: só o perfil Gerente o tem por padrão, então na
+        // prática só a gerente vê e usa esta linha. Não amarramos ao PERFIL de propósito —
+        // o modelo do projeto decide por BIT, e é o que permite a direção conceder a uma
+        // pessoa específica sem promovê-la a Gerente Geral.
+        new ItemMenu { Secao = Secao.Acessos, Rotulo = "Acessos", Glifo = "\uE72E", Grupo = "Cadastros e ajustes",
+                       Requer = Permissao.GerenciarUsuarios },
         new ItemMenu { Secao = Secao.Parametros, Rotulo = "Configurações", Glifo = "\uE713", Grupo = "Cadastros e ajustes",
                        Requer = Permissao.ConfigurarFaturamento },
     ];
@@ -241,6 +248,7 @@ public partial class MainViewModel : ObservableObject
             case Secao.Tiss: MostrarTiss(); break;
             case Secao.Pacientes: MostrarPacientes(); break;
             case Secao.Relatorios: MostrarRelatorios(); break;
+            case Secao.Acessos: MostrarAcessos(); break;
             case Secao.Parametros: MostrarParametros(); break;
         }
     }
@@ -429,6 +437,24 @@ public partial class MainViewModel : ObservableObject
     {
         var vm = _sp.GetRequiredService<ParametrosViewModel>();
         DefinirSecao(Secao.Parametros);
+        CurrentViewModel = vm;
+        _ = vm.CarregarAsync();
+    }
+
+    /// <summary>
+    /// Cadastro de usuários e permissões — a MESMA tela do Gerente Geral, sobre o MESMO
+    /// banco. Não há sincronização a fazer: o usuário criado aqui entra em qualquer app.
+    ///
+    /// A segunda barreira mora nos comandos do <see cref="AcessosViewModel"/>. Aqui só a
+    /// primeira: sem <see cref="Permissao.GerenciarUsuarios"/> a pessoa nem chega, porque
+    /// a pesquisa global e o menu filtram pelo `Requer` do item — mas navegar não é o
+    /// único caminho, e é por isso que esconder nunca basta sozinho.
+    /// </summary>
+    [RelayCommand]
+    private void MostrarAcessos()
+    {
+        var vm = _sp.GetRequiredService<AcessosViewModel>();
+        DefinirSecao(Secao.Acessos);
         CurrentViewModel = vm;
         _ = vm.CarregarAsync();
     }

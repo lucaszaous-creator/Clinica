@@ -106,6 +106,21 @@ for f in xamls():
     except ET.ParseError as e:
         erros.append(f"{rel(f)}: XAML malformado — {e}")
 
+# A suíte MAIS o faturamento. `PROJETOS` cobre só a suíte porque o faturamento carrega
+# dívida antiga que não se corrige por decreto de leiaute (dezenas de `FontSize` numérico),
+# e checagem que grita trinta vezes é checagem que alguém desliga.
+#
+# Mas há um grupo que precisa alcançar os dois: o que pega ERRO DE RUNTIME. A tela do
+# faturamento é a que roda em produção — deixá-la fora é o defeito que a nota das checagens
+# 15/16 já nomeia, "checagem que não alcança o lugar onde o defeito estava é checagem que
+# passa sozinha". Daí esta segunda lista, usada pelas checagens 25, 26 e 27.
+arvores_com_faturamento: dict[Path, ET.Element] = dict(arvores)
+for f in sorted((RAIZ / "src" / "Clinica.Desktop").rglob("*.xaml")):
+    try:
+        arvores_com_faturamento[f] = ET.parse(f).getroot()
+    except ET.ParseError as e:
+        erros.append(f"{rel(f)}: XAML malformado — {e}")
+
 
 # ------------------------------------------------- 2. chaves do design system
 def chaves(raiz: ET.Element) -> set[str]:
@@ -1555,7 +1570,7 @@ if _devedores:
 SOBREPOSICOES = ("EstadoDaTela",)
 PAINEIS_LINEARES = ("DockPanel", "StackPanel", "WrapPanel", "UniformGrid")
 
-for f, raiz in arvores.items():
+for f, raiz in arvores_com_faturamento.items():
     for pai in raiz.iter():
         nome_pai = pai.tag.split("}")[-1]
         filhos = [c for c in pai if "." not in c.tag.split("}")[-1]]
@@ -1617,23 +1632,28 @@ for _xml, _deve_pegar in _amostras_25:
 #
 # Foi assim que o cliente viu "6R$ 0,00" e "R$ 0,00R$ 0,00" nos relatórios do Gerente.
 #
-# As duas propriedades juntas são uma CONTRADIÇÃO declarada no mesmo elemento, e é isso
-# que a checagem procura — não "TextoSuave em tabela", que exigiria adivinhar o que é
-# tabela e daria falso positivo em legenda centralizada sob uma foto. Quem quer texto
-# secundário em célula usa `CelulaSuave`.
-for f, raiz in arvores.items():
+# A checagem procura a CONTRADIÇÃO declarada no mesmo elemento, e não "TextoSuave em
+# tabela": adivinhar o que é tabela daria falso positivo em legenda sob uma foto.
+#
+# E só `Right`, nunca `Center` — a distinção custou uma rodada de falsos positivos e é
+# real. `TextoSuave` também liga `TextWrapping`, então quando o texto QUEBRA o bloco passa
+# a ocupar a largura disponível e o `TextAlignment` volta a valer, centralizando as linhas
+# umas em relação às outras: é exatamente o que a legenda de duas linhas sob o retrato do
+# paciente quer. `Right` não tem esse uso — texto corrido alinhado à direita não existe
+# nesta suíte —, e é a assinatura da coluna de NÚMERO, que é onde o defeito mora.
+for f, raiz in arvores_com_faturamento.items():
     for el in raiz.iter():
         if el.tag.split("}")[-1] not in ("TextBlock", "Run"):
             continue
         if "TextoSuave" not in el.attrib.get("Style", ""):
             continue
-        if "TextAlignment" not in el.attrib:
+        if el.attrib.get("TextAlignment") != "Right":
             continue
         erros.append(
-            f"{rel(f)}: `TextoSuave` + `TextAlignment=\"{el.attrib['TextAlignment']}\"` no "
-            f"mesmo TextBlock é contradição — o estilo fixa `HorizontalAlignment=\"Left\"`, "
-            f"o bloco encolhe até o texto e o alinhamento não tem onde acontecer. "
-            f"Em célula de tabela use `CelulaSuave`; em parágrafo, tire o `TextAlignment`."
+            f"{rel(f)}: `TextoSuave` + `TextAlignment=\"Right\"` no mesmo TextBlock é "
+            f"contradição — o estilo fixa `HorizontalAlignment=\"Left\"`, o bloco encolhe "
+            f"até o texto e o número não encosta na borda direita da coluna: ele cola no "
+            f"valor da coluna anterior. Em célula de tabela use `CelulaSuave`."
         )
 
 # Autoteste: os dois estilos existem nos DOIS design systems? Uma checagem que manda usar
@@ -1665,7 +1685,7 @@ for _ds in ("src/Clinica.Desktop.Shell/Styles/Theme.xaml", "src/Clinica.Desktop/
 # assim que ele chegou à `main` e à mão do cliente.
 IDENT_XAML = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
-for f, raiz in arvores.items():
+for f, raiz in arvores_com_faturamento.items():
     for el in raiz.iter():
         grupo = el.attrib.get("SharedSizeGroup")
         if grupo is None or IDENT_XAML.match(grupo):

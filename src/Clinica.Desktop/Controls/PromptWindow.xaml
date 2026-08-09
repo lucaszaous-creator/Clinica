@@ -1,0 +1,30 @@
+<Window x:Class="Clinica.Desktop.Controls.PromptWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Width="460" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- Rola como os demais diálogos: a pergunta pode ser longa (é o motivo escrito de
+         um cancelamento) e a escala do Windows a 175% multiplica tudo. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="24">
+        <TextBlock x:Name="TxtTitulo" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock x:Name="TxtPergunta" Style="{StaticResource TextoSuave}"
+                   TextWrapping="Wrap" Margin="0,0,0,12" />
+
+        <TextBox x:Name="TxtResposta" AcceptsReturn="True" Height="72" TextWrapping="Wrap" />
+
+        <TextBlock x:Name="TxtErro" Margin="0,8,0,0" TextWrapping="Wrap"
+                   Visibility="Collapsed"
+                   Foreground="{StaticResource Brush.Erro}" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button x:Name="BtnConfirmar" Content="Confirmar" IsDefault="True" MinWidth="130"
+                    Click="Confirmar" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>

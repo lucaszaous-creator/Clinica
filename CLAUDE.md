@@ -49,7 +49,7 @@ compilar.** Neste ambiente há três redes, e as três rodam antes de todo push:
 | ferramenta | cobre | não cobre |
 |---|---|---|
 | `dotnet build` + `dotnet test` | Domain, Application, Infrastructure e os 988 testes | nada das telas |
-| `tools/compilar-sombra.py` | **o C# dos 9 projetos WPF** (nome, tipo, aridade, atributo) | XAML |
+| `tools/compilar-sombra.py` | **o C# dos 10 projetos WPF, faturamento incluído** (nome, tipo, aridade, atributo) | XAML |
 | `tools/verificar-suite.py` | XAML, pack URIs, chaves do design system, projetos na solução, **migration destrutiva** | semântica de C# |
 
 Se o SDK não estiver instalado: `apt-get update && apt-get install -y dotnet-sdk-8.0` (o instalador
@@ -1078,6 +1078,33 @@ Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/featur
   coluna de **Ações**, não faixa (dois falsos positivos), e trocar `BotaoPequeno` por
   `BotaoSecundario` em bloco atinge o botão de LINHA da lista, onde `BotaoPequeno` é o
   certo — e o resultado é `VerticalAlignment` duplicado, que o XML nem parseia.
+- **A rede que não cobre o app em PRODUÇÃO** (parcela 51): o `compilar-sombra` nasceu com
+  nove projetos e o faturamento **de fora**, com o motivo escrito ao lado — "está
+  congelado, ninguém o edita". Ele saiu do congelamento na parcela 45, e a exclusão
+  sobreviveu ao motivo dela: por seis parcelas, cada linha de C# escrita no app que fatura
+  a clínica só era compilada no runner Windows. Ao portar a tela de Acessos para lá, a
+  inclusão pegou um `CS1061` **na primeira execução** (o `IDialogoService` do faturamento
+  não tinha `PerguntarTexto`).
+  O mesmo valia para o `verificar-suite`, que só varre a suíte. Ampliá-lo por inteiro
+  inundaria com dívida antiga de `FontSize` numérico — e checagem que grita trinta vezes é
+  checagem que alguém desliga —, então o que passou a alcançar os dois foi o grupo que pega
+  **erro de runtime** (checagens 25, 26 e 27), via uma segunda lista de árvores. A regra:
+  **quando uma rede exclui um projeto, o motivo tem prazo de validade — releia-o.**
+- **Acessos no faturamento, e por que a trava é o BIT e não o perfil** (parcela 51): a
+  direção pediu o cadastro de usuários e permissões dentro do faturamento, "só para quem é
+  gerente". A trava é `Permissao.GerenciarUsuarios`, que **só o perfil Gerente recebe por
+  padrão** — amarrar ao PERFIL contradiria o modelo da parcela 45 e tiraria justamente o
+  que a direção pediu na 49: poder conceder a uma pessoa específica sem promovê-la.
+  A tela é **porte, não compartilhamento**: o faturamento não pode referenciar
+  `Clinica.Desktop.Shell` (os dois declaram tipos em `Clinica.Desktop.Controls`), e as
+  ViewModels usam `CollectionViewSource`, então também não sobem para `Application`. É o
+  débito permanente da Fase 4 cancelada, agora com mais 600 linhas — e o cadastro é ÚNICO,
+  porque o que liga os dois apps é o BANCO, como todo o resto da suíte.
+  De quebra, a tela original **tinha só uma barreira**: o item da sidebar. Nenhum comando
+  chamava `Exigir`, o que contraria a regra do próprio projeto — e nesta tela mais que em
+  qualquer outra, porque **quem mexe em permissão pode conceder permissão a si mesmo**. Os
+  dois lados ganharam a segunda barreira, e ela **diz por que recusou** em vez de voltar
+  calada (a lição da parcela 41).
 - **Valor de propriedade que o WPF valida em RUNTIME passa pelas quatro redes** (parcela 50,
   4ª rodada — a tela de Pacientes abriu com "a propriedade
   'DefinitionBase.SharedSizeGroup' iniciou uma exceção", e o cliente mandou a foto).
