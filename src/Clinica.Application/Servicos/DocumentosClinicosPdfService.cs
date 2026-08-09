@@ -121,9 +121,17 @@ public sealed class DocumentosClinicosPdfService
     /// carimbo e troca o rodapé — a via impressa deixa de ser o documento e passa a ser
     /// cópia dele.
     /// </param>
+    /// <param name="urlDoArquivo">
+    /// Endereço público do arquivo assinado (parcela 53). Quando vem preenchido, o QR passa
+    /// a apontar para o DOCUMENTO em vez de para o validador — o farmacêutico escaneia da
+    /// tela do celular do paciente e baixa o arquivo, sem ninguém enviar nada.
+    ///
+    /// Precisa chegar aqui ANTES da assinatura, porque a assinatura sela os bytes e o QR é
+    /// um deles. Quem garante a ordem é o <c>PublicacaoDocumentoService.GarantirTokenAsync</c>.
+    /// </param>
     public byte[] Gerar(
         DocumentoClinico documento, DadosPrestador? prestador = null,
-        bool paraAssinaturaEletronica = false)
+        bool paraAssinaturaEletronica = false, string? urlDoArquivo = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -248,7 +256,7 @@ public sealed class DocumentosClinicosPdfService
                     Assinaturas(col, documento, paraAssinaturaEletronica);
                 });
 
-                Rodape(page, documento, paraAssinaturaEletronica);
+                Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo);
             });
         }).GeneratePdf();
     }
@@ -272,7 +280,8 @@ public sealed class DocumentosClinicosPdfService
     ///    comum de uma receita eletrônica legítima voltar recusada do balcão.
     /// </summary>
     private static void Rodape(
-        PageDescriptor page, DocumentoClinico documento, bool assinaturaEletronica)
+        PageDescriptor page, DocumentoClinico documento, bool assinaturaEletronica,
+        string? urlDoArquivo = null)
     {
         page.Footer().Height(assinaturaEletronica ? AlturaRodape : 34).Column(col =>
         {
@@ -288,7 +297,8 @@ public sealed class DocumentosClinicosPdfService
                     // hospedado: nós não hospedamos nada, e prometer que o QR "abre a
                     // receita" seria mentir sobre o que ele faz. Ele poupa a digitação do
                     // endereço no balcão, e o arquivo continua sendo o que se confere lá.
-                    if (QrDoValidador() is { } qr)
+                    var qrDaFolha = urlDoArquivo is null ? QrDoValidador() : Qr(urlDoArquivo);
+                    if (qrDaFolha is { } qr)
                     {
                         row.ConstantItem(AlturaFaixaAssinatura - 6).AlignBottom().Image(qr);
                         row.ConstantItem(8);
@@ -305,7 +315,12 @@ public sealed class DocumentosClinicosPdfService
                         // 14.063/2020 (que trata da assinatura). Eram escolha nossa, e
                         // ocupavam um terço da folha com instrução que o farmacêutico já
                         // recebe do próprio CRF.
-                        c.Item().Text($"Validar em {ValidadorOficial}")
+                        // Com link, o QR ENTREGA o arquivo e o ITI continua sendo quem
+                        // valida — a linha tem de dizer as duas coisas, senão o balcão
+                        // baixa o PDF e não sabe o que fazer com ele.
+                        c.Item().Text(urlDoArquivo is null
+                                ? $"Validar em {ValidadorOficial}"
+                                : $"Escaneie para baixar · validar em {ValidadorOficial}")
                             .FontSize(8).FontColor(TextoSecundario);
                     });
                 });
@@ -347,20 +362,24 @@ public sealed class DocumentosClinicosPdfService
     /// causa de um quadradinho seria trocar o essencial pelo acessório.
     /// </summary>
     public static byte[]? QrDoValidador()
-    {
-        if (_qrValidador is not null) return _qrValidador;
+        => _qrValidador ??= Qr(ValidadorFarmaceutico);
 
+    /// <summary>
+    /// QR de uma URL qualquer. Sem cache quando é o link do DOCUMENTO (parcela 53): ele é
+    /// único por receita, e cachear devolveria o QR de outro paciente — o pior defeito
+    /// possível nesta folha.
+    /// </summary>
+    private static byte[]? Qr(string url)
+    {
         try
         {
             using var gerador = new QRCodeGenerator();
-            using var dados = gerador.CreateQrCode(
-                ValidadorFarmaceutico, QRCodeGenerator.ECCLevel.M);
-
-            return _qrValidador = new PngByteQRCode(dados).GetGraphic(6);
+            using var dados = gerador.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
+            return new PngByteQRCode(dados).GetGraphic(6);
         }
         catch (Exception ex)
         {
-            Diagnostico.Registrar("DocumentosClinicosPdfService.QrDoValidador", ex);
+            Diagnostico.Registrar("DocumentosClinicosPdfService.Qr", ex);
             return null;
         }
     }

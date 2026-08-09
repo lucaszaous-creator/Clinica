@@ -13,7 +13,15 @@ namespace Clinica.Application.Servicos;
 /// deu certo: se a conferência não fecha, o arquivo não deveria sair daqui.
 /// </param>
 public sealed record DocumentoAssinado(
-    byte[] Pdf, string NomeArquivo, DocumentoClinico Documento, ConferenciaAssinatura Conferencia);
+    byte[] Pdf, string NomeArquivo, DocumentoClinico Documento, ConferenciaAssinatura Conferencia)
+{
+    /// <summary>
+    /// O que aconteceu com o link público (parcela 53). Null = publicação desligada ou
+    /// tipo que não se publica. Falha aqui NÃO invalida a assinatura — mas a tela tem de
+    /// mostrar, senão a secretária entrega dizendo "é só escanear" e o QR está morto.
+    /// </summary>
+    public ResultadoPublicacao? Publicacao { get; init; }
+}
 
 /// <summary>
 /// Assinatura ICP-Brasil dos documentos da feature 07 — receita, atestado, declaração de
@@ -59,16 +67,25 @@ public sealed class AssinaturaDeDocumentoClinicoService
     private readonly AssinaturaDigitalService _assinador;
     private readonly ParametrosService _parametros;
 
+    /// <summary>
+    /// Publicação do arquivo assinado (parcela 53). OPCIONAL: nulo mantém o comportamento
+    /// anterior por inteiro — QR para o validador, nada sobe para lugar nenhum. É o que
+    /// permite a clínica rodar sem contratar armazenamento.
+    /// </summary>
+    private readonly PublicacaoDocumentoService? _publicacao;
+
     public AssinaturaDeDocumentoClinicoService(
         IClinicaRepositorio repo,
         DocumentosClinicosPdfService pdfs,
         AssinaturaDigitalService assinador,
-        ParametrosService parametros)
+        ParametrosService parametros,
+        PublicacaoDocumentoService? publicacao = null)
     {
         _repo = repo;
         _pdfs = pdfs;
         _assinador = assinador;
         _parametros = parametros;
+        _publicacao = publicacao;
     }
 
     /// <summary>
@@ -107,7 +124,17 @@ public sealed class AssinaturaDeDocumentoClinicoService
         ExigirConformidade(documento);
 
         var prestador = await _parametros.ObterPrestadorAsync(ct);
-        var pdf = _pdfs.Gerar(documento, prestador, paraAssinaturaEletronica: true);
+
+        // O TOKEN NASCE AQUI, antes do PDF. A URL vai no QR e o QR é selado pela
+        // assinatura — inverter esta ordem obrigaria a mexer no arquivo já assinado, o que
+        // quebraria a própria assinatura. Null quando a publicação está desligada ou o
+        // tipo não se publica, e aí o QR volta a apontar para o validador do ITI.
+        var urlDoArquivo = _publicacao is null
+            ? null
+            : await _publicacao.GarantirTokenAsync(documento, ct);
+
+        var pdf = _pdfs.Gerar(documento, prestador,
+            paraAssinaturaEletronica: true, urlDoArquivo: urlDoArquivo);
 
         var assinado = await _assinador.AssinarAsync(pdf, certificado, new PedidoAssinatura(
             Motivo: $"{TipoDocumentoInfo.Rotular(documento.Tipo)} {documento.Numero}",
@@ -158,7 +185,18 @@ public sealed class AssinaturaDeDocumentoClinicoService
 
         await _repo.SalvarAsync(ct);
 
-        return new DocumentoAssinado(assinado.Pdf, nomeArquivo, documento, conferencia);
+        // Publica DEPOIS de gravar: o documento já está assinado e válido, e a publicação
+        // é efeito colateral. Falhar aqui não desfaz nada — vira frase no resultado, e a
+        // tela mostra. Sucesso silencioso faria a secretária entregar dizendo "é só
+        // escanear" com o QR apontando para um endereço que não existe.
+        var publicacao = _publicacao is null
+            ? null
+            : await _publicacao.PublicarAsync(documento, assinado.Pdf, ct);
+
+        return new DocumentoAssinado(assinado.Pdf, nomeArquivo, documento, conferencia)
+        {
+            Publicacao = publicacao
+        };
     }
 
     /// <summary>

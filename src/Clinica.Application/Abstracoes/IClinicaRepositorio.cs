@@ -432,6 +432,13 @@ public interface IClinicaRepositorio
     Task<DocumentoClinico?> ObterDocumentoPorCodigoAsync(string codigo, CancellationToken ct = default);
 
     /// <summary>Documentos do paciente, do mais recente para o mais antigo (sem os itens).</summary>
+    /// <summary>
+    /// Documentos com link no ar cuja janela de publicação já venceu (parcela 53). É o que
+    /// a expiração varre para tirá-los do ar.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
+        DateOnly hoje, CancellationToken ct = default);
+
     Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default);
 

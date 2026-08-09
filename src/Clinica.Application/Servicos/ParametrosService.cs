@@ -154,6 +154,34 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Publicação do documento assinado (parcela 53) ----
+
+    public const string ChaveUrlPublicacao = "PublicacaoUrlBase";
+
+    /// <summary>
+    /// Domínio onde os documentos assinados ficam acessíveis (ex.:
+    /// <c>https://receita.clinicasemdor.com.br</c>). Null = publicação DESLIGADA, e o
+    /// sistema funciona como antes: o QR aponta para o validador do ITI.
+    ///
+    /// É o DOMÍNIO DA CLÍNICA, nunca o endereço do provedor — a URL fica selada dentro da
+    /// assinatura, e trocar de armazenamento um dia tem de ser repontar o DNS, não matar o
+    /// QR de toda receita já assinada.
+    ///
+    /// As CREDENCIAIS do armazenamento não moram aqui: vão por variável de ambiente, como
+    /// a connection string. Segredo em tabela de configuração é segredo que sai no backup.
+    /// </summary>
+    public async Task<string?> ObterUrlPublicacaoAsync(CancellationToken ct = default)
+    {
+        var valor = await _repo.ObterConfiguracaoAsync(ChaveUrlPublicacao, ct);
+        return string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
+    }
+
+    public async Task SalvarUrlPublicacaoAsync(string? url, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveUrlPublicacao, url?.Trim() ?? string.Empty, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Política de backup (parcela 52) ----
 
     public const string ChavePastaBackup = "BackupPasta";

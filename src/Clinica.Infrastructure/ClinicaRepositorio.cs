@@ -1029,6 +1029,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     // Sem os itens: a lista da ficha mostra número, tipo e data — o corpo só é lido
     // quando alguém abre ou reimprime um documento específico.
+    public async Task<IReadOnlyList<DocumentoClinico>> DocumentosPublicadosVencidosAsync(
+        DateOnly hoje, CancellationToken ct = default)
+        => await _db.DocumentosClinicos
+            .Where(d => d.TokenPublicacao != null
+                        && d.PublicadoAte != null
+                        && d.PublicadoAte < hoje)
+            .ToListAsync(ct);
+
     public async Task<IReadOnlyList<DocumentoClinico>> DocumentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
         => await _db.DocumentosClinicos.AsNoTracking()
