@@ -86,6 +86,7 @@
     <!-- ===== Estado vazio ===== -->
     <Style TargetType="ctrl:EmptyState">
         <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ctrl:EmptyState">
@@ -246,7 +247,10 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ctrl:EstadoDaTela">
-                    <Grid Background="{StaticResource Brush.Superficie}">
+                    <!-- O fundo vem do controle, não fixo aqui: é ele que os gatilhos de
+                         Vazio e NaoVerificado tornam TRANSPARENTE. Ver o comentário no fim
+                         do estilo. -->
+                    <Grid x:Name="fundo" Background="{TemplateBinding Background}">
 
                         <!-- Carregando: o giro diz que o sistema está trabalhando, e o
                              texto diz o que ele espera. Sem isso a tela em branco
@@ -283,11 +287,31 @@
                         <Trigger Property="Estado" Value="Carregando">
                             <Setter TargetName="carregando" Property="Visibility" Value="Visible" />
                         </Trigger>
+                        <!-- VAZIO E FALHA NÃO TAPAM O CABEÇALHO.
+                             O EstadoDaTela é sobreposição e se estica sobre o pai inteiro.
+                             Quando o pai é o Grid RAIZ da tela — o que acontece em 19 telas
+                             da suíte — o fundo opaco pintava por cima do título, dos filtros
+                             e do botão "Novo". Numa base sem registro o impasse é fechado:
+                             vazio → overlay → botão coberto → continua vazio. Foi assim que
+                             a tela de Metas ficou sem como definir a primeira meta.
+
+                             CARREGANDO continua opaco e bloqueando o clique, e isso é
+                             decisão: enquanto a resposta não chegou, esconder o conteúdo
+                             velho é o certo, e um clique nesse intervalo agiria sobre dados
+                             que já não valem.
+
+                             Nos outros dois estados a leitura TERMINOU: não há conteúdo
+                             atrás para esconder, e a pessoa precisa alcançar o cabeçalho
+                             justamente para sair do vazio. -->
                         <Trigger Property="Estado" Value="NaoVerificado">
                             <Setter TargetName="naoVerificado" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="fundo" Property="Background" Value="Transparent" />
+                            <Setter Property="IsHitTestVisible" Value="False" />
                         </Trigger>
                         <Trigger Property="Estado" Value="Vazio">
                             <Setter TargetName="vazio" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="fundo" Property="Background" Value="Transparent" />
+                            <Setter Property="IsHitTestVisible" Value="False" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
