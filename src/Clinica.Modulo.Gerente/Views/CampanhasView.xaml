@@ -65,6 +65,7 @@
         <Border Background="{StaticResource Brush.Superficie}"
                 BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
                 CornerRadius="{StaticResource Raio.Grande}">
+            <Grid>
             <DockPanel>
                 <Border DockPanel.Dock="Top" Padding="16,12"
                         BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,0,0,1">
@@ -161,14 +162,21 @@
                     </ItemsControl>
                 </ScrollViewer>
             </DockPanel>
+            <!-- O estado vazio cobre SÓ o conteúdo, nunca o cabeçalho.
+                 Como último filho do Grid RAIZ ele sobrepunha a tela inteira — e numa
+                 tela sem registro isso tapava o botão que cria o primeiro, ou o filtro
+                 que traria resultado. O impasse era completo: vazio → overlay → botão
+                 coberto → continua vazio. Foi assim que a tela de Metas ficou sem como
+                 definir uma meta. -->
+<ctrl:EstadoDaTela Itens="{Binding Contatos}"
+                               Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
+                               Glifo="&#xE8BD;"
+                               TextoCarregando="Lendo os contatos…"
+                               Titulo="Nenhuma mensagem nesta janela"
+                               Descricao="Quem não consentiu aparece CONTADO no resultado da rodada, não sumindo." />
+            </Grid>
         </Border>
     </DockPanel>
-    <ctrl:EstadoDaTela Itens="{Binding Contatos}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE8BD;"
-                       TextoCarregando="Lendo os contatos…"
-                       Titulo="Nenhuma mensagem nesta janela"
-                       Descricao="Quem não consentiu aparece CONTADO no resultado da rodada, não sumindo." />
     </Grid>
 </UserControl>

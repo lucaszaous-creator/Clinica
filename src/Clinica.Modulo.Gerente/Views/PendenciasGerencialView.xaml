@@ -61,6 +61,7 @@
         </WrapPanel>
 
         <Border Style="{StaticResource Card}">
+            <Grid>
             <DockPanel>
                 <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
                     <Grid.ColumnDefinitions>
@@ -168,15 +169,22 @@
                     </ItemsControl>
                 </ScrollViewer>
             </DockPanel>
+            <!-- O estado vazio cobre SÓ o conteúdo, nunca o cabeçalho.
+                 Como último filho do Grid RAIZ ele sobrepunha a tela inteira — e numa
+                 tela sem registro isso tapava o botão que cria o primeiro, ou o filtro
+                 que traria resultado. O impasse era completo: vazio → overlay → botão
+                 coberto → continua vazio. Foi assim que a tela de Metas ficou sem como
+                 definir uma meta. -->
+            <ctrl:EstadoDaTela
+                               Itens="{Binding Pendencias}"
+                               Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
+                               Glifo="&#xE7BA;"
+                               TextoCarregando="Lendo as pendências…"
+                               Titulo="Nenhuma guia pendente"
+                               Descricao="O 2º código só vira pendência 24 h depois do atendimento." />
+            </Grid>
         </Border>
     </DockPanel>
-    <ctrl:EstadoDaTela
-                       Itens="{Binding Pendencias}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE7BA;"
-                       TextoCarregando="Lendo as pendências…"
-                       Titulo="Nenhuma guia pendente"
-                       Descricao="O 2º código só vira pendência 24 h depois do atendimento." />
     </Grid>
 </UserControl>
