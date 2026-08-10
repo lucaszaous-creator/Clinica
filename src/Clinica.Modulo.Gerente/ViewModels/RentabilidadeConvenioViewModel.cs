@@ -1,4 +1,3 @@
-using Clinica.Domain.Regras;
 using Clinica.Domain;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
@@ -28,8 +27,11 @@ public sealed class LinhaConvenio
 
     public static LinhaConvenio De(RentabilidadeConvenio c) => new()
     {
-        // O NOME da operadora, nunca o código: "Sul América" e não "Personalizado".
-        Rotulo = CatalogoConvenios.Nome(c.Convenio),
+        // `Convenio` JÁ vem resolvido pelo serviço (CatalogoConvenios.Nome(codigo)); o
+        // record carrega `Codigo` separado para quem precisa da identidade. Chamar Nome()
+        // de novo aqui devolveria "Unimed" para TODA operadora, porque um nome não é chave
+        // do catálogo e a busca cai na família padrão.
+        Rotulo = c.Convenio,
         ValorRotulo = $"{c.Liquido:C} líquido em {c.Guias} guia(s)",
         Fracao = c.Fracao,
         Guias = c.Guias.ToString(),
@@ -130,12 +132,9 @@ public sealed partial class RentabilidadeConvenioViewModel : ObservableObject
             // A comparação só aparece com DUAS operadoras medidas: comparar uma consigo
             // mesma não diz nada, e escrever "a melhor é a única" seria ruído.
             MelhorEPior = r.MaisRentavel is { } melhor && r.MenosRentavel is { } pior
-                // O record carrega o CÓDIGO do convênio (é por ele que o serviço agrupa,
-                // para não fundir duas operadoras da mesma família). Escrever o código na
-                // frase daria "UnimedIntercambio" para a direção ler.
-                ? $"Rende mais por atendimento: {CatalogoConvenios.Nome(melhor.Convenio)} "
+                ? $"Rende mais por atendimento: {melhor.Convenio} "
                   + $"({melhor.LiquidoPorGuia:C}/guia) · rende menos: "
-                  + $"{CatalogoConvenios.Nome(pior.Convenio)} ({pior.LiquidoPorGuia:C}/guia)"
+                  + $"{pior.Convenio} ({pior.LiquidoPorGuia:C}/guia)"
                 : null;
 
             var pendentes = Convenios.Count(c => c.TemPendencia);

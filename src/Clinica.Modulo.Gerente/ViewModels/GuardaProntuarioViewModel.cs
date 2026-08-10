@@ -176,7 +176,15 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
                 + $" · {situacao.Avaliacoes} avaliação(ões)"
                 + $" · {situacao.Medidas} medida(s)"
                 + $" · {situacao.Documentos} documento(s)"
-                + (situacao.Origem is { } o ? $" — último registro: {o}" : string.Empty);
+                // A folha de infusão entrou na guarda na parcela 52 e ficou de fora DESTA
+                // frase: a tela contava cinco naturezas de registro e o prazo de 20 anos
+                // era calculado sobre seis. Contagem incompleta numa tela de conformidade
+                // é pior do que contagem nenhuma — ela parece conferida.
+                + $" · {situacao.Prescricoes} prescrição(ões)"
+                + (situacao.UltimoRegistro is { } data
+                    ? $" — último registro em {data:dd/MM/yyyy}"
+                      + (situacao.Origem is { } o ? $" ({o})" : string.Empty)
+                    : " — sem registro no prontuário");
         }
         catch (Exception ex)
         {
