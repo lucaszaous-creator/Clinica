@@ -76,6 +76,16 @@ public sealed class ArmazenamentoS3 : IArmazenamentoPublico
                 // no balcão. O nome é genérico de propósito: nome de paciente no arquivo
                 // vaza dado de saúde para quem só olhou a tela por cima.
                 Headers = { ContentDisposition = "inline; filename=\"documento.pdf\"" },
+
+                // Manda o corpo CRU, em vez do `aws-chunked` que o SDK usa por padrão.
+                // A assinatura em blocos é extensão da AWS: ela parte o corpo em pedaços
+                // com uma assinatura por pedaço, e nem todo provedor S3-compatível a
+                // implementa — quem não implementa recusa o upload com erro de assinatura,
+                // que não diz nada sobre a causa. Serve para stream de gigabytes; uma
+                // receita tem algumas centenas de KB e cabe numa requisição só. Trocar
+                // compatibilidade por uma otimização que não se aplica seria contrariar a
+                // razão de existir desta classe.
+                UseChunkEncoding = false,
             },
             ct);
     }
