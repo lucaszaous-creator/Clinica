@@ -181,12 +181,8 @@ public sealed partial class MetasViewModel : ObservableObject
             : "sem base de cálculo";
     }
 
-    private static string Formatar(IndicadorMeta indicador, decimal valor) => indicador switch
-    {
-        IndicadorMeta.Faturamento => valor.ToString("C"),
-        IndicadorMeta.Ocupacao => $"{valor:0.#}%",
-        _ => $"{valor:0.#} sessões"
-    };
+    private static string Formatar(IndicadorMeta indicador, decimal valor)
+        => MetaMensal.Formatar(indicador, valor);
 
     [RelayCommand]
     private async Task NovaMetaAsync() => await AbrirAsync(null);

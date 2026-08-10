@@ -1,12 +1,70 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Clinica.Application.Servicos;
+using Clinica.Domain.Entities;
 using Clinica.Desktop.Shell.Modulos;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Gerente.ViewModels;
+
+/// <summary>Uma meta do mês no painel: o alvo, o realizado e o quanto falta.</summary>
+public sealed class LinhaMetaPainel
+{
+    /// <summary>Largura interna do cartão de meta no XAML (290 menos o padding do Card).</summary>
+    private const double LarguraUtilDoCartao = 258;
+
+    public required string Rotulo { get; init; }
+    public required string Alvo { get; init; }
+    public required string Realizado { get; init; }
+    public required string Situacao { get; init; }
+
+    /// <summary>
+    /// Largura da barra EM PIXELS, já resolvida aqui.
+    ///
+    /// É a regra do design system para gráfico: a fração vem normalizada do ViewModel,
+    /// porque o DataTemplate não enxerga os irmãos da série nem a largura do pai. Sem base
+    /// de cálculo a barra fica em ZERO — e quem diz que não houve apuração é o texto ao
+    /// lado, não uma barra cheia por engano.
+    /// </summary>
+    public double LarguraBarra { get; init; }
+
+    public bool Atingida { get; init; }
+    public bool EmRisco { get; init; }
+
+    public static LinhaMetaPainel De(MetaApurada m, Func<IndicadorMeta, decimal, string> formatar)
+    {
+        // Realizado NULO é "não apurado", nunca zero: escrever "R$ 0,00" onde a leitura
+        // falhou faria a direção concluir que o mês não teve movimento.
+        var realizado = m.Realizado is { } r ? formatar(m.Indicador, r) : "—";
+
+        var situacao = m.Atingida
+            ? "meta batida"
+            : m.EmRisco
+                ? m.DesvioProjetado is { } d
+                    ? $"no ritmo atual fecha {d:0.#}% abaixo"
+                    : "no ritmo atual não alcança"
+                : m.PercentualAtingido is { } pct
+                    ? $"{pct:0.#}% do alvo"
+                    : "sem base para apurar";
+
+        return new LinhaMetaPainel
+        {
+            Rotulo = m.Rotulo + (m.Profissional is { } prof ? $" · {prof}" : string.Empty),
+            Alvo = formatar(m.Indicador, m.Alvo),
+            Realizado = realizado,
+            Situacao = situacao,
+            // A barra satura em 100%: passar do alvo é bom, e uma barra de 180% sairia
+            // do cartão sem dizer nada que o texto ao lado já não diga.
+            LarguraBarra = m.PercentualAtingido is { } p
+                ? Math.Min(p / 100.0, 1.0) * LarguraUtilDoCartao
+                : 0,
+            Atingida = m.Atingida,
+            EmRisco = m.EmRisco
+        };
+    }
+}
 
 /// <summary>
 /// Um alerta como a tela mostra: título, explicação, cor e para onde ir.
@@ -73,6 +131,24 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
     private readonly IServiceScopeFactory _escopos;
 
     public ObservableCollection<LinhaAlertaDirecao> Alertas { get; } = [];
+
+    /// <summary>
+    /// As metas do mês com o realizado ao lado (parcela 54).
+    ///
+    /// <b>O serviço entregava isto desde a parcela 28 e nenhuma tela lia.</b> O painel só
+    /// mostrava a meta quando ela estava EM RISCO, por um alerta — ou seja, meta no ritmo
+    /// certo era invisível fora da tela de Metas, e a própria tela de Metas prometia por
+    /// escrito que "o painel da direção já compara com ela". Promessa que o código não
+    /// cumpria.
+    ///
+    /// Ver a meta batida importa tanto quanto ver a que falhou: é ela que responde
+    /// "chegamos onde dissemos que íamos chegar?", que é a pergunta que a meta existe para
+    /// responder — e um painel que só fala de meta quando há problema treina a direção a
+    /// ler meta como má notícia.
+    /// </summary>
+    public ObservableCollection<LinhaMetaPainel> MetasDoMes { get; } = [];
+
+    [ObservableProperty] private bool _temMetas;
 
     [ObservableProperty] private string _saudacao = string.Empty;
     [ObservableProperty] private string _dataFormatada = string.Empty;
@@ -178,6 +254,11 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
                 : "sem crédito de cartão previsto";
 
             Alertas.Clear();
+            MetasDoMes.Clear();
+            foreach (var m in p.Metas)
+                MetasDoMes.Add(LinhaMetaPainel.De(m, MetaMensal.Formatar));
+            TemMetas = MetasDoMes.Count > 0;
+
             foreach (var a in p.Alertas) Alertas.Add(Montar(a));
             SemAlerta = p.SemAlerta;
 

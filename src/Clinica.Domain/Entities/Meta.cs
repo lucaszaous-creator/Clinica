@@ -83,6 +83,18 @@ public class MetaMensal
         _ => indicador.ToString()
     };
 
+    /// <summary>
+    /// O VALOR do indicador escrito na unidade dele. Mora aqui, e não na tela, porque são
+    /// DUAS telas mostrando a mesma meta — a de Metas e o painel da direção — e uma cópia
+    /// por tela faria as duas divergirem na primeira correção.
+    /// </summary>
+    public static string Formatar(IndicadorMeta indicador, decimal valor) => indicador switch
+    {
+        IndicadorMeta.Faturamento => valor.ToString("C"),
+        IndicadorMeta.Ocupacao => $"{valor:0.#}%",
+        _ => $"{valor:0.#} sessões"
+    };
+
     /// <summary>Unidade do indicador, para a tela não somar laranja com maçã.</summary>
     public static string Unidade(IndicadorMeta indicador) => indicador switch
     {
