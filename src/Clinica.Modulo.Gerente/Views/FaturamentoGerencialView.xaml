@@ -85,14 +85,19 @@
             <StackPanel>
                 <TextBlock Text="Pendências em aberto por atraso" Style="{StaticResource H3}" Margin="0,0,0,8" />
                 <ItemsControl ItemsSource="{Binding Envelhecimento}">
+                    <!-- Mesma regra dos KPIs acima, que este bloco não tinha recebido: o
+                         UniformGrid dividia a largura em três partes iguais, e num monitor
+                         largo as três faixas ficavam a meio metro uma da outra — deixando
+                         de se ler como um conjunto. O WrapPanel dá a cada uma a largura
+                         que ela pede, com piso para a fileira não sair irregular. -->
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
-                            <UniformGrid Columns="3" />
+                            <WrapPanel />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel Margin="0,0,16,0">
+                            <StackPanel MinWidth="170" Margin="0,0,24,8">
                                 <TextBlock Text="{Binding Faixa}" Style="{StaticResource Rotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                 <TextBlock Text="{Binding Quantidade}" FontSize="{StaticResource Fonte.H2}"
                                            FontWeight="Bold"

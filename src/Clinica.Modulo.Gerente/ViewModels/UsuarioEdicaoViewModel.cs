@@ -335,6 +335,12 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
                 if (!item.Marcada && noPadrao) negadas |= item.Valor;
             }
 
+            // Segunda barreira, e aqui ela vale mais que em qualquer outra tela: quem
+            // mexe em permissão pode conceder permissão A SI MESMO. A janela só abre pelo
+            // Acessos, que já exige — mas "só se chega por ali" é exatamente a suposição
+            // que a parcela 51 derrubou no lado de lá.
+            _sessao.Exigir(Permissao.GerenciarUsuarios, "cadastrar ou alterar um usuário");
+
             using var scope = _escopos.CreateScope();
             var acesso = scope.ServiceProvider.GetRequiredService<AcessoService>();
 

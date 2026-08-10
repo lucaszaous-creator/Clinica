@@ -43,7 +43,7 @@ public sealed class LinhaGlosa
                 ? p.ConvenioNome
                 : "—",
             Guia = string.IsNullOrWhiteSpace(c.NumeroGuiaReal)
-                ? $"{c.Tipo} · {c.Ordem}"
+                ? $"{RotulosEnum.De(c.Tipo)} · {c.Ordem}"
                 : c.NumeroGuiaReal!,
             DataGlosa = c.DataGlosa?.ToString("dd/MM/yyyy") ?? "—",
             Motivo = string.IsNullOrWhiteSpace(c.MotivoGlosa)

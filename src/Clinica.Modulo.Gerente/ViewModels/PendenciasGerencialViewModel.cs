@@ -35,7 +35,7 @@ public sealed class LinhaPendencia
         CodigoId = p.CodigoId,
         Paciente = p.PacienteNome,
         Convenio = CatalogoConvenios.Nome(p.ConvenioCodigo, p.Convenio),
-        Guia = $"{p.Tipo} · {p.Ordem}",
+        Guia = $"{RotulosEnum.De(p.Tipo)} · {p.Ordem}",
         Prevista = p.DataPrevista.ToString("dd/MM/yyyy"),
         Urgencia = p.Urgencia,
         Atraso = p.DiasEmAtraso switch
