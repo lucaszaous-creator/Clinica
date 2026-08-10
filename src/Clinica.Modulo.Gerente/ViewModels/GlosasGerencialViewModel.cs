@@ -49,7 +49,7 @@ public sealed class LinhaGlosa
             Motivo = string.IsNullOrWhiteSpace(c.MotivoGlosa)
                 ? (string.IsNullOrWhiteSpace(c.MotivoGlosaCodigo) ? "sem motivo registrado" : c.MotivoGlosaCodigo!)
                 : c.MotivoGlosa!,
-            Situacao = c.Glosa.ToString(),
+            Situacao = RotulosEnum.De(c.Glosa),
             Prazo = limite is null
                 ? "sem prazo registrado"
                 : limite < hoje

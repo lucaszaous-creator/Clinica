@@ -186,6 +186,16 @@ public static class RotulosEnum
             _ => "Consulta de especialidade"
         },
 
+        // "SemGlosa" é o identificador escapando para a coluna Situação da tela de
+        // Glosas — a direção lê "SemGlosa" onde deveria ler "sem glosa".
+        StatusGlosa g => g switch
+        {
+            StatusGlosa.SemGlosa => "sem glosa",
+            StatusGlosa.Glosada => "glosada",
+            StatusGlosa.Reapresentada => "reapresentada",
+            _ => "recuperada"
+        },
+
         ModalidadeAtendimento m => CatalogoModalidades.Nome(m.ToString()),
         Convenio c => CatalogoConvenios.Nome(c),
 
