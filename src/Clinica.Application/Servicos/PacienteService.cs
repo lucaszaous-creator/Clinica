@@ -30,7 +30,7 @@ public sealed class PacienteService
 
     public async Task<Paciente> SalvarNovoAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
     {
-        Validar(paciente);
+        await CriticarAsync(paciente, ct);
         if (!categoriaManual)
             paciente.Categoria = CategoriaConvenio.Base(paciente.Convenio, paciente.PossuiApp);
         await _repo.AdicionarPacienteAsync(paciente, ct);
@@ -45,7 +45,7 @@ public sealed class PacienteService
     /// </summary>
     public async Task AtualizarAsync(Paciente paciente, bool categoriaManual = false, CancellationToken ct = default)
     {
-        Validar(paciente);
+        await CriticarAsync(paciente, ct);
         if (!categoriaManual)
             paciente.Categoria = CategoriaConvenio.Base(paciente.Convenio, paciente.PossuiApp);
         await _repo.SalvarAsync(ct);
@@ -80,17 +80,75 @@ public sealed class PacienteService
         await _repo.SalvarAsync(ct);
     }
 
-    /// <summary>Valida nome e CPF, normalizando o CPF (só dígitos) quando informado.</summary>
-    private static void Validar(Paciente paciente)
+    /// <summary>
+    /// Valida nome e CPF, normaliza o CPF (só dígitos) e RECUSA CPF já cadastrado.
+    ///
+    /// Por que a recusa mora aqui, e não num índice único do banco
+    /// -----------------------------------------------------------
+    /// É a mesma decisão do CPF do profissional (parcela 45), pela mesma razão: a
+    /// migration roda no <c>MigrateAsync</c> da ABERTURA do app — inclusive do
+    /// faturamento, que está em produção. Um índice único falharia na criação se a base
+    /// da clínica já tivesse duplicata, e o que não abriria seria o sistema que fatura.
+    /// A base atual pode muito bem ter duas fichas do mesmo CPF: até aqui nada as impedia.
+    ///
+    /// Na escrita a regra não só impede como EXPLICA — e explicar é metade do valor, porque
+    /// CPF repetido quase nunca é fraude: é a mesma pessoa cadastrada de novo por quem não
+    /// achou a ficha antiga. Dizer o nome de quem já tem aquele CPF transforma um erro
+    /// numa instrução ("é este aqui, abra a ficha dele").
+    ///
+    /// Ponto único de propósito: as duas telas de cadastro (Recepção e faturamento)
+    /// passam por aqui, e validar em cada uma cobriria uma e deixaria a outra passando —
+    /// o defeito recorrente do projeto vestido de validação.
+    /// </summary>
+    private async Task CriticarAsync(Paciente paciente, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(paciente.Nome))
             throw new ArgumentException("Informe o nome do paciente.");
 
-        if (!string.IsNullOrWhiteSpace(paciente.Documento))
+        // CPF em branco é o caso NORMAL e continua passando: criança, paciente de
+        // convênio cadastrado pela carteirinha, quem chegou sem documento. Exigi-lo aqui
+        // travaria o cadastro no balcão com o paciente na frente — e o pedido foi impedir
+        // DUPLICATA, não tornar o CPF obrigatório.
+        if (string.IsNullOrWhiteSpace(paciente.Documento))
         {
-            if (!Cpf.Valido(paciente.Documento))
-                throw new ArgumentException("CPF inválido. Verifique os dígitos.");
-            paciente.Documento = Cpf.Normalizar(paciente.Documento);
+            // Vazio vira nulo: dois pacientes com documento "" são iguais para qualquer
+            // comparação futura (e para um índice único, se algum dia houver um).
+            paciente.Documento = null;
+            return;
         }
+
+        if (!Cpf.Valido(paciente.Documento))
+            throw new ArgumentException("CPF inválido. Verifique os dígitos.");
+
+        var cpf = Cpf.Normalizar(paciente.Documento);
+        paciente.Documento = cpf;
+
+        // ⚠️ Ao EDITAR uma ficha que NÃO mexeu no CPF, a regra não se aplica.
+        //
+        // Ela existe para impedir que nasça duplicata, não para trancar a que já existe.
+        // A base da clínica pode muito bem ter duas fichas do mesmo CPF — até aqui nada
+        // as impedia, e é por isso que a direção pediu a regra. Recusar sempre faria a
+        // recepcionista não conseguir corrigir o TELEFONE de uma dessas fichas antigas
+        // enquanto a duplicata não fosse resolvida — a regra bloquearia o conserto do
+        // problema que ela veio denunciar.
+        //
+        // O que continua recusado: ficha NOVA com CPF repetido, e ficha existente que
+        // PASSA A USAR um CPF de outra pessoa. Os dois são o ato de duplicar.
+        if (paciente.Id != 0)
+        {
+            var gravado = Cpf.Normalizar(await _repo.DocumentoGravadoDoPacienteAsync(paciente.Id, ct));
+            if (gravado == cpf) return;
+        }
+
+        // Id 0 = ficha nova; ao EDITAR, a própria ficha não conta como duplicata dela mesma.
+        var repetido = (await _repo.PacientesPorCpfAsync(cpf, ct))
+            .FirstOrDefault(p => p.Id != paciente.Id);
+
+        if (repetido is not null)
+            throw new InvalidOperationException(
+                $"O CPF {Cpf.Formatar(cpf)} já está cadastrado para {repetido.Nome}. "
+                + "Duas fichas da mesma pessoa partem o histórico em dois: metade dos "
+                + "atendimentos, das guias e do prontuário fica em cada uma. "
+                + "Procure o paciente pelo CPF e use a ficha que já existe.");
     }
 }

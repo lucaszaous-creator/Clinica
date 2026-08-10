@@ -1811,6 +1811,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.
+- **CPF do paciente não se repete, e a recusa mora na ESCRITA** (`PacienteService`,
+  parcela 57): duas fichas da mesma pessoa partem o histórico em dois — metade dos
+  atendimentos, das guias e do prontuário fica em cada uma. Não é fraude nem erro de
+  digitação: é a mesma pessoa cadastrada de novo por quem não achou a ficha antiga, e por
+  isso a mensagem **diz o nome de quem já tem aquele CPF** — é o que transforma um erro
+  numa instrução ("é este aqui, abra a ficha dele").
+  **Não é índice único**, e a razão é a mesma que já vale para o CPF do profissional
+  (parcela 45): a migration roda no `MigrateAsync` da ABERTURA do app, inclusive do
+  faturamento em produção, e a criação do índice falharia se a base já tivesse duplicata —
+  quem não abriria seria o sistema que fatura. E ela TEM chance de ter: até aqui nada
+  impedia.
+  ⚠️ **Editar ficha antiga que já está duplicada continua funcionando.** A regra existe
+  para impedir que nasça duplicata, não para trancar a que já existe: recusar sempre faria
+  a recepcionista não conseguir corrigir o TELEFONE de uma dessas fichas enquanto a
+  duplicata não fosse resolvida — a regra bloquearia o conserto do problema que ela veio
+  denunciar. O que continua recusado é o ATO DE DUPLICAR: ficha nova com CPF repetido, e
+  ficha existente que passa a usar o CPF de outra pessoa. Saber se o CPF mudou exige ler o
+  valor GRAVADO com `AsNoTracking` — a ficha em edição é a mesma instância que o contexto
+  rastreia, e sem isso a comparação responderia sempre que não mudou.
+  Dois cuidados que o código não conta sozinho: a comparação **ignora máscara nos dois
+  lados** (a coluna aceita 30 caracteres e guarda o que foi digitado; a base tem linhas
+  anteriores à normalização, com "123.456.789-00", e comparar o texto cru deixaria passar
+  justamente o duplicado que já existe) e a limpeza acontece **no banco**, com o `replace`
+  do SQL, porque carregar a carteira inteira a cada Salvar seria uma varredura completa
+  numa base remota. **CPF em branco continua sendo o caso normal** — criança, paciente
+  cadastrado pela carteirinha, quem chegou sem documento —, e vazio vira NULO para dois
+  documentos "" não serem iguais.
+
 - **Clicar no dado COPIA o dado** (`Copiavel`, `CelulaCopiavel`, parcela 57): a clínica
   não vive só neste sistema — a guia é efetivada no PORTAL da operadora, e para isso a
   secretária retipa nome, telefone, carteirinha e número da guia do outro lado. Retipar é
