@@ -1842,6 +1842,57 @@ if _modulos_cs:
         erros.append("verificar-suite: a checagem 28 resolveu uma chave inexistente.")
 
 
+# --------------------------------------------------------------- checagem 29
+# ESTADO VAZIO PERMANENTE POR CIMA DA TELA.
+#
+# `EstadoDaTela` decide o estado assim: `(Vazio ?? Vazia(Itens)) ? Vazio : Conteudo` — e
+# `Vazia(null)` é **verdadeiro**. Quem declara o componente só com `Carregando` e
+# `NaoVerificado`, sem dizer o que é "vazio", ganha a sobreposição LIGADA PARA SEMPRE:
+# "Nada por aqui" desenhado por cima de uma tela que está funcionando por baixo.
+#
+# Foi o que o cliente viu na Guarda do prontuário — ele buscou uma pessoa, a tela achou,
+# leu a guarda dela, e "Nada por aqui" ficou escrito em cima do resultado.
+#
+# Nenhuma rede pegava: o XAML é bem-formado, as propriedades existem, o binding é válido
+# e o componente não lança. É a mesma família da checagem 25 (sobreposição no pai errado)
+# — só existe na tela montada.
+#
+# As duas saídas legítimas: `Itens` (o caminho normal, quando há uma lista) ou `Vazio`
+# (tela composta, ou tela que não é lista nenhuma e portanto nunca está vazia).
+ESTADO_TELA = re.compile(r"<ctrl:EstadoDaTela\b[^>]*?/>", re.S)
+
+_estados = 0
+for _arq in xamls():
+    _texto = _arq.read_text(encoding="utf-8")
+    for _m in ESTADO_TELA.finditer(_texto):
+        _bloco = _m.group(0)
+        _estados += 1
+        if "Itens=" in _bloco or "Vazio=" in _bloco:
+            continue
+        _linha = _texto.count("\n", 0, _m.start()) + 1
+        erros.append(
+            f"{rel(_arq)}:{_linha}: `EstadoDaTela` sem `Itens` nem `Vazio` — o componente "
+            f"resolve `Vazia(null)` como VERDADEIRO e a sobreposição \"Nada por aqui\" fica "
+            f"visível PARA SEMPRE, por cima da tela funcionando. Passe `Itens` (quando há "
+            f"lista) ou `Vazio` (tela composta, ou tela que não é lista)."
+        )
+
+# Autoteste: a checagem tem de ver os usos reais e recusar o declarado sem os dois.
+if _estados == 0:
+    erros.append(
+        "verificar-suite: a checagem 29 não achou nenhum `EstadoDaTela` — o padrão de "
+        "declaração mudou e ela parou de olhar o que deveria."
+    )
+for _xml, _deve_pegar in (
+    ('<ctrl:EstadoDaTela Carregando="{Binding C}" />', True),           # o defeito real
+    ('<ctrl:EstadoDaTela Itens="{Binding X}" />', False),
+    ('<ctrl:EstadoDaTela Vazio="False" Carregando="{Binding C}" />', False),
+):
+    _achou = not ("Itens=" in _xml or "Vazio=" in _xml)
+    if _achou != _deve_pegar:
+        erros.append(f"verificar-suite: a checagem 29 mudou de resposta para `{_xml}`.")
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

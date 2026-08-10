@@ -48,6 +48,63 @@
                        Text="Guias que o faturamento já efetivou no convênio e que ainda não têm receita lançada no caixa. Informe o valor recebido para lançar — a guia sai desta lista e o lançamento fica vinculado a ela." />
         </Border>
 
+        <!-- ===== Filtro (parcela 56) =====
+             A lista chega com dezenas de guias e quem concilia não a lê: ela tem o
+             DEMONSTRATIVO de uma operadora na mão e precisa achar as guias que estão
+             nele, uma a uma. Sem filtro, isso é rolar a lista inteira por guia.
+
+             Linha única acima da tabela, e não painel lateral: é o que a pessoa AJUSTA
+             enquanto trabalha na lista, não uma tela à parte (REGRA DE LEIAUTE). -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="230" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding Convenios}"
+                              SelectedItem="{Binding FiltroConvenio}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Nº da guia" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroGuia, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="40"
+                             ctrl:Ajudantes.Placeholder="Trecho do número" />
+                </StackPanel>
+
+                <!-- A fila de trabalho de quem confere: as com valor proposto só precisam
+                     ser confirmadas, as sem exigem digitar. -->
+                <CheckBox Grid.Column="6" IsChecked="{Binding SomenteSemValor}"
+                          Content="Só as sem valor proposto"
+                          VerticalAlignment="Bottom" Margin="0,0,0,9" />
+
+                <Button Grid.Column="8" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}"
                 BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
             <DockPanel>
@@ -276,7 +333,7 @@
                            NaoVerificado="{Binding NaoVerificado}"
                            Glifo="&#xE8C7;"
                            TextoCarregando="Buscando guias sem receita…"
-                           Titulo="Nenhuma guia baixada esperando receita"
-                           Descricao="A guia sai desta lista quando passa a TER receita, não quando alguém a marca." />
+                           Titulo="{Binding TituloVazio}"
+                           Descricao="{Binding DescricaoVazio}" />
     </Grid>
 </UserControl>

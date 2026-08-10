@@ -1811,6 +1811,53 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.
+- **O WPF não formata na cultura da máquina — `StringFormat` é en-US por padrão**
+  (parcela 56; o cliente viu **"August/2026"** no cabeçalho da Conciliação). O que engana
+  é que só METADE da tela erra: o que a ViewModel formata em C# (`valor.ToString("C")`)
+  sai em pt-BR pela cultura da máquina, e o que o XAML formata sai em inglês, porque
+  binding usa `FrameworkElement.Language` — que nasce `en-US` e ignora a thread. Daí
+  "August/2026" logo acima de uma coluna de "R$ 0,00". A correção é um `OverrideMetadata`
+  no `SuiteApp`, e não uma linha por binding: são ~30 `StringFormat` de data e moeda
+  espalhados, e o próximo que alguém escrever também precisa nascer certo.
+- **Componente sem `Template` no design system não fica neutro: fica com o tema do
+  SISTEMA OPERACIONAL** (parcela 56 — os campos "De"/"Até" da Auditoria destoavam dos
+  vizinhos). O `DatePicker` tinha estilo desde a parcela 7, com só uns `Setter` e um
+  comentário que dizia "usa o TextBox estilizado internamente". **Não usa**: o campo de
+  texto de um `DatePicker` é um `DatePickerTextBox`, tipo próprio que o estilo implícito
+  de `TextBox` não alcança. Sem `Template`, o WPF desenhava a moldura 3D, os cantos retos
+  e o botão de calendário do Aero, ao lado dos campos planos da suíte. É a MESMA história
+  do `TabControl` na parcela 55 — controle usado em 30 telas e nunca estilizado. O
+  **calendário do pop-up ficou de fora de propósito**: retemplá-lo exige `CalendarItem`,
+  `CalendarButton` e `CalendarDayButton`, cujos gatilhos só falham em RUNTIME e nenhuma
+  rede local compila XAML; o campo, que é o que fica na tela, está resolvido.
+- **`EstadoDaTela` sem `Itens` nem `Vazio` liga a sobreposição PARA SEMPRE** (parcela 56 —
+  o cliente mandou a foto do "Nada por aqui" escrito por cima do paciente que a tela tinha
+  acabado de achar). O componente resolve `(Vazio ?? Vazia(Itens))`, e `Vazia(null)` é
+  **verdadeiro**: quem o declara só com `Carregando` e `NaoVerificado` ganha o estado vazio
+  permanente por cima de uma tela que funciona por baixo. As duas saídas legítimas são
+  `Itens` (o caminho normal, quando há lista) e `Vazio` (tela composta, ou tela que não é
+  lista nenhuma e portanto nunca está vazia). Nenhuma rede pegava — XAML bem-formado,
+  propriedades existentes, binding válido, nada lança —, e virou a **checagem 29**.
+- **Filtro na Conciliação, e por que ele é por OPERADORA e não por família** (parcela 56):
+  a tela abria com 53 guias numa lista corrida e nada para estreitá-la. Quem concilia não
+  lê a lista — tem o **demonstrativo de uma operadora** na mão e precisa achar as guias
+  que estão nele, uma a uma. O filtro de convênio casa pelo **nome resolvido**
+  (`CatalogoConvenios.Nome(codigo, familia)`), ao contrário da consulta de guias do
+  faturamento, que filtra por família: lá a pergunta é "o que vem sendo feito", aqui é
+  "onde estão as guias deste papel", e filtrar por família juntaria "Sul América" e
+  "Unimed Costa do Sol" — as duas respondem a `Convenio.Personalizado` — devolvendo as
+  guias de quem não está no demonstrativo. A lista de convênios sai **do mês carregado**,
+  não do catálogo: oferecer opção que não tem guia daria filtro que só leva a resultado
+  vazio. Três regras que o código não conta sozinho: (a) o filtro **reaproveita as
+  instâncias** de `LinhaConciliacao`, porque a linha guarda o VALOR DIGITADO e recriá-la
+  apagaria o que a pessoa acabou de teclar em cinco guias ao ela estreitar a lista para
+  achar a sexta; (b) o resumo e o estado vazio **dizem que está filtrado** — "12 de 53
+  guia(s)" e "nenhuma bate com o filtro" existem porque um filtro esquecido que responda
+  "nenhuma guia esperando receita" faz a clínica dar o mês por conciliado com 53
+  pendentes (a lição da lista de espera da parcela 25); (c) `Convenios.Clear()` faz o
+  `ComboBox` devolver **nulo** pelo binding — a mesma armadilha da prévia do Novo
+  atendimento na parcela 50 —, então a remontagem da lista roda sob guarda.
+
 - **A sidebar não estava desorganizada: estava CHEIA** (`ItemMenuModulo.Abas`,
   `TelaComAbas`, rail + painel, parcela 55). A direção reclamou de "muitas abas dentro das
   categorias" no Gerente, e a medição explicou por quê: o `Clinica.Gerente.exe` carrega os

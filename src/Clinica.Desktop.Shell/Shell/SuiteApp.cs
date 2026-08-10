@@ -37,6 +37,24 @@ public static class SuiteApp
         // Degradação deliberada nas camadas sem UI também deixa rastro em arquivo.
         LogSuite.Instalar();
 
+        // ⚠️ O WPF NÃO formata na cultura da máquina: todo `StringFormat` de binding usa
+        // `FrameworkElement.Language`, que nasce **en-US** e ignora a thread.
+        //
+        // O efeito é sutil porque só metade da tela erra. O que a ViewModel formata em C#
+        // (`valor.ToString("C")`) sai em pt-BR pela cultura da máquina; o que o XAML
+        // formata sai em inglês. Daí o cabeçalho da Conciliação escrever
+        // **"August/2026"** logo acima de uma coluna de "R$ 0,00" — duas convenções na
+        // mesma tela, e a data do mês, que é o filtro da tela inteira, na errada.
+        //
+        // Um handler de classe, e não uma linha por binding: são 30 `StringFormat` de
+        // data e moeda espalhados pela suíte, e o próximo que alguém escrever também
+        // precisa nascer certo.
+        FrameworkElement.LanguageProperty.OverrideMetadata(
+            typeof(FrameworkElement),
+            new FrameworkPropertyMetadata(
+                System.Windows.Markup.XmlLanguage.GetLanguage(
+                    System.Globalization.CultureInfo.GetCultureInfo("pt-BR").IetfLanguageTag)));
+
         // Nenhuma janela da suíte pode nascer maior que a tela — nem a principal, nem os
         // diálogos que crescem com o conteúdo. Vale para as que existem e para as que
         // vierem: é um handler de classe, não uma linha por janela.

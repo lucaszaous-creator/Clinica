@@ -78,7 +78,13 @@
             </ScrollViewer>
         </DockPanel>
 
-        <ctrl:EstadoDaTela Carregando="{Binding Carregando}"
-                           TextoCarregando="Lendo o histórico de correções…" />
+        <!-- `Itens` é obrigatório aqui: sem ele nem `Vazio`, o componente resolve
+             `Vazia(null)` como VERDADEIRO e a sobreposição fica visível para sempre,
+             tapando a lista que ela deveria só substituir. -->
+        <ctrl:EstadoDaTela Itens="{Binding Versoes}"
+                           Carregando="{Binding Carregando}"
+                           TextoCarregando="Lendo o histórico de correções…"
+                           Titulo="Esta sessão nunca foi corrigida"
+                           Descricao="O texto atual é o que foi escrito da primeira vez." />
     </Grid>
 </Window>

@@ -262,13 +262,142 @@
     </Style>
 
     <!-- DatePicker (usa o TextBox estilizado internamente) -->
+    <!-- ============================================================
+         DATA — e por que ela não acompanhava os outros campos
+
+         Este estilo existia desde a parcela 7 com um comentário que dizia "usa o TextBox
+         estilizado internamente". **Não usa.** O campo de texto de um `DatePicker` é um
+         `DatePickerTextBox`, um TIPO PRÓPRIO — o estilo implícito de `TextBox` não o
+         alcança. E como não havia `Template`, o WPF desenhava o `DatePicker` inteiro com
+         o tema clássico: moldura 3D, cantos retos, o botão de calendário com o gradiente
+         cinza do Aero.
+
+         Numa linha de filtro isso salta: "Ação", "Operador" e "No detalhe" com o campo
+         plano da suíte, e "De" e "Até" ao lado com a caixa do Windows XP, outra altura,
+         outro raio e outra cor de borda. Foi o que o cliente viu na tela de Auditoria.
+
+         É a MESMA história do `TabControl` na parcela 55 — controle usado desde sempre e
+         nunca estilizado —, e a lição vale para o próximo: **componente sem `Template` no
+         design system não fica neutro, fica com o tema do sistema operacional.**
+         ============================================================ -->
+
+    <!-- O campo de texto de dentro. Sem borda e sem fundo próprios: quem desenha a caixa
+         é o DatePicker, senão haveria duas molduras encaixadas. -->
+    <Style TargetType="DatePickerTextBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CaretBrush" Value="{StaticResource Brush.Acento}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePickerTextBox">
+                    <Grid>
+                        <!-- PART_Watermark é exigido pelo controle (ele o procura no
+                             OnApplyTemplate). Fica escondido porque a marca-d'água padrão
+                             escreve "Selecione uma data" por cima do valor. -->
+                        <ContentControl x:Name="PART_Watermark" Visibility="Collapsed"
+                                        Focusable="False" IsHitTestVisible="False" />
+                        <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="DatePicker">
         <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
         <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
         <Setter Property="MinHeight" Value="36" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePicker">
+                    <Border x:Name="caixa" Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{StaticResource Raio.Pequeno}">
+                        <Grid x:Name="PART_Root">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <DatePickerTextBox x:Name="PART_TextBox" Grid.Column="0"
+                                               Margin="10,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{TemplateBinding Foreground}" />
+
+                            <!-- Botão do calendário: o mesmo glifo do resto da suíte, sem
+                                 moldura própria. O PART_Button é o que o controle liga ao
+                                 pop-up; sem ele, o calendário não abre. -->
+                            <Button x:Name="PART_Button" Grid.Column="1" Focusable="False"
+                                    Width="34" Cursor="Hand"
+                                    Foreground="{StaticResource Brush.Texto.Secundario}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="fundo" Background="Transparent"
+                                                CornerRadius="{StaticResource Raio.Pequeno}">
+                                            <TextBlock Text="&#xE787;"
+                                                       FontFamily="{StaticResource FonteIcones}"
+                                                       FontSize="{StaticResource Fonte.Tabela}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{TemplateBinding Foreground}" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="fundo" Property="Background"
+                                                        Value="{StaticResource Brush.Superficie.Hover}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <Popup x:Name="PART_Popup" Placement="Bottom"
+                                   PlacementTarget="{Binding ElementName=caixa}"
+                                   StaysOpen="False" AllowsTransparency="True"
+                                   VerticalOffset="4" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="caixa" Property="BorderBrush"
+                                    Value="{StaticResource Brush.Borda.Hover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="caixa" Property="BorderBrush"
+                                    Value="{StaticResource Brush.Acento}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="caixa" Property="Background"
+                                    Value="{StaticResource Brush.Fundo}" />
+                            <Setter Property="Foreground"
+                                    Value="{StaticResource Brush.Texto.Secundario}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- O calendário que abre no pop-up continua com o desenho do sistema: retemplá-lo
+         exige `CalendarItem`, `CalendarButton` e `CalendarDayButton`, cujos gatilhos só
+         falham EM RUNTIME e nenhuma das redes locais compila XAML. Ele é transitório —
+         o campo, que é o que fica na tela, está resolvido. Aqui vão só os ajustes que não
+         dependem de template e por isso não podem quebrar a abertura da tela. -->
+    <Style TargetType="Calendar">
+        <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Tabela}" />
     </Style>
 
 </ResourceDictionary>

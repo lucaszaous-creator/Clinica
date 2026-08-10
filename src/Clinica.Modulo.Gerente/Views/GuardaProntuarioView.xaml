@@ -147,7 +147,16 @@
             </ScrollViewer>
         </DockPanel>
 
-        <ctrl:EstadoDaTela Carregando="{Binding Carregando}"
+        <!-- ⚠️ `Vazio="False"` NÃO é enfeite: esta tela não é uma lista, e sem `Itens`
+             nem `Vazio` o componente cai em `Vazia(null)`, que é VERDADEIRO — o
+             "Nada por aqui" ficava sobreposto ao conteúdo o tempo todo, inclusive por
+             cima do paciente encontrado. Aqui o componente serve só aos dois estados que
+             esta tela tem: carregando e falhou.
+
+             O defeito é discreto porque a tela FUNCIONA por baixo: o cliente achou uma
+             pessoa, leu a guarda dela e viu "Nada por aqui" escrito em cima. -->
+        <ctrl:EstadoDaTela Vazio="False"
+                           Carregando="{Binding Carregando}"
                            NaoVerificado="{Binding NaoVerificado}"
                            TextoCarregando="Lendo a guarda do prontuário…"
                            TextoNaoVerificado="Não foi possível ler a guarda." />
