@@ -149,6 +149,47 @@ for f, raiz in arvores.items():
         erros.append(f"{rel(f)}: StaticResource '{chave}' não existe no design system")
 
 
+# ------------------- 2c. a MESMA checagem, no faturamento (parcela 57)
+#
+# Chave que não existe é `ResourceReferenceKeyNotFoundException` NA MONTAGEM DA TELA —
+# erro de runtime puro, que é justamente o grupo que o `arvores_com_faturamento` existe
+# para alcançar (a nota da parcela 51 ao lado dele). Ficar de fora foi o que deixou passar
+# quatro `CellTemplate="{StaticResource CelulaPacienteContato}"` apontando para uma chave
+# que ainda não tinha sido declarada: XAML bem-formado, `compilar-sombra` verde,
+# `verificar-suite` verde, e a coluna sairia VAZIA na tela de quem fatura.
+#
+# Só a metade das CHAVES entra aqui — não a de `FontSize` numérico e cor em hexadecimal,
+# que é a dívida antiga que faria a checagem gritar trinta vezes e alguém desligá-la.
+#
+# Os dois design systems não se referenciam (o débito permanente da parcela 7), então o
+# conjunto de chaves é resolvido POR APP: usar o da suíte aqui aprovaria uma chave que só
+# existe do outro lado.
+_base_faturamento = RAIZ / "src" / "Clinica.Desktop"
+_chaves_faturamento: set[str] = set()
+_xamls_faturamento = sorted(_base_faturamento.rglob("*.xaml"))
+
+for f in _xamls_faturamento:
+    if "Styles" not in f.parts:
+        continue
+    if (raiz := arvores_com_faturamento.get(f)) is not None:
+        _chaves_faturamento |= chaves(raiz)
+
+for f in _xamls_faturamento:
+    raiz = arvores_com_faturamento.get(f)
+    if raiz is None:
+        continue
+
+    locais = chaves(raiz)
+    for chave in sorted(set(REF_ESTATICA.findall(f.read_text(encoding="utf-8")))):
+        if chave in locais or chave in _chaves_faturamento:
+            continue
+        if any(chave.startswith(p) for p in CHAVES_DO_SISTEMA):
+            continue
+        erros.append(
+            f"{rel(f)}: StaticResource '{chave}' não existe no design system do "
+            f"faturamento — a tela lança ao ser montada")
+
+
 PACK = re.compile(r"pack://application:,,,/([A-Za-z0-9_.]+);component/([^\"']+)")
 
 
@@ -1520,16 +1561,36 @@ def _estilos_que_ja_resolvem() -> set[str]:
     e o do faturamento, que não se referenciam — o débito permanente da parcela 7), e uma
     lista fixa aqui só conheceria um deles. Foi o que aconteceu: os seis `FichaValor` do
     faturamento apareceram como dívida sem serem — aquele estilo corta desde sempre.
+
+    ⚠️ Ela SEGUE o `BasedOn`. Sem isso, um estilo que herda o corte do pai aparece como
+    dívida sem ser — foi o que aconteceu com `CelulaCopiavelSuave`, que só acrescenta cor
+    e tamanho ao `CelulaCopiavel` e portanto já corta. O ponto cego é traiçoeiro porque a
+    reclamação é PLAUSÍVEL: quem a lê acrescenta o `TextTrimming` repetido na tela e segue
+    em frente, e a checagem continua cega para o próximo caso.
     """
-    achados: set[str] = set()
+    proprio: dict[str, bool] = {}
+    herda: dict[str, str] = {}
+
     for arq in RAIZ.rglob("src/**/Styles/**/*.xaml"):
         corpo = arq.read_text(encoding="utf-8")
         for m in re.finditer(
-            r'<Style x:Key="([^"]+)" TargetType="TextBlock"[^>]*>(.*?)</Style>', corpo, re.S
+            r'<Style x:Key="([^"]+)" TargetType="TextBlock"([^>]*)>(.*?)</Style>', corpo, re.S
         ):
-            if "TextWrapping" in m.group(2) or "TextTrimming" in m.group(2):
-                achados.add(m.group(1))
-    return achados
+            chave, abertura, miolo = m.group(1), m.group(2), m.group(3)
+            proprio[chave] = "TextWrapping" in miolo or "TextTrimming" in miolo
+            if (pai := re.search(r'BasedOn="\{StaticResource ([^}"]+)\}"', abertura)):
+                herda[chave] = pai.group(1).strip()
+
+    def resolve(chave: str, vistos: set[str] | None = None) -> bool:
+        vistos = vistos or set()
+        if chave in vistos or chave not in proprio:
+            return False           # ciclo, ou pai fora dos dicionários (ex.: {x:Type TextBlock})
+        if proprio[chave]:
+            return True
+        vistos.add(chave)
+        return chave in herda and resolve(herda[chave], vistos)
+
+    return {chave for chave in proprio if resolve(chave)}
 
 
 ESTILO_JA_RESOLVE = _estilos_que_ja_resolvem()

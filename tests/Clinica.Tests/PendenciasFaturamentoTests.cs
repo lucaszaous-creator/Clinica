@@ -29,9 +29,14 @@ public class PendenciasFaturamentoTests : IDisposable
         _pendencias = new PendenciaService(_repo);
     }
 
-    private async Task<CodigoFaturamento> CriarGlosadaAsync(DateOnly dataGlosa, int prazoDias)
+    private async Task<CodigoFaturamento> CriarGlosadaAsync(
+        DateOnly dataGlosa, int prazoDias, string nome = "P", string? telefone = null)
     {
-        var p = new Paciente { Nome = "P", Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };
+        var p = new Paciente
+        {
+            Nome = nome, Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino,
+            Telefone = telefone
+        };
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
         var r = await new AtendimentoService(_repo).LancarAsync(p.Id, dataGlosa.AddDays(-5), ModalidadeAtendimento.AcupunturaSimples);
@@ -61,6 +66,45 @@ public class PendenciasFaturamentoTests : IDisposable
 
         // Badge: só as com prazo apertado (amarelo/vermelho) contam.
         (await _pendencias.TotalPendenciasAsync(hoje)).Should().Be(2);
+    }
+
+    /// <summary>
+    /// A linha da glosa leva o CONTATO do paciente (parcela 57).
+    ///
+    /// Era o único dos quatro modelos de pendência sem telefone, e a falta não aparecia
+    /// como erro: a célula saía em branco, que na tela é indistinguível de "este paciente
+    /// não tem telefone cadastrado". Quem recorre da glosa precisa falar com o paciente
+    /// para obter o documento que sustenta o recurso, e o prazo está correndo.
+    /// </summary>
+    [Fact]
+    public async Task GlosasARecorrer_LevamNomeCompletoETelefoneDoPaciente()
+    {
+        var hoje = new DateOnly(2026, 7, 19);
+        await CriarGlosadaAsync(hoje.AddDays(-28), 30,
+            nome: "Maria Aparecida da Silva Nascimento", telefone: "(22) 99999-1234");
+
+        var lista = await _pendencias.GlosasARecorrerAsync(hoje);
+
+        lista.Should().ContainSingle();
+        lista[0].PacienteNome.Should().Be("Maria Aparecida da Silva Nascimento");
+        lista[0].PacienteTelefone.Should().Be("(22) 99999-1234");
+    }
+
+    /// <summary>
+    /// Sem telefone no cadastro o campo vem NULO, e não vazio: é o que faz a tela dizer
+    /// "sem telefone no cadastro" em vez de mostrar uma linha em branco — as duas coisas
+    /// se parecem, e só uma diz o que fazer.
+    /// </summary>
+    [Fact]
+    public async Task GlosasARecorrer_SemTelefoneNoCadastro_VemNulo()
+    {
+        var hoje = new DateOnly(2026, 7, 19);
+        await CriarGlosadaAsync(hoje.AddDays(-28), 30);
+
+        var lista = await _pendencias.GlosasARecorrerAsync(hoje);
+
+        lista.Should().ContainSingle();
+        lista[0].PacienteTelefone.Should().BeNull();
     }
 
     [Fact]

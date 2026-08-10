@@ -1811,6 +1811,44 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.
+- **Clicar no dado COPIA o dado** (`Copiavel`, `CelulaCopiavel`, parcela 57): a clínica
+  não vive só neste sistema — a guia é efetivada no PORTAL da operadora, e para isso a
+  secretária retipa nome, telefone, carteirinha e número da guia do outro lado. Retipar é
+  onde nasce o erro que o produto inteiro combate: o **"O" no lugar do zero** que a
+  `RegraNumeroGuia` existe para pegar, o dígito a menos no telefone. Copiar não erra.
+  O telefone **já estava no modelo de pendência** desde que o botão do WhatsApp existe —
+  o sistema o TINHA e não o MOSTRAVA, e quem precisava do número para o portal abria a
+  ficha do paciente noutra tela. É a variante do defeito recorrente do projeto em que o
+  dado tem leitor, mas só um, e não o da tarefa.
+  As decisões: **nome e telefone na MESMA célula**, e não em duas colunas — as pendências
+  já disputam a largura, e foi a coluna de paciente espremida entre vizinhas mais largas
+  (1,2* e 1,4* contra 1*) que cortava o nome; **o estilo carrega a afordância** (mão e
+  sublinhado no hover), porque recurso que não se anuncia ninguém descobre; **a dica
+  mostra o valor inteiro**, que é o que devolve o nome longo a quem só vê o começo dele;
+  **célula vazia não se anuncia como copiável**, senão a pessoa clica num traço e conclui
+  que quebrou; e o **`TextBlock` ganha fundo transparente ao ser ligado**, porque sem
+  pintura o WPF só aceita clique em cima das LETRAS — sem isso o clique ao lado do texto
+  não copiaria nada e o recurso pareceria funcionar "às vezes".
+  A cópia **tenta três vezes**: a área de transferência é recurso ÚNICO da máquina e fica
+  bloqueada enquanto outro programa a segura (o navegador e o próprio portal fazem isso o
+  tempo todo). E **falha nunca aparece como sucesso** — dizer "copiado" e a pessoa colar o
+  conteúdo anterior no portal é pior do que não ter o recurso, porque ela cola sem
+  conferir. A confirmação aparece NO LUGAR DO CLIQUE, não numa barra no rodapé: quem copia
+  a terceira célula da linha está olhando para ela.
+- **A rede não varria o faturamento na checagem de CHAVE** (parcela 57): chave inexistente
+  é `ResourceReferenceKeyNotFoundException` na montagem da tela — erro de runtime puro, que
+  é exatamente o grupo que o `arvores_com_faturamento` existe para alcançar desde a parcela
+  51. Ficar de fora deixou passar quatro `CellTemplate="{StaticResource …}"` apontando para
+  uma chave ainda não declarada: XAML bem-formado, `compilar-sombra` verde,
+  `verificar-suite` verde, e a coluna sairia **vazia** na tela de quem fatura. Só a metade
+  das CHAVES foi estendida — não a de `FontSize` numérico e cor em hexadecimal, que é a
+  dívida antiga que faria a checagem gritar trinta vezes. Medido antes: **zero** chaves
+  pendentes no faturamento, então a extensão não custou nada.
+  ⚠️ De quebra, a lista de "estilos que já resolvem" da checagem 24 **não seguia o
+  `BasedOn`**: estilo que herda o corte do pai aparecia como dívida sem ser. O ponto cego é
+  traiçoeiro porque a reclamação é PLAUSÍVEL — quem a lê acrescenta o `TextTrimming`
+  repetido na tela e segue, e a checagem continua cega para o próximo caso.
+
 - **O WPF não formata na cultura da máquina — `StringFormat` é en-US por padrão**
   (parcela 56; o cliente viu **"August/2026"** no cabeçalho da Conciliação). O que engana
   é que só METADE da tela erra: o que a ViewModel formata em C# (`valor.ToString("C")`)
