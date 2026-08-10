@@ -294,7 +294,7 @@
                             <Button Content="Salvar publicação"
                                     Command="{Binding SalvarPublicacaoCommand}"
                                     VerticalAlignment="Center" MinWidth="190" />
-                            <Button Content="Testar conexão"
+                            <Button Content="{Binding RotuloTesteConexao}"
                                     Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding TestarConexaoCommand}"
                                     IsEnabled="{Binding PodeTestarConexao}"

@@ -14,6 +14,8 @@
     </Window.InputBindings>
 
     <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+
         <!-- Item da sidebar: fundo/texto mudam quando EstaAtivo. -->
         <Style x:Key="ItemSidebar" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
@@ -283,5 +285,41 @@
             <!-- Tela ativa (a View já vem com DataContext resolvido pelo módulo) -->
             <ContentControl Content="{Binding TelaAtual}" />
         </DockPanel>
+
+        <!-- ===== Snackbar (sobreposto, centro inferior) =====
+             ÚLTIMO filho do Grid raiz, e não irmão dentro do DockPanel: sobreposição posta
+             num painel linear passa a OCUPAR espaço em vez de sobrepor, e ainda derruba o
+             leiaute em volta (a lição da parcela 50, hoje cobrada pela checagem 25).
+
+             Faltava desde que a suíte nasceu. O serviço existia, era injetado em quase toda
+             ViewModel e chamado 143 vezes; só o faturamento tinha onde mostrá-lo. -->
+        <Border Style="{StaticResource SnackbarBorda}" Panel.ZIndex="100"
+                Visibility="{Binding Snackbar.EstaVisivel, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock FontFamily="{StaticResource FonteIcones}"
+                           FontSize="{StaticResource Fonte.Corpo}"
+                           VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="&#xE946;" />
+                            <Setter Property="Foreground" Value="White" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Snackbar.Tipo}" Value="Sucesso">
+                                    <Setter Property="Text" Value="&#xE73E;" />
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Snackbar.Sucesso}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Snackbar.Tipo}" Value="Erro">
+                                    <Setter Property="Text" Value="&#xE783;" />
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Snackbar.Erro}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+                <TextBlock Text="{Binding Snackbar.Mensagem}" Foreground="White"
+                           FontSize="{StaticResource Fonte.Tabela}"
+                           VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="400" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

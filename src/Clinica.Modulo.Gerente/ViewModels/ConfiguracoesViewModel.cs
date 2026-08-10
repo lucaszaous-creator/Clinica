@@ -152,8 +152,19 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     /// </summary>
     public bool PodeTestarConexao => !TestandoConexao;
 
+    /// <summary>
+    /// O botão DIZ que está trabalhando. A ida ao provedor tem tempo-limite de 30 s e até
+    /// duas repetições — com endpoint errado, quase um minuto e meio. Só ficar cinza faz
+    /// quem clicou concluir que o botão não fez nada, que é o defeito da parcela 41 pela
+    /// porta de trás: aqui a ação ACONTECEU, e o que falta é dizer isso.
+    /// </summary>
+    public string RotuloTesteConexao => TestandoConexao ? "Testando…" : "Testar conexão";
+
     partial void OnTestandoConexaoChanged(bool value)
-        => OnPropertyChanged(nameof(PodeTestarConexao));
+    {
+        OnPropertyChanged(nameof(PodeTestarConexao));
+        OnPropertyChanged(nameof(RotuloTesteConexao));
+    }
 
     // ---- Faturamento (a direção lê; o app congelado continua sendo quem fatura) ----
     [ObservableProperty] private string? _janelaAlertaConsulta;

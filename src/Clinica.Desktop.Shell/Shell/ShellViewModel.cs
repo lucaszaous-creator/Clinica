@@ -1,3 +1,4 @@
+using Clinica.Desktop.Controls;
 using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
 using Clinica.Desktop.Shell.Modulos;
@@ -59,6 +60,27 @@ public sealed partial class ShellViewModel : ObservableObject
     /// <summary>Seções que casam com o que foi digitado (paleta de comandos).</summary>
     public ObservableCollection<ItemMenuModulo> ResultadosPesquisa { get; } = [];
 
+    /// <summary>
+    /// O snackbar da janela (parcela 53). <b>Existia como serviço e não tinha onde
+    /// aparecer.</b>
+    ///
+    /// O <c>SnackbarService</c> era registrado no <c>ShellBootstrap</c>, injetado em quase
+    /// toda ViewModel da suíte e chamado 143 vezes — e o <c>ShellWindow.xaml</c> nunca
+    /// renderizou o host. Só o faturamento tinha (<c>MainWindow.xaml</c>), que é de onde o
+    /// componente veio. Resultado: todo "salvo com sucesso" da Recepção, do Financeiro, do
+    /// Gerente e do Consultório caía no vazio desde que a suíte nasceu.
+    ///
+    /// É o defeito recorrente do projeto numa variante nova: não é dado gravado sem
+    /// leitor nem capacidade sem porta — é <b>saída sem tela</b>. E ele é especialmente
+    /// traiçoeiro porque nada falha: o serviço marshala pelo Dispatcher, atualiza o
+    /// próprio estado e ninguém nunca observa esse estado. Build verde, teste verde, e a
+    /// única forma de notar é clicar em Salvar e reparar que a tela não respondeu.
+    ///
+    /// Null quando não há serviço (testes, ou app aberto fora do bootstrap): o binding
+    /// simplesmente não acha nada e a janela segue.
+    /// </summary>
+    public SnackbarService? Snackbar { get; }
+
     public ShellViewModel(string titulo, IEnumerable<IModuloApp> modulos, IServiceProvider servicos)
     {
         Titulo = titulo;
@@ -70,6 +92,10 @@ public sealed partial class ShellViewModel : ObservableObject
         // tudo, e sidebar vazia parece defeito, não segurança.
         var sessao = servicos.GetService<SessaoUsuario>();
         UsuarioRotulo = sessao?.Rotulo ?? Environment.UserName;
+
+        // A MESMA instância que as ViewModels recebem por ISnackbarService — o registro é
+        // singleton, e é isso que faz o que elas escrevem chegar a esta janela.
+        Snackbar = servicos.GetService<SnackbarService>();
 
         foreach (var modulo in _modulos)
         {
