@@ -171,6 +171,143 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ===== Publicação do documento assinado (parcela 53) ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Publicação de documentos assinados"
+                                   Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820"
+                                   Text="Receita, atestado, pedido de exame e declaração de comparecimento assinados digitalmente ganham um QR Code. O farmacêutico aponta a câmera e o documento abre — sem o paciente precisar enviar arquivo nenhum. Prontuário NUNCA é publicado." />
+
+                        <!-- A tela ABRE dizendo como está. Sem esta linha, "desligada" e
+                             "ligada e quebrada" têm a mesma aparência, e a segunda só
+                             apareceria na primeira receita assinada. -->
+                        <Border Style="{StaticResource AlertaInfo}" Margin="0,12,0,0">
+                            <TextBlock Text="{Binding SituacaoPublicacao}" TextWrapping="Wrap" />
+                        </Border>
+
+                        <StackPanel Margin="0,14,0,0">
+                            <TextBlock Text="Domínio da clínica" Style="{StaticResource Rotulo}"
+                                       Margin="0,0,0,4" />
+                            <TextBox Text="{Binding DominioPublicacao}" MaxLength="200" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       HorizontalAlignment="Left" MaxWidth="820"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Margin="0,4,0,0"
+                                       Text="Ex.: https://documentos.suaclinica.com.br — é o endereço que o farmacêutico vê ao escanear, e por isso precisa ser o domínio da clínica. Peça ao responsável pelo site um registro CNAME apontando para o provedor de armazenamento. Em branco, a publicação fica DESLIGADA." />
+                        </StackPanel>
+
+                        <!-- Trocar o domínio depois NÃO conserta o que já saiu: a URL fica
+                             selada dentro do PDF assinado, que não pode ser regerado. -->
+                        <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0">
+                            <TextBlock TextWrapping="Wrap"
+                                       Text="Escolha o domínio com calma: o endereço fica gravado dentro de cada PDF assinado, e trocá-lo depois faz os QR Codes já impressos pararem de funcionar. Documento assinado não pode ser regerado — teria de ser cancelado e emitido de novo." />
+                        </Border>
+
+                        <StackPanel Margin="0,14,0,0" MaxWidth="260" HorizontalAlignment="Left">
+                            <TextBlock Text="Dias no ar" Style="{StaticResource Rotulo}"
+                                       Margin="0,0,0,4" />
+                            <TextBox Text="{Binding DiasPublicacao}" MaxLength="3" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Margin="0,4,0,0"
+                                   Text="Por quantos dias o documento fica acessível pelo link, de 1 a 365. Receita simples costuma valer 30 dias; uso contínuo, mais. Vencido o prazo, o arquivo sai do ar e a clínica republica com um clique, sem perder o QR já impresso. O registro no sistema continua guardado por 20 anos, sempre." />
+
+                        <Separator Margin="0,18,0,14" />
+
+                        <StackPanel>
+                            <TextBlock Text="Armazenamento (onde os arquivos ficam)"
+                                       Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       HorizontalAlignment="Left" MaxWidth="820"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Margin="0,0,0,8"
+                                       Text="Serve qualquer provedor compatível com S3 (Magalu Cloud, Cloudflare R2, AWS). Cadastrado aqui uma vez, vale para todas as máquinas. IMPORTANTE: o balde não pode permitir LISTAGEM de conteúdo — o endereço secreto de cada documento é a única barreira, e um balde que lista entrega todos de uma vez." />
+
+                            <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,10"
+                                    Visibility="{Binding ArmazenamentoVemDoAmbiente, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock TextWrapping="Wrap"
+                                           Text="Estas credenciais estão vindo de VARIÁVEIS DE AMBIENTE desta máquina (CLINICA_ARMAZENAMENTO_ENDPOINT e afins), que têm prioridade sobre o que é salvo aqui. Enquanto elas existirem, os campos abaixo são somente leitura e mostram o que está em vigor. Para voltar a usar a configuração da clínica, apague as variáveis e reabra o sistema." />
+                            </Border>
+
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Endereço do provedor (endpoint)"
+                                               Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding ArmazenamentoEndpoint}" MaxLength="200"
+                                             IsEnabled="{Binding ArmazenamentoEditavel}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Balde (bucket)" Style="{StaticResource Rotulo}"
+                                               Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding ArmazenamentoBucket}" MaxLength="100"
+                                             IsEnabled="{Binding ArmazenamentoEditavel}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Chave de acesso" Style="{StaticResource Rotulo}"
+                                               Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding ArmazenamentoChave}" MaxLength="200"
+                                             IsEnabled="{Binding ArmazenamentoEditavel}" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Chave secreta" Style="{StaticResource Rotulo}"
+                                               Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding ArmazenamentoSegredo}" MaxLength="300"
+                                             IsEnabled="{Binding ArmazenamentoEditavel}" />
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel MaxWidth="260" HorizontalAlignment="Left">
+                                <TextBlock Text="Região (opcional)" Style="{StaticResource Rotulo}"
+                                           Margin="0,0,0,4" />
+                                <TextBox Text="{Binding ArmazenamentoRegiao}" MaxLength="60"
+                                         IsEnabled="{Binding ArmazenamentoEditavel}" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       HorizontalAlignment="Left" MaxWidth="820"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Margin="0,4,0,0"
+                                       Text="Em branco, o sistema usa us-east-1, que é o que a maioria dos provedores aceita quando não tem região própria." />
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                            <Button Content="Salvar publicação"
+                                    Command="{Binding SalvarPublicacaoCommand}"
+                                    VerticalAlignment="Center" MinWidth="190" />
+                            <Button Content="Testar conexão"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding TestarConexaoCommand}"
+                                    IsEnabled="{Binding PodeTestarConexao}"
+                                    VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="170" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Margin="0,6,0,0"
+                                   Text="Testar conexão grava um arquivo de teste no balde e o apaga em seguida — é o mesmo caminho que a publicação de verdade usa. Salve antes de testar." />
+                    </StackPanel>
+                </Border>
+
                 <!-- ===== Faturamento ===== -->
                 <Border Style="{StaticResource Card}" Margin="0,12,0,24">
                     <StackPanel>

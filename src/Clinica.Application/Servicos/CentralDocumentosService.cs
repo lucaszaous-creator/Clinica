@@ -87,6 +87,20 @@ public sealed record FolhaEmitida(
 {
     /// <summary>Valor, só nas financeiras. Null na clínica — receita não tem preço.</summary>
     public decimal? Valor { get; init; }
+
+    /// <summary>
+    /// Até quando o link publicado fica no ar (parcela 53). <c>null</c> quando o documento
+    /// nunca foi publicado ou já saiu do ar.
+    /// </summary>
+    public DateOnly? PublicadoAte { get; init; }
+
+    /// <summary>
+    /// O documento já teve link algum dia — ou seja, tem token e um PDF assinado que o
+    /// carrega no QR. É o que separa "dá para republicar" de "nunca houve link", e a
+    /// diferença importa: republicar reusa o MESMO token, então o QR que o paciente já tem
+    /// impresso volta a funcionar.
+    /// </summary>
+    public bool JaTeveLink { get; init; }
 }
 
 /// <summary>Quantas de cada folha saíram no período.</summary>
@@ -256,7 +270,11 @@ public sealed class CentralDocumentosService
                 RotularClinico(d.Tipo),
                 d.Paciente?.Nome, d.Profissional?.Nome,
                 d.Data, d.CriadoEm, d.CriadoPor,
-                d.Cancelado, d.MotivoCancelamento)));
+                d.Cancelado, d.MotivoCancelamento)
+            {
+                PublicadoAte = d.PublicadoAte,
+                JaTeveLink = !string.IsNullOrWhiteSpace(d.TokenPublicacao)
+            }));
         }
 
         if (folha is null || folha.Natureza == NaturezaFolha.Financeiro)

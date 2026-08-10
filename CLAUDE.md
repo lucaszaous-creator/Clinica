@@ -1381,6 +1381,49 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   O que o código **não** consegue garantir vai escrito na tela e no documento, não numa
   promessa: nenhum caminho de arquivo diz onde ele fisicamente está, então "grave fora da
   máquina" é orientação à clínica.
+- **O QR da receita e a escolha do provedor não podem estar no mesmo caminho crítico**
+  (`PublicacaoDocumento`, `ArmazenamentoS3`, parcela 53): a receita assinada é conferida no
+  ITI pelo **envio do arquivo**, o que obriga o paciente a mandar o PDF para a farmácia — e
+  é onde o balcão trava. Publicado, o farmacêutico escaneia o QR e abre. O motor saiu antes
+  do provedor estar escolhido, e a lição é essa: **uma implementação para todo S3-compatível**
+  (Magalu, R2, AWS, MinIO), com endpoint em campo de tela. Escolher fornecedor virou
+  preencher um campo, não publicar versão.
+  O que decidiu usar `AWSSDK.S3` em vez de assinar SigV4 à mão foi o **path-style
+  addressing** (`ForcePathStyle`): o padrão do SDK é `bucket.host/objeto` e quase todo
+  S3-compatível exige `host/bucket/objeto` — uma linha contra um caso de borda que só
+  apareceria no provedor do cliente.
+  **DOMÍNIO e ENDPOINT são dois campos porque são duas coisas.** O domínio é o endereço
+  público que vai **selado dentro do QR do PDF assinado**; o endpoint é para onde o sistema
+  escreve. Trocar de provedor tem de ser mexer no CNAME — se o QR apontasse para o
+  endereço do provedor, mudar de fornecedor mataria **toda receita que os pacientes já têm
+  na mão**, e elas não podem ser regeradas (a assinatura sela os bytes). É a mesma razão
+  pela qual o token é **estável na renovação**.
+  A **janela de dias é configurável e o prazo de guarda não**: publicação é política da
+  clínica (30 dias para receita simples, 180 para uso contínuo), guarda é prazo LEGAL — daí
+  `GuardaProntuario.AnosDeGuarda` continuar `const`. Configuração corrompida cai no padrão,
+  porque valor inválido não pode deixar dado de saúde no ar para sempre.
+  O **"Testar conexão" grava e apaga de verdade**, em vez de listar o balde: um teste que
+  só lê passaria com credencial de leitura, com balde inexistente e — o caso que importa —
+  com provedor que recusa a ACL de leitura pública, que é exatamente o que a publicação
+  usa. Teste que não exercita o mesmo caminho atesta uma coisa e a receita falha por outra.
+  E gravar-sem-apagar tem **frase própria**: a publicação funcionaria e a expiração não.
+- **Credencial de serviço externo mora no BANCO, com o ambiente podendo sobrepor**
+  (parcela 53 — correção de um comentário meu da 52). Eu havia escrito que as credenciais
+  do armazenamento iriam por variável de ambiente, "porque segredo em tabela de
+  configuração é segredo que sai no backup". Errado por duas vias, e as duas valem para a
+  próxima integração:
+  (a) **contradiz o que o projeto já decidiu**, com o motivo escrito no
+  `ProvedorOpcoesSafeID` — variável de ambiente é **ritual de instalação**, e uma clínica
+  não abre o Prompt de Comando em cada máquina. Aqui seria pior que no SafeID: quem assina
+  documento é o Consultório **e** a Recepção, então a publicação funcionaria onde alguém
+  digitou e falharia **calada** nas outras;
+  (b) **descrevia como seguro um padrão que o sistema não segue** — o `client_secret` do
+  SafeID já está gravado em claro nessa mesma tabela. Resolver o segredo-no-backup de
+  raspão, numa integração nova, só o esconderia: ele é problema real, separado, e continua
+  em aberto.
+  A regra que fica: **quando for justificar uma decisão pelo "é mais seguro", confira se o
+  resto do sistema faz assim.** Se não faz, ou você está corrigindo o sistema inteiro — e
+  então corrija — ou está inventando uma exceção que ninguém vai manter.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três

@@ -177,7 +177,7 @@ public class PublicacaoDocumentoTests : IDisposable
         var resultado = await _servico.PublicarAsync(doc, [9, 9, 9]);
 
         resultado.Publicou.Should().BeTrue();
-        resultado.Ate.Should().Be(Hoje.AddDays(PublicacaoDocumento.DiasPublicado));
+        resultado.Ate.Should().Be(Hoje.AddDays(PublicacaoDocumento.DiasPublicadoPadrao));
         _armazenamento.Objetos.Should()
             .ContainKey(PublicacaoDocumento.CaminhoDoObjeto(doc.TokenPublicacao!));
         doc.LinkNoAr(Hoje).Should().BeTrue();
@@ -197,7 +197,7 @@ public class PublicacaoDocumentoTests : IDisposable
         await _servico.PublicarAsync(doc, [9, 9, 9]);
         var caminho = PublicacaoDocumento.CaminhoDoObjeto(doc.TokenPublicacao!);
 
-        EmDia(Hoje.AddDays(PublicacaoDocumento.DiasPublicado + 1));
+        EmDia(Hoje.AddDays(PublicacaoDocumento.DiasPublicadoPadrao + 1));
         (await _servico.ExpirarVencidosAsync()).Should().Be(1);
 
         _armazenamento.Objetos.Should().NotContainKey(caminho, "o objeto sai do ar");
@@ -277,6 +277,104 @@ public class PublicacaoDocumentoTests : IDisposable
 
         (await _servico.RenovarAsync(doc.Id)).Publicou.Should().BeFalse();
     }
+
+    // ======================================================= a janela é da CLÍNICA
+
+    [Fact]
+    public async Task A_clinica_escolhe_por_quantos_dias_o_documento_fica_no_ar()
+    {
+        await LigarAsync();
+        await _parametros.SalvarDiasPublicacaoAsync(180);
+        var doc = await DocumentoAsync();
+        await _servico.GarantirTokenAsync(doc);
+
+        var resultado = await _servico.PublicarAsync(doc, [9, 9, 9]);
+
+        // Quem atende uso contínuo quer 180 dias; quem só emite receita simples quer 30.
+        // Amarrar no código obrigaria a publicar versão nova para mudar de ideia.
+        resultado.Ate.Should().Be(Hoje.AddDays(180));
+    }
+
+    [Theory]
+    [InlineData(null, PublicacaoDocumento.DiasPublicadoPadrao)]
+    [InlineData(0, PublicacaoDocumento.DiasPublicadoPadrao)]
+    [InlineData(-5, PublicacaoDocumento.DiasPublicadoPadrao)]
+    [InlineData(5000, PublicacaoDocumento.DiasPublicadoPadrao)]
+    [InlineData(30, 30)]
+    [InlineData(365, 365)]
+    public void Valor_ausente_ou_fora_da_faixa_cai_no_padrao(int? configurado, int esperado)
+        => PublicacaoDocumento.DiasPublicadoValidos(configurado).Should().Be(esperado);
+
+    [Fact]
+    public async Task O_prazo_de_GUARDA_nao_se_confunde_com_a_janela_de_publicacao()
+    {
+        await LigarAsync();
+        await _parametros.SalvarDiasPublicacaoAsync(30);
+        var doc = await DocumentoAsync();
+        await _servico.GarantirTokenAsync(doc);
+        await _servico.PublicarAsync(doc, [9, 9, 9]);
+
+        EmDia(Hoje.AddDays(31));
+        await _servico.ExpirarVencidosAsync();
+
+        // A publicação é política da clínica e acaba; a guarda é LEI e não é tocada.
+        var guardado = await _db.DocumentosClinicos.AsNoTracking().SingleAsync(d => d.Id == doc.Id);
+        guardado.Should().NotBeNull();
+        guardado.PublicadoAte.Should().BeNull();
+        GuardaProntuario.AnosDeGuarda.Should().Be(20);
+    }
+
+    // ================================================== o teste de conexão
+
+    [Fact]
+    public async Task Testar_conexao_grava_E_apaga_sem_deixar_lixo()
+    {
+        var erro = await _servico.TestarConexaoAsync();
+
+        erro.Should().BeNull();
+        _armazenamento.Objetos.Should().BeEmpty("teste que deixa lixo ensina a clínica a não testar");
+        _armazenamento.Removidos.Should().Contain(PublicacaoDocumentoService.CaminhoDeTeste);
+    }
+
+    [Fact]
+    public void Testar_conexao_NAO_usa_o_prefixo_dos_documentos()
+        => PublicacaoDocumentoService.CaminhoDeTeste.Should().NotStartWith("r/",
+            "um teste jamais pode colidir com uma receita publicada");
+
+    [Fact]
+    public async Task Testar_conexao_devolve_o_motivo_quando_o_armazenamento_recusa()
+    {
+        _armazenamento.Quebrado = true;
+
+        var erro = await _servico.TestarConexaoAsync();
+
+        erro.Should().NotBeNull();
+        erro.Should().Contain("fora do ar", "a frase precisa dizer o que o provedor respondeu");
+    }
+
+    // ============================================== o que decide se há armazenamento
+
+    [Theory]
+    [InlineData(null, "b", "c", "s")]
+    [InlineData("https://e", null, "c", "s")]
+    [InlineData("https://e", "b", null, "s")]
+    [InlineData("https://e", "b", "c", null)]
+    [InlineData("  ", "b", "c", "s")]
+    public void Meia_credencial_e_o_mesmo_que_credencial_nenhuma(
+        string? endpoint, string? bucket, string? chave, string? segredo)
+        => OpcoesArmazenamento.De(endpoint, null, bucket, chave, segredo).Should().BeNull(
+            "aceitar conjunto incompleto faria a publicação parecer ligada e estourar no "
+            + "clique de quem está assinando, com o paciente esperando");
+
+    [Fact]
+    public void Endpoint_que_nao_e_URL_e_recusado_antes_de_chegar_ao_provedor()
+        => OpcoesArmazenamento.De("br-se1.magaluobjects.com", null, "b", "c", "s")
+            .Should().BeNull("sem esquema o SDK erra com uma mensagem que não fala desta tela");
+
+    [Fact]
+    public void Sem_regiao_informada_cai_no_padrao_que_os_provedores_aceitam()
+        => OpcoesArmazenamento.De("https://br-se1.magaluobjects.com", null, "b", "c", "s")!
+            .Regiao.Should().Be(OpcoesArmazenamento.RegiaoPadrao);
 
     // ================================================================= o token em si
 

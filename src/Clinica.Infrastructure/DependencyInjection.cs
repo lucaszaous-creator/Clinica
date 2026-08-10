@@ -83,9 +83,11 @@ public static class DependencyInjection
         // provedor. Sem ela, o AssinaturaDeDocumentoClinicoService recebe null e o sistema
         // funciona exatamente como antes (QR para o validador do ITI).
         services.AddScoped<PublicacaoDocumentoService>();
-        // Objeto-nulo enquanto não há provedor contratado. Trocar por uma implementação
-        // S3-compatível é a ÚNICA coisa que a escolha do fornecedor exige do código.
-        services.AddScoped<IArmazenamentoPublico, ArmazenamentoIndisponivel>();
+        // Uma implementação para TODO provedor S3-compatível: o que muda entre Magalu, R2 e
+        // AWS é o endpoint, e ele é campo de Configurações. Sem credencial cadastrada o
+        // ArmazenamentoS3 recusa dizendo o que falta — ver o resumo da classe.
+        services.AddScoped<ProvedorOpcoesArmazenamento>();
+        services.AddScoped<IArmazenamentoPublico, ArmazenamentoS3>();
         services.AddScoped<PainelDirecaoService>();
         services.AddScoped<InadimplenciaService>();
         services.AddScoped<CentralDocumentosService>();

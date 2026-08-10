@@ -1,3 +1,4 @@
+using Clinica.Application.Servicos;
 using System.Windows;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Configuracao;
@@ -44,7 +45,42 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         _host = await SuiteApp.IniciarAsync(this, "Gerente Geral", "Gerente Geral — Clínica SemDor", _modulos);
 
-        if (_host is not null) await CopiaDeSegurancaAsync(_host);
+        if (_host is not null)
+        {
+            await CopiaDeSegurancaAsync(_host);
+            await ExpirarLinksVencidosAsync(_host);
+        }
+    }
+
+    /// <summary>
+    /// Tira do ar os documentos cujo prazo de publicação venceu (parcela 53).
+    ///
+    /// <b>Aqui pela mesma razão do backup</b>: o sistema é desktop, não tem serviço
+    /// residente, e inventar um agendador daria mais uma peça para quebrar em silêncio. O
+    /// Gerente é a máquina que abre todo dia na direção.
+    ///
+    /// <b>Depois do backup, e nunca antes.</b> Guardar a base vem primeiro; tirar arquivo
+    /// do ar é a operação que se pode repetir amanhã sem prejuízo.
+    ///
+    /// Sem publicação configurada isto não faz nada: a consulta não acha documento
+    /// publicado nenhum e a varredura termina em zero.
+    ///
+    /// Falha não derruba a abertura — o link continuar no ar um dia a mais é muito melhor
+    /// do que a direção não conseguir abrir o sistema.
+    /// </summary>
+    private static async Task ExpirarLinksVencidosAsync(IHost host)
+    {
+        try
+        {
+            using var escopo = host.Services.CreateScope();
+            await escopo.ServiceProvider
+                .GetRequiredService<PublicacaoDocumentoService>()
+                .ExpirarVencidosAsync();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Gerente — expiração de links publicados", ex);
+        }
     }
 
     /// <summary>

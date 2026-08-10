@@ -1,5 +1,7 @@
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -101,6 +103,58 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     partial void OnSafeIdVemDoAmbienteChanged(bool value)
         => OnPropertyChanged(nameof(SafeIdEditavel));
 
+    // ---- Publicação do documento assinado (parcela 53) ----
+    //
+    // Duas coisas que parecem uma. O DOMÍNIO é o endereço público que vai selado dentro do
+    // QR de cada PDF assinado; o ENDPOINT é para onde o sistema escreve o arquivo. Ter os
+    // dois separados é o que permite trocar de provedor um dia mexendo só no DNS — se o QR
+    // apontasse para o endereço do provedor, trocar de fornecedor mataria todas as receitas
+    // que os pacientes já têm na mão, e elas não podem ser regeradas (a assinatura sela os
+    // bytes).
+
+    /// <summary>
+    /// Domínio da clínica onde os documentos ficam acessíveis. <b>Vazio DESLIGA a
+    /// publicação</b>, e o sistema volta a funcionar como sempre funcionou: o QR aponta
+    /// para o validador do ITI e nada sobe para lugar nenhum.
+    /// </summary>
+    [ObservableProperty] private string? _dominioPublicacao;
+
+    [ObservableProperty] private string? _diasPublicacao;
+
+    [ObservableProperty] private string? _armazenamentoEndpoint;
+    [ObservableProperty] private string? _armazenamentoRegiao;
+    [ObservableProperty] private string? _armazenamentoBucket;
+    [ObservableProperty] private string? _armazenamentoChave;
+    [ObservableProperty] private string? _armazenamentoSegredo;
+
+    /// <summary>Mesma regra do SafeID: ambiente em vigor deixa os campos só de leitura.</summary>
+    [ObservableProperty] private bool _armazenamentoVemDoAmbiente;
+
+    /// <summary>Negado para o XAML amarrar `IsEnabled` sem precisar de conversor.</summary>
+    public bool ArmazenamentoEditavel => !ArmazenamentoVemDoAmbiente;
+
+    partial void OnArmazenamentoVemDoAmbienteChanged(bool value)
+        => OnPropertyChanged(nameof(ArmazenamentoEditavel));
+
+    /// <summary>
+    /// Como a publicação está agora, em uma frase. A tela ABRE dizendo isto porque
+    /// "desligada" e "ligada e quebrada" são estados que se parecem quando não há nada
+    /// escrito na tela — e o segundo só apareceria na primeira receita.
+    /// </summary>
+    [ObservableProperty] private string _situacaoPublicacao = string.Empty;
+
+    [ObservableProperty] private bool _testandoConexao;
+
+    /// <summary>
+    /// Negado para o XAML, pela mesma razão de <c>SafeIdEditavel</c>: a suíte não tem
+    /// conversor de booleano invertido, e inventar um para um botão só espalharia peça de
+    /// design system que ninguém mais usa.
+    /// </summary>
+    public bool PodeTestarConexao => !TestandoConexao;
+
+    partial void OnTestandoConexaoChanged(bool value)
+        => OnPropertyChanged(nameof(PodeTestarConexao));
+
     // ---- Faturamento (a direção lê; o app congelado continua sendo quem fatura) ----
     [ObservableProperty] private string? _janelaAlertaConsulta;
     [ObservableProperty] private string? _prazoRecursoGlosa;
@@ -184,6 +238,8 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
                 SafeIdClientSecret = safeId.ClientSecret;
                 SafeIdHomologacao = ConfiguracaoSafeID.EhHomologacao(safeId.Ambiente);
             }
+            await CarregarPublicacaoAsync(p);
+
             JanelaAlertaConsulta = (await p.ObterJanelaAlertaConsultaAsync()).ToString();
             PrazoRecursoGlosa = (await p.ObterPrazoRecursoGlosaAsync()).ToString();
             IntervaloRodadaPendencias = (await p.ObterIntervaloRodadaPendenciasAsync()).ToString();
@@ -277,6 +333,172 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
                   + "variável de ambiente desta máquina."
                 : "Operação e marketing salvos.";
         });
+
+    private async Task CarregarPublicacaoAsync(ParametrosService p)
+    {
+        DominioPublicacao = await p.ObterUrlPublicacaoAsync();
+        DiasPublicacao = (await p.ObterDiasPublicacaoAsync()).ToString();
+
+        // O ambiente vence o banco, como no SafeID — e a tela precisa DIZER isso, senão a
+        // direção edita, salva, recebe "salvo" e nada muda.
+        ArmazenamentoVemDoAmbiente = ProvedorOpcoesArmazenamento.VemDoAmbiente();
+
+        if (OpcoesArmazenamento.DoAmbiente() is { } doAmbiente)
+        {
+            ArmazenamentoEndpoint = doAmbiente.Endpoint;
+            ArmazenamentoRegiao = doAmbiente.Regiao;
+            ArmazenamentoBucket = doAmbiente.Bucket;
+            ArmazenamentoChave = doAmbiente.Chave;
+            ArmazenamentoSegredo = "(definido por variável de ambiente)";
+        }
+        else
+        {
+            var (endpoint, regiao, bucket, chave, segredo) =
+                await p.ObterCredenciaisArmazenamentoAsync();
+            ArmazenamentoEndpoint = endpoint;
+            ArmazenamentoRegiao = regiao;
+            ArmazenamentoBucket = bucket;
+            ArmazenamentoChave = chave;
+            ArmazenamentoSegredo = segredo;
+        }
+
+        SituacaoPublicacao = DescreverPublicacao();
+    }
+
+    /// <summary>
+    /// Os três estados que a tela precisa distinguir — e o do meio é o perigoso: domínio
+    /// cadastrado sem armazenamento faz a clínica acreditar que está publicando, enquanto
+    /// cada assinatura devolve um aviso que ninguém associa a esta tela.
+    /// </summary>
+    private string DescreverPublicacao()
+    {
+        var temDominio = !string.IsNullOrWhiteSpace(DominioPublicacao);
+
+        // Vindo do ambiente já está provado: DoAmbiente() só devolve conjunto completo. Do
+        // banco, quem decide é a mesma regra que o serviço usa — perguntar de outro jeito
+        // aqui faria a tela e a publicação discordarem sobre a mesma configuração.
+        var temArmazenamento = ArmazenamentoVemDoAmbiente
+            || OpcoesArmazenamento.De(
+                ArmazenamentoEndpoint, ArmazenamentoRegiao, ArmazenamentoBucket,
+                ArmazenamentoChave, ArmazenamentoSegredo) is not null;
+
+        if (!temDominio)
+            return "Publicação DESLIGADA. O QR impresso na receita aponta para o validador "
+                + "do ITI, e o paciente precisa levar o arquivo até a farmácia.";
+
+        if (!temArmazenamento)
+            return "Domínio cadastrado, mas SEM armazenamento configurado: os documentos "
+                + "continuam sendo assinados normalmente e o link não sobe. Preencha "
+                + "endpoint, balde e credenciais abaixo — ou limpe o domínio para desligar.";
+
+        return $"Publicação LIGADA em {DominioPublicacao}. O documento assinado fica no ar "
+            + $"por {DiasPublicacao} dias e o farmacêutico o abre escaneando o QR.";
+    }
+
+    /// <summary>
+    /// O domínio e a janela são política; o endpoint e as credenciais são o provedor. Vão
+    /// no mesmo botão porque a clínica os configura de uma vez — mas a validação separa,
+    /// porque desligar a publicação (domínio vazio) tem de continuar possível mesmo com
+    /// credencial pela metade.
+    /// </summary>
+    [RelayCommand]
+    private async Task SalvarPublicacaoAsync()
+        => await ExecutarAsync(async p =>
+        {
+            var dominio = Limpar(DominioPublicacao);
+
+            // Endereço malformado é recusado AQUI. Aceitá-lo produziria um QR apontando
+            // para lugar nenhum dentro de um PDF já assinado — e PDF assinado não se
+            // corrige: teria de ser cancelado e reemitido.
+            if (dominio is not null
+                && (!Uri.TryCreate(dominio, UriKind.Absolute, out var uri)
+                    || uri.Scheme != Uri.UriSchemeHttps))
+                throw new InvalidOperationException(
+                    "O domínio de publicação precisa ser um endereço https completo "
+                    + "(ex.: https://documentos.suaclinica.com.br). Deixe em branco para "
+                    + "desligar a publicação.");
+
+            if (!TentarLerInteiro(
+                    DiasPublicacao,
+                    PublicacaoDocumento.DiasPublicadoMinimo,
+                    PublicacaoDocumento.DiasPublicadoMaximo,
+                    out var dias))
+                throw new InvalidOperationException(
+                    $"Os dias no ar vão de {PublicacaoDocumento.DiasPublicadoMinimo} a "
+                    + $"{PublicacaoDocumento.DiasPublicadoMaximo}.");
+
+            var endpoint = Limpar(ArmazenamentoEndpoint);
+            var bucket = Limpar(ArmazenamentoBucket);
+            var chave = Limpar(ArmazenamentoChave);
+            var segredo = Limpar(ArmazenamentoSegredo);
+
+            // Meia credencial é recusada pelo mesmo motivo do SafeID: aceitá-la faria a
+            // publicação parecer ligada e falhar no clique de quem está assinando.
+            var preenchidos = new[] { endpoint, bucket, chave, segredo }.Count(c => c is not null);
+            if (!ArmazenamentoVemDoAmbiente && preenchidos is > 0 and < 4)
+                throw new InvalidOperationException(
+                    "O armazenamento precisa de endpoint, balde, chave e segredo. Preencha "
+                    + "os quatro, ou deixe os quatro em branco.");
+
+            await p.SalvarUrlPublicacaoAsync(dominio);
+            await p.SalvarDiasPublicacaoAsync(dias);
+
+            // Com o ambiente em vigor, o campo do segredo mostra um texto explicativo e não
+            // o segredo. Gravá-lo apagaria a credencial real da clínica no dia em que a
+            // variável fosse removida — a mesma armadilha do SafeID.
+            if (!ArmazenamentoVemDoAmbiente)
+                await p.SalvarCredenciaisArmazenamentoAsync(
+                    endpoint, Limpar(ArmazenamentoRegiao), bucket, chave, segredo);
+
+            return ArmazenamentoVemDoAmbiente
+                ? "Publicação salva. As credenciais não foram alteradas: elas estão vindo de "
+                  + "variável de ambiente desta máquina."
+                : "Publicação salva.";
+        });
+
+    /// <summary>
+    /// Prova as credenciais gravando e apagando um arquivo de teste, que é exatamente o que
+    /// a publicação real faz. Ver <c>PublicacaoDocumentoService.TestarConexaoAsync</c>.
+    /// </summary>
+    [RelayCommand]
+    private async Task TestarConexaoAsync()
+    {
+        Mensagem = null;
+        MensagemEhErro = false;
+
+        try
+        {
+            // A segunda barreira. O IsEnabled do botão explica; esta impede — atalho de
+            // teclado passa direto pelo primeiro.
+            SessaoUsuario.Atual.Exigir(
+                Permissao.GerenciarUsuarios, "testar a conexão com o armazenamento");
+
+            TestandoConexao = true;
+
+            using var scope = _escopos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<PublicacaoDocumentoService>();
+
+            if (await servico.TestarConexaoAsync() is { } erro)
+            {
+                Erro(erro);
+                return;
+            }
+
+            _snackbar.Sucesso(
+                "Conexão com o armazenamento funcionando: o sistema gravou e apagou um "
+                + "arquivo de teste.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Gerente — teste de conexão do armazenamento falhou", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            TestandoConexao = false;
+        }
+    }
 
     [RelayCommand]
     private async Task SalvarFaturamentoAsync()

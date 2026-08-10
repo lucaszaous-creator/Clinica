@@ -166,10 +166,26 @@ public sealed class ParametrosService
     /// É o DOMÍNIO DA CLÍNICA, nunca o endereço do provedor — a URL fica selada dentro da
     /// assinatura, e trocar de armazenamento um dia tem de ser repontar o DNS, não matar o
     /// QR de toda receita já assinada.
-    ///
-    /// As CREDENCIAIS do armazenamento não moram aqui: vão por variável de ambiente, como
-    /// a connection string. Segredo em tabela de configuração é segredo que sai no backup.
     /// </summary>
+    /// <remarks>
+    /// <b>Correção da parcela 53.</b> A primeira versão deste comentário dizia que as
+    /// credenciais do armazenamento iriam por variável de ambiente, "porque segredo em
+    /// tabela de configuração é segredo que sai no backup". Estava errado por duas vias.
+    ///
+    /// Primeiro, contradiz o que o projeto já decidiu: o
+    /// <c>ProvedorOpcoesSafeID</c> saiu de variável de ambiente na parcela 44 com o motivo
+    /// escrito — variável de ambiente é ritual de instalação, e uma clínica não abre o
+    /// Prompt de Comando em cada máquina. Aqui seria pior: quem assina documento é o
+    /// Consultório E a Recepção, então a publicação funcionaria onde alguém digitou e
+    /// falharia CALADA nas outras.
+    ///
+    /// Segundo, descrevia como seguro um padrão que o sistema não segue: o
+    /// <c>client_secret</c> do SafeID já está gravado em claro nesta mesma tabela.
+    ///
+    /// As credenciais ficam no banco, com o ambiente podendo sobrepor — igual ao SafeID. O
+    /// segredo dentro do backup é problema real e SEPARADO, que já existe hoje e merece
+    /// decisão própria; resolvê-lo por acidente aqui só o esconderia.
+    /// </remarks>
     public async Task<string?> ObterUrlPublicacaoAsync(CancellationToken ct = default)
     {
         var valor = await _repo.ObterConfiguracaoAsync(ChaveUrlPublicacao, ct);
@@ -179,6 +195,67 @@ public sealed class ParametrosService
     public async Task SalvarUrlPublicacaoAsync(string? url, CancellationToken ct = default)
     {
         await _repo.SalvarConfiguracaoAsync(ChaveUrlPublicacao, url?.Trim() ?? string.Empty, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    public const string ChaveDiasPublicacao = "PublicacaoDiasNoAr";
+
+    /// <summary>
+    /// Por quantos dias o documento fica no ar. Ausente ou fora da faixa cai no padrão —
+    /// ver <see cref="PublicacaoDocumento.DiasPublicadoValidos"/>.
+    /// </summary>
+    public async Task<int> ObterDiasPublicacaoAsync(CancellationToken ct = default)
+        => PublicacaoDocumento.DiasPublicadoValidos(
+            int.TryParse(await _repo.ObterConfiguracaoAsync(ChaveDiasPublicacao, ct), out var d)
+                ? d
+                : null);
+
+    public async Task SalvarDiasPublicacaoAsync(int dias, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(
+            ChaveDiasPublicacao,
+            PublicacaoDocumento.DiasPublicadoValidos(dias).ToString(),
+            ct);
+        await _repo.SalvarAsync(ct);
+    }
+
+    // ---- Credenciais do armazenamento de objetos (parcela 53) ----
+    //
+    // Banco, com o ambiente podendo sobrepor — o precedente do SafeID. Ver o <remarks> de
+    // ObterUrlPublicacaoAsync para por que NÃO é variável de ambiente apenas.
+
+    public const string ChaveArmazenamentoEndpoint = "PublicacaoEndpoint";
+    public const string ChaveArmazenamentoRegiao = "PublicacaoRegiao";
+    public const string ChaveArmazenamentoBucket = "PublicacaoBucket";
+    public const string ChaveArmazenamentoChave = "PublicacaoAccessKey";
+    public const string ChaveArmazenamentoSegredo = "PublicacaoSecretKey";
+
+    /// <summary>
+    /// As credenciais do armazenamento S3-compatível, ou <c>null</c> em cada campo que a
+    /// clínica ainda não preencheu.
+    ///
+    /// <b>Devolve os campos crus, sem julgar se o conjunto serve.</b> Quem decide se há
+    /// configuração utilizável é <c>OpcoesArmazenamento.De</c>, num lugar só — espalhar a
+    /// pergunta "está configurado?" faria a tela e o serviço discordarem sobre o mesmo
+    /// banco.
+    /// </summary>
+    public async Task<(string? Endpoint, string? Regiao, string? Bucket, string? Chave, string? Segredo)>
+        ObterCredenciaisArmazenamentoAsync(CancellationToken ct = default)
+        => (await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoEndpoint, ct),
+            await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoRegiao, ct),
+            await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoBucket, ct),
+            await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoChave, ct),
+            await _repo.ObterConfiguracaoAsync(ChaveArmazenamentoSegredo, ct));
+
+    public async Task SalvarCredenciaisArmazenamentoAsync(
+        string? endpoint, string? regiao, string? bucket, string? chave, string? segredo,
+        CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoEndpoint, (endpoint ?? string.Empty).Trim(), ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoRegiao, (regiao ?? string.Empty).Trim(), ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoBucket, (bucket ?? string.Empty).Trim(), ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoChave, (chave ?? string.Empty).Trim(), ct);
+        await _repo.SalvarConfiguracaoAsync(ChaveArmazenamentoSegredo, (segredo ?? string.Empty).Trim(), ct);
         await _repo.SalvarAsync(ct);
     }
 

@@ -44,7 +44,8 @@ public static class PublicacaoDocumento
     public const int TamanhoToken = 26;
 
     /// <summary>
-    /// Por quantos dias o documento fica publicado, a contar da assinatura.
+    /// Por quantos dias o documento fica publicado, a contar da assinatura, quando a clínica
+    /// não escolheu outro valor.
     ///
     /// A receita simples vale ~30 dias na prática da farmácia; 60 dá folga para o paciente
     /// que demora a comprar. Passado o prazo, o objeto sai do ar e a clínica republica com
@@ -53,8 +54,34 @@ public static class PublicacaoDocumento
     ///
     /// Deixar publicado para sempre seria construir um acervo público de dado de saúde, que
     /// é exatamente o que a decisão de publicar tinha de evitar.
+    ///
+    /// <b>Este é PADRÃO, não regra — diferente do prazo de guarda.</b>
+    /// <see cref="GuardaProntuario.AnosDeGuarda"/> é <c>const</c> porque é prazo LEGAL, e
+    /// editável numa tela alguém o baixa para 5 anos sem ninguém perceber. Quanto tempo a
+    /// receita fica no ar é decisão da clínica: quem atende uso contínuo quer 180 dias, quem
+    /// só emite receita simples quer 30. Amarrar isso no código obrigaria a publicar versão
+    /// nova para mudar de ideia.
     /// </summary>
-    public const int DiasPublicado = 60;
+    public const int DiasPublicadoPadrao = 60;
+
+    /// <summary>Piso e teto do que a tela aceita.</summary>
+    /// <remarks>
+    /// O teto de 365 não é preciosismo: publicação é exposição de dado de saúde, e "5 anos
+    /// no ar" digitado por engano num campo livre não deveria ser possível de configurar
+    /// sem que alguém decida por escrito. O piso de 1 evita o zero, que desligaria a
+    /// publicação por um caminho que não é o de desligá-la (limpar o domínio).
+    /// </remarks>
+    public const int DiasPublicadoMinimo = 1;
+    public const int DiasPublicadoMaximo = 365;
+
+    /// <summary>
+    /// Traz o valor configurado para dentro dos limites. Valor ausente ou fora da faixa cai
+    /// no padrão — configuração corrompida não pode deixar documento no ar para sempre.
+    /// </summary>
+    public static int DiasPublicadoValidos(int? configurado)
+        => configurado is int d && d >= DiasPublicadoMinimo && d <= DiasPublicadoMaximo
+            ? d
+            : DiasPublicadoPadrao;
 
     /// <summary>
     /// Os tipos que o paciente leva para fora e que alguém de fora vai conferir.
