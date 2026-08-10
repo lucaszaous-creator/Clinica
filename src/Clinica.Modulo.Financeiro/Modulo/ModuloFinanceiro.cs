@@ -31,12 +31,20 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveFechamento = ChavesSuite.FechamentoCaixa;
     public const string ChaveRecebiveis = ChavesSuite.Recebiveis;
     public const string ChaveConciliacao = ChavesSuite.Conciliacao;
-    public const string ChaveProducao = "producao";
+    public const string ChaveProducao = ChavesSuite.Producao;
     public const string ChavePacotes = "pacotes";
     public const string ChaveEstoque = "estoque";
     public const string ChaveRepasses = "repasses";
     public const string ChaveTaxas = "taxas";
     public const string ChavePlanoContas = "plano-contas";
+
+    // ===== Itens COMPOSTOS (parcela 55) =====
+    // Chave própria, e não a de uma das abas: o item pai e a sub-tela são dois destinos
+    // de navegação diferentes, e reaproveitar a chave faria `NavegacaoSuite.Ir(Caixa)`
+    // ficar ambíguo entre "abra o grupo" e "abra a tela do caixa".
+    public const string ChaveGrupoCaixa = "financeiro-caixa";
+    public const string ChaveGrupoContas = "financeiro-contas";
+    public const string ChaveGrupoRecebimentos = "financeiro-recebimentos";
 
     public string Nome => "Financeiro";
 
@@ -46,6 +54,48 @@ public sealed class ModuloFinanceiro : IModuloApp
     // cl\u00EDnica \u2014, visto de sete \u00E2ngulos.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
+        // ===== Os três grupos de dinheiro =====
+        // Antes eram nove itens soltos. O critério da junção é a PERGUNTA: "quanto entrou
+        // e saiu" (Caixa), "o que vence" (Contas) e "o que a operadora/adquirente ainda
+        // deve" (Recebimentos). Quem trabalha o financeiro faz uma das três por vez.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoCaixa, Rotulo = "Caixa", Glifo = "\uE8AE",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,
+            Abas =
+            [
+                new AbaMenu("Caixa", ChaveCaixa),
+                new AbaMenu("Fechamento", ChaveFechamento),
+                new AbaMenu("Fluxo", ChaveFluxo)
+            ]
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoContas, Rotulo = "Contas", Glifo = "\uE8F1",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,
+            Abas =
+            [
+                // "Quem me deve" vem logo depois de "A pagar/receber" pela razão que já
+                // estava escrita aqui: são a mesma dívida vista de dois lados — uma
+                // responde "o que vence", a outra "quem deve".
+                new AbaMenu("A pagar/receber", ChaveContas),
+                new AbaMenu("Quem me deve", ChaveInadimplencia),
+                new AbaMenu("Plano de contas", ChavePlanoContas)
+            ]
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoRecebimentos, Rotulo = "Recebimentos", Glifo = "\uE896",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro,
+            Abas =
+            [
+                new AbaMenu("Receb\u00EDveis de cart\u00E3o", ChaveRecebiveis),
+                new AbaMenu("Concilia\u00E7\u00E3o", ChaveConciliacao),
+                new AbaMenu("Taxas e impostos", ChaveTaxas)
+            ]
+        },
+
+        // ===== Telas de assunto próprio =====
         new ItemMenuModulo
         {
             Chave = ChavePacotes, Rotulo = "Pacotes / Sess\u00F5es", Glifo = "\uE719",
@@ -53,21 +103,33 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveCaixa, Rotulo = "Financeiro", Glifo = "\uE8C7",
+            Chave = ChaveEstoque, Rotulo = "Estoque", Glifo = "\uE7B8",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
         {
-            Chave = ChaveContas, Rotulo = "Contas a pagar/receber", Glifo = "\uE8F1",
+            Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE8C8",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
-        // Depois de Contas de propósito: são a mesma dívida vista de dois lados. Contas
-        // responde "o que vence"; esta responde "quem me deve", que é a pergunta que
-        // ninguém conseguia fazer — a conta vencida aparecia dissolvida na lista, uma
-        // linha por lançamento, misturada com o que a clínica tem a PAGAR.
+
+        // ===== Sub-telas =====
+        // Elas continuam sendo ITENS, e é isso que faz `NavegacaoSuite.Ir("caixa")`,
+        // `Ir("fechamento-caixa")` e as outras continuarem funcionando — o shell acha o
+        // item pai que as contém e abre a aba certa. Apagá-las daqui devolveria o botão
+        // que não faz nada da 4ª rodada da parcela 37.
+        //
+        // Não levam `Oculto`: quem as esconde é o PAI, e só onde o pai existe. "Resultado
+        // do mês" e "Produção" são abas de "Relatórios / BI", que a DIREÇÃO publica — no
+        // `Clinica.Financeiro.exe` esse pai não existe, e as duas voltam a ser itens de
+        // menu sozinhas, que é como o financeiro sempre as usou.
         new ItemMenuModulo
         {
-            Chave = ChaveInadimplencia, Rotulo = "Quem me deve", Glifo = "\uE8D1",
+            Chave = ChaveCaixa, Rotulo = "Caixa", Glifo = "\uE8C7",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveFechamento, Rotulo = "Fechamento de caixa", Glifo = "\uE8AE",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
@@ -75,16 +137,19 @@ public sealed class ModuloFinanceiro : IModuloApp
             Chave = ChaveFluxo, Rotulo = "Fluxo de caixa", Glifo = "\uEB05",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
-        // Logo depois do Fluxo: os dois olham o mesmo dinheiro em recortes diferentes —
-        // o fluxo distribui no tempo, o resultado fecha o mes e diz quanto sobrou.
         new ItemMenuModulo
         {
-            Chave = ChaveResultado, Rotulo = "Resultado do m\u00EAs", Glifo = "\uE9D9",
+            Chave = ChaveContas, Rotulo = "Contas a pagar/receber", Glifo = "\uE8F1",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
         {
-            Chave = ChaveFechamento, Rotulo = "Fechamento de caixa", Glifo = "\uE8AE",
+            Chave = ChaveInadimplencia, Rotulo = "Quem me deve", Glifo = "\uE8D1",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8FD",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
@@ -99,27 +164,17 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChaveTaxas, Rotulo = "Taxas e impostos", Glifo = "\uE9F9",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveResultado, Rotulo = "Resultado do m\u00EAs", Glifo = "\uE9D9",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9D2",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChaveEstoque, Rotulo = "Estoque", Glifo = "\uE7B8",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChaveRepasses, Rotulo = "Repasses", Glifo = "\uE8C8",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChaveTaxas, Rotulo = "Taxas e impostos", Glifo = "\uE9D9",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8FD",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         }
     ];

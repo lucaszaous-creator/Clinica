@@ -7,34 +7,106 @@ Até a parcela 7 a moldura rica existia só no congelado — sidebar recolhível
 breadcrumb —, e foi exatamente isso que o cliente notou ao comparar o sistema com os
 mockups. As duas agora se equivalem; as diferenças que restam estão anotadas abaixo.
 
-## Shell da SUÍTE (Recepção · Financeiro · Gerente) — parcela 7
+## Shell da SUÍTE (Recepção · Consultório · Financeiro · Gerente) — parcela 7, refeito na 55
 
 ```
-┌──────────┬──────────────────────────────────────────┐
-│ Sidebar  │ Topbar (56px): ☰ · seção › tela · busca  │
-│ 248/56px │            · data · avatar + usuário     │
-│ agrupada ├──────────────────────────────────────────┤
-│ por TEMA │ Conteúdo da tela (margem 24px)           │
-└──────────┴──────────────────────────────────────────┘
+┌────┬───────────┬─────────────────────────────────────┐
+│Rail│ Painel da │ Topbar (56px): 📌 · seção › tela ·  │
+│56px│ categoria │        busca · data · avatar        │
+│    │  250px    ├─────────────────────────────────────┤
+│4   │ (espia no │ Conteúdo da tela (margem 24px)      │
+│cats│  hover,   │                                     │
+│    │ fixa no   │                                     │
+│    │  clique)  │                                     │
+└────┴───────────┴─────────────────────────────────────┘
 ```
 
-- **Grupos TEMÁTICOS, não por módulo.** `GrupoSidebar` (GESTÃO · PACIENTE · FINANCEIRO ·
-  INTELIGÊNCIA) decide onde o item aparece; `ItemMenuModulo.ModuloNome` diz quem constrói a
-  tela. São duas coisas que só pareciam uma — antes o cabeçalho era o nome do módulo, e o
-  Gerente (que carrega os três) via "Recepção / Financeiro / Direção": uma sidebar que
-  explica a arquitetura para quem só quer saber onde mexe no paciente.
-- **Recolhível** 248↔56px (Ctrl+B, 150ms). Recolhe sozinha abaixo de 1100px e volta acima
-  de 1200 — em 1366×768, o monitor do balcão, a sidebar aberta come a grade da agenda.
-  Recolhida, o rótulo vira tooltip: ícone sozinho não diz o que é para quem chegou hoje.
-- **Topbar**: botão de recolher, breadcrumb `SEÇÃO › Tela`, busca global (Ctrl+F) como
-  paleta de seções, data de hoje e o `Avatar` com o nome de quem está logado.
-- **A busca é só de SEÇÕES.** Buscar paciente daqui exigiria o shell saber qual tela de qual
-  módulo abre uma ficha, e o shell não conhece tela nenhuma — quem busca paciente é o
+### Por que deixou de ser uma lista de 248px
+
+A sidebar listava TUDO. No Gerente Geral, que carrega os quatro módulos, isso deu
+**46 itens**: a 36px por item mais os cabeçalhos, **1.824px de menu para 610px de tela** —
+um terço visível e o resto atrás de uma rolagem sem marca de onde se está. Recolher para
+56px (o Ctrl+B de antes) não mostrava um item a mais; só trocava rótulo por ícone na mesma
+lista rolante.
+
+Duas mudanças, e nenhuma sozinha resolvia:
+
+1. **Consolidação em sub-abas** — 46 itens viraram **24**. A regra já estava escrita aqui
+   desde a parcela 7 e tinha sido aplicada uma vez só, no "Faturamento (TISS)".
+2. **Rail + painel de categoria** — a sidebar deixou de listar itens e passou a listar as
+   quatro seções; os itens vivem no painel da categoria escolhida.
+
+Com as duas, o maior painel (FINANCEIRO, 8 itens) cabe inteiro numa tela de 768px.
+
+### O rail
+
+- **56px, sempre visível**, com os quatro `GrupoSidebar` (GESTÃO · PACIENTE · FINANCEIRO ·
+  INTELIGÊNCIA), cada um com **ícone e nome curto**. O nome curto não é enfeite: o rail é
+  o único lugar onde a categoria aparece, e ícone sozinho não diz o que é para quem chegou
+  hoje — é a mesma razão que já punha tooltip na sidebar recolhida, só que tooltip exige
+  parar o mouse e esperar.
+- **Glifo único por categoria e por item visível**, por obrigação. Antes havia **8 glifos
+  repetidos** entre os 46 itens (o mesmo desenho em "Resultado do mês", "Taxas e impostos"
+  e "Meus números"); numa lista com rótulo isso passa, num rail não.
+- **Barra de 3px** na categoria que contém a tela ativa. Sem ela o rail não responde "em
+  que parte do sistema eu estou?" — a sidebar antiga respondia pelo item aceso, que agora
+  vive dentro de um painel que fecha.
+
+### O painel de categoria
+
+- **Espiar**: passar o mouse abre o painel **flutuando** por cima do conteúdo, depois de
+  **180ms**. O atraso existe para atravessar o rail não abrir as quatro categorias em
+  sequência.
+- **Fixar**: o clique (no ícone, no alfinete do painel ou no Ctrl+B) **ancora** o painel,
+  que passa a ocupar coluna e empurrar o conteúdo.
+- ⚠️ **O clique que fixa é a metade que torna o modelo utilizável.** Painel que só existe
+  enquanto o mouse está em cima é um **alvo móvel**: para ir do ícone até o oitavo item o
+  mouse atravessa a borda entre os dois, e num percurso diagonal ele sai da zona por um
+  instante. Por isso há **320ms de folga** antes de fechar (o "corredor") — e por isso o
+  clique fixa.
+- Ancorado, ele **solta sozinho abaixo de 1100px**: 250px de painel em 1366 comem a grade
+  da agenda.
+- **Esc** fecha; o painel também fecha ao escolher uma tela, a menos que esteja fixado —
+  quem fixou quer a lista à mão para ir à próxima.
+
+### Itens compostos (sub-abas)
+
+- `ItemMenuModulo.Abas` é uma lista de `AbaMenu(Rotulo, Chave)`. A aba **não carrega a
+  tela, carrega a CHAVE dela**, e quem resolve é o shell. É essa indireção que deixa um
+  item compor telas de **módulos diferentes** — "Agenda" junta a agenda do balcão
+  (Recepção) com "Minha semana" (Consultório) — sem que um módulo passe a conhecer o outro.
+- O host é o `Componentes/TelaComAbas`, com **criação preguiçosa** (a aba só monta a tela
+  quando é aberta pela primeira vez; o banco é remoto) e o mesmo estilo de `Abas.xaml`.
+- ⚠️ **A tela que virou aba CONTINUA sendo um item de menu.** `NavegacaoSuite.Ir(chave)`
+  procura na lista de itens e, sem achar, **devolve false em silêncio** — foi assim que a
+  4ª rodada da parcela 37 deixou meia dúzia de botões sem abrir nada, com as três redes
+  verdes. O shell resolve a chave de uma sub-tela abrindo **o item pai já na aba certa**,
+  então toda navegação que existia continua valendo. A **checagem 28** cobra que a chave
+  de cada `AbaMenu` seja item declarado de algum módulo.
+- ⚠️ **Quem esconde a sub-tela do menu é o PAI, e só onde o pai existe** — não é uma marca
+  nela. "Resultado do mês" e "Produção" são abas de "Relatórios / BI", que a **Direção**
+  publica; no `Clinica.Financeiro.exe`, que não carrega a Direção, o pai não existe e as
+  duas voltam a ser itens de menu comuns. Sem essa regra, consolidar teria feito telas
+  desaparecerem do único app onde alguém as usa todo dia. (`Oculto` continua significando
+  outra coisa: a tela que nunca deve aparecer sozinha, como as cinco telas clínicas que só
+  existem com paciente escolhido.)
+- **Uma aba não é aba, é a tela**: quando sobra uma só, o shell mostra a tela direto, sem
+  desenhar uma régua de um rótulo.
+- **A abertura vem primeiro no grupo dela.** A ordem dentro do grupo é a de carregamento
+  dos módulos, e o dono da abertura é a Direção, que carrega por último — sem essa exceção
+  o "Painel" abria o app e aparecia no FIM de GESTÃO.
+
+### Topbar
+
+- Alfinete (fixar/soltar, Ctrl+B), breadcrumb `SEÇÃO › Tela`, busca global (Ctrl+F), data
+  de hoje e o `Avatar` com o nome de quem está logado, mais "Trocar usuário".
+- **A busca é só de SEÇÕES** — buscar paciente daqui exigiria o shell saber qual tela de
+  qual módulo abre uma ficha, e o shell não conhece tela nenhuma; quem busca paciente é o
   `SeletorPacienteViewModel`, dentro das telas.
-- **Sub-abas** (`TabControl`, estilo de `Navegacao.xaml`) quando um item de menu da proposta
-  cobre vários assuntos. É o caso de "Faturamento (TISS)" no Gerente: cinco abas sob UM item,
-  porque a proposta tem um item ali e quebrar em cinco entradas encheria a sidebar da direção
-  com o vocabulário do faturamento.
+- ⚠️ **A busca indexa o rótulo das ABAS**, e diz o caminho ("Fechamento de caixa — em
+  Caixa"). Sem isso a consolidação trocaria um problema de rolagem por um pior: telas que
+  se achavam pelo nome sumiriam da busca. Com o rail, ela é a rota direta de quem já sabe
+  o nome da tela.
 
 ## Shell do FATURAMENTO (congelado)
 

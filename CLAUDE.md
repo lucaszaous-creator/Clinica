@@ -1811,6 +1811,65 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.
+- **A sidebar não estava desorganizada: estava CHEIA** (`ItemMenuModulo.Abas`,
+  `TelaComAbas`, rail + painel, parcela 55). A direção reclamou de "muitas abas dentro das
+  categorias" no Gerente, e a medição explicou por quê: o `Clinica.Gerente.exe` carrega os
+  quatro módulos e a dedupe do `ShellViewModel` casa por CHAVE, então a sidebar tinha
+  **46 itens** — a 36px por item mais os cabeçalhos, **1.824px de menu para 610px de
+  tela**. Um terço visível, o resto atrás de rolagem sem marca de onde se está. O
+  `MenuRecolhido` (248↔56px) não ajudava: recolher não mostra um item a mais, só troca
+  rótulo por ícone na mesma lista rolante.
+  A contagem achou mais três coisas: **dois itens "Prescrições"** lado a lado em PACIENTE
+  (`prescricoes` e `consultorio-prescricoes` — chaves diferentes, então a dedupe não
+  pegava), **oito glifos repetidos** entre os itens, e o **"Painel da direção" em 9º** no
+  primeiro grupo, sendo a tela de abertura.
+  O modelo escolhido pelo cliente foi **rail de 56px + painel de categoria**, e ele só é
+  viável junto da **consolidação em sub-abas** — 46 itens viraram 24, e o maior painel
+  (FINANCEIRO, 8) cabe inteiro em 768px. O rail sozinho deixaria um flyout de 16 linhas por
+  cima do conteúdo; a consolidação sozinha ainda pediria 996px. **Nenhuma das duas metades
+  bastava, e é isso que a medida mostra.**
+  As decisões, e a razão de cada uma:
+  (a) **A aba carrega a CHAVE, não a tela** (`AbaMenu(Rotulo, Chave)`), e quem resolve é o
+  shell. É a indireção que permite um item compor telas de **módulos diferentes** —
+  "Relatórios / BI" é publicado pela Direção e inclui duas telas do Financeiro e uma do
+  Consultório — sem que nenhum módulo passe a conhecer o outro, que é a regra da suíte.
+  (b) ⚠️ **A tela que vira aba CONTINUA sendo um item.** `NavegacaoSuite.Ir(chave)` procura
+  na lista de itens e **devolve false em silêncio** quando não acha; o shell passou a
+  resolver a chave de uma sub-tela abrindo **o item pai já na aba certa**, então toda
+  navegação entre módulos continua valendo. É literalmente a regressão da 4ª rodada da
+  parcela 37, que passou pelas três redes — agora com a **checagem 28** cobrando que a
+  chave de cada `AbaMenu` seja item declarado de algum módulo.
+  (c) ⚠️ **Quem esconde a sub-tela é o PAI, e só onde o pai existe** — não é uma marca
+  nela. Um item composto é declarado por UM módulo, mas compõe telas de vários: no
+  `Clinica.Financeiro.exe`, que não carrega a Direção, "Relatórios / BI" não existe, e
+  "Resultado do mês" e "Produção" voltam a ser itens de menu comuns. Esconder por decreto
+  teria feito duas telas sumirem do único app onde alguém as usa todo dia — o defeito
+  recorrente do projeto cometido pela própria correção dele. `Oculto` continua sendo outra
+  coisa: a tela que nunca aparece sozinha (as cinco clínicas, que só existem com paciente).
+  (d) **O clique FIXA o painel, e é a metade que torna o hover utilizável.** Painel que só
+  existe enquanto o mouse está em cima é **alvo móvel**: para ir do ícone até o oitavo item
+  o mouse atravessa a borda entre os dois e, num percurso diagonal, sai da zona por um
+  instante. Daí os 180ms de intenção para abrir, os **320ms de folga do "corredor"** antes
+  de fechar, e o alfinete dentro do próprio painel — mandar a pessoa de volta ao ícone para
+  prender a lista é o movimento que este modelo cobra caro.
+  (e) **Glifo único por item visível**, agora por obrigação: numa lista com rótulo, oito
+  desenhos repetidos passam; num rail, o ícone é a única identificação.
+  (f) **A busca indexa o rótulo das ABAS** e diz o caminho ("Fechamento de caixa — em
+  Caixa"). Consolidação que tira telas do Ctrl+F troca um problema de rolagem por um pior.
+  (g) **A abertura vem primeira no grupo dela** — a ordem dentro do grupo é a de
+  carregamento dos módulos, e o dono da abertura é a Direção, que carrega por último: sem a
+  exceção, o "Painel" abria o app e aparecia no FIM de GESTÃO. É a desordem que a parcela
+  22 corrigiu, um nível abaixo.
+  (h) **Uma aba não é aba, é a tela**: sobrando uma só, o shell mostra a tela direto.
+  E duas que NÃO foram feitas: "Faturamento (TISS)" **não virou aba de nada** (ele já é uma
+  tela de cinco abas por dentro, e pendurá-lo sob outra régua daria abas dentro de abas, o
+  que é pior do que os dois itens que se economizaria); e o `Clinica.Desktop` **não foi
+  tocado** — ele tem o shell dele, e a Fase 4 segue cancelada.
+  ⚠️ A lição de rede: a **checagem 19 disparou no COMENTÁRIO** que explicava a regra, porque
+  ela casava `Ir("literal")` sem tirar comentário. Checagem que reclama de prosa é checagem
+  que alguém desliga — e aí ela para de pegar o defeito de verdade. Virou `_sem_comentarios`
+  (que PULA as strings, para `"https://…"` não virar comentário).
+
 - **Varredura do Gerente: o enum vazava onde a checagem não olha, e a permissão tinha
   UMA barreira** (parcela 54). A checagem 20 só examina `ComboBox`, e por isso não via o
   caminho mais comum do defeito da parcela 41 — **interpolação em `$"..."` dentro do

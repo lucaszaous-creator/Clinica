@@ -17,15 +17,15 @@ namespace Clinica.Recepcao.Modulo;
 /// </summary>
 public sealed class ModuloRecepcao : IModuloApp
 {
-    public const string ChavePainel = "painel-recepcao";
-    public const string ChaveAgenda = "agenda-recepcao";
+    public const string ChavePainel = ChavesSuite.PainelRecepcao;
+    public const string ChaveAgenda = ChavesSuite.AgendaRecepcao;
     public const string ChaveFila = "fila";
     public const string ChaveNovoAtendimento = "novo-atendimento";
     public const string ChaveConsultas = "consultas";
-    public const string ChavePacientes = "pacientes-recepcao";
+    public const string ChavePacientes = ChavesSuite.PacientesRecepcao;
     public const string ChaveProntuario = "prontuario";
-    public const string ChavePrescricoes = "prescricoes";
-    public const string ChaveRetorno = "retorno-pacientes";
+    public const string ChavePrescricoes = ChavesSuite.PrescricoesRecepcao;
+    public const string ChaveRetorno = ChavesSuite.RetornoPacientes;
 
     /// <summary>
     /// A sala de infusão (parcela 48). A chave é a MESMA que o Consultório publica —
@@ -35,85 +35,52 @@ public sealed class ModuloRecepcao : IModuloApp
     public const string ChaveDocumentos = ChavesSuite.Documentos;
     public const string ChaveEquipe = "equipe";
 
+    // ===== Itens COMPOSTOS (parcela 55) =====
+    public const string ChaveGrupoAgenda = "agenda";
+    public const string ChaveGrupoPacientes = "pacientes";
+    public const string ChaveGrupoAtendimento = "atendimento";
+    public const string ChaveGrupoPrescricoes = "receituario";
+
     public string Nome => "Recepção";
 
     // A permiss\u00E3o exigida por item entrou na parcela 5: quem n\u00E3o a tem n\u00E3o v\u00EA o item
     // na sidebar. Perfis de Recep\u00E7\u00E3o e Profissional j\u00E1 nascem com as daqui.
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
+        // O painel do balcão abre o `Clinica.Recepcao.exe`, e é ABA de "Painel" no Gerente
+        // Geral — onde a marca de abertura é a do painel da DIREÇÃO, como a parcela 22
+        // estabeleceu. Aqui ele é o primeiro item porque, sem a Direção carregada, o item
+        // pai não existe e este volta a ser menu: é ele que a recepção vê ao entrar.
         new ItemMenuModulo
         {
             Chave = ChavePainel, Rotulo = "In\u00EDcio", Glifo = "\uE80F",
-            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda, Inicial = true
         },
+        // ===== GESTÃO =====
+        // A agenda do balcão e a semana de quem atende respondem a MESMA pergunta ("quando
+        // cabe"), em recortes diferentes. No `Clinica.Recepcao.exe` o Consultório não é
+        // carregado, sobra uma aba só, e o shell mostra a tela direto — sem régua de uma
+        // aba só.
         new ItemMenuModulo
         {
-            Chave = ChaveAgenda, Rotulo = "Agenda", Glifo = "\uE787",
-            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+            Chave = ChaveGrupoAgenda, Rotulo = "Agenda", Glifo = "\uE787",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda,
+            Abas =
+            [
+                new AbaMenu("Dia", ChaveAgenda),
+                new AbaMenu("Semana do profissional", ChavesSuite.ConsultorioSemana)
+            ]
         },
         new ItemMenuModulo
         {
             Chave = ChaveFila, Rotulo = "Recep\u00E7\u00E3o / Check-in", Glifo = "\uE8FD",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
         },
-        new ItemMenuModulo
-        {
-            Chave = ChavePacientes, Rotulo = "Pacientes / CRM", Glifo = "\uE77B",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
-        },
-        // Novo atendimento e Consultas vieram do app de FATURAMENTO na parcela 46.
-        //
-        // Nenhum dos dois era feature nova: os dois existiam, no posto errado. Lançar
-        // atendimento AVULSO (quem chegou sem horário) e renovar a consulta do convênio
-        // são atos que se fazem com o PACIENTE NA FRENTE, e moravam na máquina de quem
-        // não recebe ninguém. A recepção via o selo "consulta a renovar" no cartão da
-        // agenda desde a parcela 44 e não tinha por onde renovar.
-        //
-        // O circuito com o faturamento não mudou: os dois caminhos do atendimento (este e
-        // a Fila → Finalizar) desembocam em AtendimentoService.LancarAsync, que é ponto
-        // único e grava Atendimento + CodigoFaturamento pelas regras do convênio.
-        new ItemMenuModulo
-        {
-            Chave = ChaveNovoAtendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChaveConsultas, Rotulo = "Consultas (conv\u00EAnio)", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
-        },
-        // Prontu\u00E1rio e Prescri\u00E7\u00F5es s\u00E3o itens de PRIMEIRO N\u00CDVEL na proposta e, at\u00E9 aqui,
-        // s\u00F3 existiam por dentro da ficha do paciente \u2014 sem entrada de menu em lugar
-        // nenhum. Quem abria o app procurando "Prontu\u00E1rio" n\u00E3o achava, e concluiu com
-        // raz\u00E3o que n\u00E3o tinha sido entregue.
-        new ItemMenuModulo
-        {
-            Chave = ChaveProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChavePrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
-        },
-        // Chamar de volta quem parou de vir (parcela 48). A rodada de recall existe desde
-        // a parcela 5 e a lista "quem parou de vir" desde a 32, e as duas moravam só no
-        // GERENTE — mas quem telefona para o paciente é o BALCÃO. É o mesmo argumento que
-        // trouxe a rodada de confirmação para cá na parcela 26, aplicado à outra ponta do
-        // relacionamento: lá se evita o buraco na agenda de amanhã; aqui se recupera o
-        // paciente que sumiu.
-        new ItemMenuModulo
-        {
-            Chave = ChaveRetorno, Rotulo = "Retorno de pacientes", Glifo = "\uE8AF",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.GerenciarCampanhas
-        },
         // A SALA DE INFUSÃO, onde a ENFERMAGEM alcança (parcela 48).
         //
         // `PerfilAcesso.Enfermagem` e `Permissao.ChecarPrescricao` existem desde a parcela
         // 42, e a única tela para checar estava no `Clinica.Modulo.Clinico` — carregado
         // pelo exe do MÉDICO. A técnica que administra a infusão teria de usar o app dele.
-        // É o defeito recorrente do projeto na variante "a porta está no módulo de quem
-        // não usa", com o agravante de a permissão já existir e não levar a lugar nenhum.
         //
         // A tela não foi copiada: ela SUBIU para o shell (`Componentes/SalaInfusaoView`),
         // como o mapa corporal e a emissão de documento na parcela 36. Os dois módulos
@@ -124,22 +91,116 @@ public sealed class ModuloRecepcao : IModuloApp
             Chave = ChaveSalaInfusao, Rotulo = "Sala de infusão", Glifo = "\uE9D5",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.ChecarPrescricao
         },
-        // As nove folhas do mockup num lugar só (parcela 24). Existiam todas e nenhuma
-        // estava no mesmo lugar: quatro dentro da ficha do paciente, três no botão certo
-        // da aba certa dessa ficha, o recibo no Caixa, o orçamento só dentro de um pacote
-        // vendido e o fechamento do período só no app de faturamento. Quem foi treinado no
-        // mockup procurava "Documentos" e não achava.
-        new ItemMenuModulo
-        {
-            Chave = ChaveDocumentos, Rotulo = "Documentos", Glifo = "\uE8B7",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
-        },
         // Cadastro da equipe \u00E9 gest\u00E3o da cl\u00EDnica, n\u00E3o do paciente: quem mexe aqui est\u00E1
         // organizando quem atende e onde, n\u00E3o atendendo algu\u00E9m.
         new ItemMenuModulo
         {
             Chave = ChaveEquipe, Rotulo = "Profissionais e salas", Glifo = "\uE716",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.GerenciarEquipe
+        },
+
+        // ===== PACIENTE =====
+        // A lista do balcão e a carteira de quem atende são a mesma lista com recortes
+        // diferentes — e apareciam como dois itens quase homônimos no Gerente Geral.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoPacientes, Rotulo = "Pacientes", Glifo = "\uE77B",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,
+            Abas =
+            [
+                new AbaMenu("Todos", ChavePacientes),
+                new AbaMenu("Meus pacientes", ChavesSuite.ConsultorioPacientes)
+            ]
+        },
+        // Novo atendimento e Consultas vieram do app de FATURAMENTO na parcela 46.
+        //
+        // Nenhum dos dois era feature nova: os dois existiam, no posto errado. Lançar
+        // atendimento AVULSO (quem chegou sem horário) e renovar a consulta do convênio
+        // são atos que se fazem com o PACIENTE NA FRENTE, e moravam na máquina de quem
+        // não recebe ninguém.
+        //
+        // Os dois viraram abas do mesmo item porque são o mesmo ato visto em dois tempos:
+        // lançar a sessão de hoje e cuidar da consulta que a autoriza.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoAtendimento, Rotulo = "Atendimento", Glifo = "\uEB51",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento,
+            Abas =
+            [
+                new AbaMenu("Novo atendimento", ChaveNovoAtendimento),
+                new AbaMenu("Consultas de conv\u00EAnio", ChaveConsultas)
+            ]
+        },
+        // Prontu\u00E1rio e Prescri\u00E7\u00F5es s\u00E3o itens de PRIMEIRO N\u00CDVEL na proposta e, at\u00E9 a
+        // parcela 24, s\u00F3 existiam por dentro da ficha do paciente.
+        new ItemMenuModulo
+        {
+            Chave = ChaveProntuario, Rotulo = "Prontu\u00E1rio", Glifo = "\uE7C3",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
+        },
+        // ⚠️ Aqui morava uma DUPLICATA: "Prescrições" era publicado por este módulo e
+        // pelo Consultório com chaves diferentes (`prescricoes` e
+        // `consultorio-prescricoes`), então a dedupe por chave do `ShellViewModel` não
+        // pegava, e o Gerente Geral mostrava dois itens com o MESMO rótulo, um do lado do
+        // outro, em PACIENTE. As duas telas existem e fazem coisas próximas de postos
+        // diferentes — viraram abas, que é onde a diferença se lê.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoPrescricoes, Rotulo = "Prescri\u00E7\u00F5es", Glifo = "\uE8A5",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente,
+            Abas =
+            [
+                new AbaMenu("Receitu\u00E1rio", ChavePrescricoes),
+                new AbaMenu("No consult\u00F3rio", ChavesSuite.ConsultorioPrescricoes),
+                new AbaMenu("Infus\u00E3o", ChavesSuite.ConsultorioPrescricaoInfusao)
+            ]
+        },
+        // As nove folhas do mockup num lugar só (parcela 24). Existiam todas e nenhuma
+        // estava no mesmo lugar: quatro dentro da ficha do paciente, três no botão certo
+        // da aba certa dessa ficha, o recibo no Caixa, o orçamento só dentro de um pacote
+        // vendido e o fechamento do período só no app de faturamento.
+        new ItemMenuModulo
+        {
+            Chave = ChaveDocumentos, Rotulo = "Documentos", Glifo = "\uE8B7",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
+        },
+
+        // ===== Sub-telas =====
+        // Continuam sendo itens: `NavegacaoSuite` navega para várias delas por chave, e a
+        // dedupe do shell só some com a linha quando o item PAI está presente. Sem o pai
+        // (num exe que não carrega quem o publica), elas voltam a ser menu.
+        new ItemMenuModulo
+        {
+            Chave = ChaveAgenda, Rotulo = "Agenda", Glifo = "\uE787",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerAgenda
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChavePacientes, Rotulo = "Pacientes / CRM", Glifo = "\uE77B",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveNovoAtendimento, Rotulo = "Novo atendimento", Glifo = "\uEB51",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveConsultas, Rotulo = "Consultas (conv\u00EAnio)", Glifo = "\uE8A5",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.LancarAtendimento
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChavePrescricoes, Rotulo = "Receitu\u00E1rio", Glifo = "\uE8A5",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
+        },
+        // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
+        // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a
+        // Direção está carregada.
+        new ItemMenuModulo
+        {
+            Chave = ChaveRetorno, Rotulo = "Retorno de pacientes", Glifo = "\uE8AF",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.GerenciarCampanhas
         }
     ];
 
