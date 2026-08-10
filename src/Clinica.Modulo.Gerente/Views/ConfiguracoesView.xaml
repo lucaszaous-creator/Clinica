@@ -183,9 +183,12 @@
                         <!-- A tela ABRE dizendo como está. Sem esta linha, "desligada" e
                              "ligada e quebrada" têm a mesma aparência, e a segunda só
                              apareceria na primeira receita assinada. -->
-                        <Border Style="{StaticResource AlertaInfo}" Margin="0,12,0,0">
-                            <TextBlock Text="{Binding SituacaoPublicacao}" TextWrapping="Wrap" />
-                        </Border>
+                        <!-- Contexto permanente é LINHA, não faixa. A frase muda de
+                             conteúdo (ligada / sem armazenamento / desligada), mas está
+                             SEMPRE lá — então uma moldura em volta dela é permanente. -->
+                        <TextBlock Text="{Binding SituacaoPublicacao}" TextWrapping="Wrap"
+                                   Style="{StaticResource TextoSuave}"
+                                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0" />
 
                         <StackPanel Margin="0,14,0,0">
                             <TextBlock Text="Domínio da clínica" Style="{StaticResource Rotulo}"
@@ -200,10 +203,10 @@
 
                         <!-- Trocar o domínio depois NÃO conserta o que já saiu: a URL fica
                              selada dentro do PDF assinado, que não pode ser regerado. -->
-                        <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0">
-                            <TextBlock TextWrapping="Wrap"
-                                       Text="Escolha o domínio com calma: o endereço fica gravado dentro de cada PDF assinado, e trocá-lo depois faz os QR Codes já impressos pararem de funcionar. Documento assinado não pode ser regerado — teria de ser cancelado e emitido de novo." />
-                        </Border>
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,6,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="Escolha o domínio com calma: o endereço fica gravado dentro de cada PDF assinado, e trocá-lo depois faz os QR Codes já impressos pararem de funcionar. Documento assinado não pode ser regerado — teria de ser cancelado e emitido de novo." />
 
                         <StackPanel Margin="0,14,0,0" MaxWidth="260" HorizontalAlignment="Left">
                             <TextBlock Text="Dias no ar" Style="{StaticResource Rotulo}"
@@ -456,10 +459,10 @@
                                    FontSize="{StaticResource Fonte.Legenda}"
                                    Text="Conferir abre o arquivo e conta o que há dentro dele, sem alterar nada. Faça isso de vez em quando: backup que ninguém sabe se prestou só se descobre no dia em que ele é necessário — que é o único dia em que não dá para descobrir." />
 
-                        <Border Style="{StaticResource AlertaInfo}" Margin="0,12,0,0">
-                            <TextBlock TextWrapping="Wrap" MaxWidth="820" FontSize="{StaticResource Fonte.Legenda}"
-                                       Text="Para RESTAURAR um backup, fale com o suporte. A restauração substitui a base inteira, só entra numa base vazia e é feita junto com quem acompanha a operação — por isso ela não tem botão aqui." />
-                        </Border>
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   Text="Para RESTAURAR um backup, fale com o suporte. A restauração substitui a base inteira, só entra numa base vazia e é feita junto com quem acompanha a operação — por isso ela não tem botão aqui." />
                     </StackPanel>
                 </Border>
             </StackPanel>

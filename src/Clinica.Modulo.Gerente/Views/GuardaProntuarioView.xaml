@@ -130,19 +130,19 @@
                                     IsEnabled="{Binding PodeExportar}"
                                     HorizontalAlignment="Left" MinWidth="220" />
 
-                            <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0">
-                                <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                                           FontSize="{StaticResource Fonte.Legenda}"
-                                           Text="A exportação leva dado de saúde de todos os pacientes em arquivos que qualquer pessoa abre. Grave em local controlado, entregue só a quem tem direito de receber, e lembre que quem recebe assume junto a obrigação de guardar por 20 anos." />
-                            </Border>
+                            <!-- Linha, não faixa: este aviso nunca sai da tela, e faixa
+                                 permanente vira moldura (REGRA DE LEIAUTE do README). -->
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="A exportação leva dado de saúde de todos os pacientes em arquivos que qualquer pessoa abre. Grave em local controlado, entregue só a quem tem direito de receber, e lembre que quem recebe assume junto a obrigação de guardar por 20 anos." />
                         </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource AlertaInfo}" Margin="0,12,0,0">
-                        <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                                   FontSize="{StaticResource Fonte.Legenda}"
-                                   Text="Não há botão para ELIMINAR prontuário vencido, e isso é decisão: os 20 anos são um piso de guarda, não um agendamento de destruição. Cumprido o prazo, o prontuário fica elegível — eliminar é decisão da clínica com a comissão de revisão prevista no art. 7º da Lei 13.787/2018, e não tem volta." />
-                    </Border>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               HorizontalAlignment="Left" MaxWidth="820" Margin="0,10,0,0"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Text="Não há botão para ELIMINAR prontuário vencido, e isso é decisão: os 20 anos são um piso de guarda, não um agendamento de destruição. Cumprido o prazo, o prontuário fica elegível — eliminar é decisão da clínica com a comissão de revisão prevista no art. 7º da Lei 13.787/2018, e não tem volta." />
                 </StackPanel>
             </ScrollViewer>
         </DockPanel>
