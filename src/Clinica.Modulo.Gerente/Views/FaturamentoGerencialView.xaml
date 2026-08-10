@@ -23,6 +23,14 @@
                 <ComboBox ItemsSource="{Binding Periodos}" SelectedItem="{Binding PeriodoSelecionado}"
                           MinWidth="150" />
                 <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+                <!-- A folha que vai ao contador. Estava só na Central de Documentos, que é
+                     da RECEPÇÃO — a direção teria de pedir ao balcão para gerar o próprio
+                     fechamento. Fica aqui porque o período já foi escolhido ao lado. -->
+                <Button Content="Fechamento em PDF"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding GerarFechamentoCommand}"
+                        IsEnabled="{Binding PodeGerarFechamento}"
+                        Margin="8,0,0,0" MinWidth="150" />
             </StackPanel>
         </Grid>
 
