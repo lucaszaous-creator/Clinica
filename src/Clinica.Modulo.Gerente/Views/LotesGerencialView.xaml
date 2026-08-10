@@ -23,10 +23,12 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,12">
-            <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                       Text="Somente leitura. Gerar, enviar e registrar retorno continuam no app de faturamento: o número do lote é uma sequência, e dois apps gerando em paralelo produziriam dois lotes com o mesmo número — a operadora recusa o segundo, e o erro só apareceria semanas depois." />
-        </Border>
+        <!-- Linha sob o subtítulo, não faixa: o aviso é permanente, e faixa permanente
+             gasta 70 px para sempre e vira moldura acima da tabela. -->
+        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   HorizontalAlignment="Left" MaxWidth="820" Margin="0,0,0,12"
+                   FontSize="{StaticResource Fonte.Legenda}"
+                   Text="Somente leitura. Gerar, enviar e registrar retorno continuam no app de faturamento: o número do lote é uma sequência, e dois apps gerando em paralelo produziriam dois lotes com o mesmo número — a operadora recusa o segundo, e o erro só apareceria semanas depois." />
 
         <Border Style="{StaticResource Card}">
             <DockPanel>

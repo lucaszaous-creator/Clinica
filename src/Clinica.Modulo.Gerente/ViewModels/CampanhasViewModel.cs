@@ -229,6 +229,10 @@ public sealed partial class CampanhasViewModel : ObservableObject
     {
         try
         {
+            // Segunda barreira. O item da sidebar já exige GerenciarCampanhas, mas isso é
+            // UMA barreira: atalho de teclado e navegação por chave passam direto por ela.
+            _sessao.Exigir(Permissao.GerenciarCampanhas, "rodar uma campanha");
+
             Carregando = true;
             using var scope = _escopos.CreateScope();
             var campanhas = scope.ServiceProvider.GetRequiredService<CampanhaService>();
@@ -276,6 +280,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
 
         await ExecutarAsync(async campanhas =>
         {
+            _sessao.Exigir(Permissao.GerenciarCampanhas, "registrar o envio da mensagem");
             await campanhas.RegistrarEnvioAsync(linha.Id, _sessao.Operador);
             _snackbar.Sucesso("Envio registrado.");
         });
@@ -309,6 +314,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
 
         await ExecutarAsync(async campanhas =>
         {
+            _sessao.Exigir(Permissao.GerenciarCampanhas, "registrar a nota do paciente");
             await campanhas.RegistrarNotaAsync(linha.Id, nota, partes.Length > 1 ? partes[1] : null);
             _snackbar.Sucesso("Nota registrada.");
         });
@@ -325,6 +331,7 @@ public sealed partial class CampanhasViewModel : ObservableObject
 
         await ExecutarAsync(async campanhas =>
         {
+            _sessao.Exigir(Permissao.GerenciarCampanhas, "registrar a resposta do paciente");
             await campanhas.RegistrarRespostaAsync(linha.Id, comentario);
             _snackbar.Sucesso("Resposta registrada.");
         });

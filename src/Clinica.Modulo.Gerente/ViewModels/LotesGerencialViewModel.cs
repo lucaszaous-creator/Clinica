@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Domain.Entities;
@@ -24,7 +25,7 @@ public sealed class LinhaLote
     {
         Numero = $"Lote {l.Numero}",
         Geracao = l.DataGeracao.ToString("dd/MM/yyyy"),
-        Situacao = l.Status.ToString(),
+        Situacao = RotulosEnum.De(l.Status),
         Guias = $"{l.Codigos.Count} guia(s)",
         Envio = l.DataEnvio is { } envio
             ? $"enviado em {envio:dd/MM/yyyy}"

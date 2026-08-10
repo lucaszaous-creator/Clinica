@@ -30,7 +30,10 @@ public sealed class LinhaPreco
         // O NOME da operadora na tela, o código no cadastro: o nome é o que a direção
         // reconhece, o código é a identidade que a conciliação casa.
         Convenio = CatalogoConvenios.Nome(p.ConvenioCodigo),
-        Descricao = p.Especialidade is { } e ? $"{p.Tipo} ({e})" : p.Tipo.ToString(),
+        // Sem RotulosEnum a tela escreveria "ConsultaEspecialidade" e "ClinicaDaDor".
+        Descricao = p.Especialidade is { } e
+            ? $"{RotulosEnum.De(p.Tipo)} ({RotulosEnum.De(e)})"
+            : RotulosEnum.De(p.Tipo),
         Valor = p.Valor.ToString("C"),
         Vigencia = p.Vigencia,
         Situacao = p.Ativo ? "Ativo" : "Inativo",

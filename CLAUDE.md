@@ -1381,6 +1381,76 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   O que o código **não** consegue garantir vai escrito na tela e no documento, não numa
   promessa: nenhum caminho de arquivo diz onde ele fisicamente está, então "grave fora da
   máquina" é orientação à clínica.
+- **O QR da receita e a escolha do provedor não podem estar no mesmo caminho crítico**
+  (`PublicacaoDocumento`, `ArmazenamentoS3`, parcela 53): a receita assinada é conferida no
+  ITI pelo **envio do arquivo**, o que obriga o paciente a mandar o PDF para a farmácia — e
+  é onde o balcão trava. Publicado, o farmacêutico escaneia o QR e abre. O motor saiu antes
+  do provedor estar escolhido, e a lição é essa: **uma implementação para todo S3-compatível**
+  (Magalu, R2, AWS, MinIO), com endpoint em campo de tela. Escolher fornecedor virou
+  preencher um campo, não publicar versão.
+  O que decidiu usar `AWSSDK.S3` em vez de assinar SigV4 à mão foi o **path-style
+  addressing** (`ForcePathStyle`): o padrão do SDK é `bucket.host/objeto` e quase todo
+  S3-compatível exige `host/bucket/objeto` — uma linha contra um caso de borda que só
+  apareceria no provedor do cliente.
+  **DOMÍNIO e ENDPOINT são dois campos porque são duas coisas.** O domínio é o endereço
+  público que vai **selado dentro do QR do PDF assinado**; o endpoint é para onde o sistema
+  escreve. Trocar de provedor tem de ser mexer no CNAME — se o QR apontasse para o
+  endereço do provedor, mudar de fornecedor mataria **toda receita que os pacientes já têm
+  na mão**, e elas não podem ser regeradas (a assinatura sela os bytes). É a mesma razão
+  pela qual o token é **estável na renovação**.
+  A **janela de dias é configurável e o prazo de guarda não**: publicação é política da
+  clínica (30 dias para receita simples, 180 para uso contínuo), guarda é prazo LEGAL — daí
+  `GuardaProntuario.AnosDeGuarda` continuar `const`. Configuração corrompida cai no padrão,
+  porque valor inválido não pode deixar dado de saúde no ar para sempre.
+  O **"Testar conexão" grava e apaga de verdade**, em vez de listar o balde: um teste que
+  só lê passaria com credencial de leitura, com balde inexistente e — o caso que importa —
+  com provedor que recusa a ACL de leitura pública, que é exatamente o que a publicação
+  usa. Teste que não exercita o mesmo caminho atesta uma coisa e a receita falha por outra.
+  E gravar-sem-apagar tem **frase própria**: a publicação funcionaria e a expiração não.
+- **Credencial de serviço externo mora no BANCO, com o ambiente podendo sobrepor**
+  (parcela 53 — correção de um comentário meu da 52). Eu havia escrito que as credenciais
+  do armazenamento iriam por variável de ambiente, "porque segredo em tabela de
+  configuração é segredo que sai no backup". Errado por duas vias, e as duas valem para a
+  próxima integração:
+  (a) **contradiz o que o projeto já decidiu**, com o motivo escrito no
+  `ProvedorOpcoesSafeID` — variável de ambiente é **ritual de instalação**, e uma clínica
+  não abre o Prompt de Comando em cada máquina. Aqui seria pior que no SafeID: quem assina
+  documento é o Consultório **e** a Recepção, então a publicação funcionaria onde alguém
+  digitou e falharia **calada** nas outras;
+  (b) **descrevia como seguro um padrão que o sistema não segue** — o `client_secret` do
+  SafeID já está gravado em claro nessa mesma tabela. Resolver o segredo-no-backup de
+  raspão, numa integração nova, só o esconderia: ele é problema real, separado, e continua
+  em aberto.
+  A regra que fica: **quando for justificar uma decisão pelo "é mais seguro", confira se o
+  resto do sistema faz assim.** Se não faz, ou você está corrigindo o sistema inteiro — e
+  então corrija — ou está inventando uma exceção que ninguém vai manter.
+- **A suíte chamava o snackbar 143 vezes e nunca teve onde mostrá-lo** (parcela 53 — o
+  cliente clicou em "Testar conexão" e o sistema não respondeu nada). O teste tinha
+  **funcionado**; o que não existia era a mensagem. O `SnackbarService` é registrado no
+  `ShellBootstrap`, injetado em quase toda ViewModel da suíte e chamado 143 vezes — e o
+  `ShellWindow.xaml` **nunca renderizou o host**. Ele só existe no `MainWindow` do
+  FATURAMENTO, que é de onde o componente veio. Todo "salvo com sucesso" da Recepção, do
+  Financeiro, do Gerente e do Consultório caiu no vazio desde que a suíte nasceu.
+  É o defeito recorrente do projeto numa variante nova: não é dado gravado sem leitor nem
+  capacidade sem porta — é **SAÍDA SEM TELA**. E é o mais discreto de todos porque **nada
+  falha**: o serviço marshala pelo Dispatcher, atualiza o próprio estado, e ninguém observa
+  esse estado. Build verde, 1374 testes verdes, e a única forma de notar é clicar em Salvar
+  e reparar que a tela não respondeu. **Ao portar um componente entre os dois design
+  systems, porte o HOST junto do serviço** — metade de um par não avisa que está sozinha.
+- **"Consigo escrever?" e "dá para LER pela URL?" são testes diferentes** (parcela 53): o
+  `TestarConexaoAsync` grava e apaga — prova credencial, balde e ACL. Ele **não** prova que
+  o objeto abre pelo endereço público, e essa é a falha que chega ao balcão: o PUT passa, a
+  ACL é aceita, a URL pública do balde está desligada, e o farmacêutico leva 403 com a
+  receita na mão. Daí o `EnviarExemploAsync`, que sobe **um** PDF e **não apaga**,
+  devolvendo o endereço para abrir no navegador. É PDF de verdade e não `.txt` porque
+  metade do que se prova é que o celular **abre** em vez de baixar; usa token real para o
+  endereço ter a forma exata do de uma receita; e o conteúdo é fixo, sem paciente — publicar
+  documento real para conferir infraestrutura seria expor dado de saúde para testar
+  endereço.
+  **Validado ao vivo contra o Cloudflare R2** (ago/2026): gravação, ACL de leitura pública,
+  exclusão e abertura do PDF pela URL. O que continua sem prova de campo é a assinatura, que
+  depende de e-CPF — e **sem certificado a publicação não funciona em produção também**, já
+  que é a assinatura que dispara o upload.
 - **⛔ ANTES DE ESCREVER QUALQUER XAML, LEIA A REGRA DE LEIAUTE NO `README.md`** (topo do
   arquivo, seção "A REGRA DE LEIAUTE"). Ela é a consolidação de **seis** reprovações do
   cliente, todas pelo mesmo defeito: **tela picada em várias caixas empilhadas**. As três
@@ -1741,3 +1811,27 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.
+- **Varredura do Gerente: o enum vazava onde a checagem não olha, e a permissão tinha
+  UMA barreira** (parcela 54). A checagem 20 só examina `ComboBox`, e por isso não via o
+  caminho mais comum do defeito da parcela 41 — **interpolação em `$"..."` dentro do
+  ViewModel**. Sete pontos escreviam o identificador na tela: `"ConsultaEspecialidade"` na
+  linha da guia em Pendências, NC, Glosas e Tabela de preço; `"ClinicaDaDor"` na
+  especialidade; e o **código** do convênio na frase que a direção lê em Rentabilidade
+  ("rende mais: UnimedIntercambio" — o defeito da parcela 50 de novo, agora em texto
+  montado). `RotulosEnum.De` e `CatalogoConvenios.Nome` já resolviam tudo; as telas não os
+  usavam. A lição: **ao procurar enum vazando, procure a INTERPOLAÇÃO, não só o binding** —
+  `{p.Tipo}` dentro de uma string é invisível para qualquer checagem de XAML.
+  `Especialidade` ganhou rótulo porque é o único cujo humanizador não salva: ele devolve
+  "Clinica da dor" sem acento, e isso sai impresso em relatório que vai para fora.
+  Do lado da permissão, **`UsuarioEdicaoViewModel` criava usuário, definia senha e alterava
+  permissões sem um único `Exigir`** — e é a tela onde a segunda barreira vale mais, porque
+  quem mexe em permissão **pode conceder permissão a si mesmo**. A parcela 51 derrubou essa
+  suposição no `AcessosViewModel` ("só se chega por ali") e ela ficou de pé na janela que
+  ele abre. Campanhas tinha o mesmo buraco em quatro caminhos de escrita.
+  **O que a varredura conferiu e NÃO era defeito**, para a próxima não refazer: coluna de
+  300–330 px é a coluna de **Ações** em tabela de largura inteira, não faixa lateral (o
+  falso positivo da parcela 49); `StackPanel` horizontal sem `VerticalAlignment` só estica
+  botão quando o pai é linha de `Grid` — dentro de painel vertical não há defeito; e
+  `LotesGerencialViewModel` ser somente leitura é **decisão** (o número do lote é sequência,
+  e dois apps gerando em paralelo produzem lotes duplicados que a operadora recusa semanas
+  depois).

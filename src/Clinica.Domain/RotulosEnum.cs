@@ -186,8 +186,31 @@ public static class RotulosEnum
             _ => "Consulta de especialidade"
         },
 
+        // "SemGlosa" é o identificador escapando para a coluna Situação da tela de
+        // Glosas — a direção lê "SemGlosa" onde deveria ler "sem glosa".
+        StatusGlosa g => g switch
+        {
+            StatusGlosa.SemGlosa => "sem glosa",
+            StatusGlosa.Glosada => "glosada",
+            StatusGlosa.Reapresentada => "reapresentada",
+            _ => "recuperada"
+        },
+
         ModalidadeAtendimento m => CatalogoModalidades.Nome(m.ToString()),
         Convenio c => CatalogoConvenios.Nome(c),
+
+        // "ClinicaDaDor" é o único cujo humanizador não salva: ele devolveria
+        // "Clinica da dor", sem o acento, e o nome da especialidade sai impresso em
+        // relatório que a direção manda para fora.
+        Especialidade e => e switch
+        {
+            Especialidade.Psiquiatria => "Psiquiatria",
+            Especialidade.Geriatria => "Geriatria",
+            Especialidade.Ginecologia => "Ginecologia",
+            Especialidade.Acupuntura => "Acupuntura",
+            Especialidade.ClinicaDaDor => "Clínica da dor",
+            _ => "Endocrinologia"
+        },
 
         // Não é enum: devolve o próprio texto, para o conversor poder ser usado sem medo.
         var outro when outro.GetType().IsEnum is false => outro.ToString() ?? string.Empty,

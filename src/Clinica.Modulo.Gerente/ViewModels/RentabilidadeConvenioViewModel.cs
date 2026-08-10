@@ -1,3 +1,4 @@
+using Clinica.Domain;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
@@ -26,6 +27,10 @@ public sealed class LinhaConvenio
 
     public static LinhaConvenio De(RentabilidadeConvenio c) => new()
     {
+        // `Convenio` JÁ vem resolvido pelo serviço (CatalogoConvenios.Nome(codigo)); o
+        // record carrega `Codigo` separado para quem precisa da identidade. Chamar Nome()
+        // de novo aqui devolveria "Unimed" para TODA operadora, porque um nome não é chave
+        // do catálogo e a busca cai na família padrão.
         Rotulo = c.Convenio,
         ValorRotulo = $"{c.Liquido:C} líquido em {c.Guias} guia(s)",
         Fracao = c.Fracao,
@@ -127,8 +132,9 @@ public sealed partial class RentabilidadeConvenioViewModel : ObservableObject
             // A comparação só aparece com DUAS operadoras medidas: comparar uma consigo
             // mesma não diz nada, e escrever "a melhor é a única" seria ruído.
             MelhorEPior = r.MaisRentavel is { } melhor && r.MenosRentavel is { } pior
-                ? $"Rende mais por atendimento: {melhor.Convenio} ({melhor.LiquidoPorGuia:C}/guia) · "
-                  + $"rende menos: {pior.Convenio} ({pior.LiquidoPorGuia:C}/guia)"
+                ? $"Rende mais por atendimento: {melhor.Convenio} "
+                  + $"({melhor.LiquidoPorGuia:C}/guia) · rende menos: "
+                  + $"{pior.Convenio} ({pior.LiquidoPorGuia:C}/guia)"
                 : null;
 
             var pendentes = Convenios.Count(c => c.TemPendencia);

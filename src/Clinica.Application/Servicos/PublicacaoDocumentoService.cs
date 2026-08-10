@@ -1,5 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -119,7 +121,7 @@ public sealed class PublicacaoDocumentoService
                 + "o validador, não para o arquivo. Emita outro para publicar.");
 
         var token = documento.TokenPublicacao!;
-        var ate = _hoje().AddDays(PublicacaoDocumento.DiasPublicado);
+        var ate = _hoje().AddDays(await _parametros.ObterDiasPublicacaoAsync(ct));
 
         try
         {
@@ -150,6 +152,137 @@ public sealed class PublicacaoDocumentoService
         await _repo.SalvarAsync(ct);
 
         return new ResultadoPublicacao(PublicacaoDocumento.Url(baseUrl, token), ate, null);
+    }
+
+    /// <summary>
+    /// Caminho do objeto que o teste de conexão grava. Fica FORA do prefixo dos documentos
+    /// (<see cref="PublicacaoDocumento.CaminhoDoObjeto"/>) para que um teste jamais possa
+    /// colidir com uma receita publicada.
+    /// </summary>
+    public const string CaminhoDeTeste = "teste-de-conexao.txt";
+
+    /// <summary>
+    /// Prova as credenciais AGORA, em Configurações, fazendo o que a publicação real faz:
+    /// grava um objeto e apaga.
+    /// </summary>
+    /// <remarks>
+    /// <b>Por que gravar de verdade e não só pedir a lista do balde.</b> Um teste que
+    /// apenas lê passaria com credencial de leitura, com balde inexistente e — o caso que
+    /// mais importa — com um provedor que não aceita a ACL de leitura pública, que é
+    /// exatamente o que o <c>PutObject</c> da publicação usa. O teste tem de exercitar o
+    /// mesmo caminho, senão ele atesta uma coisa e a receita falha por outra.
+    ///
+    /// E apaga em seguida: teste que deixa lixo no balde de produção ensina a clínica a
+    /// não testar.
+    ///
+    /// Devolve <c>null</c> quando deu certo, ou a explicação. Descobrir credencial errada
+    /// aqui é barato; descobrir com o paciente esperando a receita é o pior momento
+    /// possível.
+    /// </remarks>
+    public async Task<string?> TestarConexaoAsync(CancellationToken ct = default)
+    {
+        var carimbo = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+        var conteudo = System.Text.Encoding.UTF8.GetBytes(
+            $"Teste de conexão do sistema da clínica em {carimbo}. "
+            + "Este arquivo é apagado logo em seguida.");
+
+        try
+        {
+            await _armazenamento.PublicarAsync(CaminhoDeTeste, conteudo, "text/plain", ct);
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Publicação — teste de conexão falhou ao gravar", ex);
+            return $"Não foi possível gravar no armazenamento: {ex.Message}";
+        }
+
+        try
+        {
+            await _armazenamento.RemoverAsync(CaminhoDeTeste, ct);
+        }
+        catch (Exception ex)
+        {
+            // Gravou e não apagou: a publicação FUNCIONA, e o que falha é a expiração. Dizer
+            // "deu certo" esconderia que os links não sairiam do ar no vencimento.
+            Diagnostico.Registrar("Publicação — teste de conexão falhou ao apagar", ex);
+            return "A gravação funcionou, mas o sistema não conseguiu APAGAR o arquivo de "
+                + $"teste: {ex.Message}. As credenciais precisam de permissão de exclusão, "
+                + "senão os links não saem do ar quando o prazo vence.";
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Sobe UM PDF de exemplo e o DEIXA no balde, devolvendo a URL pública para abrir no
+    /// navegador.
+    /// </summary>
+    /// <remarks>
+    /// <b>Prova o que o "Testar conexão" não prova.</b> Aquele grava e apaga: responde
+    /// "consigo escrever?". Este responde a outra pergunta, que é a que decide se a receita
+    /// funciona no balcão — <b>"o arquivo é LEGÍVEL pela URL pública?"</b>. São falhas
+    /// diferentes: o PUT pode passar, a ACL ser aceita, e a URL pública do balde estar
+    /// desligada — aí o farmacêutico leva 403 com a receita na mão.
+    ///
+    /// <b>Ele NÃO apaga</b>, ao contrário do teste de conexão, e é essa a razão de existir:
+    /// só se conferindo o arquivo aberto no navegador é que se sabe que o caminho inteiro
+    /// fecha. A mensagem manda apagar depois.
+    ///
+    /// Não toca em documento nenhum do prontuário: o conteúdo é fixo, sem paciente, sem
+    /// medicamento e sem dado clínico — publicar um documento real para testar seria expor
+    /// dado de saúde para conferir um endereço.
+    /// </remarks>
+    public async Task<ResultadoPublicacao> EnviarExemploAsync(CancellationToken ct = default)
+    {
+        if (await _parametros.ObterUrlPublicacaoAsync(ct) is not { } baseUrl)
+            return ResultadoPublicacao.Falhou(
+                "Cadastre o domínio de publicação antes: é ele que forma o endereço que "
+                + "este teste vai abrir.");
+
+        // Token de verdade, para o endereço ter exatamente a forma do de uma receita — um
+        // caminho diferente poderia passar aqui e falhar lá por regra de prefixo do balde.
+        var token = PublicacaoDocumento.GerarToken();
+        var caminho = PublicacaoDocumento.CaminhoDoObjeto(token);
+
+        try
+        {
+            await _armazenamento.PublicarAsync(caminho, PdfDeExemplo(), "application/pdf", ct);
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Publicação — envio do PDF de exemplo falhou", ex);
+            return ResultadoPublicacao.Falhou($"Não foi possível enviar: {ex.Message}");
+        }
+
+        return new ResultadoPublicacao(PublicacaoDocumento.Url(baseUrl, token), null, null);
+    }
+
+    /// <summary>
+    /// Uma folha só, sem dado nenhum. É PDF de verdade porque metade do que se quer provar
+    /// é que o navegador do celular ABRE o arquivo em vez de baixá-lo — com um .txt o teste
+    /// passaria e a receita continuaria caindo na pasta de downloads.
+    /// </summary>
+    private static byte[] PdfDeExemplo()
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        return Document.Create(doc =>
+        {
+            doc.Page(page =>
+            {
+                page.Margin(40);
+                page.Content().Column(col =>
+                {
+                    col.Item().Text("Arquivo de teste").FontSize(22).SemiBold();
+                    col.Item().PaddingTop(12).Text(
+                        "Este arquivo foi enviado pelo sistema da clínica para conferir o "
+                        + "armazenamento de documentos. Ele não contém dado de paciente e "
+                        + "pode ser apagado.");
+                    col.Item().PaddingTop(12).Text(
+                        $"Enviado em {DateTime.Now:dd/MM/yyyy HH:mm:ss}.");
+                });
+            });
+        }).GeneratePdf();
     }
 
     /// <summary>

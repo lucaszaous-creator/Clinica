@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
 // ConvenioInfo (o nome de exibição do convênio) mora em Clinica.Domain.Regras.
 using Clinica.Domain.Regras;
@@ -80,6 +81,70 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
     }
 
     partial void OnPeriodoSelecionadoChanged(string value) => _ = CarregarAsync();
+
+    /// <summary>
+    /// O fechamento do período em PDF — a folha que vai ao contador (parcela 54).
+    ///
+    /// <b>Capacidade que existia com a porta no app de quem não a usa.</b> O
+    /// <c>FechamentoPdfService</c> é alcançado pela Central de Documentos, que é da
+    /// RECEPÇÃO; quem manda o fechamento ao contador é a direção, e ela teria de pedir ao
+    /// balcão para gerar. É a família da parcela 48 — alerta e capacidade com porta no
+    /// módulo errado.
+    ///
+    /// Fica NESTA tela, e não em Documentos, porque o período já está escolhido aqui: um
+    /// item de menu próprio abriria pedindo de novo o intervalo que a pessoa acabou de
+    /// definir.
+    ///
+    /// Não reimplementa nada — chama o mesmo <c>CentralDocumentosService</c> que a
+    /// Recepção chama. Duas gerações do mesmo papel divergiriam na primeira correção.
+    /// </summary>
+    [RelayCommand]
+    private async Task GerarFechamentoAsync()
+    {
+        try
+        {
+            Gerando = true;
+            Mensagem = string.Empty;
+            MensagemEhErro = false;
+
+            var (inicio, fim) = PeriodoGerencial.Intervalo(
+                PeriodoSelecionado, DateOnly.FromDateTime(DateTime.Today));
+
+            byte[] pdf;
+            using (var scope = _escopos.CreateScope())
+                pdf = await scope.ServiceProvider
+                    .GetRequiredService<CentralDocumentosService>()
+                    .GerarFechamentoPeriodoAsync(inicio, fim);
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf, ImpressaoPdf.NomeSeguro($"Fechamento-{inicio:yyyy-MM-dd}-a-{fim:yyyy-MM-dd}.pdf"));
+
+            if (erro is not null)
+            {
+                Mensagem = erro;
+                MensagemEhErro = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Gerente — fechamento do período não pôde ser gerado", ex);
+            Mensagem = $"Não foi possível gerar o fechamento: {ex.Message}";
+            MensagemEhErro = true;
+        }
+        finally
+        {
+            Gerando = false;
+        }
+    }
+
+    /// <summary>O PDF varre o período inteiro e demora; o botão precisa DIZER isso.</summary>
+    [ObservableProperty] private bool _gerando;
+
+    /// <summary>Negado para o XAML — a suíte não tem conversor de booleano invertido.</summary>
+    public bool PodeGerarFechamento => !Gerando;
+
+    partial void OnGerandoChanged(bool value) => OnPropertyChanged(nameof(PodeGerarFechamento));
 
     [RelayCommand]
     public async Task CarregarAsync()

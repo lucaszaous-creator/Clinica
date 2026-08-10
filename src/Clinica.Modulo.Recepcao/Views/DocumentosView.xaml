@@ -245,6 +245,24 @@
                                                         </Style>
                                                     </TextBlock.Style>
                                                 </TextBlock>
+
+                                                <!-- Só aparece em documento que tem link
+                                                     (parcela 53). Linha vazia em toda receita
+                                                     não publicada seria ruído numa lista que
+                                                     já tem quatro informações por item. -->
+                                                <TextBlock Text="{Binding Link}"
+                                                           TextWrapping="Wrap"
+                                                           FontSize="{StaticResource Fonte.Legenda}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Link}" Value="">
+                                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
                                             </StackPanel>
 
                                             <TextBlock Grid.Column="3" Text="{Binding Data}"
@@ -259,6 +277,17 @@
                                                         CommandParameter="{Binding}"
                                                         Style="{StaticResource BotaoAcaoGrid}"
                                                         MinWidth="70" Margin="0,0,6,0" />
+                                                <!-- Some quando não há o que renovar: botão
+                                                     apagado em toda linha da lista ensinaria
+                                                     a recepção a ignorá-lo. -->
+                                                <Button Content="Renovar link"
+                                                        Command="{Binding DataContext.RenovarLinkCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
+                                                        MinWidth="100" Margin="0,0,6,0"
+                                                        Visibility="{Binding PodeRenovarLink,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}" />
                                                 <Button Content="Cancelar"
                                                         Command="{Binding DataContext.CancelarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"

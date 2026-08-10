@@ -47,6 +47,20 @@ public sealed class LinhaFolhaEmitida
     /// regra; a que impede é o <c>Exigir</c> no comando.
     /// </summary>
     public required bool PodeCancelar { get; init; }
+
+    /// <summary>
+    /// O link venceu e dá para colocá-lo de volta no ar (parcela 53). Só aparece em
+    /// documento que JÁ teve link: republicar reusa o mesmo token, e o QR impresso que o
+    /// paciente guardou volta a funcionar.
+    /// </summary>
+    public bool PodeRenovarLink { get; init; }
+
+    /// <summary>
+    /// O que dizer sobre o link, ou vazio quando o documento nunca teve um. Frase inteira
+    /// e não um selo: "no ar até 09/10" e "link vencido" levam a ações diferentes, e um
+    /// ícone obrigaria a recepção a decorar o que ele quer dizer.
+    /// </summary>
+    public string Link { get; init; } = string.Empty;
 }
 
 /// <summary>
@@ -244,6 +258,13 @@ public sealed partial class DocumentosViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// O link está no ar HOJE. O dia do vencimento conta inteiro — quem publicou com prazo
+    /// até 09/10 espera que a receita abra no dia 09, não que ela caia na virada.
+    /// </summary>
+    private static bool NoAr(FolhaEmitida e)
+        => e.PublicadoAte is { } ate && ate >= DateOnly.FromDateTime(DateTime.Today);
+
     private LinhaFolhaEmitida Montar(FolhaEmitida e) => new()
     {
         DocumentoId = e.DocumentoId,
@@ -260,6 +281,14 @@ public sealed partial class DocumentosViewModel : ObservableObject
             }.Where(x => !string.IsNullOrWhiteSpace(x))),
         Cancelado = e.Cancelado,
         PodeCancelar = !e.Cancelado && PodeEmitir,
+
+        // Renovar só faz sentido para o que JÁ teve link e saiu do ar. Documento cancelado
+        // não volta — receita cancelada baixável é a pior espécie de arquivo no ar.
+        PodeRenovarLink = e.JaTeveLink && !e.Cancelado && PodeEmitir && !NoAr(e),
+
+        Link = !e.JaTeveLink ? string.Empty
+            : NoAr(e) ? $"link no ar até {e.PublicadoAte:dd/MM/yyyy}"
+            : "link fora do ar",
         // Cancelada aparece MARCADA, nunca sumindo: documento não se apaga neste sistema, e
         // esconder o cancelado faria a lista mentir sobre o que o paciente levou para casa.
         Situacao = e.Cancelado
@@ -565,6 +594,63 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// Cancela com motivo. Não apaga — é a regra do documento neste sistema, e vale para os
     /// dois lados: o número continua queimado e a linha continua na lista, marcada.
     /// </summary>
+    /// <summary>
+    /// Põe de volta no ar o link de um documento assinado cujo prazo venceu (parcela 53).
+    ///
+    /// <b>Reusa o MESMO token</b>, e é isso que dá sentido ao botão: o QR está selado
+    /// dentro do PDF assinado que o paciente levou, e um token novo obrigaria a emitir
+    /// outro documento. Republicado, o papel que está na bolsa dele volta a funcionar.
+    ///
+    /// A guarda diz por que recusou em vez de voltar calada — a lição da parcela 41: botão
+    /// que não faz nada é lido como sistema quebrado.
+    /// </summary>
+    [RelayCommand]
+    private async Task RenovarLinkAsync(LinhaFolhaEmitida? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "republicar o link do documento");
+
+            if (linha.Cancelado)
+            {
+                Mensagem = $"{linha.Numero} está cancelado e não volta ao ar.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            using var scope = _escopos.CreateScope();
+            var resultado = await scope.ServiceProvider
+                .GetRequiredService<PublicacaoDocumentoService>()
+                .RenovarAsync(linha.DocumentoId);
+
+            if (!resultado.Publicou)
+            {
+                // NaoSeAplica devolve os três campos nulos: é o caso de a publicação estar
+                // desligada, e "não aconteceu nada" precisa de frase própria — o Erro nulo
+                // deixaria a tela muda depois do clique.
+                Mensagem = resultado.Erro
+                    ?? "A publicação está desligada: cadastre o domínio da clínica em "
+                       + "Configurações → Publicação.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            _snackbar.Sucesso(
+                $"{linha.Numero} de volta ao ar até {resultado.Ate:dd/MM/yyyy}. "
+                + "O QR já impresso volta a funcionar.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — link do documento não pôde ser republicado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     [RelayCommand]
     private async Task CancelarAsync(LinhaFolhaEmitida? linha)
     {

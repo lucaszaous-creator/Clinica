@@ -43,13 +43,13 @@ public sealed class LinhaGlosa
                 ? p.ConvenioNome
                 : "—",
             Guia = string.IsNullOrWhiteSpace(c.NumeroGuiaReal)
-                ? $"{c.Tipo} · {c.Ordem}"
+                ? $"{RotulosEnum.De(c.Tipo)} · {c.Ordem}"
                 : c.NumeroGuiaReal!,
             DataGlosa = c.DataGlosa?.ToString("dd/MM/yyyy") ?? "—",
             Motivo = string.IsNullOrWhiteSpace(c.MotivoGlosa)
                 ? (string.IsNullOrWhiteSpace(c.MotivoGlosaCodigo) ? "sem motivo registrado" : c.MotivoGlosaCodigo!)
                 : c.MotivoGlosa!,
-            Situacao = c.Glosa.ToString(),
+            Situacao = RotulosEnum.De(c.Glosa),
             Prazo = limite is null
                 ? "sem prazo registrado"
                 : limite < hoje
