@@ -1,0 +1,44 @@
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.TelaComAbas"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource Brush.Fundo}">
+
+    <!-- ============================================================
+         A TELA COMPOSTA — várias telas existentes sob um item de menu.
+
+         O TabControl é o mesmo da suíte (o estilo implícito de `Abas.xaml` vale aqui
+         sem uma linha a mais). O que muda é O TEMPLATE, e por um motivo de alinhamento
+         que só aparece com a tela montada:
+
+         as telas da suíte trazem a própria margem de página (`Margin="24"` no Grid raiz
+         de cada View). Se a régua das abas também tivesse margem, o rótulo começaria em
+         24 e o conteúdo em 48 — a aba e o título da página desalinhados por 24px, em
+         todas as telas compostas de uma vez.
+
+         Então a margem vai no PADDING da régua, e o conteúdo fica em zero, trazendo a
+         margem dele. Os dois começam em 24, e a linha de 1px que separa a régua do
+         conteúdo continua indo de ponta a ponta, como no estilo compartilhado.
+         ============================================================ -->
+
+    <TabControl x:Name="Abas" Background="Transparent" BorderThickness="0"
+                SelectionChanged="AoTrocarAba">
+        <TabControl.Template>
+            <ControlTemplate TargetType="TabControl">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" BorderThickness="0,0,0,1"
+                            BorderBrush="{StaticResource Brush.Borda}"
+                            Padding="24,16,24,0">
+                        <!-- WrapPanel, não o TabPanel padrão: o TabPanel ENCOLHE os
+                             rótulos quando julga que a régua não cabe, e foi assim que o
+                             cliente viu "Convê" e "Documer" numa ficha com mil pixels
+                             sobrando (parcela 50). -->
+                        <WrapPanel IsItemsHost="True" Panel.ZIndex="1"
+                                   Background="Transparent" Margin="0,0,0,-1" />
+                    </Border>
+
+                    <ContentPresenter ContentSource="SelectedContent" />
+                </DockPanel>
+            </ControlTemplate>
+        </TabControl.Template>
+    </TabControl>
+</UserControl>

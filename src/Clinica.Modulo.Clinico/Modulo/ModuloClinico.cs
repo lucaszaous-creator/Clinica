@@ -32,7 +32,7 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveEvolucaoDor = "consultorio-evolucao-dor";
     public const string ChaveMedidas = "consultorio-medidas";
     public const string ChaveAvaliacoes = "consultorio-avaliacoes";
-    public const string ChaveMeusPacientes = "consultorio-pacientes";
+    public const string ChaveMeusPacientes = ChavesSuite.ConsultorioPacientes;
 
     /// <summary>
     /// A dívida de prontuário. É tela, e não um bloco do "Meu dia", porque numa base real
@@ -46,13 +46,13 @@ public sealed class ModuloClinico : IModuloApp
     /// perguntas que se fazem COM o paciente na frente — "quando eu tenho espaço?",
     /// "quinta está cheia?". A recepção tem visão de semana desde a parcela 26.
     /// </summary>
-    public const string ChaveMinhaSemana = "consultorio-semana";
+    public const string ChaveMinhaSemana = ChavesSuite.ConsultorioSemana;
 
     /// <summary>
     /// Prescrições. O fluxo de emissão existia inteiro e a única porta estava no módulo da
     /// RECEPÇÃO — quem prescreve, atesta e pede exame é quem ATENDE.
     /// </summary>
-    public const string ChavePrescricoes = "consultorio-prescricoes";
+    public const string ChavePrescricoes = ChavesSuite.ConsultorioPrescricoes;
 
     /// <summary>
     /// A folha de infusão (parcela 42) — multi-item, executada aqui dentro e checada pela
@@ -61,7 +61,7 @@ public sealed class ModuloClinico : IModuloApp
     /// folha que a equipe EXECUTA. Juntá-las faria a decisão mais frequente do dia (dar um
     /// atestado) dividir espaço com a mais rara.
     /// </summary>
-    public const string ChavePrescricaoInfusao = "consultorio-prescricao-infusao";
+    public const string ChavePrescricaoInfusao = ChavesSuite.ConsultorioPrescricaoInfusao;
 
     /// <summary>
     /// A sala de infusão: as folhas assinadas do dia esperando execução. Sob permissão
@@ -75,7 +75,7 @@ public sealed class ModuloClinico : IModuloApp
     /// <c>CompletudeProntuario</c> só eram lidos pelo BI do Gerente: o sistema media quem
     /// atende e a pessoa medida não via o próprio número.
     /// </summary>
-    public const string ChaveMeusNumeros = "consultorio-meus-numeros";
+    public const string ChaveMeusNumeros = ChavesSuite.ConsultorioMeusNumeros;
 
     /// <summary>
     /// A tela do PACIENTE — identidade no topo, as cinco seções em abas.

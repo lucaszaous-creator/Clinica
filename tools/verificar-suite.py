@@ -544,6 +544,52 @@ def _sem_texto(t: str) -> str:
     return "".join(saida)
 
 
+def _sem_comentarios(t: str) -> str:
+    """
+    Apaga só os COMENTÁRIOS, preservando as strings.
+
+    Existe porque a checagem 19 casa `Ir("literal")` e portanto não pode usar
+    `_sem_texto`, que apaga as strings junto. Sem isto ela lê o próprio comentário que
+    EXPLICA a regra — foi o que aconteceu ao documentar a composição por abas na parcela
+    55: um `NavegacaoSuite.Ir("caixa")` citado em prosa virou erro de build local.
+
+    Checagem que reclama de comentário é checagem que alguém desliga, e aí ela para de
+    pegar o defeito de verdade.
+
+    As strings são PULADAS (e não apagadas) para que `"https://…"` não seja lido como
+    comentário no meio do literal.
+    """
+    saida = list(t)
+    i, n = 0, len(t)
+    while i < n:
+        c = t[i]
+        if c in "\"'":
+            j = i + 1
+            while j < n and t[j] != c:
+                if t[j] == "\\":
+                    j += 1
+                j += 1
+            i = j + 1
+            continue
+        if c == "/" and i + 1 < n and t[i + 1] == "/":
+            j = t.find("\n", i)
+            j = n if j < 0 else j
+            for k in range(i, j):
+                saida[k] = " "
+            i = j
+            continue
+        if c == "/" and i + 1 < n and t[i + 1] == "*":
+            j = t.find("*/", i)
+            j = n if j < 0 else j + 2
+            for k in range(i, j):
+                if t[k] != "\n":
+                    saida[k] = " "
+            i = j
+            continue
+        i += 1
+    return "".join(saida)
+
+
 def _metodo_de(t: str, pos: int) -> tuple[int, int] | None:
     """O bloco { } mais interno que contém pos, ou None se for o corpo de um TIPO.
 
@@ -1106,7 +1152,7 @@ for modulo in sorted(RAIZ.glob("src/Clinica.Modulo.*")) + sorted(RAIZ.glob("src/
     if not fontes:
         continue
 
-    texto = "\n".join(f.read_text(encoding="utf-8") for f in fontes)
+    texto = _sem_comentarios("\n".join(f.read_text(encoding="utf-8") for f in fontes))
 
     # As chaves declaradas como item de menu DESTE módulo.
     declaradas = set(CHAVE_ITEM.findall(texto))
@@ -1114,7 +1160,7 @@ for modulo in sorted(RAIZ.glob("src/Clinica.Modulo.*")) + sorted(RAIZ.glob("src/
     declaradas |= set(re.findall(r'Chave\s*=\s*"([^"]+)"', texto))
 
     for arq in fontes:
-        corpo = arq.read_text(encoding="utf-8")
+        corpo = _sem_comentarios(arq.read_text(encoding="utf-8"))
         for chave in CHAVE_NAV.findall(corpo) + CHAVE_NAV_LITERAL.findall(corpo):
             # Chave de OUTRO módulo (ChavesSuite.X) é contrato entre módulos: quem a
             # publica é o dono, e este módulo não tem como declará-la.
@@ -1711,6 +1757,140 @@ for _valor, _deve_pegar in (
             f"verificar-suite: a checagem 27 mudou de resposta para "
             f"`SharedSizeGroup=\"{_valor}\"`."
         )
+
+
+# --------------------------------------------------------------- checagem 28
+# SUB-ABA APONTANDO PARA CHAVE QUE NINGUÉM DECLARA (parcela 55).
+#
+# Um item de menu COMPOSTO lista as abas por CHAVE, e o shell resolve cada uma procurando
+# o item dono na lista de todos os módulos carregados. Chave que não existe não dá erro:
+# a aba é simplesmente PULADA (é o mesmo mecanismo que faz uma aba sumir quando o módulo
+# dela não está no executável, e esse comportamento é desejado).
+#
+# O efeito colateral é uma armadilha nova, da mesma família da checagem 19: um erro de
+# digitação — ou renomear a const do outro lado — apaga a aba EM SILÊNCIO. A tela composta
+# abre com uma aba a menos, ninguém percebe, e a tela some do sistema sem que build, teste
+# ou o compilador de sombra tenham o que dizer.
+#
+# Como a chave atravessa módulo, ela vem quase sempre de `ChavesSuite`; a resolução abaixo
+# cobre os dois casos (const do próprio módulo e const da ChavesSuite).
+ABA_MENU = re.compile(r"""new\s+AbaMenu\(\s*"([^"]*)"\s*,\s*([A-Za-z0-9_.]+)\s*\)""")
+CONST_CHAVE = re.compile(
+    r"""public\s+const\s+string\s+(\w+)\s*=\s*(?:"([^"]*)"|ChavesSuite\.(\w+))\s*;""")
+
+
+def _consts_de(texto: str) -> dict[str, str]:
+    return {
+        nome: (lit if lit else f"ChavesSuite.{via}")
+        for nome, lit, via in CONST_CHAVE.findall(texto)
+    }
+
+
+_arq_suite = RAIZ / "src/Clinica.Desktop.Shell/Modulos/ChavesSuite.cs"
+_chaves_suite: dict[str, str] = {}
+if _arq_suite.exists():
+    _chaves_suite = {
+        n: v for n, v in _consts_de(_arq_suite.read_text(encoding="utf-8")).items()
+        if not v.startswith("ChavesSuite.")
+    }
+
+_modulos_cs = sorted(RAIZ.glob("src/Clinica.Modulo.*/Modulo/Modulo*.cs"))
+_declaradas: set[str] = set()
+_abas: list[tuple[Path, str, str]] = []          # (arquivo, rótulo, chave resolvida)
+
+
+def _resolver(expr: str, locais: dict[str, str]) -> str | None:
+    """Expressão de chave → literal. None quando não dá para resolver estaticamente."""
+    if expr.startswith("ChavesSuite."):
+        return _chaves_suite.get(expr.removeprefix("ChavesSuite."))
+    alvo = locais.get(expr.rsplit(".", 1)[-1])
+    if alvo is None:
+        return None
+    return _resolver(alvo, locais) if alvo.startswith("ChavesSuite.") else alvo
+
+
+for _arq in _modulos_cs:
+    _texto = _sem_comentarios(_arq.read_text(encoding="utf-8"))
+    _locais = _consts_de(_texto)
+
+    for _expr in re.findall(r"Chave\s*=\s*([A-Za-z0-9_.]+)\s*,", _texto):
+        if (_v := _resolver(_expr, _locais)) is not None:
+            _declaradas.add(_v)
+    _declaradas |= set(re.findall(r'Chave\s*=\s*"([^"]+)"\s*,', _texto))
+
+    for _rotulo, _expr in ABA_MENU.findall(_texto):
+        _abas.append((_arq, _rotulo, _resolver(_expr, _locais) or _expr))
+
+for _arq, _rotulo, _chave in _abas:
+    if _chave in _declaradas:
+        continue
+    erros.append(
+        f"{rel(_arq)}: a sub-aba \"{_rotulo}\" aponta para `{_chave}`, que não é `Chave` "
+        f"de nenhum ItemMenuModulo da suíte — o shell PULA a aba em silêncio e a tela "
+        f"some sem erro nenhum. Declare o item (a sub-tela continua sendo um item; quem "
+        f"a esconde do menu é o item pai)."
+    )
+
+# Autoteste: a checagem tem de achar as abas de verdade e recusar uma chave inventada.
+if _modulos_cs:
+    if not _abas:
+        erros.append(
+            "verificar-suite: a checagem 28 não achou nenhuma sub-aba — o padrão "
+            "`new AbaMenu(\"rótulo\", Chave)` mudou e ela parou de olhar o que deveria."
+        )
+    if _resolver("ChavesSuite.NaoExisteEssaChave", {}) is not None:
+        erros.append("verificar-suite: a checagem 28 resolveu uma chave inexistente.")
+
+
+# --------------------------------------------------------------- checagem 29
+# ESTADO VAZIO PERMANENTE POR CIMA DA TELA.
+#
+# `EstadoDaTela` decide o estado assim: `(Vazio ?? Vazia(Itens)) ? Vazio : Conteudo` — e
+# `Vazia(null)` é **verdadeiro**. Quem declara o componente só com `Carregando` e
+# `NaoVerificado`, sem dizer o que é "vazio", ganha a sobreposição LIGADA PARA SEMPRE:
+# "Nada por aqui" desenhado por cima de uma tela que está funcionando por baixo.
+#
+# Foi o que o cliente viu na Guarda do prontuário — ele buscou uma pessoa, a tela achou,
+# leu a guarda dela, e "Nada por aqui" ficou escrito em cima do resultado.
+#
+# Nenhuma rede pegava: o XAML é bem-formado, as propriedades existem, o binding é válido
+# e o componente não lança. É a mesma família da checagem 25 (sobreposição no pai errado)
+# — só existe na tela montada.
+#
+# As duas saídas legítimas: `Itens` (o caminho normal, quando há uma lista) ou `Vazio`
+# (tela composta, ou tela que não é lista nenhuma e portanto nunca está vazia).
+ESTADO_TELA = re.compile(r"<ctrl:EstadoDaTela\b[^>]*?/>", re.S)
+
+_estados = 0
+for _arq in xamls():
+    _texto = _arq.read_text(encoding="utf-8")
+    for _m in ESTADO_TELA.finditer(_texto):
+        _bloco = _m.group(0)
+        _estados += 1
+        if "Itens=" in _bloco or "Vazio=" in _bloco:
+            continue
+        _linha = _texto.count("\n", 0, _m.start()) + 1
+        erros.append(
+            f"{rel(_arq)}:{_linha}: `EstadoDaTela` sem `Itens` nem `Vazio` — o componente "
+            f"resolve `Vazia(null)` como VERDADEIRO e a sobreposição \"Nada por aqui\" fica "
+            f"visível PARA SEMPRE, por cima da tela funcionando. Passe `Itens` (quando há "
+            f"lista) ou `Vazio` (tela composta, ou tela que não é lista)."
+        )
+
+# Autoteste: a checagem tem de ver os usos reais e recusar o declarado sem os dois.
+if _estados == 0:
+    erros.append(
+        "verificar-suite: a checagem 29 não achou nenhum `EstadoDaTela` — o padrão de "
+        "declaração mudou e ela parou de olhar o que deveria."
+    )
+for _xml, _deve_pegar in (
+    ('<ctrl:EstadoDaTela Carregando="{Binding C}" />', True),           # o defeito real
+    ('<ctrl:EstadoDaTela Itens="{Binding X}" />', False),
+    ('<ctrl:EstadoDaTela Vazio="False" Carregando="{Binding C}" />', False),
+):
+    _achou = not ("Itens=" in _xml or "Vazio=" in _xml)
+    if _achou != _deve_pegar:
+        erros.append(f"verificar-suite: a checagem 29 mudou de resposta para `{_xml}`.")
 
 
 # ---------------------------------------------------------------------- saída

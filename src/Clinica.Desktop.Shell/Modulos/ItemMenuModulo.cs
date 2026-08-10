@@ -31,7 +31,7 @@ public enum GrupoSidebar
     Inteligencia
 }
 
-/// <summary>Rótulo de cada grupo, como sai na sidebar.</summary>
+/// <summary>Rótulo e ícone de cada grupo, como saem na sidebar.</summary>
 public static class GruposSidebar
 {
     public static string Rotulo(GrupoSidebar grupo) => grupo switch
@@ -42,7 +42,53 @@ public static class GruposSidebar
         GrupoSidebar.Inteligencia => "INTELIGÊNCIA",
         _ => grupo.ToString().ToUpperInvariant()
     };
+
+    /// <summary>
+    /// Nome curto do grupo, para caber sob o ícone no rail de 56px (parcela 55).
+    /// Abreviar no XAML com <c>Substring</c> cortaria "INTELIGÊNCIA" em "INTEL" —
+    /// a abreviação é escolhida, não truncada.
+    /// </summary>
+    public static string RotuloCurto(GrupoSidebar grupo) => grupo switch
+    {
+        GrupoSidebar.Gestao => "Dia",
+        GrupoSidebar.Paciente => "Paciente",
+        GrupoSidebar.Financeiro => "Dinheiro",
+        GrupoSidebar.Inteligencia => "Direção",
+        _ => Rotulo(grupo)
+    };
+
+    /// <summary>
+    /// Glifo do grupo no rail. Os quatro são DIFERENTES entre si por obrigação: no rail
+    /// o ícone é a única coisa que identifica a categoria, e dois desenhos iguais fazem
+    /// a pessoa abrir os dois para descobrir qual é qual.
+    /// </summary>
+    public static string Glifo(GrupoSidebar grupo) => grupo switch
+    {
+        GrupoSidebar.Gestao => "\uE80F",          // Home — o dia da clínica
+        GrupoSidebar.Paciente => "\uE77B",        // Contact — a pessoa atendida
+        GrupoSidebar.Financeiro => "\uE825",      // Bank — o dinheiro
+        GrupoSidebar.Inteligencia => "\uE9D2",    // BarChart — a leitura do negócio
+        _ => "\uE700"
+    };
 }
+
+/// <summary>
+/// Uma sub-aba de um item de menu COMPOSTO (parcela 55).
+///
+/// A aba não carrega a tela: ela carrega a <see cref="Chave"/> da tela, e quem resolve a
+/// chave é o shell, que sabe qual módulo constrói o quê. É essa indireção que permite um
+/// item compor telas de MÓDULOS DIFERENTES — "Agenda" junta a agenda do balcão
+/// (Recepção) com "Minha semana" (Consultório), e nenhum dos dois passa a conhecer o
+/// outro. Compor por referência de tipo obrigaria o módulo dono a referenciar os outros,
+/// que é exatamente o que a arquitetura da suíte proíbe.
+///
+/// A consequência prática é boa: num executável que não carrega o módulo da aba (a
+/// Recepção não carrega o Consultório), a aba simplesmente não aparece, e o item continua
+/// funcionando com as que sobraram.
+/// </summary>
+/// <param name="Rotulo">Texto da aba. É ele que a busca global indexa.</param>
+/// <param name="Chave">Chave do <see cref="ItemMenuModulo"/> que constrói a tela.</param>
+public sealed record AbaMenu(string Rotulo, string Chave);
 
 /// <summary>
 /// Item do menu lateral publicado por um módulo. Substitui o enum <c>Secao</c> do
@@ -110,9 +156,59 @@ public sealed partial class ItemMenuModulo : ObservableObject
     /// </summary>
     public bool Oculto { get; init; }
 
+    /// <summary>
+    /// As sub-abas deste item (parcela 55). Vazia = o item É uma tela.
+    ///
+    /// Por que isto existe
+    /// -------------------
+    /// O Gerente Geral carrega os quatro módulos e a sidebar dele chegou a <b>46 itens</b>
+    /// — 1.824px de menu para 610px de tela, ou seja, um terço visível. A regra que
+    /// resolve isso já estava escrita em <c>docs/design-system/layout-navegacao.md</c>
+    /// desde a parcela 7 ("quando um item da proposta cobre vários assuntos, use sub-abas
+    /// dentro dele em vez de criar entradas novas") e tinha sido aplicada UMA vez, no
+    /// "Faturamento (TISS)". Isto é a mesma regra levada ao resto.
+    ///
+    /// ⚠️ <b>A tela que vira aba CONTINUA sendo um item</b>, com <see cref="Oculto"/> —
+    /// nunca se apaga o item. <c>NavegacaoSuite.Ir(chave)</c> procura a chave na lista de
+    /// itens e, sem achar, <b>devolve false em silêncio</b>: foi assim que a 4ª rodada da
+    /// parcela 37 deixou "Atender", os atalhos da carteira e o painel da direção sem
+    /// abrir nada, com as três redes verdes. O shell resolve a chave da sub-tela abrindo
+    /// o item PAI já na aba certa, então toda navegação que existia continua valendo.
+    /// </summary>
+    public IReadOnlyList<AbaMenu> Abas { get; init; } = [];
+
     [ObservableProperty]
     private bool _estaAtivo;
 }
 
-/// <summary>Grupo de itens na sidebar (um por seção temática presente).</summary>
-public sealed record GrupoMenuModulo(string Nome, IReadOnlyList<ItemMenuModulo> Itens);
+/// <summary>
+/// Uma CATEGORIA do rail (parcela 55) — antes era só o cabeçalho de um grupo de itens.
+///
+/// O que mudou: com o rail de 56px a categoria deixou de ser um rótulo e passou a ser o
+/// alvo do clique, então ela precisa de ícone próprio e de saber quando está aberta.
+/// </summary>
+public sealed partial class GrupoMenuModulo : ObservableObject
+{
+    public GrupoMenuModulo(GrupoSidebar grupo, IReadOnlyList<ItemMenuModulo> itens)
+    {
+        Grupo = grupo;
+        Nome = GruposSidebar.Rotulo(grupo);
+        NomeCurto = GruposSidebar.RotuloCurto(grupo);
+        Glifo = GruposSidebar.Glifo(grupo);
+        Itens = itens;
+    }
+
+    public GrupoSidebar Grupo { get; }
+    public string Nome { get; }
+    public string NomeCurto { get; }
+    public string Glifo { get; }
+    public IReadOnlyList<ItemMenuModulo> Itens { get; }
+
+    /// <summary>Esta categoria é a do painel aberto — acende o botão no rail.</summary>
+    [ObservableProperty]
+    private bool _estaAberta;
+
+    /// <summary>Esta categoria contém a tela ativa — é a marca de "onde eu estou".</summary>
+    [ObservableProperty]
+    private bool _contemAtual;
+}

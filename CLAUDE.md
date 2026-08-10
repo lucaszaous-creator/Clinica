@@ -1811,6 +1811,112 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.
+- **O WPF não formata na cultura da máquina — `StringFormat` é en-US por padrão**
+  (parcela 56; o cliente viu **"August/2026"** no cabeçalho da Conciliação). O que engana
+  é que só METADE da tela erra: o que a ViewModel formata em C# (`valor.ToString("C")`)
+  sai em pt-BR pela cultura da máquina, e o que o XAML formata sai em inglês, porque
+  binding usa `FrameworkElement.Language` — que nasce `en-US` e ignora a thread. Daí
+  "August/2026" logo acima de uma coluna de "R$ 0,00". A correção é um `OverrideMetadata`
+  no `SuiteApp`, e não uma linha por binding: são ~30 `StringFormat` de data e moeda
+  espalhados, e o próximo que alguém escrever também precisa nascer certo.
+- **Componente sem `Template` no design system não fica neutro: fica com o tema do
+  SISTEMA OPERACIONAL** (parcela 56 — os campos "De"/"Até" da Auditoria destoavam dos
+  vizinhos). O `DatePicker` tinha estilo desde a parcela 7, com só uns `Setter` e um
+  comentário que dizia "usa o TextBox estilizado internamente". **Não usa**: o campo de
+  texto de um `DatePicker` é um `DatePickerTextBox`, tipo próprio que o estilo implícito
+  de `TextBox` não alcança. Sem `Template`, o WPF desenhava a moldura 3D, os cantos retos
+  e o botão de calendário do Aero, ao lado dos campos planos da suíte. É a MESMA história
+  do `TabControl` na parcela 55 — controle usado em 30 telas e nunca estilizado. O
+  **calendário do pop-up ficou de fora de propósito**: retemplá-lo exige `CalendarItem`,
+  `CalendarButton` e `CalendarDayButton`, cujos gatilhos só falham em RUNTIME e nenhuma
+  rede local compila XAML; o campo, que é o que fica na tela, está resolvido.
+- **`EstadoDaTela` sem `Itens` nem `Vazio` liga a sobreposição PARA SEMPRE** (parcela 56 —
+  o cliente mandou a foto do "Nada por aqui" escrito por cima do paciente que a tela tinha
+  acabado de achar). O componente resolve `(Vazio ?? Vazia(Itens))`, e `Vazia(null)` é
+  **verdadeiro**: quem o declara só com `Carregando` e `NaoVerificado` ganha o estado vazio
+  permanente por cima de uma tela que funciona por baixo. As duas saídas legítimas são
+  `Itens` (o caminho normal, quando há lista) e `Vazio` (tela composta, ou tela que não é
+  lista nenhuma e portanto nunca está vazia). Nenhuma rede pegava — XAML bem-formado,
+  propriedades existentes, binding válido, nada lança —, e virou a **checagem 29**.
+- **Filtro na Conciliação, e por que ele é por OPERADORA e não por família** (parcela 56):
+  a tela abria com 53 guias numa lista corrida e nada para estreitá-la. Quem concilia não
+  lê a lista — tem o **demonstrativo de uma operadora** na mão e precisa achar as guias
+  que estão nele, uma a uma. O filtro de convênio casa pelo **nome resolvido**
+  (`CatalogoConvenios.Nome(codigo, familia)`), ao contrário da consulta de guias do
+  faturamento, que filtra por família: lá a pergunta é "o que vem sendo feito", aqui é
+  "onde estão as guias deste papel", e filtrar por família juntaria "Sul América" e
+  "Unimed Costa do Sol" — as duas respondem a `Convenio.Personalizado` — devolvendo as
+  guias de quem não está no demonstrativo. A lista de convênios sai **do mês carregado**,
+  não do catálogo: oferecer opção que não tem guia daria filtro que só leva a resultado
+  vazio. Três regras que o código não conta sozinho: (a) o filtro **reaproveita as
+  instâncias** de `LinhaConciliacao`, porque a linha guarda o VALOR DIGITADO e recriá-la
+  apagaria o que a pessoa acabou de teclar em cinco guias ao ela estreitar a lista para
+  achar a sexta; (b) o resumo e o estado vazio **dizem que está filtrado** — "12 de 53
+  guia(s)" e "nenhuma bate com o filtro" existem porque um filtro esquecido que responda
+  "nenhuma guia esperando receita" faz a clínica dar o mês por conciliado com 53
+  pendentes (a lição da lista de espera da parcela 25); (c) `Convenios.Clear()` faz o
+  `ComboBox` devolver **nulo** pelo binding — a mesma armadilha da prévia do Novo
+  atendimento na parcela 50 —, então a remontagem da lista roda sob guarda.
+
+- **A sidebar não estava desorganizada: estava CHEIA** (`ItemMenuModulo.Abas`,
+  `TelaComAbas`, rail + painel, parcela 55). A direção reclamou de "muitas abas dentro das
+  categorias" no Gerente, e a medição explicou por quê: o `Clinica.Gerente.exe` carrega os
+  quatro módulos e a dedupe do `ShellViewModel` casa por CHAVE, então a sidebar tinha
+  **46 itens** — a 36px por item mais os cabeçalhos, **1.824px de menu para 610px de
+  tela**. Um terço visível, o resto atrás de rolagem sem marca de onde se está. O
+  `MenuRecolhido` (248↔56px) não ajudava: recolher não mostra um item a mais, só troca
+  rótulo por ícone na mesma lista rolante.
+  A contagem achou mais três coisas: **dois itens "Prescrições"** lado a lado em PACIENTE
+  (`prescricoes` e `consultorio-prescricoes` — chaves diferentes, então a dedupe não
+  pegava), **oito glifos repetidos** entre os itens, e o **"Painel da direção" em 9º** no
+  primeiro grupo, sendo a tela de abertura.
+  O modelo escolhido pelo cliente foi **rail de 56px + painel de categoria**, e ele só é
+  viável junto da **consolidação em sub-abas** — 46 itens viraram 24, e o maior painel
+  (FINANCEIRO, 8) cabe inteiro em 768px. O rail sozinho deixaria um flyout de 16 linhas por
+  cima do conteúdo; a consolidação sozinha ainda pediria 996px. **Nenhuma das duas metades
+  bastava, e é isso que a medida mostra.**
+  As decisões, e a razão de cada uma:
+  (a) **A aba carrega a CHAVE, não a tela** (`AbaMenu(Rotulo, Chave)`), e quem resolve é o
+  shell. É a indireção que permite um item compor telas de **módulos diferentes** —
+  "Relatórios / BI" é publicado pela Direção e inclui duas telas do Financeiro e uma do
+  Consultório — sem que nenhum módulo passe a conhecer o outro, que é a regra da suíte.
+  (b) ⚠️ **A tela que vira aba CONTINUA sendo um item.** `NavegacaoSuite.Ir(chave)` procura
+  na lista de itens e **devolve false em silêncio** quando não acha; o shell passou a
+  resolver a chave de uma sub-tela abrindo **o item pai já na aba certa**, então toda
+  navegação entre módulos continua valendo. É literalmente a regressão da 4ª rodada da
+  parcela 37, que passou pelas três redes — agora com a **checagem 28** cobrando que a
+  chave de cada `AbaMenu` seja item declarado de algum módulo.
+  (c) ⚠️ **Quem esconde a sub-tela é o PAI, e só onde o pai existe** — não é uma marca
+  nela. Um item composto é declarado por UM módulo, mas compõe telas de vários: no
+  `Clinica.Financeiro.exe`, que não carrega a Direção, "Relatórios / BI" não existe, e
+  "Resultado do mês" e "Produção" voltam a ser itens de menu comuns. Esconder por decreto
+  teria feito duas telas sumirem do único app onde alguém as usa todo dia — o defeito
+  recorrente do projeto cometido pela própria correção dele. `Oculto` continua sendo outra
+  coisa: a tela que nunca aparece sozinha (as cinco clínicas, que só existem com paciente).
+  (d) **O clique FIXA o painel, e é a metade que torna o hover utilizável.** Painel que só
+  existe enquanto o mouse está em cima é **alvo móvel**: para ir do ícone até o oitavo item
+  o mouse atravessa a borda entre os dois e, num percurso diagonal, sai da zona por um
+  instante. Daí os 180ms de intenção para abrir, os **320ms de folga do "corredor"** antes
+  de fechar, e o alfinete dentro do próprio painel — mandar a pessoa de volta ao ícone para
+  prender a lista é o movimento que este modelo cobra caro.
+  (e) **Glifo único por item visível**, agora por obrigação: numa lista com rótulo, oito
+  desenhos repetidos passam; num rail, o ícone é a única identificação.
+  (f) **A busca indexa o rótulo das ABAS** e diz o caminho ("Fechamento de caixa — em
+  Caixa"). Consolidação que tira telas do Ctrl+F troca um problema de rolagem por um pior.
+  (g) **A abertura vem primeira no grupo dela** — a ordem dentro do grupo é a de
+  carregamento dos módulos, e o dono da abertura é a Direção, que carrega por último: sem a
+  exceção, o "Painel" abria o app e aparecia no FIM de GESTÃO. É a desordem que a parcela
+  22 corrigiu, um nível abaixo.
+  (h) **Uma aba não é aba, é a tela**: sobrando uma só, o shell mostra a tela direto.
+  E duas que NÃO foram feitas: "Faturamento (TISS)" **não virou aba de nada** (ele já é uma
+  tela de cinco abas por dentro, e pendurá-lo sob outra régua daria abas dentro de abas, o
+  que é pior do que os dois itens que se economizaria); e o `Clinica.Desktop` **não foi
+  tocado** — ele tem o shell dele, e a Fase 4 segue cancelada.
+  ⚠️ A lição de rede: a **checagem 19 disparou no COMENTÁRIO** que explicava a regra, porque
+  ela casava `Ir("literal")` sem tirar comentário. Checagem que reclama de prosa é checagem
+  que alguém desliga — e aí ela para de pegar o defeito de verdade. Virou `_sem_comentarios`
+  (que PULA as strings, para `"https://…"` não virar comentário).
+
 - **Varredura do Gerente: o enum vazava onde a checagem não olha, e a permissão tinha
   UMA barreira** (parcela 54). A checagem 20 só examina `ComboBox`, e por isso não via o
   caminho mais comum do defeito da parcela 41 — **interpolação em `$"..."` dentro do

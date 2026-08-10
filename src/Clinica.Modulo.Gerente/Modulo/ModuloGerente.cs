@@ -41,22 +41,47 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveMetas = "metas";
     public const string ChaveRetencao = "retencao";
 
+    // ===== Itens COMPOSTOS (parcela 55) =====
+    // A Direção é quem publica os que ATRAVESSAM módulo, porque ela é o único app que
+    // carrega todos — e porque, sem ela carregada, cada sub-tela volta a ser item de
+    // menu no app dono (ver o comentário da tela órfã no ShellViewModel).
+    public const string ChaveGrupoPainel = "painel";
+    public const string ChaveGrupoRelatorios = "relatorios";
+    public const string ChaveGrupoRentabilidade = "rentabilidade";
+    public const string ChaveGrupoMarketing = "marketing";
+    public const string ChaveGrupoConformidade = "conformidade";
+
     public string Nome => "Direção";
 
     public IReadOnlyList<ItemMenuModulo> Itens { get; } =
     [
-        // Inicial: sem isto o shell abre no primeiro item do primeiro módulo, e o Gerente
-        // Geral — que carrega os três — abria no painel da RECEPÇÃO. Quem manda na clínica
-        // entrava no sistema e via a fila do balcão. Reordenar os módulos resolveria o
-        // mesmo problema desmontando a sidebar, que já está na ordem do dia de trabalho.
+        // ===== GESTÃO =====
+        // Os TRÊS painéis viraram um item. Cada app tinha o seu — a direção via o dela, o
+        // balcão via "Início", quem atende via "Meu dia" —, e no Gerente Geral os três
+        // apareciam como itens diferentes no mesmo grupo, obrigando a lembrar qual era
+        // qual. `Inicial` fica AQUI, e a 1ª aba é a da direção: é o que a parcela 22
+        // resolveu (o Gerente abria no painel da RECEPÇÃO) e não pode regredir.
         new ItemMenuModulo
         {
-            Chave = ChavePainel, Rotulo = "Painel da direção", Glifo = "\uF246",
-            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores, Inicial = true
+            Chave = ChaveGrupoPainel, Rotulo = "Painel", Glifo = "\uF246",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores, Inicial = true,
+            Abas =
+            [
+                new AbaMenu("Dire\u00E7\u00E3o", ChavePainel),
+                new AbaMenu("Recep\u00E7\u00E3o", ChavesSuite.PainelRecepcao),
+                new AbaMenu("Meu dia", ChavesSuite.ConsultorioMeuDia)
+            ]
         },
+
+        // ===== FINANCEIRO =====
         // O faturamento entra na seção FINANCEIRO, junto do caixa e dos pacotes: para
         // quem usa, é tudo dinheiro da clínica. Que a tela venha do módulo da Direção é
         // detalhe de arquitetura, e arquitetura não organiza menu.
+        //
+        // Ele NÃO virou aba de nada, e a tabela de preço também não: "Faturamento (TISS)"
+        // já é uma tela de cinco abas por dentro, e pendurá-la sob outra régua daria
+        // abas dentro de abas — duas réguas empilhadas no topo, que é pior do que os dois
+        // itens que se queria economizar.
         new ItemMenuModulo
         {
             Chave = ChaveFaturamento, Rotulo = "Faturamento (TISS)", Glifo = "\uE8C7",
@@ -67,10 +92,90 @@ public sealed class ModuloGerente : IModuloApp
             Chave = ChavePrecos, Rotulo = "Tabela de pre\u00E7o (conv\u00EAnios)", Glifo = "\uE8EF",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
+
+        // ===== INTELIGÊNCIA =====
+        // "O que aconteceu" num item só. Metas fica com os relatórios de propósito: é a
+        // mesma pergunta vista dos dois lados — o BI diz o que aconteceu, a meta diz o
+        // que deveria ter acontecido. "Meus números" entra porque é o mesmo indicador de
+        // produtividade, recortado por profissional.
         new ItemMenuModulo
         {
-            Chave = ChaveCusto, Rotulo = "Custo de taxas e impostos", Glifo = "\uE9F9",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro
+            Chave = ChaveGrupoRelatorios, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores,
+            Abas =
+            [
+                new AbaMenu("Indicadores", ChaveIndicadores),
+                new AbaMenu("Metas", ChaveMetas),
+                new AbaMenu("Resultado do m\u00EAs", ChavesSuite.Resultado),
+                new AbaMenu("Produ\u00E7\u00E3o", ChavesSuite.Producao),
+                new AbaMenu("Meus n\u00FAmeros", ChavesSuite.ConsultorioMeusNumeros)
+            ]
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoRentabilidade, Rotulo = "Rentabilidade e custos", Glifo = "\uE9F3",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro,
+            Abas =
+            [
+                new AbaMenu("Por conv\u00EAnio", ChaveRentabilidade),
+                new AbaMenu("Custo de taxas e impostos", ChaveCusto)
+            ]
+        },
+        // As três falam com quem não está vindo, por caminhos diferentes: a rodada
+        // automática, a lista para decidir caso a caso, e o telefonema do balcão.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoMarketing, Rotulo = "Marketing / Recall", Glifo = "\uE715",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas,
+            Abas =
+            [
+                new AbaMenu("Campanhas", ChaveCampanhas),
+                new AbaMenu("Quem parou de vir", ChaveRetencao),
+                new AbaMenu("Retorno de pacientes", ChavesSuite.RetornoPacientes)
+            ]
+        },
+        // As três perguntas de quem fiscaliza, no mesmo lugar: quem MEXEU (auditoria), o
+        // que está GUARDADO (guarda) e quem PODE (acessos). Elas já vinham lado a lado na
+        // lista antiga, e a auditoria da cliente pergunta as três de uma vez.
+        //
+        // ⚠️ A permissão continua sendo POR ABA, não do grupo: `VerAuditoria` abre a
+        // trilha e `GerenciarUsuarios` abre os acessos, e juntá-las daria poder de criar
+        // usuário a quem só precisa conferir o que aconteceu — o oposto da parcela 49. O
+        // grupo exige o menor dos dois, e as abas que a pessoa não pode ver não aparecem.
+        new ItemMenuModulo
+        {
+            Chave = ChaveGrupoConformidade, Rotulo = "Conformidade e acessos", Glifo = "\uE81C",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria,
+            Abas =
+            [
+                new AbaMenu("Auditoria", ChaveAuditoria),
+                new AbaMenu("Guarda do prontu\u00E1rio", ChaveGuarda),
+                new AbaMenu("Acessos", ChaveAcessos)
+            ]
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveConfiguracoes, Rotulo = "Configura\u00E7\u00F5es", Glifo = "\uE713",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
+        },
+
+        // ===== Sub-telas =====
+        // Continuam sendo itens navegáveis — o painel da direção leva a várias delas por
+        // chave. Sem `Oculto`: quem as esconde é o item pai, e só onde ele existe.
+        new ItemMenuModulo
+        {
+            Chave = ChavePainel, Rotulo = "Painel da dire\u00E7\u00E3o", Glifo = "\uF246",
+            Grupo = GrupoSidebar.Gestao, Requer = Permissao.VerIndicadores
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveIndicadores, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveMetas, Rotulo = "Metas", Glifo = "\uE7C1",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
         },
         new ItemMenuModulo
         {
@@ -79,33 +184,19 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveCampanhas, Rotulo = "Marketing / Recall", Glifo = "\uE715",
+            Chave = ChaveCusto, Rotulo = "Custo de taxas e impostos", Glifo = "\uE9F9",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
+            Chave = ChaveCampanhas, Rotulo = "Campanhas", Glifo = "\uE715",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
         },
         new ItemMenuModulo
         {
-            Chave = ChaveIndicadores, Rotulo = "Relat\u00F3rios / BI", Glifo = "\uE9D2",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
-        },
-        // Metas fica ao lado dos relatorios de proposito: e a mesma pergunta vista dos
-        // dois lados — o BI diz o que aconteceu, a meta diz o que deveria ter acontecido.
-        new ItemMenuModulo
-        {
-            Chave = ChaveMetas, Rotulo = "Metas", Glifo = "\uE7C1",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerIndicadores
-        },
-        // Ao lado das campanhas: as duas falam com quem nao esta vindo, mas por caminhos
-        // diferentes — la a rodada automatica, aqui a lista para decidir caso a caso.
-        new ItemMenuModulo
-        {
-            Chave = ChaveRetencao, Rotulo = "Quem parou de vir", Glifo = "\uE77B",
+            Chave = ChaveRetencao, Rotulo = "Quem parou de vir", Glifo = "\uE8AF",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
         },
-        // Auditoria vem ANTES de Acessos de propósito: "quem fez o quê" é a pergunta que
-        // se faz toda semana, e "quem pode o quê" a que se mexe raramente. E fica sob a
-        // própria permissão (VerAuditoria), não sob GerenciarUsuarios: ler a trilha e mexer
-        // em permissão são coisas diferentes, e amarrar as duas obrigaria a dar poder de
-        // criar usuário a quem só precisa conferir o que aconteceu.
         new ItemMenuModulo
         {
             Chave = ChaveAuditoria, Rotulo = "Auditoria", Glifo = "\uE81C",
@@ -113,19 +204,12 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
-            // Ao lado da Auditoria de propósito: as duas respondem à mesma pergunta de
-            // quem fiscaliza — uma diz quem mexeu, a outra diz o que está guardado.
             Chave = ChaveGuarda, Rotulo = "Guarda do prontu\u00E1rio", Glifo = "\uE7B8",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria
         },
         new ItemMenuModulo
         {
             Chave = ChaveAcessos, Rotulo = "Acessos", Glifo = "\uE72E",
-            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
-        },
-        new ItemMenuModulo
-        {
-            Chave = ChaveConfiguracoes, Rotulo = "Configura\u00E7\u00F5es", Glifo = "\uE713",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarUsuarios
         }
     ];

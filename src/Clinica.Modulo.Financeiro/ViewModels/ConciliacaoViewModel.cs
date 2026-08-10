@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -113,7 +114,87 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
+    /// <summary>
+    /// TODAS as guias do mês. `Linhas` é o recorte que a tela mostra.
+    ///
+    /// A separação existe por uma razão que não é de leiaute: a linha guarda o
+    /// <see cref="LinhaConciliacao.Valor"/> DIGITADO. Se filtrar recriasse as linhas, o
+    /// valor que a pessoa acabou de teclar em cinco guias sumiria ao ela restringir a
+    /// lista para achar a sexta. Por isso o filtro reaproveita as MESMAS instâncias — ele
+    /// escolhe quais aparecem, nunca as reconstrói.
+    /// </summary>
+    private readonly List<LinhaConciliacao> _todas = [];
+
     public ObservableCollection<LinhaConciliacao> Linhas { get; } = [];
+
+    // ===== Filtros (parcela 56) =====
+    //
+    // A tela abria com 53 guias numa lista corrida e nada para estreitá-la. Quem concilia
+    // não lê a lista: ela tem o DEMONSTRATIVO de uma operadora na mão e precisa achar,
+    // uma a uma, as guias que estão nele. Sem filtro, isso é rolar 53 linhas por guia.
+
+    /// <summary>Rótulo da opção "não filtrar por convênio". Fica sempre no topo da lista.</summary>
+    public const string TodosConvenios = "Todos os convênios";
+
+    /// <summary>
+    /// As operadoras presentes NO MÊS carregado — não o catálogo inteiro.
+    ///
+    /// Oferecer convênio que não tem guia no mês daria uma lista de opções que só levam a
+    /// resultado vazio, e resultado vazio se lê como "não achei", não como "você escolheu
+    /// um filtro impossível".
+    /// </summary>
+    public ObservableCollection<string> Convenios { get; } = [TodosConvenios];
+
+    /// <summary>
+    /// Filtra pela OPERADORA (o nome resolvido), e não pela família do enum.
+    ///
+    /// É diferente de propósito da consulta de guias do faturamento, que filtra por
+    /// família porque a pergunta lá é "o que vem sendo feito". Aqui a pergunta é outra:
+    /// "onde estão as guias deste demonstrativo?", e demonstrativo é de UMA operadora.
+    /// Filtrar por família juntaria todas as personalizadas — "Sul América" e "Unimed
+    /// Costa do Sol" respondem ao mesmo `Convenio.Personalizado` — e devolveria as guias
+    /// de quem não está no papel.
+    /// </summary>
+    [ObservableProperty]
+    private string _filtroConvenio = TodosConvenios;
+
+    [ObservableProperty]
+    private string _filtroPaciente = string.Empty;
+
+    /// <summary>O número da guia é a chave do demonstrativo — casa por TRECHO, não exato.</summary>
+    [ObservableProperty]
+    private string _filtroGuia = string.Empty;
+
+    /// <summary>
+    /// Só as que a tabela de preço não soube propor — as que exigem digitar o valor.
+    /// É a fila de trabalho de quem está conferindo: as com valor proposto só precisam
+    /// ser confirmadas.
+    /// </summary>
+    [ObservableProperty]
+    private bool _somenteSemValor;
+
+    /// <summary>
+    /// O que o estado vazio DIZ. Muda com o filtro, e isso não é detalhe de texto.
+    ///
+    /// "Nenhuma guia baixada esperando receita" e "nenhuma guia bate com o filtro" pedem
+    /// ações opostas: a primeira encerra o trabalho do mês, a segunda manda limpar o
+    /// filtro. Um filtro esquecido que responda a primeira faz a clínica dar o mês por
+    /// conciliado com 53 guias pendentes — é a lição da lista de espera da parcela 25.
+    /// </summary>
+    public string TituloVazio => FiltroAtivo
+        ? "Nenhuma guia bate com o filtro"
+        : "Nenhuma guia baixada esperando receita";
+
+    public string DescricaoVazio => FiltroAtivo
+        ? $"O mês tem {_todas.Count} guia(s) pendente(s) — elas estão fora do filtro atual."
+        : "A guia sai desta lista quando passa a TER receita, não quando alguém a marca.";
+
+    /// <summary>Algum filtro está valendo — acende o "Limpar" e muda o texto do vazio.</summary>
+    public bool FiltroAtivo =>
+        FiltroConvenio != TodosConvenios
+        || !string.IsNullOrWhiteSpace(FiltroPaciente)
+        || !string.IsNullOrWhiteSpace(FiltroGuia)
+        || SomenteSemValor;
 
     /// <summary>Guias glosadas com receita ainda contada — a aba do caminho de volta.</summary>
     public ObservableCollection<LinhaReceitaGlosada> Glosadas { get; } = [];
@@ -160,6 +241,100 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
 
     partial void OnMesChanged(DateTime value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Ligado enquanto a lista de convênios é remontada.
+    ///
+    /// ⚠️ `Convenios.Clear()` faz o `ComboBox` zerar a seleção e devolver <c>null</c> pelo
+    /// binding — é a mesma armadilha que a parcela 50 pegou na prévia do Novo atendimento.
+    /// Sem a guarda, trocar de mês dispara um refiltro com o convênio nulo, que não casa
+    /// com nada: a tela pisca "nenhuma guia bate com o filtro" antes de mostrar o mês novo.
+    /// </summary>
+    private bool _montandoConvenios;
+
+    // Todo filtro refiltra na hora. É lista já carregada — não vai ao banco, então não há
+    // resposta fora de ordem para descartar nem motivo para agrupar as teclas.
+    partial void OnFiltroConvenioChanged(string value)
+    {
+        // O binding pode devolver nulo ao esvaziar a lista; "todos" é o estado honesto.
+        if (value is null)
+        {
+            FiltroConvenio = TodosConvenios;
+            return;
+        }
+
+        if (!_montandoConvenios) Refiltrar();
+    }
+    partial void OnFiltroPacienteChanged(string value) => Refiltrar();
+    partial void OnFiltroGuiaChanged(string value) => Refiltrar();
+    partial void OnSomenteSemValorChanged(bool value) => Refiltrar();
+
+    /// <summary>
+    /// Recorta <see cref="_todas"/> em <see cref="Linhas"/>.
+    ///
+    /// Reaproveita as instâncias: o valor digitado numa guia sobrevive a estreitar e
+    /// alargar o filtro.
+    /// </summary>
+    private void Refiltrar()
+    {
+        var escolhidas = _todas.Where(l =>
+            (FiltroConvenio == TodosConvenios || l.Convenio == FiltroConvenio)
+            && Busca.Casa(l.Paciente, FiltroPaciente)
+            && Busca.Casa(l.NumeroGuia, FiltroGuia)
+            && (!SomenteSemValor || l.Procedencia is null));
+
+        Linhas.Clear();
+        foreach (var l in escolhidas) Linhas.Add(l);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+        OnPropertyChanged(nameof(TituloVazio));
+        OnPropertyChanged(nameof(DescricaoVazio));
+        AtualizarResumo();
+    }
+
+    /// <summary>
+    /// O resumo DIZ que a lista está filtrada.
+    ///
+    /// "12 guia(s)" e "12 de 53 guia(s)" respondem perguntas diferentes, e quem volta à
+    /// tela depois do café não lembra o que deixou marcado no combo. Sem isso, o filtro
+    /// esquecido faz a clínica concluir que o mês teve pouca guia pendente.
+    /// </summary>
+    private void AtualizarResumo()
+    {
+        if (_todas.Count == 0)
+        {
+            Resumo = "Nenhuma guia pendente de lançamento neste mês.";
+            return;
+        }
+
+        if (Linhas.Count == 0)
+        {
+            // Distinguir as duas ausências é o que impede a pessoa de concluir errado:
+            // "não há guias" e "o filtro não achou" pedem ações opostas.
+            Resumo = $"Nenhuma das {_todas.Count} guia(s) do mês bate com o filtro atual.";
+            return;
+        }
+
+        var semTabela = Linhas.Count(l => l.Procedencia is null);
+        var quantas = FiltroAtivo
+            ? $"{Linhas.Count} de {_todas.Count} guia(s)"
+            : $"{Linhas.Count} guia(s)";
+
+        Resumo = semTabela == 0
+            ? $"{quantas} efetivada(s) sem receita lançada — valor proposto pela tabela."
+            : semTabela == Linhas.Count
+                ? $"{quantas} efetivada(s) sem receita lançada. Sem tabela de preço cadastrada: informe o valor."
+                : $"{quantas} efetivada(s) sem receita lançada · {semTabela} sem preço na tabela.";
+    }
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroConvenio = TodosConvenios;
+        FiltroPaciente = string.Empty;
+        FiltroGuia = string.Empty;
+        SomenteSemValor = false;
+    }
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
@@ -171,7 +346,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             var fim = inicio.AddMonths(1).AddDays(-1);
 
             var guias = await _financeiro.GuiasSemLancamentoAsync(inicio, fim);
-            Linhas.Clear();
+            _todas.Clear();
             foreach (var g in guias)
             {
                 // A TABELA DE PREÇO cadastrada no Gerente (parcela 20) preenche o valor.
@@ -181,7 +356,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
                 // ser digitado — como sempre foi; o sistema não inventa valor de mercado.
                 var proposto = await _precos.ProporAsync(g);
 
-                Linhas.Add(new LinhaConciliacao
+                _todas.Add(new LinhaConciliacao
                 {
                     Guia = g,
                     DataBaixa = g.DataBaixa.ToString("dd/MM/yyyy"),
@@ -194,14 +369,26 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
                 });
             }
 
-            var comTabela = Linhas.Count(l => l.Procedencia is not null);
-            Resumo = Linhas.Count == 0
-                ? "Nenhuma guia pendente de lançamento neste mês."
-                : comTabela == Linhas.Count
-                    ? $"{Linhas.Count} guia(s) efetivada(s) sem receita lançada — valor proposto pela tabela."
-                    : comTabela == 0
-                        ? $"{Linhas.Count} guia(s) efetivada(s) sem receita lançada. Sem tabela de preço cadastrada: informe o valor."
-                        : $"{Linhas.Count} guia(s) efetivada(s) sem receita lançada · {Linhas.Count - comTabela} sem preço na tabela.";
+            // As operadoras do mês, em ordem. A escolha anterior é preservada quando ela
+            // ainda existe — trocar de mês não pode desfazer o filtro de quem está
+            // conferindo o demonstrativo da mesma operadora mês a mês.
+            var escolhido = FiltroConvenio;
+            _montandoConvenios = true;
+            try
+            {
+                Convenios.Clear();
+                Convenios.Add(TodosConvenios);
+                foreach (var nome in _todas.Select(l => l.Convenio).Distinct().OrderBy(n => n))
+                    Convenios.Add(nome);
+
+                FiltroConvenio = Convenios.Contains(escolhido) ? escolhido : TodosConvenios;
+            }
+            finally
+            {
+                _montandoConvenios = false;
+            }
+
+            Refiltrar();
         }
         catch (Exception ex)
         {
