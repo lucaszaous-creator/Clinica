@@ -511,6 +511,66 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// O endereço do último arquivo de exemplo enviado. Fica na tela para ser aberto e
+    /// copiado — dizer "enviado com sucesso" sem dar o endereço deixaria a pessoa
+    /// procurando no painel do provedor qual dos objetos é o dela.
+    /// </summary>
+    [ObservableProperty] private string? _urlDoExemplo;
+
+    /// <summary>Negado para o XAML, como <c>PodeTestarConexao</c>: sem conversor de texto.</summary>
+    public bool TemUrlDoExemplo => !string.IsNullOrWhiteSpace(UrlDoExemplo);
+
+    partial void OnUrlDoExemploChanged(string? value)
+        => OnPropertyChanged(nameof(TemUrlDoExemplo));
+
+    /// <summary>
+    /// Sobe UM PDF de exemplo e o deixa lá, para conferir no navegador que o arquivo ABRE
+    /// pela URL pública. É a metade que o "Testar conexão" não cobre — ver
+    /// <c>PublicacaoDocumentoService.EnviarExemploAsync</c>.
+    /// </summary>
+    [RelayCommand]
+    private async Task EnviarExemploAsync()
+    {
+        Mensagem = null;
+        MensagemEhErro = false;
+        UrlDoExemplo = null;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                Permissao.GerenciarUsuarios, "enviar arquivo de teste ao armazenamento");
+
+            TestandoConexao = true;
+
+            using var scope = _escopos.CreateScope();
+            var resultado = await scope.ServiceProvider
+                .GetRequiredService<PublicacaoDocumentoService>()
+                .EnviarExemploAsync();
+
+            if (!resultado.Publicou)
+            {
+                Erro(resultado.Erro ?? "O arquivo de exemplo não foi enviado.");
+                return;
+            }
+
+            UrlDoExemplo = resultado.Url;
+            _snackbar.Sucesso(
+                "Arquivo de exemplo enviado. Abra o endereço abaixo para conferir que ele "
+                + "abre — e apague o objeto no painel do provedor depois.");
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Gerente — envio do arquivo de exemplo falhou", ex);
+            Erro(ex.Message);
+        }
+        finally
+        {
+            TestandoConexao = false;
+        }
+    }
+
     [RelayCommand]
     private async Task SalvarFaturamentoAsync()
         => await ExecutarAsync(async p =>

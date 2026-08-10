@@ -299,7 +299,25 @@
                                     Command="{Binding TestarConexaoCommand}"
                                     IsEnabled="{Binding PodeTestarConexao}"
                                     VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="170" />
+                            <Button Content="Enviar arquivo de teste"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    Command="{Binding EnviarExemploCommand}"
+                                    IsEnabled="{Binding PodeTestarConexao}"
+                                    VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="200" />
                         </StackPanel>
+
+                        <!-- O endereço FICA na tela para ser aberto e copiado. Confirmar
+                             "enviado" sem dizer onde deixaria a pessoa procurando no painel
+                             do provedor qual dos objetos é o dela. -->
+                        <Border Style="{StaticResource AlertaInfo}" Margin="0,10,0,0"
+                                Visibility="{Binding TemUrlDoExemplo, Converter={StaticResource BoolParaVisibilidade}}">
+                            <StackPanel>
+                                <TextBlock TextWrapping="Wrap"
+                                           Text="Arquivo de teste no ar. Abra o endereço abaixo no navegador — ele tem que ABRIR o PDF, não baixar. Depois apague o objeto no painel do provedor." />
+                                <TextBox Text="{Binding UrlDoExemplo, Mode=OneWay}"
+                                         IsReadOnly="True" Margin="0,8,0,0" />
+                            </StackPanel>
+                        </Border>
                         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                    HorizontalAlignment="Left" MaxWidth="820"
                                    FontSize="{StaticResource Fonte.Legenda}"

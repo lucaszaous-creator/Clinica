@@ -1,5 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -209,6 +211,78 @@ public sealed class PublicacaoDocumentoService
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Sobe UM PDF de exemplo e o DEIXA no balde, devolvendo a URL pública para abrir no
+    /// navegador.
+    /// </summary>
+    /// <remarks>
+    /// <b>Prova o que o "Testar conexão" não prova.</b> Aquele grava e apaga: responde
+    /// "consigo escrever?". Este responde a outra pergunta, que é a que decide se a receita
+    /// funciona no balcão — <b>"o arquivo é LEGÍVEL pela URL pública?"</b>. São falhas
+    /// diferentes: o PUT pode passar, a ACL ser aceita, e a URL pública do balde estar
+    /// desligada — aí o farmacêutico leva 403 com a receita na mão.
+    ///
+    /// <b>Ele NÃO apaga</b>, ao contrário do teste de conexão, e é essa a razão de existir:
+    /// só se conferindo o arquivo aberto no navegador é que se sabe que o caminho inteiro
+    /// fecha. A mensagem manda apagar depois.
+    ///
+    /// Não toca em documento nenhum do prontuário: o conteúdo é fixo, sem paciente, sem
+    /// medicamento e sem dado clínico — publicar um documento real para testar seria expor
+    /// dado de saúde para conferir um endereço.
+    /// </remarks>
+    public async Task<ResultadoPublicacao> EnviarExemploAsync(CancellationToken ct = default)
+    {
+        if (await _parametros.ObterUrlPublicacaoAsync(ct) is not { } baseUrl)
+            return ResultadoPublicacao.Falhou(
+                "Cadastre o domínio de publicação antes: é ele que forma o endereço que "
+                + "este teste vai abrir.");
+
+        // Token de verdade, para o endereço ter exatamente a forma do de uma receita — um
+        // caminho diferente poderia passar aqui e falhar lá por regra de prefixo do balde.
+        var token = PublicacaoDocumento.GerarToken();
+        var caminho = PublicacaoDocumento.CaminhoDoObjeto(token);
+
+        try
+        {
+            await _armazenamento.PublicarAsync(caminho, PdfDeExemplo(), "application/pdf", ct);
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Publicação — envio do PDF de exemplo falhou", ex);
+            return ResultadoPublicacao.Falhou($"Não foi possível enviar: {ex.Message}");
+        }
+
+        return new ResultadoPublicacao(PublicacaoDocumento.Url(baseUrl, token), null, null);
+    }
+
+    /// <summary>
+    /// Uma folha só, sem dado nenhum. É PDF de verdade porque metade do que se quer provar
+    /// é que o navegador do celular ABRE o arquivo em vez de baixá-lo — com um .txt o teste
+    /// passaria e a receita continuaria caindo na pasta de downloads.
+    /// </summary>
+    private static byte[] PdfDeExemplo()
+    {
+        QuestPDF.Settings.License = LicenseType.Community;
+
+        return Document.Create(doc =>
+        {
+            doc.Page(page =>
+            {
+                page.Margin(40);
+                page.Content().Column(col =>
+                {
+                    col.Item().Text("Arquivo de teste").FontSize(22).SemiBold();
+                    col.Item().PaddingTop(12).Text(
+                        "Este arquivo foi enviado pelo sistema da clínica para conferir o "
+                        + "armazenamento de documentos. Ele não contém dado de paciente e "
+                        + "pode ser apagado.");
+                    col.Item().PaddingTop(12).Text(
+                        $"Enviado em {DateTime.Now:dd/MM/yyyy HH:mm:ss}.");
+                });
+            });
+        }).GeneratePdf();
     }
 
     /// <summary>
