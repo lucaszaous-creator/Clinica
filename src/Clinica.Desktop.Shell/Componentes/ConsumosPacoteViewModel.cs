@@ -6,7 +6,7 @@ using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
-namespace Clinica.Financeiro.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Uma sessão debitada do pacote, como a lista a mostra.</summary>
 public sealed class LinhaConsumo

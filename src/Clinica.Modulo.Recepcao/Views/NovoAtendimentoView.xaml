@@ -289,6 +289,16 @@
                                        VerticalAlignment="Center" Margin="0,0,8,0" />
                             <DatePicker SelectedDate="{Binding Data}" Width="150"
                                         VerticalAlignment="Center" />
+                            <!-- A HORA existe desde a parcela 60: o avulso marca um encaixe
+                                 de verdade, e encaixe sem hora não é encaixe. Antes o
+                                 sistema carimbava 9h fixo, porque `Atendimento` só guarda a
+                                 data — e o horário aparecia na agenda dos médicos num
+                                 momento em que ninguém foi atendido. -->
+                            <TextBlock Text="Hora" Style="{StaticResource Rotulo}"
+                                       VerticalAlignment="Center" Margin="14,0,8,0" />
+                            <TextBox Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="80" VerticalAlignment="Center"
+                                     ToolTip="Hora da sessão. Entra na agenda como encaixe." />
                         </StackPanel>
                     </Grid>
                     <Separator Margin="0,4,0,10" />

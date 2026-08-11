@@ -7,7 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Clinica.Financeiro.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Um pacote do catálogo, como aparece no combo da venda.</summary>
 public sealed class OpcaoPacote

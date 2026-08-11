@@ -252,6 +252,9 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.EspecialidadeConsultaCodigo).HasMaxLength(40);
             e.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(a => a.Origem).HasConversion<string>().HasMaxLength(20);
+            // TEXTO, como todo enum deste banco. Gravado como int, acrescentar um valor no
+            // meio do enum reescreveria o significado das linhas já salvas.
+            e.Property(a => a.PrimeiroCodigo).HasConversion<string>().HasMaxLength(40);
             e.Property(a => a.Observacoes).HasMaxLength(500);
             e.HasOne(a => a.Paciente).WithMany().HasForeignKey(a => a.PacienteId);
             // Sem cascade a partir do atendimento (relação opcional).

@@ -42,7 +42,7 @@ public sealed class AgendaService
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        bool encaixe = false, string? operador = null)
+        bool encaixe = false, string? operador = null, TipoCodigo? primeiroCodigo = null)
     {
         // Variante do catálogo: a base (comportamento) vem do código. Sem código, usa o enum.
         if (modalidadeCodigo is not null)
@@ -76,6 +76,10 @@ public sealed class AgendaService
             SalaId = salaId,
             DuracaoMinutos = duracaoMinutos,
             Encaixe = encaixe,
+            // Nas modalidades duplas, qual código o convênio libera primeiro. Atravessa o
+            // horário para chegar ao motor na confirmação da presença — é o que permitiu o
+            // avulso virar encaixe sem perder a escolha que a tela dele sempre ofereceu.
+            PrimeiroCodigo = primeiroCodigo,
             // Quem marcou, e quando. O operador chega da TELA (`SessaoUsuario.Atual`) —
             // este serviço não lê a sessão, pela mesma razão dos demais: é o chamador que
             // sabe quem está logado.
@@ -590,6 +594,7 @@ public sealed class AgendaService
             especialidadeConsulta: ag.EspecialidadeConsulta,
             modalidadeCodigo: ag.ModalidadeCodigo,
             especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo,
+            primeiroCodigo: ag.PrimeiroCodigo,
             operador: operador);
 
         ag.Status = StatusAgendamento.Realizado;

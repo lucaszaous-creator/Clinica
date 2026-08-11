@@ -62,7 +62,7 @@ public sealed class AtendimentoService
 
     public async Task<ResultadoLancamento> LancarAsync(
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
-        CancellationToken ct = default, bool registrarNaAgenda = false, TipoCodigo? primeiroCodigo = null,
+        CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null, string? operador = null)
     {
@@ -174,28 +174,22 @@ public sealed class AtendimentoService
             }
         }
 
-        // Lançamento direto (tela "Novo atendimento"): registra também na agenda do dia, já
-        // como presença realizada e vinculado ao atendimento, para que o paciente apareça
-        // na agenda na data marcada. Quando o atendimento nasce da própria agenda
-        // (AgendaService.ConfirmarPresenca), este registro não é criado (evita duplicidade).
-        if (registrarNaAgenda)
-        {
-            var agendamento = new Agendamento
-            {
-                PacienteId = pacienteId,
-                DataHora = DateTime.SpecifyKind(data.ToDateTime(new TimeOnly(9, 0)), DateTimeKind.Unspecified),
-                ModalidadePrevista = modalidade,
-                ModalidadeCodigo = atendimento.ModalidadeCodigo,
-                EspecialidadeConsulta = atendimento.EspecialidadeConsulta,
-                EspecialidadeConsultaCodigo = atendimento.EspecialidadeConsultaCodigo,
-                Status = StatusAgendamento.Realizado,
-                Origem = OrigemAgendamento.Manual,
-                AtendimentoId = atendimento.Id,
-                Observacoes = observacoes
-            };
-            await _repo.AdicionarAgendamentoAsync(agendamento, ct);
-            await _repo.SalvarAsync(ct);
-        }
+        // ⚠️ AQUI havia o `registrarNaAgenda` (parcela 60, removido).
+        //
+        // O lançamento avulso criava um `Agendamento` sintético às **9h fixo**, sem
+        // profissional e sem sala, porque `Atendimento` só guarda `DateOnly Data` — não há
+        // hora para copiar. Ele aparecia na grade da agenda num horário em que ninguém foi
+        // atendido, na coluna "Sem profissional", e CONTAVA na ocupação do dia.
+        //
+        // O conserto não foi apagar o registro: foi inverter a ordem. O avulso passou a
+        // marcar um ENCAIXE de verdade, na hora real, e a Fila o conclui — então o
+        // horário existe, é honesto, e este serviço voltou a ter um trabalho só: gerar o
+        // atendimento e as guias.
+        //
+        // O efeito colateral é a amarra que a direção pediu: `LancarAsync` ficou com UM
+        // ÚNICO chamador em todo o sistema (`AgendaService.ConfirmarPresencaAsync`), e o
+        // pacote, o insumo e o caixa deixaram de depender de qual porta a recepcionista
+        // usou. Ponto único deixou de ser documentação e virou estrutura.
 
         return new ResultadoLancamento(atendimento, resultado.Avisos);
     }

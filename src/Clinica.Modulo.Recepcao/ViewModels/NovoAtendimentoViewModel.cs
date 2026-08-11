@@ -241,6 +241,16 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
 
     [ObservableProperty] private DateTime _data = DateTime.Today;
+
+    /// <summary>
+    /// A HORA da sessão (parcela 60). Nasce com a hora de agora, que é o caso normal: o
+    /// paciente está no balcão.
+    ///
+    /// Ela passou a existir porque o avulso deixou de criar um horário sintético às 9h
+    /// fixo — <c>Atendimento</c> só guarda <c>DateOnly</c>, e era daí que saía o 9h. Agora
+    /// ele marca um ENCAIXE de verdade, e encaixe sem hora não é encaixe.
+    /// </summary>
+    [ObservableProperty] private string _hora = DateTime.Now.ToString("HH:mm");
     [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
     [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
@@ -407,9 +417,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     }
 
     /// <summary>
-    /// Os avulsos de hoje. O lançamento avulso registra o atendimento também na agenda
-    /// (<c>registrarNaAgenda: true</c>) com <see cref="OrigemAgendamento.Manual"/> — é por
-    /// esse par que se distingue quem entrou por aqui de quem veio da agenda pela Fila.
+    /// Os atendimentos do dia — a conferência de quem lançou o quê.
+    ///
+    /// ⚠️ Desde a parcela 60 ela mostra os atendimentos do dia INTEIRO, e não só os
+    /// "avulsos". Antes o recorte era possível porque o avulso criava um agendamento com
+    /// um par próprio (<c>Manual</c> + hora 9h fixo) que o distinguia de quem veio pela
+    /// Fila. Esse par era o fantasma: um horário em que ninguém foi atendido, sem
+    /// profissional, contando na ocupação do dia.
+    ///
+    /// Com as duas portas na mesma esteira o par deixou de existir — e deixou de fazer
+    /// falta: a pergunta que a recepcionista faz olhando esta lista é "o que saiu hoje e
+    /// quem lançou", não "por qual botão isto entrou".
     /// </summary>
     [RelayCommand]
     public async Task CarregarDoDiaAsync()
@@ -428,7 +446,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
             LancadosHoje.Clear();
             foreach (var ag in agendamentos
-                         .Where(a => a.Origem == OrigemAgendamento.Manual && a.AtendimentoId is not null)
+                         .Where(a => a.AtendimentoId is not null)
                          .OrderByDescending(a => a.AtendimentoId))
             {
                 var atendimento = await repo.ObterAtendimentoAsync(ag.AtendimentoId!.Value);
@@ -943,27 +961,99 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             return;
         }
 
+        if (!TimeOnly.TryParse(Hora, out var hora))
+        {
+            Mensagem = "Informe a hora da sessão no formato HH:mm.";
+            return;
+        }
+
         // Guarda contra duplo clique: dois lançamentos gerariam códigos duplicados.
         if (Ocupado) return;
         Ocupado = true;
+
+        int agendamentoId;
         try
         {
             CodigosGerados.Clear();
             Avisos.Clear();
             Mensagem = null;
 
+            // ===== PASSO 1: o horário existe de verdade (parcela 60) =====
+            //
+            // O avulso NÃO chama mais `AtendimentoService.LancarAsync` direto. Ele marca um
+            // ENCAIXE na hora real e deixa a esteira da Fila concluir — que é a mesma
+            // esteira, com o mesmo serviço e a mesma janela.
+            //
+            // Antes, "lançar e acabou" gerava a guia e pulava três dos quatro fatos: o
+            // pacote não debitava (a clínica atendia de graça quem tinha comprado dez
+            // sessões), o dinheiro não entrava no caixa, e o horário virava um fantasma às
+            // 9h fixo, sem profissional, contando na ocupação do dia.
+            //
+            // `encaixe: true` porque é isso que ele é: alguém que chegou sem hora marcada.
+            // É o que faz o serviço aceitar por cima de um horário ocupado em vez de
+            // recusar — o paciente já está aqui.
             using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
-            var resultado = await service.LancarAsync(
-                paciente.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
-                registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            var operador = SessaoUsuario.Atual.Operador;
+
+            var agendamento = await agenda.AgendarAsync(
+                paciente.Id,
+                Data.Date.Add(hora.ToTimeSpan()),
+                Modalidade,
+                Observacoes,
                 modalidadeCodigo: ModalidadeSelecionada.Codigo,
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
-                operador: SessaoUsuario.Atual.Operador);
+                encaixe: true,
+                operador: operador,
+                primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
+
+            agendamentoId = agendamento.Id;
+
+            // O paciente está no balcão — o check-in é o fato, não uma etapa a cumprir.
+            await agenda.RegistrarChegadaAsync(agendamentoId);
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — encaixe não pôde ser marcado", ex);
+            Mensagem = $"Não foi possível marcar o horário: {ex.Message}";
+            Ocupado = false;
+            return;
+        }
+
+        try
+        {
+            // ===== PASSO 2: a MESMA janela da Fila =====
+            //
+            // Não há uma segunda tela de decisão: é a `FechamentoSessaoWindow` que a
+            // recepcionista já usa todo dia, com as mesmas propostas (o pacote que vence
+            // primeiro, o valor da última entrada do paciente com a procedência). Duas
+            // telas para a mesma decisão divergiriam na primeira correção.
+            var vm = new FechamentoSessaoViewModel(_scopeFactory, agendamentoId);
+            var janela = new Janelas.FechamentoSessaoWindow(vm)
+            {
+                Owner = System.Windows.Application.Current?.Windows
+                            .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
+                        ?? System.Windows.Application.Current?.MainWindow
+            };
+
+            if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
+            {
+                // Fechou sem concluir. O horário FICA, com o check-in carimbado — e isso é
+                // a verdade: o paciente chegou. Ele aparece na Fila em "Na recepção", que é
+                // onde sessão não terminada mora, e de lá se conclui ou se cancela.
+                //
+                // Apagar o encaixe aqui seria pior: sumiria da tela o único registro de que
+                // alguém está no balcão esperando.
+                Mensagem = "O horário foi marcado e o paciente está na Fila, em "
+                           + "\"Na recepção\". Conclua por lá para gerar a guia.";
+                return;
+            }
 
             MontarCodigos(resultado.Atendimento.Codigos);
-            foreach (var a in resultado.Avisos)
-                Avisos.Add(a);
+
+            // Os avisos do fechamento são a parte que não pode ser escondida: o atendimento
+            // pode ter sido concluído e o pacote NÃO ter debitado.
+            foreach (var a in resultado.Avisos) Avisos.Add(a);
 
             _ultimoAtendimentoId = resultado.Atendimento.Id;
             NumeroAtendimento = resultado.Atendimento.Numero;
@@ -975,7 +1065,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         }
         catch (Exception ex)
         {
-            Mensagem = $"Não foi possível lançar o atendimento: {ex.Message}";
+            LogSuite.Registrar("Novo atendimento — fechamento não pôde ser concluído", ex);
+            Mensagem = $"O horário foi marcado, mas o fechamento falhou: {ex.Message}. "
+                       + "O paciente está na Fila — conclua por lá.";
         }
         finally
         {

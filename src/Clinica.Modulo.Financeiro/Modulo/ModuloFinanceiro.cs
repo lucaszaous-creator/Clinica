@@ -99,7 +99,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChavePacotes, Rotulo = "Pacotes / Sess\u00F5es", Glifo = "\uE719",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VenderPacote
         },
         new ItemMenuModulo
         {
@@ -192,7 +192,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<RecebiveisViewModel>();
         servicos.AddTransient<ConciliacaoViewModel>();
         servicos.AddTransient<ProducaoViewModel>();
-        servicos.AddTransient<PacotesViewModel>();
+        servicos.AddTransient<Clinica.Desktop.Shell.Componentes.PacotesViewModel>();
         servicos.AddTransient<EstoqueViewModel>();
         servicos.AddTransient<RepassesViewModel>();
         servicos.AddTransient<TaxasViewModel>();
@@ -213,7 +213,15 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveRecebiveis => new RecebiveisView { DataContext = servicos.GetRequiredService<RecebiveisViewModel>() },
         ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
         ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
-        ChavePacotes => new PacotesView { DataContext = servicos.GetRequiredService<PacotesViewModel>() },
+        // A tela SUBIU para o shell (parcela 60), como a sala de infusão na 48: quem
+        // vende as dez sessões ao paciente é a RECEPÇÃO, no balcão, e a única porta estava
+        // no app do Financeiro. Os dois módulos publicam a MESMA chave — a dedupe do
+        // ShellViewModel faz o Gerente, que carrega os dois, mostrar uma linha só.
+        ChavePacotes => new Clinica.Desktop.Shell.Componentes.PacotesView
+        {
+            DataContext = servicos
+                .GetRequiredService<Clinica.Desktop.Shell.Componentes.PacotesViewModel>()
+        },
         ChaveEstoque => new EstoqueView { DataContext = servicos.GetRequiredService<EstoqueViewModel>() },
         ChaveRepasses => new RepassesView { DataContext = servicos.GetRequiredService<RepassesViewModel>() },
         ChaveTaxas => new TaxasView { DataContext = servicos.GetRequiredService<TaxasViewModel>() },

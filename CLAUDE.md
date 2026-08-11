@@ -1979,6 +1979,51 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   Novo, Remarcar e "agendar na faixa" passam. Bit sem guarda seria só uma caixinha na tela
   de Acessos.
 
+- **DUAS PORTAS, UMA ESTEIRA — e a diferença entre elas não tinha sido decidida, tinha
+  sido esquecida** (parcela 60). Havia dois caminhos para criar atendimento, e do lado do
+  faturamento eles eram idênticos — a guia nascia certa —, o que é exatamente por que
+  ninguém notou. Em volta dela, não: **pela agenda** (Fila → Finalizar) o
+  `FechamentoSessaoService` fazia QUATRO coisas — a guia nasce, o pacote debita, o insumo
+  sai do estoque, o dinheiro entra no caixa; **pelo avulso** acontecia UMA.
+  O custo era invisível e diário: paciente com pacote de dez sessões lançado pelo avulso
+  consumia sessão **sem debitar** (a clínica atendia de graça, e é o que o `PacoteService`
+  existe para impedir), e o particular que pagou no balcão não aparecia no caixa — o mês
+  fechava com uma diferença que não tinha nome. Não havia uma linha de comentário
+  explicando a escolha porque **não houve escolha**.
+  A saída não foi escolher uma das duas telas: foi ver que **quem chega sem horário está
+  pedindo um ENCAIXE**, e encaixe a agenda já sabia fazer. "Novo atendimento" continua no
+  menu (decisão da direção) e por dentro faz `AgendarAsync(hora real, encaixe: true)` →
+  `RegistrarChegadaAsync` → **a MESMA `FechamentoSessaoWindow` da Fila**. Não há uma
+  segunda tela de decisão: duas telas para a mesma pergunta divergem na primeira correção.
+  ⚠️ **O efeito estrutural é a amarra**: `AtendimentoService.LancarAsync` ficou com **UM
+  ÚNICO CHAMADOR** em todo o sistema (`AgendaService.ConfirmarPresencaAsync`). Ponto único
+  deixou de ser documentação e virou o que o compilador mostra. `registrarNaAgenda` morreu
+  — e com ele o **agendamento fantasma às 9h fixo**, sem profissional, que o avulso criava
+  porque `Atendimento` só guarda `DateOnly` e não havia hora para copiar; ele aparecia na
+  grade num horário em que ninguém foi atendido e CONTAVA na ocupação do dia. Não era o
+  fantasma da parcela 58 (aquele nascia `Agendado` e tinha o botão "Entrou", que fabricava
+  guia): era ruído na grade e um número de ocupação errado — a mesma família, sem o
+  estrago.
+  **O que a unificação custou, e por que valeu**: `Agendamento.PrimeiroCodigo` (migration
+  aditiva). A escolha de qual código o convênio libera primeiro é da tela, e precisava
+  atravessar o horário para chegar ao motor — sem a coluna, unificar teria custado a
+  feature. De quebra ela ficou disponível também no agendamento normal.
+  **Cancelar o fechamento não desfaz o encaixe**: o horário fica com o check-in carimbado,
+  e o paciente aparece na Fila em "Na recepção". É a verdade — ele chegou —, e apagar o
+  registro sumiria com o único sinal de que há alguém no balcão esperando.
+  `Avulso_e_agendado_produzem_os_mesmos_fatos` é a amarra em teste: ele falha se alguém
+  abrir uma terceira porta que pule algum dos fatos, que é como a segunda foi aberta.
+- **A venda de pacote subiu para o shell** (parcela 60): a tela existe desde a parcela 4 e
+  a única porta estava no app do FINANCEIRO — mas quem vende dez sessões ao paciente é a
+  RECEPÇÃO, no balcão, com ele na frente. Décima primeira ocorrência do defeito recorrente,
+  e ela bloqueava justamente o caso que motivou o Particular. A tela não foi copiada:
+  **subiu** (`Componentes/PacotesView`), como a sala de infusão na parcela 48, e os dois
+  módulos publicam a **MESMA chave** — a dedupe do `ShellViewModel` faz o Gerente, que
+  carrega os dois, mostrar uma linha só.
+  ⚠️ O item passou a exigir `Permissao.VenderPacote`, bit **próprio**, e não
+  `VerFinanceiro`: dar o financeiro ao balcão abriria junto o caixa, a conciliação e as
+  contas a pagar. Vender um pacote é combinar um preço com o paciente; ler o dinheiro da
+  clínica é outra coisa — o mesmo corte que a parcela 49 fez entre ficha e prontuário.
 - **O PARTICULAR não é um convênio: é a ausência de um** (`ConvenioCadastro.GeraGuia`,
   parcela 60). O enum `Convenio` não tem "sem convênio", então o paciente que vem sem plano
   não tinha onde ser cadastrado — e as duas saídas eram ruins de jeitos diferentes:
