@@ -333,13 +333,6 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
-    public Task<string?> DocumentoGravadoDoPacienteAsync(int pacienteId, CancellationToken ct = default)
-        => _db.Pacientes
-            .AsNoTracking()
-            .Where(p => p.Id == pacienteId)
-            .Select(p => p.Documento)
-            .FirstOrDefaultAsync(ct);
-
     public async Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default)
         => await _db.Pacientes.AddAsync(paciente, ct);
 

@@ -126,15 +126,6 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Paciente>> PacientesPorCpfAsync(string cpfSoDigitos, CancellationToken ct = default);
 
-    /// <summary>
-    /// O CPF que está GRAVADO na ficha, lido sem rastreamento.
-    ///
-    /// Sem `AsNoTracking` isto devolveria o valor já alterado em memória — a ficha em
-    /// edição é a MESMA instância que o contexto rastreia —, e a comparação "o CPF mudou?"
-    /// responderia sempre que não.
-    /// </summary>
-    Task<string?> DocumentoGravadoDoPacienteAsync(int pacienteId, CancellationToken ct = default);
-
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 

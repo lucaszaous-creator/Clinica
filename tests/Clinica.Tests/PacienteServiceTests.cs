@@ -117,13 +117,15 @@ public class PacienteServiceTests : IDisposable
     }
 
     /// <summary>
-    /// A base pode JÁ ter duas fichas do mesmo CPF — nada as impedia até aqui, e é por
-    /// isso que a regra foi pedida. Editar o telefone de uma delas tem de continuar
-    /// funcionando: senão a regra tranca justamente o conserto do problema que ela veio
-    /// denunciar, e a recepção fica sem poder corrigir a ficha com o paciente na frente.
+    /// Duplicata ANTERIOR à regra também é recusada ao salvar.
+    ///
+    /// A direção dispensou a exceção que deixava editar essas fichas: as duplicatas que
+    /// já existem serão apagadas direto no banco, e daí em diante só precisa existir o
+    /// impedimento. O efeito colateral fica REGISTRADO aqui em vez de descoberto no
+    /// balcão — enquanto a limpeza não acontece, a ficha duplicada não salva.
     /// </summary>
     [Fact]
-    public async Task Atualizar_FichaAntigaJaDuplicada_SemMexerNoCpf_ContinuaSalvando()
+    public async Task Atualizar_FichaComCpfDeOutra_ERecusadaAindaQueADuplicataSejaAntiga()
     {
         _db.Pacientes.Add(Nova("Carlos A", "52998224725"));
         _db.Pacientes.Add(Nova("Carlos B", "529.982.247-25"));   // duplicata anterior à regra
@@ -134,8 +136,8 @@ public class PacienteServiceTests : IDisposable
 
         var salvar = () => _pacientes.AtualizarAsync(b);
 
-        await salvar.Should().NotThrowAsync();
-        _db.Pacientes.Single(p => p.Nome == "Carlos B").Telefone.Should().Be("(22) 98888-0000");
+        (await salvar.Should().ThrowAsync<InvalidOperationException>())
+            .WithMessage("*Carlos A*");
     }
 
     /// <summary>

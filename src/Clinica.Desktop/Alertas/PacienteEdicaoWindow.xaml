@@ -23,7 +23,7 @@
             </Grid.ColumnDefinitions>
 
             <Border Grid.Column="0" Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,20,0">
-                <StackPanel HorizontalAlignment="Center">
+                <StackPanel HorizontalAlignment="Stretch">
                     <ctrl:Avatar Tamanho="140" HorizontalAlignment="Center"
                                  Nome="{Binding Nome}" Foto="{Binding FotoConteudo}" />
 
@@ -55,6 +55,7 @@
                             ToolTip="Apagar o retrato deste cadastro" />
 
                     <TextBlock Style="{StaticResource TextoSuave}" TextAlignment="Center"
+                               HorizontalAlignment="Stretch"
                                Text="A foto é confirmada ao salvar. Serve para conferir o paciente na hora de emitir a guia." />
                 </StackPanel>
             </Border>
@@ -69,50 +70,78 @@
                         <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}"
                                  ctrl:Ajudantes.Placeholder="Ex.: Maria da Silva" />
 
-                        <Grid>
+                        <!-- ⚠️ Rótulo e campo em LINHAS de Grid, com a linha do rótulo compartilhando
+                             altura entre as colunas.
+
+                             Antes cada coluna era um StackPanel independente, e aí um rótulo que
+                             quebra em DUAS linhas — "Validade da carteirinha" numa janela estreita —
+                             empurrava o campo daquela coluna para baixo enquanto o vizinho ficava
+                             17px acima. A linha inteira saía fora de esquadro, e só com certos
+                             textos e certas larguras, que é o que torna esse defeito difícil de
+                             reproduzir.
+
+                             Com `SharedSizeGroup` as duas colunas reservam a altura do MAIOR
+                             rótulo, e os campos começam sempre na mesma altura.
+
+                             O nome do grupo é um IDENTIFICADOR: sem ponto e sem espaço. Ele é
+                             validado em RUNTIME e derruba a tela inteira (a lição da parcela 50,
+                             hoje cobrada pela checagem 27). -->
+                        <Grid Grid.IsSharedSizeScope="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="CPF" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Documento, UpdateSourceTrigger=PropertyChanged}"
-                                         ctrl:Ajudantes.Placeholder="000.000.000-00" MaxLength="14" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                <TextBlock Text="Telefone (WhatsApp)" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Telefone}"
-                                         ctrl:Ajudantes.Placeholder="(22) 99999-9999" MaxLength="16" />
-                            </StackPanel>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" SharedSizeGroup="LinhaCpfTelefone" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,8,8,4"
+                                       Text="CPF" Style="{StaticResource Rotulo}" />
+                            <TextBox Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
+                                     Text="{Binding Documento, UpdateSourceTrigger=PropertyChanged}"
+                                     ctrl:Ajudantes.Placeholder="000.000.000-00" MaxLength="14" />
+
+                            <TextBlock Grid.Row="0" Grid.Column="1" Margin="8,8,0,4"
+                                       Text="Telefone (WhatsApp)" Style="{StaticResource Rotulo}" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Margin="8,0,0,0"
+                                     Text="{Binding Telefone}"
+                                     ctrl:Ajudantes.Placeholder="(22) 99999-9999" MaxLength="16" />
                         </Grid>
 
-                        <Grid>
+                        <!-- Mesma régua da linha acima: ver o comentário do `SharedSizeGroup`. -->
+                        <Grid Grid.IsSharedSizeScope="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Data de nascimento" Style="{StaticResource Rotulo}" />
-                                <DatePicker SelectedDate="{Binding DataNascimento}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                <TextBlock Text="Sexo" Style="{StaticResource Rotulo}" />
-                                <!-- ItemTemplate com o `EnumDescricao`: sem ele o WPF chama
-                                     ToString() no valor do enum. Hoje sai certo por sorte
-                                     ("Masculino"/"Feminino" são os próprios identificadores);
-                                     o dia em que alguém acrescentar `NaoInformado` a tela
-                                     escreve "NaoInformado" e ninguém descobre no build. É o
-                                     defeito da parcela 41, o mesmo que pôs "PedidoExame" na
-                                     tela do cliente. -->
-                                <ComboBox ItemsSource="{Binding Sexos}" SelectedItem="{Binding Sexo}"
-                                          ToolTip="Usado pela Petrobras na rotação de especialidades">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                            </StackPanel>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" SharedSizeGroup="LinhaNascimentoSexo" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,8,8,4"
+                                       Text="Data de nascimento" Style="{StaticResource Rotulo}" />
+                            <DatePicker Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
+                                        SelectedDate="{Binding DataNascimento}" />
+
+                            <TextBlock Grid.Row="0" Grid.Column="1" Margin="8,8,0,4"
+                                       Text="Sexo" Style="{StaticResource Rotulo}" />
+                            <!-- ItemTemplate com o `EnumDescricao`: sem ele o WPF chama ToString()
+                                 no valor do enum. Hoje sai certo por sorte ("Masculino"/"Feminino"
+                                 são os próprios identificadores); o dia em que alguém acrescentar
+                                 `NaoInformado` a tela escreve "NaoInformado" e ninguém descobre no
+                                 build. É o defeito da parcela 41. -->
+                            <ComboBox Grid.Row="1" Grid.Column="1" Margin="8,0,0,0"
+                                      ItemsSource="{Binding Sexos}" SelectedItem="{Binding Sexo}"
+                                      ToolTip="Usado pela Petrobras na rotação de especialidades">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}"
+                                                   TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
                         </Grid>
 
                         <TextBlock Text="CONVÊNIO E FATURAMENTO" Style="{StaticResource TituloSecao}" />
@@ -122,21 +151,28 @@
                         <ComboBox ItemsSource="{Binding Convenios}" SelectedValue="{Binding ConvenioCodigo}"
                                   SelectedValuePath="Codigo" DisplayMemberPath="Nome" />
 
-                        <Grid>
+                        <!-- Mesma régua da linha acima: ver o comentário do `SharedSizeGroup`. -->
+                        <Grid Grid.IsSharedSizeScope="True">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                <TextBlock Text="Nº da carteirinha" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Carteirinha}"
-                                         ctrl:Ajudantes.Placeholder="Como está no cartão" MaxLength="40" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                <TextBlock Text="Validade da carteirinha" Style="{StaticResource Rotulo}" />
-                                <DatePicker SelectedDate="{Binding ValidadeCarteirinha}"
-                                            ToolTip="Carteirinha vencida = guia recusada; a ficha avisa quando vencer" />
-                            </StackPanel>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" SharedSizeGroup="LinhaCarteirinha" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Margin="0,8,8,4"
+                                       Text="Nº da carteirinha" Style="{StaticResource Rotulo}" />
+                            <TextBox Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
+                                     Text="{Binding Carteirinha}"
+                                     ctrl:Ajudantes.Placeholder="Como está no cartão" MaxLength="40" />
+
+                            <TextBlock Grid.Row="0" Grid.Column="1" Margin="8,8,0,4"
+                                       Text="Validade da carteirinha" Style="{StaticResource Rotulo}" />
+                            <DatePicker Grid.Row="1" Grid.Column="1" Margin="8,0,0,0"
+                                        SelectedDate="{Binding ValidadeCarteirinha}"
+                                        ToolTip="Carteirinha vencida = guia recusada; a ficha avisa quando vencer" />
                         </Grid>
 
                         <CheckBox Content="Possui app da Unimed (gera QR Code do 2º código)"
@@ -174,7 +210,13 @@
 
         <!-- ===== Rodapé fixo ===== -->
         <DockPanel Grid.Row="2" Margin="0,16,0,0">
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+            <!-- ⚠️ `VerticalAlignment="Center"`: num DockPanel o filho ancorado ocupa a
+                 ALTURA TODA por padrão, e o WPF estica os botões junto. Basta a mensagem
+                 de erro quebrar em três linhas — a recusa de CPF repetido faz isso — para
+                 "Salvar" e "Cancelar" virarem dois retângulos altos. É a lição da parcela
+                 47, ali na Grid e aqui no DockPanel. -->
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                        VerticalAlignment="Center">
                 <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}" Click="Cancelar_Click"
                         IsCancel="True" Margin="0,0,10,0" />
                 <Button Content="Salvar" Command="{Binding SalvarCommand}" IsDefault="True" MinWidth="120"

@@ -1822,14 +1822,13 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   faturamento em produção, e a criação do índice falharia se a base já tivesse duplicata —
   quem não abriria seria o sistema que fatura. E ela TEM chance de ter: até aqui nada
   impedia.
-  ⚠️ **Editar ficha antiga que já está duplicada continua funcionando.** A regra existe
-  para impedir que nasça duplicata, não para trancar a que já existe: recusar sempre faria
-  a recepcionista não conseguir corrigir o TELEFONE de uma dessas fichas enquanto a
-  duplicata não fosse resolvida — a regra bloquearia o conserto do problema que ela veio
-  denunciar. O que continua recusado é o ATO DE DUPLICAR: ficha nova com CPF repetido, e
-  ficha existente que passa a usar o CPF de outra pessoa. Saber se o CPF mudou exige ler o
-  valor GRAVADO com `AsNoTracking` — a ficha em edição é a mesma instância que o contexto
-  rastreia, e sem isso a comparação responderia sempre que não mudou.
+  ⚠️ **A regra é simples de propósito: CPF de OUTRA ficha é recusado na criação e na
+  edição.** Houve uma versão que abria exceção para a ficha antiga já duplicada, para não
+  travar a correção do telefone dela; a direção dispensou — as duplicatas que já existem
+  serão apagadas direto no banco (Neon), e daí em diante só precisa existir o impedimento.
+  **Regra com exceção que ninguém vai exercer é código a mais para manter e mais uma
+  resposta possível para a mesma pergunta.** O efeito colateral fica fixado em teste em vez
+  de descoberto no balcão: enquanto a limpeza não acontece, a ficha duplicada não salva.
   Dois cuidados que o código não conta sozinho: a comparação **ignora máscara nos dois
   lados** (a coluna aceita 30 caracteres e guarda o que foi digitado; a base tem linhas
   anteriores à normalização, com "123.456.789-00", e comparar o texto cru deixaria passar
@@ -1838,6 +1837,26 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   numa base remota. **CPF em branco continua sendo o caso normal** — criança, paciente
   cadastrado pela carteirinha, quem chegou sem documento —, e vazio vira NULO para dois
   documentos "" não serem iguais.
+
+- **Coluna de formulário feita de `StackPanel` irmão desalinha quando o rótulo quebra**
+  (parcela 57 — a cliente reprovou o "fora de esquadro" da tela de novo paciente). Duas
+  colunas lado a lado, cada uma um `StackPanel` com rótulo em cima e campo embaixo, ficam
+  alinhadas **enquanto os dois rótulos couberem numa linha**. Basta a janela estreitar ou
+  o rótulo crescer — "Validade da carteirinha" ao lado de "Nº da carteirinha" — para um
+  deles quebrar em duas linhas, empurrar o campo daquela coluna 17px para baixo e deixar a
+  linha inteira torta. O defeito depende do texto E da largura, que é o que o torna difícil
+  de reproduzir e fácil de reintroduzir.
+  A correção é estrutural: rótulo e campo em **LINHAS de `Grid`**, com a linha do rótulo
+  em `SharedSizeGroup` — as duas colunas reservam a altura do MAIOR rótulo e os campos
+  começam sempre na mesma altura. ⚠️ O nome do grupo é um **identificador** (sem ponto,
+  sem espaço): ele é validado em RUNTIME e derruba a tela inteira — a lição da parcela 50,
+  hoje cobrada pela checagem 27.
+  Na mesma tela, dois vizinhos do mesmo tipo: o **`DatePicker` sem `Template` no design
+  system do FATURAMENTO** (o mesmo defeito da parcela 56 no da suíte, portado agora — dois
+  design systems que não se referenciam significam corrigir duas vezes), e **botão ancorado
+  num `DockPanel` sem `VerticalAlignment="Center"`**, que estica junto quando a mensagem ao
+  lado quebra em três linhas. A recusa de CPF repetido é exatamente uma mensagem dessas: a
+  regra nova tornou visível um defeito de leiaute que já estava lá.
 
 - **Clicar no dado COPIA o dado** (`Copiavel`, `CelulaCopiavel`, parcela 57): a clínica
   não vive só neste sistema — a guia é efetivada no PORTAL da operadora, e para isso a

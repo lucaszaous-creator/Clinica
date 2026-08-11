@@ -123,23 +123,16 @@ public sealed class PacienteService
         var cpf = Cpf.Normalizar(paciente.Documento);
         paciente.Documento = cpf;
 
-        // ⚠️ Ao EDITAR uma ficha que NÃO mexeu no CPF, a regra não se aplica.
+        // A regra é simples de propósito: CPF que já é de OUTRA ficha é recusado, na
+        // criação e na edição.
         //
-        // Ela existe para impedir que nasça duplicata, não para trancar a que já existe.
-        // A base da clínica pode muito bem ter duas fichas do mesmo CPF — até aqui nada
-        // as impedia, e é por isso que a direção pediu a regra. Recusar sempre faria a
-        // recepcionista não conseguir corrigir o TELEFONE de uma dessas fichas antigas
-        // enquanto a duplicata não fosse resolvida — a regra bloquearia o conserto do
-        // problema que ela veio denunciar.
+        // Houve uma versão que abria exceção para a ficha antiga já duplicada — para não
+        // travar a correção do telefone dela enquanto a duplicata não fosse resolvida. A
+        // direção dispensou: as duplicatas que já existem serão apagadas direto no banco,
+        // e daí em diante a única coisa que precisa existir é o impedimento. Regra com
+        // exceção que ninguém vai exercer é código a mais para manter e mais uma resposta
+        // possível para a mesma pergunta.
         //
-        // O que continua recusado: ficha NOVA com CPF repetido, e ficha existente que
-        // PASSA A USAR um CPF de outra pessoa. Os dois são o ato de duplicar.
-        if (paciente.Id != 0)
-        {
-            var gravado = Cpf.Normalizar(await _repo.DocumentoGravadoDoPacienteAsync(paciente.Id, ct));
-            if (gravado == cpf) return;
-        }
-
         // Id 0 = ficha nova; ao EDITAR, a própria ficha não conta como duplicata dela mesma.
         var repetido = (await _repo.PacientesPorCpfAsync(cpf, ct))
             .FirstOrDefault(p => p.Id != paciente.Id);
@@ -147,8 +140,7 @@ public sealed class PacienteService
         if (repetido is not null)
             throw new InvalidOperationException(
                 $"O CPF {Cpf.Formatar(cpf)} já está cadastrado para {repetido.Nome}. "
-                + "Duas fichas da mesma pessoa partem o histórico em dois: metade dos "
-                + "atendimentos, das guias e do prontuário fica em cada uma. "
-                + "Procure o paciente pelo CPF e use a ficha que já existe.");
+                + "Abra a ficha dela em vez de criar outra — duas fichas da mesma pessoa "
+                + "partem o histórico em dois.");
     }
 }
