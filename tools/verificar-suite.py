@@ -2027,6 +2027,113 @@ if _com_grupo and "ItemPacienteLinha" not in _com_grupo:
     )
 
 
+# --------------------------------------------------------------- checagem 32
+# `WrapPanel` QUE NUNCA VAI DOBRAR A LINHA.
+#
+# O WrapPanel decide onde quebrar a partir da largura que RECEBE na medição. Num pai que
+# lhe dá largura infinita — docado à esquerda ou à direita num DockPanel, dentro de um
+# StackPanel horizontal, numa coluna `Auto` de Grid, dentro de outro WrapPanel, num Canvas
+# ou num ScrollViewer que rola na horizontal — ele mede como se tivesse a tela toda, alinha
+# tudo numa linha só e EMPURRA o irmão para fora.
+#
+# É a barra de nove botões da agenda: no monitor de quem programa ela cabe e parece certa;
+# no de 1366 px do balcão ela come o título e some pela direita. O `Auto` engana
+# especialmente, porque a intenção declarada ("ocupa o que precisar") é exatamente o que
+# impede a quebra.
+#
+# Nenhuma rede pegava: XAML bem-formado, painel existente, nada lança. Só a tela montada,
+# e só na largura errada — que é a categoria mais cara, porque não reproduz na máquina de
+# quem escreveu.
+#
+# A saída é fazer o WrapPanel ser o filho que PREENCHE (o último de um DockPanel, uma
+# coluna `*` de Grid), e alinhá-lo à direita por `HorizontalAlignment` se for o caso.
+NS_XAML = "{http://schemas.microsoft.com/winfx/2006/xaml/presentation}"
+
+
+def _largura_infinita(pai: ET.Element, filho: ET.Element) -> str | None:
+    """Por que este pai mede o filho com largura infinita? Nulo = ele constrange."""
+    nome_pai = pai.tag.split("}")[-1]
+
+    if nome_pai == "DockPanel":
+        dock = filho.attrib.get(f"{NS_XAML}Dock") or filho.attrib.get("DockPanel.Dock")
+        return f"docado à {dock.lower()} num DockPanel" if dock in ("Left", "Right") else None
+    if nome_pai == "StackPanel":
+        return ("dentro de um StackPanel horizontal"
+                if pai.attrib.get("Orientation") == "Horizontal" else None)
+    if nome_pai == "WrapPanel":
+        return "dentro de outro WrapPanel"
+    if nome_pai == "Canvas":
+        return "dentro de um Canvas"
+    if nome_pai == "ScrollViewer":
+        return ("dentro de um ScrollViewer que rola na horizontal"
+                if pai.attrib.get("HorizontalScrollBarVisibility") in ("Auto", "Visible")
+                else None)
+    if nome_pai == "Grid":
+        coluna = filho.attrib.get(f"{NS_XAML}Column") or filho.attrib.get("Grid.Column") or "0"
+        if not coluna.isdigit():
+            return None
+        definicoes = [
+            cd for c in pai if c.tag.split("}")[-1] == "Grid.ColumnDefinitions" for cd in c
+        ]
+        indice = int(coluna)
+        if indice >= len(definicoes):
+            return None
+        return ('numa coluna `Width="Auto"` de Grid'
+                if definicoes[indice].attrib.get("Width") == "Auto" else None)
+    return None
+
+
+_wraps = 0
+for f, raiz in arvores_com_faturamento.items():
+    pais = {filho: pai for pai in raiz.iter() for filho in pai}
+    for el in raiz.iter():
+        if el.tag.split("}")[-1] != "WrapPanel":
+            continue
+        _wraps += 1
+        pai = pais.get(el)
+        if pai is None:
+            continue
+        if (motivo := _largura_infinita(pai, el)) is None:
+            continue
+        erros.append(
+            f"{rel(f)}: `<WrapPanel>` {motivo} — ele é medido com largura INFINITA, nunca "
+            f"dobra a linha e empurra o irmão para fora da tela. Faça dele o filho que "
+            f"PREENCHE (último de um DockPanel, coluna `*` de Grid) e use "
+            f"`HorizontalAlignment` para encostá-lo onde precisa."
+        )
+
+# Autoteste. O primeiro é a lição da checagem 31: uma checagem que deixa de ENXERGAR não
+# reclama de nada e passa por limpa. Se um dia a suíte não tiver WrapPanel nenhum, é
+# porque o padrão mudou — e é isso que precisa aparecer.
+if _wraps == 0:
+    erros.append(
+        "verificar-suite: a checagem 32 não achou nenhum `<WrapPanel>` — o padrão de "
+        "declaração mudou e ela parou de olhar o que deveria."
+    )
+
+# Os quatro pais que soltam a largura, e os dois que a prendem.
+_amostras_32 = (
+    ('<DockPanel {0}><WrapPanel DockPanel.Dock="Right" /><Border /></DockPanel>', True),
+    ('<StackPanel {0} Orientation="Horizontal"><WrapPanel /></StackPanel>', True),
+    ('<Grid {0}><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" />'
+     '</Grid.ColumnDefinitions><WrapPanel Grid.Column="0" /></Grid>', True),
+    ('<DockPanel {0}><Border DockPanel.Dock="Left" /><WrapPanel /></DockPanel>', False),
+    ('<Grid {0}><Grid.ColumnDefinitions><ColumnDefinition Width="*" />'
+     '</Grid.ColumnDefinitions><WrapPanel Grid.Column="0" /></Grid>', False),
+    ('<StackPanel {0}><WrapPanel /></StackPanel>', False),
+)
+for _xml, _deve_pegar in _amostras_32:
+    _r = ET.fromstring(_xml.format(
+        'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'))
+    _pais = {c: p for p in _r.iter() for c in p}
+    _wp = next(e for e in _r.iter() if e.tag.split("}")[-1] == "WrapPanel")
+    if (_largura_infinita(_pais[_wp], _wp) is not None) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 32 mudou de resposta para `{_xml[:52]}…` "
+            f"(esperado: {'pega' if _deve_pegar else 'deixa passar'})."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

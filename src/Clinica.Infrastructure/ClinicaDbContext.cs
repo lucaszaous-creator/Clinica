@@ -129,6 +129,9 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<Atendimento>(e =>
         {
+            // Quem lançou o atendimento e quando (parcela 58).
+            e.Property(a => a.LancadoPor).HasMaxLength(80);
+            e.Property(a => a.LancadoEm).HasColumnType("timestamp without time zone");
             e.HasKey(a => a.Id);
             e.Property(a => a.Numero).HasMaxLength(30);
             e.HasIndex(a => a.Numero);
@@ -236,6 +239,10 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<Agendamento>(e =>
         {
+            // Quem lançou o horário e quando (parcela 58). Hora de PAREDE, como o resto da
+            // agenda — evita o erro do Npgsql com DateTime local.
+            e.Property(a => a.CriadoPor).HasMaxLength(80);
+            e.Property(a => a.CriadoEm).HasColumnType("timestamp without time zone");
             e.HasKey(a => a.Id);
             // Hora de parede (sem fuso). Evita o erro do Npgsql com DateTime local/unspecified.
             e.Property(a => a.DataHora).HasColumnType("timestamp without time zone");

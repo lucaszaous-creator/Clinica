@@ -125,6 +125,14 @@ public sealed class LinhaAvulso
     public required string Guias { get; init; }
     public required string Pendencia { get; init; }
     public required bool TemPendencia { get; init; }
+
+    /// <summary>
+    /// Quem LANÇOU, e a que horas (parcela 58).
+    ///
+    /// A conferência do dia é onde a pergunta da direção nasce — "quem lançou isso?" —, e
+    /// até aqui a resposta só existia na trilha de auditoria, noutra tela e noutro app.
+    /// </summary>
+    public required string Lancamento { get; init; }
 }
 
 /// <summary>
@@ -469,11 +477,29 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 : CatalogoConvenios.Nome(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()),
             Numero = atendimento.Numero ?? $"#{atendimento.Id}",
             Guias = faturaveis.Count == 1 ? "1 guia" : $"{faturaveis.Count} guias",
+            Lancamento = DescreverLancamento(atendimento),
             TemPendencia = depois.Count > 0,
             Pendencia = depois.Count == 0
                 ? "todas liberadas"
                 : $"{depois.Count} libera(m) a partir de {depois[0].DataPrevistaFaturamento:dd/MM}"
         };
+    }
+
+    /// <summary>
+    /// "Lançado por Ana às 14:32" — a autoria na conferência do dia (parcela 58).
+    ///
+    /// A hora sozinha basta aqui: a lista é de HOJE, e escrever a data por extenso em
+    /// vinte linhas do mesmo dia gastaria a largura da coluna repetindo o que o título da
+    /// seção já diz.
+    /// </summary>
+    private static string DescreverLancamento(Atendimento atendimento)
+    {
+        if (string.IsNullOrWhiteSpace(atendimento.LancadoPor))
+            return "sem registro de quem lançou";
+
+        return atendimento.LancadoEm is { } quando
+            ? $"por {atendimento.LancadoPor} às {quando:HH:mm}"
+            : $"por {atendimento.LancadoPor}";
     }
 
     /// <summary>Recarrega as opções de modalidade/especialidade do cache (reflete o que foi salvo em Configurações).</summary>
@@ -932,7 +958,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 paciente.Id, DateOnly.FromDateTime(Data), Modalidade, Observacoes,
                 registrarNaAgenda: true, primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
                 modalidadeCodigo: ModalidadeSelecionada.Codigo,
-                especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
+                especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
+                operador: SessaoUsuario.Atual.Operador);
 
             MontarCodigos(resultado.Atendimento.Codigos);
             foreach (var a in resultado.Avisos)

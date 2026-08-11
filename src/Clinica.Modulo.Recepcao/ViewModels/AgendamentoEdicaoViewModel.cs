@@ -89,6 +89,16 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// <summary>Pedido da lista de espera que originou este horário (fecha ao salvar).</summary>
     public int? PedidoListaEsperaId { get; set; }
 
+    /// <summary>
+    /// Profissional já escolhido por quem abriu o formulário — o clique num vão da coluna
+    /// dele na grade.
+    ///
+    /// É um ID e não a entidade porque a lista de profissionais é carregada do banco
+    /// DEPOIS do construtor: atribuir <see cref="Profissional"/> de fora nunca acharia o
+    /// item, e o combo abriria em branco justamente na coluna que a pessoa apontou.
+    /// </summary>
+    public int? ProfissionalPreferidoId { get; set; }
+
     /// <summary>A janela fecha quando isto dispara — o comando de salvar segue assíncrono.</summary>
     public event Action? Concluido;
 
@@ -178,6 +188,9 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
 
             Profissionais.Clear();
             foreach (var p in await equipe.ProfissionaisAtivosAsync()) Profissionais.Add(p);
+
+            if (ProfissionalPreferidoId is { } preferido)
+                Profissional = Profissionais.FirstOrDefault(p => p.Id == preferido);
 
             Salas.Clear();
             foreach (var s in await equipe.SalasAtivasAsync()) Salas.Add(s);
@@ -330,7 +343,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     pedidoId, dataHora, ModalidadeSelecionada.Base,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
                     duracaoMinutos: DuracaoInformada(), encaixe: Encaixe,
-                    modalidadeCodigo: ModalidadeSelecionada.Codigo);
+                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                    operador: SessaoUsuario.Atual.Operador);
             }
             else if (EmSerie && PodeMarcarEmSerie)
             {
@@ -351,7 +365,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
-                    duracaoMinutos: DuracaoInformada());
+                    duracaoMinutos: DuracaoInformada(),
+                    operador: SessaoUsuario.Atual.Operador);
 
                 // A série que pulou datas NÃO fecha a janela em silêncio: a recepção
                 // precisa ver quais não entraram para resolver agora, com o paciente
@@ -376,7 +391,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
-                    duracaoMinutos: DuracaoInformada(), encaixe: Encaixe);
+                    duracaoMinutos: DuracaoInformada(), encaixe: Encaixe,
+                    operador: SessaoUsuario.Atual.Operador);
             }
 
             Concluido?.Invoke();

@@ -1,0 +1,105 @@
+<Window x:Class="Clinica.Recepcao.Janelas.ListaEsperaPainelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
+        Title="Lista de espera" Width="720" Height="560"
+        MinWidth="560" MinHeight="360"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <!-- O título diz o que a lista está mostrando: filtrada por um horário ou
+                 inteira. Filtro invisível é filtro que engana. -->
+            <TextBlock Text="{Binding TituloEspera}" Style="{StaticResource DialogoTitulo}"
+                       TextWrapping="Wrap" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,8"
+                       Text="Quando um horário vaga, é aqui que está quem chamar." />
+
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Adicionar à lista"
+                        Style="{StaticResource BotaoSecundario}"
+                        IsEnabled="{Binding PodeEditarAgenda}"
+                        Command="{Binding NovoPedidoEsperaCommand}" />
+                <Button Content="Ver a lista inteira" Margin="8,0,0,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        Visibility="{Binding TemSugestao,
+                                     Converter={StaticResource BoolParaVisibilidade}}"
+                        Command="{Binding VerListaInteiraCommand}" />
+            </StackPanel>
+        </StackPanel>
+
+        <Button DockPanel.Dock="Bottom" Content="Fechar" HorizontalAlignment="Right"
+                Margin="0,12,0,0" Style="{StaticResource BotaoSecundario}"
+                IsCancel="True" Click="AoFechar" />
+
+        <Grid>
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding Espera}" Grid.IsSharedSizeScope="True">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type vm:LinhaListaEspera}">
+                            <Border Padding="0,12"
+                                    BorderBrush="{StaticResource Brush.Borda}"
+                                    BorderThickness="0,0,0,1">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="EsperaAcoes" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
+                                            <Border Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding Prioritario,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="Prioritário" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding Preferencias}" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Text="{Binding Desde}" Margin="0,2,0,0"
+                                                   TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <Button Content="Chamar" Style="{StaticResource BotaoPequeno}"
+                                                Command="{Binding DataContext.ChamarDaEsperaCommand,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="Sair da lista" Margin="8,0,0,0"
+                                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                Command="{Binding DataContext.RemoverDaEsperaCommand,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- "Ninguém espera" e "ninguém serve para este horário" são respostas
+                 diferentes, e trocá-las faria a recepção parar de oferecer a lista. -->
+            <ctrl:EstadoDaTela Itens="{Binding Espera}"
+                               Glifo="&#xE823;"
+                               Titulo="Lista de espera"
+                               Descricao="{Binding EsperaVazia}" />
+        </Grid>
+    </DockPanel>
+</Window>

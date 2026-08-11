@@ -210,6 +210,26 @@ public class Agendamento
     public bool ColideCom(DateTime inicio, DateTime fim)
         => DataHora < fim && inicio < FimPrevisto;
 
+
+    /// <summary>
+    /// Quem LANÇOU isto no sistema, e quando (parcela 58).
+    ///
+    /// A direção pediu para ver de quem é cada lançamento. A trilha de auditoria já
+    /// responde "quem fez isso?" (parcela 21), mas ela é uma tela à parte, filtrada por
+    /// período — e a pergunta que se faz olhando a agenda é sobre AQUELA linha, agora.
+    ///
+    /// É o operador do LOGIN (`SessaoUsuario.Atual.Operador`), nunca o usuário do Windows:
+    /// no balcão duas pessoas dividem a mesma máquina, e o login do Windows apagaria a
+    /// diferença entre elas — foi por isso que `SessaoUsuario` existe.
+    ///
+    /// Nulo nas linhas anteriores a esta parcela, e a tela DIZ isso em vez de deixar em
+    /// branco: em branco não se distingue de "não carregou".
+    /// </summary>
+    public string? CriadoPor { get; set; }
+
+    /// <summary>Quando foi lançado. Nulo nas linhas anteriores à parcela 58.</summary>
+    public DateTime? CriadoEm { get; set; }
+
     /// <summary>Ocupa a agenda (não foi cancelado nem faltou).</summary>
     public bool OcupaAgenda
         => Status is StatusAgendamento.Agendado or StatusAgendamento.Realizado;

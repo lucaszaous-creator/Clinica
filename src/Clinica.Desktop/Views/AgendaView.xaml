@@ -43,7 +43,9 @@
 
         <!-- Cartão completo (visão de dia): dados + ações da recepção -->
         <DataTemplate x:Key="CartaoDia">
-            <Border Style="{StaticResource CartaoAgendamento}" Margin="0,0,0,6">
+            <!-- A dica diz QUEM marcou o horário e quando (parcela 58). -->
+            <Border Style="{StaticResource CartaoAgendamento}" Margin="0,0,0,6"
+                    ToolTip="{Binding Lancamento}">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
@@ -136,6 +138,7 @@
                                 Style="{StaticResource BotaoAcaoGridSecundario}"
                                 ToolTip="Mudar o horário sem perder o agendamento nem o histórico"
                                 Command="{Binding DataContext.RemarcarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                IsEnabled="{Binding DataContext.PodeAgendar, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
                         <Button Content="Faltou" Margin="6,0,0,0"
                                 Style="{StaticResource BotaoAcaoGridSecundario}"
@@ -155,6 +158,7 @@
                         <Button Content="Remarcar" Style="{StaticResource BotaoAcaoGridSecundario}"
                                 ToolTip="Reagendar este paciente — o horário volta para a agenda"
                                 Command="{Binding DataContext.RemarcarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                IsEnabled="{Binding DataContext.PodeAgendar, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
                     </StackPanel>
                 </Grid>
@@ -213,7 +217,9 @@
         <!-- ===== Cabeçalho ===== -->
         <DockPanel Grid.Row="0">
             <Button DockPanel.Dock="Right" Command="{Binding NovoCommand}" VerticalAlignment="Center"
-                    MinWidth="170" ToolTip="Marcar um horário novo">
+                    IsEnabled="{Binding PodeAgendar}"
+                    ToolTip="Marcar um horário novo (exige o acesso de editar agenda)"
+                    MinWidth="170">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE710;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
                     <TextBlock Text="Novo agendamento" />
@@ -377,6 +383,7 @@
                                                         Visibility="{Binding Livre, Converter={StaticResource BoolParaVisibilidade}}"
                                                         ToolTip="Marcar um paciente neste horário"
                                                         Command="{Binding DataContext.AgendarNaFaixaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        IsEnabled="{Binding DataContext.PodeAgendar, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}">
                                                     <StackPanel Orientation="Horizontal">
                                                         <TextBlock Text="&#xE710;" Style="{StaticResource Icone}"

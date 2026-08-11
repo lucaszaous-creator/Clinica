@@ -349,8 +349,13 @@ public static class PerfisAcesso
         //
         // Continua sem ConfigurarFaturamento: mudar catálogo de convênio ou prazo da
         // rodada muda a regra para todo mundo.
+        // ⚠️ SEM `EditarAgenda` (parcela 58, a pedido da direção): quem marca horário é o
+        // BALCÃO, que tem o paciente na frente. O faturista continua VENDO a agenda —
+        // é o que ele precisa para conferir o que foi atendido — e o bit volta num clique
+        // em Acessos para quem a clínica quiser. Isto TIRA o que ele fazia ontem, e é de
+        // propósito: é o mesmo movimento da parcela 49, onde a remoção É o pedido.
         PerfilAcesso.Faturista =>
-            Permissao.VerAgenda | Permissao.EditarAgenda |
+            Permissao.VerAgenda |
             Permissao.VerFichaPaciente | Permissao.EditarPaciente |
             Permissao.VerFaturamento | Permissao.BaixarGuia |
             Permissao.RegistrarGlosa | Permissao.GerenciarLotesTiss |

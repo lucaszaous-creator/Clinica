@@ -158,7 +158,7 @@ public sealed class FechamentoSessaoService
     public async Task<ResultadoFechamento> ConcluirAsync(
         DecisaoFechamento decisao, string? operador = null, CancellationToken ct = default)
     {
-        var resultado = await _agenda.ConfirmarPresencaAsync(decisao.AgendamentoId, ct);
+        var resultado = await _agenda.ConfirmarPresencaAsync(decisao.AgendamentoId, ct, operador);
         var atendimento = resultado.Atendimento;
 
         var avisos = new List<string>();
