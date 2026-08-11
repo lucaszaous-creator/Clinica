@@ -1838,6 +1838,30 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   cadastrado pela carteirinha, quem chegou sem documento —, e vazio vira NULO para dois
   documentos "" não serem iguais.
 
+- **A rodada bloqueante é DIRIGIDA a quem fatura, e a dispensa é um BIT — não o contrário**
+  (`Permissao.DispensarRodadaPendencias`, parcela 57): a trava de 10 dias abria para
+  qualquer um que pudesse baixar OU marcar NC, e o Gerente Geral recebe `Todas` — então a
+  direção entrava no faturamento para CONFERIR e caía numa fila de guias que ela não vai
+  resolver. Travar quem entra para olhar faz a conferência simplesmente não acontecer.
+  ⚠️ **O bit é uma DISPENSA, e essa inversão é a decisão.** `PerfilAcesso.Gerente =>
+  Todas` percorre `Enum.GetValues`, então um bit com o sentido direto ("está sujeito à
+  rodada") chegaria LIGADO à direção justamente por ela ter tudo — e um bit novo que
+  precisasse ser subtraído de `Todas` transformaria "todas" em "todas menos", que é a
+  porta para a próxima exceção. Como dispensa, o perfil que tem tudo é dispensado sozinho
+  e o `Faturista`, que não tem, continua travado.
+  **Dispensa não é cegueira**: quem tem o bit continua vendo o banner de rodada vencida no
+  painel e o botão "Rodar pendências". Esconder o aviso junto faria a direção deixar de
+  saber que há guia vencida — o oposto do que a rodada existe para garantir. Por isso a
+  checagem mora na ABERTURA (`App.MostrarRodadaSeVencidaAsync`) e não dentro do
+  `RodadaPendenciasFluxo`, que é compartilhado com o botão do painel: o que se desliga é a
+  janela que TRANCA, nunca a capacidade de rodar.
+  ⚠️ **Tensão que ficou de pé e é decisão da direção**: o `Faturista` não tem
+  `MarcarNaoConformidade` (parcela 49), e a janela bloqueante exige uma decisão POR GUIA —
+  baixa ou NC. Quem não tem o número da guia e não pode marcar NC fica sem saída para
+  aquela linha. Antes isso se diluía porque a direção também era travada e resolvia; agora
+  a trava é só dele. O conserto de um clique existe e é o que a granularidade serve:
+  conceder `MarcarNaoConformidade` ao Faturista em Acessos.
+
 - **Coluna de formulário feita de `StackPanel` irmão desalinha quando o rótulo quebra**
   (parcela 57 — a cliente reprovou o "fora de esquadro" da tela de novo paciente). Duas
   colunas lado a lado, cada uma um `StackPanel` com rótulo em cima e campo embaixo, ficam

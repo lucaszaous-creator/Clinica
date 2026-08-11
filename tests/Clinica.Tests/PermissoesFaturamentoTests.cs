@@ -212,6 +212,40 @@ public class PermissoesFaturamentoTests
     /// para dizer a consequência ao lado da caixinha — sem isso, conceder permissão vira
     /// marcar caixinha com nome bonito.
     /// </summary>
+    // ===== A DISPENSA DA RODADA BLOQUEANTE (parcela 57) =====
+    //
+    // A trava de 10 dias é dirigida a QUEM FATURA. A direção entra no faturamento para
+    // conferir, e travar a tela dela com uma fila que ela não vai resolver faz a
+    // conferência não acontecer.
+
+    [Fact]
+    public void Faturista_continua_travado_pela_rodada_de_pendencias()
+        => PerfisAcesso.Padrao(PerfilAcesso.Faturista)
+            .HasFlag(Permissao.DispensarRodadaPendencias).Should().BeFalse(
+                "a rodada existe para quem fatura — é quem tem o número da guia na mão");
+
+    /// <summary>
+    /// O bit é uma DISPENSA, e não uma obrigação, exatamente por isto: o Gerente recebe
+    /// `Todas`, então um bit com o sentido invertido ("está sujeito à rodada") chegaria
+    /// ligado à direção justamente por ela ter tudo — o oposto do que se quer.
+    /// </summary>
+    [Fact]
+    public void Gerente_geral_entra_no_faturamento_sem_ser_travado()
+        => PerfisAcesso.Padrao(PerfilAcesso.Gerente)
+            .HasFlag(Permissao.DispensarRodadaPendencias).Should().BeTrue();
+
+    /// <summary>
+    /// A dispensa é de FATURAMENTO: quem não entra lá não deve recebê-la de brinde, senão
+    /// a tela de Acessos mostra uma caixinha ligada que não quer dizer nada para o perfil.
+    /// </summary>
+    [Theory]
+    [InlineData(PerfilAcesso.Recepcao)]
+    [InlineData(PerfilAcesso.Financeiro)]
+    [InlineData(PerfilAcesso.Enfermagem)]
+    public void Quem_nao_entra_no_faturamento_nao_recebe_a_dispensa(PerfilAcesso perfil)
+        => PerfisAcesso.Padrao(perfil)
+            .HasFlag(Permissao.DispensarRodadaPendencias).Should().BeFalse();
+
     [Fact]
     public void Toda_permissao_tem_assunto_e_explicacao()
     {
