@@ -2013,6 +2013,17 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   registro sumiria com o único sinal de que há alguém no balcão esperando.
   `Avulso_e_agendado_produzem_os_mesmos_fatos` é a amarra em teste: ele falha se alguém
   abrir uma terceira porta que pule algum dos fatos, que é como a segunda foi aberta.
+- **Mover XAML entre projetos quebra o `xmlns`, e só o CI acusa** (parcela 60, checagem
+  33): `clr-namespace:X;assembly=Y` manda o WPF procurar o namespace X **dentro** do
+  assembly Y. Quando Y é o próprio projeto do arquivo, o compilador de marcação não acha
+  nada e recusa (`MC3074`, `MC3072`). É o que acontece ao mover uma tela de um projeto para
+  outro: o `xmlns` continua nomeando o assembly de ORIGEM, que agora é o de DESTINO.
+  Foi assim que a tela de Pacotes, ao subir do Financeiro para o shell, derrubou o build.
+  ⚠️ **Nenhuma rede local pegava**: o XML é bem-formado, o `compilar-sombra` **não lê o
+  corpo** do XAML (ele só gera o `.g.cs` a partir de `x:Class` e `x:Name`) e o C# compila.
+  O defeito existe só para o compilador de MARCAÇÃO, que roda no Windows — sete minutos de
+  CI por um `;assembly=` que sobra. Dentro do próprio projeto a forma certa é
+  `clr-namespace:…` **sem** o sufixo.
 - **A venda de pacote subiu para o shell** (parcela 60): a tela existe desde a parcela 4 e
   a única porta estava no app do FINANCEIRO — mas quem vende dez sessões ao paciente é a
   RECEPÇÃO, no balcão, com ele na frente. Décima primeira ocorrência do defeito recorrente,
