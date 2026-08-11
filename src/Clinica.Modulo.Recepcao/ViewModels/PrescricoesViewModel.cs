@@ -48,8 +48,17 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
     [ObservableProperty] private string _paciente = string.Empty;
 
-    /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
+    /// <summary>
+    /// Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.
+    ///
+    /// ⚠️ É <see cref="Permissao.Prescrever"/> desde a parcela 59, e não
+    /// <c>EditarPaciente</c>. Esta tela emite RECEITA, ATESTADO e PEDIDO DE EXAME pela
+    /// janela genérica — três papéis que mandam alguém tomar ou fazer alguma coisa. Usar o
+    /// bit do CADASTRO para autorizá-los é o bit sobrecarregado que a parcela 49 corrigiu
+    /// no domínio e que sobrevivia aqui: quem digita o telefone de um paciente passava a
+    /// poder assinar uma receita para ele.
+    /// </summary>
+    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
 
     /// <summary>
     /// Emitir exige paciente escolhido, além da permissão. Sem isto o botão ficava aceso
@@ -131,8 +140,13 @@ public sealed partial class PrescricoesViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
+            // Mesmo filtro da ficha: o catálogo decide o que cada acesso alcança, e as
+            // duas telas listam o MESMO documento (parcela 59).
             foreach (var d in await servico.DoPacienteAsync(PacienteId))
-                Documentos.Add(LinhaDocumento.De(d));
+            {
+                var linha = LinhaDocumento.De(d);
+                if (SessaoUsuario.Atual.Pode(linha.AcessoParaVer)) Documentos.Add(linha);
+            }
         }
         catch (Exception ex)
         {
@@ -159,7 +173,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "emitir documento clínico");
 
             var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
             var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
@@ -354,7 +368,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "emitir documento clínico");
 
             var motivo = _dialogo.PerguntarTexto(
                 "Cancelar documento",

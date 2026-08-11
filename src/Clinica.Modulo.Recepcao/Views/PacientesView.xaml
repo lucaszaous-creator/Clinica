@@ -551,21 +551,30 @@
                                        VerticalAlignment="Center" />
                             <Button Content="Novo documento…" HorizontalAlignment="Right"
                                     Style="{StaticResource BotaoPequeno}"
-                                    Command="{Binding NovoDocumentoCommand}" IsEnabled="{Binding PodeEditarCadastro}" />
+                                    ToolTip="Receita, atestado, declaração e pedido de exame"
+                                    Command="{Binding NovoDocumentoCommand}" IsEnabled="{Binding PodePrescrever}" />
                         </Grid>
 
                         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
                                    Text="Receita, atestado, declaração e pedido de exame são escritos na janela. Os três abaixo o sistema monta do prontuário — e todos ficam numerados aqui, com código de conferência para a via em papel." />
 
+                        <!-- Os três montados NÃO pedem o mesmo acesso (parcela 59):
+                             relatório de evolução e anamnese saem do PRONTUÁRIO; o termo
+                             de consentimento sai do cadastro e é colhido no balcão. Botão
+                             aceso que só diz "seu acesso não permite" depois do clique é
+                             o defeito da parcela 41 com uma etapa a mais. -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                             <Button Content="Relatório de evolução" Style="{StaticResource BotaoPequeno}"
+                                    IsEnabled="{Binding PodeEmitirDoProntuario}"
                                     Command="{Binding EmitirRelatorioCommand}" />
                             <Button Content="Termo de consentimento" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPequeno}"
+                                    IsEnabled="{Binding PodeEditarCadastro}"
                                     Command="{Binding EmitirTermoCommand}" />
                             <Button Content="Anamnese" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPequeno}"
+                                    IsEnabled="{Binding PodeEmitirDoProntuario}"
                                     Command="{Binding EmitirAnamneseCommand}" />
                         </StackPanel>
 

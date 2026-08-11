@@ -162,7 +162,13 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveDocumentos, Rotulo = "Documentos", Glifo = "\uE8B7",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
+            // \u26A0\uFE0F A PORTA \u00E9 `VerDocumentos` desde a parcela 59, a pedido da dire\u00E7\u00E3o \u2014 antes
+            // era `VerFichaPaciente`, que todo perfil de balc\u00E3o tem, e por isso a
+            // recepcionista alcan\u00E7ava as dez folhas. O bit fecha a SE\u00C7\u00C3O; o que decide o
+            // que aparece DENTRO dela \u00E9 o acesso de cada folha
+            // (`FolhaCatalogo.PermissaoVer`) \u2014 sem isso, fechar a porta levaria junto o
+            // recibo e a declara\u00E7\u00E3o de comparecimento que o balc\u00E3o emite todo dia.
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerDocumentos
         },
 
         // ===== Sub-telas =====
@@ -192,7 +198,13 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChavePrescricoes, Rotulo = "Receitu\u00E1rio", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
+            // \u26A0\uFE0F `VerProntuario` desde a parcela 59. A tela LISTA os documentos cl\u00EDnicos do
+            // paciente \u2014 receita, atestado, pedido de exame \u2014 e emite qualquer um deles
+            // pela janela gen\u00E9rica. Deix\u00E1-la em `VerFichaPaciente` faria a porta nova da
+            // central de documentos ser cosm\u00E9tica: bastaria a pessoa clicar no item ao
+            // lado para ler as mesmas receitas. Checagem de acesso que s\u00F3 existe numa
+            // porta \u00E9 o defeito recorrente do projeto, com o agravante de PARECER coberta.
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a

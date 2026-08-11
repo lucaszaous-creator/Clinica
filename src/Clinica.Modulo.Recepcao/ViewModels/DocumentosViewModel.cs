@@ -49,6 +49,16 @@ public sealed class LinhaFolhaEmitida
     public required bool PodeCancelar { get; init; }
 
     /// <summary>
+    /// O acesso que ESTA folha exige para ser cancelada ou republicada (parcela 59).
+    ///
+    /// Viaja na linha porque o comando recebe a linha, e não a folha: sem ele o
+    /// <c>Exigir</c> teria de reabrir o catálogo pela chave, e a metade que IMPEDE
+    /// passaria a depender de uma segunda resolução que pode divergir da que apagou o
+    /// botão.
+    /// </summary>
+    public required Permissao AcessoParaMexer { get; init; }
+
+    /// <summary>
     /// O link venceu e dá para colocá-lo de volta no ar (parcela 53). Só aparece em
     /// documento que JÁ teve link: republicar reusa o mesmo token, e o QR impresso que o
     /// paciente guardou volta a funcionar.
@@ -126,8 +136,12 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
     partial void OnConferidoChanged(string? value) => OnPropertyChanged(nameof(TemConferido));
 
-    /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeEmitir => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
+    /// <summary>
+    /// Os acessos de quem está logado. Ficam numa propriedade porque a tela os consulta em
+    /// três lugares — o catálogo, a lista do que já saiu e os botões de cada linha —, e
+    /// consultar a sessão em cada um deles seria a mesma regra escrita três vezes.
+    /// </summary>
+    private static Permissao Acessos => SessaoUsuario.Atual.Efetivas;
 
     public DocumentosViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -152,7 +166,15 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     private void MontarCatalogo()
     {
-        foreach (var f in CentralDocumentosService.Catalogo)
+        // ⚠️ SÓ as folhas que o acesso desta pessoa alcança (parcela 59). A porta da seção
+        // (`VerDocumentos`) é uma decisão; esta é a outra, e sem ela a direção teria de
+        // escolher entre a recepcionista lendo o relatório de evolução de todo mundo e a
+        // recepcionista sem o recibo que ela emite dez vezes por dia.
+        //
+        // Cartão que aparece apagado dizendo "sem permissão" seria pior aqui do que em
+        // qualquer outra tela: ele ANUNCIA que existe um relatório de evolução daquele
+        // paciente, que é justamente o que não se quer contar a quem não pode lê-lo.
+        foreach (var f in CentralDocumentosService.CatalogoPara(Acessos))
             Folhas.Add(new LinhaFolha
             {
                 Folha = f,
@@ -185,13 +207,19 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
         foreach (var linha in Folhas)
         {
+            // O acesso de EMITIR é da folha, não da tela: quem vê o relatório de evolução
+            // não necessariamente assina uma receita.
+            var podeEmitir = SessaoUsuario.Atual.Pode(linha.Folha.PermissaoEmitir);
+
             switch (linha.Folha.Exigencia)
             {
                 case ExigenciaFolha.Paciente:
                 case ExigenciaFolha.PacienteComProntuario:
-                    linha.PodeGerar = temPaciente && PodeEmitir;
+                    linha.PodeGerar = temPaciente && podeEmitir;
                     linha.Pendencia = temPaciente
-                        ? (PodeEmitir ? string.Empty : "Você não tem permissão para emitir.")
+                        ? (podeEmitir
+                            ? string.Empty
+                            : $"Seu acesso permite ver, não emitir ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).")
                         : "Escolha o paciente ao lado.";
                     break;
 
@@ -207,8 +235,10 @@ public sealed partial class DocumentosViewModel : ObservableObject
                     break;
 
                 default: // Periodo
-                    linha.PodeGerar = true;
-                    linha.Pendencia = "Usa o período escolhido abaixo.";
+                    linha.PodeGerar = podeEmitir;
+                    linha.Pendencia = podeEmitir
+                        ? "Usa o período escolhido abaixo."
+                        : $"Seu acesso permite ver, não emitir ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).";
                     break;
             }
         }
@@ -231,8 +261,13 @@ public sealed partial class DocumentosViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var central = scope.ServiceProvider.GetRequiredService<CentralDocumentosService>();
 
-            var emitidas = await central.EmitidasAsync(inicio, fim);
-            var resumo = await central.ResumoAsync(inicio, fim);
+            // A lista do que JÁ SAIU passa pelo mesmo filtro dos cartões — senão a tela
+            // esconderia o botão de emitir receita e mostraria "Receituário 2026/0012 —
+            // Maria Silva" logo abaixo. O resumo conta sobre o resultado do filtro, e não
+            // sobre a base: "12 folhas" acima de uma lista de quatro faria a pessoa
+            // procurar as oito que faltam.
+            var emitidas = await central.EmitidasAsync(inicio, fim, acessos: Acessos);
+            var resumo = await central.ResumoAsync(inicio, fim, acessos: Acessos);
 
             Emitidas.Clear();
             foreach (var e in emitidas) Emitidas.Add(Montar(e));
@@ -265,6 +300,17 @@ public sealed partial class DocumentosViewModel : ObservableObject
     private static bool NoAr(FolhaEmitida e)
         => e.PublicadoAte is { } ate && ate >= DateOnly.FromDateTime(DateTime.Today);
 
+    /// <summary>
+    /// Dá para cancelar/republicar esta linha? É o acesso de EMITIR a folha dela.
+    ///
+    /// Folha que não está no catálogo devolve NÃO — é a mesma resposta segura do serviço:
+    /// papel cujo acesso ninguém declarou não vira botão aceso.
+    /// </summary>
+    private static bool PodeMexer(FolhaEmitida e)
+        => CentralDocumentosService.Folha(e.Chave) is { } f
+           && SessaoUsuario.Atual.Pode(f.PermissaoEmitir);
+
+
     private LinhaFolhaEmitida Montar(FolhaEmitida e) => new()
     {
         DocumentoId = e.DocumentoId,
@@ -280,11 +326,15 @@ public sealed partial class DocumentosViewModel : ObservableObject
                 string.IsNullOrWhiteSpace(e.CriadoPor) ? null : $"por {e.CriadoPor}"
             }.Where(x => !string.IsNullOrWhiteSpace(x))),
         Cancelado = e.Cancelado,
-        PodeCancelar = !e.Cancelado && PodeEmitir,
+        // Cancelar e republicar pedem o acesso de EMITIR daquela folha, não um bit geral
+        // da tela: cancelar uma receita é ato de quem prescreve.
+        PodeCancelar = !e.Cancelado && PodeMexer(e),
+        AcessoParaMexer = CentralDocumentosService.Folha(e.Chave)?.PermissaoEmitir
+                          ?? Permissao.GerenciarUsuarios,
 
         // Renovar só faz sentido para o que JÁ teve link e saiu do ar. Documento cancelado
         // não volta — receita cancelada baixável é a pior espécie de arquivo no ar.
-        PodeRenovarLink = e.JaTeveLink && !e.Cancelado && PodeEmitir && !NoAr(e),
+        PodeRenovarLink = e.JaTeveLink && !e.Cancelado && PodeMexer(e) && !NoAr(e),
 
         Link = !e.JaTeveLink ? string.Empty
             : NoAr(e) ? $"link no ar até {e.PublicadoAte:dd/MM/yyyy}"
@@ -423,7 +473,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     private async Task AbrirJanelaAsync(FolhaCatalogo folha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+        SessaoUsuario.Atual.Exigir(
+            folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}");
 
         if (Seletor.Selecionado is not { } paciente || folha.TipoClinico is not { } tipo) return;
 
@@ -448,7 +499,9 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     private async Task AbrirOrcamentoAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "emitir orçamento");
+        // `EditarFinanceiro`, e não `VerFinanceiro`: emitir orçamento é escrever um papel
+        // com valor. Quem só LÊ o caixa não propõe preço em nome da clínica.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "emitir orçamento");
 
         if (Seletor.Selecionado is not { } paciente) return;
 
@@ -469,7 +522,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     private async Task EmitirMontadaAsync(FolhaCatalogo folha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+        SessaoUsuario.Atual.Exigir(
+            folha.PermissaoEmitir, $"emitir {folha.Rotulo.ToLowerInvariant()}");
 
         if (Seletor.Selecionado is not { } paciente || folha.TipoClinico is not { } tipo) return;
 
@@ -611,7 +665,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "republicar o link do documento");
+            SessaoUsuario.Atual.Exigir(
+                linha.AcessoParaMexer, $"republicar o link de {linha.Folha.ToLowerInvariant()}");
 
             if (linha.Cancelado)
             {
@@ -658,7 +713,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cancelar documento");
+            SessaoUsuario.Atual.Exigir(
+                linha.AcessoParaMexer, $"cancelar {linha.Folha.ToLowerInvariant()}");
 
             var motivo = _dialogo.PerguntarTexto(
                 "Cancelar documento",

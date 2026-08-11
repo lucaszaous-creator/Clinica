@@ -78,6 +78,18 @@ public sealed class SessaoUsuario
            || (Permissoes & permissao) == permissao;
 
     /// <summary>
+    /// Os acessos que VALEM para esta sessão, como conjunto (parcela 59).
+    ///
+    /// Existe para quem precisa FILTRAR uma lista pelo acesso — o catálogo de folhas da
+    /// central de documentos — em vez de perguntar por um bit de cada vez. E existe aqui,
+    /// e não como `Permissoes` cru, porque a regra do "sem sessão autenticada, libera"
+    /// mora nesta classe: lida direto, a propriedade devolveria <c>Nenhuma</c> fora do
+    /// login e a tela abriria VAZIA, que é o oposto do que <see cref="Pode"/> decide.
+    /// Duas respostas para "o que esta pessoa alcança?" é o começo de uma divergir.
+    /// </summary>
+    public Permissao Efetivas => Autenticado ? Permissoes : PerfisAcesso.Todas;
+
+    /// <summary>
     /// Bloqueia a ação quando falta permissão. As telas já tratam exceção e mostram a
     /// mensagem inline, então o texto aqui é o que o usuário vai ler.
     ///
