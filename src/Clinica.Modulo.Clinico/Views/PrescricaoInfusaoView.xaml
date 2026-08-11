@@ -173,8 +173,7 @@
                 <ctrl:EstadoDaTela Itens="{Binding Prescricoes}"
                                    Carregando="{Binding Carregando}"
                                    NaoVerificado="{Binding NaoVerificado}"
-                                   Visibility="{Binding TemPaciente,
-                                                Converter={StaticResource BoolParaVisibilidade}}"
+                                   Ativo="{Binding TemPaciente}"
                                    Glifo="&#xE95E;"
                                    TextoCarregando="Procurando prescrições…"
                                    Titulo="Nenhuma prescrição de infusão para este paciente"

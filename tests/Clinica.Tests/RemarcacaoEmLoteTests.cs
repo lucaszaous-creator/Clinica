@@ -157,7 +157,7 @@ public class RemarcacaoEmLoteTests : IDisposable
     /// produto inteiro existe para evitar.
     /// </summary>
     [Fact]
-    public async Task Sessao_ja_realizada_nao_e_empurrada_mas_o_retorno_sugerido_e()
+    public async Task Sessao_ja_realizada_nao_e_empurrada_pelo_bloqueio()
     {
         var pacienteId = await CriarPacienteAsync();
         var profissionalId = await CriarProfissionalAsync();
@@ -178,8 +178,11 @@ public class RemarcacaoEmLoteTests : IDisposable
         var depois = await _agenda.ObterAsync(realizada.Id);
         depois!.DataHora.Should().Be(Segunda, "a sessão realizada fica onde estava");
 
-        r.Remarcados.Should().ContainSingle(a => a.Origem == OrigemAgendamento.RetornoSugerido,
-            "o retorno do 2º código ainda não aconteceu e cai dentro do bloqueio");
+        // Antes havia aqui um "retorno sugerido" do 2º código para o lote empurrar. Ele
+        // deixou de ser criado na parcela 58 (guia não é atendimento), então o bloqueio
+        // simplesmente não tem o que remarcar deste paciente.
+        r.Remarcados.Should().BeEmpty(
+            "a única sessão do dia já tinha acontecido, e guia pendente não ocupa agenda");
     }
 
     /// <summary>

@@ -4,6 +4,7 @@ using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -320,7 +321,10 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Paciente = a.Paciente?.Nome ?? "(paciente removido)",
                 Telefone = a.Paciente?.Telefone,
                 DataHora = a.DataHora,
-                Modalidade = a.ModalidadePrevista.ToString(),
+                // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia
+                    // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
+                    Modalidade = CatalogoModalidades.Nome(
+                        a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
                 Sala = a.Sala?.Nome ?? "—",
                 StatusRotulo = Rotular(a.Status),
                 EhEncaixe = a.Encaixe,

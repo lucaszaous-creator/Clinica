@@ -47,8 +47,17 @@ public class AgendaServiceTests : IDisposable
         doDia.Should().ContainSingle().Which.Status.Should().Be(StatusAgendamento.Agendado);
     }
 
+    /// <summary>
+    /// Confirmar presença gera o atendimento e os códigos — e NÃO cria horário nenhum.
+    ///
+    /// GUIA NÃO É ATENDIMENTO. O 2º código é obtido +24h depois pela SECRETÁRIA, no
+    /// sistema do convênio; o paciente não volta para nada. Enquanto isso virava um
+    /// `Agendamento`, a fila do balcão e a agenda dos MÉDICOS mostravam uma pessoa sem
+    /// horário marcado — e o cartão fantasma vinha com "Entrou", que lançaria um
+    /// atendimento novo e guias novas para uma sessão que nunca houve.
+    /// </summary>
     [Fact]
-    public async Task ConfirmarPresenca_GeraAtendimentoERetornoSugerido()
+    public async Task ConfirmarPresenca_GeraAtendimento_ENaoCriaHorarioParaOSegundoCodigo()
     {
         var pacienteId = await CriarPacienteAsync(Convenio.UnimedIntercambio);
         var dia = new DateTime(2026, 7, 20, 14, 0, 0);
@@ -64,11 +73,14 @@ public class AgendaServiceTests : IDisposable
         atualizado.Status.Should().Be(StatusAgendamento.Realizado);
         atualizado.AtendimentoId.Should().NotBeNull();
 
-        // Criou um retorno sugerido (+24h) para obter o 2º código.
-        var retorno = await _db.Agendamentos.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Origem == OrigemAgendamento.RetornoSugerido);
-        retorno.Should().NotBeNull();
-        retorno!.DataHora.Date.Should().Be(dia.Date.AddDays(1));
+        // O 2º código existe como PENDÊNCIA de faturamento, com a data prevista…
+        resultado.Atendimento.Codigos
+            .Should().ContainSingle(c => c.Ordem == OrdemCodigo.Segundo)
+            .Which.DataPrevistaFaturamento.Should().Be(DateOnly.FromDateTime(dia.Date.AddDays(1)));
+
+        // …e NÃO como horário na agenda: o paciente não volta para obter guia.
+        (await _db.Agendamentos.AsNoTracking().CountAsync()).Should().Be(1,
+            "o único horário é o que a paciente de fato tinha");
     }
 
     [Fact]

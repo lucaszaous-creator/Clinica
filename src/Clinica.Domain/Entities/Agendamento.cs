@@ -13,7 +13,15 @@ public enum StatusAgendamento
 public enum OrigemAgendamento
 {
     Manual,          // marcado pela secretária
-    RetornoSugerido, // sugerido automaticamente (retorno de 24h do 2º código)
+    /// <summary>
+    /// ⚠️ LEGADO — não se cria mais (parcela 58). O sistema materializava a pendência do
+    /// 2º código como um horário na agenda, e isso confundia GUIA com ATENDIMENTO: punha
+    /// na fila do balcão e na agenda dos médicos um paciente que não tem horário e não vai
+    /// aparecer. O valor continua aqui porque é gravado como TEXTO e há linhas assim em
+    /// produção — apagá-lo faria o EF quebrar ao lê-las. O selo "Retorno do 2º código"
+    /// segue na tela justamente para a clínica reconhecer e limpar as que sobraram.
+    /// </summary>
+    RetornoSugerido,
     ListaEspera      // chamado da lista de espera para um horário que vagou
 }
 

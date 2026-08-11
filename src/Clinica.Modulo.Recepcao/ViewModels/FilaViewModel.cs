@@ -4,6 +4,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -288,7 +289,10 @@ public sealed partial class FilaViewModel : ObservableObject
                     PacienteId = a.PacienteId,
                     Horario = a.DataHora.ToString("HH:mm"),
                     Paciente = a.Paciente?.Nome ?? "(paciente removido)",
-                    Modalidade = a.ModalidadePrevista.ToString(),
+                    // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia
+                    // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
+                    Modalidade = CatalogoModalidades.Nome(
+                        a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
                     Profissional = a.Profissional?.Rotulo ?? "—",
                     Sala = a.Sala?.Nome ?? "—",
                     Etapa = a.Etapa,

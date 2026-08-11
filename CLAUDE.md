@@ -1838,6 +1838,56 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   cadastrado pela carteirinha, quem chegou sem documento —, e vazio vira NULO para dois
   documentos "" não serem iguais.
 
+- **GUIA NÃO É ATENDIMENTO — e o sistema materializava a pendência como HORÁRIO**
+  (parcela 58; a cliente mandou a foto de uma paciente sem agendamento ocupando a fila do
+  dia e a agenda). `AgendaService.ConfirmarPresencaAsync` criava, ao confirmar a presença,
+  um `Agendamento` de verdade (`OrigemAgendamento.RetornoSugerido`) na data prevista do 2º
+  código, às 9h, "para não esquecer de obtê-lo".
+  O 2º código é obtido +24h depois **pela SECRETÁRIA, no sistema do convênio** — o paciente
+  não volta para nada. Materializá-lo como horário punha na fila do balcão e na agenda dos
+  MÉDICOS uma pessoa que não tem hora marcada e não vai aparecer.
+  ⚠️ **E não era ruído visual.** O cartão fantasma vinha com "Chegou / Entrou / Falta /
+  Cancelar": um clique em Entrou → Finalizar lança um atendimento NOVO e gera guias NOVAS
+  para uma sessão que nunca aconteceu — faturamento inventado a partir de uma pendência de
+  faturamento. É a inversão exata do que o produto existe para fazer.
+  **Não faltava lembrete, sobrava um no lugar errado**: o 2º código já nasce como
+  `CodigoFaturamento` com `DataPrevistaFaturamento`, aparece no painel de pendências com
+  semáforo, entra na rodada bloqueante ao vencer o prazo e é mostrado ao balcão pelo
+  `PainelRecepcaoService` junto dos pacientes do dia.
+  O valor do enum FICA (é gravado como texto e há linhas assim em produção; apagá-lo
+  quebraria a leitura delas), e o selo "Retorno do 2º código" segue na tela justamente
+  para a clínica reconhecer e limpar as que sobraram.
+  A lição, que é a mais cara desta lista: **ao ligar dois módulos, pergunte se o que
+  atravessa é o FATO ou só o lembrete dele.** Pendência de faturamento é fato do
+  faturamento; ela se mostra onde se resolve, e não vira agenda de quem atende.
+
+- **`EstadoDaTela` com `Visibility` AMARRADA: o binding morre e o vazio vaza pela tela**
+  (parcela 58 — o cliente mandou a foto de "Nenhuma sessão registrada" escrito por cima da
+  lista de pacientes CHEIA, no Prontuário e nas Prescrições da Recepção). O componente
+  decide a própria `Visibility` em `Recalcular()`, atribuindo um valor **local** — e em WPF
+  valor local atribuído por código **substitui o binding**. A tela ligava a visibilidade a
+  "estou mostrando o prontuário"; na primeira mudança de `Itens`, `Carregando` ou
+  `NaoVerificado` o `Recalcular` sobrescrevia e o binding deixava de existir. Daí em diante
+  o vazio aparecia quando a LISTA estava vazia, e não quando a tela dele estava aberta.
+  A saída é `Ativo`, que entra no CÁLCULO em vez de brigar com ele; e o componente volta
+  para dentro da região a que pertence, como último filho do Grid dela — na raiz da tela
+  ele cobre tudo, que é o defeito que a PR #113 já tinha corrigido noutras telas. Virou a
+  **checagem 30**.
+- **`SharedSizeGroup` sem `Grid.IsSharedSizeScope` não alinha NADA** (parcela 58): cada
+  linha de uma lista é um Grid próprio, então sem o escopo as larguras são resolvidas POR
+  LINHA — a linha que tem o selo "Carteirinha vencida" fica com a última coluna mais larga
+  e empurra o telefone daquela linha para a esquerda. A lista deixa de ter colunas e vira
+  uma pilha de linhas que por acaso se parecem. O `ItemPacienteLinha` trazia o aviso
+  escrito no próprio comentário ("o escopo é declarado por quem monta a lista") e **três
+  das quatro telas que o usam esqueceram**. Contrato que depende de alguém lembrar é o que
+  a **checagem 31** existe para substituir.
+  ⚠️ A checagem nasceu CEGA e o autoteste é que mostrou: ela procurava
+  `IsSharedSizeScope` no texto do arquivo, e o **comentário que explica a regra** satisfazia
+  a busca — a tela ficava desalinhada com a checagem verde. É o inverso da lição da
+  checagem 19 (lá a prosa fazia disparar, aqui fazia silenciar), e o silêncio é pior:
+  ninguém percebe uma checagem que passou. **Toda checagem que procura uma marca no texto
+  tem de tirar os comentários antes.**
+
 - **A rodada bloqueante é DIRIGIDA a quem fatura, e a dispensa é um BIT — não o contrário**
   (`Permissao.DispensarRodadaPendencias`, parcela 57): a trava de 10 dias abria para
   qualquer um que pudesse baixar OU marcar NC, e o Gerente Geral recebe `Todas` — então a

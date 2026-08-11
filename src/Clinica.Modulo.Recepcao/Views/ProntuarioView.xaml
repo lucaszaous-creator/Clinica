@@ -38,7 +38,13 @@
                        Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8" />
 
             <Border Style="{StaticResource Card}">
-                <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                <!-- ⚠️ `Grid.IsSharedSizeScope`: o `ItemPacienteLinha` alinha as colunas por
+                     `SharedSizeGroup`, e sem o ESCOPO declarado aqui cada linha resolve a
+                     largura sozinha — a linha que tem o selo "Carteirinha vencida" fica com a
+                     última coluna mais larga e empurra o telefone daquela linha para a
+                     esquerda. A lista deixa de ter colunas e vira uma pilha de linhas
+                     desalinhadas, que foi o que o cliente viu em produção. -->
+                <ListBox Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
                          SelectedItem="{Binding Seletor.Selecionado}"
                          ItemTemplate="{StaticResource ItemPacienteLinha}"
                          BorderThickness="0" Background="Transparent"
@@ -197,15 +203,23 @@
                     </DockPanel>
                 </Border>
         </DockPanel>
+
+            <!-- O estado vazio mora DENTRO da região a que pertence, e é o ÚLTIMO filho
+                 do Grid dela. Na raiz da tela ele cobria tudo — inclusive a lista de
+                 pacientes ao lado, onde escrevia "Nenhuma sessão registrada" por cima de
+                 uma lista cheia (visto em produção).
+
+                 E a condição vai em `Ativo`, NUNCA em `Visibility`: o componente atribui
+                 a própria Visibility como valor LOCAL, o que apaga qualquer binding que a
+                 tela tivesse posto ali. -->
+            <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
+                               Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
+                               Glifo="&#xE8A5;"
+                               TextoCarregando="Lendo o prontuário…"
+                               Titulo="Nenhuma sessão registrada"
+                               Descricao="A evolução é o histórico clínico: ele não se apaga, corrige-se." />
         </Grid>
 
-        <ctrl:EstadoDaTela Itens="{Binding Sessoes}"
-                           Carregando="{Binding Carregando}"
-                           NaoVerificado="{Binding NaoVerificado}"
-                           Glifo="&#xE8A5;"
-                           TextoCarregando="Lendo o prontuário…"
-                           Titulo="Nenhuma sessão registrada"
-                           Descricao="A evolução é o histórico clínico: ele não se apaga, corrige-se."
-                           Visibility="{Binding MostrandoProntuario, Converter={StaticResource BoolParaVisibilidade}}" />
     </Grid>
 </UserControl>
