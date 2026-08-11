@@ -115,6 +115,17 @@ public interface IClinicaRepositorio
     /// <summary>Consulta central de guias com filtros combinados (paciente, nº guia, período, status, convênio).</summary>
     Task<IReadOnlyList<CodigoFaturamento>> ConsultarCodigosAsync(Modelos.FiltroConsultaGuias filtro, CancellationToken ct = default);
 
+    /// <summary>
+    /// Pacientes cujo documento é este CPF, comparando só os DÍGITOS.
+    ///
+    /// A comparação ignora máscara dos dois lados porque a coluna aceita 30 caracteres e
+    /// guarda o que foi digitado: desde que `PacienteService` normaliza, o que entra é só
+    /// dígito — mas a base da clínica tem linhas anteriores a isso, com "123.456.789-00".
+    /// Comparar o texto cru deixaria o duplicado mascarado passar, que é justamente o
+    /// caso antigo que se quer pegar.
+    /// </summary>
+    Task<IReadOnlyList<Paciente>> PacientesPorCpfAsync(string cpfSoDigitos, CancellationToken ct = default);
+
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 

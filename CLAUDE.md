@@ -1811,6 +1811,115 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   VM com `limite: null` + `Refinar`.
 - `docs/atualizacoes.md` documenta o mecanismo de auto-update; `docs/design-system/` documenta
   tokens, componentes, atalhos e acessibilidade da UI.
+- **CPF do paciente não se repete, e a recusa mora na ESCRITA** (`PacienteService`,
+  parcela 57): duas fichas da mesma pessoa partem o histórico em dois — metade dos
+  atendimentos, das guias e do prontuário fica em cada uma. Não é fraude nem erro de
+  digitação: é a mesma pessoa cadastrada de novo por quem não achou a ficha antiga, e por
+  isso a mensagem **diz o nome de quem já tem aquele CPF** — é o que transforma um erro
+  numa instrução ("é este aqui, abra a ficha dele").
+  **Não é índice único**, e a razão é a mesma que já vale para o CPF do profissional
+  (parcela 45): a migration roda no `MigrateAsync` da ABERTURA do app, inclusive do
+  faturamento em produção, e a criação do índice falharia se a base já tivesse duplicata —
+  quem não abriria seria o sistema que fatura. E ela TEM chance de ter: até aqui nada
+  impedia.
+  ⚠️ **A regra é simples de propósito: CPF de OUTRA ficha é recusado na criação e na
+  edição.** Houve uma versão que abria exceção para a ficha antiga já duplicada, para não
+  travar a correção do telefone dela; a direção dispensou — as duplicatas que já existem
+  serão apagadas direto no banco (Neon), e daí em diante só precisa existir o impedimento.
+  **Regra com exceção que ninguém vai exercer é código a mais para manter e mais uma
+  resposta possível para a mesma pergunta.** O efeito colateral fica fixado em teste em vez
+  de descoberto no balcão: enquanto a limpeza não acontece, a ficha duplicada não salva.
+  Dois cuidados que o código não conta sozinho: a comparação **ignora máscara nos dois
+  lados** (a coluna aceita 30 caracteres e guarda o que foi digitado; a base tem linhas
+  anteriores à normalização, com "123.456.789-00", e comparar o texto cru deixaria passar
+  justamente o duplicado que já existe) e a limpeza acontece **no banco**, com o `replace`
+  do SQL, porque carregar a carteira inteira a cada Salvar seria uma varredura completa
+  numa base remota. **CPF em branco continua sendo o caso normal** — criança, paciente
+  cadastrado pela carteirinha, quem chegou sem documento —, e vazio vira NULO para dois
+  documentos "" não serem iguais.
+
+- **A rodada bloqueante é DIRIGIDA a quem fatura, e a dispensa é um BIT — não o contrário**
+  (`Permissao.DispensarRodadaPendencias`, parcela 57): a trava de 10 dias abria para
+  qualquer um que pudesse baixar OU marcar NC, e o Gerente Geral recebe `Todas` — então a
+  direção entrava no faturamento para CONFERIR e caía numa fila de guias que ela não vai
+  resolver. Travar quem entra para olhar faz a conferência simplesmente não acontecer.
+  ⚠️ **O bit é uma DISPENSA, e essa inversão é a decisão.** `PerfilAcesso.Gerente =>
+  Todas` percorre `Enum.GetValues`, então um bit com o sentido direto ("está sujeito à
+  rodada") chegaria LIGADO à direção justamente por ela ter tudo — e um bit novo que
+  precisasse ser subtraído de `Todas` transformaria "todas" em "todas menos", que é a
+  porta para a próxima exceção. Como dispensa, o perfil que tem tudo é dispensado sozinho
+  e o `Faturista`, que não tem, continua travado.
+  **Dispensa não é cegueira**: quem tem o bit continua vendo o banner de rodada vencida no
+  painel e o botão "Rodar pendências". Esconder o aviso junto faria a direção deixar de
+  saber que há guia vencida — o oposto do que a rodada existe para garantir. Por isso a
+  checagem mora na ABERTURA (`App.MostrarRodadaSeVencidaAsync`) e não dentro do
+  `RodadaPendenciasFluxo`, que é compartilhado com o botão do painel: o que se desliga é a
+  janela que TRANCA, nunca a capacidade de rodar.
+  ⚠️ **Tensão que ficou de pé e é decisão da direção**: o `Faturista` não tem
+  `MarcarNaoConformidade` (parcela 49), e a janela bloqueante exige uma decisão POR GUIA —
+  baixa ou NC. Quem não tem o número da guia e não pode marcar NC fica sem saída para
+  aquela linha. Antes isso se diluía porque a direção também era travada e resolvia; agora
+  a trava é só dele. O conserto de um clique existe e é o que a granularidade serve:
+  conceder `MarcarNaoConformidade` ao Faturista em Acessos.
+
+- **Coluna de formulário feita de `StackPanel` irmão desalinha quando o rótulo quebra**
+  (parcela 57 — a cliente reprovou o "fora de esquadro" da tela de novo paciente). Duas
+  colunas lado a lado, cada uma um `StackPanel` com rótulo em cima e campo embaixo, ficam
+  alinhadas **enquanto os dois rótulos couberem numa linha**. Basta a janela estreitar ou
+  o rótulo crescer — "Validade da carteirinha" ao lado de "Nº da carteirinha" — para um
+  deles quebrar em duas linhas, empurrar o campo daquela coluna 17px para baixo e deixar a
+  linha inteira torta. O defeito depende do texto E da largura, que é o que o torna difícil
+  de reproduzir e fácil de reintroduzir.
+  A correção é estrutural: rótulo e campo em **LINHAS de `Grid`**, com a linha do rótulo
+  em `SharedSizeGroup` — as duas colunas reservam a altura do MAIOR rótulo e os campos
+  começam sempre na mesma altura. ⚠️ O nome do grupo é um **identificador** (sem ponto,
+  sem espaço): ele é validado em RUNTIME e derruba a tela inteira — a lição da parcela 50,
+  hoje cobrada pela checagem 27.
+  Na mesma tela, dois vizinhos do mesmo tipo: o **`DatePicker` sem `Template` no design
+  system do FATURAMENTO** (o mesmo defeito da parcela 56 no da suíte, portado agora — dois
+  design systems que não se referenciam significam corrigir duas vezes), e **botão ancorado
+  num `DockPanel` sem `VerticalAlignment="Center"`**, que estica junto quando a mensagem ao
+  lado quebra em três linhas. A recusa de CPF repetido é exatamente uma mensagem dessas: a
+  regra nova tornou visível um defeito de leiaute que já estava lá.
+
+- **Clicar no dado COPIA o dado** (`Copiavel`, `CelulaCopiavel`, parcela 57): a clínica
+  não vive só neste sistema — a guia é efetivada no PORTAL da operadora, e para isso a
+  secretária retipa nome, telefone, carteirinha e número da guia do outro lado. Retipar é
+  onde nasce o erro que o produto inteiro combate: o **"O" no lugar do zero** que a
+  `RegraNumeroGuia` existe para pegar, o dígito a menos no telefone. Copiar não erra.
+  O telefone **já estava no modelo de pendência** desde que o botão do WhatsApp existe —
+  o sistema o TINHA e não o MOSTRAVA, e quem precisava do número para o portal abria a
+  ficha do paciente noutra tela. É a variante do defeito recorrente do projeto em que o
+  dado tem leitor, mas só um, e não o da tarefa.
+  As decisões: **nome e telefone na MESMA célula**, e não em duas colunas — as pendências
+  já disputam a largura, e foi a coluna de paciente espremida entre vizinhas mais largas
+  (1,2* e 1,4* contra 1*) que cortava o nome; **o estilo carrega a afordância** (mão e
+  sublinhado no hover), porque recurso que não se anuncia ninguém descobre; **a dica
+  mostra o valor inteiro**, que é o que devolve o nome longo a quem só vê o começo dele;
+  **célula vazia não se anuncia como copiável**, senão a pessoa clica num traço e conclui
+  que quebrou; e o **`TextBlock` ganha fundo transparente ao ser ligado**, porque sem
+  pintura o WPF só aceita clique em cima das LETRAS — sem isso o clique ao lado do texto
+  não copiaria nada e o recurso pareceria funcionar "às vezes".
+  A cópia **tenta três vezes**: a área de transferência é recurso ÚNICO da máquina e fica
+  bloqueada enquanto outro programa a segura (o navegador e o próprio portal fazem isso o
+  tempo todo). E **falha nunca aparece como sucesso** — dizer "copiado" e a pessoa colar o
+  conteúdo anterior no portal é pior do que não ter o recurso, porque ela cola sem
+  conferir. A confirmação aparece NO LUGAR DO CLIQUE, não numa barra no rodapé: quem copia
+  a terceira célula da linha está olhando para ela.
+- **A rede não varria o faturamento na checagem de CHAVE** (parcela 57): chave inexistente
+  é `ResourceReferenceKeyNotFoundException` na montagem da tela — erro de runtime puro, que
+  é exatamente o grupo que o `arvores_com_faturamento` existe para alcançar desde a parcela
+  51. Ficar de fora deixou passar quatro `CellTemplate="{StaticResource …}"` apontando para
+  uma chave ainda não declarada: XAML bem-formado, `compilar-sombra` verde,
+  `verificar-suite` verde, e a coluna sairia **vazia** na tela de quem fatura. Só a metade
+  das CHAVES foi estendida — não a de `FontSize` numérico e cor em hexadecimal, que é a
+  dívida antiga que faria a checagem gritar trinta vezes. Medido antes: **zero** chaves
+  pendentes no faturamento, então a extensão não custou nada.
+  ⚠️ De quebra, a lista de "estilos que já resolvem" da checagem 24 **não seguia o
+  `BasedOn`**: estilo que herda o corte do pai aparecia como dívida sem ser. O ponto cego é
+  traiçoeiro porque a reclamação é PLAUSÍVEL — quem a lê acrescenta o `TextTrimming`
+  repetido na tela e segue, e a checagem continua cega para o próximo caso.
+
 - **O WPF não formata na cultura da máquina — `StringFormat` é en-US por padrão**
   (parcela 56; o cliente viu **"August/2026"** no cabeçalho da Conciliação). O que engana
   é que só METADE da tela erra: o que a ViewModel formata em C# (`valor.ToString("C")`)

@@ -292,6 +292,21 @@ public partial class App : System.Windows.Application
     {
         if (_rodadaAberta || _host is null) return;
 
+        // ⚠️ A DISPENSA (parcela 57). A trava é dirigida a QUEM FATURA — a pessoa que tem
+        // o número da guia na mão e resolve a fila. A direção não fatura: ela entra no
+        // faturamento para CONFERIR, e travar a tela dela com uma fila que ela não vai
+        // resolver faz a conferência simplesmente não acontecer.
+        //
+        // A checagem mora aqui, na ABERTURA, e não dentro do fluxo da rodada: o mesmo
+        // fluxo atende o botão "Rodar pendências" do painel, e quem é dispensado precisa
+        // continuar podendo rodá-la de propósito. O que a dispensa desliga é a janela que
+        // TRANCA, nunca a capacidade.
+        //
+        // O banner de rodada vencida no painel continua aparecendo para quem é dispensado
+        // — dispensa não é cegueira. Esconder o aviso junto faria a direção deixar de
+        // saber que há guia vencida, que é o oposto do que a rodada existe para garantir.
+        if (SessaoUsuario.Atual.Pode(Permissao.DispensarRodadaPendencias)) return;
+
         try
         {
             var scopeFactory = _host.Services.GetRequiredService<IServiceScopeFactory>();

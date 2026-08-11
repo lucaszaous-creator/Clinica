@@ -214,7 +214,8 @@ public sealed class PendenciaService
                     DiasParaFimPrazo: dias,
                     Urgencia: dias <= 3 ? NivelUrgencia.Vermelho
                             : dias <= 7 ? NivelUrgencia.Amarelo
-                            : NivelUrgencia.Verde);
+                            : NivelUrgencia.Verde,
+                    PacienteTelefone: paciente?.Telefone);
             })
             .OrderBy(p => p.DiasParaFimPrazo)
             .ToList();

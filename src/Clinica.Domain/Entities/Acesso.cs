@@ -189,7 +189,27 @@ public enum Permissao
     /// telefone de alguém e escrever a evolução dele são atos de peso diferente, e antes
     /// da parcela 49 o mesmo bit dava os dois.
     /// </summary>
-    EditarPaciente = 1 << 23
+    EditarPaciente = 1 << 23,
+
+    /// <summary>
+    /// Entrar no faturamento SEM ser travado pela rodada de pendências.
+    ///
+    /// A rodada bloqueante existe para que a guia vencida não seja adiada indefinidamente:
+    /// passado o prazo, o app abre uma janela que só fecha quando cada guia tem uma decisão.
+    /// Ela é dirigida a QUEM FATURA — é a pessoa que tem o número da guia na mão e resolve.
+    ///
+    /// A direção não fatura: ela entra no faturamento para conferir, e travar a tela dela
+    /// com uma fila de guias faz a conferência não acontecer. Este bit é a dispensa, e ele
+    /// é uma DISPENSA e não uma obrigação de propósito: o perfil Gerente recebe
+    /// <see cref="PerfisAcesso.Todas"/>, então um bit com o sentido invertido ("está
+    /// sujeito à rodada") chegaria ligado à direção justamente por ela ter tudo.
+    ///
+    /// ⚠️ Dispensa NÃO é cegueira: quem tem o bit continua vendo o banner de rodada
+    /// vencida no painel e o botão "Rodar pendências". O que muda é só a janela que
+    /// TRANCA na abertura. Esconder o aviso junto faria a direção deixar de saber que há
+    /// guia vencida — que é o oposto do que a rodada existe para garantir.
+    /// </summary>
+    DispensarRodadaPendencias = 1 << 24
 }
 
 /// <summary>
@@ -369,6 +389,7 @@ public static class PerfisAcesso
         Permissao.EditarAgenda => "Marcar e remarcar",
         Permissao.VerFichaPaciente => "Ver ficha do paciente",
         Permissao.EditarPaciente => "Cadastrar e editar paciente",
+        Permissao.DispensarRodadaPendencias => "Entrar sem responder à rodada de pendências",
         Permissao.VerProntuario => "Ver prontuário clínico",
         Permissao.EditarProntuario => "Escrever no prontuário",
         Permissao.VerFinanceiro => "Ver financeiro",
@@ -418,7 +439,8 @@ public static class PerfisAcesso
         Permissao.VerFaturamento or Permissao.BaixarGuia or Permissao.EstornarBaixa
             or Permissao.RegistrarGlosa or Permissao.GerenciarLotesTiss
             or Permissao.LancarAtendimento or Permissao.MarcarNaoConformidade
-            or Permissao.ConfigurarFaturamento => "Faturamento",
+            or Permissao.ConfigurarFaturamento
+            or Permissao.DispensarRodadaPendencias => "Faturamento",
 
         _ => "Direção"
     };
@@ -443,6 +465,12 @@ public static class PerfisAcesso
         Permissao.EditarPaciente =>
             "Cadastrar e editar paciente, colher consentimento LGPD, registrar a senha do "
             + "convênio e emitir documento.",
+        Permissao.DispensarRodadaPendencias =>
+            "Passado o prazo, a abertura do faturamento TRAVA numa janela que só fecha com "
+            + "uma decisão por guia. Quem tem este acesso entra direto — continua vendo o "
+            + "aviso de rodada vencida no painel e pode rodá-la quando quiser. Dê a quem "
+            + "ENTRA para conferir, não a quem fatura: sem ninguém travado, a guia vencida "
+            + "volta a depender de alguém lembrar.",
 
         Permissao.VerProntuario =>
             "Ler evolução, EVA, mapa corporal, anexos, medidas e alergias — DADO DE SAÚDE. "

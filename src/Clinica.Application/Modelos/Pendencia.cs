@@ -67,7 +67,15 @@ public sealed record PendenciaRecursoGlosa(
     string MotivoResumo,
     DateOnly DataLimiteRecurso,
     int DiasParaFimPrazo,
-    NivelUrgencia Urgencia);
+    NivelUrgencia Urgencia,
+    /// <summary>
+    /// Telefone do paciente. Aqui ele não serve ao WhatsApp como nas outras pendências:
+    /// serve a quem RECORRE da glosa, que precisa falar com o paciente para obter o
+    /// documento que sustenta o recurso — e o prazo está correndo. Era o único dos quatro
+    /// modelos de pendência sem contato, e por isso a linha da glosa era a única em que a
+    /// secretária tinha de abrir o cadastro para achar o número.
+    /// </summary>
+    string? PacienteTelefone = null);
 
 /// <summary>Carteirinha vencida ou a vencer (carteirinha vencida = guia recusada na origem).</summary>
 public sealed record PendenciaCarteirinha(

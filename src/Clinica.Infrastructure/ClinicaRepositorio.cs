@@ -315,6 +315,24 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(c => c.DataBaixa)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Paciente>> PacientesPorCpfAsync(
+        string cpfSoDigitos, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(cpfSoDigitos)) return [];
+
+        // A limpeza acontece NO BANCO (`replace` do SQL, que o EF traduz), e não em
+        // memória: carregar a carteira inteira para comparar CPF a cada gravação de ficha
+        // seria uma varredura completa numa base remota, a cada Salvar.
+        return await _db.Pacientes
+            .Where(p => p.Documento != null
+                        && p.Documento
+                            .Replace(".", "")
+                            .Replace("-", "")
+                            .Replace("/", "")
+                            .Replace(" ", "") == cpfSoDigitos)
+            .ToListAsync(ct);
+    }
+
     public async Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default)
         => await _db.Pacientes.AddAsync(paciente, ct);
 
