@@ -128,8 +128,25 @@ public sealed class LinhaDocumento
     /// </summary>
     public string NomeArquivoAssinado => $"{Tipo}-{Numero.Replace('/', '-')}-assinado.pdf";
 
-    /// <summary>Cancelar duas vezes não existe — o botão desliga depois do primeiro.</summary>
-    public bool PodeCancelar => !Cancelado;
+    /// <summary>
+    /// O acesso que ESTE papel exige para ser visto (parcela 59).
+    ///
+    /// Receita, atestado, pedido de exame, relatório de evolução e anamnese pedem
+    /// <c>VerProntuario</c>; declaração de comparecimento e termo de consentimento pedem
+    /// só a ficha. Quem decide é o CATÁLOGO, para as três telas que listam documento
+    /// clínico não terem três respostas para a mesma pergunta.
+    /// </summary>
+    public required Permissao AcessoParaVer { get; init; }
+
+    /// <summary>O acesso para cancelar ou assinar este papel.</summary>
+    public required Permissao AcessoParaMexer { get; init; }
+
+    /// <summary>
+    /// Cancelar duas vezes não existe — o botão desliga depois do primeiro. E cancelar
+    /// uma receita é ato de quem prescreve: é a metade VISÍVEL do acesso; a que impede é
+    /// o <c>Exigir</c> no comando.
+    /// </summary>
+    public bool PodeCancelar => !Cancelado && SessaoUsuario.Atual.Pode(AcessoParaMexer);
 
     /// <summary>
     /// Assinar depois existe porque emissão e assinatura nem sempre acontecem no mesmo
@@ -161,6 +178,8 @@ public sealed class LinhaDocumento
         Codigo = d.CodigoVerificacao,
         Cancelado = d.Cancelado,
         Assinado = d.AssinadoEletronicamente,
+        AcessoParaVer = CentralDocumentosService.AcessoParaVer(d.Tipo),
+        AcessoParaMexer = CentralDocumentosService.AcessoParaEmitir(d.Tipo),
         Situacao = d.Cancelado
             ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
             : d.AssinadoEletronicamente
@@ -281,6 +300,23 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// peso diferente, e até aqui o mesmo bit dava os dois.
     /// </summary>
     public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
+
+    /// <summary>
+    /// Metade VISÍVEL do acesso a emitir documento clínico (parcela 59).
+    ///
+    /// Ela existe porque a guarda mudou: o botão "Novo documento…" abre a janela que
+    /// oferece receita, atestado e pedido de exame, e o comando passou a exigir
+    /// <see cref="Permissao.Prescrever"/>. Deixá-lo ligado a <c>PodeEditarCadastro</c>
+    /// daria um botão ACESO que só diz "seu acesso não permite" depois do clique — o
+    /// defeito da parcela 41 com uma etapa a mais.
+    /// </summary>
+    public bool PodePrescrever => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
+
+    /// <summary>
+    /// Relatório de evolução e anamnese são IMPRESSOS do prontuário — emitir é tirar uma
+    /// via do que já está lá, não escrever. Por isso pedem só a leitura.
+    /// </summary>
+    public bool PodeEmitirDoProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
 
     /// <summary>
     /// Anonimizar não tem volta, então a barreira é outra: o balcão exporta os dados do
@@ -644,9 +680,16 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     {
         var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
+        // Só os papéis que o acesso desta pessoa alcança (parcela 59). A ficha é a porta
+        // que o balcão abre o dia inteiro, e listar "Receituário 2026/0012" aqui contaria
+        // a existência da receita a quem não pode lê-la — que é metade do que a direção
+        // pediu para fechar.
         Documentos.Clear();
         foreach (var d in await servico.DoPacienteAsync(PacienteId))
-            Documentos.Add(LinhaDocumento.De(d));
+        {
+            var linha = LinhaDocumento.De(d);
+            if (SessaoUsuario.Atual.Pode(linha.AcessoParaVer)) Documentos.Add(linha);
+        }
     }
 
     private static string Descrever(ConsentimentoLgpd? registro) => registro switch
@@ -829,7 +872,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoDocumentoAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+        // A janela oferece receita, atestado, declaração e pedido de exame — três dos
+        // quatro mandam alguém tomar ou fazer alguma coisa. `EditarPaciente` (o bit do
+        // CADASTRO) autorizava todos eles até a parcela 59.
+        SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "emitir documento clínico");
 
         if (PacienteId == 0) return;
 
@@ -868,7 +914,11 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task EmitirMontadoAsync(TipoDocumentoClinico tipo)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+        // Os três montados não são iguais: relatório de evolução e anamnese saem do
+        // PRONTUÁRIO; o termo de consentimento sai do cadastro e é colhido no balcão.
+        SessaoUsuario.Atual.Exigir(
+            CentralDocumentosService.AcessoParaEmitir(tipo),
+            $"emitir {TipoDocumentoInfo.Rotular(tipo).ToLowerInvariant()}");
 
         if (PacienteId == 0) return;
 
@@ -954,9 +1004,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task CancelarDocumentoAsync(LinhaDocumento? linha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cancelar documento");
-
         if (linha is null || linha.Cancelado) return;
+
+        SessaoUsuario.Atual.Exigir(
+            linha.AcessoParaMexer, $"cancelar {linha.Tipo.ToLowerInvariant()}");
 
         var motivo = _dialogo.PerguntarTexto(
             "Cancelar documento",

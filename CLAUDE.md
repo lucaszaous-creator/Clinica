@@ -1979,6 +1979,37 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   Novo, Remarcar e "agendar na faixa" passam. Bit sem guarda seria só uma caixinha na tela
   de Acessos.
 
+- **Porta e CONTEÚDO são duas permissões, e uma sem a outra não resolve** (parcela 59 — a
+  direção viu a recepcionista abrindo os documentos e pediu a permissão granular). A
+  central de documentos pedia `VerFichaPaciente`, que todo perfil de balcão tem: a
+  recepção alcançava as dez folhas, inclusive relatório de evolução e anamnese.
+  **A porta sozinha seria o defeito do bit sobrecarregado de novo** (parcela 49), agora
+  numa tela: as dez folhas não são a mesma coisa — receituário, atestado, pedido de exame,
+  relatório de evolução e anamnese carregam dado de saúde (art. 5º, II); **declaração de
+  comparecimento e termo de consentimento não**, e os dois saem do balcão o dia inteiro.
+  Um bit só obrigaria a direção a escolher entre a recepcionista lendo a evolução de todo
+  mundo e a recepcionista sem o recibo que ela emite dez vezes por dia.
+  Daí as duas metades: `Permissao.VerDocumentos` fecha a SEÇÃO, e cada folha declara o que
+  exige (`FolhaCatalogo.PermissaoVer` / `PermissaoEmitir`).
+  ⚠️ **O acesso NÃO segue a `NaturezaFolha`**, e a distinção é o ponto: a natureza diz de
+  que lado da clínica a folha vem (é o que agrupa os cartões), e sete são "do
+  atendimento". Amarrar o acesso a ela tiraria da recepção dois papéis que ela entrega
+  todo dia para proteger um dado que eles não carregam.
+  ⚠️ **A regra mora no CATÁLOGO porque são TRÊS portas**: a central, o Receituário da
+  Recepção e a aba Documentos da ficha emitem os mesmos papéis. Corrigir só a que o
+  cliente apontou deixaria a correção cosmética — bastaria clicar no item ao lado para ler
+  as mesmas receitas. É o defeito recorrente do projeto na variante que mais engana: a que
+  **parece** coberta.
+  Três decisões menores que valem além desta tela: **cartão que a pessoa não alcança SOME,
+  não fica apagado** — "sem permissão" ao lado de "Relatório de evolução" anuncia que
+  existe um relatório daquele paciente, que é justamente o que não se quer contar; **a
+  lista do que já saiu passa pelo mesmo filtro dos cartões**, senão a tela esconderia o
+  botão de emitir receita e mostraria "Receituário 2026/0012 — Maria Silva" logo abaixo; e
+  **folha sem acesso declarado nasce FECHADA** (`Permissao.Nenhuma` faz `Pode` LIBERAR, e
+  um papel novo nasceria aberto para todo mundo sem ninguém notar até vazar).
+  `SessaoUsuario.Efetivas` existe para filtrar LISTA por acesso sem repetir a regra do
+  "sem sessão autenticada, libera" — lida como `Permissoes` cru, a central abriria sem um
+  único cartão fora do login, e tela vazia se lê como defeito.
 - **A rodada bloqueante é DIRIGIDA a quem fatura, e a dispensa é um BIT — não o contrário**
   (`Permissao.DispensarRodadaPendencias`, parcela 57): a trava de 10 dias abria para
   qualquer um que pudesse baixar OU marcar NC, e o Gerente Geral recebe `Todas` — então a

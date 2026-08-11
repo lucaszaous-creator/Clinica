@@ -209,7 +209,28 @@ public enum Permissao
     /// TRANCA na abertura. Esconder o aviso junto faria a direção deixar de saber que há
     /// guia vencida — que é o oposto do que a rodada existe para garantir.
     /// </summary>
-    DispensarRodadaPendencias = 1 << 24
+    DispensarRodadaPendencias = 1 << 24,
+
+    /// <summary>
+    /// Abrir a CENTRAL DE DOCUMENTOS — a porta da seção (parcela 59).
+    ///
+    /// A direção viu a recepcionista alcançando os documentos e pediu a permissão
+    /// granular. Ela é a PORTA: sem este bit, o item some da sidebar.
+    ///
+    /// ⚠️ A porta sozinha não resolveria, e é isso que faz este bit não ser a metade
+    /// interessante da parcela. As dez folhas não são a mesma coisa — receituário,
+    /// atestado, pedido de exame, relatório de evolução e anamnese carregam DADO DE SAÚDE;
+    /// declaração de comparecimento, termo de consentimento, recibo e orçamento não. Um
+    /// bit só obrigaria a direção a escolher entre a recepcionista lendo a evolução de
+    /// todo mundo e a recepcionista sem o recibo que ela emite dez vezes por dia — que é
+    /// exatamente o defeito do bit sobrecarregado que a parcela 49 corrigiu.
+    ///
+    /// Por isso cada folha declara o que exige (<c>FolhaCatalogo.PermissaoVer</c> /
+    /// <c>PermissaoEmitir</c>): com a porta aberta, a pessoa vê só o que os OUTROS bits
+    /// dela alcançam. É o corte da LGPD de novo — dado de contato de um lado, dado
+    /// sensível (art. 5º, II) do outro.
+    /// </summary>
+    VerDocumentos = 1 << 25
 }
 
 /// <summary>
@@ -297,9 +318,18 @@ public static class PerfisAcesso
         //
         // LancarAtendimento fica: a recepção JÁ cria atendimento com guia pelo caminho da
         // agenda (Fila → Finalizar) desde a parcela 6, e tirá-lo quebraria o fluxo do dia.
+        //
+        // VerDocumentos entrou na parcela 59, e ele NÃO devolve o que a direção mandou
+        // tirar: com a porta aberta, a recepção continua vendo só o que os outros bits
+        // dela alcançam — declaração de comparecimento, termo de consentimento, recibo e
+        // orçamento. Receituário, atestado, pedido de exame, relatório de evolução e
+        // anamnese pedem `VerProntuario`, que ela não tem desde a parcela 49, e por isso
+        // somem da tela. Tirar a porta inteira levaria junto os quatro papéis que o balcão
+        // emite todo dia.
         PerfilAcesso.Recepcao =>
             Permissao.VerAgenda | Permissao.EditarAgenda |
             Permissao.VerFichaPaciente | Permissao.EditarPaciente |
+            Permissao.VerDocumentos |
             Permissao.LancarAtendimento |
             Permissao.GerenciarCampanhas,
 
@@ -310,6 +340,7 @@ public static class PerfisAcesso
             Permissao.VerAgenda |
             Permissao.VerFichaPaciente |
             Permissao.VerProntuario | Permissao.EditarProntuario |
+            Permissao.VerDocumentos |
             Permissao.Prescrever,
 
         // ===== ENFERMAGEM =====
@@ -326,9 +357,13 @@ public static class PerfisAcesso
         // Ganhou a FICHA na parcela 49: sem ela a tela de inadimplência mostrava dívida de
         // gente que o operador não podia abrir para conferir o telefone. Continua sem o
         // prontuário — cobrar não precisa saber o diagnóstico de ninguém.
+        // VerDocumentos entra porque o RECIBO e o ORÇAMENTO são folhas financeiras: quem
+        // recebe é quem comprova. As clínicas continuam fora — cobrar não exige saber o
+        // diagnóstico de ninguém, e é a regra 3 da lista acima.
         PerfilAcesso.Financeiro =>
             Permissao.VerAgenda |
             Permissao.VerFichaPaciente |
+            Permissao.VerDocumentos |
             Permissao.VerFinanceiro | Permissao.EditarFinanceiro,
 
         // ===== FATURISTA =====
@@ -394,6 +429,7 @@ public static class PerfisAcesso
         Permissao.EditarAgenda => "Marcar e remarcar",
         Permissao.VerFichaPaciente => "Ver ficha do paciente",
         Permissao.EditarPaciente => "Cadastrar e editar paciente",
+        Permissao.VerDocumentos => "Abrir a central de documentos",
         Permissao.DispensarRodadaPendencias => "Entrar sem responder à rodada de pendências",
         Permissao.VerProntuario => "Ver prontuário clínico",
         Permissao.EditarProntuario => "Escrever no prontuário",
@@ -434,7 +470,8 @@ public static class PerfisAcesso
     {
         Permissao.VerAgenda or Permissao.EditarAgenda => "Agenda e balcão",
 
-        Permissao.VerFichaPaciente or Permissao.EditarPaciente => "Paciente (cadastro)",
+        Permissao.VerFichaPaciente or Permissao.EditarPaciente
+            or Permissao.VerDocumentos => "Paciente (cadastro)",
 
         Permissao.VerProntuario or Permissao.EditarProntuario
             or Permissao.Prescrever or Permissao.ChecarPrescricao => "Clínico (dado sensível)",
@@ -470,6 +507,11 @@ public static class PerfisAcesso
         Permissao.EditarPaciente =>
             "Cadastrar e editar paciente, colher consentimento LGPD, registrar a senha do "
             + "convênio e emitir documento.",
+        Permissao.VerDocumentos =>
+            "Abrir a central de documentos. Ela mostra SÓ as folhas que os outros acessos "
+            + "da pessoa alcançam: receituário, atestado, pedido de exame, relatório de "
+            + "evolução e anamnese pedem \"Ver prontuário clínico\"; recibo e orçamento "
+            + "pedem \"Ver financeiro\". Sem este acesso, a seção some da sidebar.",
         Permissao.DispensarRodadaPendencias =>
             "Passado o prazo, a abertura do faturamento TRAVA numa janela que só fecha com "
             + "uma decisão por guia. Quem tem este acesso entra direto — continua vendo o "
