@@ -114,6 +114,7 @@ public sealed class AtendimentoService
         };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);
+        AplicarParticular(paciente, resultado);
 
         atendimento.Categoria = resultado.Categoria;
         atendimento.Codigos.AddRange(resultado.Codigos);
@@ -327,6 +328,52 @@ public sealed class AtendimentoService
         };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);
+        AplicarParticular(paciente, resultado);
         return new PreviaLancamento(resultado.Codigos, resultado.Categoria, resultado.Avisos);
+    }
+
+    /// <summary>
+    /// PARTICULAR: o paciente que vem sem convênio (parcela 60).
+    ///
+    /// Até aqui ele não tinha onde ser cadastrado — o enum <see cref="Convenio"/> não tem
+    /// "sem convênio" —, e as duas saídas eram ruins de jeitos diferentes: cadastrá-lo sob
+    /// um convênio qualquer gerava guia com data prevista, que entra no painel de
+    /// pendências, vence o prazo e abre a <b>rodada BLOQUEANTE</b> por uma guia que nunca
+    /// vai a operadora nenhuma; ou não cadastrar o atendimento, e aí a sessão não existe
+    /// em lugar nenhum.
+    ///
+    /// A marcação acontece AQUI, e não dentro das regras, por três razões:
+    ///
+    /// <list type="number">
+    /// <item>O sinalizador é do CADASTRO do convênio, não da regra genérica — ele tem de
+    /// valer para qualquer família. Dentro de <c>RegraGenerica</c> ele seria uma caixinha
+    /// que não faz nada num convênio embutido.</item>
+    /// <item>São seis regras e cada uma tem vários ramos; um ramo esquecido produziria uma
+    /// guia pendente para um particular, e ela só apareceria dez dias depois travando a
+    /// rodada de quem fatura.</item>
+    /// <item>É o mesmo ponto por onde a PRÉVIA e o LANÇAMENTO passam — que é o que garante
+    /// que a tela não prometa "nenhuma guia" e o serviço grave uma.</item>
+    /// </list>
+    ///
+    /// ⚠️ O código NÃO some. <see cref="StatusCodigo.NaoAplicavel"/> é o que faz
+    /// <c>CodigoFaturamento.EstaPendente</c> ignorá-lo — o particular sai das pendências e
+    /// da rodada sem uma linha de código nova. E o registro da sessão (modalidade,
+    /// especialidade, data) continua alimentando os indicadores: sumir com ele faria a
+    /// clínica medir só o convênio.
+    /// </summary>
+    private static void AplicarParticular(Paciente paciente, ResultadoFaturamento resultado)
+    {
+        if (CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()))
+            return;
+
+        foreach (var c in resultado.Codigos) c.Status = StatusCodigo.NaoAplicavel;
+
+        // Os avisos do motor falam de faturamento ("2º código não é possível", "este
+        // convênio não fatura BSV") e não querem dizer nada para um particular — quem lê
+        // é a recepcionista, com o paciente na frente dela.
+        resultado.Avisos.Clear();
+        resultado.Avisos.Add(
+            "Atendimento PARTICULAR: não há guia a faturar. O registro da sessão fica, "
+            + "e a cobrança é no caixa.");
     }
 }

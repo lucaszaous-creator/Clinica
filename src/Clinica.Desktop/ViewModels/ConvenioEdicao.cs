@@ -36,6 +36,14 @@ public partial class ConvenioEdicao : ObservableObject
     /// </summary>
     [ObservableProperty] private FormatoNumeroGuia _formatoNumeroGuia = FormatoNumeroGuia.SemValidacao;
 
+    /// <summary>
+    /// Este convênio gera guia para faturar? (parcela 60) Desmarcado, é o PARTICULAR.
+    ///
+    /// Fora do painel da regra genérica pela MESMA razão do formato acima: vale para
+    /// qualquer família, e dentro dele seria uma caixinha morta num convênio embutido.
+    /// </summary>
+    [ObservableProperty] private bool _geraGuia = true;
+
     // Configuração da regra genérica (só tem efeito quando Familia == Personalizado)
     [ObservableProperty] private bool _fazEletro;
     [ObservableProperty] private bool _temSegundoCodigo;
@@ -59,6 +67,7 @@ public partial class ConvenioEdicao : ObservableObject
         _familia = c.Familia;
         _ativo = c.Ativo;
         _formatoNumeroGuia = c.FormatoNumeroGuia;
+        _geraGuia = c.GeraGuia;
         _fazEletro = c.FazEletro;
         _temSegundoCodigo = c.TemSegundoCodigo;
         _formaSegundoCodigo = c.FormaSegundoCodigo;
@@ -78,6 +87,7 @@ public partial class ConvenioEdicao : ObservableObject
         Familia = Familia,
         Ativo = Ativo,
         FormatoNumeroGuia = FormatoNumeroGuia,
+        GeraGuia = GeraGuia,
         FazEletro = FazEletro,
         TemSegundoCodigo = TemSegundoCodigo,
         FormaSegundoCodigo = FormaSegundoCodigo,

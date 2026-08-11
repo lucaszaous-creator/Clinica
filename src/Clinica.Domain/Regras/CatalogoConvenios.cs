@@ -3,7 +3,8 @@ namespace Clinica.Domain.Regras;
 /// <summary>Uma entrada do catálogo de convênios (dado de referência carregado do banco).</summary>
 public sealed record EntradaConvenio(string Codigo, string Nome, Convenio Familia, bool Ativo,
     ConfiguracaoRegraGenerica? Config = null,
-    FormatoNumeroGuia FormatoNumeroGuia = FormatoNumeroGuia.SemValidacao);
+    FormatoNumeroGuia FormatoNumeroGuia = FormatoNumeroGuia.SemValidacao,
+    bool GeraGuia = true);
 
 /// <summary>
 /// Cache em memória do catálogo de convênios, para servir NOME e FAMÍLIA de forma
@@ -98,6 +99,17 @@ public static class CatalogoConvenios
             ? RegraNumeroGuia.PadraoDaFamilia(familia)
             : FormatoNumeroGuia.SemValidacao;
     }
+
+    /// <summary>
+    /// Este convênio gera guia para faturar? Falso = PARTICULAR (parcela 60).
+    ///
+    /// ⚠️ Código desconhecido devolve <b>true</b>, e a assimetria é deliberada: um convênio
+    /// que não está no catálogo (variante excluída, cache ainda vazio na abertura) é
+    /// presumido faturável. O erro nesse sentido é uma guia a mais para conferir; no
+    /// sentido contrário, seria o sistema <b>parar de gerar guia</b> para um convênio de
+    /// verdade — em silêncio, e só descoberto quando a clínica fosse faturar o mês.
+    /// </summary>
+    public static bool GeraGuia(string? codigo) => Buscar(codigo)?.GeraGuia ?? true;
 
     /// <summary>Convênios ativos (código + nome), ordenados por nome — para os combos de cadastro.</summary>
     public static IReadOnlyList<EntradaConvenio> Ativos

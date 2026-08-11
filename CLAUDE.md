@@ -1979,6 +1979,43 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   Novo, Remarcar e "agendar na faixa" passam. Bit sem guarda seria só uma caixinha na tela
   de Acessos.
 
+- **O PARTICULAR não é um convênio: é a ausência de um** (`ConvenioCadastro.GeraGuia`,
+  parcela 60). O enum `Convenio` não tem "sem convênio", então o paciente que vem sem plano
+  não tinha onde ser cadastrado — e as duas saídas eram ruins de jeitos diferentes:
+  (a) cadastrá-lo sob um convênio qualquer faz o motor gerar guia com data prevista, que
+  entra no painel de pendências, vence o prazo e abre a **rodada BLOQUEANTE** — travando a
+  tela de quem fatura por uma guia que nunca vai a operadora nenhuma, porque não há
+  operadora; (b) não cadastrar o atendimento, e aí a sessão não existe em lugar nenhum:
+  nem guia, nem prontuário, nem caixa.
+  A saída é um sinalizador no CADASTRO, e **o código continua nascendo** — marcado
+  `NaoAplicavel`. Não é preciosismo: `EstaPendente` já ignora esse status, então o
+  particular sai das pendências e da rodada **sem uma linha de código nova**; o invariante
+  "não há atendimento sem código" é o que prova que `AtendimentoService.LancarAsync`
+  continua sendo ponto único; e o registro da sessão (modalidade, especialidade, data) é o
+  que alimenta os indicadores — sumir com ele faria a clínica medir só o convênio.
+  ⚠️ **O sinalizador mora no `ConvenioCadastro`, não em `ConfiguracaoRegraGenerica`**, pela
+  mesma razão que pôs o formato do número da guia lá: aquela configuração só é lida pela
+  família Personalizado, e o campo tem de valer para **qualquer** família. Dentro dela
+  seria uma caixinha que não faz nada num convênio embutido — o campo morto que a parcela
+  49 tirou da tela de Taxas.
+  ⚠️ **E quem aplica é o `AtendimentoService`, não as regras.** São seis regras com vários
+  ramos cada, e a modalidade Consulta delega para `RegraConsultaAvulsa`, que monta o código
+  por fora: um ramo esquecido produziria guia pendente para um particular, e ela só
+  apareceria **dez dias depois**, travando a rodada. Pós-processar no ponto por onde a
+  PRÉVIA e o LANÇAMENTO passam é o único jeito que não tem como ser esquecido — e é o que
+  garante que a tela não prometa "nenhuma guia" e o serviço grave uma.
+  **Código fora do catálogo é presumido FATURÁVEL** (`CatalogoConvenios.GeraGuia` devolve
+  `true`): o erro nesse sentido é uma guia a mais para conferir; no sentido contrário seria
+  o sistema parar de gerar guia para um convênio de verdade, em silêncio, e só descoberto
+  no fim do mês.
+- **Migration de coluna `bool` não-anulável: o EF gera `defaultValue: false`, e quase nunca
+  é isso que você quer** (parcela 60). O gerador não sabe o que a coluna significa — viu um
+  `bool` e pôs o default da linguagem. Aplicada assim, a coluna `GeraGuia` teria desligado
+  a guia de **todos os convênios já cadastrados** na primeira abertura depois da
+  atualização: o app abriria, os atendimentos continuariam nascendo, e as guias
+  simplesmente parariam de existir. **Confira o `defaultValue` de toda coluna nova
+  não-anulável, e pergunte o que as linhas JÁ GRAVADAS valem** — é isso que o default
+  precisa dizer, não o que o tipo devolve por omissão.
 - **Porta e CONTEÚDO são duas permissões, e uma sem a outra não resolve** (parcela 59 — a
   direção viu a recepcionista abrindo os documentos e pediu a permissão granular). A
   central de documentos pedia `VerFichaPaciente`, que todo perfil de balcão tem: a

@@ -33,6 +33,37 @@ public class ConvenioCadastro
     /// </summary>
     public FormatoNumeroGuia FormatoNumeroGuia { get; set; } = FormatoNumeroGuia.SemValidacao;
 
+    /// <summary>
+    /// Este convênio GERA GUIA para faturar? (parcela 60)
+    ///
+    /// Nasce <c>true</c>, que é o que toda linha já gravada passa a valer — e é a verdade
+    /// delas: todo convênio cadastrado até aqui fatura.
+    ///
+    /// Desmarcado, é como a clínica cadastra o <b>PARTICULAR</b>: o paciente que vem sem
+    /// convênio. Até esta parcela ele não tinha onde ser cadastrado — o enum
+    /// <see cref="Convenio"/> não tem "sem convênio" —, e as duas saídas que sobravam eram
+    /// ruins de jeitos diferentes:
+    ///
+    /// <list type="number">
+    /// <item>cadastrá-lo sob um convênio qualquer, e aí o motor gera uma guia com data
+    /// prevista que entra no painel de pendências, vence o prazo de decisão e abre a
+    /// <b>rodada BLOQUEANTE</b> — travando a tela de quem fatura por uma guia que nunca
+    /// vai a operadora nenhuma, porque não há operadora;</item>
+    /// <item>não cadastrar o atendimento, e aí a sessão não existe em lugar nenhum: nem
+    /// guia, nem prontuário, nem caixa.</item>
+    /// </list>
+    ///
+    /// ⚠️ O atendimento particular <b>continua gerando código</b> — só que marcado
+    /// <see cref="StatusCodigo.NaoAplicavel"/>. Não é preciosismo: (a) o invariante "não há
+    /// atendimento sem guia" é o que prova que <c>AtendimentoService.LancarAsync</c>
+    /// continua sendo ponto único, e ele está fixado em teste; (b)
+    /// <c>CodigoFaturamento.EstaPendente</c> já ignora <c>NaoAplicavel</c>, então o
+    /// particular sai das pendências e da rodada <b>sem uma linha de código nova</b>; e (c)
+    /// o registro de que a sessão aconteceu, com modalidade e especialidade, é o que
+    /// alimenta os indicadores — sumir com ele faria a clínica medir só o convênio.
+    /// </summary>
+    public bool GeraGuia { get; set; } = true;
+
     // ---- Configuração da regra GENÉRICA (usada apenas quando Familia == Personalizado) ----
 
     public bool FazEletro { get; set; }
