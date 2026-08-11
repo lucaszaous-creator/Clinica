@@ -43,7 +43,7 @@ public sealed class LinhaGlosa
                 ? p.ConvenioNome
                 : "—",
             Guia = string.IsNullOrWhiteSpace(c.NumeroGuiaReal)
-                ? $"{RotulosEnum.De(c.Tipo)} · {c.Ordem}"
+                ? $"{RotulosEnum.De(c.Tipo)} · {RotulosEnum.De(c.Ordem)}"
                 : c.NumeroGuiaReal!,
             DataGlosa = c.DataGlosa?.ToString("dd/MM/yyyy") ?? "—",
             Motivo = string.IsNullOrWhiteSpace(c.MotivoGlosa)
@@ -103,9 +103,18 @@ public sealed partial class GlosasGerencialViewModel : ObservableObject
 
     partial void OnSomenteEmAbertoChanged(bool value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Alternar "somente em aberto" dispara outra leitura; a resposta velha chegando por
+    /// último devolveria à tela glosas encerradas com o filtro dizendo o contrário.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Mensagem = null;
@@ -116,6 +125,9 @@ public sealed partial class GlosasGerencialViewModel : ObservableObject
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var lista = await glosas.ListarAsync(SomenteEmAberto);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Glosas.Clear();
             foreach (var c in lista) Glosas.Add(LinhaGlosa.De(c, hoje));
@@ -129,6 +141,9 @@ public sealed partial class GlosasGerencialViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Gerente — glosas não puderam ser lidas", ex);
             Erro($"Não foi possível ler as glosas: {ex.Message}");
         }

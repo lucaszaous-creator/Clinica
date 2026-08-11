@@ -89,7 +89,7 @@ public sealed class PrecoConvenioService
         {
             Acao = dados.Id == 0 ? "PrecoConvenioCriado" : "PrecoConvenioAtualizado",
             Detalhe = $"{preco.Descricao} · {preco.Vigencia}",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
         return preco;

@@ -139,6 +139,21 @@ public sealed partial class MedidasViewModel : ObservableObject
     /// <summary>Metade VISÍVEL da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
+    public bool TemPaciente => !SemPaciente;
+
+    /// <summary>
+    /// Sem paciente escolhido não há prontuário onde colher, e o botão diz isso apagado —
+    /// a tela abre pela sidebar sem ninguém em foco, e botão aceso que não faz nada faz
+    /// quem clica concluir que o sistema quebrou (parcela 41).
+    /// </summary>
+    public bool PodeRegistrarMedida => TemPaciente && PodeEditarProntuario;
+
+    partial void OnSemPacienteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TemPaciente));
+        OnPropertyChanged(nameof(PodeRegistrarMedida));
+    }
+
     public MedidasViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar,
         IDialogoService dialogo, PacienteEmFoco foco)
@@ -159,9 +174,19 @@ public sealed partial class MedidasViewModel : ObservableObject
 
     partial void OnTipoAcompanhadoChanged(TipoMedida? value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o tipo acompanhado dispara
+    /// uma carga por troca, e a resposta atrasada do tipo anterior chegando por último
+    /// desenharia a curva do peso sob o título da pressão — com o histórico de um e a
+    /// série do outro. Quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         SemPaciente = PacienteId == 0;
         Cartoes.Clear();
         Historico.Clear();
@@ -184,30 +209,47 @@ public sealed partial class MedidasViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<MedidaClinicaService>();
 
-            AplicarResumo(await servico.ResumoAsync(PacienteId));
+            var resumo = await servico.ResumoAsync(PacienteId);
+
+            // Chegou tarde: outra troca já pediu uma carga mais nova.
+            if (geracao != _geracaoCarga) return;
+
+            AplicarResumo(resumo);
 
             if (TipoAcompanhado is { } tipo)
             {
-                AplicarSerie(await servico.SerieAsync(PacienteId, tipo.Codigo));
+                var serie = await servico.SerieAsync(PacienteId, tipo.Codigo);
+                if (geracao != _geracaoCarga) return;
+
+                AplicarSerie(serie);
 
                 // O IMC é derivado e não tem linha própria no banco: o histórico dele é a
                 // própria curva, e listar "colheitas" que ninguém colheu confundiria.
                 if (!tipo.Derivada)
-                    foreach (var m in await servico.DoPacienteAsync(PacienteId, tipo.Codigo))
+                {
+                    var colheitas = await servico.DoPacienteAsync(PacienteId, tipo.Codigo);
+                    if (geracao != _geracaoCarga) return;
+
+                    foreach (var m in colheitas)
                         Historico.Add(LinhaMedida.De(m));
+                }
             }
         }
         catch (Exception ex)
         {
-            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — medidas do paciente não puderam ser lidas", ex);
+
+            if (geracao != _geracaoCarga) return;
+
+            NaoVerificado = true;
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -310,7 +352,15 @@ public sealed partial class MedidasViewModel : ObservableObject
     [RelayCommand]
     private async Task RegistrarAsync()
     {
-        if (PacienteId == 0) return;
+        if (PacienteId == 0)
+        {
+            // A guarda DIZ por que não dá, em vez de voltar calada (parcela 41): o botão
+            // apagado explica, e esta é a metade que impede quem chega por atalho.
+            Mensagem = "Escolha um paciente antes de registrar uma medida — a colheita "
+                     + "entra no prontuário de alguém.";
+            MensagemEhErro = true;
+            return;
+        }
 
         try
         {

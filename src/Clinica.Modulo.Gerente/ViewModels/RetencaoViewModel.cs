@@ -62,9 +62,18 @@ public sealed partial class RetencaoViewModel : ObservableObject
 
     partial void OnJanelaDiasChanged(int value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Trocar a janela de dias dispara outra leitura; a resposta velha chegando por último
+    /// deixaria a lista de sumidos de uma janela que não é a escolhida no combo.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -77,6 +86,9 @@ public sealed partial class RetencaoViewModel : ObservableObject
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var lista = await servico.SumidosAsync(hoje, JanelaDias);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Sumidos.Clear();
             foreach (var s in lista)
@@ -106,6 +118,9 @@ public sealed partial class RetencaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Gerente — lista de pacientes sumidos não pôde ser lida", ex);
             Sumidos.Clear();
@@ -114,7 +129,8 @@ public sealed partial class RetencaoViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
             // A lista mudou (encheu ou esvaziou pela falha): o botão de exportar precisa
             // reavaliar se tem o que exportar.
             OnPropertyChanged(nameof(TemParaExportar));

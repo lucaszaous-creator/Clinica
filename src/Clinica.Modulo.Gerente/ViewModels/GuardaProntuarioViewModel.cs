@@ -248,10 +248,22 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
 
             // A exportação é um ACESSO ao prontuário, e dos maiores: leva tudo de uma vez.
             // Não registrá-la deixaria justamente o maior acesso da base fora da trilha.
+            // E "tudo de uma vez" vale dobrado para a exportação da CLÍNICA: até aqui só
+            // o caso de UM paciente era registrado — o maior acesso possível saía sem
+            // uma linha na trilha.
+            var acessos = scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>();
             if (pacienteId is { } um)
-                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
-                    .RegistrarAsync(um, SessaoUsuario.Atual.Operador,
-                        OrigemAcessoProntuario.ExportacaoTitular);
+            {
+                await acessos.RegistrarAsync(um, SessaoUsuario.Atual.Operador,
+                    OrigemAcessoProntuario.ExportacaoTitular);
+            }
+            else
+            {
+                var todos = await scope.ServiceProvider.GetRequiredService<PacienteService>()
+                    .BuscarAsync(termo: null);
+                await acessos.RegistrarExportacaoDaClinicaAsync(
+                    todos.Select(p => p.Id).ToList(), SessaoUsuario.Atual.Operador);
+            }
 
             Mensagem = $"Exportação gravada em {destino} — {arquivos.Count} arquivo(s).";
             _snackbar.Sucesso("Prontuário exportado.");

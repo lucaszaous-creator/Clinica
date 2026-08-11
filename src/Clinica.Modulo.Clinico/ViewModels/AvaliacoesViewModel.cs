@@ -111,6 +111,22 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
 
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
+    public bool TemPaciente => !SemPaciente;
+
+    /// <summary>
+    /// Aplicar exige as DUAS escolhas — a escala no seletor e o paciente em foco — além da
+    /// permissão, e o botão diz isso apagado: a tela abre pela sidebar sem ninguém em foco,
+    /// e botão aceso que não faz nada faz quem clica concluir que o sistema quebrou
+    /// (parcela 41). Qual das duas falta, a guarda do comando diz por escrito.
+    /// </summary>
+    public bool PodeAplicar => TemPaciente && Instrumento is not null && PodeEditarProntuario;
+
+    partial void OnSemPacienteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TemPaciente));
+        OnPropertyChanged(nameof(PodeAplicar));
+    }
+
     public AvaliacoesViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar,
         IDialogoService dialogo, PacienteEmFoco foco)
@@ -156,7 +172,11 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
 
     partial void OnTodosOsInstrumentosChanged(bool value) => MontarInstrumentos();
 
-    partial void OnInstrumentoChanged(IInstrumentoAvaliacao? value) => _ = CarregarAsync();
+    partial void OnInstrumentoChanged(IInstrumentoAvaliacao? value)
+    {
+        OnPropertyChanged(nameof(PodeAplicar));
+        _ = CarregarAsync();
+    }
 
     private void MontarInstrumentos()
     {
@@ -175,9 +195,18 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
                       ?? Instrumentos.FirstOrDefault();
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o instrumento dispara uma
+    /// carga por troca, e a resposta atrasada da escala anterior chegando por último
+    /// desenharia a curva do PHQ-9 sob o título do GAD-7. Quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         SemPaciente = PacienteId == 0;
         Aplicacoes.Clear();
         Curva.Clear();
@@ -203,29 +232,37 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
             // escondê-lo atrás do filtro faria uma escala aplicada por outro profissional
             // desaparecer do prontuário.
             var todas = await servico.DoPacienteAsync(PacienteId);
+
+            // Chegou tarde: outra troca já pediu uma carga mais nova.
+            if (geracao != _geracaoCarga) return;
+
             foreach (var a in todas) Aplicacoes.Add(LinhaAvaliacao.De(a));
 
             Resumo = todas.Count == 0
                 ? "Nenhuma escala aplicada a este paciente ainda."
                 : $"{todas.Count} aplicação(ões) registradas no prontuário.";
 
-            await CarregarCurvaAsync(servico);
+            await CarregarCurvaAsync(servico, geracao);
         }
         catch (Exception ex)
         {
-            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Consultório — avaliações não puderam ser lidas", ex);
+
+            if (geracao != _geracaoCarga) return;
+
+            NaoVerificado = true;
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
     /// <summary>A curva é sempre de UM instrumento: escores de escalas diferentes não se somam.</summary>
-    private async Task CarregarCurvaAsync(AvaliacaoClinicaService servico)
+    private async Task CarregarCurvaAsync(AvaliacaoClinicaService servico, int geracao)
     {
         EscalaAtual = EscalaPrimeira = EscalaGanho = EscalaFaixa = "—";
         LeituraCurva = string.Empty;
@@ -234,6 +271,9 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
         if (Instrumento is null) return;
 
         var evolucao = await servico.EvolucaoDoEscoreAsync(PacienteId, Instrumento.Codigo);
+
+        // Chegou tarde: a curva na tela é da carga mais nova.
+        if (geracao != _geracaoCarga) return;
 
         foreach (var p in evolucao.Pontos)
             Curva.Add(new PontoGrafico(p.Data.ToString("dd/MM"), p.Pontuacao));
@@ -271,7 +311,22 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
     [RelayCommand]
     private async Task AplicarAsync()
     {
-        if (Instrumento is null || PacienteId == 0) return;
+        // A guarda DIZ qual pré-condição faltou, em vez de voltar calada (parcela 41):
+        // "sem escala" e "sem paciente" se resolvem em lugares diferentes da tela.
+        if (Instrumento is null)
+        {
+            Mensagem = "Escolha uma escala no seletor acima antes de aplicar.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        if (PacienteId == 0)
+        {
+            Mensagem = "Escolha um paciente antes de aplicar a escala — o escore entra no "
+                     + "prontuário de alguém.";
+            MensagemEhErro = true;
+            return;
+        }
 
         try
         {

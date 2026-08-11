@@ -193,15 +193,24 @@ public class CodigoFaturamento
         if (!Baixado) return;
 
         var guiaAnterior = NumeroGuiaReal;
+        var loteAnterior = LoteTissId;
         DataBaixa = null;
         NumeroGuiaReal = null;
         UsuarioBaixa = null;
         Status = StatusCodigo.Aberto;
 
+        // O vínculo com o lote TISS sai JUNTO da baixa. Sem isto, a guia estornada e
+        // baixada de novo com o número certo ficava presa para sempre fora das candidatas
+        // (a guarda de "guia exportada não entra em outro lote" virava a que impedia o
+        // faturamento), e o número corrigido nunca chegava à operadora. O lote antigo é
+        // história: fica registrado na observação, não no vínculo.
+        LoteTissId = null;
+
         var quem = string.IsNullOrWhiteSpace(usuario) ? "?" : usuario;
         var quando = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
         var motivoTxt = string.IsNullOrWhiteSpace(motivo) ? "" : $" — {motivo}";
-        ObservacaoBaixa = $"[Estornado em {quando} por {quem}{motivoTxt}] (guia anterior: {guiaAnterior})";
+        var loteTxt = loteAnterior is null ? "" : $"; lote anterior: {loteAnterior}";
+        ObservacaoBaixa = $"[Estornado em {quando} por {quem}{motivoTxt}] (guia anterior: {guiaAnterior}{loteTxt})";
     }
 
     /// <summary>Registra a glosa de uma guia já faturada (baixada).</summary>

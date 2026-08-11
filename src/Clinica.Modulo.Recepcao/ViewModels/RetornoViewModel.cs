@@ -97,6 +97,14 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.GerenciarCampanhas);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): o campo "dias sem vir" dispara uma
+    /// carga a cada mudança, e a resposta do valor antigo pode voltar por último — a lista
+    /// mostraria os candidatos de 60 dias sob um filtro que diz 90. Só a carga mais nova
+    /// escreve na tela.
+    /// </summary>
+    private int _geracaoCarga;
+
     public RetornoViewModel(IServiceScopeFactory escopos) => _escopos = escopos;
 
     public Task CarregarAsync() => RecarregarAsync();
@@ -104,7 +112,8 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
     [RelayCommand]
     public async Task RecarregarAsync()
     {
-        if (Carregando) return;
+        var geracao = ++_geracaoCarga;
+
         Carregando = true;
         try
         {
@@ -128,6 +137,9 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
             var porPaciente = contatos
                 .GroupBy(c => c.PacienteId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(c => c.Id).First());
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Pacientes.Clear();
             foreach (var c in candidatos)
@@ -162,6 +174,9 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — lista de retorno não pôde ser lida", ex);
             NaoVerificado = true;
@@ -169,7 +184,8 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

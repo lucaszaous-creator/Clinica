@@ -327,6 +327,8 @@
                                                 <Button Content="Estornar"
                                                         Style="{StaticResource BotaoAcaoGridPerigo}"
                                                         Visibility="{Binding Baixado, Converter={StaticResource BoolParaVisibilidade}}"
+                                                        IsEnabled="{Binding DataContext.PodeEstornar, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                        ToolTip="Desfaz a baixa; exige a permissão de estornar"
                                                         Command="{Binding DataContext.EstornarCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                         CommandParameter="{Binding}" />
                                             </DataTemplate>
@@ -343,6 +345,7 @@
                             <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
                                 <Button DockPanel.Dock="Right" Command="{Binding NovaAutorizacaoCommand}"
                                         Style="{StaticResource BotaoSecundario}"
+                                        IsEnabled="{Binding PodeEditarPaciente}"
                                         ToolTip="Registrar a senha que o convênio liberou">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#xE710;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
@@ -406,7 +409,8 @@
                                         <DataGridTemplateColumn Header="Ações" Width="Auto">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
-                                                    <StackPanel Orientation="Horizontal">
+                                                    <StackPanel Orientation="Horizontal"
+                                                                IsEnabled="{Binding DataContext.PodeEditarPaciente, RelativeSource={RelativeSource AncestorType=DataGrid}}">
                                                         <Button Content="Editar" Style="{StaticResource BotaoAcaoGridSecundario}"
                                                                 Command="{Binding DataContext.EditarAutorizacaoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
                                                                 CommandParameter="{Binding}" />

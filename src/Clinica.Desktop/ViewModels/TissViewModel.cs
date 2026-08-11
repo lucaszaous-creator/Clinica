@@ -23,7 +23,14 @@ public sealed record LoteLinha(
     string? Protocolo,
     DateOnly? DataRetorno,
     bool PodeMarcarEnviado,
-    bool PodeRegistrarRetorno);
+    bool PodeRegistrarRetorno)
+{
+    /// <summary>
+    /// Nome da operadora do lote (parcela 60). "—" nos lotes antigos, gerados quando o
+    /// lote ainda era por período — histórico, não se reescreve.
+    /// </summary>
+    public string Operadora { get; init; } = "—";
+}
 
 /// <summary>
 /// Guias TISS: exporta o lote (XML 4.01), mantém o histórico de lotes e acompanha o
@@ -75,7 +82,10 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         l.Codigos.Count(c => c.Glosa != StatusGlosa.SemGlosa),
         l.DataEnvio, l.ProtocoloOperadora, l.DataRetorno,
         PodeMarcarEnviado: l.Status == StatusLoteTiss.Gerado,
-        PodeRegistrarRetorno: l.Status == StatusLoteTiss.Enviado);
+        PodeRegistrarRetorno: l.Status == StatusLoteTiss.Enviado)
+    {
+        Operadora = l.ConvenioCodigo is null ? "—" : Domain.Regras.CatalogoConvenios.Nome(l.ConvenioCodigo)
+    };
 
     /// <summary>Gera um NOVO lote com as guias baixadas do período que ainda não foram exportadas.</summary>
     [RelayCommand]
@@ -116,6 +126,27 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
             return;
         }
 
+        // UM LOTE POR OPERADORA (parcela 60). O XML tem um destino só, e o "lote do
+        // período" com todas as operadoras dentro mandava as guias das outras para o
+        // registro ANS errado — e a guarda de duplicidade as escondia de todo lote
+        // futuro. A clínica de operadora única não vê diferença: um grupo, um lote,
+        // o mesmo fluxo de sempre.
+        var grupos = candidatas
+            .GroupBy(LoteTissService.ConvenioDaGuia)
+            .OrderBy(g => Domain.Regras.CatalogoConvenios.Nome(g.Key))
+            .ToList();
+
+        if (grupos.Count > 1 &&
+            !_dialogo.Confirmar("Um lote por operadora",
+                "As guias do período são de " + grupos.Count + " operadoras — sai um lote (e um XML) para cada uma:\n\n• " +
+                string.Join("\n• ", grupos.Select(g =>
+                    $"{Domain.Regras.CatalogoConvenios.Nome(g.Key)}: {g.Count()} guia(s)")) +
+                "\n\nGerar os lotes?"))
+        {
+            Mensagem = "Exportação cancelada.";
+            return;
+        }
+
         // Radar de glosas: cruza as candidatas com o histórico da clínica e avisa o que
         // provavelmente voltará glosado — agora, enquanto ainda dá para corrigir a guia.
         var radar = scope.ServiceProvider.GetRequiredService<PrevencaoGlosaService>();
@@ -144,35 +175,86 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
         }
 
         // Escolhe o destino ANTES de criar o lote (cancelar aqui não consome número).
+        // Uma operadora: o SaveFileDialog de sempre. Mais de uma: uma PASTA, e cada
+        // XML sai nomeado com a operadora — pedir N diálogos de salvar em sequência
+        // faz o terceiro ser salvo por cima do segundo sem ninguém notar.
         var numeroPrevisto = await parametros.ObterProximoNumeroLoteTissAsync();
-        var dialog = new SaveFileDialog
+        string? arquivoUnico = null;
+        string? pastaDestino = null;
+
+        if (grupos.Count == 1)
         {
-            FileName = $"TISS-Lote-{numeroPrevisto:000000}-{Fim:yyyy-MM}.xml",
-            Filter = "Arquivo TISS (*.xml)|*.xml",
-            DefaultExt = ".xml"
+            var dialog = new SaveFileDialog
+            {
+                FileName = $"TISS-Lote-{numeroPrevisto:000000}-{Fim:yyyy-MM}.xml",
+                Filter = "Arquivo TISS (*.xml)|*.xml",
+                DefaultExt = ".xml"
+            };
+            if (dialog.ShowDialog() != true) return;
+            arquivoUnico = dialog.FileName;
+        }
+        else
+        {
+            var pasta = new OpenFolderDialog { Title = "Onde gravar os XML dos lotes (um por operadora)" };
+            if (pasta.ShowDialog() != true) return;
+            pastaDestino = pasta.FolderName;
+        }
+
+        var gerados = new List<string>();
+        var avisos = new List<string>();
+
+        foreach (var grupo in grupos)
+        {
+            // O registro ANS é o DA OPERADORA quando o catálogo o tem (Configurações →
+            // Convênios); sem ele, o global do prestador — que era o único que existia.
+            var registro = Domain.Regras.CatalogoConvenios.RegistroAns(grupo.Key)
+                           ?? dados.RegistroAnsOperadora;
+
+            var lote = await lotes.CriarAsync(inicio, fim, registro,
+                SessaoUsuario.Atual.Operador, convenioCodigo: grupo.Key);
+            if (lote is null) continue; // corrida improvável: outra máquina exportou no meio-tempo
+
+            var dadosDoLote = dados.ComRegistroAns(registro);
+            var xml = tiss.GerarLoteXml(lote.Codigos, dadosDoLote, lote.Numero.ToString());
+
+            var nomeOperadora = Domain.Regras.CatalogoConvenios.Nome(grupo.Key);
+            var caminho = arquivoUnico ?? Path.Combine(pastaDestino!,
+                $"TISS-Lote-{lote.Numero:000000}-{NomeSeguroDeArquivo(nomeOperadora)}-{Fim:yyyy-MM}.xml");
+            await File.WriteAllTextAsync(caminho, xml);
+
+            // Arquiva uma cópia do lote (histórico auditável do que foi enviado à operadora).
+            ArquivarCopiaLote(xml, lote.Numero);
+
+            // Validação estrutural (e XSD, se o schema da ANS estiver na máquina): melhor
+            // descobrir agora do que na rejeição da operadora dias depois.
+            var problemas = ValidarXmlGerado(xml);
+            if (problemas.Count > 0)
+                avisos.Add($"Lote nº {lote.Numero} ({nomeOperadora}):\n• " + string.Join("\n• ", problemas.Take(6)));
+
+            gerados.Add($"nº {lote.Numero} — {nomeOperadora}, {lote.Codigos.Count} guia(s)");
+        }
+
+        Mensagem = gerados.Count switch
+        {
+            0 => "Nenhum lote gerado — outra máquina exportou as guias no meio-tempo.",
+            1 => $"Lote {gerados[0]}: {arquivoUnico ?? pastaDestino}",
+            _ => $"{gerados.Count} lotes gerados em {pastaDestino}: " + string.Join(" · ", gerados)
         };
-        if (dialog.ShowDialog() != true) return;
 
-        var lote = await lotes.CriarAsync(inicio, fim, dados.RegistroAnsOperadora, SessaoUsuario.Atual.Operador);
-        if (lote is null) return; // corrida improvável: outra máquina exportou no meio-tempo
-
-        var xml = tiss.GerarLoteXml(lote.Codigos, dados, lote.Numero.ToString());
-        await File.WriteAllTextAsync(dialog.FileName, xml);
-
-        // Arquiva uma cópia do lote (histórico auditável do que foi enviado à operadora).
-        var copia = ArquivarCopiaLote(xml, lote.Numero);
-
-        // Validação estrutural (e XSD, se o schema da ANS estiver na máquina): melhor
-        // descobrir agora do que na rejeição da operadora dias depois.
-        var problemas = ValidarXmlGerado(xml);
-        Mensagem = $"Lote nº {lote.Numero} gerado com {lote.Codigos.Count} guia(s): {dialog.FileName}" +
-                   (copia is null ? string.Empty : $" (cópia arquivada em {copia})");
-        if (problemas.Count > 0)
+        if (avisos.Count > 0)
             _dialogo.Aviso("Validação do XML TISS",
-                $"O lote nº {lote.Numero} foi gerado e salvo, mas a validação encontrou problemas que a operadora pode recusar:\n\n• " +
-                string.Join("\n• ", problemas.Take(12)) +
+                "Os lotes foram gerados e salvos, mas a validação encontrou problemas que a operadora pode recusar:\n\n" +
+                string.Join("\n\n", avisos) +
                 "\n\nCorrija os cadastros/Configurações e use \"Baixar XML\" para regenerar o arquivo antes de enviar.");
         await CarregarAsync();
+    }
+
+    /// <summary>Nome de operadora vira pedaço de nome de arquivo: sem acento problemático, sem separador.</summary>
+    private static string NomeSeguroDeArquivo(string nome)
+    {
+        var invalidos = Path.GetInvalidFileNameChars();
+        var limpo = new string(nome.Select(c => invalidos.Contains(c) || c == ' ' ? '-' : c).ToArray());
+        return limpo.Trim('-');
     }
 
     /// <summary>Regenera o XML de um lote já criado (reenvio/2ª via).</summary>
@@ -189,6 +271,12 @@ public partial class TissViewModel : ObservableObject, IAtalhosDeTela
 
             var lote = await lotes.ObterAsync(linha.Id);
             var dados = await parametros.ObterPrestadorAsync();
+
+            // A 2ª via sai com o registro ANS QUE O LOTE GRAVOU na geração: regenerar com
+            // o global reescreveria o destino de um lote por operadora (parcela 60).
+            if (!string.IsNullOrWhiteSpace(lote.RegistroAnsOperadora))
+                dados = dados.ComRegistroAns(lote.RegistroAnsOperadora);
+
             var xml = tiss.GerarLoteXml(lote.Codigos, dados, lote.Numero.ToString());
 
             var dialog = new SaveFileDialog

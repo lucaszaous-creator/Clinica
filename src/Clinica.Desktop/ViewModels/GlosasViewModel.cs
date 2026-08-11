@@ -68,15 +68,29 @@ public partial class GlosasViewModel : ObservableObject, IAtalhosDeTela
 
     partial void OnSomenteEmAbertoChanged(bool value) => _ = Buscar();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): ligar e desligar o "somente em
+    /// aberto" rápido deixaria a lista de um filtro sob a caixinha marcada com o outro —
+    /// num banco remoto a resposta mais velha pode chegar por último.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     private async Task Buscar()
     {
+        var geracao = ++_geracaoCarga;
+
         using var scope = _scopeFactory.CreateScope();
         var glosas = scope.ServiceProvider.GetRequiredService<GlosaService>();
         var hoje = DateOnly.FromDateTime(DateTime.Today);
 
+        var lista = await glosas.ListarAsync(SomenteEmAberto);
+
+        // Chegou tarde: outra carga mais nova já foi pedida.
+        if (geracao != _geracaoCarga) return;
+
         Glosas.Clear();
-        foreach (var g in await glosas.ListarAsync(SomenteEmAberto))
+        foreach (var g in lista)
         {
             var dias = g.DiasParaFimRecurso(hoje);
             Glosas.Add(new GlosaLinha(

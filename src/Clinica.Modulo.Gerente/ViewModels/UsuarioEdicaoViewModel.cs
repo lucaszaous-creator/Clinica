@@ -180,9 +180,18 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
     /// <summary>
     /// Traz o CPF do profissional escolhido. Sem isto, trocar o vínculo deixaria na tela o
     /// CPF de OUTRA pessoa — que o salvar gravaria por cima, trocando o CPF de quem assina.
+    ///
+    /// Com descarte de resposta fora de ordem (parcela 50): trocar o combo duas vezes
+    /// rápido deixa duas leituras no ar, e a do profissional ANTIGO chegando por último
+    /// deixaria o CPF dele na tela com o novo selecionado — que o salvar gravaria no
+    /// profissional errado. É o mesmo defeito que este método existe para impedir.
     /// </summary>
+    private int _geracaoCpf;
+
     private async Task CarregarCpfAsync()
     {
+        var geracao = ++_geracaoCpf;
+
         if (Profissional?.Id is not { } id)
         {
             CpfProfissional = null;
@@ -193,7 +202,12 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
         {
             using var scope = _escopos.CreateScope();
             var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();
-            CpfProfissional = (await equipe.ObterProfissionalAsync(id))?.Cpf;
+            var cpf = (await equipe.ObterProfissionalAsync(id))?.Cpf;
+
+            // Chegou tarde: o combo já está em outro profissional.
+            if (geracao != _geracaoCpf) return;
+
+            CpfProfissional = cpf;
         }
         catch (Exception ex)
         {

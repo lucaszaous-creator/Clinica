@@ -59,7 +59,9 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     [ObservableProperty] private bool _mensagemEhErro;
 
     /// <summary>Nenhum paciente escolhido — a direita mostra o convite, não uma lista vazia.</summary>
-    [ObservableProperty] private bool _semPaciente = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PodeNovaSessao))]
+    private bool _semPaciente = true;
 
     [ObservableProperty] private string _paciente = string.Empty;
 
@@ -86,6 +88,13 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     /// motivo. A que impede é o <c>Exigir</c> dentro do comando.
     /// </summary>
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
+
+    /// <summary>
+    /// A "Nova sessão" precisa de paciente ESCOLHIDO além da permissão — a tela abre
+    /// pela sidebar sem ninguém em foco, e botão aceso que volta calado faz quem clica
+    /// concluir que o sistema quebrou (parcela 41).
+    /// </summary>
+    public bool PodeNovaSessao => !SemPaciente && PodeEditarProntuario;
 
     public ProntuarioViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -126,9 +135,12 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         MostrandoProntuario = true;
 
         // Trocar de paciente limpa a busca: "ombro" digitado para um não é pergunta sobre
-        // o próximo, e a lista voltaria filtrada sem ninguém entender por quê.
+        // o próximo, e a lista voltaria filtrada sem ninguém entender por quê. Quando há
+        // termo, é o SETTER que dispara a carga — chamar de novo aqui era o duplo disparo
+        // garantido que deixava duas leituras concorrendo sobre a mesma coleção.
+        var setterNaoDispara = TermoSessao.Length == 0;
         TermoSessao = string.Empty;
-        _ = CarregarAsync();
+        if (setterNaoDispara) _ = CarregarAsync();
     }
 
     /// <summary>
@@ -177,9 +189,18 @@ public sealed partial class ProntuarioViewModel : ObservableObject
     /// <summary>Último paciente cujo acesso já foi registrado nesta tela (parcela 52).</summary>
     private int _acessoRegistradoDe;
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a tela recarrega a cada tecla do
+    /// filtro e a cada troca de paciente, e a resposta atrasada chegando por último
+    /// ANEXARIA as sessões do termo (ou do paciente) anterior à lista atual.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         SemPaciente = PacienteId == 0;
         Sessoes.Clear();
 
@@ -225,6 +246,9 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             var contagens = await prontuario.ContagemDeAnexosAsync(
                 filtradas.Select(e => e.Id).ToList());
 
+            // Chegou tarde: outra tecla ou outro paciente já pediu uma carga mais nova.
+            if (geracao != _geracaoCarga) return;
+
             foreach (var e in filtradas)
                 Sessoes.Add(LinhaEvolucao.De(
                     e, contagens.TryGetValue(e.Id, out var quantos) ? quantos : 0));
@@ -238,13 +262,19 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             // A evolução da dor é sempre do prontuário INTEIRO, nunca do filtro: ela mede
             // o tratamento, e medir só as sessões que citam uma palavra daria um gráfico
             // que não corresponde a tratamento nenhum.
-            AplicarEvolucaoDaDor(await prontuario.EvolucaoDaDorAsync(PacienteId));
+            var dor = await prontuario.EvolucaoDaDorAsync(PacienteId);
+            if (geracao != _geracaoCarga) return;
+            AplicarEvolucaoDaDor(dor);
 
             var avaliacoes = scope.ServiceProvider.GetRequiredService<AvaliacaoClinicaService>();
-            AplicarEscalas(await avaliacoes.DoPacienteAsync(PacienteId));
+            var escalas = await avaliacoes.DoPacienteAsync(PacienteId);
+            if (geracao != _geracaoCarga) return;
+            AplicarEscalas(escalas);
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — prontuário não pôde ser carregado", ex);
             Mensagem = ex.Message;
@@ -252,7 +282,8 @@ public sealed partial class ProntuarioViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -317,7 +348,12 @@ public sealed partial class ProntuarioViewModel : ObservableObject
 
     private async Task AbrirAsync(int? evolucaoId)
     {
-        if (PacienteId == 0) return;
+        if (PacienteId == 0)
+        {
+            Mensagem = "Escolha um paciente antes de abrir a sessão.";
+            MensagemEhErro = true;
+            return;
+        }
 
         try
         {

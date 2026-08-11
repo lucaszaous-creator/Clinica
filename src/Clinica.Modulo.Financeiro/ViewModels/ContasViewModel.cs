@@ -143,9 +143,18 @@ public sealed partial class ContasViewModel : ObservableObject
     partial void OnHorizonteDiasChanged(int value) => _ = CarregarAsync();
     partial void OnFiltroTipoChanged(TipoLancamento? value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o horizonte ou o filtro
+    /// duas vezes rápido deixaria a lista de um recorte sob os totais do outro — num
+    /// banco remoto a leitura mais velha pode responder por último.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Mensagem = null;
@@ -157,17 +166,31 @@ public sealed partial class ContasViewModel : ObservableObject
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var ate = hoje.AddDays(Math.Max(HorizonteDias, 0));
 
+            var emAberto = await contas.EmAbertoAsync(ate, FiltroTipo);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Contas.Clear();
-            foreach (var l in await contas.EmAbertoAsync(ate, FiltroTipo))
+            foreach (var l in emAberto)
                 Contas.Add(LinhaConta.De(l, hoje));
 
+            var recorrentes = await contas.RecorrentesAsync();
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Recorrentes.Clear();
-            foreach (var r in await contas.RecorrentesAsync())
+            foreach (var r in recorrentes)
                 Recorrentes.Add(LinhaRecorrente.De(r));
 
             // O resumo ignora o filtro de tipo de propósito: a faixa de totais é o retrato
             // do mês, e mudaria de significado se encolhesse junto com a lista.
             var resumo = await contas.ResumoAsync(hoje, ate);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             APagarVencido = resumo.APagarVencido.ToString("C");
             APagarAVencer = resumo.APagarAVencer.ToString("C");
             AReceberVencido = resumo.AReceberVencido.ToString("C");
@@ -183,6 +206,8 @@ public sealed partial class ContasViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Financeiro — contas não puderam ser lidas", ex);
             Erro($"Não foi possível ler as contas: {ex.Message}");
         }

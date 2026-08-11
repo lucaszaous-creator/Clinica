@@ -51,7 +51,7 @@ public sealed class MedidaClinicaService
     /// <summary>Colheitas do paciente, da mais recente para a mais antiga.</summary>
     public Task<IReadOnlyList<MedidaClinica>> DoPacienteAsync(
         int pacienteId, string? tipoCodigo = null, CancellationToken ct = default)
-        => _repo.MedidasDoPacienteAsync(pacienteId, tipoCodigo, ct);
+        => _repo.MedidasDoPacienteAsync(pacienteId, tipoCodigo, ct: ct);
 
     public Task<MedidaClinica?> ObterAsync(int medidaId, CancellationToken ct = default)
         => _repo.ObterMedidaAsync(medidaId, ct);
@@ -197,7 +197,7 @@ public sealed class MedidaClinicaService
         if (tipo.Codigo == CatalogoMedidas.Imc)
             return await SerieImcAsync(pacienteId, tipo, ct);
 
-        var medidas = await _repo.MedidasDoPacienteAsync(pacienteId, tipo.Codigo, ct);
+        var medidas = await _repo.MedidasDoPacienteAsync(pacienteId, tipo.Codigo, ct: ct);
 
         var pontos = medidas
             .OrderBy(m => m.Data).ThenBy(m => m.Id)
@@ -213,7 +213,7 @@ public sealed class MedidaClinicaService
     /// </summary>
     public async Task<ResumoMedidas> ResumoAsync(int pacienteId, CancellationToken ct = default)
     {
-        var todas = await _repo.MedidasDoPacienteAsync(pacienteId, null, ct);
+        var todas = await _repo.MedidasDoPacienteAsync(pacienteId, null, ct: ct);
 
         // A lista já vem da mais recente para a mais antiga, então a primeira de cada tipo
         // é a última colheita dele.
@@ -251,7 +251,7 @@ public sealed class MedidaClinicaService
     private async Task<SerieMedida> SerieImcAsync(
         int pacienteId, TipoMedida tipo, CancellationToken ct)
     {
-        var todas = await _repo.MedidasDoPacienteAsync(pacienteId, null, ct);
+        var todas = await _repo.MedidasDoPacienteAsync(pacienteId, null, ct: ct);
 
         var pesos = todas
             .Where(m => m.TipoCodigo == CatalogoMedidas.Peso)

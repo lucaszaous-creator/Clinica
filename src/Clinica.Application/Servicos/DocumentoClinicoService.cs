@@ -213,7 +213,7 @@ public sealed class DocumentoClinicoService
         // A EVA continua no corpo e as escalas viram ITENS datados, na mesma linha do
         // tempo das sessões: separá-las em dois blocos faria o leitor comparar o escore
         // de agosto com a sessão de junho.
-        var avaliacoes = (await _repo.AvaliacoesDoPacienteAsync(pacienteId, null, ct))
+        var avaliacoes = (await _repo.AvaliacoesDoPacienteAsync(pacienteId, null, ct: ct))
             .Where(a => (inicio is null || a.Data >= inicio) && (fim is null || a.Data <= fim))
             .OrderBy(a => a.Data).ThenBy(a => a.Id)
             .ToList();

@@ -33,6 +33,15 @@ public class ConvenioCadastro
     /// </summary>
     public FormatoNumeroGuia FormatoNumeroGuia { get; set; } = FormatoNumeroGuia.SemValidacao;
 
+    /// <summary>
+    /// Registro ANS DESTA operadora (parcela 60), usado no cabeçalho do lote TISS dela.
+    /// É dado, não código, pela razão do formato do número da guia logo acima: cada
+    /// operadora tem o seu, e amarrá-lo à configuração global obrigava toda clínica
+    /// multi-convênio a gerar lote com o registro de outra operadora no destino.
+    /// Em branco, o lote cai no registro global de Configurações → Clínica/prestador.
+    /// </summary>
+    public string? RegistroAnsOperadora { get; set; }
+
     // ---- Configuração da regra GENÉRICA (usada apenas quando Familia == Personalizado) ----
 
     public bool FazEletro { get; set; }

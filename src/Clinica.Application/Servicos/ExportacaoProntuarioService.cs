@@ -96,6 +96,19 @@ public sealed class ExportacaoProntuarioService
         var checagens = Cabecalho("PacienteId", "PrescricaoNumero", "ItemOrdem", "Item",
             "Situacao", "HoraRealizacao", "RegistradoEm", "Executante", "Conselho",
             "Justificativa", "Retificacao", "MotivoRetificacao");
+        // A LISTA DE PROBLEMAS ficou fora da primeira versão — e é onde moram as
+        // ALERGIAS: um prontuário exportado sem elas entregaria ao próximo fornecedor
+        // um paciente "sem alergia nenhuma". Descartados INCLUÍDOS, pela regra de sempre.
+        var problemas = Cabecalho("PacienteId", "Paciente", "Natureza", "Descricao", "CID",
+            "Inicio", "Fim", "Situacao", "Observacoes", "MotivoDescarte");
+        // O MAPA CORPORAL da sessão: os pontos são o registro gráfico do que foi feito.
+        // Coordenadas normalizadas (0 a 1) sobre a figura, como foram gravadas.
+        var pontosMapa = Cabecalho("PacienteId", "SessaoId", "Face", "Ordem", "Numero",
+            "X", "Y", "Tecnica", "Observacao");
+        // As RESPOSTAS item a item das escalas: o escore ia e o que o paciente respondeu
+        // ficava — e é a resposta (o item 9 do PHQ-9, por exemplo) que carrega o alerta.
+        var respostas = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
+            "ItemOrdem", "ItemCodigo", "Enunciado", "Valor", "OpcaoRotulo");
 
         foreach (var p in pacientes)
         {
@@ -120,14 +133,37 @@ public sealed class ExportacaoProntuarioService
                 foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
                     Linha(anexos, p.Id, e.Id, a.NomeArquivo, RotulosEnum.De(a.Tipo), a.Tamanho,
                         a.CriadoEm.ToString("O", Fixa), "Vigente");
+
+                if (await _repo.ObterMapaDaEvolucaoAsync(e.Id, ct) is { } mapa)
+                    foreach (var ponto in mapa.Pontos.OrderBy(x => x.Ordem))
+                        Linha(pontosMapa, p.Id, e.Id, RotulosEnum.De(ponto.Face),
+                            ponto.Ordem, ponto.Nome,
+                            ponto.X.ToString("0.####", Fixa), ponto.Y.ToString("0.####", Fixa),
+                            RotulosEnum.De(ponto.Tecnica), ponto.Observacao);
             }
 
-            foreach (var a in await _repo.AvaliacoesDoPacienteAsync(p.Id, null, ct))
+            foreach (var a in await _repo.AvaliacoesDoPacienteAsync(
+                         p.Id, null, incluirCanceladas: true, ct))
+            {
                 Linha(avaliacoes, p.Id, p.Nome, Data(a.Data), a.InstrumentoNome,
                     a.Pontuacao, a.PontuacaoMaxima, a.Unidade, a.FaixaNome,
                     a.Cancelada ? "Cancelada" : "Vigente");
 
-            foreach (var m in await _repo.MedidasDoPacienteAsync(p.Id, null, ct))
+                // As respostas não vêm na lista (o corte é para a rede da tela); aqui a
+                // aplicação inteira é o ponto.
+                if (await _repo.ObterAvaliacaoAsync(a.Id, ct) is { } aplicacao)
+                    foreach (var r in aplicacao.Respostas.OrderBy(r => r.Ordem))
+                        Linha(respostas, p.Id, p.Nome, Data(a.Data), a.InstrumentoNome,
+                            r.Ordem, r.ItemCodigo, r.Enunciado, r.Valor, r.OpcaoRotulo);
+            }
+
+            foreach (var problema in await _repo.ProblemasDoPacienteAsync(p.Id, somenteAtivos: false, ct))
+                Linha(problemas, p.Id, p.Nome, RotulosEnum.De(problema.Natureza),
+                    problema.Descricao, problema.Cid, Data(problema.Inicio), Data(problema.Fim),
+                    RotulosEnum.De(problema.Situacao), problema.Observacoes, problema.MotivoDescarte);
+
+            foreach (var m in await _repo.MedidasDoPacienteAsync(
+                         p.Id, null, incluirCanceladas: true, ct))
                 Linha(medidas, p.Id, p.Nome, Data(m.Data), m.TipoNome,
                     m.Valor.ToString("0.##", Fixa),
                     m.ValorSecundario?.ToString("0.##", Fixa), m.Unidade, m.FaixaNome,
@@ -179,6 +215,9 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-prescricoes.csv", prescricoes.ToString()),
             new("prontuario-prescricoes-itens.csv", itensPrescricao.ToString()),
             new("prontuario-prescricoes-checagens.csv", checagens.ToString()),
+            new("prontuario-problemas.csv", problemas.ToString()),
+            new("prontuario-mapa-corporal.csv", pontosMapa.ToString()),
+            new("prontuario-avaliacoes-respostas.csv", respostas.ToString()),
             new("LEIA-ME.txt", LeiaMe(pacientes.Count))
         ];
     }
@@ -248,6 +287,9 @@ public sealed class ExportacaoProntuarioService
          - prontuario-prescricoes.csv ........ folhas de infusão (prescrição interna)
          - prontuario-prescricoes-itens.csv .. o que foi prescrito em cada folha
          - prontuario-prescricoes-checagens... o que a enfermagem executou, com horário
+         - prontuario-problemas.csv .......... lista de problemas (diagnósticos, ALERGIAS)
+         - prontuario-mapa-corporal.csv ...... pontos marcados no mapa corporal por sessão
+         - prontuario-avaliacoes-respostas.csv resposta item a item de cada escala
 
          O QUE ESTÁ INCLUÍDO E QUE COSTUMA SURPREENDER
          As sessões CANCELADAS vêm juntas, marcadas na coluna Situacao, e o mesmo vale para

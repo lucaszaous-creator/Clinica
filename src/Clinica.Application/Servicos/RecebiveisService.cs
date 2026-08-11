@@ -173,7 +173,7 @@ public sealed class RecebiveisService
         {
             Acao = "RecebimentoConfirmado",
             Detalhe = $"{confirmados} recebimento(s) creditado(s) em {dataReal:dd/MM/yyyy}",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
         return confirmados;
@@ -238,7 +238,7 @@ public sealed class RecebiveisService
         {
             Acao = "RecebimentoDesfeito",
             Detalhe = $"{desfeitos} recebimento(s) devolvido(s) à espera",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
         return desfeitos;

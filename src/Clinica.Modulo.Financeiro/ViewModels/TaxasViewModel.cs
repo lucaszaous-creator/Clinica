@@ -453,9 +453,19 @@ public sealed partial class TaxasViewModel : ObservableObject
 
     // ==================== Apuração mensal por tributo (parcela 28) ====================
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês da apuração duas
+    /// vezes rápido deixaria os tributos de um mês sob o título do outro — num banco
+    /// remoto a leitura mais velha pode responder por último, e é esse número que vai
+    /// para a guia do contador.
+    /// </summary>
+    private int _geracaoApuracao;
+
     [RelayCommand]
     public async Task ApurarAsync()
     {
+        var geracao = ++_geracaoApuracao;
+
         try
         {
             ApuracaoNaoVerificada = false;
@@ -465,6 +475,9 @@ public sealed partial class TaxasViewModel : ObservableObject
             var tributos = scope.ServiceProvider.GetRequiredService<TributoService>();
 
             var r = await tributos.ApuracaoMensalAsync(MesApuracao.Year, MesApuracao.Month);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoApuracao) return;
 
             Apuracao.Clear();
             foreach (var l in r.Linhas)
@@ -496,6 +509,8 @@ public sealed partial class TaxasViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoApuracao) return;
+
             // Falha nunca aparece como sucesso: lista vazia por consulta quebrada se lê
             // como "não houve imposto no mês", que é a mentira mais cara desta aba.
             Clinica.Application.Diagnostico.Registrar(

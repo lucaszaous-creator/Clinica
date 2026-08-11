@@ -343,6 +343,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             _db.Pacientes.Remove(paciente);
     }
 
+    public async Task<bool> PacienteTemRegistroClinicoAsync(int pacienteId, CancellationToken ct = default)
+        // Seis raízes bastam: anexo e mapa pendem da evolução; resposta, da avaliação;
+        // checagem, da prescrição — se a raiz não existe, o dependente tampouco.
+        => await _db.Evolucoes.AnyAsync(e => e.PacienteId == pacienteId, ct)
+           || await _db.AvaliacoesClinicas.AnyAsync(a => a.PacienteId == pacienteId, ct)
+           || await _db.MedidasClinicas.AnyAsync(m => m.PacienteId == pacienteId, ct)
+           || await _db.DocumentosClinicos.AnyAsync(d => d.PacienteId == pacienteId, ct)
+           || await _db.PrescricoesInternas.AnyAsync(p => p.PacienteId == pacienteId, ct)
+           || await _db.ProblemasPaciente.AnyAsync(p => p.PacienteId == pacienteId, ct);
+
     // ---- Retrato do paciente ----
 
     public Task<PacienteFoto?> ObterFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
@@ -856,13 +866,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         => _db.MedidasClinicas.FirstOrDefaultAsync(m => m.Id == medidaId, ct);
 
     public async Task<IReadOnlyList<MedidaClinica>> MedidasDoPacienteAsync(
-        int pacienteId, string? tipoCodigo = null, CancellationToken ct = default)
+        int pacienteId, string? tipoCodigo = null, bool incluirCanceladas = false,
+        CancellationToken ct = default)
     {
         // Cancelada fora da série (parcela 52): ela fica no banco pelos 20 anos, mas a
-        // curva desenha o que vale hoje.
+        // curva desenha o que vale hoje. A EXPORTAÇÃO passa true — o arquivo carrega o
+        // prontuário sob guarda inteiro.
         var consulta = _db.MedidasClinicas.AsNoTracking()
             .Include(m => m.Profissional)
-            .Where(m => m.PacienteId == pacienteId && m.CanceladaEm == null);
+            .Where(m => m.PacienteId == pacienteId);
+        if (!incluirCanceladas)
+            consulta = consulta.Where(m => m.CanceladaEm == null);
 
         if (!string.IsNullOrWhiteSpace(tipoCodigo))
             consulta = consulta.Where(m => m.TipoCodigo == tipoCodigo);
@@ -917,12 +931,16 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     // a lista mostra escore, faixa e data, e trazer as dez respostas de cada aplicação
     // multiplicaria por dez o que passa pela rede para desenhar o que não as mostra.
     public async Task<IReadOnlyList<AvaliacaoClinica>> AvaliacoesDoPacienteAsync(
-        int pacienteId, string? instrumentoCodigo = null, CancellationToken ct = default)
+        int pacienteId, string? instrumentoCodigo = null, bool incluirCanceladas = false,
+        CancellationToken ct = default)
     {
-        // Cancelada fora da série, como a medida (parcela 52).
+        // Cancelada fora da série, como a medida (parcela 52) — salvo na exportação,
+        // que carrega o prontuário sob guarda inteiro.
         var consulta = _db.AvaliacoesClinicas.AsNoTracking()
             .Include(a => a.Profissional)
-            .Where(a => a.PacienteId == pacienteId && a.CanceladaEm == null);
+            .Where(a => a.PacienteId == pacienteId);
+        if (!incluirCanceladas)
+            consulta = consulta.Where(a => a.CanceladaEm == null);
 
         if (!string.IsNullOrWhiteSpace(instrumentoCodigo))
             consulta = consulta.Where(a => a.InstrumentoCodigo == instrumentoCodigo);
@@ -1800,6 +1818,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Where(l => l.PacienteId == pacienteId)
             .Where(l => l.Tipo == TipoLancamento.Entrada)
             .Where(l => l.Status == StatusLancamento.Realizado)
+            // A receita de GUIA fica de fora: quem pagou foi a OPERADORA, e este método
+            // alimenta a sugestão de cobrança do fechamento da sessão. Sem o filtro, o
+            // primeiro depósito do convênio conciliado virava "Cobrar R$ X" pré-marcado
+            // na sessão seguinte do paciente — cobrança em dobro de quem é de convênio.
+            // O mesmo vale para a forma de pagamento Convênio lançada à mão no Caixa.
+            .Where(l => l.CodigoFaturamentoId == null)
+            .Where(l => l.FormaPagamento != FormaPagamento.Convenio)
             .OrderByDescending(l => l.Data).ThenByDescending(l => l.Id)
             .FirstOrDefaultAsync(ct);
 

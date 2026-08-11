@@ -106,10 +106,19 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
 
     partial void OnOrdemChanged(OrdemInadimplencia value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar a ordenação duas vezes
+    /// rápido deixaria a lista de uma ordem sob o combo marcado com a outra — num banco
+    /// remoto a leitura mais velha pode responder por último. (Substitui a guarda
+    /// <c>if (Carregando) return</c>, que descartava em silêncio justamente a carga NOVA.)
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
-        if (Carregando) return;
+        var geracao = ++_geracaoCarga;
+
         Carregando = true;
             NaoVerificado = false;
         try
@@ -124,6 +133,9 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
 
             var devedores = await servico.PorPacienteAsync(hoje, Ordem);
             var resumo = await servico.ResumoAsync(hoje);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Devedores.Clear();
             foreach (var d in devedores) Devedores.Add(Montar(d));
@@ -149,6 +161,8 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — inadimplência não pôde ser lida", ex);
             Mensagem = $"Não foi possível ler a inadimplência: {ex.Message}";
@@ -156,7 +170,8 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

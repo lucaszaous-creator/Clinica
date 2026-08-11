@@ -295,6 +295,10 @@ public sealed partial class CaixaViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        // O bit que a folha declara no catálogo (parcela 59): emitir recibo é escrever
+        // no financeiro, e a tela abre com só VerFinanceiro.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "emitir recibo");
+
         if (!linha.EhEntrada)
         {
             _snackbar.Erro("Só se dá recibo de dinheiro que entrou.");

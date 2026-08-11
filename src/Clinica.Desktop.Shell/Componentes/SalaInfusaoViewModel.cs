@@ -112,8 +112,18 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
 
     private Task ReleituraSilenciosaAsync() => BuscarAsync(silenciosa: true);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a batida do relógio e a caixa
+    /// "incluir encerradas" concorrem SEM coordenação nenhuma — a resposta velha chegando
+    /// por último deixava a lista do estado oposto ao da caixa marcada, numa tela de
+    /// checagem de medicação.
+    /// </summary>
+    private int _geracaoCarga;
+
     private async Task BuscarAsync(bool silenciosa)
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             if (!silenciosa)
@@ -129,6 +139,9 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var folhas = await servico.DoDiaAsync(hoje, incluirEncerradas: IncluirEncerradas);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Folhas.Clear();
             foreach (var folha in folhas)
@@ -146,7 +159,7 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             // de uma oscilação de rede — mas o problema não pode sumir.
             Application.Diagnostico.Registrar("Consultório — sala de infusão", ex);
 
-            if (silenciosa) return;
+            if (silenciosa || geracao != _geracaoCarga) return;
 
             NaoVerificado = true;
             Mensagem = ex.Message;
@@ -154,7 +167,8 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
         }
         finally
         {
-            if (!silenciosa) Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (!silenciosa && geracao == _geracaoCarga) Carregando = false;
         }
     }
 

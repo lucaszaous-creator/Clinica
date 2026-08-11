@@ -128,6 +128,25 @@ public static class RotulosEnum
 
         Sexo s => s == Sexo.Masculino ? "Masculino" : "Feminino",
 
+        // Lista de problemas (parcela 37): "Diagnostico" e "MedicacaoContinua" crus
+        // sairiam sem acento na tela e na EXPORTAÇÃO, que viaja para fora do produto.
+        NaturezaProblema n => n switch
+        {
+            NaturezaProblema.Diagnostico => "Diagnóstico",
+            NaturezaProblema.Alergia => "Alergia",
+            NaturezaProblema.Antecedente => "Antecedente",
+            _ => "Medicação contínua"
+        },
+
+        SituacaoProblema s => s switch
+        {
+            SituacaoProblema.Ativo => "Ativo",
+            SituacaoProblema.Resolvido => "Resolvido",
+            _ => "Descartado"
+        },
+
+        FaceCorpo f => f == FaceCorpo.Frente ? "Frente" : "Costas",
+
         // ---- prescrição interna e checagem de enfermagem (parcela 42) ----
         //
         // A via é o campo mais lido da folha de infusão e o mais abreviado no dia a dia:
@@ -177,6 +196,21 @@ public static class RotulosEnum
         },
 
         // ---- faturamento (lido pelo app congelado; rótulo só melhora a tela) ----
+
+        // "Primeiro"/"Segundo" cru é o identificador escapando: o vocabulário da casa —
+        // e do produto inteiro — é "1º código" e "2º código". Sem este caso, o
+        // humanizador devolvia o identificador intacto (palavra única não quebra).
+        OrdemCodigo o => o == OrdemCodigo.Primeiro ? "1º código" : "2º código",
+
+        // O semáforo do paciente. Os identificadores coincidem com português por
+        // sorte; a cor é adjetivo de "categoria", e o rótulo fixa a forma.
+        Categoria c => c switch
+        {
+            Categoria.Verde => "Verde",
+            Categoria.Amarela => "Amarela",
+            _ => "Vermelha"
+        },
+
         TipoCodigo t => t switch
         {
             TipoCodigo.Consulta => "Consulta",

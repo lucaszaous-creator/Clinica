@@ -137,6 +137,13 @@ Duas decisões que valem explicar a quem audita:
 A ação é gravada **no mesmo `SaveChanges`** do ato que a originou: não existe baixa,
 alteração ou cancelamento que aconteça sem a linha correspondente.
 
+**Fechado na revisão de ago/2026:** a porta "documento" da tabela acima existia no enum e
+**nenhuma tela a usava** — as telas de Prescrições (Consultório e Recepção), a folha de
+infusão e a folha de execução da enfermagem abriam dado de saúde sem uma linha na trilha.
+As quatro passaram a registrar. E a **exportação da clínica inteira** — o maior acesso
+possível à base — só registrava o caso de UM paciente; agora grava uma linha por paciente
+exportado.
+
 ## 4. Proteção contra alteração indevida ✅
 
 > *"Uma evolução médica já registrada não deveria simplesmente poder ser apagada ou
@@ -172,6 +179,22 @@ em várias passadas durante o atendimento. Gravar uma linha nova a cada Salvar c
 "sessões" no prontuário para uma consulta que houve uma vez, e o prontuário passaria a
 mentir sobre quantas vezes o paciente veio. A sessão continua sendo uma; o que ela já foi
 fica ao lado, recuperável e exportável.
+
+**Fechado na revisão de ago/2026:** a porta que este item não via — **excluir o PACIENTE
+apagava o prontuário inteiro por cascata** (as FKs clínicas seguem a linha do paciente).
+Agora o serviço **recusa** a exclusão de qualquer ficha com registro clínico, explicando a
+guarda de 20 anos e apontando a anonimização como caminho; ficha vazia (cadastro por
+engano) continua removível. Há teste para as duas metades.
+
+⚠️ **Duas ressalvas honestas que este item ainda carrega** (a resposta certa a quem
+auditar é "o cancelamento é coberto; a EDIÇÃO destes dois ainda não guarda o anterior"):
+
+- o **mapa corporal** é regravado por inteiro a cada edição da sessão (os pontos antigos
+  saem, os novos entram) — a trilha diz *que* mudou, não *o que* mudou. O equivalente à
+  `VersaoEvolucao` para os pontos ainda não existe;
+- a **lista de problemas** (diagnóstico, alergia, medicação contínua) é editável por
+  cima: corrigir a descrição de uma alergia não guarda o que ela dizia antes. Descartar
+  exige motivo e nada se apaga — o que falta é a versão anterior da EDIÇÃO.
 
 ## 5. Segurança do armazenamento e da transmissão ✅
 
@@ -269,9 +292,14 @@ Três saídas, para três perguntas diferentes:
 | "A base sumiu" | backup completo | JSON restaurável, **com os bytes** dos anexos |
 | "Vamos trocar de fornecedor" | exportação do prontuário | **CSV**, que qualquer sistema importa |
 
-A exportação em CSV leva cadastro, sessões, **versões anteriores**, avaliações, medidas,
-documentos e a lista de anexos, e vai acompanhada de um `LEIA-ME.txt` que explica o formato
-e a obrigação de guarda que segue com os dados.
+A exportação em CSV leva cadastro, sessões, **versões anteriores**, avaliações (com as
+**respostas item a item**), medidas, documentos, a lista de anexos, as folhas de infusão
+com a execução da enfermagem, a **lista de problemas (com as alergias)** e os pontos do
+**mapa corporal**, e vai acompanhada de um `LEIA-ME.txt` que explica o formato e a
+obrigação de guarda que segue com os dados. Os três últimos entraram na revisão de
+ago/2026 — antes dela, o prontuário exportado saía **sem as alergias**, e o prazo de
+guarda não enxergava o problema anotado como registro; avaliações e medidas **canceladas**
+também ficavam de fora, com o LEIA-ME prometendo o contrário.
 
 Duas escolhas que a auditoria deve conhecer:
 

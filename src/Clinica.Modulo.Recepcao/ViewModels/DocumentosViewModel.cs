@@ -143,6 +143,14 @@ public sealed partial class DocumentosViewModel : ObservableObject
     /// </summary>
     private static Permissao Acessos => SessaoUsuario.Atual.Efetivas;
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): "De" e "Até" disparam uma carga
+    /// cada, e ajustar o período é mexer nos dois em seguida — a resposta do período velho
+    /// pode voltar por último e a lista mostraria folhas que não são do filtro escolhido.
+    /// Só a carga mais nova escreve na tela.
+    /// </summary>
+    private int _geracaoCarga;
+
     public DocumentosViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
@@ -247,9 +255,10 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
-        if (Carregando) return;
+        var geracao = ++_geracaoCarga;
+
         Carregando = true;
-            NaoVerificado = false;
+        NaoVerificado = false;
         try
         {
             Mensagem = null;
@@ -269,6 +278,9 @@ public sealed partial class DocumentosViewModel : ObservableObject
             var emitidas = await central.EmitidasAsync(inicio, fim, acessos: Acessos);
             var resumo = await central.ResumoAsync(inicio, fim, acessos: Acessos);
 
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Emitidas.Clear();
             foreach (var e in emitidas) Emitidas.Add(Montar(e));
 
@@ -281,6 +293,9 @@ public sealed partial class DocumentosViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — central de documentos não pôde ser carregada", ex);
@@ -289,7 +304,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

@@ -31,7 +31,9 @@ public sealed class ModuloRecepcao : IModuloApp
     /// A sala de infusão (parcela 48). A chave é a MESMA que o Consultório publica —
     /// é a mesma tela, e chave diferente faria a navegação da suíte abrir duas.
     /// </summary>
-    public const string ChaveSalaInfusao = "consultorio-sala-infusao";
+    // A MESMA chave que o Consultório publica — a dedupe do shell funde as duas linhas no
+    // Gerente. Vem de ChavesSuite porque atravessa módulo (parcela 48).
+    public const string ChaveSalaInfusao = Clinica.Desktop.Shell.Modulos.ChavesSuite.SalaInfusao;
     public const string ChaveDocumentos = ChavesSuite.Documentos;
     public const string ChaveEquipe = "equipe";
 

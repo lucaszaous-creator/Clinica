@@ -28,7 +28,7 @@ public sealed class LinhaNaoConformidade
         CodigoId = n.CodigoId,
         Paciente = n.PacienteNome,
         Convenio = CatalogoConvenios.Nome(n.ConvenioCodigo, n.Convenio),
-        Guia = $"{RotulosEnum.De(n.Tipo)} · {n.Ordem}",
+        Guia = $"{RotulosEnum.De(n.Tipo)} · {RotulosEnum.De(n.Ordem)}",
         Prevista = n.DataPrevista.ToString("dd/MM/yyyy"),
         Justificativa = string.IsNullOrWhiteSpace(n.Justificativa)
             ? "(sem justificativa registrada)"

@@ -117,9 +117,18 @@ public sealed partial class FluxoCaixaViewModel : ObservableObject
     partial void OnMesesJanelaChanged(int value) => _ = CarregarAsync();
     partial void OnIncluirPrevistoChanged(bool value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar a janela de meses duas
+    /// vezes rápido deixaria a série de uma janela sob o período escrito da outra — num
+    /// banco remoto a leitura mais velha pode responder por último.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Mensagem = null;
@@ -130,6 +139,9 @@ public sealed partial class FluxoCaixaViewModel : ObservableObject
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var serie = await fluxo.ProjecaoAsync(hoje, MesesJanela);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Meses.Clear();
             SerieResultado.Clear();
@@ -152,12 +164,20 @@ public sealed partial class FluxoCaixaViewModel : ObservableObject
             Periodo = $"{inicio:MM/yyyy} a {fim:MM/yyyy}";
 
             var categorias = await fluxo.PorCategoriaAsync(inicio, fim, IncluirPrevisto);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Entradas.Clear();
             Saidas.Clear();
             foreach (var c in categorias)
                 (c.Tipo == TipoLancamento.Saida ? Saidas : Entradas).Add(LinhaCategoriaFluxo.De(c));
 
             var resumo = await fluxo.ResumoAsync(inicio, fim, IncluirPrevisto);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             TotalEntradas = resumo.Entradas.ToString("C");
             TotalSaidas = resumo.Saidas.ToString("C");
             Resultado = resumo.Resultado.ToString("C");
@@ -171,6 +191,8 @@ public sealed partial class FluxoCaixaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Financeiro — fluxo de caixa não pôde ser lido", ex);
             Mensagem = $"Não foi possível montar o fluxo: {ex.Message}";
             MensagemEhErro = true;

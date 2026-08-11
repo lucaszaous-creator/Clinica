@@ -87,6 +87,14 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
 
     public bool Vazio => Dias.All(d => d.Vazio);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): as setas de semana disparam uma
+    /// carga por clique, e a resposta da semana anterior pode chegar depois da atual — o
+    /// quadro mostraria as sessões de uma semana sob o período de outra. Só a carga mais
+    /// nova escreve na tela.
+    /// </summary>
+    private int _geracaoCarga;
+
     public MinhaSemanaViewModel(IServiceScopeFactory escopos, PacienteEmFoco foco)
     {
         _escopos = escopos;
@@ -99,6 +107,8 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -115,6 +125,9 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
 
             var semana = await consultorio.DaSemanaAsync(
                 DateOnly.FromDateTime(Referencia), profissionalId);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Profissional = semana.ProfissionalNome;
             Periodo = $"{semana.Inicio:dd/MM} a {semana.Fim:dd/MM/yyyy}";
@@ -141,6 +154,9 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — a semana não pôde ser carregada", ex);
@@ -149,7 +165,8 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

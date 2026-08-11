@@ -240,6 +240,10 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
 
         try
         {
+            // Protocolo é ferramenta do prontuário: quem não escreve nele não apaga o
+            // catálogo da clínica.
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "apagar protocolo do mapa corporal");
+
             using var scope = _escopos.CreateScope();
             var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
 
@@ -283,6 +287,8 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "guardar protocolo do mapa corporal");
+
             using var scope = _escopos.CreateScope();
             var mapas = scope.ServiceProvider.GetRequiredService<MapaCorporalService>();
 

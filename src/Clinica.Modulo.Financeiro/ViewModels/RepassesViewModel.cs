@@ -105,9 +105,18 @@ public sealed partial class RepassesViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês duas vezes rápido
+    /// deixaria o cálculo de um mês sob o rótulo de período do outro — num banco remoto
+    /// a leitura mais velha pode responder por último, e é sobre esse valor que se apura.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     private async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -116,6 +125,9 @@ public sealed partial class RepassesViewModel : ObservableObject
             MensagemEhErro = false;
 
             var calculados = await _repasses.CalcularAsync(Inicio, Fim);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Calculados.Clear();
             foreach (var c in calculados)
@@ -133,6 +145,9 @@ public sealed partial class RepassesViewModel : ObservableObject
 
             var apuracoes = await _repasses.ApuradosAsync();
 
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Apuracoes.Clear();
             foreach (var a in apuracoes)
                 Apuracoes.Add(new LinhaApuracao
@@ -145,7 +160,10 @@ public sealed partial class RepassesViewModel : ObservableObject
                     PodeCancelar = !a.Cancelado
                 });
 
-            await CarregarRegrasAsync();
+            await CarregarRegrasAsync(geracao);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             var total = calculados.Sum(c => c.Valor);
             var semRegra = calculados.Count(c => !c.TemRegra);
@@ -155,20 +173,28 @@ public sealed partial class RepassesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — repasses não puderam ser calculados", ex);
             Erro($"Não foi possível calcular os repasses: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
-    private async Task CarregarRegrasAsync()
+    private async Task CarregarRegrasAsync(int geracao)
     {
+        var regras = await _repasses.RegrasAsync();
+
+        // Chegou tarde: outra carga mais nova já foi pedida.
+        if (geracao != _geracaoCarga) return;
+
         Regras.Clear();
-        foreach (var r in await _repasses.RegrasAsync())
+        foreach (var r in regras)
             Regras.Add(new LinhaRegraRepasse
             {
                 Id = r.Id,

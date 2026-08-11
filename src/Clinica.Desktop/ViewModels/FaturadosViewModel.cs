@@ -89,7 +89,7 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 
         SessaoUsuario.Atual.Exigir(Permissao.RegistrarGlosa, "registrar glosa");
 
-        var descricao = $"{codigo.Atendimento?.Paciente?.Nome} — {codigo.Tipo} (guia {codigo.NumeroGuiaReal})";
+        var descricao = $"{codigo.Atendimento?.Paciente?.Nome} — {RotulosEnum.De(codigo.Tipo)} (guia {codigo.NumeroGuiaReal})";
         int prazo;
         using (var scopePrazo = _scopeFactory.CreateScope())
             prazo = await scopePrazo.ServiceProvider.GetRequiredService<ParametrosService>().ObterPrazoRecursoGlosaAsync();

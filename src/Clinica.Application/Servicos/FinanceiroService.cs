@@ -415,7 +415,7 @@ public sealed class FinanceiroService
         {
             Acao = acao,
             Detalhe = detalhe,
-            Operador = operador ?? Environment.UserName,
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             CodigoId = lancamento.CodigoFaturamentoId,
             PacienteId = lancamento.PacienteId
         }, ct);

@@ -30,12 +30,22 @@ public sealed class LinhaPendencia
     public bool EhAmarela => Urgencia == NivelUrgencia.Amarelo;
     public bool EhVerde => Urgencia == NivelUrgencia.Verde;
 
+    /// <summary>
+    /// A FORMA que o número da guia deste convênio tem (parcela 45). A linha descartava
+    /// o código do convênio ao virar nome de exibição, e a fila do Gerente ficou sendo a
+    /// única porta de baixa sem a metade que explica — a gerente digitava "9O123" (letra
+    /// O), o serviço recusava, e a recusa chegava genérica com o diálogo já fechado.
+    /// </summary>
+    public required FormatoNumeroGuia FormatoGuia { get; init; }
+
     public static LinhaPendencia De(PendenciaCodigo p) => new()
     {
         CodigoId = p.CodigoId,
         Paciente = p.PacienteNome,
         Convenio = CatalogoConvenios.Nome(p.ConvenioCodigo, p.Convenio),
-        Guia = $"{RotulosEnum.De(p.Tipo)} · {p.Ordem}",
+        FormatoGuia = CatalogoConvenios.FormatoDoNumeroDaGuia(
+            p.ConvenioCodigo ?? p.Convenio.ToString()),
+        Guia = $"{RotulosEnum.De(p.Tipo)} · {RotulosEnum.De(p.Ordem)}",
         Prevista = p.DataPrevista.ToString("dd/MM/yyyy"),
         Urgencia = p.Urgencia,
         Atraso = p.DiasEmAtraso switch
@@ -161,15 +171,30 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
 
-            var numero = _dialogo.PerguntarTexto(
-                "Dar baixa",
-                $"Número da guia de {linha.Paciente} no sistema do convênio. "
-                + "É por ele que o retorno da operadora casa com esta linha — sem número, "
-                + "conciliar o demonstrativo vira trabalho manual.");
+            // A dica do formato entra na pergunta e a crítica roda ANTES de chamar o
+            // serviço — é a MESMA RegraNumeroGuia, nunca uma cópia. As outras três portas
+            // já avisavam; esta recusava só no serviço, com o diálogo já fechado.
+            var dica = RegraNumeroGuia.Dica(linha.FormatoGuia);
+            var pergunta = $"Número da guia de {linha.Paciente} no sistema do convênio. "
+                           + "É por ele que o retorno da operadora casa com esta linha — sem número, "
+                           + "conciliar o demonstrativo vira trabalho manual."
+                           + (dica is null ? string.Empty : $"\n\n{linha.Convenio}: {dica}");
 
-            // Cancelar o diálogo devolve null; string vazia é "não tenho o número agora",
-            // que é diferente e continua permitindo a baixa.
-            if (numero is null) return;
+            string? numero;
+            while (true)
+            {
+                numero = _dialogo.PerguntarTexto("Dar baixa", pergunta);
+
+                // Cancelar o diálogo devolve null; string vazia é "não tenho o número
+                // agora", que é diferente e continua permitindo a baixa.
+                if (numero is null) return;
+
+                if (RegraNumeroGuia.Criticar(numero, linha.FormatoGuia) is not { } critica) break;
+
+                // O "O" no lugar do zero, apontado com o número ainda na mão — e a
+                // pergunta reabre para corrigir, em vez de a recusa chegar depois.
+                _dialogo.Aviso("Número da guia", critica);
+            }
 
             using var scope = _escopos.CreateScope();
             var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();

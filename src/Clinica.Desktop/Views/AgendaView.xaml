@@ -133,6 +133,7 @@
                                 Style="{StaticResource BotaoAcaoGrid}"
                                 ToolTip="Confirmar presença e gerar os códigos de faturamento"
                                 Command="{Binding DataContext.ConfirmarPresencaCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                IsEnabled="{Binding DataContext.PodeConfirmarPresenca, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
                         <Button Content="Remarcar" Margin="6,0,0,0"
                                 Style="{StaticResource BotaoAcaoGridSecundario}"
@@ -143,12 +144,14 @@
                         <Button Content="Faltou" Margin="6,0,0,0"
                                 Style="{StaticResource BotaoAcaoGridSecundario}"
                                 Command="{Binding DataContext.FaltouCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                IsEnabled="{Binding DataContext.PodeAgendar, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
                         <Button Content="&#xE711;" Margin="6,0,0,0"
                                 Style="{StaticResource BotaoIcone}"
                                 Foreground="{StaticResource Brush.Erro}"
                                 ToolTip="Cancelar o agendamento" AutomationProperties.Name="Cancelar"
                                 Command="{Binding DataContext.CancelarCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                IsEnabled="{Binding DataContext.PodeAgendar, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
                     </StackPanel>
 

@@ -129,8 +129,13 @@
                         </Border>
                     </WrapPanel>
 
-                    <!-- Uma ação sólida — o passo seguinte — e o resto atrás do "⋯". -->
-                    <DockPanel Margin="0,8,0,0">
+                    <!-- Uma ação sólida — o passo seguinte — e o resto atrás do "⋯".
+                         A metade VISÍVEL da permissão: os comandos já exigem
+                         EditarAgenda, e sem este IsEnabled a fila inteira ficava
+                         clicável para quem só pode ver — botão aceso que recusa. -->
+                    <DockPanel Margin="0,8,0,0"
+                               IsEnabled="{Binding DataContext.PodeEditarAgenda,
+                                           RelativeSource={RelativeSource AncestorType=UserControl}}">
                         <Button DockPanel.Dock="Right" Content="⋯" Width="30"
                                 Style="{StaticResource BotaoAcaoGridSecundario}"
                                 VerticalAlignment="Center" Margin="6,0,0,0"

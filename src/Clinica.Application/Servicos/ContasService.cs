@@ -154,7 +154,7 @@ public sealed class ContasService
         {
             Acao = "ContaCriada",
             Detalhe = $"{tipo} de {valor:C} vencendo em {vencimento:dd/MM/yyyy} — {conta.Descricao}",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
         return conta;
@@ -184,7 +184,7 @@ public sealed class ContasService
             Acao = "ContaReagendada",
             Detalhe = $"{conta.Descricao}: {antes?.ToString("dd/MM/yyyy") ?? "sem vencimento"} "
                       + $"→ {novoVencimento:dd/MM/yyyy}",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
     }
@@ -235,7 +235,7 @@ public sealed class ContasService
         {
             Acao = "RecorrenteCriada",
             Detalhe = $"{tipo} de {valor:C} {recorrente.PeriodicidadeTexto} — {recorrente.Descricao}",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
         return recorrente;
@@ -280,7 +280,7 @@ public sealed class ContasService
         {
             Acao = ativa ? "RecorrenteAtualizada" : "RecorrenteDesativada",
             Detalhe = $"{recorrente.Descricao} — {valor:C} {recorrente.PeriodicidadeTexto}",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
         return recorrente;
@@ -366,7 +366,7 @@ public sealed class ContasService
             {
                 Acao = "ContasRecorrentesGeradas",
                 Detalhe = $"{geradas} conta(s) prevista(s) até {ate:dd/MM/yyyy}",
-                Operador = operador ?? Environment.UserName
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
             }, ct);
             await _repo.SalvarAsync(ct);
         }

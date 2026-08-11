@@ -36,6 +36,12 @@ public partial class ConvenioEdicao : ObservableObject
     /// </summary>
     [ObservableProperty] private FormatoNumeroGuia _formatoNumeroGuia = FormatoNumeroGuia.SemValidacao;
 
+    /// <summary>
+    /// Registro ANS desta operadora (parcela 60): é o destino que sai no cabeçalho do
+    /// lote TISS dela. Em branco, o lote usa o registro global do prestador.
+    /// </summary>
+    [ObservableProperty] private string? _registroAnsOperadora;
+
     // Configuração da regra genérica (só tem efeito quando Familia == Personalizado)
     [ObservableProperty] private bool _fazEletro;
     [ObservableProperty] private bool _temSegundoCodigo;
@@ -59,6 +65,7 @@ public partial class ConvenioEdicao : ObservableObject
         _familia = c.Familia;
         _ativo = c.Ativo;
         _formatoNumeroGuia = c.FormatoNumeroGuia;
+        _registroAnsOperadora = c.RegistroAnsOperadora;
         _fazEletro = c.FazEletro;
         _temSegundoCodigo = c.TemSegundoCodigo;
         _formaSegundoCodigo = c.FormaSegundoCodigo;
@@ -78,6 +85,8 @@ public partial class ConvenioEdicao : ObservableObject
         Familia = Familia,
         Ativo = Ativo,
         FormatoNumeroGuia = FormatoNumeroGuia,
+        RegistroAnsOperadora = string.IsNullOrWhiteSpace(RegistroAnsOperadora)
+            ? null : RegistroAnsOperadora.Trim(),
         FazEletro = FazEletro,
         TemSegundoCodigo = TemSegundoCodigo,
         FormaSegundoCodigo = FormaSegundoCodigo,

@@ -177,6 +177,7 @@ public class ClinicaDbContext : DbContext
             e.HasKey(l => l.Id);
             e.Property(l => l.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(l => l.RegistroAnsOperadora).HasMaxLength(20);
+            e.Property(l => l.ConvenioCodigo).HasMaxLength(40);
             e.Property(l => l.ProtocoloOperadora).HasMaxLength(60);
             e.Property(l => l.ObservacaoRetorno).HasMaxLength(500);
             e.HasIndex(l => l.Numero).IsUnique();
@@ -208,6 +209,7 @@ public class ClinicaDbContext : DbContext
             e.Property(c => c.CategoriaComApp).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.CategoriaSemApp).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.FormatoNumeroGuia).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.RegistroAnsOperadora).HasMaxLength(20);
         });
 
         b.Entity<ModalidadeCadastro>(e =>

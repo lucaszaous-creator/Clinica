@@ -73,7 +73,7 @@
             <Button Content="Nova sessão" HorizontalAlignment="Right" VerticalAlignment="Center"
                     MinHeight="36" MinWidth="140"
                     Command="{Binding NovaSessaoCommand}"
-                    IsEnabled="{Binding PodeEditarProntuario}" />
+                    IsEnabled="{Binding PodeNovaSessao}" />
         </Grid>
 
 <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"

@@ -57,15 +57,27 @@ public sealed partial class ProducaoViewModel : ObservableObject
 
     partial void OnJanelaMesesChanged(int value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): alternar 6 ↔ 12 meses rápido
+    /// deixaria os totais de uma janela sob o botão marcado da outra — num banco remoto
+    /// a leitura mais velha pode responder por último.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
             NaoVerificado = false;
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var meses = await _relatorios.ComparativoMensalAsync(hoje, JanelaMeses);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Meses.Clear();
             foreach (var m in meses) Meses.Add(m);
@@ -79,12 +91,15 @@ public sealed partial class ProducaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             _snackbar.Erro($"Não foi possível carregar a produção: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

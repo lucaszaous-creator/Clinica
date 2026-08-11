@@ -106,6 +106,14 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     /// <summary>Deducoes calculadas da ultima vez — o que vai junto no LancarAsync.</summary>
     private DeducoesRecebimento? _deducoes;
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (a regra da parcela 50): o valor é recalculado
+    /// a cada TECLA, e num banco remoto a resposta de "125" pode chegar DEPOIS da de
+    /// "1250" — e o que ela escreveria em <see cref="_deducoes"/> não é só exibido, é
+    /// GRAVADO no lançamento pelo Confirmar. Quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoDeducoes;
+
     private int LerParcelas()
         => int.TryParse(Parcelas, out var n) && n >= 1 ? n : 1;
 
@@ -118,6 +126,8 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     /// </summary>
     private async Task RecalcularDeducoesAsync()
     {
+        var geracao = ++_geracaoDeducoes;
+
         _deducoes = null;
         ResumoDeducoes = string.Empty;
         TemDeducoes = false;
@@ -130,6 +140,9 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
             var d = await _taxas.CalcularAsync(
                 bruto, DateOnly.FromDateTime(Data), FormaPagamento,
                 Adquirente, Bandeira, LerParcelas(), ReterImposto);
+
+            // Chegou tarde: outra tecla já pediu um recálculo mais novo.
+            if (geracao != _geracaoDeducoes) return;
 
             if (d.Total <= 0m) return;
 

@@ -291,8 +291,18 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a batida do relógio e o stepper
+    /// de dia concorrem, e a resposta de HOJE chegando por último deixaria o quadro de um
+    /// dia sob o título de outro. A meia-guarda por <c>Carregando</c> não cobria — a
+    /// recarga silenciosa roda com ele desligado.
+    /// </summary>
+    private int _geracaoCarga;
+
     private async Task CarregarAsync(bool silencioso)
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = !silencioso;
@@ -317,6 +327,10 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             var consultorio = scope.ServiceProvider.GetRequiredService<ConsultorioService>();
 
             var doDia = await consultorio.DoDiaAsync(dia, profissionalId);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Profissional = doDia.ProfissionalNome;
 
             foreach (var s in doDia.Sessoes) Coluna(s.Etapa).Add(LinhaSessao.De(s));
@@ -336,10 +350,14 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             // em que ele foi conferir o que aconteceu na semana retrasada.
             //
             // Aqui só se conta. A LISTA mora na tela dela.
-            PendentesCount = (await consultorio.RegistrosPendentesAsync(hoje, profissionalId)).Count;
+            var pendentes = (await consultorio.RegistrosPendentesAsync(hoje, profissionalId)).Count;
+            if (geracao != _geracaoCarga) return;
+            PendentesCount = pendentes;
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Consultório — o dia não pôde ser carregado", ex);
 
@@ -353,7 +371,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

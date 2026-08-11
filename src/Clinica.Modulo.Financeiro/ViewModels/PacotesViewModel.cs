@@ -123,7 +123,7 @@ public sealed partial class PacotesViewModel : ObservableObject
                     Paciente = v.PacienteNome ?? "—",
                     Nome = v.Nome,
                     Saldo = v.SaldoRotulo,
-                    Situacao = v.Situacao.ToString(),
+                    Situacao = Clinica.Domain.RotulosEnum.De(v.Situacao),
                     ValorFormatado = v.Valor.ToString("C"),
                     Compra = v.DataCompra.ToString("dd/MM/yyyy"),
                     Ativo = v.Ativo
@@ -149,7 +149,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     {
         var sessoes = p.SessoesIncluidas is { } n ? $"{n} sessões" : "sessões livres";
         var validade = p.ValidadeDias is { } dias ? $" · vale {dias} dias" : string.Empty;
-        return $"{p.Tipo} · {sessoes}{validade}";
+        // Rótulo, nunca o identificador: "Sessoes" sem cedilha é o enum vazando (parcela 41).
+        return $"{Clinica.Domain.RotulosEnum.De(p.Tipo)} · {sessoes}{validade}";
     }
 
     // ==================== Catálogo ====================
@@ -325,6 +326,10 @@ public sealed partial class PacotesViewModel : ObservableObject
             Erro("Escolha um pacote do catálogo para orçar.");
             return;
         }
+
+        // O bit que a folha declara no catálogo (parcela 59): orçamento é documento
+        // financeiro, e a tela abre com só VerFinanceiro.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "emitir orçamento");
 
         var destinatario = _dialogo.PerguntarTexto(
             "Orçamento", "Para quem é o orçamento? (nome de quem vai receber o papel)");

@@ -19,11 +19,12 @@
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal"
                 HorizontalAlignment="Right" Margin="0,0,0,14">
             <Button Content="Mapa corporal" Style="{StaticResource BotaoSecundario}"
-                Command="{Binding AbrirMapaCommand}" MinWidth="130" />
+                Command="{Binding AbrirMapaCommand}" MinWidth="130"
+                IsEnabled="{Binding TemPaciente}" />
             <Button Content="Emitir documento" Style="{StaticResource BotaoSecundario}"
                 Command="{Binding EmitirDocumentoCommand}" Margin="8,0,0,0"
                 MinWidth="150"
-                IsEnabled="{Binding PodeEditarProntuario}" />
+                IsEnabled="{Binding PodeEmitirDocumento}" />
             <Button Content="Evolução da dor" Style="{StaticResource BotaoSecundario}"
                 Command="{Binding VerEvolucaoDaDorCommand}" Margin="8,0,0,0"
                 MinWidth="130" />
