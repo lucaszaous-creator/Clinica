@@ -1954,6 +1954,79 @@ for _xml, _deve_pegar in (
         erros.append(f"verificar-suite: a checagem 29 mudou de resposta para `{_xml}`.")
 
 
+# --------------------------------------------------------------- checagem 30
+# `EstadoDaTela` COM `Visibility` AMARRADA — o binding morre e o vazio vaza pela tela.
+#
+# O componente DECIDE a própria `Visibility` em `Recalcular()`, atribuindo um valor LOCAL.
+# Em WPF, valor local atribuído por código **substitui o binding**: a tela liga a
+# visibilidade a "estou mostrando o prontuário" e, na primeira mudança de `Itens`,
+# `Carregando` ou `NaoVerificado`, o `Recalcular` sobrescreve e o binding deixa de existir.
+#
+# Daí em diante o vazio aparece quando a LISTA está vazia, e não quando a tela dele está
+# aberta — foi assim que "Nenhuma sessão registrada" ficou escrito por cima da lista de
+# pacientes, em produção, no Prontuário e nas Prescrições.
+#
+# Nada falha: XAML bem-formado, propriedade existente, binding válido. Só a tela montada
+# mostra. Quem precisa de condição usa `Ativo`, que entra no cálculo em vez de brigar com
+# ele.
+for _arq in xamls():
+    _texto = _arq.read_text(encoding="utf-8")
+    for _m in re.finditer(r"<ctrl:EstadoDaTela\b[^>]*?/>", _texto, re.S):
+        if "Visibility=" not in _m.group(0):
+            continue
+        erros.append(
+            f"{rel(_arq)}:{_texto.count(chr(10), 0, _m.start()) + 1}: `EstadoDaTela` com "
+            f"`Visibility` amarrada — o componente atribui a própria Visibility como valor "
+            f"LOCAL e apaga esse binding, e aí o vazio passa a aparecer sobre a tela errada. "
+            f"Use `Ativo=\"{{Binding …}}\"`."
+        )
+
+# --------------------------------------------------------------- checagem 31
+# TEMPLATE COM `SharedSizeGroup` USADO SEM `Grid.IsSharedSizeScope`.
+#
+# `SharedSizeGroup` só alinha dentro de um ESCOPO. Cada linha de uma lista é um Grid
+# próprio, então sem o escopo declarado por quem monta a lista as larguras são resolvidas
+# POR LINHA: a linha que tem um selo a mais fica com a última coluna mais larga e empurra
+# as colunas vizinhas daquela linha. A lista deixa de ter colunas e vira uma pilha de
+# linhas que por acaso se parecem.
+#
+# O `ItemPacienteLinha` já trazia o aviso escrito no próprio comentário ("o escopo é
+# declarado por quem monta a lista") — e três das quatro telas que o usam esqueceram.
+# Contrato que depende de alguém lembrar é o que esta checagem existe para substituir.
+_com_grupo = {
+    m.group(1)
+    for _f in xamls() if "Styles" in _f.parts
+    for m in re.finditer(
+        r'<DataTemplate x:Key="([^"]+)"(?:(?!</DataTemplate>).)*?SharedSizeGroup=',
+        _f.read_text(encoding="utf-8"), re.S)
+}
+
+for _arq in xamls():
+    if "Styles" in _arq.parts:
+        continue
+    _texto = _arq.read_text(encoding="utf-8")
+    # ⚠️ Sem tirar os comentários, o COMENTÁRIO que explica a regra satisfaz a checagem e
+    # ela cala para sempre. É o inverso da lição da checagem 19 (lá a prosa fazia disparar,
+    # aqui faz silenciar) e o silêncio é pior: ninguém percebe uma checagem que passou.
+    if "IsSharedSizeScope" in re.sub(r"<!--.*?-->", "", _texto, flags=re.S):
+        continue
+    for _tpl in sorted(_com_grupo):
+        if f"{{StaticResource {_tpl}}}" not in _texto:
+            continue
+        erros.append(
+            f"{rel(_arq)}: usa `{_tpl}`, que alinha as colunas por `SharedSizeGroup`, e "
+            f"não declara `Grid.IsSharedSizeScope=\"True\"` em nenhum ancestral — sem o "
+            f"escopo cada linha resolve a largura sozinha e a lista sai desalinhada."
+        )
+
+# Autoteste: a checagem tem de conhecer o template que originou a regra.
+if _com_grupo and "ItemPacienteLinha" not in _com_grupo:
+    erros.append(
+        "verificar-suite: a checagem 31 não achou `SharedSizeGroup` no `ItemPacienteLinha` "
+        "— o padrão de declaração mudou e ela parou de olhar o que deveria."
+    )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

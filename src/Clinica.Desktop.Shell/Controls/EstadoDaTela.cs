@@ -118,6 +118,34 @@ public class EstadoDaTela : Control
         set => SetValue(VazioProperty, value);
     }
 
+    /// <summary>
+    /// O componente está VALENDO. Falso = some, qualquer que seja o estado.
+    /// </summary>
+    /// <remarks>
+    /// ⚠️ Existe para que ninguém precise amarrar <c>Visibility</c> neste controle — e
+    /// amarrar era o que várias telas faziam.
+    ///
+    /// <b>Não funciona, e falha de um jeito traiçoeiro.</b> O componente DECIDE a própria
+    /// <c>Visibility</c> em <c>Recalcular()</c>, atribuindo um valor LOCAL — e valor local
+    /// atribuído por código <b>substitui o binding</b>. O XAML liga a visibilidade a
+    /// "estou mostrando o prontuário"; na primeira mudança de `Itens`, `Carregando` ou
+    /// `NaoVerificado`, o `Recalcular` sobrescreve e o binding morre. Daí em diante o vazio
+    /// aparece quando a LISTA está vazia, e não quando a tela dele está aberta: foi assim
+    /// que "Nenhuma sessão registrada" ficou escrito por cima da lista de pacientes, em
+    /// produção.
+    ///
+    /// Com <c>Ativo</c> a condição entra no cálculo em vez de brigar com ele.
+    /// </remarks>
+    public static readonly DependencyProperty AtivoProperty =
+        DependencyProperty.Register(nameof(Ativo), typeof(bool), typeof(EstadoDaTela),
+            new PropertyMetadata(true, AoMudar));
+
+    public bool Ativo
+    {
+        get => (bool)GetValue(AtivoProperty);
+        set => SetValue(AtivoProperty, value);
+    }
+
     /// <summary>Ícone do estado vazio (fonte de ícones do design system).</summary>
     public static readonly DependencyProperty GlifoProperty =
         DependencyProperty.Register(nameof(Glifo), typeof(string), typeof(EstadoDaTela),
@@ -209,7 +237,9 @@ public class EstadoDaTela : Control
             : (Vazio ?? Vazia(Itens)) ? EstadoDeLista.Vazio
             : EstadoDeLista.Conteudo;
 
-        Visibility = Estado == EstadoDeLista.Conteudo
+        // `Ativo` entra AQUI, e não como binding de Visibility: esta atribuição é um
+        // valor local e apagaria qualquer binding que a tela tivesse posto.
+        Visibility = !Ativo || Estado == EstadoDeLista.Conteudo
             ? Visibility.Collapsed
             : Visibility.Visible;
     }

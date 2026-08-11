@@ -1838,6 +1838,33 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   cadastrado pela carteirinha, quem chegou sem documento —, e vazio vira NULO para dois
   documentos "" não serem iguais.
 
+- **`EstadoDaTela` com `Visibility` AMARRADA: o binding morre e o vazio vaza pela tela**
+  (parcela 58 — o cliente mandou a foto de "Nenhuma sessão registrada" escrito por cima da
+  lista de pacientes CHEIA, no Prontuário e nas Prescrições da Recepção). O componente
+  decide a própria `Visibility` em `Recalcular()`, atribuindo um valor **local** — e em WPF
+  valor local atribuído por código **substitui o binding**. A tela ligava a visibilidade a
+  "estou mostrando o prontuário"; na primeira mudança de `Itens`, `Carregando` ou
+  `NaoVerificado` o `Recalcular` sobrescrevia e o binding deixava de existir. Daí em diante
+  o vazio aparecia quando a LISTA estava vazia, e não quando a tela dele estava aberta.
+  A saída é `Ativo`, que entra no CÁLCULO em vez de brigar com ele; e o componente volta
+  para dentro da região a que pertence, como último filho do Grid dela — na raiz da tela
+  ele cobre tudo, que é o defeito que a PR #113 já tinha corrigido noutras telas. Virou a
+  **checagem 30**.
+- **`SharedSizeGroup` sem `Grid.IsSharedSizeScope` não alinha NADA** (parcela 58): cada
+  linha de uma lista é um Grid próprio, então sem o escopo as larguras são resolvidas POR
+  LINHA — a linha que tem o selo "Carteirinha vencida" fica com a última coluna mais larga
+  e empurra o telefone daquela linha para a esquerda. A lista deixa de ter colunas e vira
+  uma pilha de linhas que por acaso se parecem. O `ItemPacienteLinha` trazia o aviso
+  escrito no próprio comentário ("o escopo é declarado por quem monta a lista") e **três
+  das quatro telas que o usam esqueceram**. Contrato que depende de alguém lembrar é o que
+  a **checagem 31** existe para substituir.
+  ⚠️ A checagem nasceu CEGA e o autoteste é que mostrou: ela procurava
+  `IsSharedSizeScope` no texto do arquivo, e o **comentário que explica a regra** satisfazia
+  a busca — a tela ficava desalinhada com a checagem verde. É o inverso da lição da
+  checagem 19 (lá a prosa fazia disparar, aqui fazia silenciar), e o silêncio é pior:
+  ninguém percebe uma checagem que passou. **Toda checagem que procura uma marca no texto
+  tem de tirar os comentários antes.**
+
 - **A rodada bloqueante é DIRIGIDA a quem fatura, e a dispensa é um BIT — não o contrário**
   (`Permissao.DispensarRodadaPendencias`, parcela 57): a trava de 10 dias abria para
   qualquer um que pudesse baixar OU marcar NC, e o Gerente Geral recebe `Todas` — então a

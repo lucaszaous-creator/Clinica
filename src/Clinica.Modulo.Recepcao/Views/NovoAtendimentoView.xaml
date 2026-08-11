@@ -123,7 +123,13 @@
                                    Style="{StaticResource TextoSuave}"
                                    Foreground="{StaticResource Brush.Erro}" />
 
-                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                        <!-- ⚠️ `Grid.IsSharedSizeScope`: o `ItemPacienteLinha` alinha as colunas por
+                     `SharedSizeGroup`, e sem o ESCOPO declarado aqui cada linha resolve a
+                     largura sozinha — a linha que tem o selo "Carteirinha vencida" fica com a
+                     última coluna mais larga e empurra o telefone daquela linha para a
+                     esquerda. A lista deixa de ter colunas e vira uma pilha de linhas
+                     desalinhadas, que foi o que o cliente viu em produção. -->
+                <ListBox Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
                                  SelectedItem="{Binding Seletor.Selecionado}"
                                  ItemTemplate="{StaticResource ItemPacienteLinha}"
                                  BorderThickness="0" Background="Transparent"
