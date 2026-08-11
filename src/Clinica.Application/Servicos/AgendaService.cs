@@ -42,7 +42,7 @@ public sealed class AgendaService
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        bool encaixe = false)
+        bool encaixe = false, string? operador = null)
     {
         // Variante do catálogo: a base (comportamento) vem do código. Sem código, usa o enum.
         if (modalidadeCodigo is not null)
@@ -75,7 +75,12 @@ public sealed class AgendaService
             ProfissionalId = profissionalId,
             SalaId = salaId,
             DuracaoMinutos = duracaoMinutos,
-            Encaixe = encaixe
+            Encaixe = encaixe,
+            // Quem marcou, e quando. O operador chega da TELA (`SessaoUsuario.Atual`) —
+            // este serviço não lê a sessão, pela mesma razão dos demais: é o chamador que
+            // sabe quem está logado.
+            CriadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),
+            CriadoEm = DateTime.Now
         };
         await _repo.AdicionarAgendamentoAsync(ag, ct);
         await _repo.SalvarAsync(ct);
@@ -299,7 +304,7 @@ public sealed class AgendaService
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, string? operador = null)
     {
         if (quantidade < 2)
             throw new InvalidOperationException(
@@ -332,7 +337,7 @@ public sealed class AgendaService
                     modalidadeCodigo: modalidadeCodigo,
                     especialidadeConsultaCodigo: especialidadeConsultaCodigo,
                     profissionalId: profissionalId, salaId: salaId,
-                    duracaoMinutos: duracaoMinutos);
+                    duracaoMinutos: duracaoMinutos, operador: operador);
 
                 agendamento.SerieId = serieId;
                 marcados.Add(agendamento);
@@ -571,7 +576,8 @@ public sealed class AgendaService
     /// mostrado ao balcão pelo `PainelRecepcaoService` junto dos pacientes do dia. Não
     /// faltava lembrete — sobrava um, no lugar errado.
     /// </summary>
-    public async Task<ResultadoLancamento> ConfirmarPresencaAsync(int agendamentoId, CancellationToken ct = default)
+    public async Task<ResultadoLancamento> ConfirmarPresencaAsync(
+        int agendamentoId, CancellationToken ct = default, string? operador = null)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
@@ -583,7 +589,8 @@ public sealed class AgendaService
             ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista, ag.Observacoes, ct,
             especialidadeConsulta: ag.EspecialidadeConsulta,
             modalidadeCodigo: ag.ModalidadeCodigo,
-            especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo);
+            especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo,
+            operador: operador);
 
         ag.Status = StatusAgendamento.Realizado;
         ag.AtendimentoId = resultado.Atendimento.Id;

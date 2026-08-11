@@ -112,6 +112,13 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data, StringFormat=dd/MM/yyyy}" Width="Auto" />
                 <DataGridTextColumn Header="Atend. nº" Binding="{Binding Atendimento.Numero}" Width="Auto" />
+                <!-- Quem LANÇOU o atendimento (parcela 58). A direção pediu isso: a
+                     trilha de auditoria responde "quem fez isso?" desde a parcela 21, mas
+                     ela é outra tela, filtrada por período — e a pergunta que se faz
+                     auditando a consulta é sobre AQUELA linha. Vazio nas guias anteriores
+                     a esta parcela: inventar um nome seria pior. -->
+                <DataGridTextColumn Header="Lançou por" Binding="{Binding Atendimento.LancadoPor}"
+                                    Width="Auto" />
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
                                     Binding="{Binding Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />

@@ -621,7 +621,7 @@
                                     <ColumnDefinition Width="130" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE" Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE / QUEM LANÇOU" Style="{StaticResource Rotulo}" Margin="0" />
                                 <TextBlock Grid.Column="1" Text="GUIAS" Style="{StaticResource Rotulo}" Margin="0" />
                                 <TextBlock Grid.Column="2" Text="ATENDIMENTO" Style="{StaticResource Rotulo}" Margin="0" />
                                 <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
@@ -642,6 +642,14 @@
                                                 <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Modalidade}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                <!-- Quem lançou (parcela 58). A conferência do dia é
+                                                     onde a pergunta da direção nasce, e até aqui a
+                                                     resposta só existia na trilha de auditoria — em
+                                                     outra tela e em outro app. -->
+                                                <TextBlock Text="{Binding Lancamento}"
                                                            FontSize="{StaticResource Fonte.Legenda}"
                                                            Foreground="{StaticResource Brush.Texto.Secundario}"
                                                            Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />

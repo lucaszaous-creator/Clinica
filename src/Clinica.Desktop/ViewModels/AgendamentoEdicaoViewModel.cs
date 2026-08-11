@@ -251,7 +251,8 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
             else
                 await agenda.AgendarAsync(paciente.Id, dataHora, Modalidade, Observacoes,
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
-                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
+                    operador: SessaoUsuario.Atual.Operador);
         }
         catch (Exception ex)
         {

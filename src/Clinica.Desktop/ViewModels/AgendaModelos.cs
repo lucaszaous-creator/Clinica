@@ -34,6 +34,22 @@ public sealed record CartaoAgendamento(
     /// agenda passaria a discordar da aba Consultas sobre o mesmo paciente.
     /// </summary>
     public bool TemAvisoConsulta => SeloConsulta is not null;
+
+    /// <summary>
+    /// Quem LANÇOU o horário, e quando (parcela 58) — na dica do cartão.
+    ///
+    /// A direção pediu para ver de quem é cada lançamento. A trilha de auditoria responde
+    /// isso desde a parcela 21, mas ela é outra tela, filtrada por período; a pergunta que
+    /// se faz olhando a agenda é sobre AQUELA linha, agora.
+    ///
+    /// Horário anterior à parcela 58 não guarda o dado, e a frase DIZ isso: em branco não
+    /// se distingue de "não carregou".
+    /// </summary>
+    public string Lancamento => string.IsNullOrWhiteSpace(Item.CriadoPor)
+        ? "Marcado antes de o sistema passar a registrar quem lança — sem autoria."
+        : Item.CriadoEm is { } quando
+            ? $"Marcado por {Item.CriadoPor} em {quando:dd/MM/yyyy HH:mm}"
+            : $"Marcado por {Item.CriadoPor}";
 }
 
 /// <summary>

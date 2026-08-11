@@ -201,6 +201,72 @@ public class AgendaServiceTests : IDisposable
         evento.Detalhe.Should().Contain("20/07/2026 14:00").And.Contain("21/07/2026 16:30");
     }
 
+    // ================================================================
+    // QUEM LANÇOU (parcela 58)
+    //
+    // A direção pediu para ver de quem é cada lançamento. A trilha de auditoria já
+    // responde "quem fez isso?" desde a parcela 21, mas ela é uma tela à parte, filtrada
+    // por período — e a pergunta que se faz olhando a agenda é sobre AQUELA linha, agora.
+    // ================================================================
+
+    /// <summary>
+    /// O horário guarda quem o marcou e quando. É o operador do LOGIN, e é a TELA que o
+    /// informa: no balcão duas pessoas dividem a máquina, e o serviço não lê a sessão.
+    /// </summary>
+    [Fact]
+    public async Task Agendar_GuardaQuemMarcouEQuando()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var antes = DateTime.Now.AddSeconds(-1);
+
+        var ag = await _agenda.AgendarAsync(
+            pacienteId, new DateTime(2026, 7, 20, 14, 0, 0),
+            ModalidadeAtendimento.AcupunturaSimples, null, operador: "  Ana Paula  ");
+
+        var gravado = await _db.Agendamentos.AsNoTracking().SingleAsync(a => a.Id == ag.Id);
+        gravado.CriadoPor.Should().Be("Ana Paula", "o nome é aparado antes de gravar");
+        gravado.CriadoEm.Should().NotBeNull().And.BeAfter(antes);
+    }
+
+    /// <summary>
+    /// Sem operador informado, a autoria fica NULA — nunca uma string vazia nem o usuário
+    /// do Windows. Nulo é o que faz a tela escrever "marcado antes de o sistema registrar
+    /// quem lança"; "" apareceria como um nome em branco, indistinguível de "não carregou".
+    /// </summary>
+    [Fact]
+    public async Task Agendar_SemOperador_NaoInventaAutoria()
+    {
+        var pacienteId = await CriarPacienteAsync();
+
+        var ag = await _agenda.AgendarAsync(
+            pacienteId, new DateTime(2026, 7, 20, 14, 0, 0),
+            ModalidadeAtendimento.AcupunturaSimples, null, operador: "   ");
+
+        var gravado = await _db.Agendamentos.AsNoTracking().SingleAsync(a => a.Id == ag.Id);
+        gravado.CriadoPor.Should().BeNull();
+    }
+
+    /// <summary>
+    /// O atendimento gerado pela confirmação de presença herda a autoria de quem clicou —
+    /// e não a de quem marcou o horário semanas atrás. São dois atos e duas pessoas: o
+    /// segundo é o que gera as GUIAS, e é sobre ele que a direção pergunta.
+    /// </summary>
+    [Fact]
+    public async Task ConfirmarPresenca_GuardaQuemConcluiuOAtendimento()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var ag = await _agenda.AgendarAsync(
+            pacienteId, new DateTime(2026, 7, 20, 14, 0, 0),
+            ModalidadeAtendimento.AcupunturaSimples, null, operador: "quem marcou");
+
+        var resultado = await _agenda.ConfirmarPresencaAsync(ag.Id, operador: "quem atendeu");
+
+        var atendimento = await _db.Atendimentos.AsNoTracking()
+            .SingleAsync(a => a.Id == resultado.Atendimento.Id);
+        atendimento.LancadoPor.Should().Be("quem atendeu");
+        atendimento.LancadoEm.Should().NotBeNull();
+    }
+
     public void Dispose()
     {
         _db.Dispose();

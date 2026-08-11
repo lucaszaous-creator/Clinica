@@ -64,7 +64,7 @@ public sealed class AtendimentoService
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
         CancellationToken ct = default, bool registrarNaAgenda = false, TipoCodigo? primeiroCodigo = null,
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
-        string? especialidadeConsultaCodigo = null)
+        string? especialidadeConsultaCodigo = null, string? operador = null)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -89,7 +89,11 @@ public sealed class AtendimentoService
             EspecialidadeConsultaCodigo = ehConsulta
                 ? especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString()
                 : null,
-            Observacoes = observacoes
+            Observacoes = observacoes,
+            // Quem lançou, e quando. Vem do chamador (`SessaoUsuario.Atual.Operador` na
+            // tela): este serviço é compartilhado com o faturamento e não lê a sessão.
+            LancadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),
+            LancadoEm = DateTime.Now
         };
 
         var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);

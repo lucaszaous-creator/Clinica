@@ -1888,6 +1888,97 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ninguém percebe uma checagem que passou. **Toda checagem que procura uma marca no texto
   tem de tirar os comentários antes.**
 
+- **A AGENDA era uma pilha de cartões; agenda é LINHA DO TEMPO** (parcela 58 — *"o iClinic
+  está dando um banho na gente nessa questão de fila/agenda"*). A da Recepção empilhava os
+  horários numa coluna por profissional, contíguos: o das 9h colado no das 15h. Ela
+  respondia **"quais horários existem"**, e a pergunta do balcão com o paciente na frente é
+  outra — **"quando cabe?"**. Numa pilha, ela só se responde lendo cartão por cartão; numa
+  grade, o **vazio tem tamanho**, e é isso que a torna legível de longe.
+  As decisões:
+  (a) **O vão livre é CLICÁVEL e abre o formulário já na hora e na coluna clicadas**
+  (`ProfissionalPreferidoId` — um ID, não a entidade, porque a lista de profissionais é
+  carregada do banco DEPOIS do construtor, e atribuir a entidade de fora abriria o combo em
+  branco justamente na coluna que a pessoa apontou). Redigitar a hora que se acabou de
+  apontar com o dedo é onde ela sai errada.
+  (b) **A janela de horas é a padrão da clínica ESTICADA pelo que existe no dia** — nunca
+  00:00–23:59, que daria 48 faixas vazias para rolar antes do primeiro paciente; e uma
+  sessão às 6h30 puxa a grade para cima em vez de ficar de fora.
+  (c) **A sessão de uma hora marca a faixa seguinte como CONTINUAÇÃO**, senão a meia hora
+  de dentro dela apareceria vaga e a recepção marcaria por cima.
+  (d) **Cancelado e falta ficam apagados, nunca sumindo** (a regra da folha do dia, parcela
+  29) — e o vão deles volta a ser oferecido, porque o horário de fato vagou.
+  (e) **Colunas de largura IGUAL** (`UniformGrid`), que é o que mantém cabeçalho e faixas no
+  mesmo prumo sem uma única `SharedSizeGroup`; o cabeçalho rola JUNTO, porque congelá-lo
+  exigiria dois `ScrollViewer` sincronizados à mão — mais peça para desalinhar do que valor.
+  (f) **Os sete botões saíram do cartão** e foram para a janela do horário. Sete botões em
+  cada um de quarenta cartões é uma tela em que o olho para de distinguir o frequente do
+  raro — e não caberiam em 46 px. A janela **não executa nada**: devolve a INTENÇÃO, e quem
+  age é a ViewModel, para as sete ações continuarem com um dono só (permissão,
+  recarregamento e erro no mesmo lugar).
+  (g) **A lista de espera saiu da faixa lateral de 320 px** e virou botão com a contagem no
+  rótulo. Ela se consulta quando um horário VAGA; a agenda é o que se olha o tempo todo.
+  E o "quem chamar para as 14h" ABRE a janela em vez de repintar um painel que ninguém
+  estava olhando.
+  ⚠️ **A janela de cima passou a ser dona do próximo modal** (`Dono()` = a janela ATIVA, não
+  `MainWindow`): com a lista de espera aberta, o formulário nasceria ATRÁS dela, e a
+  recepção concluiria que o clique não fez nada.
+
+- **`WrapPanel` que nunca dobra a linha** (parcela 58, checagem 32): a barra da agenda tem
+  nove controles. Num `Grid` de coluna `Width="Auto"` — ou docado num `DockPanel`, ou dentro
+  de um `StackPanel` horizontal — o `WrapPanel` é medido com largura **infinita**: ele
+  alinha tudo numa linha só e empurra o título para fora da tela. O `Auto` engana
+  especialmente, porque a intenção declarada ("ocupa o que precisar") é exatamente o que
+  impede a quebra. A saída é fazê-lo o filho que **PREENCHE** e encostá-lo com
+  `HorizontalAlignment`. Nenhuma rede pegava — XAML bem-formado, nada lança —, e o defeito
+  **não reproduz na máquina de quem escreve**: só na largura errada.
+
+- **Kanban se ARRASTA — e o arrasto não pode ser o único caminho** (parcela 58): a fila
+  ganhou arrastar-e-soltar entre as cinco raias, com realce da raia de destino (alvo de
+  soltar sem realce é alvo que se erra, e errar aqui manda o paciente para a coluna do
+  lado). Três regras:
+  **as transições legais são EXATAMENTE as dos botões** — não uma segunda regra escrita no
+  arrasto, porque duas definições de "para onde este cartão pode ir" divergem na primeira
+  correção e a de baixo é a que ninguém lembra de ajustar; **para trás anda um passo por
+  vez**, porque `VoltarEtapaAsync` apaga UM carimbo de hora e apagar três de uma vez para
+  atender a um arrasto longo inventaria uma linha do tempo que não aconteceu; e
+  **movimento impossível não é silêncio** — a tela diz por que não deu (a lição da parcela
+  41 aplicada ao gesto).
+  O handler de `PreviewMouseLeftButtonDown` **não marca o evento como tratado** e o arrasto
+  só começa depois do limiar do sistema: sem isso o clique nunca chegaria aos botões do
+  cartão, e o quadro perderia a metade que funciona para quem não arrasta nada.
+  ⚠️ **O menu "⋯" e o arrasto moram em CÓDIGO, não em XAML**: um `ContextMenu` declarado
+  vive num `Popup`, fora da árvore visual da tela, e os comandos precisariam de
+  `PlacementTarget.Tag` para chegar ao ViewModel — binding que erra o caminho falha em
+  RUNTIME, calado, que é a categoria que nenhuma rede local pega. Em código, o
+  `compilar-sombra` pega.
+
+- **Quem LANÇOU o atendimento e o agendamento** (parcela 58): a direção pediu para ver de
+  quem é cada lançamento. A trilha de auditoria responde "quem fez isso?" desde a parcela
+  21 — mas ela é outra tela, filtrada por período, e a pergunta que se faz olhando a agenda
+  é sobre **aquela linha, agora**. `Agendamento.CriadoPor/CriadoEm` e
+  `Atendimento.LancadoPor/LancadoEm` são migration **aditiva** (quatro `AddColumn`), e o
+  operador chega da TELA (`SessaoUsuario.Atual.Operador`): o serviço não lê a sessão, pela
+  razão de sempre — é o chamador que sabe quem está logado, e no balcão duas pessoas
+  dividem a máquina.
+  **Nulo é decisão**: linha anterior à parcela guarda `null`, nunca `""` nem o usuário do
+  Windows, e a tela escreve *"marcado antes de o sistema passar a registrar quem lança"* —
+  em branco não se distingue de "não carregou".
+  A confirmação de presença leva **quem CONCLUIU**, não quem marcou o horário semanas
+  atrás: são dois atos e duas pessoas, e o segundo é o que gera as GUIAS.
+
+- **A Agenda saiu do perfil Faturista** (parcela 58): a direção pediu *"retire a Agenda do
+  módulo faturamento ou permita granular que o faturista possa ou não abrir um
+  agendamento"*, e a razão é a mesma que derrubou o agendamento fantasma do 2º código —
+  horário aberto do lado do faturamento aparece na fila do balcão e na agenda de quem
+  atende. A escolha foi **granular, não amputação**: `PerfilAcesso.Faturista` perdeu
+  `EditarAgenda` e **manteve `VerAgenda`**, porque conferir o dia é parte de faturá-lo, e
+  tirar as duas juntas seria tirar capacidade de quem a usava (a regra 3 do bloco do
+  faturamento). Devolver é um clique em Acessos.
+  As **duas barreiras** entraram no `AgendaViewModel` do faturamento no mesmo commit —
+  `PodeAgendar` nos botões e `Exigir` em `AbrirCadastroAsync`, que é o ponto único por onde
+  Novo, Remarcar e "agendar na faixa" passam. Bit sem guarda seria só uma caixinha na tela
+  de Acessos.
+
 - **A rodada bloqueante é DIRIGIDA a quem fatura, e a dispensa é um BIT — não o contrário**
   (`Permissao.DispensarRodadaPendencias`, parcela 57): a trava de 10 dias abria para
   qualquer um que pudesse baixar OU marcar NC, e o Gerente Geral recebe `Todas` — então a

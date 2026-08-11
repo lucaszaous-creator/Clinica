@@ -28,17 +28,97 @@ public sealed class CartaoAgenda
     public required string Paciente { get; init; }
     public string? Telefone { get; init; }
     public required DateTime DataHora { get; init; }
+
+    /// <summary>Fim previsto — é o que dá ao cartão a ALTURA dele na linha do tempo.</summary>
+    public required DateTime Fim { get; init; }
+
     public required string Modalidade { get; init; }
     public required string Sala { get; init; }
+
+    /// <summary>
+    /// Quem atende. Na grade por profissional a coluna já responde isto; no modo SEMANA,
+    /// em que a coluna é o dia, sem esta linha o cartão não diz com quem é a sessão.
+    /// </summary>
+    public required string Profissional { get; init; }
+
     public required string StatusRotulo { get; init; }
     public required bool EhEncaixe { get; init; }
     public required bool EhRetornoDoSegundoCodigo { get; init; }
     public required bool VeioDaListaEspera { get; init; }
 
+    public string? Observacoes { get; init; }
+
+    /// <summary>
+    /// Quem LANÇOU o horário, e quando — escrito por extenso (parcela 58).
+    ///
+    /// A direção pediu para ver de quem é cada lançamento. A trilha de auditoria responde
+    /// isso desde a parcela 21, mas ela é outra tela, filtrada por período; a pergunta que
+    /// se faz olhando a agenda é sobre AQUELA linha, agora.
+    ///
+    /// Horário anterior à parcela 58 não tem o dado, e a frase DIZ isso em vez de ficar em
+    /// branco: em branco não se distingue de "não carregou".
+    /// </summary>
+    public required string Lancamento { get; init; }
+
     /// <summary>Ainda dá para remarcar/cancelar (não virou atendimento).</summary>
     public required bool EmAberto { get; init; }
 
+    /// <summary>Saiu do fluxo do dia: o horário está livre de novo, mas a linha fica.</summary>
+    public required bool ForaDoDia { get; init; }
+
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
+
+    public bool TemObservacoes => !string.IsNullOrWhiteSpace(Observacoes);
+
+    /// <summary>A linha de baixo do cartão: modalidade · profissional · sala.</summary>
+    public string Contexto => string.Join(" · ", new[] { Modalidade, Profissional, Sala }
+        .Where(p => !string.IsNullOrWhiteSpace(p) && p != "—"));
+}
+
+/// <summary>
+/// Uma célula da linha do tempo: o cruzamento de uma faixa de horário com uma coluna.
+///
+/// Ela tem três estados, e os três precisam ser distinguíveis à distância — é disso que
+/// a agenda vive:
+/// <list type="bullet">
+/// <item><b>Livre</b> — dá para marcar aqui, e o clique já abre o formulário nesta hora
+/// e nesta coluna. É o gesto que a recepção repete o dia inteiro.</item>
+/// <item><b>Ocupada</b> — tem cartão. Mais de um quando houve encaixe.</item>
+/// <item><b>Continuação</b> — coberta por uma sessão que começou antes. Não é livre e não
+/// repete o cartão; sem ela, uma sessão de uma hora pareceria deixar meia hora vaga.</item>
+/// </list>
+/// </summary>
+public sealed class CelulaAgenda
+{
+    public required int? ProfissionalId { get; init; }
+
+    /// <summary>Dia + hora desta célula — é o que o formulário recebe já preenchido.</summary>
+    public required DateTime Quando { get; init; }
+
+    public required ObservableCollection<CartaoAgenda> Cartoes { get; init; }
+
+    public required bool Continuacao { get; init; }
+
+    public bool Livre => Cartoes.Count == 0 && !Continuacao;
+
+    /// <summary>Já passou: marcar para trás é quase sempre engano de clique.</summary>
+    public required bool NoPassado { get; init; }
+
+    /// <summary>Só o que está livre e no futuro convida a marcar.</summary>
+    public bool PodeMarcar => Livre && !NoPassado;
+}
+
+/// <summary>Uma faixa de horário da grade — uma LINHA, com uma célula por coluna.</summary>
+public sealed class FaixaAgenda
+{
+    public required TimeOnly Hora { get; init; }
+
+    /// <summary>"09:00" na hora cheia, "" na meia — a régua não precisa repetir.</summary>
+    public required string Rotulo { get; init; }
+
+    public required bool HoraCheia { get; init; }
+
+    public required ObservableCollection<CelulaAgenda> Celulas { get; init; }
 }
 
 /// <summary>Uma coluna da grade — um profissional (ou o resíduo "sem profissional").</summary>
@@ -48,6 +128,13 @@ public sealed class ColunaAgenda
     public required string Nome { get; init; }
     public required string Resumo { get; init; }
     public required ObservableCollection<CartaoAgenda> Horarios { get; init; }
+
+    /// <summary>
+    /// O dia desta coluna. No modo DIA é sempre o dia aberto; no modo SEMANA cada coluna
+    /// é um dia diferente, e é daqui que a célula livre tira a data que leva ao formulário.
+    /// </summary>
+    public required DateOnly Data { get; init; }
+
     public bool Vazia => Horarios.Count == 0;
 }
 
@@ -78,6 +165,37 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     public ObservableCollection<ColunaAgenda> Colunas { get; } = [];
     public ObservableCollection<LinhaListaEspera> Espera { get; } = [];
+
+    /// <summary>
+    /// A LINHA DO TEMPO — as faixas de meia hora, de cima a baixo, com uma célula por
+    /// coluna.
+    ///
+    /// É a diferença entre uma agenda e uma lista de horários: empilhados, o das 9h e o
+    /// das 15h ficam colados, e a pergunta do balcão ("quando cabe?") só se responde lendo
+    /// cartão por cartão. Na grade, o vazio TEM tamanho — e é clicável.
+    /// </summary>
+    public ObservableCollection<FaixaAgenda> Faixas { get; } = [];
+
+    /// <summary>Passo da grade. É a duração padrão da clínica (<see cref="Agendamento.DuracaoPadraoMinutos"/>).</summary>
+    public const int PassoMinutos = Agendamento.DuracaoPadraoMinutos;
+
+    /// <summary>
+    /// Janela padrão da grade. Ela ABRE nestas horas e se ESTICA para caber o que houver
+    /// fora delas — nunca 00:00–23:59, que daria 48 faixas vazias para rolar antes do
+    /// primeiro paciente.
+    /// </summary>
+    private static readonly TimeOnly AberturaPadrao = new(7, 0);
+    private static readonly TimeOnly FechamentoPadrao = new(20, 0);
+
+    /// <summary>
+    /// Piso de largura da grade: a régua mais uma coluna de 190 px por profissional.
+    /// Abaixo disso o nome do paciente vira reticências, então o que cede é a tela — a
+    /// grade rola na horizontal.
+    /// </summary>
+    [ObservableProperty] private double _larguraGrade = 800;
+
+    /// <summary>Quantas colunas a linha do tempo tem (o <c>UniformGrid</c> de cada faixa).</summary>
+    [ObservableProperty] private int _quantidadeColunas = 1;
 
     [ObservableProperty] private DateTime _dia = DateTime.Today;
 
@@ -154,6 +272,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     partial void OnSugestaoParaChanged(DateTime? value)
     {
         OnPropertyChanged(nameof(TemSugestao));
+        OnPropertyChanged(nameof(EsperaResumo));
         TituloEspera = value is { } horario
             ? $"Quem chamar para {horario:dd/MM HH:mm}"
             : "Lista de espera";
@@ -207,10 +326,12 @@ public sealed partial class AgendaViewModel : ObservableObject
             SemProfissionais = profissionais.Count == 0;
 
             Colunas.Clear();
+            Faixas.Clear();
 
             if (ModoSemana)
             {
                 await MontarSemanaAsync(agenda, profissionais);
+                MontarGrade();
                 await CarregarEsperaAsync(espera);
                 return;
             }
@@ -227,20 +348,22 @@ public sealed partial class AgendaViewModel : ObservableObject
                 : profissionais;
 
             foreach (var p in visiveis)
-                Colunas.Add(MontarColuna(p.Id, p.Rotulo, doDia.Where(a => a.ProfissionalId == p.Id)));
+                Colunas.Add(MontarColuna(
+                    p.Id, p.Rotulo, dia, doDia.Where(a => a.ProfissionalId == p.Id)));
 
             // "Sem profissional" só aparece quando existe: é resíduo da agenda antiga
             // (e do faturamento, que marca sem informar quem atende), não uma pessoa.
             // Filtrando por "minha agenda", ele não é meu — fica de fora.
             var orfaos = doDia.Where(a => a.ProfissionalId is null).ToList();
             if (orfaos.Count > 0 && visiveis.Count == profissionais.Count)
-                Colunas.Add(MontarColuna(null, "Sem profissional", orfaos));
+                Colunas.Add(MontarColuna(null, "Sem profissional", dia, orfaos));
 
             var ocupando = visiveis.Count == profissionais.Count
                 ? doDia.Count(a => a.OcupaAgenda)
                 : doDia.Count(a => a.OcupaAgenda && a.ProfissionalId == meu);
             Resumo = $"{ocupando} horário(s) no dia · {Colunas.Count} coluna(s)";
 
+            MontarGrade();
             await CarregarEsperaAsync(espera);
         }
         catch (Exception ex)
@@ -295,6 +418,7 @@ public sealed partial class AgendaViewModel : ObservableObject
             Colunas.Add(MontarColuna(
                 null,
                 $"{Dias[i]} {quando:dd/MM}",
+                DateOnly.FromDateTime(quando),
                 recorte));
         }
 
@@ -304,7 +428,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     private static readonly string[] Dias = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 
     private static ColunaAgenda MontarColuna(
-        int? profissionalId, string nome, IEnumerable<Agendamento> agendamentos)
+        int? profissionalId, string nome, DateOnly data, IEnumerable<Agendamento> agendamentos)
     {
         var cartoes = new ObservableCollection<CartaoAgenda>();
         var ocupando = 0;
@@ -315,22 +439,27 @@ public sealed partial class AgendaViewModel : ObservableObject
             cartoes.Add(new CartaoAgenda
             {
                 AgendamentoId = a.Id,
-                ProfissionalId = profissionalId,
+                ProfissionalId = profissionalId ?? a.ProfissionalId,
                 SerieId = a.SerieId,
                 Faixa = $"{a.DataHora:HH:mm}–{a.FimPrevisto:HH:mm}",
                 Paciente = a.Paciente?.Nome ?? "(paciente removido)",
                 Telefone = a.Paciente?.Telefone,
                 DataHora = a.DataHora,
+                Fim = a.FimPrevisto,
                 // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia
                     // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
                     Modalidade = CatalogoModalidades.Nome(
                         a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
                 Sala = a.Sala?.Nome ?? "—",
+                Profissional = a.Profissional?.Rotulo ?? "sem profissional",
                 StatusRotulo = Rotular(a.Status),
                 EhEncaixe = a.Encaixe,
                 EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
                 VeioDaListaEspera = a.Origem == OrigemAgendamento.ListaEspera,
-                EmAberto = a.Status == StatusAgendamento.Agendado
+                Observacoes = a.Observacoes,
+                Lancamento = DescreverLancamento(a),
+                EmAberto = a.Status == StatusAgendamento.Agendado,
+                ForaDoDia = !a.OcupaAgenda
             });
         }
 
@@ -338,9 +467,109 @@ public sealed partial class AgendaViewModel : ObservableObject
         {
             ProfissionalId = profissionalId,
             Nome = nome,
+            Data = data,
             Resumo = $"{ocupando} horário(s)",
             Horarios = cartoes
         };
+    }
+
+    /// <summary>
+    /// "Marcado por Ana em 08/08/2026 14:32" — ou a frase que assume a lacuna.
+    ///
+    /// Horário anterior à parcela 58 não guarda quem o lançou, e deixar em branco faria a
+    /// tela parecer que não conseguiu carregar. Dizer o que falta, e por quê, é a mesma
+    /// regra do "não verificado" do painel.
+    /// </summary>
+    private static string DescreverLancamento(Agendamento a)
+    {
+        if (string.IsNullOrWhiteSpace(a.CriadoPor))
+            return "Marcado antes de o sistema passar a registrar quem lança — sem autoria.";
+
+        return a.CriadoEm is { } quando
+            ? $"Marcado por {a.CriadoPor} em {quando:dd/MM/yyyy HH:mm}"
+            : $"Marcado por {a.CriadoPor}";
+    }
+
+    /// <summary>
+    /// Monta a linha do tempo a partir das colunas já montadas.
+    ///
+    /// A janela de horas é a padrão da clínica ESTICADA pelo que existe no dia: uma
+    /// sessão às 6h30 puxa a grade para cima em vez de ficar de fora, e um dia inteiro
+    /// dentro do horário comercial não gera faixa vazia nenhuma fora dele.
+    ///
+    /// Cada sessão ocupa a faixa em que COMEÇA e marca as seguintes como continuação até
+    /// o fim previsto. Sem isso, uma sessão de uma hora deixaria a meia hora seguinte
+    /// aparecendo como livre — e a recepção marcaria por cima.
+    /// </summary>
+    private void MontarGrade()
+    {
+        Faixas.Clear();
+        QuantidadeColunas = Math.Max(1, Colunas.Count);
+        LarguraGrade = 64 + 190.0 * QuantidadeColunas;
+
+        if (Colunas.Count == 0) return;
+
+        var todos = Colunas.SelectMany(c => c.Horarios).ToList();
+
+        var inicio = AberturaPadrao;
+        var fim = FechamentoPadrao;
+        foreach (var c in todos)
+        {
+            var comeco = TimeOnly.FromDateTime(c.DataHora);
+            var termino = TimeOnly.FromDateTime(c.Fim);
+            if (comeco < inicio) inicio = comeco;
+            // Sessão que atravessa a meia-noite não estica a grade para trás: o que
+            // importa é o começo, e o fim é arredondado para o fecho do dia.
+            if (termino > fim && termino > comeco) fim = termino;
+        }
+
+        var primeiro = Piso(inicio);
+        var ultimo = Piso(fim);
+        var agora = DateTime.Now;
+
+        for (var minuto = primeiro; minuto <= ultimo; minuto += PassoMinutos)
+        {
+            var hora = new TimeOnly(minuto / 60, minuto % 60);
+            var celulas = new ObservableCollection<CelulaAgenda>();
+
+            foreach (var coluna in Colunas)
+            {
+                var quando = coluna.Data.ToDateTime(hora);
+                var naFaixa = new ObservableCollection<CartaoAgenda>(
+                    coluna.Horarios.Where(h => Piso(TimeOnly.FromDateTime(h.DataHora)) == minuto));
+
+                // Continuação: alguém que começou ANTES desta faixa e ainda não terminou.
+                // Cancelado e falta não cobrem nada — o horário voltou a ficar livre.
+                var coberta = naFaixa.Count == 0 && coluna.Horarios.Any(h =>
+                    !h.ForaDoDia
+                    && Piso(TimeOnly.FromDateTime(h.DataHora)) < minuto
+                    && h.Fim > quando);
+
+                celulas.Add(new CelulaAgenda
+                {
+                    ProfissionalId = coluna.ProfissionalId,
+                    Quando = quando,
+                    Cartoes = naFaixa,
+                    Continuacao = coberta,
+                    NoPassado = quando < agora
+                });
+            }
+
+            Faixas.Add(new FaixaAgenda
+            {
+                Hora = hora,
+                Rotulo = hora.Minute == 0 ? hora.ToString("HH:mm") : string.Empty,
+                HoraCheia = hora.Minute == 0,
+                Celulas = celulas
+            });
+        }
+    }
+
+    /// <summary>Minuto do dia arredondado para BAIXO no passo da grade.</summary>
+    private static int Piso(TimeOnly hora)
+    {
+        var minutos = hora.Hour * 60 + hora.Minute;
+        return minutos - minutos % PassoMinutos;
     }
 
     /// <summary>
@@ -374,6 +603,8 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Prioritario = p.Prioritario,
                 Observacoes = p.Observacoes
             });
+
+        OnPropertyChanged(nameof(EsperaResumo));
     }
 
     private static string DescreverPreferencias(ListaEspera p)
@@ -408,6 +639,66 @@ public sealed partial class AgendaViewModel : ObservableObject
         {
             Data = Dia
         });
+    }
+
+    /// <summary>
+    /// Clique num vão da grade: abre o formulário JÁ NA HORA e NA COLUNA clicadas.
+    ///
+    /// É o gesto que a agenda existe para ter — a recepção vê o buraco das 14h30 do Dr.
+    /// Fulano e marca ali, em vez de abrir um formulário em branco e redigitar a hora e o
+    /// profissional que ela acabou de apontar com o dedo. Redigitar é onde a hora sai
+    /// errada.
+    /// </summary>
+    [RelayCommand]
+    private async Task AgendarNaFaixaAsync(CelulaAgenda? celula)
+    {
+        if (celula is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
+
+        await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
+        {
+            Data = celula.Quando.Date,
+            Hora = celula.Quando.ToString("HH:mm"),
+            ProfissionalPreferidoId = celula.ProfissionalId
+        });
+    }
+
+    /// <summary>
+    /// Abre o horário: tudo o que ele é, e tudo o que dá para fazer com ele.
+    ///
+    /// Os sete botões moravam DENTRO do cartão. Numa grade em que uma faixa de meia hora
+    /// tem ~46 px, isso não cabe — e nunca coube bem: sete botões por cartão em seis
+    /// colunas são mais de quarenta botões na tela, e o olho para de distinguir o que é
+    /// frequente do que é raro. Aqui eles ficam legíveis, com o nome inteiro do paciente,
+    /// o telefone, a observação e QUEM MARCOU o horário — que era o pedido da direção e
+    /// não tinha onde caber no cartão.
+    /// </summary>
+    [RelayCommand]
+    private async Task AbrirHorarioAsync(CartaoAgenda? cartao)
+    {
+        if (cartao is null) return;
+
+        var janela = new Janelas.DetalheHorarioWindow(cartao)
+        {
+            Owner = Dono()
+        };
+
+        janela.ShowDialog();
+
+        // A janela não executa nada: ela devolve a INTENÇÃO, e quem age é esta tela.
+        // Assim as sete ações continuam com um dono só — a regra de permissão, o
+        // recarregamento e o tratamento de erro não ganham uma segunda cópia.
+        switch (janela.Acao)
+        {
+            case Janelas.AcaoHorario.Remarcar: await RemarcarAsync(cartao); break;
+            case Janelas.AcaoHorario.Confirmar: Confirmar(cartao); break;
+            case Janelas.AcaoHorario.Falta: await MarcarFaltaAsync(cartao); break;
+            case Janelas.AcaoHorario.Cancelar: await CancelarAsync(cartao); break;
+            case Janelas.AcaoHorario.QuemChamar: await QuemChamarAsync(cartao); break;
+            case Janelas.AcaoHorario.Comprovante: await ComprovanteAsync(cartao); break;
+            case Janelas.AcaoHorario.CancelarSerie: await CancelarSerieAsync(cartao); break;
+        }
     }
 
     /// <summary>Remarca: move o horário preservando o registro (e o histórico).</summary>
@@ -460,14 +751,58 @@ public sealed partial class AgendaViewModel : ObservableObject
         await CarregarAsync();
 
         // Lista vazia aqui é resposta, não falha: ninguém que espera serve para este
-        // horário, e a recepção precisa saber disso antes de começar a ligar.
+        // horário, e a recepção precisa saber disso antes de começar a ligar. Ela é dita
+        // AQUI, sem abrir uma janela para mostrar uma lista vazia.
         if (Espera.Count == 0)
         {
             Mensagem = $"Ninguém da lista de espera serve para {cartao.DataHora:dd/MM HH:mm} "
                        + "(turno, janela de datas ou profissional pedido).";
             MensagemEhErro = false;
+            return;
         }
+
+        await AbrirEsperaAsync();
     }
+
+    /// <summary>
+    /// Abre a lista de espera.
+    ///
+    /// Ela morava numa FAIXA LATERAL de 320 px, permanente, ao lado da agenda — o padrão
+    /// que o `README.md` proíbe desde a parcela 37 e que a parcela 49 tirou de cinco telas
+    /// do Financeiro. Consultar quem está esperando é o que se faz QUANDO UM HORÁRIO VAGA,
+    /// algumas vezes por dia; a agenda é o que se olha o tempo todo. Os 320 px eram um
+    /// quinto da tela do balcão gastos com a pergunta menos frequente das duas.
+    ///
+    /// O botão carrega a contagem e diz quando a lista está FILTRADA por um horário —
+    /// filtro invisível é filtro que engana, e agora ele está atrás de um clique.
+    /// </summary>
+    [RelayCommand]
+    private async Task AbrirEsperaAsync()
+    {
+        var janela = new Janelas.ListaEsperaPainelWindow(this) { Owner = Dono() };
+        janela.ShowDialog();
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// O rótulo do botão da lista — com a contagem e, quando há foco, o horário.
+    ///
+    /// "Lista de espera" sozinho não faz ninguém abrir; "Quem chamar para 14:00 (2)"
+    /// responde a pergunta do minuto seguinte a um cancelamento antes do clique.
+    /// </summary>
+    public string EsperaResumo => SugestaoPara is { } horario
+        ? $"Quem chamar para {horario:HH:mm} ({Espera.Count})"
+        : $"Lista de espera ({Espera.Count})";
+
+    /// <summary>
+    /// A janela por cima da qual abrir a próxima. `MainWindow` sempre seria errado com a
+    /// lista de espera aberta: o formulário nasceria ATRÁS dela, e a recepção concluiria
+    /// que o clique não fez nada.
+    /// </summary>
+    private static System.Windows.Window? Dono()
+        => System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>()
+               .FirstOrDefault(w => w.IsActive)
+           ?? System.Windows.Application.Current?.MainWindow;
 
     /// <summary>Tira o foco do horário e volta a mostrar todo mundo que espera.</summary>
     [RelayCommand]
@@ -492,7 +827,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         var vm = new ConfirmacoesViewModel(_escopos);
         var janela = new Janelas.ConfirmacoesWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = Dono()
         };
 
         janela.ShowDialog();
@@ -535,7 +870,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         var vm = new ListaEsperaEdicaoViewModel(_escopos);
         var janela = new Janelas.ListaEsperaWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = Dono()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -640,7 +975,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     {
         var janela = new Janelas.AgendamentoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = Dono()
         };
 
         if (janela.ShowDialog() != true) return;

@@ -48,6 +48,113 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
     </Style>
 
+    <!-- ============================================================
+         A LINHA DO TEMPO DA AGENDA (parcela 58)
+         ============================================================
+
+         Dois estilos, e eles são um par: o que está OCUPADO e o que está LIVRE. Moram no
+         design system, e não na tela, porque a agenda da Recepção e a "Minha semana" do
+         Consultório respondem a mesma pergunta com o mesmo desenho — duas cópias
+         divergiriam na primeira correção.
+    -->
+
+    <!--
+      O horário ocupado. É um BOTÃO, e não um Border, porque o cartão inteiro abre a
+      janela do horário: alvo de clique de um cartão inteiro é o que permite que ele
+      caiba em 46 px sem os sete botões que moravam dentro dele.
+
+      `Foreground` é declarado explicitamente porque o estilo implícito de Button na suíte
+      é o PRIMÁRIO (texto invertido) e Foreground é propriedade HERDADA — sem esta linha o
+      rótulo sai branco sobre a superfície clara do cartão, e isso não aparece em build
+      nenhum: só para quem abre a tela (lição da parcela 47).
+    -->
+    <Style x:Key="CartaoDeHorario" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="Margin" Value="0,0,0,2" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="fundo"
+                            Background="{StaticResource Brush.Acento.Suave}"
+                            BorderBrush="{StaticResource Brush.Acento}"
+                            BorderThickness="3,0,0,0"
+                            CornerRadius="{StaticResource Raio.Pequeno}"
+                            Padding="8,5">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Acento.Tint}" />
+                        </Trigger>
+                        <!--
+                          Encaixe: marcado por cima de um horário ocupado, com o choque
+                          aceito. Ele muda a COR do traço, não o cartão inteiro — o cartão
+                          inteiro em laranja faria a agenda de um dia de encaixes parecer
+                          uma tela de erro.
+                        -->
+                        <DataTrigger Binding="{Binding EhEncaixe}" Value="True">
+                            <Setter TargetName="fundo" Property="BorderBrush"
+                                    Value="{StaticResource Brush.Aviso}" />
+                        </DataTrigger>
+                        <!--
+                          Cancelado e falta ficam APAGADOS, nunca sumindo: quem lê a agenda
+                          às 14h precisa saber que o horário das 15h vagou, e linha ausente
+                          se confunde com horário que nunca existiu (a regra da folha do
+                          dia, parcela 29).
+                        -->
+                        <DataTrigger Binding="{Binding ForaDoDia}" Value="True">
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.LinhaAlt}" />
+                            <Setter TargetName="fundo" Property="BorderBrush"
+                                    Value="{StaticResource Brush.Borda}" />
+                            <Setter Property="Opacity" Value="0.65" />
+                        </DataTrigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+      O vão livre. Fica quase invisível até o mouse chegar: um "+" aceso em cada meia hora
+      de um dia vazio daria uma tela de sinais de mais, que é o oposto de "onde é que cabe".
+      O que se vê é o BRANCO; o "+" é a confirmação de que aquele branco é clicável.
+    -->
+    <Style x:Key="VaoLivre" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Secundario}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="fundo" Background="Transparent"
+                            CornerRadius="{StaticResource Raio.Pequeno}"
+                            Margin="0,0,0,1">
+                        <ContentPresenter x:Name="sinal"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Opacity="0" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="fundo" Property="Background"
+                                    Value="{StaticResource Brush.Superficie.Hover}" />
+                            <Setter TargetName="sinal" Property="Opacity" Value="1" />
+                        </Trigger>
+                        <!-- Sem permissão de agenda o vão não convida a nada: o cursor
+                             volta ao normal e o "+" não acende nem no hover. -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Accordion (Expander): header limpo com chevron à direita -->
     <Style TargetType="Expander">
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />

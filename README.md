@@ -36,6 +36,9 @@ entre o produto e o de um concorrente. Antes de escrever qualquer XAML, leia ist
 | **Coluna/bloco vazio sem marca nenhuma** | Quatro colunas vazias viram um buraco de mil pixels e a tela parece quebrada | Traço (`—`) ou estado vazio — a raia tem de continuar legível |
 | **KPI num `UniformGrid` de largura inteira** | Cinco números viram cinco traços perdidos com meio metro de branco entre eles | `StackPanel` horizontal à esquerda |
 | **Gráfico desenhado sem dado** | 200 px de área vazia dizendo o que a frase acima já disse | O gráfico **some** |
+| **AGENDA como pilha de cartões** (um embaixo do outro, sem eixo de tempo) | O das 9h fica colado no das 15h; "quando cabe?" só se responde lendo cartão por cartão | **Linha do tempo**: régua de horas à esquerda, uma coluna por profissional, e o **vazio com tamanho** — clicável |
+| **Todas as ações dentro de cada cartão** de um quadro (7 botões × 40 cartões) | O olho para de distinguir o frequente do raro; e não cabe numa faixa de meia hora | **Uma** ação sólida (o passo seguinte) + o resto atrás de `⋯` ou da janela do item |
+| **`WrapPanel` que nunca dobra a linha** (docado, em coluna `Auto`, em `StackPanel` horizontal) | Ele mede com largura infinita, alinha tudo numa linha e empurra o vizinho para fora — só aparece na tela estreita | Faça-o o filho que **PREENCHE**; encoste-o com `HorizontalAlignment` |
 
 ### As três perguntas que decidem
 

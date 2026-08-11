@@ -8,25 +8,36 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
 
-        <!-- A raia do quadro: faixa de fundo, sem borda. Ver o comentário do quadro. -->
+        <!-- A raia do quadro: faixa de fundo, sem borda. Ver o comentário do quadro.
+             É ela que recebe o cartão arrastado — daí o AllowDrop e os três handlers. -->
         <Style x:Key="RaiaDoQuadro" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
             <Setter Property="CornerRadius" Value="{StaticResource Raio.Grande}" />
             <Setter Property="Padding" Value="10,10,10,4" />
             <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="AllowDrop" Value="True" />
         </Style>
 
         <!-- ============ Cartão do kanban ============
-             Um template só para as quatro colunas: o que muda entre elas são os
-             botões habilitados, e isso já vem do próprio cartão (PodeChegar,
-             PodeIniciar, PodeFinalizar, PodeVoltar). -->
+             Um template só para as cinco colunas. O botão sólido é o PRÓXIMO PASSO, e o
+             cartão já sabe qual é (`ProximoPasso`); as exceções — voltar, falta,
+             cancelamento — foram para o "⋯", porque cinco botões por cartão em cinco
+             colunas fazem o olho parar de distinguir o frequente do raro.
+
+             O cartão inteiro é ARRASTÁVEL: os handlers ficam no Border e não capturam o
+             clique (só reagem depois que o mouse ANDA), então os botões continuam
+             funcionando normalmente. -->
         <DataTemplate x:Key="CartaoFilaTemplate" DataType="{x:Type vm:CartaoFila}">
             <Border CornerRadius="{StaticResource Raio.Medio}" BorderThickness="1"
-                    Padding="12" Margin="0,0,0,8">
+                    Padding="12" Margin="0,0,0,8"
+                    ToolTip="{Binding Detalhe}"
+                    PreviewMouseLeftButtonDown="AoPressionarCartao"
+                    MouseMove="AoMoverSobreCartao">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
                         <Setter Property="BorderBrush" Value="{StaticResource Brush.Borda}" />
+                        <Setter Property="Cursor" Value="Hand" />
                         <Style.Triggers>
                             <!-- Chamado há tempo demais: ou não ouviu, ou saiu — e quem
                                  está parado esperando é o profissional. -->
@@ -43,7 +54,8 @@
                     <!-- Linha 1: horário + espera -->
                     <Grid>
                         <TextBlock Text="{Binding Horario}" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Brush.Texto.Primario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                   Foreground="{StaticResource Brush.Texto.Primario}"
+                                   TextWrapping="Wrap" HorizontalAlignment="Left" />
                         <TextBlock Text="{Binding Espera}" HorizontalAlignment="Right"
                                    FontSize="{StaticResource Fonte.Legenda}" TextWrapping="Wrap">
                             <!-- Espera longa fica vermelha; o estilo sai só daqui (MC3024). -->
@@ -101,76 +113,38 @@
                                 ToolTip="Guia pendente — peça o documento enquanto ele está aqui"
                                 Visibility="{Binding TemGuiaPendente,
                                              Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Guia pendente" />
+                            <TextBlock Text="Guia pendente" TextWrapping="Wrap" />
                         </Border>
                         <Border Style="{StaticResource Badge.Info}" Margin="0,0,4,4"
+                                ToolTip="Legado: guia não é atendimento — pode apagar"
                                 Visibility="{Binding EhRetornoDoSegundoCodigo,
                                              Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Retorno do 2º código" />
+                            <TextBlock Text="Retorno do 2º código" TextWrapping="Wrap" />
                         </Border>
                         <Border Style="{StaticResource Badge.Aviso}" Margin="0,0,4,4"
                                 ToolTip="Marcado por cima de um horário ocupado"
                                 Visibility="{Binding EhEncaixe,
                                              Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Encaixe" />
+                            <TextBlock Text="Encaixe" TextWrapping="Wrap" />
                         </Border>
                     </WrapPanel>
 
-                    <!-- Ações: avançar a coluna, voltar, falta e cancelamento -->
-                    <WrapPanel Margin="0,4,0,0">
-                        <Button Content="Chegou" Style="{StaticResource BotaoPequeno}"
-                                Margin="0,4,4,0"
-                                Visibility="{Binding PodeChegar,
+                    <!-- Uma ação sólida — o passo seguinte — e o resto atrás do "⋯". -->
+                    <DockPanel Margin="0,8,0,0">
+                        <Button DockPanel.Dock="Right" Content="⋯" Width="30"
+                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                VerticalAlignment="Center" Margin="6,0,0,0"
+                                ToolTip="Voltar etapa, falta e cancelamento"
+                                Click="AoAbrirMenuDoCartao" />
+                        <Button Content="{Binding ProximoPasso}"
+                                Style="{StaticResource BotaoPequeno}"
+                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Visibility="{Binding TemProximoPasso,
                                              Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.RegistrarChegadaCommand,
+                                Command="{Binding DataContext.AvancarCommand,
                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 CommandParameter="{Binding}" />
-                        <Button Content="Chamar" Style="{StaticResource BotaoPequeno}"
-                                Margin="0,4,4,0"
-                                ToolTip="Avisa que este paciente é o próximo — o mesmo aviso que o consultório manda"
-                                Visibility="{Binding PodeChamar,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.ChamarCommand,
-                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
-                        <Button Content="Entrou" Style="{StaticResource BotaoPequeno}"
-                                Margin="0,4,4,0"
-                                ToolTip="O paciente levantou e foi para a sala"
-                                Visibility="{Binding PodeIniciar,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.IniciarAtendimentoCommand,
-                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
-                        <Button Content="Concluir" Style="{StaticResource BotaoPequeno}"
-                                Margin="0,4,4,0"
-                                ToolTip="Gera o atendimento e os códigos de faturamento"
-                                Visibility="{Binding PodeFinalizar,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.FinalizarCommand,
-                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
-                        <Button Content="Voltar" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                Margin="0,4,4,0"
-                                Visibility="{Binding PodeVoltar,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.VoltarEtapaCommand,
-                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
-                        <Button Content="Falta" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                Margin="0,4,4,0"
-                                Visibility="{Binding EmAberto,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.MarcarFaltaCommand,
-                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
-                        <Button Content="Cancelar" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                Margin="0,4,4,0"
-                                Visibility="{Binding EmAberto,
-                                             Converter={StaticResource BoolParaVisibilidade}}"
-                                Command="{Binding DataContext.CancelarCommand,
-                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
-                    </WrapPanel>
+                    </DockPanel>
                 </StackPanel>
             </Border>
         </DataTemplate>
@@ -233,6 +207,9 @@
              morava numa frase acima do quadro repetindo os cinco números em sequência, e o
              olho tinha de casar cada um com a sua coluna pela ordem.
 
+             O `Tag` de cada raia é a ETAPA dela: é o que o cartão solto ali dentro
+             consulta para saber para onde foi levado.
+
              Em 1366 px as cinco não cabem sem espremer o cartão até o nome virar
              reticências, então o quadro rola na horizontal a partir de um piso. -->
         <Grid>
@@ -246,7 +223,9 @@
                         <ColumnDefinition Width="*" MinWidth="200" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0" Style="{StaticResource RaiaDoQuadro}">
+                    <Border Grid.Column="0" Style="{StaticResource RaiaDoQuadro}" Tag="Aguardando"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="AGUARDANDO"
                                                 Itens="{Binding Aguardando}" />
@@ -257,7 +236,9 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Column="1" Style="{StaticResource RaiaDoQuadro}">
+                    <Border Grid.Column="1" Style="{StaticResource RaiaDoQuadro}" Tag="Chegou"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="NA RECEPÇÃO"
                                                 Itens="{Binding NaRecepcao}" />
@@ -268,7 +249,9 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Column="2" Style="{StaticResource RaiaDoQuadro}">
+                    <Border Grid.Column="2" Style="{StaticResource RaiaDoQuadro}" Tag="Chamado"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="CHAMADO"
                                                 Itens="{Binding Chamados}" />
@@ -279,7 +262,9 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Column="3" Style="{StaticResource RaiaDoQuadro}">
+                    <Border Grid.Column="3" Style="{StaticResource RaiaDoQuadro}" Tag="EmAtendimento"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="EM ATENDIMENTO"
                                                 Itens="{Binding EmAtendimento}" />
@@ -290,7 +275,10 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Column="4" Style="{StaticResource RaiaDoQuadro}" Margin="0">
+                    <Border Grid.Column="4" Style="{StaticResource RaiaDoQuadro}" Margin="0"
+                            Tag="Finalizado"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="FINALIZADO"
                                                 Itens="{Binding Finalizados}" />
