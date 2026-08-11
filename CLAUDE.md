@@ -1838,6 +1838,29 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   cadastrado pela carteirinha, quem chegou sem documento —, e vazio vira NULO para dois
   documentos "" não serem iguais.
 
+- **GUIA NÃO É ATENDIMENTO — e o sistema materializava a pendência como HORÁRIO**
+  (parcela 58; a cliente mandou a foto de uma paciente sem agendamento ocupando a fila do
+  dia e a agenda). `AgendaService.ConfirmarPresencaAsync` criava, ao confirmar a presença,
+  um `Agendamento` de verdade (`OrigemAgendamento.RetornoSugerido`) na data prevista do 2º
+  código, às 9h, "para não esquecer de obtê-lo".
+  O 2º código é obtido +24h depois **pela SECRETÁRIA, no sistema do convênio** — o paciente
+  não volta para nada. Materializá-lo como horário punha na fila do balcão e na agenda dos
+  MÉDICOS uma pessoa que não tem hora marcada e não vai aparecer.
+  ⚠️ **E não era ruído visual.** O cartão fantasma vinha com "Chegou / Entrou / Falta /
+  Cancelar": um clique em Entrou → Finalizar lança um atendimento NOVO e gera guias NOVAS
+  para uma sessão que nunca aconteceu — faturamento inventado a partir de uma pendência de
+  faturamento. É a inversão exata do que o produto existe para fazer.
+  **Não faltava lembrete, sobrava um no lugar errado**: o 2º código já nasce como
+  `CodigoFaturamento` com `DataPrevistaFaturamento`, aparece no painel de pendências com
+  semáforo, entra na rodada bloqueante ao vencer o prazo e é mostrado ao balcão pelo
+  `PainelRecepcaoService` junto dos pacientes do dia.
+  O valor do enum FICA (é gravado como texto e há linhas assim em produção; apagá-lo
+  quebraria a leitura delas), e o selo "Retorno do 2º código" segue na tela justamente
+  para a clínica reconhecer e limpar as que sobraram.
+  A lição, que é a mais cara desta lista: **ao ligar dois módulos, pergunte se o que
+  atravessa é o FATO ou só o lembrete dele.** Pendência de faturamento é fato do
+  faturamento; ela se mostra onde se resolve, e não vira agenda de quem atende.
+
 - **`EstadoDaTela` com `Visibility` AMARRADA: o binding morre e o vazio vaza pela tela**
   (parcela 58 — o cliente mandou a foto de "Nenhuma sessão registrada" escrito por cima da
   lista de pacientes CHEIA, no Prontuário e nas Prescrições da Recepção). O componente
