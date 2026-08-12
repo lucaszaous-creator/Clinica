@@ -40,12 +40,19 @@ O corte é o da **LGPD**: dado de contato de um lado, dado sensível (art. 5º, 
    é da chefia.
 3. **É dado de saúde?** Se sim, só quem cuida do paciente.
 
+> **`MovimentarFila` (parcela 61)**: mover a fila do dia — chegada, chamada, entrada,
+> voltar o cartão — é um ato mais estreito do que "marcar e remarcar", e é o gesto central
+> do quadro de quem atende. O profissional o recebe SEM ganhar a agenda do balcão junto. A
+> autorização do ato é UMA nos dois quadros: `EditarAgenda` **ou** `MovimentarFila` — quem
+> movia a fila ontem continua movendo hoje.
+
 ## O padrão
 
 | Permissão | Recepção | Profissional | Enfermagem | Financeiro | Faturista | Gerente |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Ver agenda e fila | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Marcar e remarcar | ✅ | — | — | — | — | ✅ |
+| **Chamar e mover a fila do dia** | ✅ | ✅ | — | — | — | ✅ |
 | **Ver ficha do paciente** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Cadastrar e editar paciente** | ✅ | — | — | — | ✅ | ✅ |
 | **Abrir a central de documentos** | ✅ | ✅ | — | ✅ | — | ✅ |

@@ -117,15 +117,20 @@ A clínica faz infusão, e a folha que ela usa não é a receita: é prescriçã
 era a **checagem da técnica**: ✓ com o horário quando administrou, **"rodela"** (horário
 circulado) com justificativa quando não.
 
-**O que entrou neste módulo**
+**O que entrou na parcela — e onde cada peça mora HOJE**
 
-| Arquivo | Papel |
-|---|---|
-| `PrescricaoInfusaoViewModel` + `PrescricaoInfusaoView` | As folhas do paciente; abre no paciente em foco |
-| `SalaInfusaoViewModel` + `SalaInfusaoView` | A fila do dia, releitura de 1 min; só folhas **assinadas** |
-| `PrescricaoInternaEdicaoViewModel` + `PrescricaoInternaWindow` | Escrever e assinar |
-| `FolhaExecucaoViewModel` + `FolhaExecucaoWindow` | Checar item a item, retificar, encerrar |
-| `EscolherCertificadoViewModel` + `EscolherCertificadoWindow` | Escolher o e-CPF ICP-Brasil |
+⚠️ Na parcela 48 a sala de infusão, a folha de execução e o seletor de certificado
+**subiram para o shell** (`Clinica.Desktop.Shell/Componentes`), para a Recepção alcançar a
+checagem sem instalar o app do médico — os dois módulos publicam a mesma chave
+(`ChavesSuite.SalaInfusao`). Esta tabela reflete o endereço atual:
+
+| Arquivo | Mora em | Papel |
+|---|---|---|
+| `PrescricaoInfusaoViewModel` + `PrescricaoInfusaoView` | **este módulo** | As folhas do paciente; abre no paciente em foco |
+| `PrescricaoInternaEdicaoViewModel` + `PrescricaoInternaWindow` | **este módulo** | Escrever e assinar |
+| `SalaInfusaoViewModel` + `SalaInfusaoView` | **shell** | A fila do dia, releitura de 1 min; só folhas **assinadas**; imprime a via e acha a folha pelo código impresso (parcela 61) |
+| `FolhaExecucaoViewModel` + `FolhaExecucaoWindow` | **shell** | Checar item a item, retificar, suspender (quem prescreve), imprimir e encerrar |
+| `EscolherCertificadoViewModel` + `EscolherCertificadoWindow` | **shell** | Escolher o e-CPF ICP-Brasil |
 
 **Permissões novas**: `Prescrever` e `ChecarPrescricao` — separadas de propósito, porque é
 serem duas pessoas que dá valor à conferência. E o perfil **`Enfermagem`**, sem o qual a

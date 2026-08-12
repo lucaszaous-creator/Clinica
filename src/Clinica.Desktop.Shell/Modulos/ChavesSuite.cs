@@ -99,10 +99,11 @@ public static class ChavesSuite
     public const string ConsultorioMeusNumeros = "consultorio-meus-numeros";
 
     /// <summary>
-    /// Sala de infusão — a tela do SHELL que Consultório e Recepção publicam sob a MESMA
-    /// chave (parcela 48; a dedupe do shell funde as duas). Era literal duplicado nos
-    /// dois módulos, exatamente o que esta classe existe para impedir: renomear de um
-    /// lado compilava dos dois e a Recepção deixava de abrir a sala.
+    /// Sala de infusão — a fila de checagem da enfermagem, a tela do SHELL que
+    /// Consultório e Recepção publicam sob a MESMA chave (parcela 48; a dedupe do shell
+    /// funde as duas no Gerente). Era literal duplicado nos dois módulos, exatamente o
+    /// que esta classe existe para impedir: renomear de um lado compilava dos dois e a
+    /// Recepção deixava de abrir a sala.
     /// </summary>
     public const string SalaInfusao = "consultorio-sala-infusao";
 }

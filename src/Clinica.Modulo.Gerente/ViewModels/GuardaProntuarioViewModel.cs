@@ -12,6 +12,24 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Gerente.ViewModels;
 
+/// <summary>Uma linha de "quem abriu este prontuário".</summary>
+public sealed class LinhaAcessoProntuario
+{
+    public required string Quando { get; init; }
+    public required string Operador { get; init; }
+    public required string Porta { get; init; }
+
+    public static LinhaAcessoProntuario De(EventoAuditoria e) => new()
+    {
+        Quando = e.DataHora.ToString("dd/MM/yyyy HH:mm"),
+        Operador = e.Operador,
+        // O Detalhe é o rótulo humano gravado pelo serviço ("Prontuário clínico aberto");
+        // a Acao ("ProntuarioAcessado:Documento") é o identificador — e identificador na
+        // tela é o defeito da parcela 41.
+        Porta = string.IsNullOrWhiteSpace(e.Detalhe) ? "Prontuário acessado" : e.Detalhe!
+    };
+}
+
 /// <summary>
 /// A GUARDA DO PRONTUÁRIO — a tela que responde à auditoria de fornecedor (parcela 52).
 ///
@@ -63,6 +81,20 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
     [ObservableProperty] private string _nomePaciente = string.Empty;
     [ObservableProperty] private string _situacaoPaciente = string.Empty;
     [ObservableProperty] private string _detalhePaciente = string.Empty;
+
+    /// <summary>
+    /// Quem abriu ESTE prontuário, do mais recente para o mais antigo — a pergunta da
+    /// cliente ao pé da letra ("quem acessou, quando acessou"). O serviço tinha a leitura
+    /// própria (<c>AcessoProntuarioService.DoPacienteAsync</c>) desde a parcela 52 e
+    /// nenhuma tela a chamava: investigar acesso indevido exigia adivinhar o nome da ação
+    /// no filtro da Auditoria.
+    /// </summary>
+    public System.Collections.ObjectModel.ObservableCollection<LinhaAcessoProntuario> Acessos { get; } = [];
+
+    [ObservableProperty] private string _resumoAcessos = string.Empty;
+
+    /// <summary>Há trilha para listar — o cartão some quando não há (vazio já tem frase).</summary>
+    [ObservableProperty] private bool _temAcessos;
 
     [ObservableProperty] private bool _carregando;
 
@@ -185,6 +217,24 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
                     ? $" — último registro em {data:dd/MM/yyyy}"
                       + (situacao.Origem is { } o ? $" ({o})" : string.Empty)
                     : " — sem registro no prontuário");
+
+            // A trilha de LEITURA do mesmo paciente, na mesma tela: guarda e acesso são
+            // as duas metades da pergunta da auditoria.
+            var acessos = await scope.ServiceProvider
+                .GetRequiredService<AcessoProntuarioService>()
+                .DoPacienteAsync(escolhido.Id, limite: 100);
+
+            Acessos.Clear();
+            foreach (var acesso in acessos)
+                Acessos.Add(LinhaAcessoProntuario.De(acesso));
+
+            TemAcessos = Acessos.Count > 0;
+            ResumoAcessos = Acessos.Count == 0
+                ? "Nenhum acesso registrado — a trilha de leitura existe desde a versão da "
+                  + "parcela 52; aberturas anteriores a ela não deixaram rastro."
+                : $"{Acessos.Count} acesso(s) registrados"
+                  + (Acessos.Count == 100 ? " (mostrando os 100 mais recentes)" : string.Empty)
+                  + ".";
         }
         catch (Exception ex)
         {

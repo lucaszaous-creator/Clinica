@@ -437,12 +437,21 @@ public sealed partial class MedidasViewModel : ObservableObject
     {
         try
         {
+            // Exportar tira o dado de saúde do sistema: segunda barreira + trilha
+            // (parcela 61), como na curva de dor.
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "exportar dados do prontuário");
+
             if (Historico.Count == 0)
             {
                 Mensagem = "Não há colheita para exportar.";
                 MensagemEhErro = true;
                 return;
             }
+
+            using (var scope = _escopos.CreateScope())
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ExportacaoClinica);
 
             var csv = ExportacaoCsv.Montar(
                 ["Data", "Medida", "Valor", "Faixa", "Observações"],

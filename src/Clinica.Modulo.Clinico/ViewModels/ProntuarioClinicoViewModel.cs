@@ -424,7 +424,8 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         try
         {
             var vm = new AnexosSessaoViewModel(
-                _escopos, linha.EvolucaoId, $"Sessão de {linha.Data} — {Paciente}");
+                _escopos, linha.EvolucaoId, $"Sessão de {linha.Data} — {Paciente}",
+                PacienteId);
 
             new AnexosSessaoWindow(vm)
             {

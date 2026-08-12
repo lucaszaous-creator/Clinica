@@ -36,15 +36,21 @@ public sealed class LinhaDocumentoClinico
     /// </summary>
     public string NomeArquivoAssinado => $"{Tipo}-{Numero.Replace('/', '-')}-assinado.pdf";
 
-    /// <summary>Cancelar duas vezes não existe — o botão desliga depois do primeiro.</summary>
-    public bool PodeCancelar => !Cancelado;
+    /// <summary>
+    /// Cancelar duas vezes não existe — e o botão também desliga sem a permissão
+    /// (parcela 61): estado da linha SEM o bit deixava o botão aceso e o clique
+    /// estourava no Exigir, que é o defeito da parcela 41. O Exigir continua no comando.
+    /// </summary>
+    public bool PodeCancelar => !Cancelado
+        && SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     /// <summary>
     /// Assinar depois é a porta para o documento emitido hoje de manhã, antes de o token
     /// estar na máquina. Assinado não se reassina (haveria dois arquivos válidos do mesmo
-    /// ato) e cancelado não se assina.
+    /// ato) e cancelado não se assina. Também compõe com a permissão — ver PodeCancelar.
     /// </summary>
-    public bool PodeAssinar => !Cancelado && !Assinado;
+    public bool PodeAssinar => !Cancelado && !Assinado
+        && SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     /// <summary>
     /// Só documento ASSINADO se entrega como arquivo: um PDF sem assinatura é algo que a

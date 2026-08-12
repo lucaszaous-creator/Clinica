@@ -66,11 +66,10 @@ public sealed class PrescricaoInternaService
         int pacienteId, int limite = 50, CancellationToken ct = default)
         => _repo.PrescricoesInternasDoPacienteAsync(pacienteId, limite, ct);
 
-    /// <summary>A fila da sala de infusão: as folhas assinadas do dia.</summary>
-    public Task<IReadOnlyList<PrescricaoInterna>> DoDiaAsync(
-        DateOnly data, int? profissionalId = null, bool incluirEncerradas = false,
-        CancellationToken ct = default)
-        => _repo.PrescricoesInternasDoDiaAsync(data, profissionalId, incluirEncerradas, ct);
+    // A fila da sala de infusão (folhas do dia) mora SÓ no ChecagemPrescricaoService,
+    // dono da leitura de execução. Já houve uma cópia dela aqui, sem nenhum chamador:
+    // duas definições de "a fila da sala" divergem na primeira correção, e a de cá é a
+    // que ninguém lembraria de ajustar.
 
     /// <summary>
     /// O contexto clínico que a tela de prescrição abre mostrando: alergias e medicação de

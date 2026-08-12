@@ -317,6 +317,9 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
         // evolução estão listadas uma a uma. No Gerente o módulo está carregado; num
         // executável que não o carregue o botão nasce desabilitado sozinho.
         AssuntoDirecao.ProntuarioEmAberto => (ChavesSuite.ConsultorioMeuDia, "Ver sessões"),
+        // A folha aguardando checagem se resolve na sala de infusão — a chave é a única
+        // publicada por dois módulos, e por isso vem de ChavesSuite.
+        AssuntoDirecao.InfusaoAguardando => (ChavesSuite.SalaInfusao, "Ver sala de infusão"),
         _ => (ChavesSuite.FaturamentoTiss, "Ver faturamento")
     };
 

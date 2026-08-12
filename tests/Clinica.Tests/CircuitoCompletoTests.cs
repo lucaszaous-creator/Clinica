@@ -371,7 +371,8 @@ public class CircuitoCompletoTests : IDisposable
             _receitaGlosada,
             new MetaService(_repo, _financeiro, new IndicadoresService(_repo, parametros)),
             new OrcamentoService(_repo, contas),
-            new ConsultorioService(_repo));
+            new ConsultorioService(_repo),
+            new ChecagemPrescricaoService(_repo));
     }
 
     /// <summary>
