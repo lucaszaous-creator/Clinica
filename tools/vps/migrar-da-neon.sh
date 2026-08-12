@@ -34,7 +34,7 @@ for T in 1 2 3 4 5 6; do
   sleep 3
 done
 echo "Versao do servidor Neon: $VERSAO"
-case "$VERSAO" in 16*) ;; *) echo "ATENCAO: nao comecou com 16 - pare aqui e me mostre isto."; exit 1;; esac
+case "$VERSAO" in 18*) ;; *) echo "ATENCAO: nao comecou com 18 - pare aqui e me mostre isto."; exit 1;; esac
 
 echo "Copiando da Neon (acompanhe noutra janela com: ls -lh /tmp/neon.dump)..."
 pg_dump -h "$HOST" -p 5432 -U "$USUARIO" -d "$BANCO" -Fc -f /tmp/neon.dump
