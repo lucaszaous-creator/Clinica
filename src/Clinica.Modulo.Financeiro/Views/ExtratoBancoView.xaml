@@ -165,7 +165,8 @@
         <ctrl:EstadoDaTela Itens="{Binding Linhas}"
                            Carregando="{Binding Carregando}"
                            NaoVerificado="{Binding NaoVerificado}"
-                           TextoVazio="Abra o extrato OFX do banco para começar a conferência. É o mesmo arquivo que o internet banking oferece para baixar — procure por &quot;OFX&quot; ou &quot;Money/Quicken&quot;."
+                           Titulo="Nenhum extrato aberto"
+                           Descricao="Abra o arquivo OFX que o banco exporta — o mesmo que o internet banking oferece para baixar, procurando por &quot;OFX&quot; ou &quot;Money/Quicken&quot;."
                            TextoNaoVerificado="Não foi possível cruzar o extrato." />
     </Grid>
 </UserControl>

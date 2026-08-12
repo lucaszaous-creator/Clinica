@@ -118,7 +118,8 @@
                 <ctrl:EstadoDaTela Itens="{Binding Modelos}"
                                    Carregando="{Binding Carregando}"
                                    NaoVerificado="{Binding NaoVerificado}"
-                                   TextoVazio="Nenhum modelo ainda. Escreva uma evolução e guarde-a aqui — a próxima sessão parecida começa preenchida."
+                                   Titulo="Nenhum modelo ainda"
+                                   Descricao="Escreva uma evolução e guarde-a aqui — a próxima sessão parecida começa preenchida."
                                    TextoNaoVerificado="Não foi possível ler os modelos." />
             </Grid>
         </Border>

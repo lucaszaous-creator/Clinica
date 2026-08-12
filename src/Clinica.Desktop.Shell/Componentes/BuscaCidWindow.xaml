@@ -58,7 +58,8 @@
                 <!-- Sobreposição: último filho do Grid. Aqui só o VAZIO existe — a lista é
                      de memória, então não há "carregando" nem falha de leitura. -->
                 <ctrl:EstadoDaTela Itens="{Binding Resultados}"
-                                   TextoVazio="Nenhum código desta lista bate com o que você digitou. Feche e digite o código direto no campo — ele aceita qualquer um." />
+                                   Titulo="Nenhum código bate com a busca"
+                                   Descricao="Feche e digite o código direto no campo — ele aceita qualquer um, inclusive os que não estão nesta lista." />
             </Grid>
         </Border>
     </DockPanel>

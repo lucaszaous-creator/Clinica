@@ -1909,6 +1909,23 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   de placar sem conferência no código é chute com aparência de registro**, e ela erra
   tanto a favor quanto contra.
 
+- **Nome de propriedade errado em controle da CASA: só o compilador de MARCAÇÃO pega**
+  (parcela 63, checagem 34 — o CI reprovou o PR). Três telas novas declararam
+  `TextoVazio` no `EstadoDaTela`, que tem `TextoCarregando` e `TextoNaoVerificado` — o
+  vazio se escreve com `Titulo` + `Descricao`. `MC3072`, e nenhuma rede local via: o XML é
+  bem-formado, o `compilar-sombra` **não lê o corpo** do XAML e o C# compila. É a irmã da
+  checagem 33, e o que a torna fácil de cometer é o nome plausível existir AO LADO do
+  certo.
+  A checagem casa cada atributo de `<ctrl:Tipo …>` com as propriedades declaradas no tipo
+  e nas bases dele. As duas decisões que a mantêm utilizável: cadeia que termina numa base
+  do WPF conhecida responde **"não tem"** (sem isso ela calaria para todo controle que
+  herda de `Control`, que são todos); cadeia que termina em tipo de fora desconhecido
+  responde **"não sei"** e cala.
+  ⚠️ O autoteste pegou os DOIS erros dela antes de mim — a primeira versão respondia "não
+  sei" para o caso real, e a segunda acusava o `Key` de `x:Key` por o *lookbehind* não
+  excluir os dois-pontos. **Checagem nova sem autoteste do caso real e do caso legítimo é
+  checagem que nasce cega ou barulhenta.**
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`
