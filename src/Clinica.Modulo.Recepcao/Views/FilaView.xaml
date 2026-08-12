@@ -299,6 +299,8 @@
           <!-- Um estado para o quadro todo: as cinco colunas vêm da mesma consulta. -->
           <ctrl:EstadoDaTela Vazio="{Binding QuadroVazio}"
                              Carregando="{Binding Carregando}"
+                             NaoVerificado="{Binding NaoVerificado}"
+                             TextoNaoVerificado="Não foi possível carregar a fila. O quadro NÃO está vazio — ele não pôde ser lido. Use Atualizar."
                              Glifo="&#xE77B;"
                              TextoCarregando="Montando a fila do dia…"
                              Titulo="Ninguém marcado para hoje"

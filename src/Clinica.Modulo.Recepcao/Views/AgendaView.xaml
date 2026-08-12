@@ -8,6 +8,8 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
         <!-- Largura da régua de horas. O mesmo número aparece no espaçador do cabeçalho
              das colunas: são as duas metades do mesmo alinhamento, e separá-los faria a
@@ -218,6 +220,15 @@
                         Style="{StaticResource BotaoSecundario}"
                         VerticalAlignment="Center"
                         Command="{Binding ImprimirAgendaCommand}" />
+                <!-- Férias, feriado, folga (parcela 62): o bloqueio existia desde a
+                     parcela 26 com a única porta atrás de `GerenciarEquipe`, bit que o
+                     balcão não tem — a feature era do balcão e o balcão não a alcançava. -->
+                <Button Content="Fechar agenda…" Margin="8,0,0,4"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding PodeEditarAgenda}"
+                        ToolTip="Férias, feriado ou folga: a agenda passa a recusar marcação no período. Quem já estava marcado continua — e a janela diz quem é."
+                        Command="{Binding FecharAgendaCommand}" />
                 <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
                         IsEnabled="{Binding PodeEditarAgenda}"
                         VerticalAlignment="Center" Margin="8,0,0,4" />
@@ -225,8 +236,19 @@
         </DockPanel>
 
         <!-- Erro inline -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,16"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <Border DockPanel.Dock="Top" Margin="0,0,0,16"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 

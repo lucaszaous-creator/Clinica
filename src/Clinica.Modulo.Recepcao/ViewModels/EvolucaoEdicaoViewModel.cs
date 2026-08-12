@@ -258,6 +258,13 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
             var bytes = await prontuario.ConteudoAnexoAsync(anexo.Id);
 
+            // TRILHA DE LEITURA (parcela 62): laudo e imagem de exame saindo para o disco
+            // é dado de saúde deixando o sistema — o que uma investigação procura primeiro.
+            // A tela irmã do Consultório (AnexosSessaoViewModel) já registrava; esta não.
+            await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(_pacienteId, SessaoUsuario.Atual.Operador,
+                    OrigemAcessoProntuario.ExportacaoClinica);
+
             if (bytes is null)
             {
                 Erro("O arquivo não foi encontrado no banco.");

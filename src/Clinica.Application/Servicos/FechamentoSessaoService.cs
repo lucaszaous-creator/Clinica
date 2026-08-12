@@ -65,7 +65,27 @@ public sealed record ResultadoFechamento(
     IReadOnlyList<MovimentoEstoque> Movimentos,
     IReadOnlyList<string> Avisos)
 {
+    /// <summary>
+    /// O que o LANÇAMENTO tem a dizer — e que não é falha (parcela 62).
+    ///
+    /// Vem de <c>ResultadoLancamento.Avisos</c>: a NÃO CONFORMIDADE reaberta porque o
+    /// paciente voltou ("cobre a guia agora, com ele na frente") e os recados das regras
+    /// do convênio. O <see cref="ConcluirAsync"/> recebia esses avisos e <b>abria uma
+    /// lista nova vazia</b>, então eles morriam aqui: só chegavam à tela pelo caminho do
+    /// atendimento avulso, que monta a própria prévia. Pelo Finalizar da Fila — o caminho
+    /// que a clínica usa todo dia — nunca chegaram.
+    ///
+    /// Ficam SEPARADOS de <see cref="Avisos"/> de propósito: aquele é o que FALHOU (e
+    /// segura a janela aberta), este é o que ACONTECEU e a pessoa precisa saber. Somá-los
+    /// faria um fechamento perfeito com uma NC reaberta aparecer como fechamento com erro,
+    /// e três dias depois ninguém mais lê o aviso.
+    /// </summary>
+    public IReadOnlyList<string> RecadosDoLancamento { get; init; } = [];
+
     public bool TudoCerto => Avisos.Count == 0;
+
+    /// <summary>Há recado do lançamento para mostrar depois de concluir.</summary>
+    public bool TemRecados => RecadosDoLancamento.Count > 0;
 }
 
 /// <summary>
@@ -225,7 +245,13 @@ public sealed class FechamentoSessaoService
             }
         }
 
-        return new ResultadoFechamento(atendimento, consumo, lancamento, movimentos, avisos);
+        // Os avisos do LANÇAMENTO viajam junto (parcela 62) — inclusive a NC reaberta
+        // pelo retorno do paciente, que é o recado que a secretária tem de ver enquanto
+        // ele ainda está no balcão.
+        return new ResultadoFechamento(atendimento, consumo, lancamento, movimentos, avisos)
+        {
+            RecadosDoLancamento = resultado.Avisos
+        };
     }
 
     /// <summary>

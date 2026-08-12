@@ -187,11 +187,21 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
         _dialogo = dialogo;
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50). A tela recarrega por clique no
+    /// Recarregar e depois de cada renovação, e num banco remoto a leitura mais VELHA
+    /// pode responder por último — a lista voltaria a mostrar como "a renovar" a
+    /// consulta que a recepcionista acabou de renovar com o paciente na frente dela.
+    /// </summary>
+    private int _geracaoCarga;
+
     public Task CarregarAsync() => RecarregarAsync();
 
     [RelayCommand]
     public async Task RecarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -204,6 +214,7 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
             var lista = await service.ListarAsync(hoje);
+            if (geracao != _geracaoCarga) return;
 
             _todas.Clear();
             // Quem precisa renovar primeiro: a lista existe para agir, e ordenar por nome
@@ -237,13 +248,15 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
             NaoVerificado = true;
             LogSuite.Registrar("Consultas — a situação não pôde ser lida", ex);
             Erro($"Não foi possível ler as consultas: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

@@ -32,7 +32,9 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveRecebiveis = ChavesSuite.Recebiveis;
     public const string ChaveConciliacao = ChavesSuite.Conciliacao;
     public const string ChaveProducao = ChavesSuite.Producao;
-    public const string ChavePacotes = "pacotes";
+    // A MESMA chave que a Recepção publica (parcela 60) — vem de ChavesSuite porque
+    // atravessa módulo, e a dedupe do shell funde as duas linhas no Gerente.
+    public const string ChavePacotes = ChavesSuite.Pacotes;
     public const string ChaveEstoque = "estoque";
     public const string ChaveRepasses = "repasses";
     public const string ChaveTaxas = "taxas";

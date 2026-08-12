@@ -1790,6 +1790,58 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   acesso registrado → "quem abriu este prontuário". A chave da sala de infusão — a única
   publicada por DOIS módulos — saiu das duas strings à mão e virou `ChavesSuite.SalaInfusao`.
 
+- **Nenhum defeito da Recepção QUEBRAVA nada — e é por isso que eles chegaram até aqui**
+  (parcela 62, auditoria de prontidão do balcão antes de produção). Dez grupos, e o que os
+  une é a ausência de sintoma: build verde, 1441 testes verdes, três redes locais verdes, e
+  quem descobre é a recepcionista com o paciente na frente. São as variantes do defeito
+  recorrente do projeto que nenhuma ferramenta alcança.
+  **A porta que não abre, a venda que o dono da tela não pode fazer.** A Recepção publicava
+  o item "Pacotes" e o `CriarTela` dela **não tinha o case** — o menu acendia e nada
+  acontecia. Nenhuma rede viu porque a chave era uma string à mão dos dois lados; virou
+  `ChavesSuite.Pacotes`, como a sala de infusão na 61. E a tela, que subiu para o shell
+  vinda do Financeiro, perguntava por `EditarFinanceiro` em toda ação — bit que o perfil
+  Recepção **não tem**. O balcão ganhou o item e não podia vender nada por ele.
+  ⚠️ A regra que sai daí vale para toda tela que sobe para o shell: **ao mover uma tela
+  entre módulos, releia as permissões que ela exige.** Elas foram escolhidas para o dono
+  ANTIGO. `Pode(A | B)` é um **E**; a pergunta "o bit do balcão ou o do Financeiro" é
+  `PodeAlgum` (parcela 61), e foi o mesmo conserto no passo do CAIXA do Finalizar da sessão
+  — o balcão via o campo de dinheiro apagado justamente no ato de registrar o que o
+  paciente acabou de pagar.
+  **O aviso que morria entre duas camadas.** `FechamentoSessaoService.ConcluirAsync`
+  recebia os avisos de `AtendimentoService.LancarAsync` e **abria uma lista nova vazia**.
+  Pelo Finalizar da Fila — o caminho que a clínica usa todo dia — a NC reaberta ("o
+  paciente voltou, cobre a guia AGORA") e o anúncio do 2º código, que é o assunto do
+  produto, nunca chegaram ao balcão. `RecadosDoLancamento` fica **separado** de `Avisos`:
+  aquele é o que FALHOU e segura a janela aberta, este é o que ACONTECEU — somá-los faria
+  um fechamento perfeito com uma NC reaberta aparecer como fechamento com erro, e três dias
+  depois ninguém mais lê a janela.
+  **Mensagem de sucesso invisível em cinco telas.** O par `<Border AlertaPerigo
+  Visibility="{Binding MensagemEhErro}">` mostra a caixa quando o booleano é verdadeiro, e
+  a mensagem de ÊXITO (que zera `MensagemEhErro`) some junto com a de erro. Cinco janelas
+  gravavam certo e não diziam nada. Agora a visibilidade segue a `Mensagem` (via
+  `TextoParaVisibilidade`) e a COR segue `MensagemEhErro` num `DataTrigger`: **quem decide
+  se aparece é o texto; quem decide a cor é a gravidade.**
+  **Releitura de fundo na Agenda e no Painel.** Só a Fila tinha relógio. A agenda é a
+  ÚNICA tela da suíte em que duas pessoas escrevem no mesmo dado ao mesmo tempo, e o vão
+  vago é clicável desde a parcela 58: um horário marcado na outra máquina continuava
+  aparecendo livre, e a recepcionista marcaria por cima. Três recusas na batida — só HOJE,
+  só no modo DIA (a semana refaz sete colunas com um await no meio de cada, e piscaria) e
+  nunca por cima de uma carga no ar. O Painel bate a cada DOIS minutos, não um: são
+  contagens do dia, e cada batida custa três consultas ao banco remoto.
+  **O descarte de resposta fora de ordem tem uma metade que a parcela 60 não escreveu.** O
+  contador de geração impede a leitura VELHA de sobrescrever a nova; ele não impede duas
+  leituras de se INTERCALAREM dentro da mesma coleção. `Equipe` e `Lançados hoje` faziam
+  `Clear()` e depois `await` num laço — a segunda carga limpava o que a primeira ainda
+  estava preenchendo, e a lista saía com linhas repetidas ou faltando. A regra completa é:
+  **entre o `Clear()` e o último `Add` não pode haver `await`** — monte em lista local e só
+  então publique.
+  **E campo não é tela, nem na planilha.** A feature 02 marcava ✅ em "visão por
+  profissional ou por sala" porque `Agendamento.SalaId` existe. A sala é gravada,
+  respeitada no choque com a capacidade dela e bloqueável por período; **não há modo de
+  grade que a use como coluna**. Voltou a 🟡 em `docs/features-por-modulo.md`, com o motivo
+  escrito. É o defeito recorrente do projeto na versão mais barata de cometer e a mais cara
+  de descobrir: em produção, quem o encontra é o cliente lendo a própria proposta.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

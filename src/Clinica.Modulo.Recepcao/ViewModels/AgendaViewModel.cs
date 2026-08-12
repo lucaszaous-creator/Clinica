@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
@@ -163,6 +164,14 @@ public sealed partial class AgendaViewModel : ObservableObject
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
+    /// <summary>
+    /// A releitura de fundo. Quem liga e desliga é a View (Loaded/Unloaded), como na
+    /// Fila: o shell constrói uma tela nova a cada navegação, e um timer rodando
+    /// manteria vivo cada ViewModel já trocado — e faria vários irem ao banco pelo
+    /// mesmo dia.
+    /// </summary>
+    private readonly DispatcherTimer _relogio;
+
     public ObservableCollection<ColunaAgenda> Colunas { get; } = [];
     public ObservableCollection<LinhaListaEspera> Espera { get; } = [];
 
@@ -284,6 +293,13 @@ public sealed partial class AgendaViewModel : ObservableObject
         _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
+
+        // Um minuto, o mesmo da Fila e pelo mesmo motivo: é menos do que o paciente leva
+        // para atravessar a sala, e é o intervalo em que "este horário está vago" ainda
+        // pode ser verdade quando a recepcionista clica nele.
+        _relogio = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _relogio.Tick += (_, _) => _ = ReconferirAsync();
+
         _ = CarregarAsync();
     }
 
@@ -313,16 +329,21 @@ public sealed partial class AgendaViewModel : ObservableObject
     private int _geracaoCarga;
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => CarregarAsync(silencioso: false);
+
+    private async Task CarregarAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
 
         try
         {
-            Carregando = true;
-            NaoVerificado = false;
-            Mensagem = string.Empty;
-            MensagemEhErro = false;
+            if (!silencioso)
+            {
+                Carregando = true;
+                NaoVerificado = false;
+                Mensagem = string.Empty;
+                MensagemEhErro = false;
+            }
 
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
@@ -384,17 +405,58 @@ public sealed partial class AgendaViewModel : ObservableObject
         {
             if (geracao != _geracaoCarga) return;
 
-            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — agenda do dia não pôde ser carregada", ex);
+
+            // A releitura de fundo que falha não pinta a tela de vermelho: quem está com
+            // um paciente à frente não pode levar um aviso de erro porque o banco demorou
+            // uma vez. A grade segue com o que já tinha, e o log guarda o motivo.
+            if (silencioso) return;
+
+            NaoVerificado = true;
             Mensagem = $"Não foi possível carregar a agenda: {ex.Message}";
             MensagemEhErro = true;
         }
         finally
         {
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
-            if (geracao == _geracaoCarga) Carregando = false;
+            if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
     }
+
+    /// <summary>
+    /// A batida do relógio: relê a grade por baixo (parcela 62).
+    ///
+    /// A agenda é a única tela da suíte em que duas pessoas escrevem no MESMO dado ao
+    /// mesmo tempo — o outro balcão marca, o profissional carimba a falta —, e até aqui
+    /// ela só relia por clique. Um horário marcado na outra máquina continuava aparecendo
+    /// vago nesta, e o vão vago é CLICÁVEL desde a parcela 58: a recepcionista marcaria
+    /// por cima do paciente de quem já está sentado esperando.
+    ///
+    /// Três recusas, e cada uma evita a grade se mexer sozinha debaixo do olho de quem
+    /// está lendo: só HOJE (quem planeja a terça que vem não tem nada correndo), só no
+    /// modo DIA (a semana refaz as sete colunas com um await no meio de cada, e a grade
+    /// piscaria) e nunca por cima de uma carga que já está no ar.
+    /// </summary>
+    private async Task ReconferirAsync()
+    {
+        if (Dia.Date != DateTime.Today || ModoSemana || Carregando) return;
+
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — releitura automática da agenda falhou", ex);
+        }
+    }
+
+    /// <summary>Liga a releitura (chamada quando a tela entra em cena).</summary>
+    public void IniciarRelogio() => _relogio.Start();
+
+    /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
+    public void PararRelogio() => _relogio.Stop();
 
     /// <summary>
     /// A semana da data escolhida, uma coluna por dia (segunda a domingo).
@@ -805,6 +867,44 @@ public sealed partial class AgendaViewModel : ObservableObject
     {
         var janela = new Janelas.ListaEsperaPainelWindow(this) { Owner = Dono() };
         janela.ShowDialog();
+        await CarregarAsync();
+    }
+
+    /// <summary>
+    /// FECHAR A AGENDA — férias, feriado, folga (parcela 62 dando a porta que faltava).
+    ///
+    /// O bloqueio existe desde a parcela 26 e a única porta estava em "Profissionais e
+    /// salas", item que exige <c>GerenciarEquipe</c> — bit que o perfil Recepção NÃO tem.
+    /// Ou seja: a feature era vendida como do balcão (`features-por-modulo.md`) e o balcão
+    /// não a alcançava. É o defeito recorrente do projeto na variante "a porta está atrás
+    /// de uma permissão de outro assunto".
+    ///
+    /// Fechar a agenda é ato de AGENDA, não de cadastro de equipe: quem marca e desmarca
+    /// horário é quem sabe que a médica entrou de férias. Por isso <c>EditarAgenda</c>, o
+    /// mesmo bit do "Novo horário" ao lado — e a tela de Equipe continua com a LISTA dos
+    /// bloqueios (reabrir, empurrar em lote), que é conferência da direção.
+    ///
+    /// Bloquear NÃO desmarca ninguém: quem já estava marcado continua, e é por isso que o
+    /// aviso do que caiu dentro do período é a metade que importa deste comando.
+    /// </summary>
+    [RelayCommand]
+    private async Task FecharAgendaAsync()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "fechar a agenda");
+
+        var vm = new ViewModels.BloqueioEdicaoViewModel(_escopos);
+        var janela = new Janelas.BloqueioWindow(vm) { Owner = Dono() };
+        if (janela.ShowDialog() != true) return;
+
+        if (vm.MarcadosDentro.Count > 0)
+            _dialogo.Aviso("Agenda fechada — mas já havia sessão marcada",
+                $"{vm.MarcadosDentro.Count} sessão(ões) estão marcadas dentro do período fechado. "
+                + "Elas continuam na agenda: remarque com o paciente.\n\n"
+                + string.Join("\n", vm.MarcadosDentro)
+                + "\n\nPara empurrar todas de uma vez, use Profissionais e salas → Empurrar.");
+        else
+            _snackbar.Sucesso("Agenda fechada no período.");
+
         await CarregarAsync();
     }
 

@@ -208,8 +208,25 @@ public sealed partial class FilaViewModel : ObservableObject
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
     /// botão apagado explica por que não dá; a guarda no comando é que impede.
     /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    ///
+    /// ⚠️ <b>`EditarAgenda` OU `MovimentarFila`</b> — a MESMA conta do `ExigirAlgum` dos
+    /// comandos (parcela 62). Enquanto esta metade olhava só `EditarAgenda`, o perfil
+    /// `Profissional` — que a parcela 61 criou com `MovimentarFila` e sem `EditarAgenda` —
+    /// abria o quadro do balcão com TODOS os cartões apagados e o arrasto travado, apesar
+    /// de as guardas o autorizarem. Metade visível mais restrita que a guarda é pior do
+    /// que metade nenhuma: ela mente sobre o que a pessoa pode fazer. O Consultório já
+    /// fazia certo (<c>MeuDiaViewModel.PodeMovimentarFila</c>).
     /// </summary>
-    public bool PodeEditarAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    public bool PodeEditarAgenda => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.EditarAgenda | Permissao.MovimentarFila);
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado (parcela 62). Sem ele, a fila do balcão
+    /// desenhava "ninguém marcado para hoje" quando o banco oscilava na abertura: falha
+    /// com cara de dia vazio, na primeira tela que a recepção abre de manhã. Era a única
+    /// tela de lista do módulo sem ele.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
 
     public FilaViewModel(
         AgendaService agenda, PainelRecepcaoService painel, IServiceScopeFactory escopos,
@@ -298,6 +315,7 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task CarregarAsync(bool silencioso)
     {
         var geracao = ++_geracaoCarga;
+        if (!silencioso) NaoVerificado = false;
 
         try
         {
@@ -386,7 +404,12 @@ public sealed partial class FilaViewModel : ObservableObject
             // Recarga de fundo que falha não interrompe o balcão com um aviso vermelho:
             // ela já foi para o log, e a tela segue com o quadro do minuto anterior.
             if (!silencioso && geracao == _geracaoCarga)
+            {
+                // O terceiro estado, além do snackbar: o aviso passageiro some em 4s e o
+                // quadro vazio FICA, afirmando um dia sem ninguém que não foi verificado.
+                NaoVerificado = true;
                 _snackbar.Erro($"Não foi possível carregar a fila: {ex.Message}");
+            }
         }
         finally
         {
@@ -650,6 +673,16 @@ public sealed partial class FilaViewModel : ObservableObject
             if (resultado.Lancamento is not null) partes.Add("entrada no caixa");
 
             _snackbar.Sucesso($"Sessão de {c.Paciente} concluída — {string.Join(" · ", partes)}.");
+
+            // Os recados do LANÇAMENTO em diálogo, não em snackbar (parcela 62): o
+            // principal deles é a NÃO CONFORMIDADE reaberta porque o paciente voltou, e
+            // ele existe para a secretária cobrar a guia AGORA, com ele ainda no balcão.
+            // Snackbar some em 4s e não sobrevive a quem virou para atender o próximo —
+            // é o mesmo diálogo que o check-in usa para os alertas de elegibilidade.
+            if (resultado.TemRecados)
+                _dialogo.Aviso($"Atenção — {c.Paciente}",
+                    string.Join("\n\n", resultado.RecadosDoLancamento));
+
             return Task.CompletedTask;
         }, "conclusão do atendimento");
 

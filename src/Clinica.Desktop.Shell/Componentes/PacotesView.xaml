@@ -27,11 +27,13 @@
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
                             Command="{Binding AbrirCatalogoCommand}"
-                            ToolTip="O que está à venda — a tabela que a clínica define uma vez" />
+                            IsEnabled="{Binding PodeEditarFinanceiro}"
+                            ToolTip="O que está à venda — a tabela que a clínica define uma vez. Mudar o preço vale para todo mundo, então fica no financeiro." />
                     <Button Content="Orçamento…" MinHeight="36" MinWidth="130"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding OrcarCommand}" />
+                            Command="{Binding OrcarCommand}"
+                            IsEnabled="{Binding PodeVender}" />
                 </StackPanel>
             </Grid>
         </StackPanel>
@@ -87,7 +89,7 @@
                             <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding CarregarCommand}" />
                             <Button Content="Vender pacote…" Margin="8,0,0,0"
-                                    Command="{Binding VenderCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
+                                    Command="{Binding VenderCommand}" IsEnabled="{Binding PodeVender}" />
                         </StackPanel>
                     </Grid>
 
@@ -128,7 +130,7 @@
                                                     <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </Border>
                                                 <Button Content="Usar sessão" Style="{StaticResource BotaoPequeno}"
-                                                        IsEnabled="{Binding Ativo}"
+                                                        IsEnabled="{Binding PodeUsarSessao}"
                                                         Command="{Binding DataContext.ConsumirCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
@@ -143,7 +145,7 @@
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Cancelar" Margin="8,0,0,0"
                                                         Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        IsEnabled="{Binding Ativo}"
+                                                        IsEnabled="{Binding PodeCancelarVenda}"
                                                         Command="{Binding DataContext.CancelarPacoteCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />

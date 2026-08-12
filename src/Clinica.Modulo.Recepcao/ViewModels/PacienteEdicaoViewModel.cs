@@ -153,8 +153,18 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
             Owner = System.Windows.Application.Current?.MainWindow
         };
 
+        // Diálogo cancelado sai calado: é o caso normal, e a pessoa sabe que desistiu.
         if (janela.ShowDialog() != true) return;
-        if (janela.Conteudo is null || janela.Miniatura is null) return;
+
+        // Aqui, não. Confirmar a captura e a janela devolver quadro vazio é defeito da
+        // webcam (driver que solta o dispositivo, quadro perdido no clique) — e sair em
+        // silêncio faria a recepcionista concluir que a foto está guardada. Ela só
+        // descobriria no Salvar, com o paciente já fora do balcão.
+        if (janela.Conteudo is null || janela.Miniatura is null)
+        {
+            Erro("A câmera não devolveu a imagem. Tente capturar de novo.");
+            return;
+        }
 
         _fotoCheiaPendente = janela.Conteudo;
         _fotoMiniaturaPendente = janela.Miniatura;

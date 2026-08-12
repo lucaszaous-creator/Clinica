@@ -33,6 +33,9 @@ public sealed partial class LinhaFolha : ObservableObject
 public sealed class LinhaFolhaEmitida
 {
     public required int DocumentoId { get; init; }
+
+    /// <summary>De quem é a folha — a trilha de acesso da 2ª via precisa (parcela 62).</summary>
+    public int? PacienteId { get; init; }
     public required NaturezaFolha Natureza { get; init; }
     public required string Numero { get; init; }
     public required string Folha { get; init; }
@@ -130,6 +133,9 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [ObservableProperty] private bool _conferidoCancelado;
 
     private int? _conferidoId;
+
+    /// <summary>Paciente do documento conferido — para a trilha da 2ª via.</summary>
+    private int? _conferidoPacienteId;
 
     /// <summary>Só há segunda via quando o código achou mesmo um documento.</summary>
     public bool TemConferido => _conferidoId is not null;
@@ -330,6 +336,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
     private LinhaFolhaEmitida Montar(FolhaEmitida e) => new()
     {
         DocumentoId = e.DocumentoId,
+        PacienteId = e.PacienteId,
         Natureza = e.Natureza,
         Numero = e.Numero,
         Folha = e.FolhaRotulo,
@@ -382,6 +389,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         Conferido = null;
         ConferidoCancelado = false;
         _conferidoId = null;
+        _conferidoPacienteId = null;
 
         var codigo = Codigo?.Trim();
         if (string.IsNullOrWhiteSpace(codigo))
@@ -412,6 +420,13 @@ public sealed partial class DocumentosViewModel : ObservableObject
             }
 
             _conferidoId = achado.Id;
+            _conferidoPacienteId = achado.PacienteId;
+
+            // Conferir pelo código MOSTRA de quem é o documento e de que tipo ele é —
+            // acesso a dado de saúde por uma porta própria, e por isso na trilha.
+            await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(achado.PacienteId, SessaoUsuario.Atual.Operador,
+                    OrigemAcessoProntuario.Documento);
             ConferidoCancelado = achado.Cancelado;
 
             var quem = achado.Paciente?.Nome ?? "(paciente removido)";
@@ -436,7 +451,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
     private async Task ReimprimirConferidoAsync()
     {
         if (_conferidoId is not { } id) return;
-        await ImprimirClinicoAsync(id, $"Documento-{id}.pdf", $"#{id}");
+        await ImprimirClinicoAsync(id, $"Documento-{id}.pdf", $"#{id}", _conferidoPacienteId);
     }
 
     // ==================== Gerar ====================
@@ -561,7 +576,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
         await CarregarAsync();
         await ImprimirClinicoAsync(
-            emitido.Id, $"{folha.Rotulo}-{emitido.Numero.Replace('/', '-')}.pdf", emitido.Numero);
+            emitido.Id, $"{folha.Rotulo}-{emitido.Numero.Replace('/', '-')}.pdf", emitido.Numero,
+            paciente.Id);
     }
 
     /// <summary>
@@ -603,7 +619,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
             await ImprimirClinicoAsync(
                 linha.DocumentoId,
                 $"{linha.Folha}-{linha.Numero.Replace('/', '-')}.pdf",
-                linha.Numero);
+                linha.Numero,
+                linha.PacienteId);
             return;
         }
 
@@ -632,7 +649,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
         }
     }
 
-    private async Task ImprimirClinicoAsync(int documentoId, string nomeArquivo, string numero)
+    private async Task ImprimirClinicoAsync(
+        int documentoId, string nomeArquivo, string numero, int? pacienteId)
     {
         try
         {
@@ -642,6 +660,16 @@ public sealed partial class DocumentosViewModel : ObservableObject
                 var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
                 var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
                 pdf = await pdfs.GerarAsync(documentoId, await parametros.ObterPrestadorAsync());
+
+                // TRILHA DE LEITURA (parcela 62): receita, atestado, relatório de evolução
+                // e anamnese em PDF no disco são dado de saúde SAINDO do sistema, e esta
+                // tela era a única das três que emitem documento clínico sem registrar
+                // acesso nenhum. É o PONTO ÚNICO por onde todo PDF clínico da tela passa —
+                // emitir montada, reimprimir da lista e reimprimir o conferido.
+                if (pacienteId is { } id)
+                    await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                        .RegistrarAsync(id, SessaoUsuario.Atual.Operador,
+                            OrigemAcessoProntuario.Documento);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));

@@ -128,6 +128,24 @@ public static class RotulosEnum
 
         Sexo s => s == Sexo.Masculino ? "Masculino" : "Feminino",
 
+        // De onde o paciente veio (CRM). O humanizador devolveria "Indicacao" e
+        // "Convenio" SEM ACENTO, e este é um dos poucos campos que a direção lê
+        // agrupado num relatório — identificador cru vira categoria do relatório.
+        // A ficha do paciente escrevia esta mesma lista à mão desde que o campo
+        // existe; duas cópias divergem na primeira operadora... digo, na primeira
+        // origem nova, e a que ninguém lembra de ajustar é sempre a segunda.
+        OrigemPaciente o => o switch
+        {
+            OrigemPaciente.Indicacao => "Indicação",
+            OrigemPaciente.Encaminhamento => "Encaminhamento médico",
+            OrigemPaciente.Internet => "Internet (busca ou site)",
+            OrigemPaciente.RedesSociais => "Redes sociais",
+            OrigemPaciente.Fachada => "Passou em frente",
+            OrigemPaciente.Convenio => "Lista do convênio",
+            OrigemPaciente.Campanha => "Campanha da clínica",
+            _ => "Outro"
+        },
+
         // Lista de problemas (parcela 37): "Diagnostico" e "MedicacaoContinua" crus
         // sairiam sem acento na tela e na EXPORTAÇÃO, que viaja para fora do produto.
         NaturezaProblema n => n switch

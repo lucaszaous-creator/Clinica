@@ -53,13 +53,13 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 | # | Feature | Módulo dono | Estado | Parcela |
 |---|---|---|---|---|
 | 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
-| 02 | Agenda multiprofissional | Recepção | ✅ | 1 e 5 |
+| 02 | Agenda multiprofissional | Recepção | 🟡 | 1 e 5 |
 | 03 | Fila em kanban | Recepção | ✅ | 1 |
 | 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
 | 06 | Mapa corporal | Recepção | ✅ | 3 |
 | 07 | Prescrição | Recepção | ✅ | 3 |
-| 08 | Pacotes, planos e vouchers | Financeiro | ✅ | 4 |
+| 08 | Pacotes, planos e vouchers | Financeiro **e Recepção** | ✅ | 4 e 60 |
 | 09 | Caixa, repasses e conciliação | Financeiro | ✅ | 4 |
 | 10 | Estoque | Financeiro | ✅ | 4 |
 | 11 | Marketing — NPS e recall | Gerente | ✅ | 5 |
@@ -67,7 +67,14 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 | 13 | Permissões e LGPD | Gerente / Recepção | ✅ | 5 |
 | 14 | Faturamento TISS 4.01 | Faturamento | ✅ | — |
 
-**Placar: as 14 completas.**
+**Placar: 13 completas e 1 parcial (a agenda, sem a visão por SALA).**
+
+> A 02 voltou a 🟡 na parcela 62, e não porque perdeu alguma coisa: ela **nunca teve** a
+> visão por sala, e a linha dizia ✅ porque o CAMPO `SalaId` existe. Campo não é tela. A
+> sala é gravada, respeitada no choque (com a capacidade dela) e bloqueável por período;
+> o que não há é modo de grade que a use como coluna. Marcar ✅ aqui é a versão em
+> planilha do defeito recorrente do projeto — o mesmo que fez o `PacoteService` passar
+> cinco parcelas testado e sem chamador.
 
 | Estado | Features |
 |---|---|
@@ -141,7 +148,8 @@ zero.**
 | Item | Estado | Onde / observação |
 |---|---|---|
 | Grade de horários com remarcação | ✅ | `AgendaView` (Recepção) + `AgendaService.RemarcarAsync` |
-| Visão por profissional ou por sala | ✅ | `Agendamento.ProfissionalId`/`SalaId`, uma coluna por profissional |
+| Visão por profissional | ✅ | uma coluna por profissional na grade (`AgendaViewModel.Colunas`) |
+| **Visão por SALA** | ❌ | **não existe.** A sala é gravada (`Agendamento.SalaId`), respeitada no choque com a capacidade dela e bloqueável por período — mas não há modo de grade que a use como coluna. A linha dizia ✅ desde a parcela 1 porque o CAMPO existe; campo não é tela (parcela 62) |
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
 | Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26) |
@@ -1044,7 +1052,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **GESTÃO** · Sala de infusão | Recepção · Consultório | 🔵 | `Desktop.Shell/Componentes/SalaInfusaoView` (parcelas 42 e 48) |
 | **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
 | **PACIENTE** · Portal do paciente | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
-| **FINANCEIRO** · Pacotes / Sessões | Financeiro | ✅ | `PacotesView` |
+| **FINANCEIRO** · Pacotes / Sessões | Financeiro **e Recepção** | ✅ | `Desktop.Shell/Componentes/PacotesView` — a tela SUBIU para o shell na parcela 60 e os dois módulos publicam a MESMA chave (`ChavesSuite.Pacotes`); quem vende dez sessões ao paciente é o balcão, com ele na frente |
 | **FINANCEIRO** · Financeiro | Financeiro | ✅ | `CaixaView` + Conciliação, Produção, Repasses |
 | **FINANCEIRO** · Faturamento (TISS) | Gerente | ✅ | `FaturamentoTissView` — 5 abas (parcelas 10b–10d) |
 | **FINANCEIRO** · Estoque | Financeiro | ✅ | `EstoqueView` |

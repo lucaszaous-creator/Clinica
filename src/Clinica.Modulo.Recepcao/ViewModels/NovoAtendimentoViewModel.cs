@@ -432,6 +432,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [RelayCommand]
     public async Task CarregarDoDiaAsync()
     {
+        var geracao = ++_geracaoDia;
+
         try
         {
             CarregandoDia = true;
@@ -443,30 +445,52 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
             var hoje = DateTime.Today;
             var agendamentos = await repo.AgendamentosNoPeriodoAsync(hoje, hoje.AddDays(1).AddTicks(-1));
+            if (geracao != _geracaoDia) return;
 
-            LancadosHoje.Clear();
+            // Monta em lista local e só ENTÃO publica: entre o Clear e o último Add não
+            // pode haver await. Esta carga roda depois de CADA lançamento, então duas no
+            // ar ao mesmo tempo é o caso normal de quem atende dois seguidos — e
+            // intercaladas elas repetiam linhas na conferência do dia.
+            var linhas = new List<LinhaAvulso>();
             foreach (var ag in agendamentos
                          .Where(a => a.AtendimentoId is not null)
                          .OrderByDescending(a => a.AtendimentoId))
             {
                 var atendimento = await repo.ObterAtendimentoAsync(ag.AtendimentoId!.Value);
+                if (geracao != _geracaoDia) return;
                 if (atendimento is null) continue;
 
-                LancadosHoje.Add(MontarLinhaAvulso(atendimento, hoje));
+                linhas.Add(MontarLinhaAvulso(atendimento, hoje));
             }
+
+            LancadosHoje.Clear();
+            foreach (var linha in linhas) LancadosHoje.Add(linha);
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoDia) return;
             NaoVerificado = true;
             LogSuite.Registrar("Novo atendimento — avulsos do dia não puderam ser lidos", ex);
             AvisoRegistro = $"Não foi possível ler os atendimentos de hoje: {ex.Message}";
         }
         finally
         {
-            CarregandoDia = false;
-            OnPropertyChanged(nameof(TemLancadosHoje));
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoDia)
+            {
+                CarregandoDia = false;
+                OnPropertyChanged(nameof(TemLancadosHoje));
+            }
         }
     }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem para a lista de LANÇADOS HOJE (parcela 50). É
+    /// um contador SEPARADO do da prévia: as duas leituras são independentes, e um
+    /// contador só faria o lançamento de um atendimento cancelar a prévia que a
+    /// recepcionista está montando para o próximo paciente.
+    /// </summary>
+    private int _geracaoDia;
 
     private static LinhaAvulso MontarLinhaAvulso(Atendimento atendimento, DateTime hoje)
     {
