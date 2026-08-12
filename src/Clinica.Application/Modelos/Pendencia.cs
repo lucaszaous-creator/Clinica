@@ -41,6 +41,21 @@ public sealed record PendenciaCodigo(
     /// </summary>
     public string? ConvenioCodigo { get; init; }
 
+    /// <summary>
+    /// Modalidade do ATENDIMENTO que gerou a guia (parcela 61) — é o que responde "12
+    /// pendências de quê?" no filtro do painel. Aditivo, <c>init</c> com padrão nulo,
+    /// pela regra de sempre: este record é compartilhado com o faturamento em produção.
+    /// </summary>
+    public ModalidadeAtendimento? Modalidade { get; init; }
+
+    /// <summary>
+    /// Especialidade da guia: a do CÓDIGO quando ele a tem, senão a do atendimento — o
+    /// mesmo caminho de baixo da consulta de guias (parcela 45), e pela mesma razão: sem
+    /// ele, a guia de um atendimento com especialidade declarada ficaria fora do filtro
+    /// da própria especialidade.
+    /// </summary>
+    public Especialidade? Especialidade { get; init; }
+
     /// <summary>True quando há uma observação registrada (para destacar a linha na tela).</summary>
     public bool TemObservacao => !string.IsNullOrWhiteSpace(ObservacaoPendencia);
 }

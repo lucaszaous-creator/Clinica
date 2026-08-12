@@ -6,6 +6,7 @@ using System.Globalization;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Domain;
+using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,12 +40,59 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     public ObservableCollection<PendenciaCarteirinha> Carteirinhas { get; } = new();
 
     public IReadOnlyList<object> OpcoesConvenio { get; }
-    public IReadOnlyList<object> OpcoesUrgencia { get; } =
-        new object[] { "Todos", NivelUrgencia.Vermelho, NivelUrgencia.Amarelo, NivelUrgencia.Verde };
 
-    [ObservableProperty] private object _filtroConvenio = "Todos";
-    [ObservableProperty] private object _filtroUrgencia = "Todos";
+    /// <summary>
+    /// Tipo do código, modalidade e especialidade para os combos (parcela 61) — a resposta
+    /// a "12 pendências de QUÊ?". Mesma construção da consulta de guias (parcela 45): a
+    /// primeira opção é uma STRING, e o <c>EnumDescricao</c> a devolve como veio — é o que
+    /// permite "sem filtro" e "filtrado por" viverem no mesmo combo sem um valor de enum
+    /// inventado para significar "nenhum".
+    /// </summary>
+    public IReadOnlyList<object> OpcoesTipo { get; }
+    public IReadOnlyList<object> OpcoesModalidade { get; }
+    public IReadOnlyList<object> OpcoesEspecialidade { get; }
+
+    private const string Todos = "Todos";
+    private const string Todas = "Todas";
+
+    [ObservableProperty] private object _filtroConvenio = Todos;
+    [ObservableProperty] private object _filtroTipo = Todos;
+    [ObservableProperty] private object _filtroModalidade = Todas;
+    [ObservableProperty] private object _filtroEspecialidade = Todas;
     [ObservableProperty] private int _total;
+
+    // ---- Chips (parcela 61): o recorte de um clique, com a contagem à vista ----
+    //
+    // Ordem (1º/2º) e situação (atrasada/no prazo) são as duas perguntas que o faturista
+    // alterna o dia inteiro, e as duas têm DUAS respostas cada — chip, não combo: a
+    // distribuição aparece ANTES do clique ("12 pendências: 8 do 1º, 4 do 2º"), que é
+    // exatamente o que faltava no número seco. Cada dupla é exclusiva (marcar uma
+    // desmarca a irmã); desmarcar as duas é "todas".
+    [ObservableProperty] private bool _chipPrimeiros;
+    [ObservableProperty] private bool _chipSegundos;
+    [ObservableProperty] private bool _chipAtrasadas;
+    [ObservableProperty] private bool _chipNoPrazo;
+
+    /// <summary>Contagens dos chips — sempre sobre o TOTAL, nunca sobre o recorte.</summary>
+    public int TotalPrimeiros => _todos.Count(p => p.Ordem == OrdemCodigo.Primeiro);
+    public int TotalSegundos => _todos.Count(p => p.Ordem == OrdemCodigo.Segundo);
+    public int TotalAtrasadas => _todos.Count(p => p.Urgencia == NivelUrgencia.Vermelho);
+    public int TotalNoPrazo => _todos.Count(p => p.Urgencia == NivelUrgencia.Amarelo);
+
+    /// <summary>
+    /// A lista filtrada DIZ que está filtrada (regra da parcela 45): "12 pendências" e
+    /// "12 de 30 — 2º código · acupuntura" respondem perguntas diferentes, e quem volta à
+    /// tela depois do café não lembra o que deixou marcado.
+    /// </summary>
+    [ObservableProperty] private string _resumoRecorte = string.Empty;
+
+    /// <summary>Há recorte ativo — o "Limpar filtros" só aparece quando tem o que limpar.</summary>
+    [ObservableProperty] private bool _temFiltro;
+
+    /// <summary>O vazio distingue "não há pendência" de "nenhuma bate com o filtro".</summary>
+    [ObservableProperty] private string _tituloVazio = "Nenhuma pendência";
+    [ObservableProperty] private string _descricaoVazio =
+        "Tudo em dia por aqui. Use Atualizar (F5) para recarregar.";
 
     /// <summary>A rodada de pendências venceu (mostra o banner do fechamento de ciclo).</summary>
     [ObservableProperty] private bool _rodadaVencida;
@@ -83,9 +131,21 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         _scopeFactory = scopeFactory;
         _dialogo = dialogo;
-        var ops = new List<object> { "Todos" };
+        var ops = new List<object> { Todos };
         ops.AddRange(Enum.GetValues<Convenio>().Cast<object>());
         OpcoesConvenio = ops;
+
+        var tipos = new List<object> { Todos };
+        tipos.AddRange(Enum.GetValues<TipoCodigo>().Cast<object>());
+        OpcoesTipo = tipos;
+
+        var modalidades = new List<object> { Todas };
+        modalidades.AddRange(Enum.GetValues<ModalidadeAtendimento>().Cast<object>());
+        OpcoesModalidade = modalidades;
+
+        var especialidades = new List<object> { Todas };
+        especialidades.AddRange(Enum.GetValues<Especialidade>().Cast<object>());
+        OpcoesEspecialidade = especialidades;
     }
 
     public async Task CarregarAsync()
@@ -158,11 +218,21 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         IEnumerable<PendenciaCodigo> filtrados = _todos;
         if (FiltroConvenio is Convenio cv)
             filtrados = filtrados.Where(p => p.Convenio == cv);
-        if (FiltroUrgencia is NivelUrgencia u)
-            filtrados = filtrados.Where(p => p.Urgencia == u);
+        if (FiltroTipo is TipoCodigo tipo)
+            filtrados = filtrados.Where(p => p.Tipo == tipo);
+        if (FiltroModalidade is ModalidadeAtendimento mod)
+            filtrados = filtrados.Where(p => p.Modalidade == mod);
+        if (FiltroEspecialidade is Especialidade esp)
+            filtrados = filtrados.Where(p => p.Especialidade == esp);
+        if (ChipPrimeiros) filtrados = filtrados.Where(p => p.Ordem == OrdemCodigo.Primeiro);
+        if (ChipSegundos) filtrados = filtrados.Where(p => p.Ordem == OrdemCodigo.Segundo);
+        if (ChipAtrasadas) filtrados = filtrados.Where(p => p.Urgencia == NivelUrgencia.Vermelho);
+        if (ChipNoPrazo) filtrados = filtrados.Where(p => p.Urgencia == NivelUrgencia.Amarelo);
 
         Codigos.Clear();
         foreach (var c in filtrados) Codigos.Add(c);
+
+        AtualizarResumoDoRecorte();
 
         // Mesmo critério do badge (PendenciaService.TotalPendenciasAsync): recursos contam
         // quando o prazo está apertado (amarelo/vermelho).
@@ -173,11 +243,94 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         OnPropertyChanged(nameof(ConsultasARenovar));
         OnPropertyChanged(nameof(TemRecursos));
         OnPropertyChanged(nameof(TemCarteirinhas));
+        OnPropertyChanged(nameof(TotalPrimeiros));
+        OnPropertyChanged(nameof(TotalSegundos));
+        OnPropertyChanged(nameof(TotalAtrasadas));
+        OnPropertyChanged(nameof(TotalNoPrazo));
         PendenciasAtualizadas?.Invoke(Total);
     }
 
+    /// <summary>Escreve o recorte por extenso e ajusta o estado vazio para dizê-lo também.</summary>
+    private void AtualizarResumoDoRecorte()
+    {
+        var partes = new List<string>();
+        if (ChipPrimeiros) partes.Add("1º código");
+        if (ChipSegundos) partes.Add("2º código");
+        if (ChipAtrasadas) partes.Add("atrasadas");
+        if (ChipNoPrazo) partes.Add("no prazo");
+        if (FiltroTipo is TipoCodigo tipo) partes.Add(RotulosEnum.De(tipo));
+        if (FiltroModalidade is ModalidadeAtendimento mod) partes.Add(ModalidadeInfo.NomeExibicao(mod));
+        if (FiltroEspecialidade is Especialidade esp) partes.Add(EspecialidadeInfo.NomeExibicao(esp));
+        if (FiltroConvenio is Convenio cv) partes.Add(CatalogoConvenios.Nome(cv));
+
+        TemFiltro = partes.Count > 0;
+
+        ResumoRecorte = !TemFiltro
+            ? (_todos.Count == 1 ? "1 pendência" : $"{_todos.Count} pendências")
+            : $"{Codigos.Count} de {_todos.Count} pendência(s) — {string.Join(" · ", partes)}";
+
+        // "Nenhuma pendência" e "nenhuma bate com o filtro" são respostas DIFERENTES:
+        // um filtro esquecido que respondesse "tudo em dia" faria a clínica dar o dia
+        // por resolvido com o painel inteiro pendente (a lição da lista de espera, 25).
+        var filtroEscondendo = TemFiltro && _todos.Count > 0;
+        TituloVazio = filtroEscondendo ? "Nenhuma pendência bate com o filtro" : "Nenhuma pendência";
+        DescricaoVazio = filtroEscondendo
+            ? $"Há {_todos.Count} pendência(s) fora deste recorte. Ajuste os filtros ou use Limpar."
+            : "Tudo em dia por aqui. Use Atualizar (F5) para recarregar.";
+    }
+
+    /// <summary>Desfaz todo o recorte de um clique — combos e chips.</summary>
+    [RelayCommand]
+    private void LimparFiltros()
+    {
+        // Direto nos campos + UM AplicarFiltro no fim: pelos setters, cada mudança
+        // refiltraria a lista inteira — sete varreduras para produzir a mesma tela.
+        _filtroConvenio = Todos;
+        _filtroTipo = Todos;
+        _filtroModalidade = Todas;
+        _filtroEspecialidade = Todas;
+        _chipPrimeiros = _chipSegundos = _chipAtrasadas = _chipNoPrazo = false;
+        OnPropertyChanged(nameof(FiltroConvenio));
+        OnPropertyChanged(nameof(FiltroTipo));
+        OnPropertyChanged(nameof(FiltroModalidade));
+        OnPropertyChanged(nameof(FiltroEspecialidade));
+        OnPropertyChanged(nameof(ChipPrimeiros));
+        OnPropertyChanged(nameof(ChipSegundos));
+        OnPropertyChanged(nameof(ChipAtrasadas));
+        OnPropertyChanged(nameof(ChipNoPrazo));
+        AplicarFiltro();
+    }
+
     partial void OnFiltroConvenioChanged(object value) => AplicarFiltro();
-    partial void OnFiltroUrgenciaChanged(object value) => AplicarFiltro();
+    partial void OnFiltroTipoChanged(object value) => AplicarFiltro();
+    partial void OnFiltroModalidadeChanged(object value) => AplicarFiltro();
+    partial void OnFiltroEspecialidadeChanged(object value) => AplicarFiltro();
+
+    // Cada dupla de chips é EXCLUSIVA: marcar um desmarca o irmão (uma guia não é 1º e
+    // 2º ao mesmo tempo), e desmarcar os dois é "todas".
+    partial void OnChipPrimeirosChanged(bool value)
+    {
+        if (value && ChipSegundos) ChipSegundos = false;
+        else AplicarFiltro();
+    }
+
+    partial void OnChipSegundosChanged(bool value)
+    {
+        if (value && ChipPrimeiros) ChipPrimeiros = false;
+        else AplicarFiltro();
+    }
+
+    partial void OnChipAtrasadasChanged(bool value)
+    {
+        if (value && ChipNoPrazo) ChipNoPrazo = false;
+        else AplicarFiltro();
+    }
+
+    partial void OnChipNoPrazoChanged(bool value)
+    {
+        if (value && ChipAtrasadas) ChipAtrasadas = false;
+        else AplicarFiltro();
+    }
 
     [RelayCommand]
     private void DarBaixa(PendenciaCodigo? codigo)

@@ -37,7 +37,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Hora" Style="{StaticResource Rotulo}" />
                 <TextBox Text="{Binding InicioHora, UpdateSourceTrigger=PropertyChanged}"
-                         MaxLength="5" Width="80" />
+                         MaxLength="5" Width="110" TextAlignment="Center" />
             </StackPanel>
         </Grid>
 
@@ -54,7 +54,7 @@
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Hora" Style="{StaticResource Rotulo}" />
                 <TextBox Text="{Binding FimHora, UpdateSourceTrigger=PropertyChanged}"
-                         MaxLength="5" Width="80" />
+                         MaxLength="5" Width="110" TextAlignment="Center" />
             </StackPanel>
         </Grid>
 

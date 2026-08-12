@@ -296,8 +296,12 @@
                                  momento em que ninguém foi atendido. -->
                             <TextBlock Text="Hora" Style="{StaticResource Rotulo}"
                                        VerticalAlignment="Center" Margin="14,0,8,0" />
+                            <!-- 110 e não 80: o campo tem 12px de padding por lado (Padding.Campo),
+                                 e "00:00" nos 56px restantes saía cortado na escala de fonte do
+                                 balcão — o cliente mandou a foto do "12:4…". -->
                             <TextBox Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
-                                     Width="80" VerticalAlignment="Center"
+                                     Width="110" MaxLength="5" TextAlignment="Center"
+                                     VerticalAlignment="Center"
                                      ToolTip="Hora da sessão. Entra na agenda como encaixe." />
                         </StackPanel>
                     </Grid>

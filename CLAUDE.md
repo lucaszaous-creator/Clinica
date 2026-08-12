@@ -1765,6 +1765,22 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   prontuário", sem chamador desde a parcela 52 — ganhou porta na tela de Guarda do Gerente.
   As abas do workspace continuam cobertas pela janela de silêncio por ORIGEM: quatro abas
   do mesmo paciente no mesmo atendimento são UM acesso, e isso é desenho, não buraco.
+- **O painel de pendências diz DE QUÊ elas são** (parcela 61 — a direção perguntou:
+  *"12 pendências, mas 12 pendências de quê? 1º código? 2º? Acupuntura? Consulta?"*).
+  A resposta tem duas formas, e a escolha entre elas não é estilo: **CHIP com contagem**
+  para as perguntas de DUAS respostas que o faturista alterna o dia inteiro (1º/2º
+  código, atrasada/no prazo — estilo `ChipFiltro`, pílula com a distribuição visível
+  ANTES do clique, contada sempre sobre o TOTAL e nunca sobre o recorte); **combo
+  rotulado** para as listas longas (tipo do código, modalidade, especialidade,
+  convênio). Cada dupla de chips é exclusiva (marcar um desmarca o irmão; desmarcar os
+  dois é "todas"). Para isso `PendenciaCodigo` ganhou `Modalidade` e `Especialidade` —
+  aditivo, `init` nulo, o padrão de sempre para record compartilhado com produção — e a
+  especialidade cai da do CÓDIGO para a do atendimento, o mesmo caminho de baixo da
+  consulta de guias (parcela 45). O resumo escreve o recorte por extenso ("12 de 30 —
+  2º código · acupuntura"), o Limpar só aparece quando há o que limpar, e o vazio
+  distingue "não há pendência" de "nenhuma bate com o filtro" — um filtro esquecido
+  respondendo "tudo em dia" faria a clínica dar o dia por resolvido com o painel inteiro
+  pendente.
 - **O circuito clínico é testado de ponta a ponta** (`CircuitoClinicoTests`, parcela 61):
   o `CircuitoCompletoTests` cobria agenda → faturamento → financeiro e nenhum elo clínico.
   Os quatro circuitos fixados: prescrição assinada → sala → checagem → encerramento (a

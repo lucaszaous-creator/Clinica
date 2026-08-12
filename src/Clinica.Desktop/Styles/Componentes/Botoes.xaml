@@ -148,4 +148,51 @@
         <Setter Property="Background" Value="{StaticResource Brush.Erro}" />
     </Style>
 
+    <!-- Chip de filtro (parcela 61): o recorte de UM clique, com a contagem no rótulo.
+         É o "filtro visual" do painel de pendências — o combo responde bem quando a lista
+         de opções é longa (convênio, especialidade); quando são DUAS ou TRÊS e a pessoa
+         alterna entre elas o dia inteiro (1º/2º código, atrasada/no prazo), o chip mostra
+         a distribuição ANTES do clique e filtra sem abrir nada.
+         Pílula com contorno; marcado = fundo acento suave + borda acento. `Foreground`
+         declarado porque Button/ToggleButton com Template próprio não herda o do estilo
+         implícito (a lição da parcela 47). -->
+    <Style x:Key="ChipFiltro" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+        <Setter Property="FontSize" Value="{StaticResource Fonte.Legenda}" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="b" Background="{StaticResource Brush.Superficie}"
+                            BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                            CornerRadius="{StaticResource Raio.Pilula}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="b" Property="BorderBrush"
+                                    Value="{StaticResource Brush.Acento}" />
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="b" Property="Background"
+                                    Value="{StaticResource Brush.Acento.Suave}" />
+                            <Setter TargetName="b" Property="BorderBrush"
+                                    Value="{StaticResource Brush.Acento}" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Acento}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>
