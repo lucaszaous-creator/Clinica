@@ -115,9 +115,15 @@ padrão, e log limpo é log que alguém lê.
 
 ```bash
 apt install -y postgresql-16
+# gere a senha com: openssl rand -hex 20 — só letras e números DE PROPÓSITO:
+# caractere especial em senha acaba quebrando a connection string em alguma
+# máquina, e o erro (28P01) só aparece lá na ponta, no Testar conexão
 sudo -u postgres psql -c "CREATE USER clinica WITH PASSWORD 'GERE-UMA-SENHA-LONGA-AQUI' NOSUPERUSER;"
 sudo -u postgres psql -c "CREATE DATABASE clinica OWNER clinica;"
 ```
+
+Trocar a senha depois (ela vazou, ou por rotina) é um comando — e exige
+reconfigurar as máquinas: `ALTER USER clinica WITH PASSWORD '...';`
 
 Tuning para 2 GB de RAM, em `/etc/postgresql/16/main/postgresql.conf`:
 
@@ -219,24 +225,61 @@ systemctl restart postgresql
 
 ## Passo 6 — As máquinas da clínica
 
-Por máquina (presencial ou remota — o processo é o mesmo):
+O certificado identifica a **MÁQUINA, não a pessoa**: as duas secretárias do
+balcão usam o certificado do computador do balcão, e quem responde "quem fez
+isso?" continua sendo o login do app (`SessaoUsuario`), como sempre. Usuário
+novo no sistema não gera trabalho nenhum nesta camada.
 
-1. Crie `C:\ClinicaDB\` e copie **dois arquivos**: `ca.crt` e o `maquina.pfx` dela.
-   Restrinja a pasta ao usuário do Windows que usa o sistema (propriedades →
-   segurança). O `.pfx` tem senha própria; a connection string fica cifrada por
-   DPAPI como sempre — são camadas somadas.
-2. Abra o app → tela de Setup (ou Configurações → reconfigurar conexão) e cole:
+A string é a mesma para todas as máquinas, mudando só o nome do `.pfx`:
 
 ```
-Host=203.0.113.10;Port=45432;Database=clinica;Username=clinica;Password=SENHA-DO-BANCO;SSL Mode=VerifyFull;Root Certificate=C:\ClinicaDB\ca.crt;SSL Certificate=C:\ClinicaDB\recepcao-01.pfx;SSL Password=SENHA-DO-PFX;Maximum Pool Size=10
+Host=IP-DA-VPS;Port=45432;Database=clinica;Username=clinica;Password=SENHA-DO-BANCO;SSL Mode=VerifyFull;Root Certificate=C:\ClinicaDB\ca.crt;SSL Certificate=C:\ClinicaDB\recepcao-01.pfx;SSL Password=SENHA-DO-PFX;Maximum Pool Size=10
 ```
-
-3. **Testar conexão** → Salvar. Pronto — é a mesma cerimônia da Neon.
 
 String em formato Npgsql atravessa `ConexaoStore.Normalizar` intocada, então nada
 disso exige mudança de código; o `VerifyFull` continua valendo (valida o `server.crt`
 contra o `ca.crt` e confere o IP no SAN) e o `Maximum Pool Size=10` é o que faz as
 contas do passo 3 fecharem.
+
+### Rota A — poucas máquinas: a tela de Setup
+
+1. Crie `C:\ClinicaDB\` e copie `ca.crt` + o `maquina.pfx` dela (restrinja a
+   pasta ao usuário do Windows em propriedades → segurança);
+2. Abra o app → tela de Setup → cole a string → **Testar conexão** → Salvar.
+
+A string fica cifrada por DPAPI, **por usuário do Windows** — é a rota de maior
+proteção, e o preço é repetir o Setup para cada usuário do Windows da máquina.
+
+### Rota B — a frota inteira: kit + `instalar-maquina.bat`
+
+Para dezenas de máquinas, dois scripts em `tools/vps/` fazem o serviço:
+
+1. **Na VPS**, gere todos os certificados de uma vez (o script está no
+   repositório e se instala com um colar no terminal):
+   ```bash
+   cd ~/certs && ./gerar-kit.sh 'SENHA-DO-PFX' recepcao-01 recepcao-02 consultorio-01 ...
+   ```
+   Sai uma pasta `kit/` com o `ca.crt` e um `.pfx` por máquina. **Nomeie os
+   certificados com o nome de máquina do Windows** (`echo %COMPUTERNAME%` em
+   cada uma, ou a planilha do AnyDesk) — é o que deixa o passo 3 automático.
+2. Baixe o kit (`scp -r clinica-admin@IP-DA-VPS:certs/kit C:\kit`), junte o
+   `tools/vps/instalar-maquina.bat` na pasta e preencha as duas senhas no topo
+   dele.
+3. Em cada máquina (pendrive ou AnyDesk): **executar como administrador**. O
+   .bat acha o `.pfx` pelo `%COMPUTERNAME%` (ou pergunta qual usar), copia os
+   arquivos para `C:\ClinicaDB` e grava a string na variável de ambiente da
+   máquina (`ConnectionStrings__Clinica`) — que o app lê antes de qualquer
+   configuração salva e **pula a tela de Setup**. Reabrir o app é entrar no
+   banco novo.
+
+⚠️ **Rodar o .bat É virar a máquina** — só rode depois da migração (passo 7).
+
+O custo da rota B, dito por inteiro: a variável de ambiente fica legível no
+registro da máquina (a rota A guarda cifrado por DPAPI). O `.pfx` já mora no
+mesmo disco de qualquer forma, então o degrau real é pequeno — mas numa máquina
+de uso público, prefira a rota A. E mantenha a **planilha máquina ↔
+certificado**: é ela que torna a revogação de um notebook roubado um ato de um
+minuto em vez de uma investigação.
 
 ## Passo 7 — Migração da Neon (a ordem importa)
 
