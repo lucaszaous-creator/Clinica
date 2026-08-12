@@ -113,7 +113,7 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
 
     partial void OnFiltroUrgenciaGuiaChanged(string value) => Refiltrar();
     partial void OnFiltroPacienteGuiaChanged(string value) => Refiltrar();
-    partial void OnFiltroConvenioGuiaChanged(string? value)
+    partial void OnFiltroConvenioGuiaChanged(string value)
     {
         if (value is null)
         {

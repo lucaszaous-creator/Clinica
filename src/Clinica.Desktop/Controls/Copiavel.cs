@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -102,7 +103,9 @@ public static class Copiavel
     /// operadora fazem isso o tempo todo, por alguns milissegundos. Uma tentativa só
     /// falharia sozinha de vez em quando, sem motivo aparente para quem está usando.
     /// </summary>
-    private static bool TentarCopiar(string texto, out Exception? falha)
+    // NotNullWhen: devolver false garante a exceção preenchida (toda iteração que falha a
+    // grava, e há pelo menos uma) — é o que deixa o chamador registrá-la sem aviso CS8604.
+    private static bool TentarCopiar(string texto, [NotNullWhen(false)] out Exception? falha)
     {
         falha = null;
         for (var i = 0; i < Tentativas; i++)

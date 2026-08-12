@@ -53,7 +53,7 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 
     partial void OnFiltroPacienteChanged(string value) => Refiltrar();
     partial void OnFiltroGuiaChanged(string value) => Refiltrar();
-    partial void OnFiltroConvenioChanged(string? value)
+    partial void OnFiltroConvenioChanged(string value)
     {
         if (value is null)
         {

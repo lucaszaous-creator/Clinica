@@ -127,7 +127,7 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
 
     partial void OnFiltroSituacaoChanged(string value) => Refiltrar();
     partial void OnFiltroPacienteChanged(string value) => Refiltrar();
-    partial void OnFiltroConvenioChanged(string? value)
+    partial void OnFiltroConvenioChanged(string value)
     {
         if (value is null)
         {

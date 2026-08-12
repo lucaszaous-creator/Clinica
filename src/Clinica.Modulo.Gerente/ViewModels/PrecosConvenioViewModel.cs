@@ -86,7 +86,7 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
     private bool _montandoConvenios;
 
     partial void OnSoValendoHojeChanged(bool value) => Refiltrar();
-    partial void OnFiltroConvenioPrecoChanged(string? value)
+    partial void OnFiltroConvenioPrecoChanged(string value)
     {
         if (value is null)
         {
