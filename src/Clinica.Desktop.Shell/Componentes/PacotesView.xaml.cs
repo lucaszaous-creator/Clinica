@@ -1,6 +1,6 @@
 using System.Windows.Controls;
 
-namespace Clinica.Financeiro.Views;
+namespace Clinica.Desktop.Shell.Componentes;
 
 public partial class PacotesView : UserControl
 {

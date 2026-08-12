@@ -33,6 +33,13 @@ public sealed class ModuloRecepcao : IModuloApp
     /// </summary>
     public const string ChaveSalaInfusao = "consultorio-sala-infusao";
     public const string ChaveDocumentos = ChavesSuite.Documentos;
+
+    /// <summary>
+    /// Pacotes de sessões (parcela 60). A chave é a MESMA que o Financeiro publica — é a
+    /// mesma tela, e chave diferente faria o Gerente, que carrega os dois, mostrar a linha
+    /// duas vezes.
+    /// </summary>
+    public const string ChavePacotes = "pacotes";
     public const string ChaveEquipe = "equipe";
 
     // ===== Itens COMPOSTOS (parcela 55) =====
@@ -169,6 +176,20 @@ public sealed class ModuloRecepcao : IModuloApp
             // (`FolhaCatalogo.PermissaoVer`) \u2014 sem isso, fechar a porta levaria junto o
             // recibo e a declara\u00E7\u00E3o de comparecimento que o balc\u00E3o emite todo dia.
             Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerDocumentos
+        },
+
+        // PACOTES DE SESSÕES (parcela 60). A tela existe desde a parcela 4 e a única porta
+        // estava no app do FINANCEIRO — mas quem vende dez sessões ao paciente é o BALCÃO,
+        // com ele na frente. É o defeito recorrente do projeto na variante "a porta está no
+        // módulo de quem não usa", e ele bloqueava o caso que motivou o PARTICULAR: o
+        // paciente sem convênio que compra um pacote.
+        //
+        // A tela não foi copiada: SUBIU para o shell (`Componentes/PacotesView`), como a
+        // sala de infusão na parcela 48, e os dois módulos publicam a MESMA chave.
+        new ItemMenuModulo
+        {
+            Chave = ChavePacotes, Rotulo = "Pacotes / Sessões", Glifo = "",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
         },
 
         // ===== Sub-telas =====

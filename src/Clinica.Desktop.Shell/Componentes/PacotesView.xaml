@@ -1,8 +1,8 @@
-<UserControl x:Class="Clinica.Financeiro.Views.PacotesView"
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.PacotesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             xmlns:vm="clr-namespace:Clinica.Financeiro.ViewModels"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+             xmlns:vm="clr-namespace:Clinica.Desktop.Shell.Componentes"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>

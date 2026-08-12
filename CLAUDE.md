@@ -1979,6 +1979,99 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   Novo, Remarcar e "agendar na faixa" passam. Bit sem guarda seria só uma caixinha na tela
   de Acessos.
 
+- **DUAS PORTAS, UMA ESTEIRA — e a diferença entre elas não tinha sido decidida, tinha
+  sido esquecida** (parcela 60). Havia dois caminhos para criar atendimento, e do lado do
+  faturamento eles eram idênticos — a guia nascia certa —, o que é exatamente por que
+  ninguém notou. Em volta dela, não: **pela agenda** (Fila → Finalizar) o
+  `FechamentoSessaoService` fazia QUATRO coisas — a guia nasce, o pacote debita, o insumo
+  sai do estoque, o dinheiro entra no caixa; **pelo avulso** acontecia UMA.
+  O custo era invisível e diário: paciente com pacote de dez sessões lançado pelo avulso
+  consumia sessão **sem debitar** (a clínica atendia de graça, e é o que o `PacoteService`
+  existe para impedir), e o particular que pagou no balcão não aparecia no caixa — o mês
+  fechava com uma diferença que não tinha nome. Não havia uma linha de comentário
+  explicando a escolha porque **não houve escolha**.
+  A saída não foi escolher uma das duas telas: foi ver que **quem chega sem horário está
+  pedindo um ENCAIXE**, e encaixe a agenda já sabia fazer. "Novo atendimento" continua no
+  menu (decisão da direção) e por dentro faz `AgendarAsync(hora real, encaixe: true)` →
+  `RegistrarChegadaAsync` → **a MESMA `FechamentoSessaoWindow` da Fila**. Não há uma
+  segunda tela de decisão: duas telas para a mesma pergunta divergem na primeira correção.
+  ⚠️ **O efeito estrutural é a amarra**: `AtendimentoService.LancarAsync` ficou com **UM
+  ÚNICO CHAMADOR** em todo o sistema (`AgendaService.ConfirmarPresencaAsync`). Ponto único
+  deixou de ser documentação e virou o que o compilador mostra. `registrarNaAgenda` morreu
+  — e com ele o **agendamento fantasma às 9h fixo**, sem profissional, que o avulso criava
+  porque `Atendimento` só guarda `DateOnly` e não havia hora para copiar; ele aparecia na
+  grade num horário em que ninguém foi atendido e CONTAVA na ocupação do dia. Não era o
+  fantasma da parcela 58 (aquele nascia `Agendado` e tinha o botão "Entrou", que fabricava
+  guia): era ruído na grade e um número de ocupação errado — a mesma família, sem o
+  estrago.
+  **O que a unificação custou, e por que valeu**: `Agendamento.PrimeiroCodigo` (migration
+  aditiva). A escolha de qual código o convênio libera primeiro é da tela, e precisava
+  atravessar o horário para chegar ao motor — sem a coluna, unificar teria custado a
+  feature. De quebra ela ficou disponível também no agendamento normal.
+  **Cancelar o fechamento não desfaz o encaixe**: o horário fica com o check-in carimbado,
+  e o paciente aparece na Fila em "Na recepção". É a verdade — ele chegou —, e apagar o
+  registro sumiria com o único sinal de que há alguém no balcão esperando.
+  `Avulso_e_agendado_produzem_os_mesmos_fatos` é a amarra em teste: ele falha se alguém
+  abrir uma terceira porta que pule algum dos fatos, que é como a segunda foi aberta.
+- **Mover XAML entre projetos quebra o `xmlns`, e só o CI acusa** (parcela 60, checagem
+  33): `clr-namespace:X;assembly=Y` manda o WPF procurar o namespace X **dentro** do
+  assembly Y. Quando Y é o próprio projeto do arquivo, o compilador de marcação não acha
+  nada e recusa (`MC3074`, `MC3072`). É o que acontece ao mover uma tela de um projeto para
+  outro: o `xmlns` continua nomeando o assembly de ORIGEM, que agora é o de DESTINO.
+  Foi assim que a tela de Pacotes, ao subir do Financeiro para o shell, derrubou o build.
+  ⚠️ **Nenhuma rede local pegava**: o XML é bem-formado, o `compilar-sombra` **não lê o
+  corpo** do XAML (ele só gera o `.g.cs` a partir de `x:Class` e `x:Name`) e o C# compila.
+  O defeito existe só para o compilador de MARCAÇÃO, que roda no Windows — sete minutos de
+  CI por um `;assembly=` que sobra. Dentro do próprio projeto a forma certa é
+  `clr-namespace:…` **sem** o sufixo.
+- **A venda de pacote subiu para o shell** (parcela 60): a tela existe desde a parcela 4 e
+  a única porta estava no app do FINANCEIRO — mas quem vende dez sessões ao paciente é a
+  RECEPÇÃO, no balcão, com ele na frente. Décima primeira ocorrência do defeito recorrente,
+  e ela bloqueava justamente o caso que motivou o Particular. A tela não foi copiada:
+  **subiu** (`Componentes/PacotesView`), como a sala de infusão na parcela 48, e os dois
+  módulos publicam a **MESMA chave** — a dedupe do `ShellViewModel` faz o Gerente, que
+  carrega os dois, mostrar uma linha só.
+  ⚠️ O item passou a exigir `Permissao.VenderPacote`, bit **próprio**, e não
+  `VerFinanceiro`: dar o financeiro ao balcão abriria junto o caixa, a conciliação e as
+  contas a pagar. Vender um pacote é combinar um preço com o paciente; ler o dinheiro da
+  clínica é outra coisa — o mesmo corte que a parcela 49 fez entre ficha e prontuário.
+- **O PARTICULAR não é um convênio: é a ausência de um** (`ConvenioCadastro.GeraGuia`,
+  parcela 60). O enum `Convenio` não tem "sem convênio", então o paciente que vem sem plano
+  não tinha onde ser cadastrado — e as duas saídas eram ruins de jeitos diferentes:
+  (a) cadastrá-lo sob um convênio qualquer faz o motor gerar guia com data prevista, que
+  entra no painel de pendências, vence o prazo e abre a **rodada BLOQUEANTE** — travando a
+  tela de quem fatura por uma guia que nunca vai a operadora nenhuma, porque não há
+  operadora; (b) não cadastrar o atendimento, e aí a sessão não existe em lugar nenhum:
+  nem guia, nem prontuário, nem caixa.
+  A saída é um sinalizador no CADASTRO, e **o código continua nascendo** — marcado
+  `NaoAplicavel`. Não é preciosismo: `EstaPendente` já ignora esse status, então o
+  particular sai das pendências e da rodada **sem uma linha de código nova**; o invariante
+  "não há atendimento sem código" é o que prova que `AtendimentoService.LancarAsync`
+  continua sendo ponto único; e o registro da sessão (modalidade, especialidade, data) é o
+  que alimenta os indicadores — sumir com ele faria a clínica medir só o convênio.
+  ⚠️ **O sinalizador mora no `ConvenioCadastro`, não em `ConfiguracaoRegraGenerica`**, pela
+  mesma razão que pôs o formato do número da guia lá: aquela configuração só é lida pela
+  família Personalizado, e o campo tem de valer para **qualquer** família. Dentro dela
+  seria uma caixinha que não faz nada num convênio embutido — o campo morto que a parcela
+  49 tirou da tela de Taxas.
+  ⚠️ **E quem aplica é o `AtendimentoService`, não as regras.** São seis regras com vários
+  ramos cada, e a modalidade Consulta delega para `RegraConsultaAvulsa`, que monta o código
+  por fora: um ramo esquecido produziria guia pendente para um particular, e ela só
+  apareceria **dez dias depois**, travando a rodada. Pós-processar no ponto por onde a
+  PRÉVIA e o LANÇAMENTO passam é o único jeito que não tem como ser esquecido — e é o que
+  garante que a tela não prometa "nenhuma guia" e o serviço grave uma.
+  **Código fora do catálogo é presumido FATURÁVEL** (`CatalogoConvenios.GeraGuia` devolve
+  `true`): o erro nesse sentido é uma guia a mais para conferir; no sentido contrário seria
+  o sistema parar de gerar guia para um convênio de verdade, em silêncio, e só descoberto
+  no fim do mês.
+- **Migration de coluna `bool` não-anulável: o EF gera `defaultValue: false`, e quase nunca
+  é isso que você quer** (parcela 60). O gerador não sabe o que a coluna significa — viu um
+  `bool` e pôs o default da linguagem. Aplicada assim, a coluna `GeraGuia` teria desligado
+  a guia de **todos os convênios já cadastrados** na primeira abertura depois da
+  atualização: o app abriria, os atendimentos continuariam nascendo, e as guias
+  simplesmente parariam de existir. **Confira o `defaultValue` de toda coluna nova
+  não-anulável, e pergunte o que as linhas JÁ GRAVADAS valem** — é isso que o default
+  precisa dizer, não o que o tipo devolve por omissão.
 - **Porta e CONTEÚDO são duas permissões, e uma sem a outra não resolve** (parcela 59 — a
   direção viu a recepcionista abrindo os documentos e pediu a permissão granular). A
   central de documentos pedia `VerFichaPaciente`, que todo perfil de balcão tem: a

@@ -50,11 +50,17 @@ public class AtendimentoNaRecepcaoTests : IDisposable
     {
         var paciente = await SemearPacienteAsync(Convenio.UnimedIntercambio);
 
-        var resultado = await new AtendimentoService(_repo).LancarAsync(
-            paciente.Id, DateOnly.FromDateTime(DateTime.Today),
-            ModalidadeAtendimento.AcupunturaComEletro,
-            registrarNaAgenda: true,
-            modalidadeCodigo: ModalidadeAtendimento.AcupunturaComEletro.ToString());
+        // ⚠️ Desde a parcela 60 o avulso NÃO chama `LancarAsync` direto: ele marca um
+        // ENCAIXE na hora real e a esteira da Fila conclui — a mesma esteira, o mesmo
+        // serviço e a mesma janela de quem veio da agenda. É por isso que esta chamada
+        // mudou de forma sem mudar de resultado: a guia continua chegando ao faturamento.
+        var agenda = new AgendaService(_repo, new AtendimentoService(_repo));
+        var ag = await agenda.AgendarAsync(
+            paciente.Id, DateTime.Today.AddHours(15).AddMinutes(30),
+            ModalidadeAtendimento.AcupunturaComEletro, null,
+            modalidadeCodigo: ModalidadeAtendimento.AcupunturaComEletro.ToString(),
+            encaixe: true, operador: "recepcao");
+        var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
 
         resultado.Atendimento.Codigos.Should().NotBeEmpty("lançar atendimento CRIA as guias");
 

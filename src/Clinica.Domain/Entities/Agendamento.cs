@@ -85,6 +85,19 @@ public class Agendamento
 
     public string? Observacoes { get; set; }
 
+    /// <summary>
+    /// Nas modalidades DUPLAS, qual código o convênio libera primeiro (parcela 60).
+    ///
+    /// Existe porque o lançamento avulso deixou de chamar
+    /// <c>AtendimentoService.LancarAsync</c> direto e passou a marcar um ENCAIXE que a
+    /// Fila conclui — e essa escolha, que a tela do avulso sempre ofereceu, precisava
+    /// atravessar o horário para chegar ao motor de regras. Sem a coluna, unificar os dois
+    /// caminhos custaria a feature.
+    ///
+    /// Nulo é o caso normal: o convênio decide, e é o que toda linha anterior vale.
+    /// </summary>
+    public TipoCodigo? PrimeiroCodigo { get; set; }
+
     /// <summary>Preenchido quando a presença é confirmada e um atendimento é gerado.</summary>
     public int? AtendimentoId { get; set; }
     public Atendimento? Atendimento { get; set; }

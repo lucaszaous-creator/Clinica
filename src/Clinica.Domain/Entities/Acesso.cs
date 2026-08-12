@@ -230,7 +230,23 @@ public enum Permissao
     /// dela alcançam. É o corte da LGPD de novo — dado de contato de um lado, dado
     /// sensível (art. 5º, II) do outro.
     /// </summary>
-    VerDocumentos = 1 << 25
+    VerDocumentos = 1 << 25,
+
+    /// <summary>
+    /// Vender pacote de sessões e lançar consumo (parcela 60).
+    ///
+    /// A tela existe desde a parcela 4 e a única porta estava no app do FINANCEIRO — mas
+    /// quem vende dez sessões ao paciente é a RECEPÇÃO, no balcão, com ele na frente. É o
+    /// defeito recorrente do projeto na variante "a porta está no módulo de quem não usa",
+    /// e ele bloqueava justamente o caso que motivou o PARTICULAR: o paciente sem convênio
+    /// que compra um pacote.
+    ///
+    /// ⚠️ É um bit PRÓPRIO, e não <see cref="VerFinanceiro"/>, porque dar o financeiro ao
+    /// balcão abriria junto o caixa, a conciliação e as contas a pagar. Vender um pacote é
+    /// combinar um preço com o paciente; ler o dinheiro da clínica é outra coisa — o mesmo
+    /// corte que a parcela 49 fez entre ficha e prontuário.
+    /// </summary>
+    VenderPacote = 1 << 26
 }
 
 /// <summary>
@@ -330,6 +346,7 @@ public static class PerfisAcesso
             Permissao.VerAgenda | Permissao.EditarAgenda |
             Permissao.VerFichaPaciente | Permissao.EditarPaciente |
             Permissao.VerDocumentos |
+            Permissao.VenderPacote |
             Permissao.LancarAtendimento |
             Permissao.GerenciarCampanhas,
 
@@ -364,6 +381,7 @@ public static class PerfisAcesso
             Permissao.VerAgenda |
             Permissao.VerFichaPaciente |
             Permissao.VerDocumentos |
+            Permissao.VenderPacote |
             Permissao.VerFinanceiro | Permissao.EditarFinanceiro,
 
         // ===== FATURISTA =====
@@ -430,6 +448,7 @@ public static class PerfisAcesso
         Permissao.VerFichaPaciente => "Ver ficha do paciente",
         Permissao.EditarPaciente => "Cadastrar e editar paciente",
         Permissao.VerDocumentos => "Abrir a central de documentos",
+        Permissao.VenderPacote => "Vender pacote de sessões",
         Permissao.DispensarRodadaPendencias => "Entrar sem responder à rodada de pendências",
         Permissao.VerProntuario => "Ver prontuário clínico",
         Permissao.EditarProntuario => "Escrever no prontuário",
@@ -476,7 +495,8 @@ public static class PerfisAcesso
         Permissao.VerProntuario or Permissao.EditarProntuario
             or Permissao.Prescrever or Permissao.ChecarPrescricao => "Clínico (dado sensível)",
 
-        Permissao.VerFinanceiro or Permissao.EditarFinanceiro => "Financeiro",
+        Permissao.VerFinanceiro or Permissao.EditarFinanceiro
+            or Permissao.VenderPacote => "Financeiro",
 
         Permissao.VerFaturamento or Permissao.BaixarGuia or Permissao.EstornarBaixa
             or Permissao.RegistrarGlosa or Permissao.GerenciarLotesTiss
@@ -532,6 +552,10 @@ public static class PerfisAcesso
             + "checa não deve ser quem prescreve.",
 
         Permissao.VerFinanceiro => "Caixa, conciliação, contas e produção.",
+        Permissao.VenderPacote =>
+            "Vender pacote de sessões ao paciente e lançar consumo. É bit próprio de "
+            + "propósito: quem vende as dez sessões é o BALCÃO, com o paciente na frente, "
+            + "e dar o financeiro inteiro a ele abriria junto o caixa e as contas.",
         Permissao.EditarFinanceiro => "Lançar, realizar e cancelar movimento de caixa.",
 
         Permissao.VerFaturamento => "Ler guias, pendências, lotes e a consulta de guias.",
