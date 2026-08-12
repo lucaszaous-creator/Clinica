@@ -132,6 +132,18 @@
                                            Text="Sai no cabeçalho do lote TISS desta operadora. Em branco, o lote usa o registro global de Clínica/prestador." />
                             </StackPanel>
 
+                            <!-- PARTICULAR (parcela 60). Fica FORA do painel da regra
+                                 genérica pela mesma razão do formato do número: vale para
+                                 qualquer família, e dentro dele seria uma caixinha que não
+                                 faz nada num convênio embutido. -->
+                            <StackPanel Margin="0,14,0,0">
+                                <CheckBox Content="Este convênio GERA GUIA para faturar"
+                                          IsChecked="{Binding GeraGuia}" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left" MaxWidth="620" Margin="24,4,0,0"
+                                           Text="Desmarque para cadastrar o PARTICULAR — o paciente que vem sem convênio. O atendimento continua sendo registrado (modalidade, especialidade e data entram nos indicadores), mas nenhuma guia entra no painel de pendências nem na rodada de 10 dias. A cobrança é no caixa." />
+                            </StackPanel>
+
                             <!-- Ajustes da regra genérica — só fazem sentido quando a família é Personalizado -->
                             <StackPanel Visibility="{Binding EhPersonalizado, Converter={StaticResource BoolParaVisibilidade}}">
                                 <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,8,0,4" />

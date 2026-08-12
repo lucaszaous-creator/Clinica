@@ -8,7 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Clinica.Financeiro.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Uma linha do catálogo de pacotes, formatada para a tela.</summary>
 public sealed class LinhaCatalogo
@@ -231,7 +231,7 @@ public sealed partial class PacotesViewModel : ObservableObject
     [RelayCommand]
     private void AbrirCatalogo()
     {
-        new Janelas.CatalogoPacotesWindow(this)
+        new CatalogoPacotesWindow(this)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         }.ShowDialog();
@@ -248,7 +248,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
 
         var vm = new PacoteCatalogoEdicaoViewModel(_pacotes);
-        var janela = new Janelas.PacoteCatalogoWindow(vm)
+        var janela = new PacoteCatalogoWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };
@@ -289,7 +289,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
 
         var vm = new PacoteVendaViewModel(_pacotes, _escopos);
-        var janela = new Janelas.PacoteVendaWindow(vm)
+        var janela = new PacoteVendaWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };
@@ -340,7 +340,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         var vm = new ConsumosPacoteViewModel(
             _pacotes, _dialogo, linha.Id, $"{linha.Nome} — {linha.Paciente}");
 
-        var janela = new Janelas.ConsumosPacoteWindow(vm)
+        var janela = new ConsumosPacoteWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };

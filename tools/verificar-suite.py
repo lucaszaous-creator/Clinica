@@ -2134,6 +2134,70 @@ for _xml, _deve_pegar in _amostras_32:
         )
 
 
+# --------------------------------------------------------------- checagem 33
+# XAML QUE DECLARA O `assembly=` DO PRÓPRIO PROJETO.
+#
+# `clr-namespace:X;assembly=Y` manda o WPF procurar o namespace X DENTRO do assembly Y.
+# Quando Y é o próprio projeto do arquivo, o compilador de marcação não acha nada e recusa:
+#
+#     MC3074: The tag 'EstadoDaTela' does not exist in XML namespace
+#             'clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell'
+#
+# É o que acontece ao MOVER uma tela de um projeto para outro — o `xmlns` continua nomeando
+# o assembly de origem, que agora é o de destino. Foi assim que a tela de Pacotes, ao subir
+# do Financeiro para o shell, quebrou o build (parcela 60).
+#
+# ⚠️ Nenhuma rede local pegava. O XML é bem-formado, o `compilar-sombra` não lê o CORPO do
+# XAML (ele só gera o `.g.cs` a partir de `x:Class` e `x:Name`), e o C# compila — o defeito
+# existe só para o compilador de MARCAÇÃO, que roda no Windows. Sete minutos de CI por um
+# `;assembly=` que sobra.
+#
+# A forma certa dentro do próprio projeto é `clr-namespace:X`, sem o sufixo.
+ASSEMBLY_NO_XMLNS = re.compile(r'clr-namespace:[^"\';]+;assembly=([\w.]+)')
+
+_xamls_33 = 0
+for f in list(arvores_com_faturamento):
+    # O projeto dono do arquivo é o diretório sob `src/` (mesma convenção do resto do script).
+    partes = f.relative_to(RAIZ).parts
+    if len(partes) < 2 or partes[0] != "src":
+        continue
+    projeto = partes[1]
+    _xamls_33 += 1
+
+    texto = f.read_text(encoding="utf-8")
+    for m in ASSEMBLY_NO_XMLNS.finditer(texto):
+        if m.group(1) != projeto:
+            continue
+        erros.append(
+            f"{rel(f)}:{texto.count(chr(10), 0, m.start()) + 1}: o `xmlns` aponta para "
+            f"`assembly={projeto}`, que é o PRÓPRIO projeto deste arquivo — o compilador de "
+            f"marcação recusa com MC3074/MC3072 e só o CI acusa. Dentro do próprio projeto "
+            f"escreva `clr-namespace:…` sem o `;assembly=`."
+        )
+
+# Autoteste. O primeiro é o guarda contra a checagem ficar cega (lição da 31/32); os
+# demais são o caso real e os dois legítimos.
+if _xamls_33 == 0:
+    erros.append(
+        "verificar-suite: a checagem 33 não achou XAML nenhum sob `src/<projeto>/` — a "
+        "convenção de pastas mudou e ela parou de olhar o que deveria."
+    )
+for _decl, _projeto, _deve_pegar in (
+    ('clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell',
+     'Clinica.Desktop.Shell', True),                       # o defeito real
+    ('clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell',
+     'Clinica.Modulo.Recepcao', False),                    # módulo referenciando o shell
+    ('clr-namespace:Clinica.Desktop.Controls',
+     'Clinica.Desktop.Shell', False),                      # a forma certa dentro do projeto
+):
+    _m = ASSEMBLY_NO_XMLNS.search(_decl)
+    if (_m is not None and _m.group(1) == _projeto) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 33 mudou de resposta para `{_decl}` "
+            f"em `{_projeto}` (esperado: {'pega' if _deve_pegar else 'deixa passar'})."
+        )
+
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
