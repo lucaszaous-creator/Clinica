@@ -254,32 +254,40 @@ proteção, e o preço é repetir o Setup para cada usuário do Windows da máqu
 
 Para dezenas de máquinas, dois scripts em `tools/vps/` fazem o serviço:
 
-1. **Na VPS**, gere todos os certificados de uma vez (o script está no
-   repositório e se instala com um colar no terminal):
+1. **Na VPS**, gere uma PILHA de certificados — sem saber nome de máquina
+   nenhum (o script está no repositório e se instala com um colar no terminal):
    ```bash
-   cd ~/certs && ./gerar-kit.sh 'SENHA-DO-PFX' recepcao-01 recepcao-02 consultorio-01 ...
+   cd ~/certs && ./gerar-kit.sh 'SENHA-DO-PFX' 25
    ```
-   Sai uma pasta `kit/` com o `ca.crt` e um `.pfx` por máquina. **Nomeie os
-   certificados com o nome de máquina do Windows** (`echo %COMPUTERNAME%` em
-   cada uma, ou a planilha do AnyDesk) — é o que deixa o passo 3 automático.
+   Sai uma pasta `kit/` com o `ca.crt` e `maquina-01.pfx` … `maquina-25.pfx`.
+   Gere com folga: certificado não usado não custa nada e vira o da próxima
+   máquina nova.
 2. Baixe o kit (`scp -r clinica-admin@IP-DA-VPS:certs/kit C:\kit`), junte o
    `tools/vps/instalar-maquina.bat` na pasta e preencha as duas senhas no topo
    dele.
-3. Em cada máquina (pendrive ou AnyDesk): **executar como administrador**. O
-   .bat acha o `.pfx` pelo `%COMPUTERNAME%` (ou pergunta qual usar), copia os
-   arquivos para `C:\ClinicaDB` e grava a string na variável de ambiente da
+3. Em cada máquina (pendrive ou AnyDesk): **executar como administrador — e
+   nada mais**. O .bat pega o primeiro `.pfx` livre da pilha, copia os
+   arquivos para `C:\ClinicaDB`, grava a string na variável de ambiente da
    máquina (`ConnectionStrings__Clinica`) — que o app lê antes de qualquer
-   configuração salva e **pula a tela de Setup**. Reabrir o app é entrar no
-   banco novo.
+   configuração salva e **pula a tela de Setup** —, move o certificado para
+   `usados\` e anota no `registro.txt` do kit qual computador ficou com qual
+   certificado. **A planilha de revogação se escreve sozinha.** Ele também
+   testa o alcance TCP da porta antes (rede de clínica às vezes bloqueia porta
+   alta de saída — melhor saber na hora do que no primeiro atendimento) e se
+   recusa a rodar duas vezes na mesma máquina, para não gastar dois
+   certificados da pilha.
 
 ⚠️ **Rodar o .bat É virar a máquina** — só rode depois da migração (passo 7).
+⚠️ **Use a MESMA pasta de kit para todas** (o pendrive que viaja): é o
+mover-para-`usados\` que impede duas máquinas de levarem o mesmo certificado;
+cópias separadas do kit quebram essa garantia.
 
 O custo da rota B, dito por inteiro: a variável de ambiente fica legível no
 registro da máquina (a rota A guarda cifrado por DPAPI). O `.pfx` já mora no
 mesmo disco de qualquer forma, então o degrau real é pequeno — mas numa máquina
-de uso público, prefira a rota A. E mantenha a **planilha máquina ↔
-certificado**: é ela que torna a revogação de um notebook roubado um ato de um
-minuto em vez de uma investigação.
+de uso público, prefira a rota A. E guarde o `registro.txt` junto do kit: é
+ele que torna a revogação de um notebook roubado um ato de um minuto em vez de
+uma investigação.
 
 ## Passo 7 — Migração da Neon (a ordem importa)
 
