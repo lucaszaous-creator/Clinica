@@ -250,44 +250,50 @@ contas do passo 3 fecharem.
 A string fica cifrada por DPAPI, **por usuário do Windows** — é a rota de maior
 proteção, e o preço é repetir o Setup para cada usuário do Windows da máquina.
 
-### Rota B — a frota inteira: kit + `instalar-maquina.bat`
+### Rota B — a frota inteira: `tools/vps/montar-kit.sh`, um comando
 
-Para dezenas de máquinas, dois scripts em `tools/vps/` fazem o serviço:
+Para dezenas de máquinas, UM comando na VPS monta o kit completo, **sem nada a
+preencher em lugar nenhum** (o script se instala com um colar no terminal):
 
-1. **Na VPS**, gere uma PILHA de certificados — sem saber nome de máquina
-   nenhum (o script está no repositório e se instala com um colar no terminal):
-   ```bash
-   cd ~/certs && ./gerar-kit.sh 'SENHA-DO-PFX' 25
-   ```
-   Sai uma pasta `kit/` com o `ca.crt` e `maquina-01.pfx` … `maquina-25.pfx`.
-   Gere com folga: certificado não usado não custa nada e vira o da próxima
-   máquina nova.
-2. Baixe o kit (`scp -r clinica-admin@IP-DA-VPS:certs/kit C:\kit`), junte o
-   `tools/vps/instalar-maquina.bat` na pasta e preencha as duas senhas no topo
-   dele.
-3. Em cada máquina (pendrive ou AnyDesk): **executar como administrador — e
-   nada mais**. O .bat pega o primeiro `.pfx` livre da pilha, copia os
-   arquivos para `C:\ClinicaDB`, grava a string na variável de ambiente da
-   máquina (`ConnectionStrings__Clinica`) — que o app lê antes de qualquer
-   configuração salva e **pula a tela de Setup** —, move o certificado para
-   `usados\` e anota no `registro.txt` do kit qual computador ficou com qual
-   certificado. **A planilha de revogação se escreve sozinha.** Ele também
-   testa o alcance TCP da porta antes (rede de clínica às vezes bloqueia porta
-   alta de saída — melhor saber na hora do que no primeiro atendimento) e se
-   recusa a rodar duas vezes na mesma máquina, para não gastar dois
-   certificados da pilha.
+```bash
+cd ~/certs && ./montar-kit.sh 25
+```
+
+Ele gera a pilha de certificados anônimos (`maquina-01.pfx` …), **troca a senha
+do usuário `clinica` do banco por uma nova aleatória** (pede a senha do sudo —
+autenticação, não configuração) e escreve, dentro do próprio kit, o
+`instalar-maquina.bat` com IP, porta e as duas senhas **já embutidas**. Gere
+com folga: certificado sobrando é o da próxima máquina nova.
+
+Depois: `scp -r clinica-admin@IP-DA-VPS:certs/kit C:\kit` → pendrive → em cada
+máquina, **botão direito no .bat → Executar como administrador — e nada mais**.
+O instalador pega o primeiro `.pfx` livre da pilha, copia os arquivos para
+`C:\ClinicaDB`, grava a string na variável de ambiente da máquina
+(`ConnectionStrings__Clinica`) — que o app lê antes de qualquer configuração
+salva e **pula a tela de Setup** —, move o certificado para `usados\` e anota
+no `registro.txt` qual computador ficou com qual certificado. **A planilha de
+revogação se escreve sozinha.** Ele também testa o alcance TCP da porta antes
+(rede de clínica às vezes bloqueia porta alta de saída — melhor saber na
+instalação do que no primeiro atendimento) e se recusa a rodar duas vezes na
+mesma máquina, para não gastar dois certificados da pilha.
 
 ⚠️ **Rodar o .bat É virar a máquina** — só rode depois da migração (passo 7).
 ⚠️ **Use a MESMA pasta de kit para todas** (o pendrive que viaja): é o
 mover-para-`usados\` que impede duas máquinas de levarem o mesmo certificado;
 cópias separadas do kit quebram essa garantia.
+⚠️ **O montar-kit não roda duas vezes por cima de máquinas instaladas** — ele
+vê o `registro.txt` e recusa, porque regenerar trocaria a senha do banco por
+baixo delas. Para só engrossar a pilha depois, gere certificados avulsos com os
+comandos do passo 4 usando a MESMA senha de pfx (ela está dentro do
+`instalar-maquina.bat` do kit).
 
-O custo da rota B, dito por inteiro: a variável de ambiente fica legível no
-registro da máquina (a rota A guarda cifrado por DPAPI). O `.pfx` já mora no
-mesmo disco de qualquer forma, então o degrau real é pequeno — mas numa máquina
-de uso público, prefira a rota A. E guarde o `registro.txt` junto do kit: é
-ele que torna a revogação de um notebook roubado um ato de um minuto em vez de
-uma investigação.
+O custo da rota B, dito por inteiro: as senhas ficam legíveis dentro do `.bat`
+do kit e na variável de ambiente das máquinas (a rota A guarda cifrado por
+DPAPI). O `.pfx` já mora no mesmo disco de qualquer forma, então o degrau real
+é pequeno — mas numa máquina de uso público, prefira a rota A. Trate o pendrive
+do kit como chave da clínica e guarde o `registro.txt`: é ele que torna a
+revogação de um notebook roubado um ato de um minuto em vez de uma
+investigação.
 
 ## Passo 7 — Migração da Neon (a ordem importa)
 
