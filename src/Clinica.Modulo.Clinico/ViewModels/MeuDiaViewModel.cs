@@ -113,6 +113,9 @@ public sealed class LinhaRegistroPendente
     public required string Modalidade { get; init; }
     public required string Atraso { get; init; }
 
+    /// <summary>Quem atendeu — vazio quando o agendamento não tem profissional. É o que alimenta o filtro do modo sem vínculo.</summary>
+    public string Profissional { get; init; } = string.Empty;
+
     public static LinhaRegistroPendente De(RegistroPendente r, DateOnly hoje)
     {
         var dias = r.DiasEmAberto(hoje);
@@ -121,6 +124,7 @@ public sealed class LinhaRegistroPendente
             AgendamentoId = r.AgendamentoId,
             PacienteId = r.PacienteId,
             Paciente = r.PacienteNome,
+            Profissional = r.Profissional ?? string.Empty,
             Quando = r.DataHora.ToString("dd/MM 'às' HH:mm"),
             Modalidade = r.Modalidade,
             Atraso = dias == 1 ? "ontem" : $"há {dias} dias"

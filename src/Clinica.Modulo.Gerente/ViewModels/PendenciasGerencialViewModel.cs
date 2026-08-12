@@ -3,6 +3,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -83,6 +84,62 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
 
     public ObservableCollection<LinhaPendencia> Pendencias { get; } = [];
 
+    /// <summary>Tudo o que o banco devolveu; <see cref="Pendencias"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaPendencia> _todas = [];
+
+    // ---- Filtro (o espelho do painel do faturamento, que filtra por convênio e
+    // urgência desde a parcela 1 — a MESMA leitura no Gerente não tinha como estreitar).
+    // Em memória, sobre o que já foi lido.
+    public const string TodosConvenios = "Todos os convênios";
+    public const string TodasUrgencias = "Todas";
+    public const string UrgenciaVermelhas = "Vermelhas";
+    public const string UrgenciaAmarelas = "Amarelas";
+    public const string UrgenciaVerdes = "Verdes";
+
+    // Strings, e não o enum NivelUrgencia: ComboBox amarrado a enum sem rotulador escreve
+    // o identificador na tela (o defeito da parcela 41, vigiado pela checagem 20).
+    public string[] OpcoesUrgenciaGuia { get; } =
+        [TodasUrgencias, UrgenciaVermelhas, UrgenciaAmarelas, UrgenciaVerdes];
+
+    /// <summary>As operadoras COM pendência — oferecer as sem guia daria filtro que só leva a vazio.</summary>
+    public ObservableCollection<string> ConveniosPendencia { get; } = [TodosConvenios];
+
+    [ObservableProperty] private string _filtroConvenioGuia = TodosConvenios;
+    [ObservableProperty] private string _filtroUrgenciaGuia = TodasUrgencias;
+    [ObservableProperty] private string _filtroPacienteGuia = string.Empty;
+
+    /// <summary>O `Clear()` do combo devolve nulo pelo binding (lição da parcela 56) — remonta sob guarda.</summary>
+    private bool _montandoConvenios;
+
+    partial void OnFiltroUrgenciaGuiaChanged(string value) => Refiltrar();
+    partial void OnFiltroPacienteGuiaChanged(string value) => Refiltrar();
+    partial void OnFiltroConvenioGuiaChanged(string? value)
+    {
+        if (value is null)
+        {
+            FiltroConvenioGuia = TodosConvenios;
+            return;
+        }
+        if (!_montandoConvenios) Refiltrar();
+    }
+
+    public bool FiltroAtivo =>
+        FiltroConvenioGuia != TodosConvenios
+        || FiltroUrgenciaGuia != TodasUrgencias
+        || !string.IsNullOrWhiteSpace(FiltroPacienteGuia);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroConvenioGuia = TodosConvenios;
+        FiltroUrgenciaGuia = TodasUrgencias;
+        FiltroPacienteGuia = string.Empty;
+    }
+
+    /// <summary>O estado vazio muda de frase quando há filtro — vazio filtrado não é "tudo em dia".</summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "O 2º código só vira pendência 24 h depois do atendimento.";
+
     [ObservableProperty] private bool _carregando;
 
     /// <summary>
@@ -133,16 +190,29 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var lista = await pendencias.CodigosPendentesAsync(hoje);
 
-            Pendencias.Clear();
+            _todas.Clear();
             foreach (var p in lista.OrderByDescending(p => p.DiasEmAtraso))
-                Pendencias.Add(LinhaPendencia.De(p));
+                _todas.Add(LinhaPendencia.De(p));
 
-            Vermelhas = Pendencias.Count(p => p.EhVermelha).ToString();
-            Amarelas = Pendencias.Count(p => p.EhAmarela).ToString();
-            Verdes = Pendencias.Count(p => p.EhVerde).ToString();
-            Resumo = Pendencias.Count == 0
-                ? "Nenhuma guia pendente. É o estado que o produto existe para manter."
-                : $"{Pendencias.Count} guia(s) pendente(s) de baixa.";
+            // As operadoras com pendência, preservando a escolha quando ela ainda
+            // existe — atualizar não pode desfazer o filtro de quem está trabalhando.
+            var escolhido = FiltroConvenioGuia;
+            _montandoConvenios = true;
+            try
+            {
+                ConveniosPendencia.Clear();
+                ConveniosPendencia.Add(TodosConvenios);
+                foreach (var nome in _todas.Select(l => l.Convenio).Distinct().OrderBy(n => n))
+                    ConveniosPendencia.Add(nome);
+                FiltroConvenioGuia = ConveniosPendencia.Contains(escolhido)
+                    ? escolhido : TodosConvenios;
+            }
+            finally
+            {
+                _montandoConvenios = false;
+            }
+
+            Refiltrar();
         }
         catch (Exception ex)
         {
@@ -155,6 +225,46 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
         {
             Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco (o padrão
+    /// da tela de Consultas da Recepção).
+    /// </summary>
+    private void Refiltrar()
+    {
+        Pendencias.Clear();
+        foreach (var p in _todas.Where(p =>
+                     (FiltroConvenioGuia == TodosConvenios || p.Convenio == FiltroConvenioGuia)
+                     && (FiltroUrgenciaGuia switch
+                     {
+                         UrgenciaVermelhas => p.EhVermelha,
+                         UrgenciaAmarelas => p.EhAmarela,
+                         UrgenciaVerdes => p.EhVerde,
+                         _ => true
+                     })
+                     && Busca.Casa(p.Paciente, FiltroPacienteGuia)))
+            Pendencias.Add(p);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O semáforo conta o TOTAL, nunca o recorte: o filtro serve para achar uma guia,
+        // não para mudar o tamanho do problema que a direção enxerga.
+        Vermelhas = _todas.Count(p => p.EhVermelha).ToString();
+        Amarelas = _todas.Count(p => p.EhAmarela).ToString();
+        Verdes = _todas.Count(p => p.EhVerde).ToString();
+
+        // O resumo DIZ que está filtrado: "5 guias" e "5 de 40 no filtro" respondem
+        // perguntas diferentes.
+        Resumo = _todas.Count == 0
+            ? "Nenhuma guia pendente. É o estado que o produto existe para manter."
+            : FiltroAtivo
+                ? $"{Pendencias.Count} de {_todas.Count} guia(s) pendente(s) no filtro."
+                : $"{Pendencias.Count} guia(s) pendente(s) de baixa.";
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhuma pendência bate com o filtro — limpe-o para ver todas."
+            : "O 2º código só vira pendência 24 h depois do atendimento.";
     }
 
     /// <summary>

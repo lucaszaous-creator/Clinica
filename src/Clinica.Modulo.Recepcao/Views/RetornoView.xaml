@@ -57,6 +57,47 @@
                    Margin="24,0,24,10" TextWrapping="Wrap" HorizontalAlignment="Left"
                    Foreground="{StaticResource Brush.Acento}" />
 
+        <!-- ===== Filtro =====
+             Linha única acima da lista (REGRA DE LEIAUTE). Os dias acima mudam a CARGA;
+             estes três só estreitam o que já veio — "esconder já chamados" é a fila da
+             manhã: depois de dez ligações, o que interessa é quem ainda falta. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="24,0,24,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroNomeRetorno, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <CheckBox Grid.Column="2" Content="Esconder já chamados"
+                          IsChecked="{Binding EsconderChamados}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8" />
+
+                <CheckBox Grid.Column="4" Content="Só com telefone"
+                          IsChecked="{Binding SoComTelefone}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8" />
+
+                <Button Grid.Column="6" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="24,0,24,10"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
@@ -70,7 +111,7 @@
                                    NaoVerificado="{Binding NaoVerificado}"
                                    Glifo="&#xE77B;"
                                    Titulo="Ninguém sumido nesta janela"
-                                   Descricao="Não há paciente sem vir há tanto tempo e sem horário marcado. Diminua os dias acima para olhar mais perto." />
+                                   Descricao="{Binding VazioDescricao}" />
 
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Pacientes}">

@@ -79,12 +79,41 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
 
     public ObservableCollection<LinhaRetorno> Pacientes { get; } = [];
 
+    /// <summary>Tudo o que o banco devolveu; <see cref="Pacientes"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaRetorno> _todos = [];
+
     /// <summary>
     /// Dias sem vir para entrar na lista. É configurável na tela porque a resposta muda
     /// com a especialidade: 60 dias sem acupuntura é sumiço; 60 dias entre consultas de
     /// acompanhamento é o intervalo normal.
     /// </summary>
     [ObservableProperty] private int _diasSemVir = CampanhaService.DiasInatividadePadrao;
+
+    // ---- Filtro (em memória, sobre o que já foi lido — os dias acima mudam a CARGA;
+    // estes três só estreitam). "Esconder já chamados" é a fila de trabalho da manhã:
+    // depois de dez ligações, o que interessa é quem ainda falta.
+    [ObservableProperty] private string _filtroNomeRetorno = string.Empty;
+    [ObservableProperty] private bool _esconderChamados;
+    [ObservableProperty] private bool _soComTelefone;
+
+    partial void OnFiltroNomeRetornoChanged(string value) => Refiltrar();
+    partial void OnEsconderChamadosChanged(bool value) => Refiltrar();
+    partial void OnSoComTelefoneChanged(bool value) => Refiltrar();
+
+    public bool FiltroAtivo =>
+        EsconderChamados || SoComTelefone || !string.IsNullOrWhiteSpace(FiltroNomeRetorno);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        EsconderChamados = false;
+        SoComTelefone = false;
+        FiltroNomeRetorno = string.Empty;
+    }
+
+    /// <summary>O estado vazio muda de frase quando há filtro — vazio filtrado não é "ninguém sumiu".</summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "Não há paciente sem vir há tanto tempo e sem horário marcado. Diminua os dias acima para olhar mais perto.";
 
     [ObservableProperty] private string _resumo = string.Empty;
     [ObservableProperty] private string? _mensagem;
@@ -141,12 +170,12 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            Pacientes.Clear();
+            _todos.Clear();
             foreach (var c in candidatos)
             {
                 porPaciente.TryGetValue(c.PacienteId, out var contato);
 
-                Pacientes.Add(new LinhaRetorno
+                _todos.Add(new LinhaRetorno
                 {
                     PacienteId = c.PacienteId,
                     Paciente = c.Nome,
@@ -163,14 +192,7 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
                 });
             }
 
-            var chamados = Pacientes.Count(p => p.Chamado);
-            var travados = Pacientes.Count(p => p.TemImpedimento && !p.Chamado);
-
-            Resumo = Pacientes.Count == 0
-                ? $"Ninguém sem vir há {DiasSemVir} dias ou mais. A agenda está girando."
-                : $"{Pacientes.Count} paciente(s) sem vir há {DiasSemVir} dias ou mais · "
-                  + $"{chamados} já chamado(s)"
-                  + (travados > 0 ? $" · {travados} sem como chamar (veja o motivo na linha)." : ".");
+            Refiltrar();
         }
         catch (Exception ex)
         {
@@ -187,6 +209,42 @@ public sealed partial class RetornoViewModel : ObservableObject, ICarregarAoAbri
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
             if (geracao == _geracaoCarga) Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco (o padrão
+    /// da tela de Consultas ao lado). Quem foi chamado AGORA (o clique no WhatsApp) não
+    /// some da tela até a próxima recarga: sumir sob o dedo de quem acabou de clicar se
+    /// lê como defeito.
+    /// </summary>
+    private void Refiltrar()
+    {
+        Pacientes.Clear();
+        foreach (var p in _todos.Where(p =>
+                     (!EsconderChamados || !p.Chamado)
+                     && (!SoComTelefone || p.TemTelefone)
+                     && Busca.Casa(p.NomeCru, FiltroNomeRetorno)))
+            Pacientes.Add(p);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O resumo DIZ que está filtrado e MANTÉM a janela dita: sem os dias, o número
+        // perde a régua que o define. Chamados e travados continuam contando o TOTAL.
+        var chamados = _todos.Count(p => p.Chamado);
+        var travados = _todos.Count(p => p.TemImpedimento && !p.Chamado);
+
+        Resumo = _todos.Count == 0
+            ? $"Ninguém sem vir há {DiasSemVir} dias ou mais. A agenda está girando."
+            : FiltroAtivo
+                ? $"{Pacientes.Count} de {_todos.Count} paciente(s) sem vir há {DiasSemVir} "
+                  + $"dias ou mais no filtro · {chamados} já chamado(s) no total."
+                : $"{Pacientes.Count} paciente(s) sem vir há {DiasSemVir} dias ou mais · "
+                  + $"{chamados} já chamado(s)"
+                  + (travados > 0 ? $" · {travados} sem como chamar (veja o motivo na linha)." : ".");
+
+        VazioDescricao = FiltroAtivo
+            ? "Ninguém bate com o filtro — limpe-o para ver a lista inteira da janela."
+            : "Não há paciente sem vir há tanto tempo e sem horário marcado. Diminua os dias acima para olhar mais perto.";
     }
 
     private static string Descrever(ContatoCampanha? contato) => contato switch

@@ -43,7 +43,37 @@ public sealed partial class RetencaoViewModel : ObservableObject
 
     public ObservableCollection<LinhaSumido> Sumidos { get; } = [];
 
+    /// <summary>Tudo o que o banco devolveu; <see cref="Sumidos"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaSumido> _todos = [];
+
     public IReadOnlyList<int> Janelas { get; } = [60, 90, 180, 365];
+
+    // ---- Filtro (em memória, sobre o que já foi lido — a janela de dias continua
+    // sendo a CARGA: ela muda o que o serviço devolve; estes três só estreitam). A tela
+    // existe para decidir quem vale um telefonema, e a decisão começa pelos dois
+    // destaques: quem era de tratamento e quem tem pacote pago em aberto.
+    [ObservableProperty] private string _filtroNomeSumido = string.Empty;
+    [ObservableProperty] private bool _soFrequentes;
+    [ObservableProperty] private bool _soComPacoteAberto;
+
+    partial void OnFiltroNomeSumidoChanged(string value) => Refiltrar();
+    partial void OnSoFrequentesChanged(bool value) => Refiltrar();
+    partial void OnSoComPacoteAbertoChanged(bool value) => Refiltrar();
+
+    public bool FiltroAtivo =>
+        SoFrequentes || SoComPacoteAberto || !string.IsNullOrWhiteSpace(FiltroNomeSumido);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        SoFrequentes = false;
+        SoComPacoteAberto = false;
+        FiltroNomeSumido = string.Empty;
+    }
+
+    /// <summary>O estado vazio muda de frase quando há filtro — vazio filtrado não é "ninguém sumiu".</summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "Quem já tem horário marcado à frente não entra: ele voltou, só ainda não veio.";
 
     [ObservableProperty] private int _janelaDias = RetencaoPacienteService.DiasParaConsiderarSumido;
     [ObservableProperty] private bool _carregando;
@@ -90,9 +120,9 @@ public sealed partial class RetencaoViewModel : ObservableObject
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            Sumidos.Clear();
+            _todos.Clear();
             foreach (var s in lista)
-                Sumidos.Add(new LinhaSumido
+                _todos.Add(new LinhaSumido
                 {
                     PacienteId = s.PacienteId,
                     Paciente = s.Nome,
@@ -107,14 +137,7 @@ public sealed partial class RetencaoViewModel : ObservableObject
                               + (s.JaChamado ? " · já recebeu recall" : string.Empty)
                 });
 
-            var frequentes = Sumidos.Count(s => s.EraFrequente);
-            var comPacote = Sumidos.Count(s => s.TemPacoteAberto);
-
-            Resumo = Sumidos.Count == 0
-                ? $"Ninguém sem vir há mais de {JanelaDias} dias."
-                : $"{Sumidos.Count} paciente(s) sem vir há mais de {JanelaDias} dias · "
-                  + $"{frequentes} eram de tratamento"
-                  + (comPacote > 0 ? $" · {comPacote} com pacote pago em aberto." : ".");
+            Refiltrar();
         }
         catch (Exception ex)
         {
@@ -123,6 +146,8 @@ public sealed partial class RetencaoViewModel : ObservableObject
 
             Clinica.Application.Diagnostico.Registrar(
                 "Gerente — lista de pacientes sumidos não pôde ser lida", ex);
+            // A base também esvazia: filtro sobre resto de carga antiga mentiria o "de M".
+            _todos.Clear();
             Sumidos.Clear();
             NaoVerificado = true;
             Resumo = $"Não foi possível ler a lista: {ex.Message}";
@@ -135,6 +160,41 @@ public sealed partial class RetencaoViewModel : ObservableObject
             // reavaliar se tem o que exportar.
             OnPropertyChanged(nameof(TemParaExportar));
         }
+    }
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco (o padrão
+    /// da tela de Consultas da Recepção).
+    /// </summary>
+    private void Refiltrar()
+    {
+        Sumidos.Clear();
+        foreach (var s in _todos.Where(s =>
+                     (!SoFrequentes || s.EraFrequente)
+                     && (!SoComPacoteAberto || s.TemPacoteAberto)
+                     && Busca.Casa(s.Paciente, FiltroNomeSumido)))
+            Sumidos.Add(s);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+        // O CSV sai do que está na tela — o botão acompanha o recorte.
+        OnPropertyChanged(nameof(TemParaExportar));
+
+        // O resumo DIZ que está filtrado e MANTÉM a janela dita: "8 de 31 sem vir há
+        // mais de 90 dias" — sem os dias, o número perde a régua que o define.
+        var frequentes = _todos.Count(s => s.EraFrequente);
+        var comPacote = _todos.Count(s => s.TemPacoteAberto);
+        Resumo = _todos.Count == 0
+            ? $"Ninguém sem vir há mais de {JanelaDias} dias."
+            : FiltroAtivo
+                ? $"{Sumidos.Count} de {_todos.Count} paciente(s) sem vir há mais de "
+                  + $"{JanelaDias} dias no filtro."
+                : $"{Sumidos.Count} paciente(s) sem vir há mais de {JanelaDias} dias · "
+                  + $"{frequentes} eram de tratamento"
+                  + (comPacote > 0 ? $" · {comPacote} com pacote pago em aberto." : ".");
+
+        VazioDescricao = FiltroAtivo
+            ? "Ninguém bate com o filtro — limpe-o para ver a lista inteira da janela."
+            : "Quem já tem horário marcado à frente não entra: ele voltou, só ainda não veio.";
     }
 
     /// <summary>

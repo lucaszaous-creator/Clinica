@@ -144,6 +144,13 @@ public sealed record RegistroPendente(
     string Modalidade,
     int? AtendimentoId)
 {
+    /// <summary>
+    /// Quem atendeu a sessão. Nulo quando o agendamento não tem profissional. Importa no
+    /// modo SEM VÍNCULO do Consultório, em que a lista é da clínica inteira e precisa
+    /// dizer (e filtrar) de quem é cada dívida.
+    /// </summary>
+    public string? Profissional { get; init; }
+
     /// <summary>Há quantos dias a sessão aconteceu.</summary>
     public int DiasEmAberto(DateOnly hoje)
         => hoje.DayNumber - DateOnly.FromDateTime(DataHora).DayNumber;

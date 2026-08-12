@@ -60,6 +60,51 @@
             </Border>
         </WrapPanel>
 
+        <!-- ===== Filtro =====
+             Os MESMOS recortes do painel do faturamento (convênio e urgência, parcela 1)
+             mais a busca por paciente. Linha única acima da lista (REGRA DE LEIAUTE);
+             o recorte é em memória, e o semáforo acima continua contando o TOTAL. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="150" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding ConveniosPendencia}"
+                              SelectedItem="{Binding FiltroConvenioGuia}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Urgência" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding OpcoesUrgenciaGuia}"
+                              SelectedItem="{Binding FiltroUrgenciaGuia}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroPacienteGuia, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <Button Grid.Column="6" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <Border Style="{StaticResource Card}">
             <Grid>
             <DockPanel>
@@ -182,7 +227,7 @@
                                Glifo="&#xE7BA;"
                                TextoCarregando="Lendo as pendências…"
                                Titulo="Nenhuma guia pendente"
-                               Descricao="O 2º código só vira pendência 24 h depois do atendimento." />
+                               Descricao="{Binding VazioDescricao}" />
             </Grid>
         </Border>
     </DockPanel>
