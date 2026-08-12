@@ -124,6 +124,10 @@ public static class Copiavel
             }
         }
 
+        // O laço sempre grava a exceção antes de chegar aqui (Tentativas ≥ 1, e toda
+        // iteração que falha atribui). O ??= existe para o COMPILADOR, que não avalia o
+        // limite do laço e não consegue provar o NotNullWhen — em runtime nunca executa.
+        falha ??= new InvalidOperationException("A área de transferência não pôde ser usada.");
         return false;
     }
 
