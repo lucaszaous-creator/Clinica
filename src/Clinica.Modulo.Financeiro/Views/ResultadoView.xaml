@@ -46,13 +46,13 @@
             <TabItem Header="Resultado">
             <DockPanel Margin="0,12,0,0">
 
-                <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
-                        BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                        CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,16">
-                    <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                               Foreground="{StaticResource Brush.Texto.Primario}"
-                               Text="Regime de CAIXA: entra o que se moveu no mês. Um resultado por competência exigiria provisão e rateio que a clínica não mantém — e um número aproximado apresentado como contábil é pior do que um número honesto apresentado como caixa. Taxa de maquininha e imposto entram como DEDUÇÃO, não como despesa: eles saem da receita antes de ela existir, e listá-los junto do aluguel faria a clínica achar que pode cortá-los." />
-                </Border>
+                <!-- Contexto permanente é LINHA de texto, não faixa colorida (a regra do
+                     README). A frase é honestidade obrigatória (regime de caixa), então
+                     ela FICA — só deixa de custar 90 px de moldura para sempre. -->
+                <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" MaxWidth="820"
+                           HorizontalAlignment="Left" Margin="0,0,0,12"
+                           Style="{StaticResource TextoSuave}"
+                           Text="Regime de CAIXA: entra o que se moveu no mês. Taxa de maquininha e imposto são DEDUÇÃO, não despesa — saem da receita antes de ela existir, e listá-los junto do aluguel faria a clínica achar que pode cortá-los." />
 
                 <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                         Visibility="{Binding ResultadoNaoVerificado,
@@ -134,7 +134,7 @@
                                                                TextTrimming="CharacterEllipsis" />
                                                 </Grid>
                                                 <ProgressBar Value="{Binding Fracao, Mode=OneWay}"
-                                                             Maximum="1" Height="6" Margin="0,4,0,0" />
+                                                             Style="{StaticResource BarraDado}" Margin="0,4,0,0" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -160,7 +160,7 @@
                                                                TextTrimming="CharacterEllipsis" />
                                                 </Grid>
                                                 <ProgressBar Value="{Binding Fracao, Mode=OneWay}"
-                                                             Maximum="1" Height="6" Margin="0,4,0,0" />
+                                                             Style="{StaticResource BarraDado}" Margin="0,4,0,0" />
                                             </StackPanel>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
@@ -234,7 +234,7 @@
                                                     </TextBlock.Style>
                                                 </TextBlock>
                                                 <ProgressBar Value="{Binding Fracao, Mode=OneWay}"
-                                                             Maximum="1" Height="6" Margin="0,6,0,0" />
+                                                             Style="{StaticResource BarraDado}" Margin="0,6,0,0" />
                                             </StackPanel>
 
                                             <TextBlock Grid.Column="1" Text="{Binding Teto}"

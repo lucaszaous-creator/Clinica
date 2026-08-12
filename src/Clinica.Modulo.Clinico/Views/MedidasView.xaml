@@ -104,6 +104,7 @@
                                       DisplayMemberPath="Nome" MaxWidth="280"
                                       HorizontalAlignment="Left" VerticalAlignment="Center" />
                             <Button Grid.Column="2" Content="Exportar CSV" MinWidth="130"
+                                    VerticalAlignment="Center"
                                     Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding ExportarCommand}"
                                     IsEnabled="{Binding TemSerie}" />

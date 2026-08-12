@@ -23,11 +23,14 @@
             </StackPanel>
         </Grid>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,12"
-                Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}">
-            <TextBlock TextWrapping="Wrap"
-                       Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a lista de pacientes da clínica, e não a sua carteira." />
-        </Border>
+        <!-- Aviso permanente é LINHA de texto, não faixa (a regra do README): as outras
+             quatro telas deste app já dizem o "sem vínculo" assim, e esta era a única
+             com uma faixa azul de 60 px que nunca sai. -->
+        <TextBlock DockPanel.Dock="Top" Margin="0,0,0,12" TextWrapping="Wrap"
+                   Style="{StaticResource TextoSuave}"
+                   FontSize="{StaticResource Fonte.Legenda}"
+                   Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}"
+                   Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a lista de pacientes da clínica, e não a sua carteira." />
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -60,20 +63,32 @@
                                         </Grid.ColumnDefinitions>
 
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Nome}" TextWrapping="Wrap"
+                                            <!-- Nome em coluna * com reticências, selos em Auto:
+                                                 dentro de StackPanel horizontal o Wrap é inerte
+                                                 (medida com largura infinita) e o nome longo
+                                                 passava por cima da coluna "Sessões". -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Nome}" TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
                                                            Foreground="{StaticResource Brush.Texto.Primario}" />
-                                                <Border Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
+                                                <Border Grid.Column="1" Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
                                                         Visibility="{Binding Sumido,
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="Sem vir há tempo" />
                                                 </Border>
-                                                <Border Style="{StaticResource Badge}" Margin="8,0,0,0"
+                                                <Border Grid.Column="2" Style="{StaticResource Badge}" Margin="8,0,0,0"
+                                                        VerticalAlignment="Center"
                                                         Visibility="{Binding SemMedida,
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="Dor nunca medida" />
                                                 </Border>
-                                            </StackPanel>
+                                            </Grid>
                                             <TextBlock Text="{Binding UltimaSessao}" TextWrapping="Wrap"
                                                        Margin="0,4,0,0"
                                                        FontSize="{StaticResource Fonte.Legenda}"

@@ -79,16 +79,10 @@
                     </StackPanel>
                 </Button>
             </DockPanel>
-            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,14"
-                    Visibility="{Binding TemPendencias, Converter={StaticResource BoolParaVisibilidade}}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="19"
-                               VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White" />
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="15" FontWeight="Bold" Foreground="White">
-                        <Run Text="Existem " /><Run Text="{Binding TotalCodigos, Mode=OneWay}" /><Run Text=" guias pendentes de baixa. Dê baixa assim que possível para não perder o faturamento." />
-                    </TextBlock>
-                </StackPanel>
-            </Border>
+            <!-- A faixa vermelha "Existem N guias pendentes" saiu (a regra do README):
+                 numa tela cujo ASSUNTO é ter pendências ela nunca sai — vira moldura —,
+                 e o N já mora 40 px abaixo, nos KPIs "Guias em aberto" e "Urgentes".
+                 O banner que fica é o da RODADA, que é evento, não estado permanente. -->
 
             <!-- Banner da rodada de pendências (fechamento de ciclo periódico) -->
             <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,14"

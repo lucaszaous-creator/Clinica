@@ -57,8 +57,10 @@
                 </Grid>
 
                 <!-- Some quando não há o que escolher: lista vazia permanente ocuparia a
-                     tela para dizer que não há nada. -->
-                <Border Style="{StaticResource Card}" Margin="0,0,0,14" MaxHeight="180"
+                     tela para dizer que não há nada. SEM Card: moldura dentro de moldura
+                     (o filtro já é um Card) é a colcha de retalhos do README — os
+                     resultados encostam no campo, separados por espaço. -->
+                <Border Margin="0,0,0,14" MaxHeight="180"
                         Visibility="{Binding Paciente.TemResultados, Converter={StaticResource BoolParaVisibilidade}}">
                     <ListBox ItemsSource="{Binding Paciente.Resultados}"
                              SelectedItem="{Binding Paciente.Selecionado}"
