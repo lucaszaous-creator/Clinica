@@ -564,16 +564,18 @@
                              de consentimento sai do cadastro e é colhido no balcão. Botão
                              aceso que só diz "seu acesso não permite" depois do clique é
                              o defeito da parcela 41 com uma etapa a mais. -->
+                        <!-- Barra de FORMULÁRIO usa BotaoSecundario; BotaoPequeno é de
+                             linha densa de grid (parcela 49) e deixava os três miúdos. -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <Button Content="Relatório de evolução" Style="{StaticResource BotaoPequeno}"
+                            <Button Content="Relatório de evolução" Style="{StaticResource BotaoSecundario}"
                                     IsEnabled="{Binding PodeEmitirDoProntuario}"
                                     Command="{Binding EmitirRelatorioCommand}" />
                             <Button Content="Termo de consentimento" Margin="8,0,0,0"
-                                    Style="{StaticResource BotaoPequeno}"
+                                    Style="{StaticResource BotaoSecundario}"
                                     IsEnabled="{Binding PodeEditarCadastro}"
                                     Command="{Binding EmitirTermoCommand}" />
                             <Button Content="Anamnese" Margin="8,0,0,0"
-                                    Style="{StaticResource BotaoPequeno}"
+                                    Style="{StaticResource BotaoSecundario}"
                                     IsEnabled="{Binding PodeEmitirDoProntuario}"
                                     Command="{Binding EmitirAnamneseCommand}" />
                         </StackPanel>

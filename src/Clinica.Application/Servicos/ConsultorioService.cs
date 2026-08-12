@@ -165,7 +165,10 @@ public sealed class ConsultorioService
                 x.Agendamento.PacienteId,
                 x.Agendamento.Paciente?.Nome ?? "Paciente",
                 CatalogoModalidades.Nome(x.Agendamento.ModalidadeCodigo),
-                x.Agendamento.AtendimentoId))
+                x.Agendamento.AtendimentoId)
+            {
+                Profissional = x.Agendamento.Profissional?.Nome
+            })
             .ToList();
     }
 

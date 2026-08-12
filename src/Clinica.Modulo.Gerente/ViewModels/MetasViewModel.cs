@@ -80,9 +80,18 @@ public sealed partial class MetasViewModel : ObservableObject
 
     partial void OnAnoChanged(int value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Navegar de ano em ano dispara uma leitura por clique; a resposta velha chegando por
+    /// último mostraria as metas de um ano que não é o escrito no seletor.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -109,12 +118,18 @@ public sealed partial class MetasViewModel : ObservableObject
                 }
                 catch (Exception ex)
                 {
-            NaoVerificado = true;
+                    // Chegou tarde: outra carga mais nova já foi pedida.
+                    if (geracao != _geracaoCarga) return;
+
+                    NaoVerificado = true;
                     Clinica.Application.Diagnostico.Registrar(
                         "Gerente — apuração das metas do mês falhou", ex);
                     ApuracaoNaoVerificada = true;
                 }
             }
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Metas.Clear();
             foreach (var m in doAno)
@@ -128,12 +143,16 @@ public sealed partial class MetasViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Gerente — metas não puderam ser lidas", ex);
             Erro($"Não foi possível ler as metas: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

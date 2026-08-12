@@ -19,9 +19,11 @@
                 HorizontalAlignment="Right" Margin="0,0,0,14">
             <Button Content="Prontuário" Style="{StaticResource BotaoSecundario}"
                 Command="{Binding VerProntuarioCommand}" MinWidth="120" />
+            <!-- O IsEnabled cobre as DUAS pré-condições da guarda (paciente + permissão):
+                 botão aceso que não faz nada é o defeito da parcela 41. -->
             <Button Content="Registrar medida" Margin="8,0,0,0" MinWidth="160"
                 Command="{Binding RegistrarCommand}"
-                IsEnabled="{Binding PodeEditarProntuario}" />
+                IsEnabled="{Binding PodeRegistrarMedida}" />
         </StackPanel>
 
             <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
@@ -102,6 +104,7 @@
                                       DisplayMemberPath="Nome" MaxWidth="280"
                                       HorizontalAlignment="Left" VerticalAlignment="Center" />
                             <Button Grid.Column="2" Content="Exportar CSV" MinWidth="130"
+                                    VerticalAlignment="Center"
                                     Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding ExportarCommand}"
                                     IsEnabled="{Binding TemSerie}" />

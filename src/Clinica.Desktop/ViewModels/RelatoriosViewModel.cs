@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
+using Clinica.Domain;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -165,8 +166,11 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
             sb.AppendLine();
             sb.AppendLine("Não conformidades (guias justificadas na rodada)");
             sb.AppendLine("Paciente;Convênio;Tipo;Data prevista;Justificativa;Registrada em");
+            // Nome do CATÁLOGO e rótulo do tipo, nunca o enum: este CSV sai da clínica
+            // para o Excel da direção, e "ConsultaEspecialidade"/"Personalizado" são o
+            // identificador vazando para fora do produto (parcelas 41 e 50).
             foreach (var n in NaoConformidades)
-                sb.AppendLine($"{n.PacienteNome};{ConvenioInfo.NomeExibicao(n.Convenio)};{n.Tipo};{n.DataPrevista:dd/MM/yyyy};{n.Justificativa?.Replace(';', ',')};{n.Em:dd/MM/yyyy HH:mm}");
+                sb.AppendLine($"{n.PacienteNome};{CatalogoConvenios.Nome(n.ConvenioCodigo, n.Convenio)};{RotulosEnum.De(n.Tipo)};{n.DataPrevista:dd/MM/yyyy};{n.Justificativa?.Replace(';', ',')};{n.Em:dd/MM/yyyy HH:mm}");
         }
 
         // BOM garante acentos corretos ao abrir direto no Excel.

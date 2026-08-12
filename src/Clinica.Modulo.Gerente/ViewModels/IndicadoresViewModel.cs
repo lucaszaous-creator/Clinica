@@ -230,9 +230,18 @@ public sealed partial class IndicadoresViewModel : ObservableObject
 
     partial void OnPeriodoSelecionadoChanged(string value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Trocar o período dispara outra leitura; se a mais velha responder por último, os KPIs
+    /// e as séries mostram um período que não é o escrito no cabeçalho.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -250,6 +259,9 @@ public sealed partial class IndicadoresViewModel : ObservableObject
 
             var painel = await indicadores.GerarAsync(inicio, fim);
             var nps = await campanhas.NpsAsync(inicio, fim);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Agendados = painel.Agenda.Agendados;
             Atendidos = painel.Agenda.Atendidos;
@@ -288,6 +300,9 @@ public sealed partial class IndicadoresViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Gerente — indicadores não puderam ser carregados", ex);
             Mensagem = $"Não foi possível carregar os indicadores: {ex.Message}";
@@ -295,7 +310,8 @@ public sealed partial class IndicadoresViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 }

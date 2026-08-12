@@ -1681,8 +1681,46 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
   demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real
   da guia); a leitura é tolerante ao nome local dos elementos (varia entre operadoras).
-
-### Convenções
+- **O lote TISS é POR OPERADORA, e a guarda de duplicidade era o que tornava o erro
+  irreversível** (parcela 60 — revisão completa): o "lote do período" engolia as guias de
+  TODAS as operadoras num XML endereçado a UMA (o registro ANS era um campo global), e as
+  demais **nunca mais entravam em lote** — `LoteTissId` preenchido as escondia das
+  candidatas para sempre, e a tela dizia "nenhuma guia nova", que se lê como dia fraco.
+  Agora a exportação agrupa por operadora e gera **um lote e um XML por grupo** (uma
+  operadora só = o fluxo de sempre, sem cerimônia); o registro ANS mora no
+  `ConvenioCadastro` (dado, não código — em branco cai no global); `LoteTiss.ConvenioCodigo`
+  grava de quem o lote é; e o **estorno da baixa solta o `LoteTissId`** — guia rebaixada
+  com o número certo volta às candidatas, com o lote antigo registrado na observação. O
+  agrupamento é pelo `ConvenioDaGuia` (código do catálogo, família como caminho de baixo),
+  o MESMO do nome de exibição — outro critério fundiria operadoras que só compartilham a
+  regra.
+- **A cópia que ficou para trás é onde a permissão vaza** (parcela 60): a revisão achou
+  cinco brechas críticas de permissão, TODAS no app de faturamento — sempre o mesmo
+  formato: o módulo equivalente da suíte tinha as duas barreiras e a cópia do
+  `Clinica.Desktop` não (estorno pela ficha, agenda, cadastro de paciente, autorizações,
+  usuário). Os bits envolvidos eram exatamente os que as parcelas 49/58 tiraram dos perfis
+  — cada tela esquecida era um caminho de volta. **Ao aplicar permissão nova, procure a
+  MESMA ação nos dois lados** (suíte e faturamento); e a rodada fixou também: emitir na
+  janela de documento confere o bit do tipo QUE ESTÁ NO COMBO (`AcessoParaEmitir`), não o
+  da porta por onde se entrou — trocar o seletor para "Receita" exigia `Prescrever` só no
+  papel.
+- **Excluir paciente era a última porta que apagava prontuário** (parcela 60): as FKs
+  clínicas apagam em CASCATA com a linha do paciente, e o botão Excluir do faturamento
+  levava evolução, avaliação, medida, documento e prescrição juntos — com o
+  `ConformidadeProntuarioTests` verde, porque ele só olhava os `Remover*Async` da
+  interface. `PacienteService.RemoverAsync` agora RECUSA quando há registro clínico
+  (explica a guarda de 20 anos e aponta a anonimização); ficha vazia continua removível. A
+  lição de teste: **fixar a regra pela lista de métodos proibidos não cobre o método que
+  apaga por arrasto** — o teste novo exercita a cascata de verdade.
+- **O descarte de resposta fora de ordem virou padrão de TODA carga async** (parcela 60):
+  a regra da parcela 50 valia em DUAS telas; a revisão achou mais de quarenta com o mesmo
+  defeito, seis delas críticas (deduções GRAVADAS do valor antigo; CPF gravado no
+  profissional errado; prontuário de um paciente sob o nome de outro). O padrão é um só —
+  contador `_geracaoCarga`, guarda após cada await, catch e `Carregando` condicionais — e
+  agora está em todos os ViewModels que leem banco por tecla, clique ou timer. Tela nova
+  com carga async NASCE com o contador; guarda de reentrância (`if (Carregando) return`)
+  no método de carga é incompatível com ele (descarta a carga NOVA) e foi removida onde
+  conflitava.
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`
   implementando `IInstrumentoAvaliacao`, uma linha em `RegistroInstrumentos`, as

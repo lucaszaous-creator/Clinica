@@ -96,9 +96,18 @@ public sealed partial class ResultadoViewModel : ObservableObject
 
     partial void OnMesChanged(DateTime value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês duas vezes rápido
+    /// deixaria o resultado de um mês sob o título do outro — num banco remoto a leitura
+    /// mais velha pode responder por último e sobrescrever a nova.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         Carregando = true;
             NaoVerificado = false;
         Mensagem = null;
@@ -106,13 +115,18 @@ public sealed partial class ResultadoViewModel : ObservableObject
 
         // Cada bloco carrega sozinho: o orçamento quebrar não pode apagar o resultado,
         // que é a resposta principal da tela.
-        await CarregarResultadoAsync();
-        await CarregarOrcamentoAsync();
+        await CarregarResultadoAsync(geracao);
 
-        Carregando = false;
+        // Chegou tarde: outra carga mais nova já foi pedida.
+        if (geracao != _geracaoCarga) return;
+
+        await CarregarOrcamentoAsync(geracao);
+
+        // A carga superada não apaga o "Carregando" da que ainda está no ar.
+        if (geracao == _geracaoCarga) Carregando = false;
     }
 
-    private async Task CarregarResultadoAsync()
+    private async Task CarregarResultadoAsync(int geracao)
     {
         try
         {
@@ -121,6 +135,9 @@ public sealed partial class ResultadoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<ResultadoMensalService>();
             var r = await servico.DoMesAsync(Mes.Year, Mes.Month);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Receita = r.Receita.ToString("C");
             Deducoes = r.Deducoes.ToString("C");
@@ -154,6 +171,8 @@ public sealed partial class ResultadoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Financeiro — resultado do mês não pôde ser lido", ex);
@@ -165,7 +184,7 @@ public sealed partial class ResultadoViewModel : ObservableObject
         }
     }
 
-    private async Task CarregarOrcamentoAsync()
+    private async Task CarregarOrcamentoAsync(int geracao)
     {
         try
         {
@@ -174,6 +193,9 @@ public sealed partial class ResultadoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<OrcamentoService>();
             var apurados = await servico.ApurarMesAsync(Mes.Year, Mes.Month);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Orcamentos.Clear();
             foreach (var o in apurados)
@@ -201,6 +223,8 @@ public sealed partial class ResultadoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Financeiro — orçamento do mês não pôde ser lido", ex);
             Orcamentos.Clear();

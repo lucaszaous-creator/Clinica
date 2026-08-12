@@ -195,6 +195,9 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
     {
         if (codigo is null) return;
 
+        // O mesmo bit da tela gerencial de pendências: anotar é escrever na guia.
+        SessaoUsuario.Atual.Exigir(Permissao.VerFaturamento, "anotar a pendência");
+
         var janela = new Alertas.ObservacaoPendenciaWindow(codigo)
         {
             Owner = System.Windows.Application.Current.MainWindow
@@ -361,18 +364,35 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
         if (janela.ShowDialog() != true) return;
 
         var feitas = 0;
+        var falhas = new List<string>();
         using (var scope = _scopeFactory.CreateScope())
         {
             var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();
             foreach (var linha in janela.Linhas.Where(l => !string.IsNullOrWhiteSpace(l.NumeroGuia)))
             {
-                await faturamento.DarBaixaAsync(linha.CodigoId, janela.DataBaixa,
-                    linha.NumeroGuia!.Trim(), SessaoUsuario.Atual.Operador, "baixa em lote");
-                feitas++;
+                // Falha POR LINHA, como a rodada de pendências: o serviço baixa guia a
+                // guia, e uma exceção no meio (o outro posto baixou a mesma guia; o
+                // formato recusou) abortava as seguintes EM SILÊNCIO — as primeiras já
+                // baixadas, a lista intacta na tela, e a secretária certa de que o lote
+                // inteiro saiu.
+                try
+                {
+                    await faturamento.DarBaixaAsync(linha.CodigoId, janela.DataBaixa,
+                        linha.NumeroGuia!.Trim(), SessaoUsuario.Atual.Operador, "baixa em lote");
+                    feitas++;
+                }
+                catch (Exception ex)
+                {
+                    Configuracao.LogErros.Registrar($"Baixa em lote — guia do código {linha.CodigoId}", ex);
+                    falhas.Add($"{linha.Descricao}: {ex.Message}");
+                }
             }
         }
 
-        if (feitas == 0)
+        if (falhas.Count > 0)
+            _dialogo.Aviso("Baixa em lote",
+                $"{feitas} guia(s) baixada(s); {falhas.Count} NÃO:\n\n" + string.Join("\n", falhas));
+        else if (feitas == 0)
             _dialogo.Aviso("Baixa em lote", "Nenhuma linha tinha número de guia — nada foi baixado.");
 
         await CarregarAsync();

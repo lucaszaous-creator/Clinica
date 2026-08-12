@@ -26,6 +26,15 @@ public class LoteTiss
     /// <summary>Registro ANS da operadora de destino no momento da geração.</summary>
     public string? RegistroAnsOperadora { get; set; }
 
+    /// <summary>
+    /// Código do convênio (catálogo) cujas guias este lote carrega (parcela 60). O lote
+    /// é POR OPERADORA: antes desta coluna, um "lote do período" engolia as guias de
+    /// todas as operadoras num XML endereçado a UMA — e as demais nunca mais entravam em
+    /// lote, porque a guarda de duplicidade as via como já exportadas. Nulo nos lotes
+    /// anteriores à coluna (gerados no modo antigo) — histórico, não se reescreve.
+    /// </summary>
+    public string? ConvenioCodigo { get; set; }
+
     public StatusLoteTiss Status { get; set; } = StatusLoteTiss.Gerado;
 
     // ---------- Envio ----------

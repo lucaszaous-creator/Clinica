@@ -151,6 +151,21 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// <summary>Metade VISÍVEL da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
+    public bool TemPaciente => !SemPaciente;
+
+    /// <summary>
+    /// Sem paciente na sala não há para quem emitir, e o botão diz isso apagado — a tela
+    /// abre pela sidebar sem ninguém em foco, e botão aceso que não faz nada faz quem
+    /// clica concluir que o sistema quebrou (parcela 41).
+    /// </summary>
+    public bool PodeEmitirDocumento => TemPaciente && PodeEditarProntuario;
+
+    partial void OnSemPacienteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TemPaciente));
+        OnPropertyChanged(nameof(PodeEmitirDocumento));
+    }
+
     /// <summary>Valores da escala, para os dois seletores de dor.</summary>
     public IReadOnlyList<int> EscalaEva { get; } =
         Enumerable.Range(Evolucao.EvaMinima, Evolucao.EvaMaxima - Evolucao.EvaMinima + 1).ToList();
@@ -188,9 +203,19 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// <summary>Último paciente cujo acesso já foi registrado nesta tela (parcela 52).</summary>
     private int _acessoRegistradoDe;
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a troca de paciente no posto
+    /// dispara nova carga, e a resposta atrasada do paciente anterior chegando por último
+    /// preencheria o formulário — e o MAPA — com a sessão dele sob o nome do novo, que é
+    /// o pior defeito possível num prontuário. Quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         if (PacienteId == 0)
         {
             SemPaciente = true;
@@ -199,6 +224,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
         try
         {
+            SemPaciente = false;
             Carregando = true;
             NaoVerificado = false;
             Mensagem = null;
@@ -219,6 +245,9 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
             var sessoes = await prontuario.DoPacienteAsync(PacienteId);
 
+            // Chegou tarde: o posto já está em outro paciente.
+            if (geracao != _geracaoCarga) return;
+
             // A sessão do horário chamado, quando ela já foi escrita: abrir o atendimento
             // de novo tem de CONTINUAR o registro, nunca criar um segundo para a mesma
             // sessão — dois registros do mesmo atendimento é o defeito que faz a clínica
@@ -234,6 +263,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                 Anteriores.Add(LinhaSessaoAnterior.De(e));
 
             await CarregarAlertasAsync(scope.ServiceProvider);
+            if (geracao != _geracaoCarga) return;
 
             // O mapa vem depois de resolvida a evolução do horário: ele precisa saber
             // se está editando uma sessão já escrita (e então carrega os pontos dela) ou
@@ -241,9 +271,11 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             var mapa = new MapaCorporalViewModel(
                 _escopos, PacienteId, EvolucaoId == 0 ? null : EvolucaoId);
             await mapa.CarregarAsync();
+            if (geracao != _geracaoCarga) return;
             Mapa = mapa;
 
             var dor = await prontuario.EvolucaoDaDorAsync(PacienteId);
+            if (geracao != _geracaoCarga) return;
             ResumoDor = dor.SessoesComMedida == 0
                 ? "Nenhuma sessão com o par EVA (antes e depois) ainda."
                 : $"Começou em {dor.DorInicial}/10 e está em {dor.DorAtual}/10 — "
@@ -252,6 +284,8 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Consultório — atendimento não pôde ser carregado", ex);
             Mensagem = ex.Message;
@@ -259,7 +293,8 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -469,7 +504,15 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [RelayCommand]
     private void AbrirMapa()
     {
-        if (Mapa is null) return;
+        // O botão apagado (TemPaciente) explica; esta guarda diz por quê quando o clique
+        // chega mesmo assim — guarda que volta em silêncio é botão que não faz nada.
+        if (Mapa is null)
+        {
+            Mensagem = "Escolha um paciente antes de abrir o mapa corporal: a tela abre "
+                     + "no paciente que você está atendendo, ou use a busca.";
+            MensagemEhErro = true;
+            return;
+        }
 
         try
         {
@@ -504,7 +547,12 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [RelayCommand]
     private async Task EmitirDocumentoAsync()
     {
-        if (PacienteId == 0) return;
+        if (PacienteId == 0)
+        {
+            Mensagem = "Escolha um paciente antes de emitir o documento.";
+            MensagemEhErro = true;
+            return;
+        }
 
         try
         {

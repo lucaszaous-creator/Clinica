@@ -36,6 +36,41 @@
             </Grid>
         </StackPanel>
 
+        <!-- ===== Filtro =====
+             Linha única acima da lista (REGRA DE LEIAUTE): é o que a pessoa AJUSTA
+             enquanto cobra no balcão, não uma tela à parte. O recorte é em memória —
+             a lista já veio inteira do banco. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <CheckBox Grid.Column="2" Content="Só ativos" IsChecked="{Binding SoAtivos}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8"
+                          ToolTip="Só os pacotes com saldo valendo — cancelados, esgotados e vencidos ficam de fora" />
+
+                <Button Grid.Column="4" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
@@ -129,6 +164,6 @@
                            Glifo="&#xE8C7;"
                            TextoCarregando="Lendo os pacotes…"
                            Titulo="Nenhum pacote vendido"
-                           Descricao="A situação do pacote é calculada na hora — vencimento não precisa de rotina." />
+                           Descricao="{Binding VazioDescricao}" />
     </Grid>
 </UserControl>

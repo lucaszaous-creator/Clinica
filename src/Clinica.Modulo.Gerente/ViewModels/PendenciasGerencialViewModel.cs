@@ -3,6 +3,7 @@ using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
@@ -30,12 +31,22 @@ public sealed class LinhaPendencia
     public bool EhAmarela => Urgencia == NivelUrgencia.Amarelo;
     public bool EhVerde => Urgencia == NivelUrgencia.Verde;
 
+    /// <summary>
+    /// A FORMA que o número da guia deste convênio tem (parcela 45). A linha descartava
+    /// o código do convênio ao virar nome de exibição, e a fila do Gerente ficou sendo a
+    /// única porta de baixa sem a metade que explica — a gerente digitava "9O123" (letra
+    /// O), o serviço recusava, e a recusa chegava genérica com o diálogo já fechado.
+    /// </summary>
+    public required FormatoNumeroGuia FormatoGuia { get; init; }
+
     public static LinhaPendencia De(PendenciaCodigo p) => new()
     {
         CodigoId = p.CodigoId,
         Paciente = p.PacienteNome,
         Convenio = CatalogoConvenios.Nome(p.ConvenioCodigo, p.Convenio),
-        Guia = $"{RotulosEnum.De(p.Tipo)} · {p.Ordem}",
+        FormatoGuia = CatalogoConvenios.FormatoDoNumeroDaGuia(
+            p.ConvenioCodigo ?? p.Convenio.ToString()),
+        Guia = $"{RotulosEnum.De(p.Tipo)} · {RotulosEnum.De(p.Ordem)}",
         Prevista = p.DataPrevista.ToString("dd/MM/yyyy"),
         Urgencia = p.Urgencia,
         Atraso = p.DiasEmAtraso switch
@@ -72,6 +83,62 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
 
     public ObservableCollection<LinhaPendencia> Pendencias { get; } = [];
+
+    /// <summary>Tudo o que o banco devolveu; <see cref="Pendencias"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaPendencia> _todas = [];
+
+    // ---- Filtro (o espelho do painel do faturamento, que filtra por convênio e
+    // urgência desde a parcela 1 — a MESMA leitura no Gerente não tinha como estreitar).
+    // Em memória, sobre o que já foi lido.
+    public const string TodosConvenios = "Todos os convênios";
+    public const string TodasUrgencias = "Todas";
+    public const string UrgenciaVermelhas = "Vermelhas";
+    public const string UrgenciaAmarelas = "Amarelas";
+    public const string UrgenciaVerdes = "Verdes";
+
+    // Strings, e não o enum NivelUrgencia: ComboBox amarrado a enum sem rotulador escreve
+    // o identificador na tela (o defeito da parcela 41, vigiado pela checagem 20).
+    public string[] OpcoesUrgenciaGuia { get; } =
+        [TodasUrgencias, UrgenciaVermelhas, UrgenciaAmarelas, UrgenciaVerdes];
+
+    /// <summary>As operadoras COM pendência — oferecer as sem guia daria filtro que só leva a vazio.</summary>
+    public ObservableCollection<string> ConveniosPendencia { get; } = [TodosConvenios];
+
+    [ObservableProperty] private string _filtroConvenioGuia = TodosConvenios;
+    [ObservableProperty] private string _filtroUrgenciaGuia = TodasUrgencias;
+    [ObservableProperty] private string _filtroPacienteGuia = string.Empty;
+
+    /// <summary>O `Clear()` do combo devolve nulo pelo binding (lição da parcela 56) — remonta sob guarda.</summary>
+    private bool _montandoConvenios;
+
+    partial void OnFiltroUrgenciaGuiaChanged(string value) => Refiltrar();
+    partial void OnFiltroPacienteGuiaChanged(string value) => Refiltrar();
+    partial void OnFiltroConvenioGuiaChanged(string? value)
+    {
+        if (value is null)
+        {
+            FiltroConvenioGuia = TodosConvenios;
+            return;
+        }
+        if (!_montandoConvenios) Refiltrar();
+    }
+
+    public bool FiltroAtivo =>
+        FiltroConvenioGuia != TodosConvenios
+        || FiltroUrgenciaGuia != TodasUrgencias
+        || !string.IsNullOrWhiteSpace(FiltroPacienteGuia);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroConvenioGuia = TodosConvenios;
+        FiltroUrgenciaGuia = TodasUrgencias;
+        FiltroPacienteGuia = string.Empty;
+    }
+
+    /// <summary>O estado vazio muda de frase quando há filtro — vazio filtrado não é "tudo em dia".</summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "O 2º código só vira pendência 24 h depois do atendimento.";
 
     [ObservableProperty] private bool _carregando;
 
@@ -123,16 +190,29 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var lista = await pendencias.CodigosPendentesAsync(hoje);
 
-            Pendencias.Clear();
+            _todas.Clear();
             foreach (var p in lista.OrderByDescending(p => p.DiasEmAtraso))
-                Pendencias.Add(LinhaPendencia.De(p));
+                _todas.Add(LinhaPendencia.De(p));
 
-            Vermelhas = Pendencias.Count(p => p.EhVermelha).ToString();
-            Amarelas = Pendencias.Count(p => p.EhAmarela).ToString();
-            Verdes = Pendencias.Count(p => p.EhVerde).ToString();
-            Resumo = Pendencias.Count == 0
-                ? "Nenhuma guia pendente. É o estado que o produto existe para manter."
-                : $"{Pendencias.Count} guia(s) pendente(s) de baixa.";
+            // As operadoras com pendência, preservando a escolha quando ela ainda
+            // existe — atualizar não pode desfazer o filtro de quem está trabalhando.
+            var escolhido = FiltroConvenioGuia;
+            _montandoConvenios = true;
+            try
+            {
+                ConveniosPendencia.Clear();
+                ConveniosPendencia.Add(TodosConvenios);
+                foreach (var nome in _todas.Select(l => l.Convenio).Distinct().OrderBy(n => n))
+                    ConveniosPendencia.Add(nome);
+                FiltroConvenioGuia = ConveniosPendencia.Contains(escolhido)
+                    ? escolhido : TodosConvenios;
+            }
+            finally
+            {
+                _montandoConvenios = false;
+            }
+
+            Refiltrar();
         }
         catch (Exception ex)
         {
@@ -145,6 +225,46 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
         {
             Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco (o padrão
+    /// da tela de Consultas da Recepção).
+    /// </summary>
+    private void Refiltrar()
+    {
+        Pendencias.Clear();
+        foreach (var p in _todas.Where(p =>
+                     (FiltroConvenioGuia == TodosConvenios || p.Convenio == FiltroConvenioGuia)
+                     && (FiltroUrgenciaGuia switch
+                     {
+                         UrgenciaVermelhas => p.EhVermelha,
+                         UrgenciaAmarelas => p.EhAmarela,
+                         UrgenciaVerdes => p.EhVerde,
+                         _ => true
+                     })
+                     && Busca.Casa(p.Paciente, FiltroPacienteGuia)))
+            Pendencias.Add(p);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O semáforo conta o TOTAL, nunca o recorte: o filtro serve para achar uma guia,
+        // não para mudar o tamanho do problema que a direção enxerga.
+        Vermelhas = _todas.Count(p => p.EhVermelha).ToString();
+        Amarelas = _todas.Count(p => p.EhAmarela).ToString();
+        Verdes = _todas.Count(p => p.EhVerde).ToString();
+
+        // O resumo DIZ que está filtrado: "5 guias" e "5 de 40 no filtro" respondem
+        // perguntas diferentes.
+        Resumo = _todas.Count == 0
+            ? "Nenhuma guia pendente. É o estado que o produto existe para manter."
+            : FiltroAtivo
+                ? $"{Pendencias.Count} de {_todas.Count} guia(s) pendente(s) no filtro."
+                : $"{Pendencias.Count} guia(s) pendente(s) de baixa.";
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhuma pendência bate com o filtro — limpe-o para ver todas."
+            : "O 2º código só vira pendência 24 h depois do atendimento.";
     }
 
     /// <summary>
@@ -161,15 +281,30 @@ public sealed partial class PendenciasGerencialViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.BaixarGuia, "dar baixa na guia");
 
-            var numero = _dialogo.PerguntarTexto(
-                "Dar baixa",
-                $"Número da guia de {linha.Paciente} no sistema do convênio. "
-                + "É por ele que o retorno da operadora casa com esta linha — sem número, "
-                + "conciliar o demonstrativo vira trabalho manual.");
+            // A dica do formato entra na pergunta e a crítica roda ANTES de chamar o
+            // serviço — é a MESMA RegraNumeroGuia, nunca uma cópia. As outras três portas
+            // já avisavam; esta recusava só no serviço, com o diálogo já fechado.
+            var dica = RegraNumeroGuia.Dica(linha.FormatoGuia);
+            var pergunta = $"Número da guia de {linha.Paciente} no sistema do convênio. "
+                           + "É por ele que o retorno da operadora casa com esta linha — sem número, "
+                           + "conciliar o demonstrativo vira trabalho manual."
+                           + (dica is null ? string.Empty : $"\n\n{linha.Convenio}: {dica}");
 
-            // Cancelar o diálogo devolve null; string vazia é "não tenho o número agora",
-            // que é diferente e continua permitindo a baixa.
-            if (numero is null) return;
+            string? numero;
+            while (true)
+            {
+                numero = _dialogo.PerguntarTexto("Dar baixa", pergunta);
+
+                // Cancelar o diálogo devolve null; string vazia é "não tenho o número
+                // agora", que é diferente e continua permitindo a baixa.
+                if (numero is null) return;
+
+                if (RegraNumeroGuia.Criticar(numero, linha.FormatoGuia) is not { } critica) break;
+
+                // O "O" no lugar do zero, apontado com o número ainda na mão — e a
+                // pergunta reabre para corrigir, em vez de a recusa chegar depois.
+                _dialogo.Aviso("Número da guia", critica);
+            }
 
             using var scope = _escopos.CreateScope();
             var faturamento = scope.ServiceProvider.GetRequiredService<FaturamentoService>();

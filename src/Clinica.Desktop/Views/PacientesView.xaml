@@ -14,6 +14,7 @@
         <DockPanel Grid.Row="0">
             <Button DockPanel.Dock="Right" Command="{Binding NovoCommand}" VerticalAlignment="Center"
                     MinWidth="150"
+                    IsEnabled="{Binding PodeEditarCadastro}"
                     ToolTip="Abrir o cadastro para um paciente novo">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE710;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
@@ -124,7 +125,7 @@
                                 <Ellipse Width="8" Height="8" VerticalAlignment="Center" Margin="0,0,6,0"
                                          ToolTip="{Binding Categoria}"
                                          Fill="{Binding Categoria, Converter={StaticResource CategoriaParaCor}}" />
-                                <TextBlock Text="{Binding Categoria}" VerticalAlignment="Center"
+                                <TextBlock Text="{Binding Categoria, Converter={StaticResource EnumDescricao}}" VerticalAlignment="Center"
                                            Style="{StaticResource FichaRotulo}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </StackPanel>
 
@@ -135,11 +136,13 @@
                                         CommandParameter="{Binding}" />
                                 <Button Content="&#xE70F;" Style="{StaticResource BotaoIcone}" Margin="6,0,0,0"
                                         ToolTip="Editar o cadastro" AutomationProperties.Name="Editar"
+                                        IsEnabled="{Binding DataContext.PodeEditarCadastro, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                         Command="{Binding DataContext.EditarCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                         CommandParameter="{Binding}" />
                                 <Button Content="&#xE74D;" Style="{StaticResource BotaoIcone}"
                                         Foreground="{StaticResource Brush.Erro}"
                                         ToolTip="Excluir o paciente" AutomationProperties.Name="Excluir"
+                                        IsEnabled="{Binding DataContext.PodeEditarCadastro, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                         Command="{Binding DataContext.ExcluirCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                         CommandParameter="{Binding}" />
                             </StackPanel>

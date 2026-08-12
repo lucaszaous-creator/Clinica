@@ -218,7 +218,9 @@ public sealed class ModuloGerente : IModuloApp
     {
         servicos.AddTransient<PainelDirecaoViewModel>();
         servicos.AddTransient<IndicadoresViewModel>();
-        servicos.AddTransient<FaturamentoGerencialViewModel>();
+        // FaturamentoGerencialViewModel NÃO se registra: é sub-aba construída à mão pelo
+        // FaturamentoTissViewModel — registro sem resolvedor é código morto que sugere
+        // um caminho de DI que não existe.
         servicos.AddTransient<FaturamentoTissViewModel>();
         servicos.AddTransient<PrecosConvenioViewModel>();
         servicos.AddTransient<CustoTransacaoViewModel>();

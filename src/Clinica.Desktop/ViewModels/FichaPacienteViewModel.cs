@@ -273,10 +273,20 @@ public partial class FichaPacienteViewModel : ObservableObject
         }
     }
 
+    // As duas barreiras da permissão, na ficha também: a seção Pacientes abre com
+    // VerFichaPaciente, e sem estas guardas a ficha devolvia por baixo o que a tela
+    // de Faturados e o Acessos tiraram por cima — estornar sem EstornarBaixa e mexer
+    // na cota sem EditarPaciente.
+    public bool PodeEstornar => SessaoUsuario.Atual.Pode(Permissao.EstornarBaixa);
+    public bool PodeEditarPaciente => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
+
     /// <summary>Abre o cadastro de autorização (nova ou existente) e recarrega a ficha.</summary>
     private async Task AbrirAutorizacaoAsync(int? autorizacaoId)
     {
         if (Paciente is null) return;
+
+        // A autorização é a cota que a baixa consome — mexer nela muda o que é faturável.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "editar a autorização de sessões");
 
         var janela = new Alertas.AutorizacaoWindow(
             new AutorizacaoEdicaoViewModel(_scopeFactory, Paciente.Id),
@@ -303,6 +313,9 @@ public partial class FichaPacienteViewModel : ObservableObject
     private async Task ExcluirAutorizacao(SaldoAutorizacao? saldo)
     {
         if (saldo is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "excluir a autorização de sessões");
+
         if (!_dialogo.ConfirmarPerigo("Excluir autorização",
             "Excluir esta autorização de sessões? O histórico de atendimentos não é afetado.")) return;
 
@@ -350,6 +363,9 @@ public partial class FichaPacienteViewModel : ObservableObject
     private async Task Estornar(CodigoFaturamento? codigo)
     {
         if (codigo is null || !codigo.Baixado) return;
+
+        // Antes da confirmação, nunca depois — a mesma ordem da tela de Faturados.
+        SessaoUsuario.Atual.Exigir(Permissao.EstornarBaixa, "estornar a baixa da guia");
 
         if (!_dialogo.Confirmar("Confirmar estorno",
             "Estornar a baixa desta guia? A pendência voltará a aparecer no painel.")) return;

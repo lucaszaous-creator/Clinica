@@ -68,6 +68,29 @@ public class FaturamentoServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task EstornarBaixa_Solta_a_guia_do_lote_TISS()
+    {
+        // O caso real: guia baixada com o número errado e JÁ exportada num lote. O
+        // estorno precisa soltar o vínculo — senão a guia corrigida nunca mais entra em
+        // lote (a guarda de duplicidade viraria a que impede o faturamento) e o número
+        // certo não chega à operadora. O lote antigo vira história na observação.
+        var codigo = await CriarCodigoAsync();
+        await _faturamento.DarBaixaAsync(codigo.Id, new DateOnly(2026, 7, 11), "90123", "secretaria", null);
+
+        var lote = new LoteTiss { Numero = 7, DataGeracao = new DateOnly(2026, 7, 12) };
+        _db.LotesTiss.Add(lote);
+        await _db.SaveChangesAsync();
+        (await _db.Codigos.FirstAsync(c => c.Id == codigo.Id)).LoteTissId = lote.Id;
+        await _db.SaveChangesAsync();
+
+        await _faturamento.EstornarBaixaAsync(codigo.Id, "número errado", "gerente");
+
+        var salvo = await _db.Codigos.AsNoTracking().FirstAsync(c => c.Id == codigo.Id);
+        salvo.LoteTissId.Should().BeNull("a guia rebaixada precisa voltar às candidatas do próximo lote");
+        salvo.ObservacaoBaixa.Should().Contain("lote anterior", "o vínculo desfeito vira história, não silêncio");
+    }
+
+    [Fact]
     public async Task EstornarBaixa_DeCodigoAberto_NaoFazNada()
     {
         var codigo = await CriarCodigoAsync();

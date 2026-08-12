@@ -178,9 +178,21 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a troca de paciente no seletor
+    /// dispara uma carga por seleção, e a resposta ATRASADA do paciente anterior chegando
+    /// por último poria os documentos dele sob o nome do paciente novo no cabeçalho.
+    /// </summary>
+    private int _geracaoCarga;
+
+    /// <summary>Último paciente cujo acesso já entrou na trilha — a tela recarrega mais do que troca.</summary>
+    private int _acessoRegistradoDe;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         SemPaciente = _pacienteId == 0;
         Documentos.Clear();
 
@@ -200,11 +212,29 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
-            foreach (var d in await servico.DoPacienteAsync(_pacienteId))
+            // Trilha de LEITURA (parcela 52), na troca de paciente: receita e atestado
+            // são dado de saúde, e abri-los sem rastro deixava esta porta fora da
+            // resposta a "quem acessou o prontuário desta pessoa?".
+            if (_acessoRegistradoDe != _pacienteId)
+            {
+                _acessoRegistradoDe = _pacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(_pacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.Documento);
+            }
+
+            var documentos = await servico.DoPacienteAsync(_pacienteId);
+
+            // Chegou tarde: outra seleção já pediu uma carga mais nova.
+            if (geracao != _geracaoCarga) return;
+
+            foreach (var d in documentos)
                 Documentos.Add(LinhaDocumentoClinico.De(d));
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — documentos do paciente não puderam ser carregados", ex);
@@ -213,7 +243,8 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

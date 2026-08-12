@@ -51,6 +51,7 @@ public sealed class ConvenioCatalogoService
             c.Codigo, c.Nome, c.Familia, c.Ativo,
             c.Familia == Convenio.Personalizado ? c.ParaConfig() : null,
             c.FormatoNumeroGuia,
+            c.RegistroAnsOperadora,
             c.GeraGuia)));
     }
 

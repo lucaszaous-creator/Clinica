@@ -83,6 +83,13 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
     partial void OnPeriodoSelecionadoChanged(string value) => _ = CarregarAsync();
 
     /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Trocar o período dispara outra leitura; a resposta velha chegando por último faria a
+    /// direção ler taxa de baixa e envelhecimento de um período que não é o do cabeçalho.
+    /// </summary>
+    private int _geracaoCarga;
+
+    /// <summary>
     /// O fechamento do período em PDF — a folha que vai ao contador (parcela 54).
     ///
     /// <b>Capacidade que existia com a porta no app de quem não a usa.</b> O
@@ -149,6 +156,8 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -168,6 +177,9 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
             var relatorio = await relatorios.GerarAsync(inicio, fim, hoje);
             var meses = await relatorios.ComparativoMensalAsync(hoje, 6);
             var emAberto = await pendencias.CodigosPendentesAsync(hoje);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             TotalGuias = relatorio.Resumo.TotalCodigos;
             Baixadas = relatorio.Resumo.Baixados;
@@ -205,6 +217,9 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Gerente — visão do faturamento não pôde ser carregada", ex);
@@ -213,7 +228,8 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 }

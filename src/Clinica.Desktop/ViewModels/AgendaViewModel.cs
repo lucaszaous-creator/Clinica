@@ -323,6 +323,13 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     /// </summary>
     public bool PodeAgendar { get; } = SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
 
+    /// <summary>
+    /// Confirmar presença é o ato que CRIA o atendimento e as guias — o bit é o de
+    /// lançar atendimento, não o de mexer na agenda: quem confere o dia (VerAgenda)
+    /// não gera guia por engano num clique.
+    /// </summary>
+    public bool PodeConfirmarPresenca { get; } = SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
+
     /// <summary>Abre o cadastro de agendamento; com faixa, já vai com data e hora preenchidas.</summary>
     private async Task AbrirCadastroAsync(DateTime? inicio, int? agendamentoId = null)
     {
@@ -383,6 +390,10 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     private async Task ConfirmarPresenca(CartaoAgendamento? cartao)
     {
         if (cartao is null) return;
+
+        // Segunda barreira antes da pergunta: confirmar presença gera atendimento e guias.
+        SessaoUsuario.Atual.Exigir(Permissao.LancarAtendimento, "confirmar presença e gerar o atendimento");
+
         if (!_dialogo.Confirmar("Confirmar presença",
             $"Confirmar presença de {cartao.Paciente} e gerar o atendimento (códigos de faturamento)?")) return;
 
@@ -414,6 +425,9 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     private async Task Cancelar(CartaoAgendamento? cartao)
     {
         if (cartao is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "cancelar o agendamento");
+
         if (!_dialogo.ConfirmarPerigo("Cancelar agendamento",
             $"Cancelar o horário de {cartao.Paciente} às {cartao.Hora}?")) return;
 
@@ -429,6 +443,9 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     private async Task Faltou(CartaoAgendamento? cartao)
     {
         if (cartao is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar falta");
+
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();

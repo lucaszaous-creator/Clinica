@@ -38,9 +38,12 @@
                         <TextBlock Grid.Column="0" Text="Lista de problemas"
                                    Style="{StaticResource H3}" VerticalAlignment="Center"
                                    TextWrapping="Wrap" Margin="0,0,12,0" />
+                        <!-- O IsEnabled cobre as DUAS pré-condições da guarda (paciente +
+                             permissão): botão aceso que não faz nada é o defeito da parcela 41. -->
                         <Button Grid.Column="1" Content="Novo problema" MinWidth="150"
+                                VerticalAlignment="Center"
                                 Command="{Binding NovoProblemaCommand}"
-                                IsEnabled="{Binding PodeEditarProntuario}" />
+                                IsEnabled="{Binding PodeNovoProblema}" />
                     </Grid>
 
                     <CheckBox Content="Mostrar também os resolvidos e descartados"

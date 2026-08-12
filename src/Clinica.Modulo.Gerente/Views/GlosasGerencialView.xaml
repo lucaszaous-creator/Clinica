@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Gerente.Views.GlosasGerencialView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -14,14 +15,51 @@
                 <TextBlock Text="Glosas" Style="{StaticResource H3}" Margin="0" />
                 <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}" />
             </StackPanel>
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                        VerticalAlignment="Center">
-                <CheckBox Content="Só em aberto" IsChecked="{Binding SomenteEmAberto}"
-                          VerticalAlignment="Center" Margin="0,0,12,0" />
-                <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
-                        Command="{Binding CarregarCommand}" />
-            </StackPanel>
+            <Button Content="Atualizar" HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Style="{StaticResource BotaoSecundario}" Command="{Binding CarregarCommand}" />
         </Grid>
+
+        <!-- ===== Filtro =====
+             Linha única acima da lista, como a Conciliação — é o que a pessoa AJUSTA
+             enquanto trabalha, não uma tela à parte (REGRA DE LEIAUTE). As checkboxes
+             recortam EM MEMÓRIA: a carga trouxe tudo, e é isso que faz o "N de M" do
+             resumo dizer a verdade. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroPacienteGlosa, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <CheckBox Grid.Column="2" Content="Só em aberto"
+                          IsChecked="{Binding SomenteEmAberto}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8" />
+
+                <CheckBox Grid.Column="4" Content="Só prazo vencido"
+                          IsChecked="{Binding SoPrazoVencido}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8" />
+
+                <Button Grid.Column="6" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -34,7 +72,9 @@
                            TextWrapping="Wrap" Margin="0,0,0,8"
                            Text="Glosa é faturamento recusado — dinheiro já trabalhado e não recebido. O prazo de recurso decide se ainda dá para brigar: passado ele, não é pendência, é prejuízo consumado." />
 
-                <TextBlock DockPanel.Dock="Top" Text="Nenhuma glosa no filtro atual.">
+                <!-- A frase muda quando há filtro: "não há glosa" e "nenhuma bate com o
+                     filtro" são respostas diferentes. -->
+                <TextBlock DockPanel.Dock="Top" Text="{Binding VazioDescricao}" TextWrapping="Wrap">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
                             <Setter Property="Visibility" Value="Collapsed" />

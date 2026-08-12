@@ -305,9 +305,18 @@ public sealed partial class AgendaViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): as setas de dia disparam uma
+    /// carga POR CLIQUE, e num banco remoto a resposta de anteontem chegando por último
+    /// deixaria a grade de um dia sob o título de outro — na tela em que se marca horário.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -323,6 +332,10 @@ public sealed partial class AgendaViewModel : ObservableObject
             var dia = DateOnly.FromDateTime(Dia);
             var doDia = await agenda.DoDiaAsync(dia);
             var profissionais = await equipe.ProfissionaisAtivosAsync();
+
+            // Chegou tarde: outro clique já pediu uma carga mais nova.
+            if (geracao != _geracaoCarga) return;
+
             SemProfissionais = profissionais.Count == 0;
 
             Colunas.Clear();
@@ -330,9 +343,10 @@ public sealed partial class AgendaViewModel : ObservableObject
 
             if (ModoSemana)
             {
-                await MontarSemanaAsync(agenda, profissionais);
+                await MontarSemanaAsync(agenda, profissionais, geracao);
+                if (geracao != _geracaoCarga) return;
                 MontarGrade();
-                await CarregarEsperaAsync(espera);
+                await CarregarEsperaAsync(espera, geracao);
                 return;
             }
 
@@ -364,10 +378,12 @@ public sealed partial class AgendaViewModel : ObservableObject
             Resumo = $"{ocupando} horário(s) no dia · {Colunas.Count} coluna(s)";
 
             MontarGrade();
-            await CarregarEsperaAsync(espera);
+            await CarregarEsperaAsync(espera, geracao);
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — agenda do dia não pôde ser carregada", ex);
             Mensagem = $"Não foi possível carregar a agenda: {ex.Message}";
@@ -375,7 +391,8 @@ public sealed partial class AgendaViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -390,7 +407,7 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// a semana DELE, que é a pergunta que ele faz.
     /// </summary>
     private async Task MontarSemanaAsync(
-        AgendaService agenda, IReadOnlyList<Profissional> profissionais)
+        AgendaService agenda, IReadOnlyList<Profissional> profissionais, int geracao)
     {
         var meu = SessaoUsuario.Atual.ProfissionalId;
         SoMinhaAgenda = meu is not null && profissionais.Any(p => p.Id == meu);
@@ -405,6 +422,10 @@ public sealed partial class AgendaViewModel : ObservableObject
         {
             var quando = segunda.AddDays(i);
             var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(quando));
+
+            // Chegou tarde: outra carga mais nova já foi pedida — parar a montagem
+            // impede a semana velha de terminar por cima da nova.
+            if (geracao != _geracaoCarga) return;
 
             var recorte = soMeu
                 ? doDia.Where(a => a.ProfissionalId == meu).ToList()
@@ -581,11 +602,14 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// recepção via a lista inteira e tinha de cruzar preferência por preferência de
     /// cabeça, justamente no minuto em que o telefone precisa ser atendido.
     /// </summary>
-    private async Task CarregarEsperaAsync(ListaEsperaService espera)
+    private async Task CarregarEsperaAsync(ListaEsperaService espera, int geracao)
     {
         var pedidos = SugestaoPara is { } horario
             ? await espera.CandidatosParaAsync(horario, SugestaoProfissionalId)
             : await espera.AguardandoAsync();
+
+        // Chegou tarde: outra carga mais nova já foi pedida.
+        if (geracao != _geracaoCarga) return;
 
         EsperaVazia = SugestaoPara is { } alvo
             ? $"Ninguém da lista serve para {alvo:dd/MM HH:mm} — turno, janela de datas ou "

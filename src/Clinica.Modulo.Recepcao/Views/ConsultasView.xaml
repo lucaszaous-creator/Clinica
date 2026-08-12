@@ -26,6 +26,52 @@
                     Style="{StaticResource BotaoSecundario}" Command="{Binding RecarregarCommand}" />
         </Grid>
 
+        <!-- ===== Filtro =====
+             A lista é UMA LINHA POR PACIENTE de convênio e cresce com a carteira: achar
+             a Maria para renovar com ela na frente não pode ser rolar a clínica inteira.
+             Linha única acima da lista, como a Conciliação — é o que a pessoa AJUSTA
+             enquanto trabalha, não uma tela à parte (REGRA DE LEIAUTE). -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="190" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Situação" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding OpcoesSituacao}"
+                              SelectedItem="{Binding FiltroSituacao}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding Convenios}"
+                              SelectedItem="{Binding FiltroConvenio}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <Button Grid.Column="6" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
@@ -59,7 +105,7 @@
                                    NaoVerificado="{Binding NaoVerificado}"
                                    Glifo="&#xE8A5;"
                                    Titulo="Nenhuma consulta a acompanhar"
-                                   Descricao="Nenhum paciente de convênio com consulta renovável foi encontrado." />
+                                   Descricao="{Binding VazioDescricao}" />
 
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,4">

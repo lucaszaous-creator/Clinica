@@ -105,6 +105,14 @@ public sealed partial class PainelViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _pendenciasNaoVerificadas;
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): os steppers de dia disparam uma
+    /// carga por clique, e num banco remoto a resposta de ontem pode chegar depois da de
+    /// hoje — o painel mostraria o dia errado sob o título certo. Só a carga mais nova
+    /// escreve na tela.
+    /// </summary>
+    private int _geracaoCarga;
+
     public PainelViewModel(
         PainelRecepcaoService painel, RelacionamentoService relacionamento)
     {
@@ -118,6 +126,8 @@ public sealed partial class PainelViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         var dia = DateOnly.FromDateTime(Dia);
         try
         {
@@ -126,21 +136,29 @@ public sealed partial class PainelViewModel : ObservableObject
             MensagemEhErro = false;
 
             var resumo = await _painel.ResumoAsync(dia);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             AplicarResumo(resumo);
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Recepção — painel não pôde ser carregado", ex);
             Mensagem = $"Não foi possível carregar o painel: {ex.Message}";
             MensagemEhErro = true;
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
 
-        await CarregarPendenciasAsync(dia);
-        await CarregarAniversariantesAsync(dia);
+        await CarregarPendenciasAsync(dia, geracao);
+        await CarregarAniversariantesAsync(dia, geracao);
     }
 
     /// <summary>
@@ -149,12 +167,15 @@ public sealed partial class PainelViewModel : ObservableObject
     ///
     /// Isolada do resto, como as pendências: se falhar, o painel continua mostrando o dia.
     /// </summary>
-    private async Task CarregarAniversariantesAsync(DateOnly dia)
+    private async Task CarregarAniversariantesAsync(DateOnly dia, int geracao)
     {
         try
         {
             AniversariantesNaoVerificados = false;
             var lista = await _relacionamento.AniversariantesAsync(dia, JanelaAniversarioDias);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Aniversariantes.Clear();
             foreach (var a in lista)
@@ -171,6 +192,9 @@ public sealed partial class PainelViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — aniversariantes não puderam ser lidos", ex);
             Aniversariantes.Clear();
@@ -222,11 +246,14 @@ public sealed partial class PainelViewModel : ObservableObject
     /// Guias pendentes dos pacientes do dia. Isolada do resto de propósito: se ela
     /// falhar, o painel continua mostrando o dia — e diz que não conseguiu conferir.
     /// </summary>
-    private async Task CarregarPendenciasAsync(DateOnly dia)
+    private async Task CarregarPendenciasAsync(DateOnly dia, int geracao)
     {
         try
         {
             var pendencias = await _painel.PendenciasDoDiaAsync(dia);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Pendencias.Clear();
             foreach (var p in pendencias)
@@ -234,7 +261,8 @@ public sealed partial class PainelViewModel : ObservableObject
                 {
                     PacienteId = p.PacienteId,
                     Paciente = p.PacienteNome,
-                    Descricao = p.Descricao ?? $"{p.Tipo} ({p.Ordem})",
+                    Descricao = p.Descricao
+                        ?? $"{Clinica.Domain.RotulosEnum.De(p.Tipo)} ({Clinica.Domain.RotulosEnum.De(p.Ordem)})",
                     Atraso = p.DiasEmAtraso <= 0
                         ? "vence hoje"
                         : $"{p.DiasEmAtraso} dia(s) em atraso",
@@ -245,6 +273,9 @@ public sealed partial class PainelViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — pendências do dia não puderam ser verificadas", ex);
             Pendencias.Clear();

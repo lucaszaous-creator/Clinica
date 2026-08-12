@@ -7,6 +7,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -24,10 +25,32 @@
         <TextBlock Grid.Row="1" Style="{StaticResource TextoSuave}" Margin="0,0,0,14" TextWrapping="Wrap"
                    Text="Guias que, ao rodar as pendências, não puderam ser baixadas e foram justificadas. Elas saem da aba Pendências e ficam aqui, documentadas. Reabra quando aparecer uma solução — a guia volta a ser pendência ativa." />
 
-        <Border Grid.Row="2" Style="{StaticResource Card}">
+        <!-- ===== Filtro =====
+             Em memória, sobre a lista carregada. Um campo só, que casa no paciente E na
+             justificativa: quem procura tanto lembra o nome quanto lembra o motivo. -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <WrapPanel>
+                <StackPanel Width="280" Margin="0,0,16,4">
+                    <TextBlock Text="Paciente ou justificativa" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding FiltroTexto, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource CampoPesquisa}" />
+                </StackPanel>
+                <Button Content="Limpar filtro" Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" Margin="0,0,16,0" />
+                <!-- O resumo diz que está filtrado: "3 de 12 no filtro" e "12 NCs"
+                     respondem perguntas diferentes. -->
+                <TextBlock Text="{Binding Resumo}" VerticalAlignment="Bottom" Margin="0,0,0,6"
+                           TextWrapping="Wrap" MaxWidth="360"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+            </WrapPanel>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource Card}">
         <Grid>
             <ctrl:EmptyState Glifo="&#xE930;" Titulo="Nenhuma não conformidade" Panel.ZIndex="1"
-                             Descricao="Nada justificado como não conformidade até agora.">
+                             Descricao="{Binding VazioDescricao}">
                 <ctrl:EmptyState.Style>
                     <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
                         <Setter Property="Visibility" Value="Collapsed" />

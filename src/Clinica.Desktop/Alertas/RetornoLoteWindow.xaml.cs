@@ -50,7 +50,7 @@ public partial class RetornoLoteWindow : Window
             {
                 CodigoId = c.Id,
                 Paciente = c.Atendimento?.Paciente?.Nome ?? "(desconhecido)",
-                Tipo = c.Tipo.ToString(),
+                Tipo = Clinica.Domain.RotulosEnum.De(c.Tipo),
                 NumeroGuia = c.NumeroGuiaReal,
                 Glosada = c.GlosaEmAberto // glosa já registrada aparece pré-marcada
             });

@@ -39,14 +39,13 @@
         <TabItem Header="A lançar">
         <DockPanel>
 
-        <!-- Explicação do elo entre os módulos -->
-        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,12,0,16">
-            <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                       Foreground="{StaticResource Brush.Texto.Primario}"
-                       Text="Guias que o faturamento já efetivou no convênio e que ainda não têm receita lançada no caixa. Informe o valor recebido para lançar — a guia sai desta lista e o lançamento fica vinculado a ela." />
-        </Border>
+        <!-- Contexto permanente é LINHA de texto, não faixa colorida (a regra do
+             README): a explicação que está sempre lá para de ser lida no segundo dia
+             e custava ~70 px entre as abas e o filtro. -->
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" MaxWidth="820"
+                   HorizontalAlignment="Left" Margin="0,12,0,12"
+                   Style="{StaticResource TextoSuave}"
+                   Text="Guias que o faturamento já efetivou no convênio e ainda sem receita no caixa. Informe o valor recebido para lançar — a guia sai da lista e o lançamento fica vinculado a ela." />
 
         <!-- ===== Filtro (parcela 56) =====
              A lista chega com dezenas de guias e quem concilia não a lê: ela tem o

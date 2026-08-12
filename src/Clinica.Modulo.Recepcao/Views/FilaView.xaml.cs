@@ -47,6 +47,11 @@ public partial class FilaView : UserControl
     /// </summary>
     private void AoPressionarCartao(object sender, MouseButtonEventArgs e)
     {
+        // O arrasto é uma porta de escrita como os botões: quem não tem EditarAgenda
+        // não começa a arrastar — os comandos de etapa já recusariam, mas deixar o
+        // cartão "pegável" seria a barreira invisível da parcela 41 em forma de gesto.
+        if (DataContext is FilaViewModel vm && !vm.PodeEditarAgenda) return;
+
         _inicioArraste = e.GetPosition(null);
         _candidato = (sender as FrameworkElement)?.DataContext as CartaoFila;
     }

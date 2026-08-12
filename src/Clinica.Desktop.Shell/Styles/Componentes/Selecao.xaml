@@ -162,4 +162,62 @@
         </Setter>
     </Style>
 
+    <!-- ============================================================
+         ListBox — o estilo IMPLÍCITO que nunca existiu (parcela 61).
+
+         O design system estilizou 20 tipos de controle e esqueceu o
+         ListBox: ~15 telas de busca/lista de paciente acendiam a linha
+         escolhida com o GRADIENTE AZUL DO AERO e o retângulo pontilhado
+         de foco — o tema do sistema operacional dentro de um app plano,
+         a mesma história do TabControl (parcela 55) e do DatePicker
+         (parcela 56). As telas tentavam apagar com BorderThickness="0",
+         mas isso limpa a CAIXA, não o item, que é onde o Aero pinta.
+
+         Sem x:Key, de propósito (a decisão do Abas.xaml): as quinze
+         listas ficam certas sem tocar numa linha delas. Quem precisa de
+         outro desenho declara estilo próprio, que vence o implícito —
+         é o caso da régua de EVA (CasaEva/ReguaEva na EvolucaoWindow).
+         ============================================================ -->
+
+    <Style TargetType="ListBox">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+    </Style>
+
+    <Style TargetType="ListBoxItem">
+        <Setter Property="Padding" Value="8,6" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                    <Border x:Name="Fundo" Background="Transparent"
+                            CornerRadius="{StaticResource Raio.Medio}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Fundo" Property="Background"
+                                    Value="{StaticResource Brush.LinhaAlt}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Fundo" Property="Background"
+                                    Value="{StaticResource Brush.Acento.Suave}" />
+                        </Trigger>
+                        <!-- Teclado sem seleção ainda precisa de um sinal — sem o
+                             retângulo pontilhado do Aero, o realce é o mesmo do hover. -->
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Fundo" Property="Background"
+                                    Value="{StaticResource Brush.Acento.Suave}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

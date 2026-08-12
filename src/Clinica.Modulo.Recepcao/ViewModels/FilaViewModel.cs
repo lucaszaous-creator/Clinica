@@ -286,12 +286,28 @@ public sealed partial class FilaViewModel : ObservableObject
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a batida do relógio e a troca de
+    /// dia concorrem, e a resposta de HOJE chegando por último reescreveria as cinco
+    /// colunas — e o <c>_doDia</c> que os comandos de etapa usam — por cima do dia que a
+    /// pessoa acabou de escolher. A meia-guarda por <c>Carregando</c> não cobria: a
+    /// recarga silenciosa roda com ele desligado.
+    /// </summary>
+    private int _geracaoCarga;
+
     private async Task CarregarAsync(bool silencioso)
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = !silencioso;
-            _doDia = [.. await _agenda.DoDiaAsync(DateOnly.FromDateTime(Dia))];
+            var doDia = await _agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
+            _doDia = [.. doDia];
 
             // Quem tem guia pendente hoje. Falha aqui não pode derrubar a fila inteira:
             // é aviso, não o conteúdo da tela.
@@ -307,6 +323,8 @@ public sealed partial class FilaViewModel : ObservableObject
                     "Recepção — pendências do dia não puderam ser conferidas", ex);
                 comPendencia = [];
             }
+
+            if (geracao != _geracaoCarga) return;
 
             Aguardando.Clear();
             NaRecepcao.Clear();
@@ -367,11 +385,13 @@ public sealed partial class FilaViewModel : ObservableObject
 
             // Recarga de fundo que falha não interrompe o balcão com um aviso vermelho:
             // ela já foi para o log, e a tela segue com o quadro do minuto anterior.
-            if (!silencioso) _snackbar.Erro($"Não foi possível carregar a fila: {ex.Message}");
+            if (!silencioso && geracao == _geracaoCarga)
+                _snackbar.Erro($"Não foi possível carregar a fila: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

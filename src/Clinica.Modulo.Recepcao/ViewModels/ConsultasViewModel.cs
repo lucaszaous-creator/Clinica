@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
@@ -37,6 +38,18 @@ public sealed class LinhaConsulta
 
     /// <summary>Convênio sem consulta renovável não tem o que renovar — o botão fica apagado.</summary>
     public bool TemRenovacao => Status.UsaConsulta;
+
+    /// <summary>
+    /// A situação como OPÇÃO DE FILTRO. Deriva do mesmo estado que pinta o semáforo e
+    /// escreve a frase — uma segunda classificação divergiria da primeira na primeira
+    /// mudança de regra.
+    /// </summary>
+    public string SituacaoFiltro =>
+        !Status.UsaConsulta ? ConsultasViewModel.SituacaoNaoUsa
+        : Status.PrecisaRenovar ? ConsultasViewModel.SituacaoPrecisaRenovar
+        : Status.Urgencia == NivelUrgencia.Amarelo ? ConsultasViewModel.SituacaoVenceEmBreve
+        : Status.UltimaEmissao is null ? ConsultasViewModel.SituacaoNuncaEmitiu
+        : ConsultasViewModel.SituacaoEmDia;
 
     public static LinhaConsulta De(StatusConsultaPaciente s) => new()
     {
@@ -76,6 +89,74 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
     private readonly IDialogoService _dialogo;
 
     public ObservableCollection<LinhaConsulta> Consultas { get; } = new();
+
+    /// <summary>Tudo o que o banco devolveu; <see cref="Consultas"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaConsulta> _todas = [];
+
+    // ---- Filtro (a lista é UMA LINHA POR PACIENTE de convênio e só cresce com a
+    // carteira; sem filtro, achar a Maria para renovar com ela na frente é rolar a
+    // clínica inteira). Os rótulos são const porque a linha e o combo usam os MESMOS —
+    // string repetida divergiria na primeira correção de texto.
+    public const string TodasSituacoes = "Todas as situações";
+    public const string SituacaoPrecisaRenovar = "Precisa renovar";
+    public const string SituacaoVenceEmBreve = "Vence em breve";
+    public const string SituacaoEmDia = "Em dia";
+    public const string SituacaoNuncaEmitiu = "Nunca emitiu";
+    public const string SituacaoNaoUsa = "Não usa consulta";
+
+    public const string TodosConvenios = "Todos os convênios";
+
+    // "OpcoesSituacao", e não "Situacoes": a checagem 20 resolve o tipo do ItemsSource
+    // pelo NOME da propriedade num mapa global, e "Situacoes" já é coleção de enum em
+    // outro ViewModel — o nome único evita o falso positivo sem desligar a rede.
+    public string[] OpcoesSituacao { get; } =
+    [
+        TodasSituacoes, SituacaoPrecisaRenovar, SituacaoVenceEmBreve,
+        SituacaoEmDia, SituacaoNuncaEmitiu, SituacaoNaoUsa
+    ];
+
+    /// <summary>As operadoras da CARTEIRA carregada — oferecer as sem paciente daria filtro que só leva a vazio.</summary>
+    public ObservableCollection<string> Convenios { get; } = [TodosConvenios];
+
+    [ObservableProperty] private string _filtroSituacao = TodasSituacoes;
+    [ObservableProperty] private string _filtroConvenio = TodosConvenios;
+    [ObservableProperty] private string _filtroPaciente = string.Empty;
+
+    /// <summary>O `Clear()` do combo devolve nulo pelo binding (lição da parcela 56) — remonta sob guarda.</summary>
+    private bool _montandoConvenios;
+
+    partial void OnFiltroSituacaoChanged(string value) => Refiltrar();
+    partial void OnFiltroPacienteChanged(string value) => Refiltrar();
+    partial void OnFiltroConvenioChanged(string? value)
+    {
+        if (value is null)
+        {
+            FiltroConvenio = TodosConvenios;
+            return;
+        }
+        if (!_montandoConvenios) Refiltrar();
+    }
+
+    public bool FiltroAtivo =>
+        FiltroSituacao != TodasSituacoes
+        || FiltroConvenio != TodosConvenios
+        || !string.IsNullOrWhiteSpace(FiltroPaciente);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroSituacao = TodasSituacoes;
+        FiltroConvenio = TodosConvenios;
+        FiltroPaciente = string.Empty;
+    }
+
+    /// <summary>
+    /// O estado vazio muda de frase quando há filtro: "nenhum paciente com consulta" e
+    /// "nenhum bate com o filtro" são respostas diferentes (a lição da lista de espera,
+    /// parcela 25) — sem isso, um filtro esquecido faz a recepção dar a carteira por vazia.
+    /// </summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "Nenhum paciente de convênio com consulta renovável foi encontrado.";
 
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -124,21 +205,35 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
 
             var lista = await service.ListarAsync(hoje);
 
-            Consultas.Clear();
+            _todas.Clear();
             // Quem precisa renovar primeiro: a lista existe para agir, e ordenar por nome
             // faria a recepção varrer trinta linhas em dia para achar as três que pedem
             // assinatura.
             foreach (var c in lista.OrderByDescending(c => c.PrecisaRenovar)
                                    .ThenBy(c => c.DiasParaVencer ?? int.MaxValue)
                                    .ThenBy(c => c.PacienteNome))
-                Consultas.Add(LinhaConsulta.De(c));
+                _todas.Add(LinhaConsulta.De(c));
 
             TotalAlerta = lista.Count(c => c.PrecisaRenovar);
-            Resumo = Consultas.Count == 0
-                ? "Nenhum paciente de convênio com consulta renovável."
-                : TotalAlerta == 0
-                    ? $"{Consultas.Count} paciente(s) — nenhum precisa renovar hoje."
-                    : $"{TotalAlerta} de {Consultas.Count} paciente(s) precisam renovar a consulta.";
+
+            // As operadoras da carteira, preservando a escolha quando ela ainda existe —
+            // atualizar a lista não pode desfazer o filtro de quem está trabalhando nela.
+            var escolhido = FiltroConvenio;
+            _montandoConvenios = true;
+            try
+            {
+                Convenios.Clear();
+                Convenios.Add(TodosConvenios);
+                foreach (var nome in _todas.Select(l => l.Convenio).Distinct().OrderBy(n => n))
+                    Convenios.Add(nome);
+                FiltroConvenio = Convenios.Contains(escolhido) ? escolhido : TodosConvenios;
+            }
+            finally
+            {
+                _montandoConvenios = false;
+            }
+
+            Refiltrar();
         }
         catch (Exception ex)
         {
@@ -150,6 +245,38 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
         {
             Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco: a carga
+    /// trouxe a carteira inteira, e refazer a consulta a cada tecla seria pagar o banco
+    /// remoto para responder o que a tela já sabe.
+    /// </summary>
+    private void Refiltrar()
+    {
+        Consultas.Clear();
+        foreach (var l in _todas.Where(l =>
+                     (FiltroSituacao == TodasSituacoes || l.SituacaoFiltro == FiltroSituacao)
+                     && (FiltroConvenio == TodosConvenios || l.Convenio == FiltroConvenio)
+                     && Busca.Casa(l.Paciente, FiltroPaciente)))
+            Consultas.Add(l);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O resumo DIZ que está filtrado: "12 pacientes" e "12 de 90 no filtro" respondem
+        // perguntas diferentes, e quem volta à tela depois do café não lembra o combo.
+        Resumo = _todas.Count == 0
+            ? "Nenhum paciente de convênio com consulta renovável."
+            : FiltroAtivo
+                ? $"{Consultas.Count} de {_todas.Count} paciente(s) no filtro · "
+                  + $"{TotalAlerta} precisam renovar no total."
+                : TotalAlerta == 0
+                    ? $"{_todas.Count} paciente(s) — nenhum precisa renovar hoje."
+                    : $"{TotalAlerta} de {_todas.Count} paciente(s) precisam renovar a consulta.";
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhum paciente bate com o filtro — limpe-o para ver a carteira inteira."
+            : "Nenhum paciente de convênio com consulta renovável foi encontrado.";
     }
 
     /// <summary>

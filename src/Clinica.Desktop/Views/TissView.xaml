@@ -49,6 +49,7 @@
                     <DataGrid ItemsSource="{Binding Lotes}">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Nº lote" Binding="{Binding Numero}" Width="Auto" />
+                            <DataGridTextColumn Header="Operadora" Binding="{Binding Operadora}" Width="Auto" />
                             <DataGridTextColumn Header="Gerado em" Binding="{Binding DataGeracao, StringFormat=dd/MM/yyyy}" Width="Auto" />
                             <DataGridTextColumn Header="Guias" Binding="{Binding Guias}" Width="Auto" />
                             <DataGridTextColumn Header="Situação" Binding="{Binding StatusRotulo}" Width="Auto" />

@@ -4,6 +4,7 @@ namespace Clinica.Domain.Regras;
 public sealed record EntradaConvenio(string Codigo, string Nome, Convenio Familia, bool Ativo,
     ConfiguracaoRegraGenerica? Config = null,
     FormatoNumeroGuia FormatoNumeroGuia = FormatoNumeroGuia.SemValidacao,
+    string? RegistroAnsOperadora = null,
     bool GeraGuia = true);
 
 /// <summary>
@@ -62,6 +63,14 @@ public static class CatalogoConvenios
 
     /// <summary>Config da regra genérica de um convênio personalizado (nulo se não for personalizado).</summary>
     public static ConfiguracaoRegraGenerica? Config(string? codigo) => Buscar(codigo)?.Config;
+
+    /// <summary>
+    /// Registro ANS da operadora deste convênio (parcela 60) — o destino do lote TISS
+    /// dela. Nulo quando a clínica não preencheu: o lote cai no registro global de
+    /// Configurações, que era o único que existia.
+    /// </summary>
+    public static string? RegistroAns(string? codigo)
+        => Buscar(codigo)?.RegistroAnsOperadora is { Length: > 0 } r ? r : null;
 
     /// <summary>Validade da consulta pelo código: config do personalizado, ou o padrão da família.</summary>
     public static int? ValidadeConsultaDias(string? codigo)

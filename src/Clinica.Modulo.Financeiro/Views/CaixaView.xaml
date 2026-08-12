@@ -101,6 +101,51 @@
             </Grid>
         </Border>
 
+        <!-- ===== Filtro =====
+             Linha única acima da lista (REGRA DE LEIAUTE). Com filtro ativo o mês é
+             recarregado SEM o corte de 300 linhas — busca sobre lista cortada é busca
+             que mente — e o recorte roda em memória. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Descrição ou categoria" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroTexto, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Ex.: aluguel — o acento não atrapalha" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Situação" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding OpcoesSituacaoLancamento}"
+                              SelectedItem="{Binding FiltroSituacao}" />
+                </StackPanel>
+
+                <!-- O número mora junto do que ele corta: "12 de 480 no filtro". -->
+                <TextBlock Grid.Column="4" Text="{Binding ResumoFiltro}"
+                           VerticalAlignment="Bottom" Margin="0,0,0,8"
+                           TextWrapping="Wrap" MaxWidth="260" HorizontalAlignment="Left"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+
+                <Button Grid.Column="6" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <!-- Lançamentos -->
         <Border Background="{StaticResource Brush.Superficie}" BorderBrush="{StaticResource Brush.Borda}"
                 BorderThickness="1" CornerRadius="{StaticResource Raio.Grande}">
@@ -214,6 +259,6 @@
                            Glifo="&#xE8C7;"
                            TextoCarregando="Lendo o caixa do mês…"
                            Titulo="Nenhum lançamento neste mês"
-                           Descricao="Receita de guia entra pela Conciliação, já vinculada." />
+                           Descricao="{Binding VazioDescricao}" />
     </Grid>
 </UserControl>

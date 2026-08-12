@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260811222036_LotePorOperadora")]
+    partial class LotePorOperadora
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -86,10 +89,6 @@ namespace Clinica.Infrastructure.Migrations
 
                     b.Property<int>("PacienteId")
                         .HasColumnType("integer");
-
-                    b.Property<string>("PrimeiroCodigo")
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
 
                     b.Property<int?>("ProfissionalId")
                         .HasColumnType("integer");
@@ -1039,9 +1038,6 @@ namespace Clinica.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
-
-                    b.Property<bool>("GeraGuia")
-                        .HasColumnType("boolean");
 
                     b.Property<bool>("InverteDatasBsv")
                         .HasColumnType("boolean");

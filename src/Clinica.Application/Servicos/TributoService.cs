@@ -129,7 +129,7 @@ public sealed class TributoService
         {
             Acao = dados.Id == 0 ? "TributoCriado" : "TributoAtualizado",
             Detalhe = tributo.Descricao + $" · {tributo.Vigencia}",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
         return tributo;

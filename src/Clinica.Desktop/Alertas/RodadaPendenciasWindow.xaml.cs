@@ -44,7 +44,8 @@ public partial class RodadaPendenciasWindow : Window
         Linhas = itens.Select(i => new Linha
         {
             CodigoId = i.CodigoId,
-            Descricao = $"{i.PacienteNome} — {i.Tipo} ({(i.Ordem == OrdemCodigo.Primeiro ? "1º" : "2º")} código)",
+            // Rótulo central, nunca o enum cru (parcela 41).
+            Descricao = $"{i.PacienteNome} — {RotulosEnum.De(i.Tipo)} ({RotulosEnum.De(i.Ordem)})",
             Formato = CatalogoConvenios.FormatoDoNumeroDaGuia(i.ConvenioCodigo ?? i.Convenio.ToString()),
             // Nome do CATÁLOGO, nunca o enum: `{i.Convenio}` escrevia "UnimedIntercambio"
             // na linha, e "Personalizado" no lugar do nome que a clínica cadastrou.

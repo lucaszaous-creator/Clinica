@@ -113,6 +113,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
     private readonly int _prescricaoId;
 
+    /// <summary>Último paciente cujo acesso já entrou na trilha — a folha recarrega a cada checagem.</summary>
+    private int _acessoRegistradoDe;
+
     public ObservableCollection<LinhaExecucaoItem> Itens { get; } = [];
     public ObservableCollection<string> Alertas { get; } = [];
 
@@ -171,6 +174,18 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
             var prescricao = await servico.ObterAsync(_prescricaoId)
                 ?? throw new InvalidOperationException("Prescrição não encontrada.");
+
+            // Trilha de LEITURA (parcela 52): esta janela abre a folha de QUALQUER
+            // paciente da fila do dia — itens prescritos e alergias — a partir da Sala de
+            // Infusão, sem paciente escolhido antes. Registrada na troca de prescrição
+            // (a janela recarrega a cada checagem, e o paciente é o mesmo).
+            if (_acessoRegistradoDe != prescricao.PacienteId)
+            {
+                _acessoRegistradoDe = prescricao.PacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(prescricao.PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.Documento);
+            }
 
             Numero = prescricao.Numero;
             Paciente = prescricao.Paciente?.Nome ?? "—";

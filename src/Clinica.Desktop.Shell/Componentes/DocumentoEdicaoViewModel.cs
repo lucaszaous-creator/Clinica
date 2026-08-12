@@ -385,6 +385,11 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
         try
         {
+            // O modelo é o rascunho que a clínica INTEIRA usa — quem pode emitir a folha
+            // deste tipo pode curá-lo; quem não pode, não reescreve o modelo dos outros.
+            SessaoUsuario.Atual.Exigir(
+                CentralDocumentosService.AcessoParaEmitir(TipoSelecionado), "guardar modelo de documento");
+
             using var scope = _escopos.CreateScope();
             var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
@@ -433,6 +438,9 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(
+                CentralDocumentosService.AcessoParaEmitir(TipoSelecionado), "apagar modelo de documento");
+
             using var scope = _escopos.CreateScope();
             var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
 
@@ -466,6 +474,21 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
         Mensagem = string.Empty;
         MensagemEhErro = false;
+
+        // A permissão é conferida pelo tipo que está NO COMBO agora, não pelo que a porta
+        // de fora exigiu: quem abre a janela para "declaração de comparecimento" pode
+        // trocar o seletor para "Receita" — e receita exige Prescrever (parcela 59).
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                CentralDocumentosService.AcessoParaEmitir(TipoSelecionado),
+                $"emitir {TipoDocumentoInfo.Rotular(TipoSelecionado).ToLowerInvariant()}");
+        }
+        catch (Exception ex)
+        {
+            Erro(ex.Message);
+            return;
+        }
 
         // Reconfere com o que está escrito AGORA. A conferência da abertura viu uma
         // receita em branco, e quem digitou o alérgeno depois dela passaria direto.

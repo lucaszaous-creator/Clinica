@@ -160,9 +160,18 @@ public sealed partial class FechamentoCaixaViewModel : ObservableObject
                 : $"Falta de {Math.Abs(diferenca):C}.";
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o dia duas vezes rápido
+    /// deixaria a proposta de um dia sob a data do outro — e é contra esse "esperado"
+    /// que a pessoa confere a gaveta.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Mensagem = null;
@@ -175,6 +184,10 @@ public sealed partial class FechamentoCaixaViewModel : ObservableObject
             var fechamentos = scope.ServiceProvider.GetRequiredService<FechamentoCaixaService>();
 
             var proposta = await fechamentos.PrepararAsync(dia);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             _esperadoNumero = proposta.Esperado;
             EntradasEspecie = proposta.EntradasEspecie.ToString("C");
             SaidasEspecie = proposta.SaidasEspecie.ToString("C");
@@ -197,12 +210,22 @@ public sealed partial class FechamentoCaixaViewModel : ObservableObject
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var inicio = hoje.AddDays(-60);
 
+            var historico = await fechamentos.HistoricoAsync(inicio, hoje);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Historico.Clear();
-            foreach (var f in await fechamentos.HistoricoAsync(inicio, hoje))
+            foreach (var f in historico)
                 Historico.Add(LinhaFechamento.De(f));
 
+            var pendentes = await fechamentos.NaoConferidosAsync(inicio, hoje);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             NaoConferidos.Clear();
-            foreach (var d in await fechamentos.NaoConferidosAsync(inicio, hoje))
+            foreach (var d in pendentes)
                 NaoConferidos.Add(LinhaNaoConferido.De(d));
 
             Resumo = NaoConferidos.Count == 0
@@ -211,6 +234,8 @@ public sealed partial class FechamentoCaixaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Financeiro — fechamento de caixa não pôde ser lido", ex);
             Erro($"Não foi possível montar a conferência: {ex.Message}");
         }

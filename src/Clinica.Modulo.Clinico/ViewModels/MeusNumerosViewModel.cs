@@ -79,6 +79,13 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string _leituraCompletude = string.Empty;
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o período dispara uma carga
+    /// por escolha, e a resposta do período anterior pode chegar por último — os números de
+    /// "Mês passado" sairiam sob o título "Este mês". Só a carga mais nova escreve na tela.
+    /// </summary>
+    private int _geracaoCarga;
+
     public MeusNumerosViewModel(IServiceScopeFactory escopos)
     {
         _escopos = escopos;
@@ -90,6 +97,8 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -108,6 +117,9 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             var consultorio = scope.ServiceProvider.GetRequiredService<ConsultorioService>();
 
             var todos = await indicadores.ProdutividadeAsync(inicio, fim);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             // Sem vínculo, somar a clínica inteira é a única leitura honesta — e a tela
             // diz isso em texto, porque um número da casa apresentado como "meu" é pior
@@ -128,6 +140,9 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
             var pendentes = await consultorio.RegistrosPendentesAsync(
                 DateOnly.FromDateTime(DateTime.Today), profissionalId);
 
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             TemDivida = pendentes.Count > 0;
             DividaProntuario = pendentes.Count switch
             {
@@ -138,6 +153,9 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — os indicadores do profissional não puderam ser carregados", ex);
@@ -146,7 +164,8 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

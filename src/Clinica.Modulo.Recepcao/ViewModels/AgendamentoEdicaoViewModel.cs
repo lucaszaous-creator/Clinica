@@ -132,6 +132,16 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a conferência dispara a cada
+    /// TECLA da hora/duração e a cada troca de combo — num banco remoto, a resposta de
+    /// "14:0" chegando depois da de "14:30" apagaria o choque REAL (ou inventaria um que
+    /// não existe), e a recepção marcaria em cima. A cópia do faturamento já tinha guarda
+    /// equivalente; esta não tinha nenhuma. Quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoConflitos;
+    private int _geracaoElegibilidade;
+
+    /// <summary>
     /// Conferência da elegibilidade do paciente escolhido, na data escolhida.
     ///
     /// Falha aqui não impede marcar — mas também não passa em branco: sem o aviso, a
@@ -139,6 +149,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// </summary>
     private async Task ConferirElegibilidadeAsync()
     {
+        var geracao = ++_geracaoElegibilidade;
+
         Elegibilidade.Clear();
         OnPropertyChanged(nameof(TemAvisoElegibilidade));
 
@@ -150,17 +162,24 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
             var servico = scope.ServiceProvider.GetRequiredService<ElegibilidadeService>();
 
             var resultado = await servico.ConferirAsync(paciente.Id, DateOnly.FromDateTime(Data));
+
+            // Chegou tarde: a tela já está em outro paciente ou outra data.
+            if (geracao != _geracaoElegibilidade) return;
+
             foreach (var alerta in resultado.Alertas) Elegibilidade.Add(alerta.Descricao);
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoElegibilidade) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — elegibilidade não pôde ser conferida ao marcar", ex);
             Elegibilidade.Add("Não foi possível conferir carteirinha e cota agora.");
         }
         finally
         {
-            OnPropertyChanged(nameof(TemAvisoElegibilidade));
+            if (geracao == _geracaoElegibilidade)
+                OnPropertyChanged(nameof(TemAvisoElegibilidade));
         }
     }
 
@@ -244,6 +263,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// </summary>
     private async Task ConferirConflitosAsync()
     {
+        var geracao = ++_geracaoConflitos;
+
         Conflitos.Clear();
         OnPropertyChanged(nameof(TemConflito));
 
@@ -259,6 +280,9 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                 pacienteId: Seletor.Selecionado?.Id,
                 ignorarAgendamentoId: _agendamentoId);
 
+            // Chegou tarde: outra tecla já pediu uma conferência mais nova.
+            if (geracao != _geracaoConflitos) return;
+
             foreach (var c in achados.Select(Descrever).Distinct())
                 Conflitos.Add(c);
         }
@@ -269,7 +293,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
         }
         finally
         {
-            OnPropertyChanged(nameof(TemConflito));
+            if (geracao == _geracaoConflitos)
+                OnPropertyChanged(nameof(TemConflito));
         }
     }
 

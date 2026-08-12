@@ -24,6 +24,28 @@ public partial class NaoConformidadesViewModel : ObservableObject, IAtalhosDeTel
 
     public ObservableCollection<NaoConformidadeItem> Itens { get; } = new();
 
+    /// <summary>Tudo o que o banco devolveu; <see cref="Itens"/> é o recorte do filtro.</summary>
+    private readonly List<NaoConformidadeItem> _todas = new();
+
+    // ---- Filtro (em memória). Um campo só, que casa no PACIENTE e na JUSTIFICATIVA:
+    // quem procura tanto lembra o nome quanto lembra o motivo ("portal fora do ar"),
+    // e dois campos obrigariam a saber de antemão onde a palavra está.
+    [ObservableProperty] private string _filtroTexto = string.Empty;
+
+    partial void OnFiltroTextoChanged(string value) => Refiltrar();
+
+    public bool FiltroAtivo => !string.IsNullOrWhiteSpace(FiltroTexto);
+
+    [RelayCommand]
+    private void LimparFiltro() => FiltroTexto = string.Empty;
+
+    /// <summary>O resumo diz que está filtrado: "3 de 12 no filtro" e "12 NCs" respondem perguntas diferentes.</summary>
+    [ObservableProperty] private string _resumo = string.Empty;
+
+    /// <summary>O estado vazio muda de frase quando há filtro — "nada justificado" e "nenhuma bate com o filtro" são respostas diferentes.</summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "Nada justificado como não conformidade até agora.";
+
     [ObservableProperty] private bool _temItens;
 
     public NaoConformidadesViewModel(IServiceScopeFactory scopeFactory, IDialogoService dialogo)
@@ -37,11 +59,41 @@ public partial class NaoConformidadesViewModel : ObservableObject, IAtalhosDeTel
         using var scope = _scopeFactory.CreateScope();
         var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
 
-        Itens.Clear();
+        _todas.Clear();
         foreach (var n in await rodada.NaoConformidadesAsync())
+            _todas.Add(n);
+
+        Refiltrar();
+    }
+
+    /// <summary>
+    /// Mesma comparação da consulta de guias (repositório): minúsculas + Contains. Este
+    /// app não referencia o Shell, então o <c>Busca.Casa</c> da suíte não existe aqui.
+    /// </summary>
+    private static bool Casa(string? texto, string? termo)
+        => string.IsNullOrWhiteSpace(termo)
+           || (texto is not null && texto.ToLower().Contains(termo.Trim().ToLower()));
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco.
+    /// </summary>
+    private void Refiltrar()
+    {
+        Itens.Clear();
+        foreach (var n in _todas.Where(n =>
+                     Casa(n.PacienteNome, FiltroTexto) || Casa(n.Justificativa, FiltroTexto)))
             Itens.Add(n);
 
         TemItens = Itens.Count > 0;
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        Resumo = FiltroAtivo
+            ? $"{Itens.Count} de {_todas.Count} não conformidade(s) no filtro"
+            : $"{_todas.Count} não conformidade(s)";
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhuma não conformidade bate com o filtro — limpe-o para ver todas."
+            : "Nada justificado como não conformidade até agora.";
     }
 
     /// <summary>Mostra a justificativa completa da não conformidade (opção de leitura).</summary>

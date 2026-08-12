@@ -41,4 +41,26 @@ public sealed class DadosPrestador
 
     public string CodigoTuss(TipoCodigo tipo)
         => CodigosTuss.TryGetValue(tipo, out var c) ? c : string.Empty;
+
+    /// <summary>
+    /// Uma CÓPIA destes dados com o registro ANS trocado — para o lote POR OPERADORA
+    /// (parcela 60), em que cada XML sai com o registro do convênio dele. Cópia, e não
+    /// mutação: este objeto é o da configuração global, e escrever nele trocaria o
+    /// registro de todos os lotes seguintes da mesma sessão.
+    /// </summary>
+    public DadosPrestador ComRegistroAns(string? registro) => new()
+    {
+        CodigoNaOperadora = CodigoNaOperadora,
+        Cnpj = Cnpj,
+        RazaoSocial = RazaoSocial,
+        NomeFantasia = NomeFantasia,
+        Cnes = Cnes,
+        Endereco = Endereco,
+        Telefone = Telefone,
+        Email = Email,
+        ChavePix = ChavePix,
+        Cidade = Cidade,
+        RegistroAnsOperadora = registro,
+        CodigosTuss = CodigosTuss
+    };
 }

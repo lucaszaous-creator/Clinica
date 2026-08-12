@@ -31,9 +31,14 @@ public class LoteTissServiceTests : IDisposable
         _lotes = new LoteTissService(_repo, _parametros);
     }
 
-    private async Task<CodigoFaturamento> CriarCodigoBaixadoAsync(string guia)
+    private async Task<CodigoFaturamento> CriarCodigoBaixadoAsync(
+        string guia, Convenio convenio = Convenio.UnimedIntercambio, string? convenioCodigo = null)
     {
-        var p = new Paciente { Nome = "P " + guia, Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };
+        var p = new Paciente
+        {
+            Nome = "P " + guia, Convenio = convenio, ConvenioCodigo = convenioCodigo,
+            Sexo = Sexo.Feminino
+        };
         _db.Pacientes.Add(p);
         await _db.SaveChangesAsync();
         var r = await new AtendimentoService(_repo).LancarAsync(p.Id, new DateOnly(2026, 7, 10), ModalidadeAtendimento.AcupunturaSimples);
@@ -61,6 +66,41 @@ public class LoteTissServiceTests : IDisposable
 
         // A sequência avançou para o próximo lote.
         (await _parametros.ObterProximoNumeroLoteTissAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task CriarLote_PorOperadora_SeparaAsGuias_ENaoPrendeAsDasOutras()
+    {
+        // O defeito que isto fixa: o "lote do período" engolia as guias de TODAS as
+        // operadoras num XML endereçado a UMA — e as demais nunca mais entravam em lote,
+        // porque a guarda de duplicidade as via como já exportadas.
+        await CriarCodigoBaixadoAsync("9001", Convenio.UnimedIntercambio);
+        await CriarCodigoBaixadoAsync("A123", Convenio.Amil);
+        await CriarCodigoBaixadoAsync("S777", Convenio.Personalizado, convenioCodigo: "SulAmerica");
+
+        var inicio = new DateOnly(2026, 7, 1);
+        var fim = new DateOnly(2026, 7, 31);
+
+        var unimed = await _lotes.CriarAsync(inicio, fim, "326305", convenioCodigo: "UnimedIntercambio");
+        unimed!.Codigos.Should().HaveCount(1, "o lote da Unimed leva SÓ as guias da Unimed");
+        unimed.ConvenioCodigo.Should().Be("UnimedIntercambio");
+
+        // As das outras operadoras continuam CANDIDATAS — não foram presas no lote alheio.
+        var candidatas = await _lotes.CandidatasAsync(inicio, fim);
+        candidatas.Should().HaveCount(2);
+
+        var amil = await _lotes.CriarAsync(inicio, fim, "326999", convenioCodigo: "Amil");
+        amil!.Codigos.Should().HaveCount(1);
+
+        // A personalizada resolve pelo CÓDIGO do catálogo, não pela família.
+        var sulamerica = await _lotes.CriarAsync(inicio, fim, "421234", convenioCodigo: "SulAmerica");
+        sulamerica!.Codigos.Should().HaveCount(1);
+
+        (await _lotes.CandidatasAsync(inicio, fim)).Should().BeEmpty();
+
+        // Os números seguem a sequência única — dois lotes nunca disputam o mesmo.
+        new[] { unimed.Numero, amil.Numero, sulamerica.Numero }
+            .Should().OnlyHaveUniqueItems();
     }
 
     [Fact]

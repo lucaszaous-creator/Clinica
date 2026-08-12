@@ -49,7 +49,7 @@ public sealed class AvaliacaoClinicaService
     /// <summary>Avaliações do paciente (sem as respostas), da mais recente para a mais antiga.</summary>
     public Task<IReadOnlyList<AvaliacaoClinica>> DoPacienteAsync(
         int pacienteId, string? instrumentoCodigo = null, CancellationToken ct = default)
-        => _repo.AvaliacoesDoPacienteAsync(pacienteId, instrumentoCodigo, ct);
+        => _repo.AvaliacoesDoPacienteAsync(pacienteId, instrumentoCodigo, ct: ct);
 
     /// <summary>Uma aplicação inteira, com as respostas — a segunda via da avaliação.</summary>
     public Task<AvaliacaoClinica?> ObterAsync(int avaliacaoId, CancellationToken ct = default)
@@ -186,7 +186,7 @@ public sealed class AvaliacaoClinicaService
     public async Task<EvolucaoDoEscore> EvolucaoDoEscoreAsync(
         int pacienteId, string instrumentoCodigo, CancellationToken ct = default)
     {
-        var aplicacoes = await _repo.AvaliacoesDoPacienteAsync(pacienteId, instrumentoCodigo, ct);
+        var aplicacoes = await _repo.AvaliacoesDoPacienteAsync(pacienteId, instrumentoCodigo, ct: ct);
 
         var pontos = aplicacoes
             .OrderBy(a => a.Data).ThenBy(a => a.Id)

@@ -181,6 +181,10 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     private async Task RemoverConvenio()
     {
         if (ConvenioSelecionado is not { PodeExcluir: true } alvo) return;
+
+        // A exclusão grava NA HORA, não espera o Salvar — precisa da mesma barreira dele.
+        SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "excluir convênio do catálogo");
+
         if (!_dialogo.ConfirmarPerigo("Excluir convênio",
                 $"Excluir o convênio \"{alvo.Nome}\"?\n\nSe houver pacientes cadastrados nele, a exclusão será recusada — nesse caso, desative-o."))
             return;
@@ -228,6 +232,9 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     private async Task RemoverModalidade(ModalidadeEdicao? alvo)
     {
         if (alvo is not { PodeExcluir: true }) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "excluir modalidade do catálogo");
+
         if (!_dialogo.ConfirmarPerigo("Excluir modalidade",
                 $"Excluir a modalidade \"{alvo.Nome}\"?\n\nSe houver registros usando-a, a exclusão será recusada — nesse caso, desative-a."))
             return;
@@ -273,6 +280,9 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     private async Task RemoverEspecialidade(EspecialidadeEdicao? alvo)
     {
         if (alvo is not { PodeExcluir: true }) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "excluir especialidade do catálogo");
+
         if (!_dialogo.ConfirmarPerigo("Excluir especialidade",
                 $"Excluir a especialidade \"{alvo.Nome}\"?\n\nSe houver registros usando-a, a exclusão será recusada — nesse caso, desative-a."))
             return;

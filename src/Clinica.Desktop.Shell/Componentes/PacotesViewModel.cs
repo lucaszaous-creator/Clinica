@@ -55,6 +55,40 @@ public sealed partial class PacotesViewModel : ObservableObject
     public ObservableCollection<LinhaCatalogo> Catalogo { get; } = [];
     public ObservableCollection<LinhaPacoteVendido> Vendidos { get; } = [];
 
+    /// <summary>Tudo o que o banco devolveu; <see cref="Vendidos"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaPacoteVendido> _todosVendidos = [];
+
+    // ---- Filtro (em memória: a lista já veio inteira, e refazer a consulta a cada
+    // tecla seria pagar o banco remoto para responder o que a tela já sabe).
+    [ObservableProperty] private string _filtroPaciente = string.Empty;
+
+    /// <summary>Só os pacotes com saldo valendo — o recorte de quem está cobrando no balcão.</summary>
+    [ObservableProperty] private bool _soAtivos;
+
+    partial void OnFiltroPacienteChanged(string value) => Refiltrar();
+    partial void OnSoAtivosChanged(bool value) => Refiltrar();
+
+    public bool FiltroAtivo => SoAtivos || !string.IsNullOrWhiteSpace(FiltroPaciente);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroPaciente = string.Empty;
+        SoAtivos = false;
+    }
+
+    /// <summary>
+    /// O estado vazio muda de frase quando há filtro: "nenhum pacote vendido" e "nenhum
+    /// bate com o filtro" são respostas diferentes — sem isso, um filtro esquecido faz a
+    /// clínica dar a carteira por vazia.
+    /// </summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "A situação do pacote é calculada na hora — vencimento não precisa de rotina.";
+
+    /// <summary>Totais do que foi CARREGADO — o resumo não pode mudar quando o filtro muda o recorte.</summary>
+    private int _totalAtivos;
+    private int _sessoesEmSaldo;
+
     [ObservableProperty] private LinhaCatalogo? _catalogoSelecionado;
     [ObservableProperty] private bool _carregando;
 
@@ -114,24 +148,25 @@ public sealed partial class PacotesViewModel : ObservableObject
 
             var vendidos = await _pacotes.VendidosAsync();
 
-            Vendidos.Clear();
+            _todosVendidos.Clear();
             foreach (var v in vendidos)
-                Vendidos.Add(new LinhaPacoteVendido
+                _todosVendidos.Add(new LinhaPacoteVendido
                 {
                     Id = v.PacoteId,
                     PacienteId = v.PacienteId,
                     Paciente = v.PacienteNome ?? "—",
                     Nome = v.Nome,
                     Saldo = v.SaldoRotulo,
-                    Situacao = v.Situacao.ToString(),
+                    Situacao = Clinica.Domain.RotulosEnum.De(v.Situacao),
                     ValorFormatado = v.Valor.ToString("C"),
                     Compra = v.DataCompra.ToString("dd/MM/yyyy"),
                     Ativo = v.Ativo
                 });
 
-            var ativos = vendidos.Count(v => v.Ativo);
-            Resumo = $"{vendidos.Count} pacote(s) vendidos · {ativos} ativo(s) · "
-                     + $"{vendidos.Where(v => v.Ativo).Sum(v => v.SaldoSessoes ?? 0)} sessão(ões) em saldo";
+            _totalAtivos = vendidos.Count(v => v.Ativo);
+            _sessoesEmSaldo = vendidos.Where(v => v.Ativo).Sum(v => v.SaldoSessoes ?? 0);
+
+            Refiltrar();
         }
         catch (Exception ex)
         {
@@ -145,11 +180,38 @@ public sealed partial class PacotesViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco.
+    /// </summary>
+    private void Refiltrar()
+    {
+        Vendidos.Clear();
+        foreach (var v in _todosVendidos.Where(v =>
+                     (!SoAtivos || v.Ativo)
+                     && Busca.Casa(v.Paciente, FiltroPaciente)))
+            Vendidos.Add(v);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O resumo DIZ que está filtrado: "12 pacotes" e "12 de 90 no filtro" respondem
+        // perguntas diferentes, e quem volta à tela depois do café não lembra o filtro.
+        Resumo = FiltroAtivo
+            ? $"{Vendidos.Count} de {_todosVendidos.Count} pacote(s) no filtro · "
+              + $"{_totalAtivos} ativo(s) no total"
+            : $"{_todosVendidos.Count} pacote(s) vendidos · {_totalAtivos} ativo(s) · "
+              + $"{_sessoesEmSaldo} sessão(ões) em saldo";
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhum pacote vendido bate com o filtro — limpe-o para ver todos."
+            : "A situação do pacote é calculada na hora — vencimento não precisa de rotina.";
+    }
+
     private static string ResumirCatalogo(PacoteCatalogo p)
     {
         var sessoes = p.SessoesIncluidas is { } n ? $"{n} sessões" : "sessões livres";
         var validade = p.ValidadeDias is { } dias ? $" · vale {dias} dias" : string.Empty;
-        return $"{p.Tipo} · {sessoes}{validade}";
+        // Rótulo, nunca o identificador: "Sessoes" sem cedilha é o enum vazando (parcela 41).
+        return $"{Clinica.Domain.RotulosEnum.De(p.Tipo)} · {sessoes}{validade}";
     }
 
     // ==================== Catálogo ====================
@@ -325,6 +387,10 @@ public sealed partial class PacotesViewModel : ObservableObject
             Erro("Escolha um pacote do catálogo para orçar.");
             return;
         }
+
+        // O bit que a folha declara no catálogo (parcela 59): orçamento é documento
+        // financeiro, e a tela abre com só VerFinanceiro.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "emitir orçamento");
 
         var destinatario = _dialogo.PerguntarTexto(
             "Orçamento", "Para quem é o orçamento? (nome de quem vai receber o papel)");
