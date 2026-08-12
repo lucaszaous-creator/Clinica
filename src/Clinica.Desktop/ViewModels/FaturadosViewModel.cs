@@ -30,6 +30,55 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
 
     public ObservableCollection<CodigoFaturamento> Baixados { get; } = new();
 
+    /// <summary>Tudo o que o período devolveu; <see cref="Baixados"/> é o recorte do filtro.</summary>
+    private readonly List<CodigoFaturamento> _todos = new();
+
+    // ---- Filtro (em memória sobre o período carregado: refazer a consulta a cada
+    // tecla seria pagar o banco remoto para responder o que a tela já sabe).
+    public const string TodosConvenios = "Todos os convênios";
+
+    /// <summary>
+    /// As operadoras DO PERÍODO carregado, pelo nome que a coluna já mostra — oferecer
+    /// as sem guia daria filtro que só leva a vazio. Nome único no repositório: a
+    /// checagem 20 casa o ItemsSource pelo NOME num mapa global.
+    /// </summary>
+    public ObservableCollection<string> ConveniosDoPeriodo { get; } = new() { TodosConvenios };
+
+    [ObservableProperty] private string _filtroPaciente = string.Empty;
+    [ObservableProperty] private string _filtroGuia = string.Empty;
+    [ObservableProperty] private string _filtroConvenio = TodosConvenios;
+
+    /// <summary>O `Clear()` do combo devolve nulo pelo binding (lição da parcela 56) — remonta sob guarda.</summary>
+    private bool _montandoConvenios;
+
+    partial void OnFiltroPacienteChanged(string value) => Refiltrar();
+    partial void OnFiltroGuiaChanged(string value) => Refiltrar();
+    partial void OnFiltroConvenioChanged(string? value)
+    {
+        if (value is null)
+        {
+            FiltroConvenio = TodosConvenios;
+            return;
+        }
+        if (!_montandoConvenios) Refiltrar();
+    }
+
+    public bool FiltroAtivo =>
+        FiltroConvenio != TodosConvenios
+        || !string.IsNullOrWhiteSpace(FiltroPaciente)
+        || !string.IsNullOrWhiteSpace(FiltroGuia);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroPaciente = string.Empty;
+        FiltroGuia = string.Empty;
+        FiltroConvenio = TodosConvenios;
+    }
+
+    /// <summary>O resumo diz que está filtrado: "12 de 90 no período" e "90 guias" respondem perguntas diferentes.</summary>
+    [ObservableProperty] private string _resumo = string.Empty;
+
     [ObservableProperty] private DateTime _inicio;
     [ObservableProperty] private DateTime _fim;
     [ObservableProperty] private string? _mensagem;
@@ -58,8 +107,58 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
             .OrderByDescending(c => c.DataBaixa)
             .ToListAsync();
 
+        _todos.Clear();
+        foreach (var c in lista) _todos.Add(c);
+
+        // As operadoras do período, preservando a escolha quando ela ainda existe —
+        // atualizar o período não pode desfazer o filtro de quem está trabalhando nele.
+        var escolhido = FiltroConvenio;
+        _montandoConvenios = true;
+        try
+        {
+            ConveniosDoPeriodo.Clear();
+            ConveniosDoPeriodo.Add(TodosConvenios);
+            foreach (var nome in _todos.Select(NomeConvenio).Distinct().OrderBy(n => n))
+                ConveniosDoPeriodo.Add(nome);
+            FiltroConvenio = ConveniosDoPeriodo.Contains(escolhido) ? escolhido : TodosConvenios;
+        }
+        finally
+        {
+            _montandoConvenios = false;
+        }
+
+        Refiltrar();
+    }
+
+    /// <summary>O nome como a COLUNA já mostra (conversor <c>EnumDescricao</c> → <see cref="ConvenioInfo"/>) — o combo tem de casar com o que o olho lê na linha.</summary>
+    private static string NomeConvenio(CodigoFaturamento c)
+        => ConvenioInfo.NomeExibicao(c.Atendimento?.Paciente?.Convenio ?? default);
+
+    /// <summary>
+    /// Mesma comparação da consulta de guias (repositório): minúsculas + Contains. Este
+    /// app não referencia o Shell, então o <c>Busca.Casa</c> da suíte não existe aqui.
+    /// </summary>
+    private static bool Casa(string? texto, string? termo)
+        => string.IsNullOrWhiteSpace(termo)
+           || (texto is not null && texto.ToLower().Contains(termo.Trim().ToLower()));
+
+    /// <summary>
+    /// Aplica o filtro sobre o período já lido — em memória, sem ida ao banco.
+    /// </summary>
+    private void Refiltrar()
+    {
         Baixados.Clear();
-        foreach (var c in lista) Baixados.Add(c);
+        foreach (var c in _todos.Where(c =>
+                     (FiltroConvenio == TodosConvenios || NomeConvenio(c) == FiltroConvenio)
+                     && Casa(c.Atendimento?.Paciente?.Nome, FiltroPaciente)
+                     && Casa(c.NumeroGuiaReal, FiltroGuia)))
+            Baixados.Add(c);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        Resumo = FiltroAtivo
+            ? $"{Baixados.Count} de {_todos.Count} guia(s) no filtro"
+            : $"{_todos.Count} guia(s) no período";
     }
 
     [RelayCommand]

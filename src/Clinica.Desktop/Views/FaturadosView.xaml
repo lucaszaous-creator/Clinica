@@ -5,6 +5,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -30,7 +31,39 @@
                        Foreground="{StaticResource Brush.Texto.Secundario}" />
         </WrapPanel>
 
-        <Border Grid.Row="2" Style="{StaticResource Card}">
+        <!-- ===== Filtro =====
+             Em memória sobre o período carregado: achar a guia da Maria no demonstrativo
+             não pode ser rolar o mês inteiro. O combo é montado das guias DO PERÍODO,
+             pelo nome que a coluna já mostra. -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <WrapPanel>
+                <StackPanel Width="220" Margin="0,0,12,4">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource CampoPesquisa}" />
+                </StackPanel>
+                <StackPanel Width="160" Margin="0,0,12,4">
+                    <TextBlock Text="Nº da guia" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding FiltroGuia, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <StackPanel Width="200" Margin="0,0,16,4">
+                    <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" />
+                    <ComboBox ItemsSource="{Binding ConveniosDoPeriodo}"
+                              SelectedItem="{Binding FiltroConvenio}" />
+                </StackPanel>
+                <Button Content="Limpar filtro" Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" Margin="0,0,16,0" />
+                <!-- O resumo diz que está filtrado: "12 de 90 no filtro" e "90 guias"
+                     respondem perguntas diferentes. -->
+                <TextBlock Text="{Binding Resumo}" VerticalAlignment="Bottom" Margin="0,0,0,6"
+                           TextWrapping="Wrap" MaxWidth="360"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+            </WrapPanel>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource Card}">
         <DataGrid ItemsSource="{Binding Baixados}">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />

@@ -66,6 +66,40 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
     public ObservableCollection<LinhaDevedor> Devedores { get; } = [];
     public ObservableCollection<LinhaFaixaAtraso> Faixas { get; } = [];
 
+    /// <summary>Tudo o que o banco devolveu; <see cref="Devedores"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaDevedor> _todos = [];
+
+    // ---- Filtro (em memória: a lista já veio inteira, e achar a Maria com o telefone
+    // na mão não pode ser rolar a clínica). Os KPIs e as faixas continuam do TOTAL —
+    // eles respondem "quanto me devem", não "quem estou olhando agora".
+    [ObservableProperty] private string _filtroPaciente = string.Empty;
+
+    /// <summary>Só quem passou de 90 dias — onde a conversa vira acordo, não lembrete.</summary>
+    [ObservableProperty] private bool _soCriticos;
+
+    partial void OnFiltroPacienteChanged(string value) => Refiltrar();
+    partial void OnSoCriticosChanged(bool value) => Refiltrar();
+
+    public bool FiltroAtivo => SoCriticos || !string.IsNullOrWhiteSpace(FiltroPaciente);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroPaciente = string.Empty;
+        SoCriticos = false;
+    }
+
+    /// <summary>
+    /// O estado vazio muda de frase quando há filtro: "ninguém devendo" e "ninguém bate
+    /// com o filtro" são respostas diferentes — um filtro esquecido não pode dar a
+    /// inadimplência por zerada.
+    /// </summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "Só conta de PACIENTE entra: reembolso de convênio é outra conversa.";
+
+    /// <summary>O resumo do serviço, sem filtro — guardado para o Refiltrar compor em cima.</summary>
+    private string _resumoSemFiltro = string.Empty;
+
     public IReadOnlyList<OrdemInadimplencia> Ordens { get; } =
         Enum.GetValues<OrdemInadimplencia>();
 
@@ -137,8 +171,8 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
-            Devedores.Clear();
-            foreach (var d in devedores) Devedores.Add(Montar(d));
+            _todos.Clear();
+            foreach (var d in devedores) _todos.Add(Montar(d));
 
             Faixas.Clear();
             foreach (var f in resumo.Faixas)
@@ -155,9 +189,11 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
             MedioPorPaciente = resumo.MedioPorPaciente is { } medio ? Moeda(medio) : "—";
 
             Vazio = resumo.Vazio;
-            Resumo = resumo.Vazio
+            _resumoSemFiltro = resumo.Vazio
                 ? "Nenhuma conta de paciente vencida. Nada a cobrar hoje."
                 : $"{resumo.Pacientes} paciente(s) com {resumo.Contas} conta(s) vencida(s).";
+
+            Refiltrar();
         }
         catch (Exception ex)
         {
@@ -173,6 +209,30 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
             // A carga superada não apaga o "Carregando" da que ainda está no ar.
             if (geracao == _geracaoCarga) Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco.
+    /// </summary>
+    private void Refiltrar()
+    {
+        Devedores.Clear();
+        foreach (var d in _todos.Where(d =>
+                     (!SoCriticos || d.Critico)
+                     && Busca.Casa(d.Nome, FiltroPaciente)))
+            Devedores.Add(d);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O resumo DIZ que está filtrado: "3 devedores" e "3 de 30 no filtro" respondem
+        // perguntas diferentes — e os totais acima continuam sendo do TODO.
+        Resumo = FiltroAtivo
+            ? $"{Devedores.Count} de {_todos.Count} devedor(es) no filtro."
+            : _resumoSemFiltro;
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhum devedor bate com o filtro — limpe-o para ver todos."
+            : "Só conta de PACIENTE entra: reembolso de convênio é outra conversa.";
     }
 
     private static LinhaDevedor Montar(PacienteInadimplente d) => new()
