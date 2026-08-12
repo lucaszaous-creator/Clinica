@@ -327,20 +327,18 @@ da lista** — o dado passou a residir no Brasil.
 
 ## Passo 8 — Backup: a parte que não é opcional
 
-```bash
-cat > /usr/local/bin/backup-clinica.sh <<'EOF'
-#!/bin/bash
-set -e
-DIA=$(date +%F)
-sudo -u postgres pg_dump -Fc clinica > /var/backups/clinica/clinica-$DIA.dump
-# guarda 14 dias na VPS; a cópia de VERDADE é a que sai dela (linha do rclone)
-find /var/backups/clinica -name '*.dump' -mtime +14 -delete
-rclone copy /var/backups/clinica/clinica-$DIA.dump destino:backup-clinica/
-EOF
-chmod +x /usr/local/bin/backup-clinica.sh
-mkdir -p /var/backups/clinica
-echo '30 2 * * * root /usr/local/bin/backup-clinica.sh' > /etc/cron.d/backup-clinica
-```
+O `tools/vps/backup-clinica.sh` é o script (pg_dump 18 pelo caminho completo e
+porta explícita — a lição da instalação real, duas vezes): instala-se em
+`/usr/local/bin/backup-clinica.sh`, com o gatilho diário em
+`/etc/cron.d/backup-clinica` (02:30) e a primeira execução rodada na hora,
+porque backup que nunca rodou uma vez não se descobre quebrado às 02:30. Ele
+guarda 14 dias em `/var/backups/clinica` e anota cada execução no
+`backup.log` — conferir o log de vez em quando é o que revela backup parado.
+
+A **segunda metade é a cópia para FORA da VPS**, e sem ela o passo não está
+feito: `rclone copy` para um balde S3-compatível (o projeto já validou o
+Cloudflare R2 ao vivo — parcela 53), e/ou o serviço de backup do painel do
+provedor, se existir para o plano. Cópia no mesmo disco morre junto com ele.
 
 O `destino:` do rclone é qualquer storage S3-compatível — o projeto já validou o
 Cloudflare R2 ao vivo (parcela 53), e os 10 GB gratuitos dele seguram anos de dumps.
