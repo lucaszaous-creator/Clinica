@@ -113,6 +113,33 @@ public partial class ConsultaGuiasViewModel : ObservableObject, IAtalhosDeTela
         await Buscar();
     }
 
+    /// <summary>
+    /// Ler a trilha e mexer em permissão são coisas diferentes: o bit é
+    /// <c>VerAuditoria</c>, o mesmo que abre a tela de Auditoria do Gerente — quem a
+    /// direção autorizou a investigar lá investiga aqui, sem virar gerente de acessos.
+    /// </summary>
+    public bool PodeVerHistorico => SessaoUsuario.Atual.Pode(Permissao.VerAuditoria);
+
+    /// <summary>
+    /// O histórico desta guia: baixa, estorno, glosa, recurso, lote, não conformidade.
+    ///
+    /// As DUAS barreiras (a regra do projeto): o <c>IsEnabled</c> do botão explica, e o
+    /// <c>Exigir</c> impede — só desabilitar é enfeite, porque atalho de teclado passa
+    /// direto.
+    /// </summary>
+    [RelayCommand]
+    private void Historico(CodigoFaturamento? codigo)
+    {
+        if (codigo is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.VerAuditoria, "ver o histórico da guia");
+
+        new Alertas.HistoricoGuiaWindow(_scopeFactory, codigo)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        }.ShowDialog();
+    }
+
     /// <summary>Reimpressão da capa de faturamento do atendimento desta guia (estado atual).</summary>
     [RelayCommand]
     private async Task Capa(CodigoFaturamento? codigo)

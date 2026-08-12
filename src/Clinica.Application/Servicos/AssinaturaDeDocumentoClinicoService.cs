@@ -227,19 +227,6 @@ public sealed class AssinaturaDeDocumentoClinicoService
         return _assinador.Conferir(arquivo.Conteudo);
     }
 
-    /// <summary>
-    /// O que falta para o documento cumprir a lei — a mesma leitura que a tela de emissão
-    /// mostra, exposta aqui para quem só tem o Id em mãos.
-    /// </summary>
-    public async Task<IReadOnlyList<ExigenciaLegal>> ConferirConformidadeAsync(
-        int documentoId, bool assinaturaEletronica = true, CancellationToken ct = default)
-    {
-        var documento = await _repo.ObterDocumentoAsync(documentoId, ct)
-            ?? throw new InvalidOperationException("Documento não encontrado.");
-
-        return ConformidadeDocumentoClinico.Conferir(documento, assinaturaEletronica);
-    }
-
     // ---- Apoio ----
 
     private static void ExigirConformidade(DocumentoClinico documento)

@@ -1,5 +1,7 @@
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -45,6 +47,34 @@ public sealed partial class ProblemaEdicaoViewModel : ObservableObject
 
     [ObservableProperty] private string? _descricao;
     [ObservableProperty] private string? _cid;
+
+    /// <summary>
+    /// O que o código digitado quer dizer (parcela 63) — vazio quando não está no atalho
+    /// da clínica. Na lista de problemas ele importa ainda mais do que no atestado: o
+    /// diagnóstico fica no paciente para sempre e vai junto em toda emissão seguinte.
+    /// </summary>
+    public string DescricaoCid => CatalogoCid.Descrever(Cid) ?? string.Empty;
+
+    partial void OnCidChanged(string? value) => OnPropertyChanged(nameof(DescricaoCid));
+
+    /// <summary>
+    /// Procurar o código na lista da clínica. A janela mora no SHELL — o CID é digitado
+    /// aqui e na emissão de documento, e duas buscas divergiriam na primeira correção.
+    ///
+    /// O campo continua aceitando qualquer texto: a lista é atalho, não validação.
+    /// </summary>
+    [RelayCommand]
+    private void BuscarCid()
+    {
+        var janela = new BuscaCidWindow(new BuscaCidViewModel(Cid))
+        {
+            Owner = System.Windows.Application.Current?.Windows
+                        .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
+                    ?? System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() == true && janela.Escolhido is { } codigo) Cid = codigo;
+    }
     [ObservableProperty] private DateTime? _inicio;
     [ObservableProperty] private string? _observacoes;
 

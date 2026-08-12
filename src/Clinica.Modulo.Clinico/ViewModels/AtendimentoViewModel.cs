@@ -138,6 +138,40 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     [ObservableProperty] private string? _textoEvolucao;
     [ObservableProperty] private string? _orientacoes;
 
+    /// <summary>
+    /// O roteiro da sessão que se repete (parcela 63) — a MESMA janela da Recepção, no
+    /// shell. Era aqui que ela fazia mais falta: quem escreve dez evoluções por dia é
+    /// quem atende, e a sessão de acupuntura tem sempre a mesma forma.
+    ///
+    /// Aplicar COPIA e não grava: o Salvar desta tela continua sendo o que efetiva.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirModelos()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "usar modelos de evolução");
+
+        var vm = new ModelosEvolucaoViewModel(
+            _escopos,
+            SessaoUsuario.Atual.ProfissionalId,
+            new ModeloAplicado(QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes));
+
+        var janela = new ModelosEvolucaoWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.Windows
+                        .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
+                    ?? System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true || janela.Escolhido is not { } m) return;
+
+        // Preenche o que falta, nunca zera: um modelo com conduta e orientações não pode
+        // apagar a queixa que o profissional acabou de digitar ouvindo o paciente.
+        if (!string.IsNullOrWhiteSpace(m.QueixaPrincipal)) QueixaPrincipal = m.QueixaPrincipal;
+        if (!string.IsNullOrWhiteSpace(m.Conduta)) Conduta = m.Conduta;
+        if (!string.IsNullOrWhiteSpace(m.TextoEvolucao)) TextoEvolucao = m.TextoEvolucao;
+        if (!string.IsNullOrWhiteSpace(m.Orientacoes)) Orientacoes = m.Orientacoes;
+    }
+
     /// <summary>De onde veio a sessão: chamada do dia, ou escolhida na busca.</summary>
     [ObservableProperty] private string _origem = string.Empty;
 

@@ -8,6 +8,8 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
         <!-- Largura da régua de horas. O mesmo número aparece no espaçador do cabeçalho
              das colunas: são as duas metades do mesmo alinhamento, e separá-los faria a
@@ -82,6 +84,26 @@
                         Margin="0,0,0,1"
                         Visibility="{Binding Continuacao,
                                      Converter={StaticResource BoolParaVisibilidade}}" />
+
+                <!-- AGENDA FECHADA (parcela 63): férias, feriado ou folga. O vão bloqueado
+                     era visualmente IDÊNTICO ao vão livre, e o vão livre é clicável — a
+                     recepcionista escolhia o paciente, preenchia o formulário e só levava
+                     a recusa no Salvar, com ele na frente dela.
+                     Ele não é clicável: o motivo já está escrito, e botão que só serve
+                     para explicar por que não dá é um clique cobrado à toa. -->
+                <Border Background="{StaticResource Brush.Superficie.Hover}"
+                        BorderBrush="{StaticResource Brush.Borda}"
+                        BorderThickness="0,0,0,1"
+                        CornerRadius="{StaticResource Raio.Pequeno}"
+                        Margin="0,0,0,1" Padding="4,0"
+                        Visibility="{Binding MostrarBloqueio,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="{Binding Bloqueio}" VerticalAlignment="Center"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip="{Binding Bloqueio}" />
+                </Border>
 
                 <!-- Ocupado. Mais de um cartão só quando houve encaixe — e aí eles se
                      empilham e a faixa inteira cresce, que é honesto: dois pacientes na
@@ -190,6 +212,17 @@
                 <CheckBox Content="Ver a semana" IsChecked="{Binding ModoSemana}"
                           VerticalAlignment="Center" Margin="16,0,0,4" />
 
+                <!-- As colunas viram as SALAS (parcela 63) — a metade da feature 02 da
+                     proposta que nunca existiu. Responde "a sala de infusão está livre às
+                     14h?", que na grade por profissional se responde varrendo seis colunas
+                     e lendo o rodapé de cada cartão.
+                     Desabilitada na semana: lá as colunas já são os dias, e cruzar as duas
+                     daria uma grade sala × dia que não cabe em coluna nenhuma. -->
+                <CheckBox Content="Ver por sala" IsChecked="{Binding AgruparPorSala}"
+                          IsEnabled="{Binding PodeAgruparPorSala}"
+                          ToolTip="Uma coluna por sala, em vez de uma por profissional. Vale no modo dia."
+                          VerticalAlignment="Center" Margin="16,0,0,4" />
+
                 <!-- Só aparece para quem entrou como profissional: no balcão a agenda
                      é da clínica inteira e a caixa não teria sentido. -->
                 <CheckBox Content="Ver todos os profissionais"
@@ -218,6 +251,15 @@
                         Style="{StaticResource BotaoSecundario}"
                         VerticalAlignment="Center"
                         Command="{Binding ImprimirAgendaCommand}" />
+                <!-- Férias, feriado, folga (parcela 62): o bloqueio existia desde a
+                     parcela 26 com a única porta atrás de `GerenciarEquipe`, bit que o
+                     balcão não tem — a feature era do balcão e o balcão não a alcançava. -->
+                <Button Content="Fechar agenda…" Margin="8,0,0,4"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding PodeEditarAgenda}"
+                        ToolTip="Férias, feriado ou folga: a agenda passa a recusar marcação no período. Quem já estava marcado continua — e a janela diz quem é."
+                        Command="{Binding FecharAgendaCommand}" />
                 <Button Content="Novo horário" Command="{Binding NovoHorarioCommand}"
                         IsEnabled="{Binding PodeEditarAgenda}"
                         VerticalAlignment="Center" Margin="8,0,0,4" />
@@ -225,9 +267,28 @@
         </DockPanel>
 
         <!-- Erro inline -->
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,16"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <Border DockPanel.Dock="Top" Margin="0,0,0,16"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Sem SALA cadastrada, na visão por sala: grade vazia se lê como defeito, não
+             como cadastro faltando (parcela 63). -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}" Margin="0,0,0,16"
+                Visibility="{Binding SemSalas, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                       Text="Nenhuma sala cadastrada ainda. Cadastre em Profissionais e salas — é o que dá colunas a esta visão. Os horários sem sala continuam aparecendo na coluna &quot;Sem sala&quot;." />
         </Border>
 
         <!-- Sem profissional cadastrado: a grade não tem colunas e a tela precisa dizer por quê -->

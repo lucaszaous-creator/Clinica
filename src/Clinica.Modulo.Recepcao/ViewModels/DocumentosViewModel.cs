@@ -33,6 +33,9 @@ public sealed partial class LinhaFolha : ObservableObject
 public sealed class LinhaFolhaEmitida
 {
     public required int DocumentoId { get; init; }
+
+    /// <summary>De quem é a folha — a trilha de acesso da 2ª via precisa (parcela 62).</summary>
+    public int? PacienteId { get; init; }
     public required NaturezaFolha Natureza { get; init; }
     public required string Numero { get; init; }
     public required string Folha { get; init; }
@@ -64,6 +67,16 @@ public sealed class LinhaFolhaEmitida
     /// paciente guardou volta a funcionar.
     /// </summary>
     public bool PodeRenovarLink { get; init; }
+
+    /// <summary>
+    /// O link está no ar e dá para TIRÁ-LO (parcela 63) — o par que faltava do renovar.
+    ///
+    /// Até aqui a publicação só saía do ar sozinha, na expiração. Receita publicada por
+    /// engano — o paciente errado, o documento errado — ficava acessível por quem tivesse
+    /// o endereço até o prazo vencer, que a clínica configura em 30 ou 180 dias. É dado
+    /// de saúde num endereço público: quem publica precisa poder despublicar.
+    /// </summary>
+    public bool PodeTirarDoAr { get; init; }
 
     /// <summary>
     /// O que dizer sobre o link, ou vazio quando o documento nunca teve um. Frase inteira
@@ -130,6 +143,9 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [ObservableProperty] private bool _conferidoCancelado;
 
     private int? _conferidoId;
+
+    /// <summary>Paciente do documento conferido — para a trilha da 2ª via.</summary>
+    private int? _conferidoPacienteId;
 
     /// <summary>Só há segunda via quando o código achou mesmo um documento.</summary>
     public bool TemConferido => _conferidoId is not null;
@@ -330,6 +346,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
     private LinhaFolhaEmitida Montar(FolhaEmitida e) => new()
     {
         DocumentoId = e.DocumentoId,
+        PacienteId = e.PacienteId,
         Natureza = e.Natureza,
         Numero = e.Numero,
         Folha = e.FolhaRotulo,
@@ -351,6 +368,11 @@ public sealed partial class DocumentosViewModel : ObservableObject
         // Renovar só faz sentido para o que JÁ teve link e saiu do ar. Documento cancelado
         // não volta — receita cancelada baixável é a pior espécie de arquivo no ar.
         PodeRenovarLink = e.JaTeveLink && !e.Cancelado && PodeMexer(e) && !NoAr(e),
+
+        // Tirar do ar é o inverso exato, e por isso vale INCLUSIVE para o cancelado: o
+        // cancelamento já despublica, mas se aquela remoção falhou (S3 fora do ar na hora)
+        // o arquivo continua acessível — e é justamente aí que o botão precisa existir.
+        PodeTirarDoAr = NoAr(e) && PodeMexer(e),
 
         Link = !e.JaTeveLink ? string.Empty
             : NoAr(e) ? $"link no ar até {e.PublicadoAte:dd/MM/yyyy}"
@@ -382,6 +404,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         Conferido = null;
         ConferidoCancelado = false;
         _conferidoId = null;
+        _conferidoPacienteId = null;
 
         var codigo = Codigo?.Trim();
         if (string.IsNullOrWhiteSpace(codigo))
@@ -412,6 +435,13 @@ public sealed partial class DocumentosViewModel : ObservableObject
             }
 
             _conferidoId = achado.Id;
+            _conferidoPacienteId = achado.PacienteId;
+
+            // Conferir pelo código MOSTRA de quem é o documento e de que tipo ele é —
+            // acesso a dado de saúde por uma porta própria, e por isso na trilha.
+            await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(achado.PacienteId, SessaoUsuario.Atual.Operador,
+                    OrigemAcessoProntuario.Documento);
             ConferidoCancelado = achado.Cancelado;
 
             var quem = achado.Paciente?.Nome ?? "(paciente removido)";
@@ -436,7 +466,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
     private async Task ReimprimirConferidoAsync()
     {
         if (_conferidoId is not { } id) return;
-        await ImprimirClinicoAsync(id, $"Documento-{id}.pdf", $"#{id}");
+        await ImprimirClinicoAsync(id, $"Documento-{id}.pdf", $"#{id}", _conferidoPacienteId);
     }
 
     // ==================== Gerar ====================
@@ -561,7 +591,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
 
         await CarregarAsync();
         await ImprimirClinicoAsync(
-            emitido.Id, $"{folha.Rotulo}-{emitido.Numero.Replace('/', '-')}.pdf", emitido.Numero);
+            emitido.Id, $"{folha.Rotulo}-{emitido.Numero.Replace('/', '-')}.pdf", emitido.Numero,
+            paciente.Id);
     }
 
     /// <summary>
@@ -603,7 +634,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
             await ImprimirClinicoAsync(
                 linha.DocumentoId,
                 $"{linha.Folha}-{linha.Numero.Replace('/', '-')}.pdf",
-                linha.Numero);
+                linha.Numero,
+                linha.PacienteId);
             return;
         }
 
@@ -632,7 +664,8 @@ public sealed partial class DocumentosViewModel : ObservableObject
         }
     }
 
-    private async Task ImprimirClinicoAsync(int documentoId, string nomeArquivo, string numero)
+    private async Task ImprimirClinicoAsync(
+        int documentoId, string nomeArquivo, string numero, int? pacienteId)
     {
         try
         {
@@ -642,6 +675,16 @@ public sealed partial class DocumentosViewModel : ObservableObject
                 var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
                 var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
                 pdf = await pdfs.GerarAsync(documentoId, await parametros.ObterPrestadorAsync());
+
+                // TRILHA DE LEITURA (parcela 62): receita, atestado, relatório de evolução
+                // e anamnese em PDF no disco são dado de saúde SAINDO do sistema, e esta
+                // tela era a única das três que emitem documento clínico sem registrar
+                // acesso nenhum. É o PONTO ÚNICO por onde todo PDF clínico da tela passa —
+                // emitir montada, reimprimir da lista e reimprimir o conferido.
+                if (pacienteId is { } id)
+                    await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                        .RegistrarAsync(id, SessaoUsuario.Atual.Operador,
+                            OrigemAcessoProntuario.Documento);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(pdf, ImpressaoPdf.NomeSeguro(nomeArquivo));
@@ -717,6 +760,84 @@ public sealed partial class DocumentosViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — link do documento não pôde ser republicado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Tira o link do ar AGORA (parcela 63).
+    ///
+    /// <c>DespublicarAsync</c> existia desde a parcela 53 e só era chamado por dentro — no
+    /// cancelamento e na expiração. Não havia botão: uma receita publicada por engano
+    /// ficava acessível a quem tivesse o endereço até o prazo vencer (30 ou 180 dias, como
+    /// a clínica configurou). Dado de saúde num endereço público sem forma de retirá-lo é
+    /// o oposto do que os pontos 5 e 10 do documento de conformidade prometem.
+    ///
+    /// <b>Não apaga registro nenhum</b>: os bytes assinados continuam no banco pelos 20
+    /// anos da Lei 13.787/2018. O que sai do ar é a PUBLICAÇÃO — e o documento pode voltar
+    /// depois pelo Renovar, com o mesmo token, para o QR já impresso continuar valendo.
+    ///
+    /// Pede confirmação porque tem consequência fora do sistema: o QR que o paciente
+    /// levou para a farmácia para de abrir na hora.
+    /// </summary>
+    [RelayCommand]
+    private async Task TirarDoArAsync(LinhaFolhaEmitida? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                linha.AcessoParaMexer, $"tirar do ar o link de {linha.Folha.ToLowerInvariant()}");
+
+            if (!linha.PodeTirarDoAr)
+            {
+                Mensagem = $"{linha.Numero} não tem link no ar para tirar.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            if (!_dialogo.Confirmar(
+                    "Tirar o link do ar",
+                    $"Tirar do ar o link de {linha.Numero}?\n\n"
+                    + "O QR impresso que o paciente levou para a farmácia para de abrir "
+                    + "imediatamente. O documento e a assinatura continuam guardados, e o "
+                    + "link pode voltar depois pelo \"Renovar link\"."))
+                return;
+
+            using var scope = _escopos.CreateScope();
+            var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+
+            if (await documentos.ObterAsync(linha.DocumentoId) is not { } documento)
+            {
+                Mensagem = $"{linha.Numero} não foi encontrado.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            var saiu = await scope.ServiceProvider
+                .GetRequiredService<PublicacaoDocumentoService>()
+                .DespublicarAsync(documento, SessaoUsuario.Atual.Operador);
+
+            if (!saiu)
+            {
+                // O provedor recusou a remoção: o arquivo CONTINUA no ar. Dizer "saiu" aqui
+                // seria a pior mentira desta tela — a pessoa concluiria que resolveu.
+                Mensagem = $"{linha.Numero} NÃO saiu do ar: o armazenamento recusou a remoção. "
+                           + "O link continua acessível. Tente de novo em instantes; "
+                           + "persistindo, o caminho do arquivo está no log de erros.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            _snackbar.Sucesso($"{linha.Numero} saiu do ar. O documento continua guardado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — link do documento não pôde ser tirado do ar", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

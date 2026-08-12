@@ -39,9 +39,10 @@ public sealed class ModuloRecepcao : IModuloApp
     /// <summary>
     /// Pacotes de sessões (parcela 60). A chave é a MESMA que o Financeiro publica — é a
     /// mesma tela, e chave diferente faria o Gerente, que carrega os dois, mostrar a linha
-    /// duas vezes.
+    /// duas vezes. Mora em <see cref="ChavesSuite"/> desde a parcela 62, pela razão da
+    /// sala de infusão: string à mão dos dois lados sempre compila.
     /// </summary>
-    public const string ChavePacotes = "pacotes";
+    public const string ChavePacotes = ChavesSuite.Pacotes;
     public const string ChaveEquipe = "equipe";
 
     // ===== Itens COMPOSTOS (parcela 55) =====
@@ -250,6 +251,9 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<RetornoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
+        // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
+        // Faltavam as duas coisas — o item acendia na sidebar e nada abria (parcela 62).
+        servicos.AddTransient<PacotesViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
         servicos.AddTransient<PrescricoesViewModel>();
         servicos.AddTransient<EquipeViewModel>();
@@ -273,6 +277,15 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveSalaInfusao => new SalaInfusaoView
         {
             DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()
+        },
+        // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado
+        // e este `case` NÃO existia: o shell marcava o item como ativo, `MontarTela`
+        // devolvia null e a navegação saía em silêncio — menu aceso, tela parada. Item
+        // publicado sem `case` é o "botão que não faz nada" da parcela 41 na sidebar, e
+        // nenhuma rede o via: a chave era string à mão, que sempre compila.
+        ChavePacotes => new PacotesView
+        {
+            DataContext = servicos.GetRequiredService<PacotesViewModel>()
         },
         ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },
         ChavePrescricoes => new PrescricoesView { DataContext = servicos.GetRequiredService<PrescricoesViewModel>() },

@@ -95,7 +95,35 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _assinarDigitalmente;
 
-    partial void OnAssinarDigitalmenteChanged(bool value) => _ = ConferirLegalmenteAsync();
+    /// <summary>
+    /// Para onde o QR do documento assinado vai apontar (parcela 63).
+    ///
+    /// São dois destinos MUITO diferentes e a tela nunca disse qual: com a publicação
+    /// configurada, o QR abre o documento — o farmacêutico escaneia e lê a receita; sem
+    /// ela, o QR leva ao validador do ITI, onde ele precisa ENVIAR o arquivo, e o arquivo
+    /// está com o paciente. É a diferença entre a receita ser dispensada no balcão e o
+    /// paciente ser mandado de volta.
+    ///
+    /// <c>PublicacaoDocumentoService.LigadaAsync</c> respondia isso desde a parcela 53 e
+    /// não tinha um único chamador: quem assinava descobria o destino depois de imprimir.
+    /// </summary>
+    [ObservableProperty] private string _destinoDoQr = string.Empty;
+
+    partial void OnDestinoDoQrChanged(string value)
+        => OnPropertyChanged(nameof(MostrarDestinoDoQr));
+
+    /// <summary>Só interessa quando vai sair assinatura — em papel não há QR.</summary>
+    public bool MostrarDestinoDoQr => AssinarDigitalmente && DestinoDoQr.Length > 0;
+
+    /// <summary>
+    /// Marcar a assinatura muda DUAS coisas na tela: a conferência legal (o atestado em
+    /// arquivo exige assinatura qualificada; em papel, não) e o destino do QR.
+    /// </summary>
+    partial void OnAssinarDigitalmenteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(MostrarDestinoDoQr));
+        _ = ConferirLegalmenteAsync();
+    }
 
     /// <summary>
     /// A pergunta muda com a forma de entrega, e é por isso que o resultado não é fixo:
@@ -283,9 +311,54 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         OnPropertyChanged(nameof(RotuloItens));
         OnPropertyChanged(nameof(RotuloDetalhe));
         _ = CarregarModelosAsync();
+
+        // Nem todo tipo se publica: trocar de Receita para Relatório tem de apagar a
+        // frase, senão a tela promete um QR que aquele papel não vai ter.
+        _ = ReconferirPublicacaoAsync();
     }
 
-    partial void OnCidChanged(string? value) => OnPropertyChanged(nameof(AvisaCidOmitido));
+    private async Task ReconferirPublicacaoAsync()
+    {
+        using var scope = _escopos.CreateScope();
+        await ConferirPublicacaoAsync(scope);
+    }
+
+    /// <summary>
+    /// O que o código digitado quer dizer (parcela 63) — vazio quando ele não está no
+    /// atalho da clínica.
+    ///
+    /// É a metade que pega o erro de digitação. "M54.4" no lugar de "M54.5" é um código
+    /// plausível e nada o denunciava; com a descrição ao lado, ele passa a dizer "Lumbago
+    /// com ciática" para um paciente que tem lombalgia simples — e isso sai IMPRESSO no
+    /// atestado que vai para o RH.
+    /// </summary>
+    public string DescricaoCid => CatalogoCid.Descrever(Cid) ?? string.Empty;
+
+    /// <summary>
+    /// Procurar o código na lista da clínica.
+    ///
+    /// A janela é ATALHO: o campo continua aceitando qualquer texto, porque a CID-10 tem
+    /// 14 mil códigos e o atalho tem cinquenta. Recusar o que está fora da lista seria a
+    /// regra apertada demais que o projeto já rejeitou no formato do número da guia.
+    /// </summary>
+    [RelayCommand]
+    private void BuscarCid()
+    {
+        var janela = new BuscaCidWindow(new BuscaCidViewModel(Cid))
+        {
+            Owner = System.Windows.Application.Current?.Windows
+                        .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
+                    ?? System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() == true && janela.Escolhido is { } codigo) Cid = codigo;
+    }
+
+    partial void OnCidChanged(string? value)
+    {
+        OnPropertyChanged(nameof(AvisaCidOmitido));
+        OnPropertyChanged(nameof(DescricaoCid));
+    }
     partial void OnCidAutorizadoChanged(bool value) => OnPropertyChanged(nameof(AvisaCidOmitido));
 
     private async Task CarregarAsync()
@@ -310,12 +383,50 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
             // O contexto clínico vale com a receita ainda em branco: é o que se olha
             // ANTES de escrever, não uma validação de saída.
             await ConferirClinicamenteAsync();
+
+            await ConferirPublicacaoAsync(scope);
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Documento clínico — tela de documento não pôde ser carregada", ex);
             Erro($"Não foi possível carregar a tela: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Descobre para onde o QR vai apontar e escreve a frase.
+    ///
+    /// Falhar aqui NÃO impede emitir nada — é informação, não validação, e banco lento não
+    /// pode travar um atestado. Mas também não passa calado: sem a frase, a tela volta ao
+    /// silêncio de antes, e é o silêncio que faz alguém assinar sem saber o destino.
+    /// </summary>
+    private async Task ConferirPublicacaoAsync(IServiceScope scope)
+    {
+        if (!PublicacaoDocumento.PodePublicar(TipoSelecionado))
+        {
+            DestinoDoQr = string.Empty;
+            return;
+        }
+
+        try
+        {
+            var ligada = await scope.ServiceProvider
+                .GetRequiredService<PublicacaoDocumentoService>()
+                .LigadaAsync();
+
+            DestinoDoQr = ligada
+                ? "O QR vai ABRIR o documento: o farmacêutico escaneia e lê, sem precisar "
+                  + "do arquivo."
+                : "A publicação está desligada — o QR vai levar ao validador do ITI, onde o "
+                  + "farmacêutico precisa ENVIAR o arquivo. Para o QR abrir o documento, "
+                  + "cadastre o domínio da clínica em Configurações → Publicação.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Documento clínico — destino do QR não pôde ser conferido", ex);
+            DestinoDoQr = "Não foi possível conferir para onde o QR vai apontar.";
         }
     }
 

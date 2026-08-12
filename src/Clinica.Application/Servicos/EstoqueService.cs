@@ -84,10 +84,6 @@ public sealed class EstoqueService
 
     // ==================== Itens ====================
 
-    public Task<IReadOnlyList<ItemEstoque>> ItensAsync(
-        bool somenteAtivos = false, CancellationToken ct = default)
-        => _repo.ItensEstoqueAsync(somenteAtivos, ct);
-
     public Task<ItemEstoque?> ObterItemAsync(int itemId, CancellationToken ct = default)
         => _repo.ObterItemEstoqueAsync(itemId, ct);
 

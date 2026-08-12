@@ -46,6 +46,20 @@ O corte é o da **LGPD**: dado de contato de um lado, dado sensível (art. 5º, 
 > autorização do ato é UMA nos dois quadros: `EditarAgenda` **ou** `MovimentarFila` — quem
 > movia a fila ontem continua movendo hoje.
 
+> **`VenderPacote` (parcela 60) e a leitura por OU (parcela 62)**: vender dez sessões ao
+> paciente é combinar um preço com ele no balcão, e por isso o bit é PRÓPRIO — dar
+> `VerFinanceiro` à recepção abriria junto o caixa, a conciliação e as contas a pagar.
+>
+> A consequência aparece na tela: a Recepção **não tem** `EditarFinanceiro`, então tudo o
+> que o balcão faz com dinheiro (a venda do pacote, o passo do caixa no Finalizar da
+> sessão) precisa perguntar com `PodeAlgum` — o bit do balcão **ou** o do Financeiro.
+> Perguntar só pelo bit do Financeiro compila, passa em todo teste, e apaga da tela do
+> balcão o passo em que a clínica registra o que o paciente acabou de pagar. Foi assim que
+> as duas telas nasceram, e é o que `RecepcaoProntidaoTests` fixa.
+>
+> ⚠️ `Pode` com bits combinados é um **E**, não um OU. `Pode(A | B)` só passa para quem tem
+> os dois — use `PodeAlgum` / `ExigirAlgum` quando a pergunta for "qualquer um dos dois".
+
 ## O padrão
 
 | Permissão | Recepção | Profissional | Enfermagem | Financeiro | Faturista | Gerente |
@@ -60,6 +74,7 @@ O corte é o da **LGPD**: dado de contato de um lado, dado sensível (art. 5º, 
 | **Escrever no prontuário** | — | ✅ | — | — | — | ✅ |
 | Prescrever e assinar | — | ✅ | — | — | — | ✅ |
 | Checar execução | — | — | ✅ | — | — | ✅ |
+| **Vender pacote de sessões** | ✅ | — | — | ✅ | — | ✅ |
 | Ver financeiro | — | — | — | ✅ | — | ✅ |
 | Lançar no caixa | — | — | — | ✅ | — | ✅ |
 | Ver faturamento | — | — | — | — | ✅ | ✅ |

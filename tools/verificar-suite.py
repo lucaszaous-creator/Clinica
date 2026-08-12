@@ -2198,6 +2198,162 @@ for _decl, _projeto, _deve_pegar in (
         )
 
 
+# --------------------------------------------------------------- checagem 34
+# ATRIBUTO QUE NÃO É PROPRIEDADE DO CONTROLE PRÓPRIO.
+#
+#     MC3072: The property 'TextoVazio' does not exist in XML namespace
+#             'clr-namespace:Clinica.Desktop.Controls'.
+#
+# Foi o que quebrou o build na parcela 63: três telas novas declararam `TextoVazio` no
+# `EstadoDaTela`, que tem `TextoCarregando` e `TextoNaoVerificado` — mas o vazio se escreve
+# com `Titulo` + `Descricao`. Errar o nome de uma propriedade de um controle da CASA é o
+# caso mais fácil de cometer, porque o nome plausível existe ao lado do nome certo.
+#
+# ⚠️ Nenhuma rede local pegava, pela mesma razão da 33: o XML é bem-formado, o
+# `compilar-sombra` não lê o CORPO do XAML e o C# compila. Só o compilador de MARCAÇÃO
+# recusa — sete minutos de CI por um nome de atributo.
+#
+# O que ela olha: todo elemento `<prefixo:Tipo ...>` cujo `xmlns` do prefixo aponta para um
+# `clr-namespace` DO REPOSITÓRIO. Para cada atributo simples, exige que exista uma
+# propriedade (ou DP) com aquele nome no tipo — procurada no .cs por todo o repositório,
+# incluindo as classes-base declaradas aqui.
+#
+# O que ela IGNORA de propósito, para não virar ruído que alguém desliga:
+#   - `x:`, `xmlns`, e as anexadas (`Grid.Row`, `Panel.ZIndex`, `DockPanel.Dock`…), que são
+#     de OUTRO tipo;
+#   - tipo que o script não conseguiu achar no repositório — sem a definição não há como
+#     responder, e chutar produziria falso positivo em controle de biblioteca;
+#   - propriedade herdada de `Control`/`FrameworkElement` (Margin, Style, Visibility…),
+#     resolvida por uma lista curta do que o WPF já dá a todo elemento.
+
+# O que todo FrameworkElement/Control já tem — não é preciso achá-lo no repositório.
+HERDADAS_WPF = {
+    "Name", "Style", "Margin", "Padding", "Width", "Height", "MinWidth", "MinHeight",
+    "MaxWidth", "MaxHeight", "HorizontalAlignment", "VerticalAlignment", "Visibility",
+    "IsEnabled", "IsHitTestVisible", "Opacity", "Background", "Foreground", "BorderBrush",
+    "BorderThickness", "FontFamily", "FontSize", "FontWeight", "FontStyle", "ToolTip",
+    "Cursor", "Focusable", "Tag", "DataContext", "Resources", "RenderTransform",
+    "HorizontalContentAlignment", "VerticalContentAlignment", "Content", "ContentTemplate",
+    "SnapsToDevicePixels", "UseLayoutRounding", "ClipToBounds", "Template",
+}
+
+# Bases do WPF cujo repertório HERDADAS_WPF já cobre. Uma cadeia que termina aqui pode
+# responder "não tem"; uma que termina num tipo de fora desconhecido responde "não sei".
+BASES_WPF = {
+    "Control", "UserControl", "Window", "ContentControl", "ItemsControl", "Panel",
+    "Border", "Decorator", "FrameworkElement", "UIElement", "Button", "ButtonBase",
+    "TextBlock", "TextBox", "ToggleButton", "IValueConverter", "DependencyObject",
+}
+
+# `prefixo="clr-namespace:…"` declarado no XAML.
+XMLNS_CLR = re.compile(r'xmlns:(\w+)\s*=\s*"clr-namespace:([^"]+)"')
+# `<prefixo:Tipo` e o corpo da tag até `>` ou `/>`.
+TAG_PREFIXADA = re.compile(r'<(\w+):(\w+)((?:\s+[^<>]*?)?)/?>', re.S)
+# `Atributo="…"` dentro do corpo da tag (sem os anexados, que têm ponto).
+ATRIBUTO_SIMPLES = re.compile(r'(?<![\w.:])([A-Z]\w*)\s*=\s*"')
+
+
+def _membros_do_tipo(nome, _cache={}):
+    """Propriedades declaradas no tipo e nas bases dele, ou None se o tipo não está aqui."""
+    if nome in _cache:
+        return _cache[nome]
+
+    achado = None
+    for cs in RAIZ.joinpath("src").rglob("*.cs"):
+        txt = cs.read_text(encoding="utf-8", errors="ignore")
+        m = re.search(
+            rf'\b(?:class|record)\s+{re.escape(nome)}\b\s*(?::\s*([\w<>, ]+))?', txt)
+        if m is None:
+            continue
+
+        membros = set(re.findall(r'\bpublic\s+(?:static\s+)?[\w<>?\[\], .]+?\s+(\w+)\s*(?:\{|=>)', txt))
+        # DPs registradas: `DependencyProperty.Register(nameof(X)` — a propriedade CLR
+        # costuma existir logo abaixo, mas registrar aqui também cobre o caso solto.
+        membros |= set(re.findall(r'DependencyProperty\.Register\w*\(\s*nameof\((\w+)\)', txt))
+
+        bases = [b.strip() for b in (m.group(1) or "").split(",") if b.strip()]
+        achado = (membros, bases)
+        break
+
+    _cache[nome] = achado
+    return achado
+
+
+def _tem_membro(tipo, atributo, _vistos=None):
+    _vistos = _vistos or set()
+    if tipo in _vistos:
+        return None
+    _vistos.add(tipo)
+
+    info = _membros_do_tipo(tipo)
+    if info is None:
+        return None          # tipo de fora do repositório: sem resposta, e sem chute
+
+    membros, bases = info
+    if atributo in membros:
+        return True
+
+    for base in bases:
+        base = base.split("<")[0]
+        if _tem_membro(base, atributo, _vistos):
+            return True
+
+    # Achamos o tipo e não achamos o membro na cadeia daqui. A resposta depende de ONDE a
+    # cadeia termina:
+    #   - numa base do WPF que a gente conhece (Control, UserControl…): o que ela dá está
+    #     em HERDADAS_WPF, então NÃO ter o membro é resposta — e é o caso da esmagadora
+    #     maioria dos controles da casa, sem o qual a checagem seria inútil;
+    #   - numa base de fora que não conhecemos: "não sei", e calar é o certo.
+    for base in bases:
+        base = base.split("<")[0].strip()
+        if _membros_do_tipo(base) is None and base not in BASES_WPF:
+            return None
+    return False
+
+
+_tags_34 = 0
+for f in list(arvores_com_faturamento):
+    texto = f.read_text(encoding="utf-8")
+    proprios = {p for p, ns in XMLNS_CLR.findall(texto)}
+    if not proprios:
+        continue
+
+    for m in TAG_PREFIXADA.finditer(texto):
+        prefixo, tipo, corpo = m.group(1), m.group(2), m.group(3) or ""
+        if prefixo not in proprios or "." in tipo:
+            continue
+        if _membros_do_tipo(tipo) is None:
+            continue
+        _tags_34 += 1
+
+        for atributo in set(ATRIBUTO_SIMPLES.findall(corpo)):
+            if atributo in HERDADAS_WPF:
+                continue
+            if _tem_membro(tipo, atributo) is False:
+                erros.append(
+                    f"{rel(f)}:{texto.count(chr(10), 0, m.start()) + 1}: `{tipo}` não tem a "
+                    f"propriedade `{atributo}` — o compilador de marcação recusa com MC3072 "
+                    f"e só o CI acusa. Confira o nome no controle."
+                )
+
+# Autoteste: o guarda contra a checagem ficar cega, e o caso real da parcela 63.
+if _tags_34 == 0:
+    erros.append(
+        "verificar-suite: a checagem 34 não examinou nenhuma tag de controle próprio — os "
+        "`xmlns:` mudaram de forma e ela parou de olhar o que deveria."
+    )
+for _tipo, _prop, _esperado in (
+    ("EstadoDaTela", "TextoVazio", False),           # o defeito real (MC3072 no CI)
+    ("EstadoDaTela", "TextoNaoVerificado", True),    # o nome certo, ao lado do errado
+    ("EstadoDaTela", "Titulo", True),
+    ("EstadoDaTela", "Itens", True),
+):
+    if _tem_membro(_tipo, _prop) is not _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 34 mudou de resposta para `{_tipo}.{_prop}` "
+            f"(esperado: {_esperado})."
+        )
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

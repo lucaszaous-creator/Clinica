@@ -32,6 +32,17 @@ public sealed class LinhaPacoteVendido
     public required string ValorFormatado { get; init; }
     public required string Compra { get; init; }
     public required bool Ativo { get; init; }
+
+    /// <summary>
+    /// Debitar sessão é ato do BALCÃO (parcela 62): o estado da linha COMPÕE com a
+    /// permissão, senão o botão fica aceso e o clique estoura no <c>ExigirAlgum</c> —
+    /// o defeito da parcela 41.
+    /// </summary>
+    public bool PodeUsarSessao => Ativo && SessaoUsuario.Atual.PodeAlgum(
+        Permissao.VenderPacote | Permissao.EditarFinanceiro);
+
+    /// <summary>Cancelar a venda desfaz dinheiro de outra pessoa: continua no financeiro.</summary>
+    public bool PodeCancelarVenda => Ativo && SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 }
 
 /// <summary>
@@ -107,6 +118,24 @@ public sealed partial class PacotesViewModel : ObservableObject
     /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
     /// </summary>
     public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    /// <summary>
+    /// VENDER, consumir e orçar — os atos do BALCÃO (parcela 62).
+    ///
+    /// A parcela 60 criou <see cref="Permissao.VenderPacote"/> justamente para a recepção
+    /// vender dez sessões sem ganhar o caixa, a conciliação e as contas a pagar junto — e
+    /// esta tela continuou exigindo <c>EditarFinanceiro</c> em TUDO. O resultado é o pior
+    /// desfecho possível de uma permissão bem-intencionada: o item abre para quem tem o
+    /// bit e nenhum botão funciona.
+    ///
+    /// O corte é o do ato, não o da tela: <b>vender, debitar sessão e orçar</b> são do
+    /// balcão; <b>o CATÁLOGO</b> (preço de tabela) e o <b>CANCELAMENTO de uma venda</b>
+    /// continuam sob <c>EditarFinanceiro</c> — o primeiro muda o preço para todo mundo,
+    /// o segundo desfaz o dinheiro que outra pessoa registrou (a regra 2 da parcela 49,
+    /// a mesma que separou <c>EstornarBaixa</c> de <c>BaixarGuia</c>).
+    /// </summary>
+    public bool PodeVender => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.VenderPacote | Permissao.EditarFinanceiro);
 
     public PacotesViewModel(
         PacoteService pacotes, DocumentoFinanceiroService documentos,
@@ -286,7 +315,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     [RelayCommand]
     private async Task VenderAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote");
 
         var vm = new PacoteVendaViewModel(_pacotes, _escopos);
         var janela = new PacoteVendaWindow(vm)
@@ -305,7 +335,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     {
         if (linha is null) return;
 
-        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "debitar sessão do pacote");
         if (!_dialogo.Confirmar("Usar uma sessão",
                 $"Debitar uma sessão de \"{linha.Nome}\" ({linha.Paciente})? Hoje o saldo é: "
                 + $"{linha.Saldo}.")) return;
@@ -390,7 +421,8 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         // O bit que a folha declara no catálogo (parcela 59): orçamento é documento
         // financeiro, e a tela abre com só VerFinanceiro.
-        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "emitir orçamento");
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "emitir orçamento");
 
         var destinatario = _dialogo.PerguntarTexto(
             "Orçamento", "Para quem é o orçamento? (nome de quem vai receber o papel)");

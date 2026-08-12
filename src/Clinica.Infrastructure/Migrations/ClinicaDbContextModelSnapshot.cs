@@ -1769,6 +1769,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int?>("CodigoFaturamentoId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("ConciliadoEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<string>("Convenio")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
@@ -1805,6 +1808,10 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("FormaPagamento")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("IdBancario")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("ModalidadeCartao")
                         .HasMaxLength(30)
@@ -1873,6 +1880,8 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("Data");
 
                     b.HasIndex("DataVencimento");
+
+                    b.HasIndex("IdBancario");
 
                     b.HasIndex("OrigemRecorrencia")
                         .IsUnique();
@@ -2315,6 +2324,62 @@ namespace Clinica.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("ModelosDocumento");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ModeloEvolucao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Conduta")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("CriadoPor")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Orientacoes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<int?>("ProfissionalId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("QueixaPrincipal")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("TextoEvolucao")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProfissionalId", "Nome")
+                        .IsUnique();
+
+                    b.ToTable("ModelosEvolucao");
                 });
 
             modelBuilder.Entity("Clinica.Domain.Entities.MovimentoEstoque", b =>
@@ -4019,6 +4084,16 @@ namespace Clinica.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ProfissionalId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Profissional");
+                });
+
+            modelBuilder.Entity("Clinica.Domain.Entities.ModeloEvolucao", b =>
+                {
+                    b.HasOne("Clinica.Domain.Entities.Profissional", "Profissional")
+                        .WithMany()
+                        .HasForeignKey("ProfissionalId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Profissional");
                 });

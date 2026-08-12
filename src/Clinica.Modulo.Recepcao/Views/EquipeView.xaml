@@ -189,7 +189,7 @@
                                 VerticalAlignment="Center"
                                 Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding NovoBloqueioCommand}"
-                                IsEnabled="{Binding PodeGerenciarEquipe}" />
+                                IsEnabled="{Binding PodeEditarAgenda}" />
                     </Grid>
 
                     <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" MaxWidth="820" Margin="0,0,0,8"
@@ -269,7 +269,7 @@
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Reabrir"
                                                         Style="{StaticResource BotaoPequeno}"
-                                                        IsEnabled="{Binding DataContext.PodeGerenciarEquipe,
+                                                        IsEnabled="{Binding DataContext.PodeEditarAgenda,
                                                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         Command="{Binding DataContext.ExcluirBloqueioCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"

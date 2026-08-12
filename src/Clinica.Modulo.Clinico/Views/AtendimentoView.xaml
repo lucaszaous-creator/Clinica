@@ -180,7 +180,18 @@
                             <Separator Margin="0,0,0,14"
                                        Background="{StaticResource Brush.Borda}" />
 
-                            <TextBlock Text="Queixa principal" Style="{StaticResource Rotulo}" />
+                            <!-- Ferramenta de uso pontual mora em BOTÃO (regra do README):
+                                 aplicar modelo acontece uma vez por sessão, e uma lista
+                                 aberta ao lado comeria a tela em que se ESCREVE. -->
+                            <DockPanel Margin="0,0,0,4">
+                                <Button DockPanel.Dock="Right" Content="Modelos…"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        VerticalAlignment="Center" MinWidth="110"
+                                        ToolTip="Começar de um roteiro guardado, ou guardar esta sessão como modelo"
+                                        Command="{Binding AbrirModelosCommand}" />
+                                <TextBlock Text="Queixa principal" Style="{StaticResource Rotulo}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
                             <TextBox Text="{Binding QueixaPrincipal, UpdateSourceTrigger=PropertyChanged}"
                                      TextWrapping="Wrap" AcceptsReturn="True" MinHeight="48"
                                      VerticalScrollBarVisibility="Auto" Margin="0,0,0,12" />

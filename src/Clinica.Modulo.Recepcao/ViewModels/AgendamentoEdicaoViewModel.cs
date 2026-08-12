@@ -99,6 +99,13 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// </summary>
     public int? ProfissionalPreferidoId { get; set; }
 
+    /// <summary>
+    /// A sala da coluna clicada, na visão por SALA (parcela 63) — o par do de cima, e
+    /// pela mesma razão: quem clicou no vão da Sala 2 às 14h não deve ter de escolher a
+    /// Sala 2 num combo logo em seguida.
+    /// </summary>
+    public int? SalaPreferidaId { get; set; }
+
     /// <summary>A janela fecha quando isto dispara — o comando de salvar segue assíncrono.</summary>
     public event Action? Concluido;
 
@@ -213,6 +220,9 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
 
             Salas.Clear();
             foreach (var s in await equipe.SalasAtivasAsync()) Salas.Add(s);
+
+            if (SalaPreferidaId is { } salaPreferida)
+                Sala = Salas.FirstOrDefault(s => s.Id == salaPreferida);
 
             await Seletor.BuscarAsync(imediato: true);
 

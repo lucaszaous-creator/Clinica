@@ -68,6 +68,7 @@ public static class DependencyInjection
         services.AddScoped<FluxoCaixaService>();
         services.AddScoped<FechamentoCaixaService>();
         services.AddScoped<RecebiveisService>();
+        services.AddScoped<ConciliacaoBancariaService>();
         services.AddScoped<CustoTransacaoService>();
         services.AddScoped<RentabilidadeConvenioService>();
         services.AddScoped<PrecoConvenioService>();

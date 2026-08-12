@@ -402,11 +402,6 @@ public sealed class AgendaService
         return prof?.DuracaoPadraoMinutos ?? Agendamento.DuracaoPadraoMinutos;
     }
 
-    /// <summary>Agenda do dia de um profissional (coluna da grade).</summary>
-    public async Task<IReadOnlyList<Agendamento>> DoDiaPorProfissionalAsync(
-        DateOnly dia, int? profissionalId, CancellationToken ct = default)
-        => (await DoDiaAsync(dia, ct)).Where(a => a.ProfissionalId == profissionalId).ToList();
-
     /// <summary>Ocupação do dia, um item por profissional (mais um para "sem profissional").</summary>
     public async Task<IReadOnlyList<OcupacaoProfissional>> OcupacaoDoDiaAsync(
         DateOnly dia, CancellationToken ct = default)

@@ -1,6 +1,7 @@
 <Window x:Class="Clinica.Recepcao.Janelas.EvolucaoWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
         xmlns:modelos="clr-namespace:Clinica.Application.Modelos;assembly=Clinica.Application"
         xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
         Title="Sessão do prontuário" Width="1160" Height="680" MinWidth="960" MinHeight="520"
@@ -9,6 +10,8 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
         <!-- Régua da EVA: uma casa por valor, do 0 ao 10. No balcão a pergunta é feita
              em voz alta e a resposta tem de caber num clique — campo de texto aqui é o
@@ -74,8 +77,19 @@
                     IsDefault="True" MinWidth="150" />
         </StackPanel>
 
-        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
@@ -152,8 +166,19 @@
                     </Border>
 
                     <!-- ===== Texto da evolução ===== -->
-                    <TextBlock Text="Queixa principal (o que o paciente relatou)"
-                               Style="{StaticResource Rotulo}" Margin="0,16,0,4" />
+                    <!-- Ferramenta de uso pontual mora em BOTÃO, não em painel aberto
+                         (a regra do README): aplicar um modelo acontece uma vez por
+                         sessão, e uma lista permanente ao lado comeria a tela em que se
+                         ESCREVE. -->
+                    <DockPanel Margin="0,16,0,4">
+                        <Button DockPanel.Dock="Right" Content="Modelos…"
+                                Style="{StaticResource BotaoSecundario}"
+                                VerticalAlignment="Center" MinWidth="110"
+                                ToolTip="Começar a partir de um roteiro guardado, ou guardar esta sessão como modelo"
+                                Command="{Binding AbrirModelosCommand}" />
+                        <TextBlock Text="Queixa principal (o que o paciente relatou)"
+                                   Style="{StaticResource Rotulo}" VerticalAlignment="Center" />
+                    </DockPanel>
                     <TextBox Text="{Binding QueixaPrincipal}" AcceptsReturn="True" Height="60"
                              TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
 

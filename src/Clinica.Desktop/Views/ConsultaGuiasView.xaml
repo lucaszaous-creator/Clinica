@@ -161,10 +161,23 @@
                 <DataGridTemplateColumn Header="Ações" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Capa" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                    ToolTip="Reimprimir a capa de faturamento deste atendimento"
-                                    Command="{Binding DataContext.CapaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                    CommandParameter="{Binding}" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Capa" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        ToolTip="Reimprimir a capa de faturamento deste atendimento"
+                                        Command="{Binding DataContext.CapaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+
+                                <!-- "O que aconteceu com esta guia?" — baixa, estorno,
+                                     glosa, lote, NC. A trilha existe desde a parcela 21 e
+                                     o faturamento, que é onde essas ações acontecem, não
+                                     tinha uma linha dela (parcela 63). -->
+                                <Button Content="Histórico" Margin="6,0,0,0"
+                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        ToolTip="Quem mexeu nesta guia, quando e o quê"
+                                        IsEnabled="{Binding DataContext.PodeVerHistorico, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.HistoricoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

@@ -106,4 +106,13 @@ public static class ChavesSuite
     /// Recepção deixava de abrir a sala.
     /// </summary>
     public const string SalaInfusao = "consultorio-sala-infusao";
+
+    /// <summary>
+    /// Pacotes de sessões — a segunda tela do SHELL publicada por DOIS módulos
+    /// (Financeiro e Recepção, parcela 60). Mora aqui pela razão da sala de infusão logo
+    /// acima, e agora com um caso concreto no currículo: enquanto era literal dos dois
+    /// lados, a Recepção publicou o item e não construiu a tela — o menu acendia e nada
+    /// abria, e nenhuma rede viu, porque string à mão sempre compila.
+    /// </summary>
+    public const string Pacotes = "pacotes";
 }

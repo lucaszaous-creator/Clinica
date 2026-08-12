@@ -26,10 +26,6 @@ public sealed class ListaEsperaService
     public Task<IReadOnlyList<ListaEspera>> AguardandoAsync(CancellationToken ct = default)
         => _repo.ListaEsperaAsync(somenteAguardando: true, ct);
 
-    /// <summary>Tudo, inclusive já agendado/removido (histórico da lista).</summary>
-    public Task<IReadOnlyList<ListaEspera>> TodosAsync(CancellationToken ct = default)
-        => _repo.ListaEsperaAsync(somenteAguardando: false, ct);
-
     public async Task<ListaEspera> AdicionarAsync(
         int pacienteId, int? profissionalId = null, string? modalidadeCodigo = null,
         PeriodoPreferido periodo = PeriodoPreferido.Qualquer,

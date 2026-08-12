@@ -459,17 +459,14 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         // Origem em branco é "ninguém perguntou", e a ficha diz isso com todas as letras
         // em vez de deixar o campo vazio: campo vazio parece defeito, e a recepção só vai
         // colher o dado se souber que ele falta.
+        // O rótulo em si vem de RotulosEnum, que é o ponto único (parcela 62) — aqui
+        // fica só o que é DESTA tela: o "não perguntado" e o nome de quem indicou.
         Origem = p.Origem switch
         {
             null => "Não perguntado",
             OrigemPaciente.Indicacao when !string.IsNullOrWhiteSpace(p.IndicadoPor)
                 => $"Indicação de {p.IndicadoPor}",
-            OrigemPaciente.Indicacao => "Indicação",
-            OrigemPaciente.Encaminhamento => "Encaminhamento médico",
-            OrigemPaciente.RedesSociais => "Redes sociais",
-            OrigemPaciente.Fachada => "Passou em frente",
-            OrigemPaciente.Convenio => "Lista do convênio",
-            var o => o.ToString()!
+            var o => RotulosEnum.De(o)
         };
 
         var codigos = p.Atendimentos.SelectMany(a => a.Codigos).ToList();
@@ -1119,6 +1116,16 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             {
                 var servico = scope.ServiceProvider.GetRequiredService<TitularDadosService>();
                 texto = await servico.ExportarAsync(PacienteId, SessaoUsuario.Atual.Operador);
+
+                // TRILHA DE LEITURA (parcela 62): a exportação do art. 18 leva o
+                // prontuário INTEIRO num arquivo — é o maior acesso que esta tela permite.
+                // O `TitularDadosService` grava a própria linha de auditoria, mas com ação
+                // "DadosDoTitularExportados", que NÃO tem o prefixo `ProntuarioAcessado:`
+                // e por isso não aparece na trilha de leitura filtrada — nem em "quem
+                // abriu este prontuário". O MESMO ato pelo Gerente já registrava aqui.
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ExportacaoTitular);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(

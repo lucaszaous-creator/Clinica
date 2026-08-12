@@ -31,8 +31,15 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveFechamento = ChavesSuite.FechamentoCaixa;
     public const string ChaveRecebiveis = ChavesSuite.Recebiveis;
     public const string ChaveConciliacao = ChavesSuite.Conciliacao;
+
+    // Conciliação BANCÁRIA (parcela 63). Chave própria e não a de cima: aquela casa
+    // GUIA com receita (faturamento → financeiro), esta casa o que o sistema diz que
+    // entrou com o que o BANCO diz que entrou. São duas conferências diferentes.
+    public const string ChaveExtrato = "extrato-banco";
     public const string ChaveProducao = ChavesSuite.Producao;
-    public const string ChavePacotes = "pacotes";
+    // A MESMA chave que a Recepção publica (parcela 60) — vem de ChavesSuite porque
+    // atravessa módulo, e a dedupe do shell funde as duas linhas no Gerente.
+    public const string ChavePacotes = ChavesSuite.Pacotes;
     public const string ChaveEstoque = "estoque";
     public const string ChaveRepasses = "repasses";
     public const string ChaveTaxas = "taxas";
@@ -91,6 +98,7 @@ public sealed class ModuloFinanceiro : IModuloApp
             [
                 new AbaMenu("Receb\u00EDveis de cart\u00E3o", ChaveRecebiveis),
                 new AbaMenu("Concilia\u00E7\u00E3o", ChaveConciliacao),
+                new AbaMenu("Extrato do banco", ChaveExtrato),
                 new AbaMenu("Taxas e impostos", ChaveTaxas)
             ]
         },
@@ -164,6 +172,11 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChaveExtrato, Rotulo = "Extrato do banco", Glifo = "\uE8C7",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveTaxas, Rotulo = "Taxas e impostos", Glifo = "\uE9F9",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
@@ -191,6 +204,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         servicos.AddTransient<FechamentoCaixaViewModel>();
         servicos.AddTransient<RecebiveisViewModel>();
         servicos.AddTransient<ConciliacaoViewModel>();
+        servicos.AddTransient<ExtratoBancoViewModel>();
         servicos.AddTransient<ProducaoViewModel>();
         servicos.AddTransient<Clinica.Desktop.Shell.Componentes.PacotesViewModel>();
         servicos.AddTransient<EstoqueViewModel>();
@@ -212,6 +226,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         ChaveFechamento => new FechamentoCaixaView { DataContext = servicos.GetRequiredService<FechamentoCaixaViewModel>() },
         ChaveRecebiveis => new RecebiveisView { DataContext = servicos.GetRequiredService<RecebiveisViewModel>() },
         ChaveConciliacao => new ConciliacaoView { DataContext = servicos.GetRequiredService<ConciliacaoViewModel>() },
+        ChaveExtrato => new ExtratoBancoView { DataContext = servicos.GetRequiredService<ExtratoBancoViewModel>() },
         ChaveProducao => new ProducaoView { DataContext = servicos.GetRequiredService<ProducaoViewModel>() },
         // A tela SUBIU para o shell (parcela 60), como a sala de infusão na 48: quem
         // vende as dez sessões ao paciente é a RECEPÇÃO, no balcão, e a única porta estava

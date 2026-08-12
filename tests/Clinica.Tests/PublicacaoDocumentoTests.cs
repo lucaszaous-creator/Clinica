@@ -22,6 +22,13 @@ public sealed class ArmazenamentoFake : IArmazenamentoPublico
     /// <summary>Quando true, toda publicação falha — para provar a degradação.</summary>
     public bool Quebrado { get; set; }
 
+    /// <summary>
+    /// Quando true, a REMOÇÃO falha. Separado do <see cref="Quebrado"/> porque as duas
+    /// falhas têm gravidades opostas: publicar que falha deixa o documento fora do ar
+    /// (chato); remover que falha deixa dado de saúde NO ar (grave).
+    /// </summary>
+    public bool RecusaRemover { get; set; }
+
     public Task PublicarAsync(
         string caminho, byte[] conteudo, string tipoConteudo, CancellationToken ct = default)
     {
@@ -32,6 +39,7 @@ public sealed class ArmazenamentoFake : IArmazenamentoPublico
 
     public Task RemoverAsync(string caminho, CancellationToken ct = default)
     {
+        if (RecusaRemover) throw new InvalidOperationException("armazenamento recusou a remoção");
         Objetos.Remove(caminho);
         Removidos.Add(caminho);
         return Task.CompletedTask;
@@ -390,6 +398,138 @@ public class PublicacaoDocumentoTests : IDisposable
         // Sem os caracteres que se confundem lidos à mão (I, L, O, U, 0, 1): o token não é
         // digitado, mas alguém vai lê-lo em log e em suporte.
         tokens.Should().OnlyContain(t => !t.Any(c => "ILOU01".Contains(c)));
+    }
+
+    // ======================================= TIRAR DO AR (parcela 63)
+
+    /// <summary>
+    /// O par que faltava do publicar. Até a parcela 63 o link só saía do ar sozinho, na
+    /// expiração: uma receita publicada por engano — o paciente errado, o documento
+    /// errado — ficava acessível a quem tivesse o endereço por 30 ou 180 dias.
+    ///
+    /// E o que sai do ar é a PUBLICAÇÃO, nunca o registro: os bytes assinados continuam no
+    /// banco pelos 20 anos da Lei 13.787/2018.
+    /// </summary>
+    [Fact]
+    public async Task Tirar_do_ar_remove_o_arquivo_e_preserva_o_documento()
+    {
+        await LigarAsync();
+        var doc = await DocumentoAsync();
+        await _servico.GarantirTokenAsync(doc);
+        var token = doc.TokenPublicacao!;
+
+        await _servico.PublicarAsync(doc, [1, 2, 3]);
+        _armazenamento.Objetos.Should().ContainKey(PublicacaoDocumento.CaminhoDoObjeto(token));
+
+        var saiu = await _servico.DespublicarAsync(doc, operador: "ana");
+
+        saiu.Should().BeTrue();
+        _armazenamento.Objetos.Should().NotContainKey(PublicacaoDocumento.CaminhoDoObjeto(token));
+        doc.PublicadoAte.Should().BeNull();
+
+        // O TOKEN fica: republicar reusa o mesmo, e é isso que faz o QR já impresso voltar
+        // a funcionar. Sortear outro mataria o papel que o paciente guardou.
+        doc.TokenPublicacao.Should().Be(token);
+    }
+
+    /// <summary>
+    /// Quem tirou do ar vai para a trilha. Desde que existe BOTÃO, "o sistema expirou o
+    /// link" e "a Ana tirou a receita do ar" são fatos diferentes — e é o segundo que uma
+    /// investigação procura.
+    /// </summary>
+    [Fact]
+    public async Task Quem_tirou_do_ar_fica_na_trilha()
+    {
+        await LigarAsync();
+        var doc = await DocumentoAsync();
+        await _servico.GarantirTokenAsync(doc);
+        await _servico.PublicarAsync(doc, [1]);
+
+        await _servico.DespublicarAsync(doc, operador: "ana");
+
+        var evento = _db.Auditoria.Single(e => e.Acao == "DocumentoDespublicado");
+        evento.Operador.Should().Be("ana");
+    }
+
+    /// <summary>
+    /// ⚠️ <b>O defeito que a parcela 63 achou</b>: a documentação do serviço afirmava, desde
+    /// a parcela 53, que o cancelamento tirava o link do ar. Ele <b>nunca fez isso</b> — a
+    /// única chamada de <c>DespublicarAsync</c> era a da expiração.
+    ///
+    /// O papel dizia "CANCELADA" e o endereço público continuava entregando o PDF assinado
+    /// por até 180 dias. É a pior espécie de documento no ar: um que a clínica já
+    /// invalidou, com assinatura criptograficamente válida.
+    ///
+    /// A correção mora no SERVIÇO porque o cancelamento tem QUATRO portas — a ficha do
+    /// paciente, as Prescrições e dois caminhos da central. É este teste que impede a
+    /// quinta porta de nascer sem ela.
+    /// </summary>
+    [Fact]
+    public async Task Cancelar_o_documento_TIRA_o_link_do_ar()
+    {
+        await LigarAsync();
+        var doc = await DocumentoAsync();
+        await _servico.GarantirTokenAsync(doc);
+        await _servico.PublicarAsync(doc, [1, 2, 3]);
+
+        var caminho = PublicacaoDocumento.CaminhoDoObjeto(doc.TokenPublicacao!);
+        _armazenamento.Objetos.Should().ContainKey(caminho);
+
+        var documentos = new DocumentoClinicoService(
+            _repo, new ProntuarioService(_repo), new ConsentimentoService(_repo), _servico);
+
+        await documentos.CancelarAsync(doc.Id, "Paciente errado.", "ana");
+
+        _armazenamento.Objetos.Should().NotContainKey(caminho,
+            "receita cancelada baixável pelo QR é a pior espécie de arquivo no ar");
+
+        var salvo = _db.DocumentosClinicos.Single(d => d.Id == doc.Id);
+        salvo.Cancelado.Should().BeTrue();
+        salvo.PublicadoAte.Should().BeNull();
+    }
+
+    /// <summary>
+    /// O cancelamento é o fato que NÃO pode falhar. Armazenamento fora do ar não desfaz a
+    /// invalidação — deixar válido um documento que a clínica acabou de cancelar é o pior
+    /// dos dois desfechos, e a falha vai para o log com o caminho do arquivo.
+    /// </summary>
+    [Fact]
+    public async Task Armazenamento_fora_do_ar_nao_desfaz_o_cancelamento()
+    {
+        await LigarAsync();
+        var doc = await DocumentoAsync();
+        await _servico.GarantirTokenAsync(doc);
+        await _servico.PublicarAsync(doc, [1]);
+
+        _armazenamento.RecusaRemover = true;
+
+        var documentos = new DocumentoClinicoService(
+            _repo, new ProntuarioService(_repo), new ConsentimentoService(_repo), _servico);
+
+        await documentos.CancelarAsync(doc.Id, "Paciente errado.", "ana");
+
+        _db.DocumentosClinicos.Single(d => d.Id == doc.Id).Cancelado.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// E a tela precisa saber que NÃO saiu: dizer "saiu do ar" com o arquivo ainda
+    /// acessível é falha exibida como sucesso, que este projeto recusa desde a parcela 3 —
+    /// a pessoa concluiria que resolveu e não voltaria ao assunto.
+    /// </summary>
+    [Fact]
+    public async Task Remocao_recusada_devolve_falso_em_vez_de_fingir()
+    {
+        await LigarAsync();
+        var doc = await DocumentoAsync();
+        await _servico.GarantirTokenAsync(doc);
+        await _servico.PublicarAsync(doc, [1]);
+
+        _armazenamento.RecusaRemover = true;
+
+        var saiu = await _servico.DespublicarAsync(doc, operador: "ana");
+
+        saiu.Should().BeFalse();
+        doc.PublicadoAte.Should().NotBeNull("o link continua no ar, e o campo não pode mentir");
     }
 
     public void Dispose()

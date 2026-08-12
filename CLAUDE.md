@@ -1790,6 +1790,142 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   acesso registrado → "quem abriu este prontuário". A chave da sala de infusão — a única
   publicada por DOIS módulos — saiu das duas strings à mão e virou `ChavesSuite.SalaInfusao`.
 
+- **Nenhum defeito da Recepção QUEBRAVA nada — e é por isso que eles chegaram até aqui**
+  (parcela 62, auditoria de prontidão do balcão antes de produção). Dez grupos, e o que os
+  une é a ausência de sintoma: build verde, 1441 testes verdes, três redes locais verdes, e
+  quem descobre é a recepcionista com o paciente na frente. São as variantes do defeito
+  recorrente do projeto que nenhuma ferramenta alcança.
+  **A porta que não abre, a venda que o dono da tela não pode fazer.** A Recepção publicava
+  o item "Pacotes" e o `CriarTela` dela **não tinha o case** — o menu acendia e nada
+  acontecia. Nenhuma rede viu porque a chave era uma string à mão dos dois lados; virou
+  `ChavesSuite.Pacotes`, como a sala de infusão na 61. E a tela, que subiu para o shell
+  vinda do Financeiro, perguntava por `EditarFinanceiro` em toda ação — bit que o perfil
+  Recepção **não tem**. O balcão ganhou o item e não podia vender nada por ele.
+  ⚠️ A regra que sai daí vale para toda tela que sobe para o shell: **ao mover uma tela
+  entre módulos, releia as permissões que ela exige.** Elas foram escolhidas para o dono
+  ANTIGO. `Pode(A | B)` é um **E**; a pergunta "o bit do balcão ou o do Financeiro" é
+  `PodeAlgum` (parcela 61), e foi o mesmo conserto no passo do CAIXA do Finalizar da sessão
+  — o balcão via o campo de dinheiro apagado justamente no ato de registrar o que o
+  paciente acabou de pagar.
+  **O aviso que morria entre duas camadas.** `FechamentoSessaoService.ConcluirAsync`
+  recebia os avisos de `AtendimentoService.LancarAsync` e **abria uma lista nova vazia**.
+  Pelo Finalizar da Fila — o caminho que a clínica usa todo dia — a NC reaberta ("o
+  paciente voltou, cobre a guia AGORA") e o anúncio do 2º código, que é o assunto do
+  produto, nunca chegaram ao balcão. `RecadosDoLancamento` fica **separado** de `Avisos`:
+  aquele é o que FALHOU e segura a janela aberta, este é o que ACONTECEU — somá-los faria
+  um fechamento perfeito com uma NC reaberta aparecer como fechamento com erro, e três dias
+  depois ninguém mais lê a janela.
+  **Mensagem de sucesso invisível em cinco telas.** O par `<Border AlertaPerigo
+  Visibility="{Binding MensagemEhErro}">` mostra a caixa quando o booleano é verdadeiro, e
+  a mensagem de ÊXITO (que zera `MensagemEhErro`) some junto com a de erro. Cinco janelas
+  gravavam certo e não diziam nada. Agora a visibilidade segue a `Mensagem` (via
+  `TextoParaVisibilidade`) e a COR segue `MensagemEhErro` num `DataTrigger`: **quem decide
+  se aparece é o texto; quem decide a cor é a gravidade.**
+  **Releitura de fundo na Agenda e no Painel.** Só a Fila tinha relógio. A agenda é a
+  ÚNICA tela da suíte em que duas pessoas escrevem no mesmo dado ao mesmo tempo, e o vão
+  vago é clicável desde a parcela 58: um horário marcado na outra máquina continuava
+  aparecendo livre, e a recepcionista marcaria por cima. Três recusas na batida — só HOJE,
+  só no modo DIA (a semana refaz sete colunas com um await no meio de cada, e piscaria) e
+  nunca por cima de uma carga no ar. O Painel bate a cada DOIS minutos, não um: são
+  contagens do dia, e cada batida custa três consultas ao banco remoto.
+  **O descarte de resposta fora de ordem tem uma metade que a parcela 60 não escreveu.** O
+  contador de geração impede a leitura VELHA de sobrescrever a nova; ele não impede duas
+  leituras de se INTERCALAREM dentro da mesma coleção. `Equipe` e `Lançados hoje` faziam
+  `Clear()` e depois `await` num laço — a segunda carga limpava o que a primeira ainda
+  estava preenchendo, e a lista saía com linhas repetidas ou faltando. A regra completa é:
+  **entre o `Clear()` e o último `Add` não pode haver `await`** — monte em lista local e só
+  então publique.
+  **E campo não é tela, nem na planilha.** A feature 02 marcava ✅ em "visão por
+  profissional ou por sala" porque `Agendamento.SalaId` existe. A sala é gravada,
+  respeitada no choque com a capacidade dela e bloqueável por período; **não há modo de
+  grade que a use como coluna**. Voltou a 🟡 em `docs/features-por-modulo.md`, com o motivo
+  escrito. É o defeito recorrente do projeto na versão mais barata de cometer e a mais cara
+  de descobrir: em produção, quem o encontra é o cliente lendo a própria proposta.
+
+- **A varredura de "capacidade sem porta" achou o contrário: código morto que DUPLICA a
+  tela** (parcela 63). Varrer os 50+ serviços por método sem chamador em produção
+  devolveu ~20 nomes, e quase nenhum era feature faltando — eram **segundas definições**
+  do que a tela já faz por outro caminho (`PerderAsync` ao lado do movimento genérico de
+  perda, `AtrasadosAsync` ao lado do atraso que a tela de Recebíveis já calcula,
+  `ConferirConformidadeAsync` ao lado do `ConformidadeDocumentoClinico.Conferir` estático,
+  os quatro do `MapaCorporalService` ao lado do que o ViewModel faz em memória). Oito com
+  ZERO referência em `src` e em `tests` foram removidos. **Duas definições da mesma regra
+  divergem na primeira correção, e a que ninguém lembra de ajustar é sempre a segunda.**
+  ⚠️ E a varredura tem um resultado que só aparece depois de conferir caso a caso: dos
+  seis "métodos órfãos" que eu tinha listado como buraco de feature, **um era falso** — a
+  tela de Recebíveis já marca e conta os depósitos atrasados. Método sem chamador é
+  SINTOMA, não diagnóstico: antes de construir a porta, procure se a tela não a tem por
+  outro caminho.
+
+- **O que a auditoria de features achou, e o padrão que se repete** (parcela 63): quatro
+  capacidades prontas sem porta, duas features que nunca existiram, e uma linha de placar
+  que estava errada nos DOIS sentidos.
+  **A agenda ganhou as duas metades que faltavam da feature 02.** A visão por SALA nunca
+  existiu — a sala era gravada, respeitada no choque com a capacidade dela e bloqueável
+  por período, e nenhum modo de grade a usava como coluna. E o **vão fechado** era
+  visualmente idêntico ao vão livre, que é clicável desde a parcela 58: a recepcionista
+  escolhia o paciente, preenchia o formulário e levava a recusa do `AgendaService` no
+  Salvar, com ele na frente dela. Os bloqueios são lidos por PERÍODO e cruzados em
+  memória — havia um `BloqueioDoHorarioAsync` que respondia por um vão só e nunca teve
+  chamador, e usá-lo daria ~150 idas ao banco para desenhar uma tela. "Sem sala" é coluna
+  de primeira classe: metade dos horários não informa sala, e escondê-los faria a visão
+  por sala mostrar um dia cheio como se estivesse vazio.
+  ⚠️ **O bug mais grave da parcela não estava na lista: CANCELAR uma receita não a tirava
+  do ar.** A documentação do `PublicacaoDocumentoService` afirmava, desde a parcela 53,
+  que o cancelamento despublicava; a única chamada de `DespublicarAsync` era a da
+  EXPIRAÇÃO. O papel dizia "CANCELADA" e o endereço público continuava entregando o PDF
+  assinado por até 180 dias. A correção mora no SERVIÇO porque o cancelamento tem
+  **quatro portas** (ficha do paciente, Prescrições e dois caminhos da central) — a mesma
+  razão pela qual a crítica do número da guia mora no `FaturamentoService`. De quebra,
+  `DespublicarAsync` passou a devolver `bool` e a receber o operador: engolir a falha do
+  S3 fazia a tela dizer "saiu do ar" com o arquivo ainda acessível, que é falha exibida
+  como sucesso.
+  **O modelo de evolução** fechou a lacuna mais cara do dia a dia clínico: `ModeloDocumento`
+  existe desde a parcela 3 e serve só aos papéis IMPRESSOS, enquanto a evolução — o texto
+  mais escrito do sistema — era redigitada por inteiro a cada sessão. Vale a regra do
+  protocolo do mapa corporal: **aplicar COPIA, nunca aponta**, e aqui ela não é desenho, é
+  a Lei 13.787/2018 — referência viva faria corrigir uma palavra do roteiro hoje reescrever
+  o prontuário da semana passada. É por copiar que o modelo é a única coisa "de prontuário"
+  que **se apaga mesmo**. O índice de nome é POR DONO: um global faria o "Sessão padrão" de
+  um profissional sobrescrever o de outro em silêncio.
+  **O CID-10 virou atalho com conferência.** O campo era texto livre em `DocumentoClinico`
+  e em `ProblemaPaciente`, e "M54.4" digitado no lugar de "M54.5" é tão plausível quanto
+  ele — nada denunciava. O catálogo mora em CÓDIGO pelo desenho das escalas (classificação
+  PUBLICADA, não configuração da clínica) e **não é a CID-10 inteira**: são os códigos
+  desta clínica, o campo continua aceitando qualquer texto, e a tela diz isso. Recusar o
+  que está fora da lista seria a regra apertada demais que o projeto já rejeitou no
+  formato do número da guia. A metade que pega o erro é a DESCRIÇÃO ao lado do campo.
+  **A conciliação bancária por OFX** fechou o último ponto do financeiro em que o mês
+  dependia de alguém não se distrair. O leitor é à mão (o OFX 1.x tem tags que não fecham
+  — não é XML), o valor é lido em cultura INVARIANTE (em pt-BR, "-2500.00" viraria
+  -250000), e o sistema **propõe, a pessoa confirma**. A folga de datas é de três dias e
+  não de trinta: folga grande casaria o aluguel de julho com o de agosto e a tela passaria
+  a pedir desempate em tudo, que é como se ensina alguém a clicar sem olhar. A metade que
+  ninguém pede é `SoNoSistema` — dado como recebido aqui e ausente do banco.
+  ⚠️ **E a "dívida de leiaute" das seis telas já estava PAGA** desde a parcela 49; a
+  planilha é que não tinha sido atualizada. Os 330 px do `AcessosView` e os 300 do
+  `CampanhasView` são a coluna de **Ações** — o falso positivo que a parcela 54 já
+  documentara. Somado ao ✅ falso da feature 02, a lição fecha nos dois sentidos: **linha
+  de placar sem conferência no código é chute com aparência de registro**, e ela erra
+  tanto a favor quanto contra.
+
+- **Nome de propriedade errado em controle da CASA: só o compilador de MARCAÇÃO pega**
+  (parcela 63, checagem 34 — o CI reprovou o PR). Três telas novas declararam
+  `TextoVazio` no `EstadoDaTela`, que tem `TextoCarregando` e `TextoNaoVerificado` — o
+  vazio se escreve com `Titulo` + `Descricao`. `MC3072`, e nenhuma rede local via: o XML é
+  bem-formado, o `compilar-sombra` **não lê o corpo** do XAML e o C# compila. É a irmã da
+  checagem 33, e o que a torna fácil de cometer é o nome plausível existir AO LADO do
+  certo.
+  A checagem casa cada atributo de `<ctrl:Tipo …>` com as propriedades declaradas no tipo
+  e nas bases dele. As duas decisões que a mantêm utilizável: cadeia que termina numa base
+  do WPF conhecida responde **"não tem"** (sem isso ela calaria para todo controle que
+  herda de `Control`, que são todos); cadeia que termina em tipo de fora desconhecido
+  responde **"não sei"** e cala.
+  ⚠️ O autoteste pegou os DOIS erros dela antes de mim — a primeira versão respondia "não
+  sei" para o caso real, e a segunda acusava o `Key` de `x:Key` por o *lookbehind* não
+  excluir os dois-pontos. **Checagem nova sem autoteste do caso real e do caso legítimo é
+  checagem que nasce cega ou barulhenta.**
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

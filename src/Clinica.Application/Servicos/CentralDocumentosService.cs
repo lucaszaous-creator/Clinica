@@ -117,6 +117,14 @@ public sealed record FolhaEmitida(
     public decimal? Valor { get; init; }
 
     /// <summary>
+    /// De quem é a folha (parcela 62). Aditivo, <c>init</c> nulo — no financeiro o
+    /// destinatário nem sempre é paciente do sistema. Existe para a REIMPRESSÃO de folha
+    /// clínica poder registrar a trilha de acesso: 2ª via de receita é dado de saúde
+    /// saindo em PDF, e a tela não tinha como dizer de quem.
+    /// </summary>
+    public int? PacienteId { get; init; }
+
+    /// <summary>
     /// Até quando o link publicado fica no ar (parcela 53). <c>null</c> quando o documento
     /// nunca foi publicado ou já saiu do ar.
     /// </summary>
@@ -395,6 +403,7 @@ public sealed class CentralDocumentosService
                 d.Data, d.CriadoEm, d.CriadoPor,
                 d.Cancelado, d.MotivoCancelamento)
             {
+                PacienteId = d.PacienteId,
                 PublicadoAte = d.PublicadoAte,
                 JaTeveLink = !string.IsNullOrWhiteSpace(d.TokenPublicacao),
                 Chave = Catalogo.FirstOrDefault(f => f.TipoClinico == d.Tipo)?.Chave ?? string.Empty
