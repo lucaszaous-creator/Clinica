@@ -301,14 +301,14 @@ investigação.
 migrations rodam no `MigrateAsync` da abertura: um app aberto antes da hora cria o
 schema vazio, e o restore por cima de banco mexido é conflito na certa.
 
-```bash
-# Na VPS (ela alcança a Neon de saída; a porta fechada é a de ENTRADA):
-pg_dump "postgresql://usuario:senha@ep-xxx.neon.tech/neondb?sslmode=require" \
-  -Fc -f /tmp/neon.dump
-pg_restore -d "postgresql://clinica:SENHA@localhost:45432/clinica" \
-  --no-owner --no-privileges /tmp/neon.dump
-rm /tmp/neon.dump
-```
+O `tools/vps/migrar-da-neon.sh` faz o ciclo completo na VPS (ela alcança a Neon
+de SAÍDA; a porta trancada é a de entrada): pergunta a connection string da
+Neon, tira a foto (`pg_dump -Fc` — a Neon é só lida, a clínica pode estar
+usando), **apaga e recria o banco local** e restaura por cima, terminando com a
+contagem de linhas por tabela para conferência. Por apagar e recriar, ele pode
+rodar quantas vezes quiser — o ensaio e a virada são o MESMO comando, só muda a
+hora: a última rodada é fora do expediente, porque o que se escreve na Neon
+depois da foto não viaja junto.
 
 Valide antes de virar a clínica: numa máquina só, com a env var (que vence a config
 salva e **não grava** — o mecanismo de `docs/testar-sem-publicar.md`):
