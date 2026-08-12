@@ -166,8 +166,19 @@
                     </Border>
 
                     <!-- ===== Texto da evolução ===== -->
-                    <TextBlock Text="Queixa principal (o que o paciente relatou)"
-                               Style="{StaticResource Rotulo}" Margin="0,16,0,4" />
+                    <!-- Ferramenta de uso pontual mora em BOTÃO, não em painel aberto
+                         (a regra do README): aplicar um modelo acontece uma vez por
+                         sessão, e uma lista permanente ao lado comeria a tela em que se
+                         ESCREVE. -->
+                    <DockPanel Margin="0,16,0,4">
+                        <Button DockPanel.Dock="Right" Content="Modelos…"
+                                Style="{StaticResource BotaoSecundario}"
+                                VerticalAlignment="Center" MinWidth="110"
+                                ToolTip="Começar a partir de um roteiro guardado, ou guardar esta sessão como modelo"
+                                Command="{Binding AbrirModelosCommand}" />
+                        <TextBlock Text="Queixa principal (o que o paciente relatou)"
+                                   Style="{StaticResource Rotulo}" VerticalAlignment="Center" />
+                    </DockPanel>
                     <TextBox Text="{Binding QueixaPrincipal}" AcceptsReturn="True" Height="60"
                              TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
 

@@ -1,0 +1,65 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.BuscaCidWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Procurar CID-10" Width="680" Height="560"
+        MinWidth="560" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <DockPanel Margin="24">
+        <TextBlock DockPanel.Dock="Top" Text="Procurar CID-10"
+                   Style="{StaticResource DialogoTitulo}" HorizontalAlignment="Left" />
+        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   Text="Procure pelo código (&quot;M54&quot;) ou pela palavra (&quot;lombar&quot;). Esta é a lista dos códigos que a clínica usa, não a CID-10 inteira — o campo continua aceitando qualquer código que você digitar." />
+
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" VerticalAlignment="Center" />
+            <Button Content="Usar este código" Command="{Binding EscolherCommand}"
+                    IsDefault="True" MinWidth="160" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Resumo}"
+                   Style="{StaticResource TextoSuave}" Margin="0,10,0,0" TextWrapping="Wrap" />
+
+        <DockPanel DockPanel.Dock="Top" Margin="0,16,0,0">
+            <Button DockPanel.Dock="Right" Content="Limpar" Margin="8,0,0,0"
+                    Style="{StaticResource BotaoSecundario}" MinWidth="90"
+                    VerticalAlignment="Center" Command="{Binding LimparCommand}" />
+            <TextBox Text="{Binding Termo, UpdateSourceTrigger=PropertyChanged}"
+                     VerticalAlignment="Center" MaxLength="60"
+                     ctrl:Ajudantes.Placeholder="Código ou palavra (ex.: M54, lombar, ansiedade)" />
+        </DockPanel>
+
+        <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+            <Grid>
+                <ListBox ItemsSource="{Binding Resultados}" SelectedItem="{Binding Selecionado}"
+                         BorderThickness="0" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Codigo}" FontWeight="Bold"
+                                               Foreground="{StaticResource Brush.Acento}"
+                                               TextTrimming="CharacterEllipsis" MinWidth="70" />
+                                    <TextBlock Text="{Binding Descricao}" FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <TextBlock Text="{Binding Grupo}" Style="{StaticResource TextoSuave}"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Sobreposição: último filho do Grid. Aqui só o VAZIO existe — a lista é
+                     de memória, então não há "carregando" nem falha de leitura. -->
+                <ctrl:EstadoDaTela Itens="{Binding Resultados}"
+                                   TextoVazio="Nenhum código desta lista bate com o que você digitou. Feche e digite o código direto no campo — ele aceita qualquer um." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</Window>

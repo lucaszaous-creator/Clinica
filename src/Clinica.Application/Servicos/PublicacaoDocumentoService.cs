@@ -313,11 +313,23 @@ public sealed class PublicacaoDocumentoService
     /// Não apaga registro nenhum: os bytes assinados continuam no banco pelos 20 anos da
     /// Lei 13.787/2018. O que sai do ar é a publicação.
     /// </summary>
-    public async Task DespublicarAsync(
-        DocumentoClinico documento, CancellationToken ct = default)
+    /// <param name="operador">
+    /// Quem mandou tirar do ar. Nulo = a própria rotina (cancelamento, expiração).
+    /// Desde que existe BOTÃO para isto (parcela 63), a trilha precisa distinguir "o
+    /// sistema expirou o link" de "a Ana tirou a receita do ar às 14h" — são a rotina e
+    /// uma DECISÃO, e é a segunda que uma investigação procura.
+    /// </param>
+    /// <returns>
+    /// <c>true</c> quando o arquivo saiu mesmo do ar. <c>false</c> quando a remoção
+    /// FALHOU e ele continua acessível — quem chamou precisa saber, senão a tela diz
+    /// "saiu do ar" com o arquivo lá, que é falha exibida como sucesso.
+    /// </returns>
+    public async Task<bool> DespublicarAsync(
+        DocumentoClinico documento, string? operador = null, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(documento.TokenPublicacao)) return;
-        if (documento.PublicadoAte is null) return;
+        // Nada publicado é sucesso, não falha: o objetivo ("não estar no ar") já vale.
+        if (string.IsNullOrWhiteSpace(documento.TokenPublicacao)) return true;
+        if (documento.PublicadoAte is null) return true;
 
         try
         {
@@ -331,20 +343,21 @@ public sealed class PublicacaoDocumentoService
             Diagnostico.Registrar(
                 $"Publicação — {documento.Numero} não pôde ser retirada do ar "
                 + $"(caminho {PublicacaoDocumento.CaminhoDoObjeto(documento.TokenPublicacao!)})", ex);
-            return;
+            return false;
         }
 
         documento.PublicadoAte = null;
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
-            Operador = "sistema",
+            Operador = string.IsNullOrWhiteSpace(operador) ? "sistema" : operador!,
             Acao = "DocumentoDespublicado",
             PacienteId = documento.PacienteId,
             Detalhe = $"{documento.Numero} · link retirado do ar"
         }, ct);
 
         await _repo.SalvarAsync(ct);
+        return true;
     }
 
     /// <summary>
@@ -363,8 +376,12 @@ public sealed class PublicacaoDocumentoService
         foreach (var documento in vencidos)
         {
             ct.ThrowIfCancellationRequested();
-            await DespublicarAsync(documento, ct);
-            saíram++;
+
+            // Operador nulo = a rotina. É a expiração, não a decisão de alguém — e a
+            // trilha precisa distinguir as duas desde que existe botão para tirar do ar.
+            // Só conta o que SAIU mesmo: o que o provedor recusou continua acessível, e
+            // somá-lo faria o número dizer que a limpeza foi maior do que foi.
+            if (await DespublicarAsync(documento, operador: null, ct)) saíram++;
         }
 
         return saíram;

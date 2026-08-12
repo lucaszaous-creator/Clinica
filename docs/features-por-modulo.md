@@ -53,7 +53,7 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 | # | Feature | Módulo dono | Estado | Parcela |
 |---|---|---|---|---|
 | 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
-| 02 | Agenda multiprofissional | Recepção | 🟡 | 1 e 5 |
+| 02 | Agenda multiprofissional | Recepção | ✅ | 1, 5 e 63 |
 | 03 | Fila em kanban | Recepção | ✅ | 1 |
 | 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
@@ -67,14 +67,13 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 | 13 | Permissões e LGPD | Gerente / Recepção | ✅ | 5 |
 | 14 | Faturamento TISS 4.01 | Faturamento | ✅ | — |
 
-**Placar: 13 completas e 1 parcial (a agenda, sem a visão por SALA).**
+**Placar: as 14 completas.**
 
-> A 02 voltou a 🟡 na parcela 62, e não porque perdeu alguma coisa: ela **nunca teve** a
-> visão por sala, e a linha dizia ✅ porque o CAMPO `SalaId` existe. Campo não é tela. A
-> sala é gravada, respeitada no choque (com a capacidade dela) e bloqueável por período;
-> o que não há é modo de grade que a use como coluna. Marcar ✅ aqui é a versão em
-> planilha do defeito recorrente do projeto — o mesmo que fez o `PacoteService` passar
-> cinco parcelas testado e sem chamador.
+> A 02 voltou a ✅ na parcela **63**, e o caminho até aqui é a lição: ela estava marcada
+> ✅ desde a parcela 1 porque o CAMPO `SalaId` existe; a auditoria da parcela 62 a
+> devolveu a 🟡 ao descobrir que **campo não é tela**; e a 63 construiu a visão que
+> faltava. O ✅ de agora é o primeiro que corresponde a uma coluna que a recepcionista
+> consegue ver.
 
 | Estado | Features |
 |---|---|
@@ -143,13 +142,14 @@ zero.**
 > profissional tem na agenda. As guias pendentes aparecem só para os pacientes de HOJE
 > — é o único momento barato de cobrar o documento.
 
-### Feature 02 · Agenda multiprofissional — 🟡 · parcela 1
+### Feature 02 · Agenda multiprofissional — ✅ · parcelas 1, 5 e 63
 
 | Item | Estado | Onde / observação |
 |---|---|---|
 | Grade de horários com remarcação | ✅ | `AgendaView` (Recepção) + `AgendaService.RemarcarAsync` |
 | Visão por profissional | ✅ | uma coluna por profissional na grade (`AgendaViewModel.Colunas`) |
-| **Visão por SALA** | ❌ | **não existe.** A sala é gravada (`Agendamento.SalaId`), respeitada no choque com a capacidade dela e bloqueável por período — mas não há modo de grade que a use como coluna. A linha dizia ✅ desde a parcela 1 porque o CAMPO existe; campo não é tela (parcela 62) |
+| **Visão por SALA** | ✅ | **parcela 63** — `AgendaViewModel.AgruparPorSala`: as colunas viram as salas, o vão livre leva a sala para o formulário (`SalaPreferidaId`) e "Sem sala" continua aparecendo, porque é o caso NORMAL desta clínica. Vale no modo dia; na semana as colunas já são os dias |
+| **Vão FECHADO na grade** | ✅ | **parcela 63** — férias, feriado e folga aparecem pintados com o motivo. A marcação já era recusada pelo `AgendaService`; o vão bloqueado era visualmente idêntico ao livre, e o livre é clicável desde a parcela 58 |
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
 | Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26) |
@@ -1093,11 +1093,14 @@ Levantado no código, não na memória. Conferido de novo na **parcela 48**.
 | ~~Sala de infusão fora do alcance da enfermagem~~ | Recepção | **✅ parcela 48** — a tela subiu para o shell; os dois módulos publicam a mesma chave |
 | NFS-e no fechamento | Financeiro | Depende de integração fiscal municipal — decisão comercial |
 | Gerar lote TISS pelo Gerente | Gerente | **Decisão de projeto, não pendência**: o número do lote é sequência do faturamento, e dois apps gerando em paralelo produziriam dois com o mesmo número |
-| **Conciliação bancária (OFX)** | Financeiro | O extrato do banco ainda é conferido a olho contra a tela de recebíveis |
-| **Faixa lateral de 300–400 px** | Financeiro · Gerente | `ContasView`, `EstoqueView`, `PacotesView`, `RepassesView`, `AcessosView`, `CampanhasView` ainda têm o padrão que o `README.md` proíbe. A Recepção foi limpa nas parcelas 47 e 48 |
+| ~~**Conciliação bancária (OFX)**~~ | Financeiro | **✅ parcela 63** — `LeitorOfx` + `ConciliacaoBancariaService` + aba "Extrato do banco". O sistema PROPÕE o par e a pessoa confirma; nada concilia sozinho |
+| ~~**Faixa lateral de 300–400 px**~~ | Financeiro · Gerente | **✅ já estava paga** — a parcela 49 converteu as cinco do Financeiro (catálogo de pacotes, contas fixas, regras de repasse, validades do estoque, alíquota) em botão + janela. A varredura da parcela 63 conferiu as seis telas e **nenhuma tem faixa**: os 330 px do `AcessosView` e os 300 do `CampanhasView` são a coluna de **Ações** de uma tabela de largura inteira — o falso positivo que a parcela 54 já tinha documentado. Esta linha estava obsoleta |
 
-> Só as três últimas continuam abertas, e nenhuma delas está na proposta comercial — são
-> evolução levantada no código, não dívida com o cliente.
+> **Nenhuma continua aberta.** As três últimas foram fechadas na parcela 63 — e a de
+> leiaute só precisava ser CONFERIDA: já estava paga desde a 49, e a planilha é que não
+> tinha sido atualizada. É o defeito da feature 02 pelo avesso (lá o ✅ mentia a favor,
+> aqui o pendente mentia contra), e a lição é a mesma: **linha de placar sem conferência
+> no código é chute com aparência de registro.**
 
 ## Divergências da proposta
 

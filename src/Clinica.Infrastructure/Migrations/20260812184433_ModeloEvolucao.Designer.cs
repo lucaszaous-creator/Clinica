@@ -3,6 +3,7 @@ using System;
 using Clinica.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Clinica.Infrastructure.Migrations
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260812184433_ModeloEvolucao")]
+    partial class ModeloEvolucao
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1769,9 +1772,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int?>("CodigoFaturamentoId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("ConciliadoEm")
-                        .HasColumnType("timestamp without time zone");
-
                     b.Property<string>("Convenio")
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
@@ -1808,10 +1808,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<string>("FormaPagamento")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
-
-                    b.Property<string>("IdBancario")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("ModalidadeCartao")
                         .HasMaxLength(30)
@@ -1880,8 +1876,6 @@ namespace Clinica.Infrastructure.Migrations
                     b.HasIndex("Data");
 
                     b.HasIndex("DataVencimento");
-
-                    b.HasIndex("IdBancario");
 
                     b.HasIndex("OrigemRecorrencia")
                         .IsUnique();

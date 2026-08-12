@@ -49,6 +49,44 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
     [ObservableProperty] private string? _textoEvolucao;
     [ObservableProperty] private string? _orientacoes;
 
+    /// <summary>
+    /// O roteiro da sessão que se repete (parcela 63). A janela mora no SHELL porque a
+    /// evolução é escrita aqui e no Consultório.
+    ///
+    /// Ela devolve o texto e <b>não grava nada</b>: quem efetiva continua sendo o Salvar
+    /// desta tela — a mesma regra de "repetir a sessão anterior" do mapa corporal.
+    /// </summary>
+    [RelayCommand]
+    private void AbrirModelos()
+    {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "usar modelos de evolução");
+
+        var vm = new ModelosEvolucaoViewModel(
+            _escopos,
+            Profissional?.Id ?? SessaoUsuario.Atual.ProfissionalId,
+            new ModeloAplicado(QueixaPrincipal, Conduta, TextoEvolucao, Orientacoes));
+
+        var janela = new ModelosEvolucaoWindow(vm)
+        {
+            Owner = System.Windows.Application.Current?.Windows
+                        .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
+                    ?? System.Windows.Application.Current?.MainWindow
+        };
+
+        if (janela.ShowDialog() != true || janela.Escolhido is not { } m) return;
+
+        // Só sobrescreve o campo que o modelo TEM. Um modelo que traz conduta e
+        // orientações não pode apagar a queixa que a pessoa acabou de digitar ouvindo o
+        // paciente — aplicar é preencher o que falta, não zerar a tela.
+        if (!string.IsNullOrWhiteSpace(m.QueixaPrincipal)) QueixaPrincipal = m.QueixaPrincipal;
+        if (!string.IsNullOrWhiteSpace(m.Conduta)) Conduta = m.Conduta;
+        if (!string.IsNullOrWhiteSpace(m.TextoEvolucao)) TextoEvolucao = m.TextoEvolucao;
+        if (!string.IsNullOrWhiteSpace(m.Orientacoes)) Orientacoes = m.Orientacoes;
+
+        Mensagem = "Modelo aplicado. Confira o texto e salve a sessão — nada foi gravado ainda.";
+        MensagemEhErro = false;
+    }
+
     [ObservableProperty] private string _titulo = "Nova sessão no prontuário";
     [ObservableProperty] private string _mensagem = string.Empty;
     [ObservableProperty] private bool _mensagemEhErro;

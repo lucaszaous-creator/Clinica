@@ -167,17 +167,6 @@ public sealed class PacoteService
         return pacote;
     }
 
-    /// <summary>Amarra o pagamento já lançado no caixa ao pacote vendido.</summary>
-    public async Task VincularPagamentoAsync(
-        int pacoteId, int lancamentoId, CancellationToken ct = default)
-    {
-        var pacote = await _repo.ObterPacotePacienteAsync(pacoteId, ct)
-            ?? throw new InvalidOperationException("Pacote não encontrado.");
-
-        pacote.LancamentoFinanceiroId = lancamentoId;
-        await _repo.SalvarAsync(ct);
-    }
-
     /// <summary>Cancela a venda. Não apaga: o histórico e os consumos continuam lá.</summary>
     public async Task CancelarAsync(
         int pacoteId, string motivo, string? operador = null, CancellationToken ct = default)

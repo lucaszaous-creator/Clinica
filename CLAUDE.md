@@ -1842,6 +1842,73 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   escrito. É o defeito recorrente do projeto na versão mais barata de cometer e a mais cara
   de descobrir: em produção, quem o encontra é o cliente lendo a própria proposta.
 
+- **A varredura de "capacidade sem porta" achou o contrário: código morto que DUPLICA a
+  tela** (parcela 63). Varrer os 50+ serviços por método sem chamador em produção
+  devolveu ~20 nomes, e quase nenhum era feature faltando — eram **segundas definições**
+  do que a tela já faz por outro caminho (`PerderAsync` ao lado do movimento genérico de
+  perda, `AtrasadosAsync` ao lado do atraso que a tela de Recebíveis já calcula,
+  `ConferirConformidadeAsync` ao lado do `ConformidadeDocumentoClinico.Conferir` estático,
+  os quatro do `MapaCorporalService` ao lado do que o ViewModel faz em memória). Oito com
+  ZERO referência em `src` e em `tests` foram removidos. **Duas definições da mesma regra
+  divergem na primeira correção, e a que ninguém lembra de ajustar é sempre a segunda.**
+  ⚠️ E a varredura tem um resultado que só aparece depois de conferir caso a caso: dos
+  seis "métodos órfãos" que eu tinha listado como buraco de feature, **um era falso** — a
+  tela de Recebíveis já marca e conta os depósitos atrasados. Método sem chamador é
+  SINTOMA, não diagnóstico: antes de construir a porta, procure se a tela não a tem por
+  outro caminho.
+
+- **O que a auditoria de features achou, e o padrão que se repete** (parcela 63): quatro
+  capacidades prontas sem porta, duas features que nunca existiram, e uma linha de placar
+  que estava errada nos DOIS sentidos.
+  **A agenda ganhou as duas metades que faltavam da feature 02.** A visão por SALA nunca
+  existiu — a sala era gravada, respeitada no choque com a capacidade dela e bloqueável
+  por período, e nenhum modo de grade a usava como coluna. E o **vão fechado** era
+  visualmente idêntico ao vão livre, que é clicável desde a parcela 58: a recepcionista
+  escolhia o paciente, preenchia o formulário e levava a recusa do `AgendaService` no
+  Salvar, com ele na frente dela. Os bloqueios são lidos por PERÍODO e cruzados em
+  memória — havia um `BloqueioDoHorarioAsync` que respondia por um vão só e nunca teve
+  chamador, e usá-lo daria ~150 idas ao banco para desenhar uma tela. "Sem sala" é coluna
+  de primeira classe: metade dos horários não informa sala, e escondê-los faria a visão
+  por sala mostrar um dia cheio como se estivesse vazio.
+  ⚠️ **O bug mais grave da parcela não estava na lista: CANCELAR uma receita não a tirava
+  do ar.** A documentação do `PublicacaoDocumentoService` afirmava, desde a parcela 53,
+  que o cancelamento despublicava; a única chamada de `DespublicarAsync` era a da
+  EXPIRAÇÃO. O papel dizia "CANCELADA" e o endereço público continuava entregando o PDF
+  assinado por até 180 dias. A correção mora no SERVIÇO porque o cancelamento tem
+  **quatro portas** (ficha do paciente, Prescrições e dois caminhos da central) — a mesma
+  razão pela qual a crítica do número da guia mora no `FaturamentoService`. De quebra,
+  `DespublicarAsync` passou a devolver `bool` e a receber o operador: engolir a falha do
+  S3 fazia a tela dizer "saiu do ar" com o arquivo ainda acessível, que é falha exibida
+  como sucesso.
+  **O modelo de evolução** fechou a lacuna mais cara do dia a dia clínico: `ModeloDocumento`
+  existe desde a parcela 3 e serve só aos papéis IMPRESSOS, enquanto a evolução — o texto
+  mais escrito do sistema — era redigitada por inteiro a cada sessão. Vale a regra do
+  protocolo do mapa corporal: **aplicar COPIA, nunca aponta**, e aqui ela não é desenho, é
+  a Lei 13.787/2018 — referência viva faria corrigir uma palavra do roteiro hoje reescrever
+  o prontuário da semana passada. É por copiar que o modelo é a única coisa "de prontuário"
+  que **se apaga mesmo**. O índice de nome é POR DONO: um global faria o "Sessão padrão" de
+  um profissional sobrescrever o de outro em silêncio.
+  **O CID-10 virou atalho com conferência.** O campo era texto livre em `DocumentoClinico`
+  e em `ProblemaPaciente`, e "M54.4" digitado no lugar de "M54.5" é tão plausível quanto
+  ele — nada denunciava. O catálogo mora em CÓDIGO pelo desenho das escalas (classificação
+  PUBLICADA, não configuração da clínica) e **não é a CID-10 inteira**: são os códigos
+  desta clínica, o campo continua aceitando qualquer texto, e a tela diz isso. Recusar o
+  que está fora da lista seria a regra apertada demais que o projeto já rejeitou no
+  formato do número da guia. A metade que pega o erro é a DESCRIÇÃO ao lado do campo.
+  **A conciliação bancária por OFX** fechou o último ponto do financeiro em que o mês
+  dependia de alguém não se distrair. O leitor é à mão (o OFX 1.x tem tags que não fecham
+  — não é XML), o valor é lido em cultura INVARIANTE (em pt-BR, "-2500.00" viraria
+  -250000), e o sistema **propõe, a pessoa confirma**. A folga de datas é de três dias e
+  não de trinta: folga grande casaria o aluguel de julho com o de agosto e a tela passaria
+  a pedir desempate em tudo, que é como se ensina alguém a clicar sem olhar. A metade que
+  ninguém pede é `SoNoSistema` — dado como recebido aqui e ausente do banco.
+  ⚠️ **E a "dívida de leiaute" das seis telas já estava PAGA** desde a parcela 49; a
+  planilha é que não tinha sido atualizada. Os 330 px do `AcessosView` e os 300 do
+  `CampanhasView` são a coluna de **Ações** — o falso positivo que a parcela 54 já
+  documentara. Somado ao ✅ falso da feature 02, a lição fecha nos dois sentidos: **linha
+  de placar sem conferência no código é chute com aparência de registro**, e ela erra
+  tanto a favor quanto contra.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

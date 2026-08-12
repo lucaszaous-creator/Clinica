@@ -288,6 +288,20 @@
                                                         MinWidth="100" Margin="0,0,6,0"
                                                         Visibility="{Binding PodeRenovarLink,
                                                                      Converter={StaticResource BoolParaVisibilidade}}" />
+
+                                                <!-- O par que faltava do Renovar (parcela 63).
+                                                     Receita publicada por engano ficava no ar
+                                                     até o prazo vencer — 30 ou 180 dias de dado
+                                                     de saúde num endereço público. -->
+                                                <Button Content="Tirar do ar"
+                                                        Command="{Binding DataContext.TirarDoArCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="O QR impresso para de abrir na hora. O documento continua guardado e o link pode voltar depois."
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        MinWidth="100" Margin="0,0,6,0"
+                                                        Visibility="{Binding PodeTirarDoAr,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}" />
                                                 <Button Content="Cancelar"
                                                         Command="{Binding DataContext.CancelarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=UserControl}}"

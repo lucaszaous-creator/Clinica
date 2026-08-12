@@ -1221,6 +1221,36 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             ct);
     }
 
+    public async Task<IReadOnlyList<ModeloEvolucao>> ModelosEvolucaoAsync(
+        int? profissionalId = null, CancellationToken ct = default)
+        => await _db.ModelosEvolucao.AsNoTracking()
+            .Where(m => m.Ativo
+                        && (m.ProfissionalId == null
+                            || (profissionalId != null && m.ProfissionalId == profissionalId)))
+            // Os da CLÍNICA primeiro: é o padrão combinado, e quem abre a lista pela
+            // primeira vez deve encontrá-lo antes dos atalhos pessoais de alguém.
+            .OrderBy(m => m.ProfissionalId == null ? 0 : 1)
+            .ThenBy(m => m.Ordem).ThenBy(m => m.Nome)
+            .ToListAsync(ct);
+
+    public Task<ModeloEvolucao?> ObterModeloEvolucaoAsync(int modeloId, CancellationToken ct = default)
+        => _db.ModelosEvolucao.FirstOrDefaultAsync(m => m.Id == modeloId, ct);
+
+    public Task<ModeloEvolucao?> ObterModeloEvolucaoPorNomeAsync(
+        int? profissionalId, string nome, CancellationToken ct = default)
+        => _db.ModelosEvolucao.FirstOrDefaultAsync(
+            m => m.ProfissionalId == profissionalId && m.Nome == nome, ct);
+
+    public async Task AdicionarModeloEvolucaoAsync(
+        ModeloEvolucao modelo, CancellationToken ct = default)
+        => await _db.ModelosEvolucao.AddAsync(modelo, ct);
+
+    public async Task RemoverModeloEvolucaoAsync(int modeloId, CancellationToken ct = default)
+    {
+        if (await _db.ModelosEvolucao.FirstOrDefaultAsync(m => m.Id == modeloId, ct) is { } m)
+            _db.ModelosEvolucao.Remove(m);
+    }
+
     public async Task<IReadOnlyList<ModeloDocumento>> ModelosDocumentoAsync(
         TipoDocumentoClinico? tipo = null, CancellationToken ct = default)
         => await _db.ModelosDocumento.AsNoTracking()

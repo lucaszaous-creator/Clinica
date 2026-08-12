@@ -69,6 +69,16 @@ public sealed class LinhaFolhaEmitida
     public bool PodeRenovarLink { get; init; }
 
     /// <summary>
+    /// O link está no ar e dá para TIRÁ-LO (parcela 63) — o par que faltava do renovar.
+    ///
+    /// Até aqui a publicação só saía do ar sozinha, na expiração. Receita publicada por
+    /// engano — o paciente errado, o documento errado — ficava acessível por quem tivesse
+    /// o endereço até o prazo vencer, que a clínica configura em 30 ou 180 dias. É dado
+    /// de saúde num endereço público: quem publica precisa poder despublicar.
+    /// </summary>
+    public bool PodeTirarDoAr { get; init; }
+
+    /// <summary>
     /// O que dizer sobre o link, ou vazio quando o documento nunca teve um. Frase inteira
     /// e não um selo: "no ar até 09/10" e "link vencido" levam a ações diferentes, e um
     /// ícone obrigaria a recepção a decorar o que ele quer dizer.
@@ -358,6 +368,11 @@ public sealed partial class DocumentosViewModel : ObservableObject
         // Renovar só faz sentido para o que JÁ teve link e saiu do ar. Documento cancelado
         // não volta — receita cancelada baixável é a pior espécie de arquivo no ar.
         PodeRenovarLink = e.JaTeveLink && !e.Cancelado && PodeMexer(e) && !NoAr(e),
+
+        // Tirar do ar é o inverso exato, e por isso vale INCLUSIVE para o cancelado: o
+        // cancelamento já despublica, mas se aquela remoção falhou (S3 fora do ar na hora)
+        // o arquivo continua acessível — e é justamente aí que o botão precisa existir.
+        PodeTirarDoAr = NoAr(e) && PodeMexer(e),
 
         Link = !e.JaTeveLink ? string.Empty
             : NoAr(e) ? $"link no ar até {e.PublicadoAte:dd/MM/yyyy}"
@@ -745,6 +760,84 @@ public sealed partial class DocumentosViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — link do documento não pôde ser republicado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Tira o link do ar AGORA (parcela 63).
+    ///
+    /// <c>DespublicarAsync</c> existia desde a parcela 53 e só era chamado por dentro — no
+    /// cancelamento e na expiração. Não havia botão: uma receita publicada por engano
+    /// ficava acessível a quem tivesse o endereço até o prazo vencer (30 ou 180 dias, como
+    /// a clínica configurou). Dado de saúde num endereço público sem forma de retirá-lo é
+    /// o oposto do que os pontos 5 e 10 do documento de conformidade prometem.
+    ///
+    /// <b>Não apaga registro nenhum</b>: os bytes assinados continuam no banco pelos 20
+    /// anos da Lei 13.787/2018. O que sai do ar é a PUBLICAÇÃO — e o documento pode voltar
+    /// depois pelo Renovar, com o mesmo token, para o QR já impresso continuar valendo.
+    ///
+    /// Pede confirmação porque tem consequência fora do sistema: o QR que o paciente
+    /// levou para a farmácia para de abrir na hora.
+    /// </summary>
+    [RelayCommand]
+    private async Task TirarDoArAsync(LinhaFolhaEmitida? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                linha.AcessoParaMexer, $"tirar do ar o link de {linha.Folha.ToLowerInvariant()}");
+
+            if (!linha.PodeTirarDoAr)
+            {
+                Mensagem = $"{linha.Numero} não tem link no ar para tirar.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            if (!_dialogo.Confirmar(
+                    "Tirar o link do ar",
+                    $"Tirar do ar o link de {linha.Numero}?\n\n"
+                    + "O QR impresso que o paciente levou para a farmácia para de abrir "
+                    + "imediatamente. O documento e a assinatura continuam guardados, e o "
+                    + "link pode voltar depois pelo \"Renovar link\"."))
+                return;
+
+            using var scope = _escopos.CreateScope();
+            var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+
+            if (await documentos.ObterAsync(linha.DocumentoId) is not { } documento)
+            {
+                Mensagem = $"{linha.Numero} não foi encontrado.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            var saiu = await scope.ServiceProvider
+                .GetRequiredService<PublicacaoDocumentoService>()
+                .DespublicarAsync(documento, SessaoUsuario.Atual.Operador);
+
+            if (!saiu)
+            {
+                // O provedor recusou a remoção: o arquivo CONTINUA no ar. Dizer "saiu" aqui
+                // seria a pior mentira desta tela — a pessoa concluiria que resolveu.
+                Mensagem = $"{linha.Numero} NÃO saiu do ar: o armazenamento recusou a remoção. "
+                           + "O link continua acessível. Tente de novo em instantes; "
+                           + "persistindo, o caminho do arquivo está no log de erros.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            _snackbar.Sucesso($"{linha.Numero} saiu do ar. O documento continua guardado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — link do documento não pôde ser tirado do ar", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

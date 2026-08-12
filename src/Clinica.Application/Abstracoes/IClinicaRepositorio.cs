@@ -551,6 +551,26 @@ public interface IClinicaRepositorio
     Task<int> PrescricoesInternasPendentesAsync(
         DateOnly data, int? profissionalId = null, CancellationToken ct = default);
 
+    /// <summary>
+    /// Modelos de evolução visíveis para um profissional (parcela 63): os DELE mais os da
+    /// clínica. Sem profissional informado, só os da clínica.
+    ///
+    /// O modelo de evolução é a única coisa "de prontuário" que se APAGA mesmo, e isso é
+    /// decisão: ele não registra o que aconteceu com ninguém — é rascunho de apoio, e
+    /// aplicar COPIA, então nenhuma sessão escrita com ele muda quando ele some.
+    /// </summary>
+    Task<IReadOnlyList<ModeloEvolucao>> ModelosEvolucaoAsync(
+        int? profissionalId = null, CancellationToken ct = default);
+
+    Task<ModeloEvolucao?> ObterModeloEvolucaoAsync(int modeloId, CancellationToken ct = default);
+
+    /// <summary>Pelo par dono+nome — salvar com nome repetido SOBRESCREVE em vez de duplicar.</summary>
+    Task<ModeloEvolucao?> ObterModeloEvolucaoPorNomeAsync(
+        int? profissionalId, string nome, CancellationToken ct = default);
+
+    Task AdicionarModeloEvolucaoAsync(ModeloEvolucao modelo, CancellationToken ct = default);
+    Task RemoverModeloEvolucaoAsync(int modeloId, CancellationToken ct = default);
+
     /// <summary>Modelos de documento, opcionalmente de um tipo só.</summary>
     Task<IReadOnlyList<ModeloDocumento>> ModelosDocumentoAsync(
         TipoDocumentoClinico? tipo = null, CancellationToken ct = default);

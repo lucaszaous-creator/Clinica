@@ -96,6 +96,9 @@ public sealed class CelulaAgenda
     /// <summary>Dia + hora desta célula — é o que o formulário recebe já preenchido.</summary>
     public required DateTime Quando { get; init; }
 
+    /// <summary>A sala desta coluna, na visão por SALA. Nulo nas outras duas visões.</summary>
+    public int? SalaId { get; init; }
+
     public required ObservableCollection<CartaoAgenda> Cartoes { get; init; }
 
     public required bool Continuacao { get; init; }
@@ -105,8 +108,24 @@ public sealed class CelulaAgenda
     /// <summary>Já passou: marcar para trás é quase sempre engano de clique.</summary>
     public required bool NoPassado { get; init; }
 
-    /// <summary>Só o que está livre e no futuro convida a marcar.</summary>
-    public bool PodeMarcar => Livre && !NoPassado;
+    /// <summary>
+    /// O motivo do fechamento, quando a agenda está bloqueada aqui (parcela 63) — "Férias
+    /// da Ana", "Feriado". Nulo = aberto.
+    ///
+    /// A marcação JÁ era recusada pelo `AgendaService`; o que faltava era a grade dizer
+    /// antes. Um vão bloqueado é visualmente idêntico a um vão livre, e o vão livre é
+    /// clicável desde a parcela 58 — a recepcionista escolhia o paciente, preenchia o
+    /// formulário e levava a recusa no Salvar, com ele na frente dela.
+    /// </summary>
+    public string? Bloqueio { get; init; }
+
+    public bool Bloqueada => Bloqueio is not null;
+
+    /// <summary>Só o que está livre, no futuro e com a agenda aberta convida a marcar.</summary>
+    public bool PodeMarcar => Livre && !NoPassado && !Bloqueada;
+
+    /// <summary>Fechado E sem ninguém marcado: é o vão que mostra o motivo.</summary>
+    public bool MostrarBloqueio => Bloqueada && Livre;
 }
 
 /// <summary>Uma faixa de horário da grade — uma LINHA, com uma célula por coluna.</summary>
@@ -126,6 +145,10 @@ public sealed class FaixaAgenda
 public sealed class ColunaAgenda
 {
     public required int? ProfissionalId { get; init; }
+
+    /// <summary>A sala, quando a grade está agrupada por SALA. Nulo nas outras visões.</summary>
+    public int? SalaId { get; init; }
+
     public required string Nome { get; init; }
     public required string Resumo { get; init; }
     public required ObservableCollection<CartaoAgenda> Horarios { get; init; }
@@ -217,6 +240,23 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _modoSemana;
 
+    /// <summary>
+    /// As colunas passam a ser as SALAS (parcela 63) — a metade da feature 02 da proposta
+    /// que nunca existiu: a sala era gravada, respeitada no choque com a capacidade dela e
+    /// bloqueável por período, e não havia grade que a usasse como coluna.
+    ///
+    /// A pergunta que só esta visão responde é a do dia cheio: "a sala de infusão está
+    /// livre às 14h?" — na grade por profissional ela se responde varrendo seis colunas e
+    /// lendo o rodapé de cada cartão.
+    ///
+    /// Vale só no modo DIA. Na semana as colunas já são os dias, e cruzar as duas coisas
+    /// daria uma grade de sala × dia que não cabe em coluna nenhuma.
+    /// </summary>
+    [ObservableProperty] private bool _agruparPorSala;
+
+    /// <summary>Trocar de visão é escolher o agrupamento, e as duas não se somam.</summary>
+    public bool PodeAgruparPorSala => !ModoSemana;
+
     [ObservableProperty] private bool _carregando;
 
     /// <summary>
@@ -235,6 +275,18 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// dizer o que fazer, em vez de aparecer vazia sem explicação.
     /// </summary>
     [ObservableProperty] private bool _semProfissionais;
+
+    /// <summary>
+    /// Nenhuma sala cadastrada — a grade por sala não tem colunas, e a tela precisa dizer
+    /// por quê. Grade vazia se lê como defeito, não como cadastro faltando.
+    /// </summary>
+    [ObservableProperty] private bool _semSalas;
+
+    /// <summary>
+    /// Os fechamentos que alcançam o período aberto. Lidos uma vez por carga e
+    /// consultados pela montagem da grade, célula a célula, em memória.
+    /// </summary>
+    private IReadOnlyList<BloqueioAgenda> _bloqueios = [];
 
     /// <summary>
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
@@ -310,8 +362,16 @@ public sealed partial class AgendaViewModel : ObservableObject
         // Sair do foco do horário: "quem chamar para as 14h" é pergunta do modo dia.
         SugestaoPara = null;
         SugestaoProfissionalId = null;
+
+        // A semana já agrupa por dia. Deixar o agrupamento por sala LIGADO em silêncio
+        // faria a pessoa voltar ao dia e encontrar uma grade que ela não escolheu.
+        if (value) AgruparPorSala = false;
+
+        OnPropertyChanged(nameof(PodeAgruparPorSala));
         _ = CarregarAsync();
     }
+
+    partial void OnAgruparPorSalaChanged(bool value) => _ = CarregarAsync();
 
     partial void OnDiaChanged(DateTime value)
     {
@@ -359,6 +419,17 @@ public sealed partial class AgendaViewModel : ObservableObject
 
             SemProfissionais = profissionais.Count == 0;
 
+            // Zerado a cada carga: só o ramo da visão por sala o levanta, senão o aviso
+            // de "nenhuma sala cadastrada" ficaria de pé na grade por profissional, onde
+            // não quer dizer nada.
+            SemSalas = false;
+
+            // Os fechamentos que alcançam o que está na tela. Carregados JUNTO da grade e
+            // não por célula: a leitura é uma só para o período inteiro, e perguntar ao
+            // banco a cada vão daria ~300 consultas por dia aberto.
+            await CarregarBloqueiosAsync(scope, geracao);
+            if (geracao != _geracaoCarga) return;
+
             Colunas.Clear();
             Faixas.Clear();
 
@@ -366,6 +437,34 @@ public sealed partial class AgendaViewModel : ObservableObject
             {
                 await MontarSemanaAsync(agenda, profissionais, geracao);
                 if (geracao != _geracaoCarga) return;
+                MontarGrade();
+                await CarregarEsperaAsync(espera, geracao);
+                return;
+            }
+
+            // ===== A grade por SALA (parcela 63) =====
+            if (AgruparPorSala)
+            {
+                var salas = await equipe.SalasAtivasAsync();
+                if (geracao != _geracaoCarga) return;
+
+                SoMinhaAgenda = false;
+                SemSalas = salas.Count == 0;
+
+                foreach (var s in salas)
+                    Colunas.Add(MontarColuna(
+                        null, s.Nome, dia, doDia.Where(a => a.SalaId == s.Id), salaId: s.Id));
+
+                // "Sem sala" é o caso NORMAL nesta clínica, não resíduo: metade dos
+                // horários não informa sala, e escondê-los faria a grade por sala parecer
+                // um dia vazio. Ela só some quando de fato não há nenhum.
+                var semSala = doDia.Where(a => a.SalaId is null).ToList();
+                if (semSala.Count > 0)
+                    Colunas.Add(MontarColuna(null, "Sem sala", dia, semSala));
+
+                Resumo = $"{doDia.Count(a => a.OcupaAgenda)} horário(s) no dia · "
+                         + $"{salas.Count} sala(s)";
+
                 MontarGrade();
                 await CarregarEsperaAsync(espera, geracao);
                 return;
@@ -511,7 +610,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     private static readonly string[] Dias = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"];
 
     private static ColunaAgenda MontarColuna(
-        int? profissionalId, string nome, DateOnly data, IEnumerable<Agendamento> agendamentos)
+        int? profissionalId, string nome, DateOnly data, IEnumerable<Agendamento> agendamentos,
+        int? salaId = null)
     {
         var cartoes = new ObservableCollection<CartaoAgenda>();
         var ocupando = 0;
@@ -549,6 +649,7 @@ public sealed partial class AgendaViewModel : ObservableObject
         return new ColunaAgenda
         {
             ProfissionalId = profissionalId,
+            SalaId = salaId,
             Nome = nome,
             Data = data,
             Resumo = $"{ocupando} horário(s)",
@@ -631,10 +732,12 @@ public sealed partial class AgendaViewModel : ObservableObject
                 celulas.Add(new CelulaAgenda
                 {
                     ProfissionalId = coluna.ProfissionalId,
+                    SalaId = coluna.SalaId,
                     Quando = quando,
                     Cartoes = naFaixa,
                     Continuacao = coberta,
-                    NoPassado = quando < agora
+                    NoPassado = quando < agora,
+                    Bloqueio = BloqueioDe(quando, coluna.ProfissionalId, coluna.SalaId)
                 });
             }
 
@@ -646,6 +749,61 @@ public sealed partial class AgendaViewModel : ObservableObject
                 Celulas = celulas
             });
         }
+    }
+
+    /// <summary>
+    /// Os fechamentos que alcançam o que está na tela (parcela 63).
+    ///
+    /// O período é o do MODO: um dia, ou a semana inteira quando a grade está por dia da
+    /// semana. Falhar aqui NÃO derruba a agenda — a grade continua desenhada e sem os
+    /// avisos de fechamento, que é exatamente o comportamento de antes desta parcela. O
+    /// que não pode é passar calado: sem a linha no log, a clínica acreditaria que não há
+    /// férias marcadas.
+    /// </summary>
+    private async Task CarregarBloqueiosAsync(IServiceScope scope, int geracao)
+    {
+        try
+        {
+            var bloqueios = scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>();
+
+            var (inicio, fim) = ModoSemana
+                ? (SegundaDa(Dia), SegundaDa(Dia).AddDays(7))
+                : (Dia.Date, Dia.Date.AddDays(1));
+
+            var lista = await bloqueios.NoPeriodoAsync(inicio, fim);
+            if (geracao != _geracaoCarga) return;
+
+            _bloqueios = lista;
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCarga) return;
+
+            _bloqueios = [];
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — bloqueios da agenda não puderam ser lidos", ex);
+        }
+    }
+
+    /// <summary>A segunda-feira da semana da data — a mesma conta de <c>MontarSemanaAsync</c>.</summary>
+    private static DateTime SegundaDa(DateTime data)
+        => data.Date.AddDays(-(((int)data.DayOfWeek + 6) % 7));
+
+    /// <summary>
+    /// O fechamento que alcança este vão, ou nulo.
+    ///
+    /// A pergunta é feita com o recurso da COLUNA: na grade por profissional, o bloqueio
+    /// da sala 2 não fecha o vão da Ana — ela pode atender noutra sala. O da clínica
+    /// inteira fecha todos, nas três visões.
+    /// </summary>
+    private string? BloqueioDe(DateTime inicio, int? profissionalId, int? salaId)
+    {
+        if (_bloqueios.Count == 0) return null;
+
+        var fim = inicio.AddMinutes(PassoMinutos);
+
+        return _bloqueios.FirstOrDefault(
+            b => b.ColideCom(inicio, fim) && b.AlcancaRecurso(profissionalId, salaId))?.Motivo;
     }
 
     /// <summary>Minuto do dia arredondado para BAIXO no passo da grade.</summary>
@@ -742,11 +900,23 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
+        // Guarda com VOZ (a lição da parcela 41): o vão fechado é clicável no XAML apenas
+        // para poder dizer por que não dá — deixá-lo inerte faria a pessoa clicar duas ou
+        // três vezes concluindo que a tela travou.
+        if (celula.Bloqueio is { } motivo)
+        {
+            Mensagem = $"A agenda está fechada neste horário: {motivo}. "
+                       + "Para marcar mesmo assim, remova ou encurte o bloqueio em Profissionais e salas.";
+            MensagemEhErro = true;
+            return;
+        }
+
         await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
         {
             Data = celula.Quando.Date,
             Hora = celula.Quando.ToString("HH:mm"),
-            ProfissionalPreferidoId = celula.ProfissionalId
+            ProfissionalPreferidoId = celula.ProfissionalId,
+            SalaPreferidaId = celula.SalaId
         });
     }
 
