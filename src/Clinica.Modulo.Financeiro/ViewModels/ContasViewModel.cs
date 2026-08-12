@@ -116,6 +116,30 @@ public sealed partial class ContasViewModel : ObservableObject
     /// <summary>Null = tudo; senão só o que se paga ou só o que se recebe.</summary>
     [ObservableProperty] private TipoLancamento? _filtroTipo;
 
+    /// <summary>
+    /// A opção do combo que preenche <see cref="FiltroTipo"/>. O filtro existia completo
+    /// no ViewModel desde a parcela 12 e NUNCA foi ligado na tela — ficava eternamente
+    /// nulo, e a direção não tinha como ver só "o que eu tenho a pagar" numa lista que
+    /// mistura os dois sentidos. O par (rótulo, valor) existe porque enum anulável não
+    /// entra em ComboBox sem uma opção que diga "tudo".
+    /// </summary>
+    public sealed record OpcaoTipoConta(string Rotulo, TipoLancamento? Valor)
+    {
+        public override string ToString() => Rotulo;
+    }
+
+    public IReadOnlyList<OpcaoTipoConta> TiposDeConta { get; } =
+    [
+        new("Pagar e receber", null),
+        new("Só a pagar", TipoLancamento.Saida),
+        new("Só a receber", TipoLancamento.Entrada)
+    ];
+
+    [ObservableProperty] private OpcaoTipoConta? _tipoDeContaEscolhido;
+
+    partial void OnTipoDeContaEscolhidoChanged(OpcaoTipoConta? value)
+        => FiltroTipo = value?.Valor;
+
     // ---- Faixa de totais ----
     [ObservableProperty] private string _aPagarVencido = "—";
     [ObservableProperty] private string _aPagarAVencer = "—";
@@ -137,6 +161,11 @@ public sealed partial class ContasViewModel : ObservableObject
         _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
+
+        // A escolha nasce em "tudo" SEM disparar recarga: o setter põe FiltroTipo em
+        // null, que já é o valor inicial — e o CarregarAsync abaixo é a carga da abertura.
+        _tipoDeContaEscolhido = TiposDeConta[0];
+
         _ = CarregarAsync();
     }
 
