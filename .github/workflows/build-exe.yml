@@ -15,10 +15,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '8.0.x'
 
@@ -46,7 +46,7 @@ jobs:
           -o publish
 
       - name: Enviar artefato
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Clinica-Faturamento-win-x64
           path: publish/
@@ -69,7 +69,7 @@ jobs:
           -o publish-recepcao
 
       - name: Enviar artefato da Recepção
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Clinica-Recepcao-win-x64
           path: publish-recepcao/
@@ -87,7 +87,7 @@ jobs:
           -o publish-clinico
 
       - name: Enviar artefato do Consultório
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Clinica-Consultorio-win-x64
           path: publish-clinico/
@@ -105,7 +105,7 @@ jobs:
           -o publish-financeiro
 
       - name: Enviar artefato do Financeiro
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Clinica-Financeiro-win-x64
           path: publish-financeiro/
@@ -123,7 +123,7 @@ jobs:
           -o publish-gerente
 
       - name: Enviar artefato do Gerente Geral
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Clinica-Gerente-win-x64
           path: publish-gerente/

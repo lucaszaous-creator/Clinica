@@ -81,7 +81,9 @@ public sealed class PendenciaService
             ObservacaoPendencia: c.ObservacaoPendencia,
             ObservacaoPendenciaEm: c.ObservacaoPendenciaEm)
         {
-            ConvenioCodigo = paciente?.ConvenioCodigo
+            ConvenioCodigo = paciente?.ConvenioCodigo,
+            Modalidade = c.Atendimento?.Modalidade,
+            Especialidade = c.Especialidade ?? c.Atendimento?.EspecialidadeConsulta
         };
     }
 
@@ -125,7 +127,9 @@ public sealed class PendenciaService
                     ObservacaoPendenciaEm: c.NaoConformidadeEm,
                     EhNaoConformidade: true)
                 {
-                    ConvenioCodigo = paciente?.ConvenioCodigo
+                    ConvenioCodigo = paciente?.ConvenioCodigo,
+                    Modalidade = c.Atendimento?.Modalidade,
+                    Especialidade = c.Especialidade ?? c.Atendimento?.EspecialidadeConsulta
                 };
             })
             .OrderBy(p => p.PacienteNome)

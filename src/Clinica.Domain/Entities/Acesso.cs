@@ -246,7 +246,28 @@ public enum Permissao
     /// combinar um preço com o paciente; ler o dinheiro da clínica é outra coisa — o mesmo
     /// corte que a parcela 49 fez entre ficha e prontuário.
     /// </summary>
-    VenderPacote = 1 << 26
+    VenderPacote = 1 << 26,
+
+    /// <summary>
+    /// Mover a FILA do dia: registrar chegada, chamar, desfazer a chamada, marcar a
+    /// entrada e voltar o cartão uma etapa — os carimbos de hora da parcela 38.
+    ///
+    /// Existe porque o quadro tem DOIS lados (balcão e consultório) e o ato é o mesmo
+    /// fato na mesma tabela. Antes deste bit, a Recepção exigia <see cref="EditarAgenda"/>
+    /// e o Consultório aceitava <see cref="VerAgenda"/> — a mesma escrita com duas regras,
+    /// e a de baixo deixava quem só LÊ a agenda carimbar chamada pelo quadro do médico.
+    ///
+    /// O profissional recebe ESTE bit e não <see cref="EditarAgenda"/>: chamar o próprio
+    /// paciente é o gesto central do quadro dele, e marcar/remarcar horário de terceiros
+    /// continua sendo do balcão. A autorização do ato é UMA nos dois quadros:
+    /// <see cref="EditarAgenda"/> OU este bit (ver <c>SessaoUsuario.ExigirAlgum</c>) —
+    /// quem já movia a fila ontem pelo balcão continua movendo hoje.
+    ///
+    /// ⚠️ 1 &lt;&lt; 27, e não 26: o bit 26 já era <see cref="VenderPacote"/>, nascido em
+    /// paralelo noutra frente. Dois membros com o MESMO valor compilam — e "vender
+    /// pacote" passaria a ser "mover a fila" em toda base de produção, sem um aviso.
+    /// </summary>
+    MovimentarFila = 1 << 27
 }
 
 /// <summary>
@@ -343,7 +364,7 @@ public static class PerfisAcesso
         // somem da tela. Tirar a porta inteira levaria junto os quatro papéis que o balcão
         // emite todo dia.
         PerfilAcesso.Recepcao =>
-            Permissao.VerAgenda | Permissao.EditarAgenda |
+            Permissao.VerAgenda | Permissao.EditarAgenda | Permissao.MovimentarFila |
             Permissao.VerFichaPaciente | Permissao.EditarPaciente |
             Permissao.VerDocumentos |
             Permissao.VenderPacote |
@@ -352,9 +373,11 @@ public static class PerfisAcesso
 
         // ===== QUEM ATENDE =====
         // A ficha para saber quem é, o prontuário para saber o que foi feito, e a receita.
-        // Não mexe em agenda de terceiros nem em dinheiro.
+        // Não mexe em agenda de terceiros nem em dinheiro. MovimentarFila e não
+        // EditarAgenda: chamar o próprio paciente é o gesto central do quadro dele;
+        // marcar e remarcar horário continua sendo do balcão.
         PerfilAcesso.Profissional =>
-            Permissao.VerAgenda |
+            Permissao.VerAgenda | Permissao.MovimentarFila |
             Permissao.VerFichaPaciente |
             Permissao.VerProntuario | Permissao.EditarProntuario |
             Permissao.VerDocumentos |
@@ -445,6 +468,7 @@ public static class PerfisAcesso
     {
         Permissao.VerAgenda => "Ver agenda e fila",
         Permissao.EditarAgenda => "Marcar e remarcar",
+        Permissao.MovimentarFila => "Chamar e mover a fila do dia",
         Permissao.VerFichaPaciente => "Ver ficha do paciente",
         Permissao.EditarPaciente => "Cadastrar e editar paciente",
         Permissao.VerDocumentos => "Abrir a central de documentos",
@@ -487,7 +511,8 @@ public static class PerfisAcesso
     /// </summary>
     public static string Assunto(Permissao permissao) => permissao switch
     {
-        Permissao.VerAgenda or Permissao.EditarAgenda => "Agenda e balcão",
+        Permissao.VerAgenda or Permissao.EditarAgenda
+            or Permissao.MovimentarFila => "Agenda e balcão",
 
         Permissao.VerFichaPaciente or Permissao.EditarPaciente
             or Permissao.VerDocumentos => "Paciente (cadastro)",
@@ -520,6 +545,10 @@ public static class PerfisAcesso
     {
         Permissao.VerAgenda => "Abrir a agenda, a fila do dia e o painel do balcão.",
         Permissao.EditarAgenda => "Marcar, remarcar, cancelar, dar check-in e concluir.",
+        Permissao.MovimentarFila =>
+            "Mover a fila do dia: registrar chegada, chamar o paciente, marcar a entrada e "
+            + "voltar o cartão. É o que o profissional usa no quadro dele — não inclui "
+            + "marcar nem remarcar horário.",
 
         Permissao.VerFichaPaciente =>
             "Cadastro, contato, convênio, carteirinha, autorizações e documentos emitidos. "

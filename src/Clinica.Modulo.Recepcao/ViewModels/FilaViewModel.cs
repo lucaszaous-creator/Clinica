@@ -532,7 +532,10 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task RegistrarChegadaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            // Mover a fila é UM ato com UMA regra nos dois quadros (balcão e consultório):
+            // EditarAgenda OU MovimentarFila — ver a nota no enum Permissao (parcela 61).
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
             await _agenda.RegistrarChegadaAsync(c.AgendamentoId);
 
@@ -596,7 +599,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task ChamarAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
             await _agenda.ChamarAsync(c.AgendamentoId);
             _snackbar.Info($"{c.Paciente} chamado — anuncie para a sala {c.Sala}.");
@@ -607,7 +611,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task IniciarAtendimentoAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
             await _agenda.IniciarAtendimentoAsync(c.AgendamentoId);
             _snackbar.Sucesso($"{c.Paciente} em atendimento.");
@@ -653,7 +658,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task VoltarEtapaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
             await _agenda.VoltarEtapaAsync(c.AgendamentoId);
             _snackbar.Info("Cartão devolvido para a coluna anterior.");

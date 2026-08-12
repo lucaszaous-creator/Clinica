@@ -105,6 +105,29 @@ public sealed class SessaoUsuario
             $"Seu acesso não permite {acao}. Fale com a direção da clínica.");
     }
 
+    /// <summary>
+    /// Basta UM dos bits — para o ato que DUAS permissões alcançam.
+    ///
+    /// <see cref="Pode"/> com bits combinados exige TODOS (é um E, não um OU), então o
+    /// ato coberto por mais de um bit precisa desta variante. O caso que a criou é a
+    /// fila do dia (parcela 61): <see cref="Permissao.EditarAgenda"/> sempre a moveu
+    /// pelo balcão, e <see cref="Permissao.MovimentarFila"/> é o corte estreito de quem
+    /// atende — exigir só o bit novo tiraria a fila de quem a movia ontem.
+    /// </summary>
+    public bool PodeAlgum(Permissao permissoes)
+        => !Autenticado
+           || permissoes == Permissao.Nenhuma
+           || (Permissoes & permissoes) != 0;
+
+    /// <summary>A segunda barreira de <see cref="PodeAlgum"/> — mesma regra do <see cref="Exigir"/>.</summary>
+    public void ExigirAlgum(Permissao permissoes, string acao)
+    {
+        if (PodeAlgum(permissoes)) return;
+
+        throw new InvalidOperationException(
+            $"Seu acesso não permite {acao}. Fale com a direção da clínica.");
+    }
+
     /// <summary>Grava a fotografia do usuário que acabou de entrar.</summary>
     public void Entrar(UsuarioSistema usuario)
     {

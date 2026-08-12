@@ -134,6 +134,15 @@ Duas decisões que valem explicar a quem audita:
 - **A trilha é somente leitura.** Não há exclusão nem edição, nem no código nem na tela.
   Registro de auditoria que se pode apagar não é auditoria, é rascunho.
 
+**Fechado na parcela 61** (auditoria de prontidão do módulo clínico): as portas clínicas
+que expunham dado de saúde sem registrar — Prescrições, Prescrição de infusão, Anexos e a
+Folha de execução da sala de infusão — passaram a registrar (origem "Documento"); a
+exportação de dado clínico para CSV ganhou origem própria ("ExportacaoClinica") e segunda
+barreira de permissão; e a pergunta da cliente ganhou a resposta AO PÉ DA LETRA numa tela:
+**"Quem abriu este prontuário"**, na Guarda do prontuário do Gerente Geral — operador,
+data/hora e porta, do mais recente para o mais antigo, sem precisar montar filtro na
+Auditoria.
+
 A ação é gravada **no mesmo `SaveChanges`** do ato que a originou: não existe baixa,
 alteração ou cancelamento que aconteça sem a linha correspondente.
 

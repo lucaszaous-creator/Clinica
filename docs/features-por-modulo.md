@@ -264,14 +264,18 @@ zero.**
 | Modelos de receita e orientação | ✅ | `ModeloDocumento`, aplicados, criados e **apagados** na `DocumentoWindow` (parcela 25) |
 | Impressão com a marca SemDor | ✅ | `DocumentosClinicosPdfService` (usa `MarcaSemDor`) |
 | Carimbo do profissional e código de conferência | ✅ | nome + registro no conselho, e `DocumentoClinico.CodigoVerificacao` |
-| Assinatura digital com certificado (ICP-Brasil) | ⬜ | **não entregue** — ver abaixo |
+| Assinatura digital com certificado (ICP-Brasil) | ✅ | **parcelas 42 e 43** — assinatura qualificada PAdES (PKCS#7 SHA-256) na folha de infusão e nos quatro documentos que saem da clínica, com CPF conferido de dentro do certificado |
 
-> **O que "assinatura digital" entrega hoje, e o que não entrega.** Sai impresso o
-> carimbo do profissional (nome e registro no conselho), a linha de assinatura e um
-> código de conferência que acha o documento no sistema para comparar com o papel.
-> **Não** há certificado ICP-Brasil: chamar o que existe de assinatura digital seria
-> mentir sobre o que a via garante. Se o cliente precisar de validade jurídica de
-> assinatura eletrônica, isso é escopo novo.
+> **O que "assinatura digital" entrega hoje, e o que não entrega.** Assinatura
+> QUALIFICADA ICP-Brasil (parcelas 42 e 43): PKCS#7 destacado SHA-256 embutido no PDF,
+> CPF do assinante conferido de dentro do certificado contra o cadastro do profissional,
+> carimbo do tempo RFC 3161 opcional e QR que leva ao validador de saúde do ITI. A via
+> sem assinatura eletrônica continua saindo com carimbo, linha de assinatura e código de
+> conferência — vale à caneta, como sempre valeu. O que **não** há é LTV/PAdES-LT (a
+> assinatura é PAdES-B, e o rodapé diz isso) nem receituário de controle especial
+> eletrônico (depende do SNCR da ANVISA). ⚠️ Pendência OPERACIONAL, não de código: a
+> assinatura nunca foi validada em campo com um e-CPF de verdade — sem certificado no
+> posto, assinar e publicar não funcionam em produção.
 
 > O modelo **nasce do documento que o profissional acabou de escrever** ("guardar como
 > modelo"), e não de uma tela de cadastro: ninguém senta para cadastrar modelos antes de
@@ -1095,9 +1099,11 @@ O documento já foi ao cliente. Estas precisam de decisão comercial:
 2. ~~**Página 23 marca ✓ em "Prontuário com mapa corporal e EVA"**~~ — **resolvida na
    parcela 3.** A EVA saiu na parcela 2 e o mapa corporal saiu agora; a afirmação passou
    a ser inteiramente verdadeira.
-3. **"Assinatura digital" da feature 07.** O que existe é carimbo do profissional, linha
-   de assinatura e código de conferência — **não** certificado ICP-Brasil. Se a clínica
-   precisar de validade jurídica de assinatura eletrônica, é escopo novo.
+3. ~~**"Assinatura digital" da feature 07.**~~ — **resolvida nas parcelas 42 e 43.** A
+   assinatura qualificada ICP-Brasil existe (PAdES-B, com QR para o validador de saúde do
+   ITI); a divergência que RESTA é operacional: falta o e-CPF da clínica para o teste de
+   campo, e sem ele a feature não opera em produção. Cobrar o certificado é ação
+   comercial, não técnica.
 4. **"Confirmação automática por WhatsApp" (feature 02).** O que a parcela 5 automatiza é
    a RODADA — descobrir quem confirmar, escrever a mensagem, aplicar a LGPD e não repetir
    ninguém. O **disparo continua sendo um clique por paciente**, de propósito: o número é

@@ -6,6 +6,7 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <DockPanel Margin="24,20,24,24">
@@ -61,7 +62,7 @@
         </Grid>
 
         <Border DockPanel.Dock="Top" Margin="0,0,0,12"
-                Visibility="{Binding Mensagem, Converter={StaticResource BoolParaVisibilidade},
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
                              FallbackValue=Collapsed}">
             <Border.Style>
                 <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">

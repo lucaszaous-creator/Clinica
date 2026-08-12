@@ -79,7 +79,7 @@ public sealed partial class NaoConformidadesGerencialViewModel : ObservableObjec
     private bool _montandoConvenios;
 
     partial void OnFiltroBuscaNcChanged(string value) => Refiltrar();
-    partial void OnFiltroConvenioNcChanged(string? value)
+    partial void OnFiltroConvenioNcChanged(string value)
     {
         if (value is null)
         {

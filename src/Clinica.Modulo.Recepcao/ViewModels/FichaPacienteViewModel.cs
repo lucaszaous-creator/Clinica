@@ -151,9 +151,12 @@ public sealed class LinhaDocumento
     /// <summary>
     /// Assinar depois existe porque emissão e assinatura nem sempre acontecem no mesmo
     /// minuto. Assinado não se reassina (dois arquivos válidos do mesmo ato, e nada
-    /// diria qual o paciente levou) e cancelado não se assina.
+    /// diria qual o paciente levou) e cancelado não se assina. Compõe com o acesso
+    /// (parcela 61), como o <see cref="PodeCancelar"/> logo acima: sem o bit o botão
+    /// ficava aceso e o clique estourava no Exigir.
     /// </summary>
-    public bool PodeAssinar => !Cancelado && !Assinado;
+    public bool PodeAssinar => !Cancelado && !Assinado
+        && SessaoUsuario.Atual.Pode(AcessoParaMexer);
 
     /// <summary>
     /// Só documento ASSINADO se entrega como arquivo. Mandar um PDF sem assinatura pelo

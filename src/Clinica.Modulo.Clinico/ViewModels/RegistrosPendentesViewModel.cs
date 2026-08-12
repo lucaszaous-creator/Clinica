@@ -54,7 +54,7 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
     private bool _montandoProfissionais;
 
     partial void OnFiltroPacienteRegistroChanged(string value) => Refiltrar();
-    partial void OnFiltroProfissionalRegistroChanged(string? value)
+    partial void OnFiltroProfissionalRegistroChanged(string value)
     {
         if (value is null)
         {

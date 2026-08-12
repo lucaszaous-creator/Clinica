@@ -59,8 +59,13 @@ public sealed class LinhaPrescricaoInterna
             Cancelada = p.Cancelada,
             TemAssinatura = p.AssinaturaDoPrescritor is not null,
             TemRegistroExecucao = p.Realizados + p.NaoRealizados > 0,
-            PodeCancelar = p.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada,
-            PodeEditar = p.PodeEditar
+            // O estado da linha COMPÕE com a permissão (parcela 61): sem o bit, o botão
+            // ficava aceso e o clique estourava no Exigir — botão aceso que só explode é
+            // o defeito da parcela 41. O Exigir do comando continua sendo a barreira que
+            // impede; esta é a metade que explica.
+            PodeCancelar = (p.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada)
+                           && SessaoUsuario.Atual.Pode(Permissao.Prescrever),
+            PodeEditar = p.PodeEditar && SessaoUsuario.Atual.Pode(Permissao.Prescrever)
         };
     }
 }

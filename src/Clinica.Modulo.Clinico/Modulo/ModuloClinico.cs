@@ -66,11 +66,11 @@ public sealed class ModuloClinico : IModuloApp
     /// <summary>
     /// A sala de infusão: as folhas assinadas do dia esperando execução. Sob permissão
     /// PRÓPRIA (<c>ChecarPrescricao</c>), porque quem checa não é quem prescreve — e é
-    /// serem duas pessoas que dá valor à conferência.
+    /// serem duas pessoas que dá valor à conferência. A chave mora em
+    /// <see cref="ChavesSuite"/> porque a Recepção publica a MESMA (parcela 48): duas
+    /// strings à mão divergiriam na primeira renomeação, em silêncio.
     /// </summary>
-    // A MESMA chave que a Recepção publica — a dedupe do shell funde as duas linhas no
-    // Gerente. Vem de ChavesSuite porque atravessa módulo (parcela 48).
-    public const string ChaveSalaInfusao = Clinica.Desktop.Shell.Modulos.ChavesSuite.SalaInfusao;
+    public const string ChaveSalaInfusao = ChavesSuite.SalaInfusao;
 
     /// <summary>
     /// A produtividade do profissional, na tela dele. <c>ProdutividadeProfissional</c> e

@@ -1721,6 +1721,76 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   com carga async NASCE com o contador; guarda de reentrância (`if (Carregando) return`)
   no método de carga é incompatível com ele (descarta a carga NOVA) e foi removida onde
   conflitava.
+- **A sala executa o que não alcançava imprimir** (parcela 61 — auditoria de prontidão do
+  módulo clínico antes de produção; achou onze lacunas, todas do defeito recorrente). Todo
+  o desenho da checagem da parcela 42 assume a via IMPRESSA (a enfermeira assina à caneta),
+  e a única porta de impressão morava na tela de quem PRESCREVE, num exe que a máquina da
+  enfermagem não instala. A impressão entrou na sala e na folha de execução; a folha também
+  se acha pelo **código impresso** (`PorCodigoAsync`, que estava sem chamador) — a técnica
+  está com o papel na mão, e a lista só mostra hoje. **Suspender item** ganhou porta na
+  folha de execução sob o bit `Prescrever` (é ato de quem prescreve, não de quem executa —
+  o botão fica fora do painel de `PodeMexer` de propósito). O contador de folhas aguardando
+  (`PendentesDoDiaAsync`, também sem chamador) virou alerta do painel da direção
+  (`AssuntoDirecao.InfusaoAguardando`), pelo argumento do prontuário em aberto: a sala vê a
+  própria fila, a direção é quem vê a soma. E o `DoDiaAsync` duplicado do
+  `PrescricaoInternaService` foi REMOVIDO: duas definições de "a fila da sala" divergem na
+  primeira correção, e a cópia sem chamador é a que ninguém lembraria de ajustar.
+- **Mover a fila é UM ato com UMA regra nos dois quadros** (`Permissao.MovimentarFila`,
+  parcela 61): a Recepção exigia `EditarAgenda` para carimbar chegada/chamada/entrada, e o
+  quadro do médico aceitava `VerAgenda` — a MESMA escrita na MESMA tabela com duas regras,
+  e a de baixo deixava quem só lê a agenda carimbar chamada. O bit novo é o corte estreito
+  de quem atende (o perfil `Profissional` o recebe por padrão, SEM ganhar `EditarAgenda` —
+  marcar horário de terceiros continua sendo do balcão), e a autorização do ato é
+  `EditarAgenda` OU `MovimentarFila` nos dois lados, via `SessaoUsuario.PodeAlgum` /
+  `ExigirAlgum` (novos — `Pode` com bits combinados é um E, não um OU): quem movia a fila
+  ontem pelo balcão continua movendo hoje. O Meu dia ganhou as transições que faltavam
+  (Entrou / Voltar — a coluna EM ATENDIMENTO só enchia se o BALCÃO clicasse) e o arrasto da
+  parcela 58; **Finalizar continua não existindo lá, e é decisão**: concluir são quatro
+  fatos do mesmo ato (guia, pacote, insumo, caixa) e três são do balcão.
+- **`BooleanToVisibilityConverter` sobre STRING é `Collapsed` para sempre** (parcela 61 —
+  a mensagem da folha de execução, a justificativa da rodela e o nome do executante nunca
+  apareceram desde a parcela 42). O conversor do WPF devolve `Collapsed` para qualquer
+  valor que não seja `bool`: não é erro de compilação nem de binding — o elemento só nunca
+  aparece, e as três redes ficam verdes. O faturamento tem `TextoParaVisibilidadeConverter`
+  desde sempre; o shell não tinha e as telas ligavam `{Binding Mensagem}` no conversor de
+  bool. Entrou `Clinica.Desktop.Controls.TextoParaVisibilidade` no shell. **Ao ligar
+  `Visibility` a uma propriedade, confira o TIPO dela** — string pede o conversor de texto.
+- **A trilha de leitura cobre a PORTA que abre o dado, não só a tela clássica** (parcela
+  60): Prescrições, Prescrição de infusão, Anexos e a Folha de execução expunham dado de
+  saúde sem registrar acesso — e `OrigemAcessoProntuario.Documento` existia no enum sem um
+  único escritor. Todas registram agora (na TROCA de paciente ou uma vez por janela, nunca
+  a cada `CarregarAsync`), o export CSV ganhou `Exigir(VerProntuario)` + origem própria
+  (`ExportacaoClinica` — dado de saúde saindo para arquivo é o que uma investigação
+  procura), e `AcessoProntuarioService.DoPacienteAsync` — a resposta a "quem abriu este
+  prontuário", sem chamador desde a parcela 52 — ganhou porta na tela de Guarda do Gerente.
+  As abas do workspace continuam cobertas pela janela de silêncio por ORIGEM: quatro abas
+  do mesmo paciente no mesmo atendimento são UM acesso, e isso é desenho, não buraco.
+- **O painel de pendências diz DE QUÊ elas são** (parcela 61 — a direção perguntou:
+  *"12 pendências, mas 12 pendências de quê? 1º código? 2º? Acupuntura? Consulta?"*).
+  A resposta tem duas formas, e a escolha entre elas não é estilo: **CHIP com contagem**
+  para as perguntas de DUAS respostas que o faturista alterna o dia inteiro (1º/2º
+  código, atrasada/no prazo — estilo `ChipFiltro`, pílula com a distribuição visível
+  ANTES do clique, contada sempre sobre o TOTAL e nunca sobre o recorte); **combo
+  rotulado** para as listas longas (tipo do código, modalidade, especialidade,
+  convênio). Cada dupla de chips é exclusiva (marcar um desmarca o irmão; desmarcar os
+  dois é "todas"). Para isso `PendenciaCodigo` ganhou `Modalidade` e `Especialidade` —
+  aditivo, `init` nulo, o padrão de sempre para record compartilhado com produção — e a
+  especialidade cai da do CÓDIGO para a do atendimento, o mesmo caminho de baixo da
+  consulta de guias (parcela 45). O resumo escreve o recorte por extenso ("12 de 30 —
+  2º código · acupuntura"), o Limpar só aparece quando há o que limpar, e o vazio
+  distingue "não há pendência" de "nenhuma bate com o filtro" — um filtro esquecido
+  respondendo "tudo em dia" faria a clínica dar o dia por resolvido com o painel inteiro
+  pendente.
+- **O circuito clínico é testado de ponta a ponta** (`CircuitoClinicoTests`, parcela 61):
+  o `CircuitoCompletoTests` cobria agenda → faturamento → financeiro e nenhum elo clínico.
+  Os quatro circuitos fixados: prescrição assinada → sala → checagem → encerramento (a
+  folha SOME da fila e fica na conferência), sala → painel da direção (com a asserção de
+  que o bloco não caiu em `NaoVerificados` — elo partido aqui vira ZERO com cara de dia
+  tranquilo), reação na sala → alergia → PRÓXIMA prescrição recusada na assinatura, e
+  acesso registrado → "quem abriu este prontuário". A chave da sala de infusão — a única
+  publicada por DOIS módulos — saiu das duas strings à mão e virou `ChavesSuite.SalaInfusao`.
+
+### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`
   implementando `IInstrumentoAvaliacao`, uma linha em `RegistroInstrumentos`, as

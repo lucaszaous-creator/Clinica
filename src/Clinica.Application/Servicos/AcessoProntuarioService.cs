@@ -23,7 +23,15 @@ public enum OrigemAcessoProntuario
     ExportacaoTitular,
 
     /// <summary>Documento emitido ou reimpresso a partir do prontuário.</summary>
-    Documento
+    Documento,
+
+    /// <summary>
+    /// Dado clínico exportado para ARQUIVO (o CSV da curva de dor, das medidas). Separado
+    /// de <see cref="ExportacaoTitular"/> porque são fatos diferentes: lá é o paciente
+    /// exercendo o art. 18; aqui é o dado de saúde SAINDO do sistema para um arquivo — o
+    /// caminho mais fácil de ele sair da clínica, e o que uma investigação procura.
+    /// </summary>
+    ExportacaoClinica
 }
 
 /// <summary>
@@ -213,6 +221,7 @@ public sealed class AcessoProntuarioService
         OrigemAcessoProntuario.Atendimento => "Tela de atendimento aberta",
         OrigemAcessoProntuario.ExportacaoTitular => "Dados do titular exportados (LGPD art. 18, II)",
         OrigemAcessoProntuario.Documento => "Documento do prontuário aberto",
+        OrigemAcessoProntuario.ExportacaoClinica => "Dados clínicos exportados para arquivo",
         _ => "Prontuário acessado"
     };
 }
