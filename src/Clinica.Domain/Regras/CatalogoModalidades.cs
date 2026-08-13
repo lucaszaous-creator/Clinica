@@ -32,6 +32,24 @@ public static class CatalogoModalidades
     public static string Nome(string? codigo)
         => Buscar(codigo)?.Nome ?? ModalidadeInfo.NomeExibicao(Base(codigo));
 
+    /// <summary>
+    /// Nome exibido quando se tem o código E a família: o CÓDIGO vence, a família é o
+    /// caminho de baixo. É o mesmo desenho de <c>CatalogoConvenios.Nome(codigo, familia)</c>,
+    /// e existe pela mesma razão — sem ele cada tela improvisa.
+    ///
+    /// ⚠️ Escrever <c>Nome(codigo ?? familia.ToString())</c> NÃO funciona, e a armadilha já
+    /// custou uma tela inteira (parcela 67): quem grava esses códigos normaliza "vale para a
+    /// família" como STRING VAZIA, nunca nulo — porque <c>NULL</c> não é único no PostgreSQL.
+    /// O <c>??</c> não dispara com string vazia, o catálogo não a encontra,
+    /// <c>Enum.TryParse("")</c> falha, e o caminho termina no literal de fallback do
+    /// <see cref="Base"/>: toda linha de família aparecia escrita "Acupuntura +
+    /// eletroacupuntura".
+    /// </summary>
+    public static string Nome(string? codigo, ModalidadeAtendimento familia)
+        => string.IsNullOrWhiteSpace(codigo)
+            ? ModalidadeInfo.NomeExibicao(familia)
+            : Nome(codigo);
+
     /// <summary>Base (comportamento) da modalidade pelo código; se desconhecido, tenta interpretar o código como o próprio enum.</summary>
     public static ModalidadeAtendimento Base(string? codigo)
     {

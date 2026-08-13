@@ -137,7 +137,7 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
 
             var linhasExigencia = exigencias.Select(e => new ExigenciaLinha(
                 e.Id,
-                CatalogoModalidades.Nome(e.ModalidadeCodigo ?? e.Modalidade.ToString()),
+                CatalogoModalidades.Nome(e.ModalidadeCodigo, e.Modalidade),
                 e.Modelo?.Nome ?? "(modelo removido)",
                 e.Ativa,
                 e.SoValeNoDiaDoProcedimento)).ToList();
@@ -296,7 +296,24 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
     /// acontecendo SEM termo nenhum. Rascunho que alguém revisa é melhor que folha em branco
     /// que ninguém preenche.
     ///
-    /// Roda uma vez: se os modelos já existem (pelo nome), avisa e não duplica.
+    /// ⚠️ A guarda de "já configurado" olha as EXIGÊNCIAS do BSV, nunca o nome do modelo.
+    ///
+    /// A primeira versão comparava o nome — e o nome é justamente o que o desenho pede que
+    /// mude: a marca "(rascunho — revisar)" mora nele para ser apagada quando o responsável
+    /// técnico aprovar o texto. Renomeado, o segundo clique não encontrava nada, criava
+    /// outro par de rascunhos e ligava mais QUATRO exigências — que a chave alargada desta
+    /// mesma parcela deixa CONVIVER com as antigas. O resultado seria o BSV cobrando quatro
+    /// papéis, dois deles o rascunho não revisado, e assinar um par não zeraria o outro.
+    ///
+    /// A pergunta certa não é "este texto já existe?", é "o BSV já está configurado?".
+    ///
+    /// ⚠️ E ela é RESUMÍVEL de propósito: são seis gravações contra um banco remoto, sem
+    /// transação que as amarre. Caindo a rede no meio, o segundo clique refaz o que faltou
+    /// — `SalvarModeloAsync` sobrescreve o modelo de mesmo nome (ainda o rascunho, ninguém
+    /// revisou) e `ExigirAsync` atualiza a amarração que já existe em vez de duplicá-la.
+    /// A versão anterior travava aqui: o guarda por nome achava o consentimento gravado,
+    /// recusava tudo, e a declaração de jejum nunca era criada — em silêncio, com a tela
+    /// dizendo que o trabalho estava feito.
     /// </summary>
     [RelayCommand]
     private async Task CriarModelosDoBsvAsync()
@@ -329,21 +346,27 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
             var termos = scope.ServiceProvider.GetRequiredService<TermoProcedimentoService>();
             var operador = SessaoUsuario.Atual.Operador;
 
-            var existentes = await documentos.ModelosAsync(TipoDocumentoClinico.TermoProcedimento);
+            // O BSV já está configurado? A pergunta é sobre a AMARRAÇÃO, não sobre o texto:
+            // amarrada, existe um termo em uso — possivelmente já revisado e renomeado —, e
+            // criar outro par faria o paciente assinar quatro papéis.
+            var jaAmarradas = (await termos.ExigenciasAsync())
+                .Where(e => ModelosTermoBsv.ModalidadesDoBsv.Contains(e.Modalidade))
+                .ToList();
+
+            if (jaAmarradas.Count > 0)
+            {
+                MensagemEhErro = true;
+                Mensagem = "O BSV já exige termo: "
+                           + string.Join("; ", jaAmarradas
+                               .Select(e => $"\"{e.Modelo?.Nome ?? "termo"}\"")
+                               .Distinct())
+                           + ". Edite o texto na lista ao lado — criar outro par faria o "
+                           + "paciente assinar os mesmos papéis duas vezes.";
+                return;
+            }
 
             var consentimento = ModelosTermoBsv.Consentimento();
             var declaracao = ModelosTermoBsv.DeclaracaoDoDia();
-
-            // Já existe pelo nome? Não recria. `SalvarModeloAsync` sobrescreve por nome, e
-            // sobrescrever aqui apagaria a revisão que a clínica já tinha feito no texto —
-            // que é justamente o trabalho que este botão existe para começar.
-            if (existentes.Any(m => m.Nome == consentimento.Nome || m.Nome == declaracao.Nome))
-            {
-                MensagemEhErro = true;
-                Mensagem = "Os termos do BSV já foram criados. Edite-os na lista ao lado — "
-                           + "recriá-los apagaria a revisão já feita no texto.";
-                return;
-            }
 
             var salvoConsentimento = await documentos.SalvarModeloAsync(consentimento, operador);
             var salvoDeclaracao = await documentos.SalvarModeloAsync(declaracao, operador);
@@ -375,8 +398,24 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
         catch (Exception ex)
         {
             MensagemEhErro = true;
-            Mensagem = ex.Message;
+            Mensagem = "A configuração do BSV parou no meio: " + ex.Message
+                       + " Clique de novo para continuar de onde parou — o que já foi "
+                       + "gravado é reaproveitado.";
             Clinica.Application.Diagnostico.Registrar("Gerente — criar termos do BSV", ex);
+
+            // Recarregar depois da FALHA, e não só depois do êxito: são seis gravações
+            // independentes, e a tela precisa mostrar o que ficou. Sem isto ela continua
+            // vazia dizendo "Nenhum termo escrito", que é o convite a clicar de novo sem
+            // saber que metade já existe.
+            try
+            {
+                await CarregarAsync();
+            }
+            catch (Exception recarga)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Gerente — recarga após falha ao criar termos do BSV", recarga);
+            }
         }
         finally
         {

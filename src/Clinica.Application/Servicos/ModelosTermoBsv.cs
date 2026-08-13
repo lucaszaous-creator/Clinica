@@ -107,13 +107,13 @@ public static class ModelosTermoBsv
             {
                 Ordem = 1,
                 Descricao = "Li este termo e minhas dúvidas foram esclarecidas",
-                Detalhe = "Houve tempo e oportunidade de perguntar antes de assinar."
+                Detalhe = "Tive tempo e oportunidade de perguntar antes de assinar."
             },
             new ItemModelo
             {
                 Ordem = 2,
                 Descricao = "Informei todas as minhas doenças, alergias e medicações em uso",
-                Detalhe = "Inclui anticoagulantes, suplementos e medicações sem receita."
+                Detalhe = "Incluindo anticoagulantes, suplementos e remédios sem receita."
             },
             new ItemModelo
             {
@@ -151,36 +151,45 @@ public static class ModelosTermoBsv
             + "realizar o procedimento HOJE, e de que responder \"não\" a qualquer uma delas "
             + "não me impede de ser atendido(a): a decisão de realizar ou adiar é de quem "
             + "executa o procedimento, e será conversada comigo."),
+        // ⚠️ TODA declaração daqui é redigida para que "Não" seja um SINAL — ele acende
+        // alerta VERMELHO no balcão e no consultório (`ElegibilidadeService`).
+        //
+        // Duas armadilhas que a revisão desta parcela pegou no primeiro rascunho:
+        //
+        // (a) **Declaração cujo "Não" é normal dilui o alerta.** Havia um "Estou
+        //     acompanhado(a) para voltar para casa" com a ressalva "se a clínica exigir" —
+        //     ou seja, num dia comum metade dos pacientes responderia "Não" e acenderia
+        //     vermelho. Alerta que dispara para todo mundo é alerta que ninguém lê, e o
+        //     próximo a ser ignorado seria o do jejum. Se a clínica exigir acompanhante,
+        //     ela acrescenta a linha — aí o "Não" volta a significar alguma coisa.
+        //
+        // (b) **Declaração NEGATIVA torna a resposta ambígua.** "Não tive febre" respondido
+        //     com "Não" é uma dupla negação que o paciente lê errado e a equipe também.
+        //     Todas são afirmativas: responder "Sim" é o caso bom.
         Itens =
         [
             new ItemModelo
             {
                 Ordem = 1,
-                Descricao = "Estou em jejum conforme a orientação recebida",
-                Detalhe = "Confira com o paciente quantas horas, e desde que horário."
+                Descricao = "Estou em jejum conforme a orientação que recebi",
+                Detalhe = "Diga à equipe desde que horas você está sem comer e sem beber."
             },
             new ItemModelo
             {
                 Ordem = 2,
-                Descricao = "Tomei hoje as medicações de uso contínuo, como orientado"
+                Descricao = "Segui a orientação que recebi sobre as minhas medicações de uso contínuo"
             },
             new ItemModelo
             {
                 Ordem = 3,
-                Descricao = "Não tive febre, infecção ou mal-estar nos últimos dias"
+                Descricao = "Estou bem hoje: sem febre, sem infecção e sem mal-estar nos últimos dias"
             },
             new ItemModelo
             {
                 Ordem = 4,
-                Descricao = "Não houve mudança nas minhas medicações, alergias ou estado de "
-                            + "saúde desde o termo de consentimento",
-                Detalhe = "Qualquer mudança precisa ser avisada à equipe antes de começar."
-            },
-            new ItemModelo
-            {
-                Ordem = 5,
-                Descricao = "Estou acompanhado(a) para voltar para casa",
-                Detalhe = "Se a orientação da clínica exigir acompanhante."
+                Descricao = "Minhas doenças, alergias e medicações continuam as mesmas que "
+                            + "declarei no termo de consentimento",
+                Detalhe = "Se alguma coisa mudou, avise a equipe antes de começar."
             }
         ]
     };

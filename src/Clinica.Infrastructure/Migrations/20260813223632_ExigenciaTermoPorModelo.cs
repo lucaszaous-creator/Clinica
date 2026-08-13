@@ -16,7 +16,7 @@ namespace Clinica.Infrastructure.Migrations
     /// passa na nova. O que ela continua impedindo é a duplicata de verdade — a mesma
     /// modalidade exigindo o mesmo modelo duas vezes.
     ///
-    /// MIGRATION-NAO-ADITIVA-CONSCIENTE: alarga a chave única de ExigenciasTermo — nenhuma linha se perde.
+    /// MIGRATION-NAO-ADITIVA-CONSCIENTE(DropIndex): alarga a chave única de ExigenciasTermo — nenhuma linha se perde.
     ///
     /// O drop é do índice ESTREITO, e toda linha que passava nele passa no novo. A tabela é
     /// da suíte (parcela 66) e o app de faturamento não a lê nem a escreve; versão antiga da

@@ -2976,3 +2976,45 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ninguém revisa, e a próxima pessoa a copiar a migration como modelo precisa ver que ali
   houve uma decisão, não uma permissão. Autotestada nos três cenários (sem marca, com marca
   e razão, marca vazia).
+
+- **A dispensa da checagem 18 tem de ser por OPERAÇÃO, não por ARQUIVO** (parcela 67, 2ª
+  rodada — o achado mais grave da revisão adversarial do próprio diff). A saída consciente
+  nasceu certa na intenção e errada no alcance: a marca valia para o arquivo INTEIRO, então
+  bastava um `DropIndex` inofensivo declarado para um `DropColumn` acrescentado DEPOIS, na
+  mesma migration, passar junto — e a ferramenta ainda imprimia, como justificativa dele, a
+  frase que falava do índice e afirmava "nenhuma linha se perde". **Garantia falsa no log do
+  CI é pior do que checagem nenhuma**, e o caminho é o realista: a migration marcada é
+  justamente a que a próxima pessoa copia como modelo. A marca passou a NOMEAR o que cobre
+  (`MIGRATION-NAO-ADITIVA-CONSCIENTE(DropIndex): razão`); o que não estiver na lista continua
+  erro. A regra geral: **exceção declarada delimita o que dispensa, senão ela dispensa o
+  vizinho.**
+- **`AlterColumn` nunca disparou a checagem 18 — o EF gera a forma GENÉRICA** (parcela 67,
+  2ª rodada). A busca era `.AlterColumn(` e o EF emite `migrationBuilder.AlterColumn<string>(`.
+  A operação **mais** destrutiva da lista (encolher `maxLength`, tornar coluna NOT NULL) era
+  letra morta desde que a checagem nasceu, e ninguém notou porque ela só cala — não erra.
+  Casar `Op(` **ou** `Op<`. A lição: **quando uma checagem procura uma chamada de método,
+  confira como a ferramenta que gera o código a escreve de verdade**, não como você a
+  escreveria.
+- **Autoteste que REIMPLEMENTA a lógica não testa nada** (parcela 67, 2ª rodada): o da saída
+  consciente repetia a leitura da marca linha a linha em vez de chamar a função da checagem.
+  Ele ficaria verde exatamente quando a checagem quebrasse, porque a cópia dentro dele não
+  quebra junto — é a variante mais discreta do defeito recorrente do projeto, aplicada à
+  rede que existe para pegá-lo. **Autoteste chama o código que roda.**
+- **Idempotência ancorada em campo EDITÁVEL não é idempotência** (parcela 67, 2ª rodada): o
+  botão dos termos do BSV guardava-se contra o segundo clique comparando o NOME do modelo —
+  e o nome é justamente o que o desenho pede que mude, porque a marca "(rascunho — revisar)"
+  mora nele para ser apagada na aprovação. Renomeado, o segundo clique criava outro par e
+  ligava mais quatro exigências, que a chave alargada da mesma parcela deixa CONVIVER: o BSV
+  passaria a cobrar quatro papéis, dois deles o rascunho não revisado, e assinar um par não
+  zeraria o outro. **A pergunta certa não era "este texto já existe?", era "o BSV já está
+  configurado?"** — a guarda olha a EXIGÊNCIA. E, de quebra, isso a tornou RESUMÍVEL: são
+  seis gravações contra banco remoto sem transação, e o segundo clique agora completa o que
+  faltou em vez de recusar tudo por causa da metade que ficou.
+- **Declaração de termo é redigida para que "Não" seja um SINAL** (parcela 67, 2ª rodada):
+  responder "Não" acende alerta VERMELHO no balcão e no consultório, então (a) declaração
+  cujo "Não" é NORMAL dilui o alerta — havia um "estou acompanhado, se a clínica exigir",
+  que faria metade dos pacientes acender vermelho e treinaria todo mundo a ignorar o do
+  jejum; e (b) declaração NEGATIVA ("não tive febre") torna a resposta ambígua, porque "Não"
+  vira dupla negação. Todas afirmativas e incondicionais. E o **`Detalhe` sai IMPRESSO na via
+  do paciente**: instrução para a equipe ali ("confira com o paciente quantas horas") produz
+  um documento que fala do leitor na terceira pessoa.

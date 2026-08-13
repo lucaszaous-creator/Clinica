@@ -1131,6 +1131,16 @@ DESTRUTIVAS = (
     "RenameColumn", "RenameTable", "RenameIndex", "AlterColumn", "AlterTable",
 )
 
+# ⚠️ A forma GENÉRICA conta (parcela 67).
+#
+# A busca era `.AlterColumn(` — e o EF **nunca** gera isso: ele emite
+# `migrationBuilder.AlterColumn<string>(`. O item mais perigoso da lista era letra morta
+# desde que a checagem nasceu: encolher `maxLength` ou tornar uma coluna NOT NULL destrói
+# dado e derruba a versão antiga do faturamento na abertura seguinte, e passava sem um
+# pio. Casar `Op(` **ou** `Op<` é o conserto.
+def _usa(corpo: str, operacao: str) -> bool:
+    return f".{operacao}(" in corpo or f".{operacao}<" in corpo
+
 # A saída consciente (parcela 67).
 #
 # Nem toda operação desta lista perde DADO: alargar uma chave única (drop + create com uma
@@ -1146,7 +1156,47 @@ DESTRUTIVAS = (
 # ⚠️ E ela NUNCA fica silenciosa: vira aviso em toda execução, inclusive no CI. Exceção que
 # some da saída é exceção que ninguém revisa — e a próxima pessoa a copiar esta migration
 # como modelo precisa ver que aqui houve uma decisão, não uma permissão.
-MARCA_CONSCIENTE = "MIGRATION-NAO-ADITIVA-CONSCIENTE:"
+#
+# ⚠️⚠️ A dispensa é POR OPERAÇÃO, e a primeira versão não era — foi o achado mais grave da
+# revisão desta parcela. A marca valia para o ARQUIVO: bastava um `DropIndex` inofensivo
+# declarado para que um `DropColumn` acrescentado DEPOIS, na mesma migration, passasse
+# junto — e a ferramenta ainda imprimia, como justificativa dele, a frase que falava do
+# índice e afirmava "nenhuma linha se perde". Garantia falsa no log do CI é pior do que
+# checagem nenhuma, e o caminho é o realista: a migration marcada é justamente a que a
+# próxima pessoa vai copiar como modelo.
+#
+# Agora a marca NOMEIA o que cobre — `MIGRATION-NAO-ADITIVA-CONSCIENTE(DropIndex): razão` —
+# e o que não estiver na lista continua sendo erro.
+MARCA_CONSCIENTE = "MIGRATION-NAO-ADITIVA-CONSCIENTE"
+
+
+def _dispensa_declarada(texto: str) -> tuple[set[str], str]:
+    """As operações dispensadas e a razão. Sem marca (ou sem razão), nada é dispensado."""
+    for linha in texto.splitlines():
+        i = linha.find(MARCA_CONSCIENTE)
+        if i < 0:
+            continue
+
+        resto = linha[i + len(MARCA_CONSCIENTE):]
+        if not resto.startswith("("):
+            continue
+
+        fim = resto.find(")")
+        if fim < 0:
+            continue
+
+        declaradas = {o.strip() for o in resto[1:fim].split(",") if o.strip()}
+        razao = resto[fim + 1:].lstrip(": ").strip()
+
+        # Razão vazia não vale: ela É a exceção, não um interruptor. E operação declarada
+        # que não existe na lista de destrutivas é engano de quem escreveu — melhor não
+        # dispensar nada do que dispensar o que a pessoa não quis dizer.
+        if not razao or not declaradas or not declaradas <= set(DESTRUTIVAS):
+            return set(), ""
+
+        return declaradas, razao
+
+    return set(), ""
 
 
 def _corpo_do_up(texto: str) -> str:
@@ -1169,33 +1219,41 @@ if MIGRATIONS.is_dir():
 
         texto_migration = arq.read_text(encoding="utf-8")
         corpo = _corpo_do_up(texto_migration)
-        achadas = sorted({d for d in DESTRUTIVAS if f".{d}(" in corpo})
+        achadas = {d for d in DESTRUTIVAS if _usa(corpo, d)}
 
         if not achadas:
             continue
 
-        # A razão é lida do arquivo INTEIRO, e não só do Up(): ela cabe melhor no
-        # comentário de documentação da classe, que é onde alguém a lê.
-        razao = ""
-        for linha in texto_migration.splitlines():
-            if MARCA_CONSCIENTE in linha:
-                razao = linha.split(MARCA_CONSCIENTE, 1)[1].strip()
-                break
+        # A marca é lida do arquivo INTEIRO, e não só do Up(): ela cabe melhor no comentário
+        # de documentação da classe, que é onde alguém a lê.
+        dispensadas, razao = _dispensa_declarada(texto_migration)
 
-        if razao:
+        cobertas = sorted(achadas & dispensadas)
+        descobertas = sorted(achadas - dispensadas)
+
+        if cobertas:
             avisos.append(
-                f"{rel(arq)}: migration não aditiva ({', '.join(achadas)}) DECLARADA como "
+                f"{rel(arq)}: migration não aditiva ({', '.join(cobertas)}) DECLARADA como "
                 f"consciente — \"{razao}\". Confira antes de publicar: o faturamento aplica "
                 f"migrations na abertura, e a clínica pode ter versões diferentes em campo.")
-        else:
+
+        if descobertas:
+            extra = (
+                f"\n    ⚠️ A marca deste arquivo cobre {', '.join(sorted(dispensadas))} e NÃO "
+                f"cobre {', '.join(descobertas)} — a dispensa é por OPERAÇÃO, justamente para "
+                f"uma razão escrita sobre um índice não passar a valer para uma coluna."
+                if dispensadas else
+                f"\n    Se a operação comprovadamente não perde dado nem quebra versão antiga "
+                f"(alargar uma chave única, por exemplo), declare-a no arquivo como "
+                f"`{MARCA_CONSCIENTE}({descobertas[0]}): <razão>` — vira aviso permanente, "
+                f"nunca silêncio."
+            )
+
             erros.append(
-                f"{rel(arq)}: migration NÃO aditiva ({', '.join(achadas)}) — o faturamento "
+                f"{rel(arq)}: migration NÃO aditiva ({', '.join(descobertas)}) — o faturamento "
                 f"está em produção e aplica migrations na abertura. Enquanto houver versões "
                 f"diferentes em campo, migration nova só acrescenta. Ver "
-                f"docs/arquitetura-multi-exe.md.\n"
-                f"    Se a operação comprovadamente não perde dado nem quebra versão antiga "
-                f"(alargar uma chave única, por exemplo), escreva a razão no arquivo como "
-                f"`{MARCA_CONSCIENTE} <razão>` — ela vira aviso permanente, nunca silêncio.")
+                f"docs/arquitetura-multi-exe.md.{extra}")
 
 
 # --------------------------------------------------------------- checagem 19
@@ -2490,37 +2548,48 @@ for _tipo, _prop, _esperado in (
             f"(esperado: {_esperado})."
         )
 
-# Autoteste da SAÍDA CONSCIENTE da checagem 18 (parcela 67).
+# Autoteste da checagem 18 e da SAÍDA CONSCIENTE (parcela 67).
 #
-# Ela é a única exceção declarável do verificador, e por isso é a que mais precisa de rede:
-# uma marca que passasse a valer sem a razão escrita transformaria a checagem 18 numa
-# formalidade, e é justamente a checagem que protege o app em produção.
-_UP_DESTRUTIVO = (
-    "protected override void Up(MigrationBuilder migrationBuilder)\n"
-    "{\n    migrationBuilder.DropIndex(name: \"IX_x\", table: \"T\");\n}\n"
-)
-for _cenario, _texto, _deve_passar in (
-    ("sem marca", _UP_DESTRUTIVO, False),
-    (f"com marca e razão", f"/// {MARCA_CONSCIENTE} alarga a chave.\n{_UP_DESTRUTIVO}", True),
-    # Marca sem razão NÃO vale: ela é a razão, não um interruptor.
-    ("marca vazia", f"/// {MARCA_CONSCIENTE}\n{_UP_DESTRUTIVO}", False),
+# ⚠️ Ele CHAMA as funções da checagem (`_usa`, `_corpo_do_up`, `_dispensa_declarada`) em vez
+# de repetir a lógica delas. A primeira versão reimplementava a leitura da marca linha a
+# linha — e um autoteste que reimplementa não testa nada: ele continua verde exatamente
+# quando a checagem quebra, porque a cópia dentro dele não quebrou junto. Foi o que a
+# revisão desta parcela apontou, e vale para toda checagem futura.
+_UP = "protected override void Up(MigrationBuilder migrationBuilder)\n{{\n    {0}\n}}\n"
+_DROP = 'migrationBuilder.DropIndex(name: "IX_x", table: "T");'
+_ALTER = 'migrationBuilder.AlterColumn<string>(name: "C", table: "T", maxLength: 10);'
+_DROPCOL = 'migrationBuilder.DropColumn(name: "C", table: "T");'
+_MARCA_OK = f"/// {MARCA_CONSCIENTE}(DropIndex): alarga a chave."
+
+for _cenario, _texto, _esperadas_cobertas, _esperadas_descobertas in (
+    # Sem marca: tudo é erro.
+    ("sem marca", _UP.format(_DROP), set(), {"DropIndex"}),
+    # Com marca nomeando a operação: só ela é dispensada.
+    ("marca nomeando a operação", f"{_MARCA_OK}\n{_UP.format(_DROP)}", {"DropIndex"}, set()),
+    # ⚠️ O achado grave: a marca de um DropIndex NÃO pode cobrir um DropColumn ao lado.
+    ("marca não cobre a operação vizinha",
+     f"{_MARCA_OK}\n{_UP.format(_DROP + chr(10) + '    ' + _DROPCOL)}",
+     {"DropIndex"}, {"DropColumn"}),
+    # Marca sem operação declarada não vale: ela É a exceção, não um interruptor.
+    ("marca sem operação", f"/// {MARCA_CONSCIENTE}: alarga.\n{_UP.format(_DROP)}",
+     set(), {"DropIndex"}),
+    ("marca sem razão", f"/// {MARCA_CONSCIENTE}(DropIndex):\n{_UP.format(_DROP)}",
+     set(), {"DropIndex"}),
+    # ⚠️ A forma GENÉRICA que o EF realmente gera — era o buraco por onde o AlterColumn
+    # (a operação mais destrutiva da lista) passava sem um pio.
+    ("AlterColumn genérico", _UP.format(_ALTER), set(), {"AlterColumn"}),
 ):
     _corpo = _corpo_do_up(_texto)
-    _achou = any(f".{d}(" in _corpo for d in DESTRUTIVAS)
-    _razao = ""
-    for _linha in _texto.splitlines():
-        if MARCA_CONSCIENTE in _linha:
-            _razao = _linha.split(MARCA_CONSCIENTE, 1)[1].strip()
-            break
+    _achadas = {d for d in DESTRUTIVAS if _usa(_corpo, d)}
+    _dispensadas, _razao = _dispensa_declarada(_texto)
 
-    if not _achou:
+    if (_achadas & _dispensadas) != _esperadas_cobertas or \
+       (_achadas - _dispensadas) != _esperadas_descobertas:
         erros.append(
-            f"verificar-suite: a checagem 18 deixou de enxergar o DropIndex ({_cenario})."
-        )
-    elif bool(_razao) is not _deve_passar:
-        erros.append(
-            f"verificar-suite: a saída consciente da checagem 18 mudou de resposta "
-            f"({_cenario}: esperado {'aviso' if _deve_passar else 'erro'})."
+            f"verificar-suite: a checagem 18 mudou de resposta ({_cenario}) — "
+            f"dispensadas={sorted(_achadas & _dispensadas)}, "
+            f"cobradas={sorted(_achadas - _dispensadas)}; esperado "
+            f"{sorted(_esperadas_cobertas)} / {sorted(_esperadas_descobertas)}."
         )
 
 # ---------------------------------------------------------------------- saída

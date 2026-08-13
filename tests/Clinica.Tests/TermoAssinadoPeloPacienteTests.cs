@@ -1,6 +1,7 @@
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -630,6 +631,35 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     }
 
     /// <summary>
+    /// A exigência de FAMÍLIA tem de aparecer com o nome da família (parcela 67).
+    ///
+    /// A tela escrevia <c>Nome(codigo ?? familia.ToString())</c> e o <c>??</c> nunca
+    /// disparava, porque quem grava normaliza "vale para a família" como STRING VAZIA —
+    /// nunca nulo, porque <c>NULL</c> não é único no PostgreSQL. O caminho terminava no
+    /// literal de fallback, e TODA linha de família aparecia escrita "Acupuntura +
+    /// eletroacupuntura": as quatro amarrações do BSV saíam com o nome de outro
+    /// procedimento, indistinguíveis entre si, com um botão "Desligar" ao lado.
+    /// </summary>
+    [Fact]
+    public async Task Exigencia_de_familia_aparece_com_o_nome_da_familia()
+    {
+        var modelo = await ModeloDoBsvAsync();
+        var exigencia = await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, modelo.Id);
+
+        exigencia.ModalidadeCodigo.Should().BeEmpty(
+            "é assim que se grava \"vale para a família inteira\" — e é o que faz o `??` "
+            + "não disparar");
+
+        CatalogoModalidades.Nome(exigencia.ModalidadeCodigo, exigencia.Modalidade)
+            .Should().Be(ModalidadeInfo.NomeExibicao(ModalidadeAtendimento.BsvApenas))
+            .And.NotBe(ModalidadeInfo.NomeExibicao(ModalidadeAtendimento.AcupunturaComEletro));
+
+        // E o código, quando existe, continua vencendo a família.
+        CatalogoModalidades.Nome("QualquerCodigoForaDoCatalogo", ModalidadeAtendimento.BsvApenas)
+            .Should().NotBe(ModalidadeInfo.NomeExibicao(ModalidadeAtendimento.BsvApenas));
+    }
+
+    /// <summary>
     /// O rascunho DIZ que é rascunho, e diz no nome — que é o que aparece na lista da tela,
     /// no seletor da coleta avulsa e na linha da exigência. Quem for amarrar a modalidade lê
     /// o aviso no caminho; um campo à parte ficaria só na tela de edição.
@@ -647,6 +677,101 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
                 + "termo de fábrica é o que o sistema aplica sem ninguém ler");
             modelo.Itens.Should().NotBeEmpty("um termo sem declaração não pergunta nada");
         }
+    }
+
+    /// <summary>
+    /// Toda declaração é redigida para que "Não" seja um SINAL (parcela 67).
+    ///
+    /// Responder "Não" acende alerta VERMELHO no balcão e no consultório. Duas armadilhas
+    /// que a revisão pegou no primeiro rascunho e que este teste impede de voltar:
+    ///
+    /// (a) declaração cujo "Não" é NORMAL (havia um "estou acompanhado, se a clínica
+    ///     exigir") faz metade dos pacientes acender vermelho — e alerta que dispara para
+    ///     todo mundo é alerta que ninguém lê, sendo o próximo a ser ignorado o do jejum;
+    /// (b) declaração NEGATIVA ("não tive febre") torna a resposta ambígua: "Não" vira
+    ///     dupla negação, que o paciente lê errado e a equipe também.
+    /// </summary>
+    [Fact]
+    public void As_declaracoes_do_rascunho_sao_afirmativas_e_incondicionais()
+    {
+        var itens = ModelosTermoBsv.Consentimento().Itens
+            .Concat(ModelosTermoBsv.DeclaracaoDoDia().Itens)
+            .ToList();
+
+        foreach (var item in itens)
+        {
+            item.Descricao.Should().NotStartWith("Não ",
+                $"\"{item.Descricao}\" é negativa — responder \"Não\" a ela é dupla negação");
+
+            // "se", "caso", "quando" abrem a condicional que torna o "Não" legítimo.
+            var texto = $"{item.Descricao} {item.Detalhe}".ToLowerInvariant();
+            foreach (var condicional in new[] { " se a ", " se o ", " caso ", " quando a " })
+                texto.Should().NotContain(condicional,
+                    $"\"{item.Descricao}\" fica condicionada, e aí o \"Não\" deixa de "
+                    + "significar problema — o alerta vermelho passa a disparar no caso normal");
+        }
+    }
+
+    /// <summary>
+    /// O <c>Detalhe</c> sai IMPRESSO na via que o paciente assina — então ele fala com o
+    /// paciente, nunca com a equipe. O primeiro rascunho trazia "Confira com o paciente
+    /// quantas horas", que é instrução de balcão saindo no documento dele.
+    /// </summary>
+    [Fact]
+    public void O_detalhe_das_declaracoes_fala_com_o_PACIENTE()
+    {
+        var detalhes = ModelosTermoBsv.Consentimento().Itens
+            .Concat(ModelosTermoBsv.DeclaracaoDoDia().Itens)
+            .Select(i => i.Detalhe)
+            .Where(d => !string.IsNullOrWhiteSpace(d))
+            .Select(d => d!.ToLowerInvariant())
+            .ToList();
+
+        detalhes.Should().NotBeEmpty();
+
+        foreach (var detalhe in detalhes)
+            foreach (var paraAEquipe in new[] { "confira", "confirme", "o paciente", "pergunte" })
+                detalhe.Should().NotContain(paraAEquipe,
+                    "o detalhe é impresso na via do paciente — instrução para a equipe ali "
+                    + "vira um documento que fala do leitor na terceira pessoa");
+    }
+
+    /// <summary>
+    /// A configuração do BSV é RESUMÍVEL (parcela 67): são seis gravações contra um banco
+    /// remoto, sem transação que as amarre, e a rede cai no meio.
+    ///
+    /// Refazer o que faltou não pode duplicar nada — nem o modelo (mesmo nome sobrescreve)
+    /// nem a amarração (a mesma exigência atualiza). A versão anterior travava aqui: o
+    /// guarda comparava o NOME, achava o consentimento que sobrou e recusava tudo, deixando
+    /// a declaração de jejum sem existir e o BSV sem cobrar termo nenhum — em silêncio.
+    /// </summary>
+    [Fact]
+    public async Task Refazer_a_configuracao_do_BSV_pela_metade_completa_sem_duplicar()
+    {
+        // 1ª tentativa: só o consentimento é gravado, e a rede cai.
+        var parcial = await _documentos.SalvarModeloAsync(ModelosTermoBsv.Consentimento());
+
+        // 2ª tentativa: refaz tudo do começo, como o segundo clique faz.
+        var consentimento = await _documentos.SalvarModeloAsync(ModelosTermoBsv.Consentimento());
+        var declaracao = await _documentos.SalvarModeloAsync(ModelosTermoBsv.DeclaracaoDoDia());
+
+        consentimento.Id.Should().Be(parcial.Id,
+            "mesmo nome sobrescreve — refazer não pode criar um segundo consentimento");
+
+        foreach (var modalidade in ModelosTermoBsv.ModalidadesDoBsv)
+        {
+            await _termos.ExigirAsync(modalidade, consentimento.Id);
+            await _termos.ExigirAsync(modalidade, declaracao.Id, soValeNoDiaDoProcedimento: true);
+            // O clique repetido sobre a MESMA amarração atualiza, nunca duplica.
+            await _termos.ExigirAsync(modalidade, consentimento.Id);
+        }
+
+        (await _documentos.ModelosAsync(TipoDocumentoClinico.TermoProcedimento))
+            .Should().HaveCount(2, "dois termos, não quatro");
+
+        (await _termos.ExigenciasAsync()).Should().HaveCount(4,
+            "duas modalidades × dois termos — e nem uma a mais, senão o paciente assina o "
+            + "mesmo papel duas vezes");
     }
 
     /// <summary>

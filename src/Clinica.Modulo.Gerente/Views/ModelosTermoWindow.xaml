@@ -17,7 +17,7 @@
                 <TextBlock Text="Termos do procedimento" Style="{StaticResource DialogoTitulo}"
                            HorizontalAlignment="Left" />
                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                           Text="Escreva o texto que o paciente vai ler e assinar, e as declarações que ele responde (jejum, medicações, alergias). Depois diga qual procedimento passa a exigi-lo. O termo vale POR SESSÃO: ele é pedido a cada vez." />
+                           Text="Escreva o texto que o paciente vai ler e assinar, e as declarações que ele responde (jejum, medicações, alergias). Depois diga qual procedimento passa a exigi-lo. Por padrão o termo vale a partir da assinatura; a validade por sessão é escolha de cada amarração." />
             </StackPanel>
 
             <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
