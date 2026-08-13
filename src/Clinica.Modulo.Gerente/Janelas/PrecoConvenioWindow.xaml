@@ -8,6 +8,8 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -26,7 +28,14 @@
 
         <TextBlock Text="Especialidade (em branco = todas)" Style="{StaticResource Rotulo}"
                    Margin="0,12,0,0" />
-        <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding Especialidade}" />
+        <!-- ItemTemplate obrigatório: a lista é de `Especialidade?` e sem ele o WPF chama
+             ToString() no valor — a tela oferecia "ClinicaDaDor" (o defeito da parcela
+             41). O rótulo certo existe em RotulosEnum desde a parcela 54 e esta tela não
+             o usava; a checagem 20 não via porque a coleção é de enum ANULÁVEL, e a
+             expressão dela só casava `<Especialidade>`, nunca `<Especialidade?>`.
+             O item nulo continua saindo em branco, que é o que "em branco = todas" pede. -->
+        <ComboBox ItemsSource="{Binding Especialidades}" SelectedItem="{Binding Especialidade}"
+                  ItemTemplate="{StaticResource ItemRotuloEnum}" />
         <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                    FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
                    Text="Preencha só quando o valor depender da especialidade. Um preço com especialidade VENCE o genérico do tipo — senão a exceção ficaria cadastrada e a conciliação continuaria propondo o valor da regra geral." />
@@ -56,8 +65,24 @@
 
         <CheckBox Content="Ativo" IsChecked="{Binding Ativo}" Margin="0,12,0,0" />
 
-        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- A visibilidade segue a MENSAGEM; a cor segue a GRAVIDADE (parcela 62).
+             Amarrada a `MensagemEhErro`, a caixa só aparecia no erro — e toda mensagem de
+             ÊXITO ou de estado vazio, que zera o booleano, sumia junto com ele. Quem decide
+             se aparece é o texto; quem decide a cor é a gravidade. -->
+        <Border Margin="0,12,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 

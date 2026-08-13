@@ -176,11 +176,27 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    ///
+    /// Aqui ele não é zelo: o seletor é uma BUSCA, e quem investiga um acesso indevido
+    /// troca de paciente várias vezes seguidas. São duas idas ao banco em sequência (a
+    /// guarda e a trilha de leitura), e num banco remoto a leitura VELHA pode responder
+    /// depois da nova — o resultado é a guarda de um paciente escrita sob o nome de outro,
+    /// ou a trilha de acesso da Maria listada na ficha do João. Numa tela de conformidade
+    /// isso é pior do que não ter a tela: a resposta errada tem a mesma cara da certa.
+    /// </summary>
+    private int _geracaoPaciente;
+
     private async Task CarregarPacienteAsync()
     {
+        var geracao = ++_geracaoPaciente;
+
         if (Paciente.Selecionado is not { } escolhido)
         {
             TemPaciente = false;
+            Acessos.Clear();
+            TemAcessos = false;
             return;
         }
 
@@ -193,6 +209,9 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
             var situacao = await scope.ServiceProvider
                 .GetRequiredService<GuardaProntuarioService>()
                 .DoPacienteAsync(escolhido.Id);
+
+            // Chegou tarde: outra pessoa já foi escolhida.
+            if (geracao != _geracaoPaciente) return;
 
             TemPaciente = true;
             NomePaciente = situacao.PacienteNome;
@@ -224,9 +243,17 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
                 .GetRequiredService<AcessoProntuarioService>()
                 .DoPacienteAsync(escolhido.Id, limite: 100);
 
+            // Chegou tarde: outra pessoa já foi escolhida. Sem esta segunda guarda a
+            // trilha de leitura de um paciente entraria na ficha de outro — e a lista
+            // publicada aqui é justamente a prova que a auditoria pede.
+            if (geracao != _geracaoPaciente) return;
+
+            // Entre o Clear() e o último Add não pode haver await (parcela 62): monta-se
+            // em lista local e só então publica.
+            var linhas = acessos.Select(LinhaAcessoProntuario.De).ToList();
+
             Acessos.Clear();
-            foreach (var acesso in acessos)
-                Acessos.Add(LinhaAcessoProntuario.De(acesso));
+            foreach (var linha in linhas) Acessos.Add(linha);
 
             TemAcessos = Acessos.Count > 0;
             ResumoAcessos = Acessos.Count == 0
@@ -238,6 +265,10 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: a falha de uma leitura superada não pode apagar a tela da
+            // pessoa que está escolhida agora.
+            if (geracao != _geracaoPaciente) return;
+
             Clinica.Application.Diagnostico.Registrar("Gerente — guarda de um paciente", ex);
             Mensagem = $"Não foi possível ler a guarda deste paciente: {ex.Message}";
             MensagemEhErro = true;

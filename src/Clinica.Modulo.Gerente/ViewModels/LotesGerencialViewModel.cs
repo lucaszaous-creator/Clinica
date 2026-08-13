@@ -141,8 +141,12 @@ public sealed partial class LotesGerencialViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var lotes = scope.ServiceProvider.GetRequiredService<LoteTissService>();
 
+            // Entre o `Clear()` e o último `Add` não pode haver `await` (parcela 62):
+            // dois "Atualizar" seguidos deixariam a lista com lotes repetidos.
+            var linhas = (await lotes.ListarAsync()).Select(LinhaLote.De).ToList();
+
             _todos.Clear();
-            foreach (var l in await lotes.ListarAsync()) _todos.Add(LinhaLote.De(l));
+            _todos.AddRange(linhas);
 
             Refiltrar();
         }

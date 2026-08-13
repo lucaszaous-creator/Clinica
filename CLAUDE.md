@@ -2559,3 +2559,77 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `LotesGerencialViewModel` ser somente leitura é **decisão** (o número do lote é sequência,
   e dois apps gerando em paralelo produzem lotes duplicados que a operadora recusa semanas
   depois).
+
+- **O MESMO ATO com DUAS regras: a metade sem regra é a que ninguém confere** (parcela 64,
+  auditoria de prontidão do módulo do GERENTE). A tela "Quem parou de vir" abre o WhatsApp
+  com um convite para retomar as sessões. É **recall** — comunicação ativa da clínica —, e
+  o projeto decidiu na parcela 5 que recall só sai com `ComunicacaoEMarketing` vigente:
+  `CampanhaService.GerarRecallAsync` recusa quem não consentiu e ainda **conta** quantos
+  ficaram de fora. A tela mandava a mesma mensagem para as mesmas pessoas **sem perguntar
+  nada**, porque a lista vinha de outro serviço (`RetencaoPacienteService`, que responde
+  "quem sumiu" e não tem por que saber de consentimento).
+  Não é a mesma coisa que capacidade sem porta: aqui há DUAS portas para o mesmo ato, uma
+  com regra e outra sem — e a sem regra é justamente a que ninguém lembra de conferir,
+  porque a existência da outra dá a sensação de que o assunto está coberto. É primo do que
+  a parcela 61 corrigiu na fila (`EditarAgenda` de um lado, `VerAgenda` do outro), com o
+  agravante de o lado frouxo aqui não ter regra NENHUMA, e de a garantia ser a que a
+  cliente está auditando.
+  As decisões: a leitura de consentimento é **em lote** (`PacientesComConsentimentoVigente
+  Async`, a MESMA da campanha — nunca uma segunda definição), e quem não consentiu
+  **continua na lista, contado, com o motivo escrito na linha** e o botão apagado. Sumir
+  com ele seria pior: some da lista, some da cabeça, e a tarefa que destrava o telefonema
+  (colher o consentimento no balcão) deixaria de existir para a direção.
+  ⚠️ E o teste não podia morar no ViewModel (WPF não compila no projeto de teste): o que
+  `RetencaoConsentimentoTests` fixa é que os **dois lados perguntam a mesma coisa e recebem
+  a mesma resposta**, revogação incluída. **Ao achar o mesmo ato em duas telas, escreva o
+  teste que compara as duas** — não o que prova que a que você acabou de arrumar funciona.
+
+- **Trocar de paciente rápido mistura os dados de DOIS pacientes na tela de conformidade**
+  (parcela 64): `GuardaProntuarioViewModel` fazia duas idas ao banco em sequência (a guarda
+  e a trilha de leitura) disparadas pelo `Selecionado` do seletor, **sem contador de
+  geração** — e o seletor é uma BUSCA, então trocar de pessoa várias vezes é o uso normal
+  de quem investiga um acesso indevido. Num banco remoto a leitura velha responde depois da
+  nova: a guarda de um paciente sob o nome de outro, ou a trilha da Maria listada na ficha
+  do João. A regra da parcela 60 já valia para "toda tela que dispara leitura a cada tecla
+  ou clique"; o que esta parcela acrescenta é **onde doer mais**: numa tela que existe para
+  responder auditoria, a resposta errada tem exatamente a mesma cara da certa. A vizinha
+  (`AuditoriaViewModel`), com o mesmo seletor, já tinha o contador — **duas telas com o
+  mesmo componente e só uma com a guarda é o sinal de que a varredura da 60 passou por
+  alto**.
+
+- **A mensagem de ÊXITO invisível não é uma tela: é o padrão do arquivo ao lado** (parcela
+  64). A parcela 62 achou o defeito em cinco janelas da Recepção — `<Border AlertaPerigo
+  Visibility="{Binding MensagemEhErro}">` esconde junto a mensagem que zera o booleano — e
+  o corrigiu lá. As **20 telas do Gerente** estavam todas no padrão antigo, com oito
+  mensagens que nunca apareceram: o estado vazio das Campanhas ("Gere uma rodada acima para
+  começar"), "Nenhum usuário cadastrado", "Nenhum horário na agenda neste período" e — a
+  pior — **"Exportação gravada em {destino}"**, na tela que exporta o prontuário da clínica
+  inteira: a direção clicava, esperava, e a tela não dizia nada nem onde havia gravado.
+  A correção é a mesma frase da 62 — **quem decide se aparece é o texto; quem decide a cor
+  é a gravidade** —, e a lição é sobre o ALCANCE: quando um defeito de padrão é corrigido
+  numa tela, **procure o mesmo par de linhas nos outros módulos antes de dar a parcela por
+  fechada**. Quatro destas telas já usavam `AlertaAviso` em vez de `AlertaPerigo`, o que
+  mostra que alguém percebeu que a mensagem era informativa e não percebeu que ela nunca ia
+  aparecer.
+
+- **A checagem que existe para pegar o defeito passava por cima dele** (parcela 64,
+  checagem 20). A tela de preço por convênio oferecia **"ClinicaDaDor"** no seletor de
+  especialidade — o defeito da parcela 41, na tela do Gerente, com a checagem verde. A
+  causa é um caractere: a coleção é `IReadOnlyList<Especialidade?>` (anulável porque o nulo
+  é a opção "todas"), e a expressão da checagem só casava `<Especialidade>`. O WPF chama
+  `ToString()` igual nos dois casos.
+  Alargá-la para `<Tipo?>` custou **zero ruído** — a varredura achou UMA ocorrência em toda
+  a suíte, que era o próprio defeito. A lição: **checagem cega é pior que checagem ausente,
+  porque ela responde "está limpo"**; e a hora de medir o ruído de um alargamento é ANTES
+  de decidir não fazê-lo. Autotestada nos dois sentidos (dispara com o `ItemTemplate`
+  removido, cala com ele posto), pela regra da checagem 34.
+
+- **Varredura de permissão: conte os IRMÃOS, não os comandos** (parcela 64). `Dispensar
+  Async` era o único dos quatro comandos de escrita de `CampanhasViewModel` sem `Exigir` —
+  e é o que faz o contato **sumir da fila sem que ninguém tenha falado com o paciente**, a
+  mesma família de `MarcarNaoConformidade` no faturamento. Nas exportações CSV faltavam as
+  duas: a trilha de auditoria (que leva nome de paciente desde a parcela 52) e a lista de
+  sumidos (nome e TELEFONE) saíam para arquivo sem a segunda barreira, num módulo onde
+  todas as outras escritas a tinham. **Quando três comandos vizinhos têm a guarda e um não,
+  o que está errado é o um** — e o CSV conta como saída de dado, que foi a lição da parcela
+  60 aplicada ao export clínico.

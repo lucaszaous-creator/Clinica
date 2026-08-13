@@ -73,9 +73,13 @@ public sealed partial class AcessosViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var acesso = scope.ServiceProvider.GetRequiredService<AcessoService>();
 
-            Usuarios.Clear();
-            foreach (var u in await acesso.UsuariosAsync())
-                Usuarios.Add(new LinhaUsuario
+            // Entre o `Clear()` e o último `Add` não pode haver `await` (parcela 62):
+            // toda escrita desta tela recarrega no fim, e uma recarga que comece enquanto
+            // outra ainda está no ar limpa o que a primeira estava preenchendo — a lista
+            // sai com usuários repetidos ou faltando. Monta-se em lista local e publica-se
+            // de uma vez.
+            var linhas = (await acesso.UsuariosAsync())
+                .Select(u => new LinhaUsuario
                 {
                     Id = u.Id,
                     Nome = u.Nome,
@@ -87,7 +91,11 @@ public sealed partial class AcessosViewModel : ObservableObject
                         ? quando.ToString("dd/MM/yyyy HH:mm")
                         : "nunca entrou",
                     Ativo = u.Ativo
-                });
+                })
+                .ToList();
+
+            Usuarios.Clear();
+            foreach (var linha in linhas) Usuarios.Add(linha);
 
             if (Usuarios.Count == 0)
                 Mensagem = "Nenhum usuário cadastrado.";

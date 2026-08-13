@@ -226,6 +226,13 @@ public sealed partial class AuditoriaViewModel : ObservableObject
     {
         try
         {
+            // A segunda barreira. O item da sidebar já exige VerAuditoria, mas isso é UMA
+            // barreira — e o que sai daqui é a trilha inteira do filtro, com nome de
+            // paciente (parcela 52) e nome de operador, num arquivo que qualquer pessoa
+            // abre. Dado que sai para arquivo é o que uma investigação procura, e foi por
+            // isso que a exportação clínica ganhou a mesma guarda na parcela 60.
+            SessaoUsuario.Atual.Exigir(Permissao.VerAuditoria, "exportar a trilha de auditoria");
+
             var linhas = Eventos
                 .Select(e => (IReadOnlyList<string>)new[]
                 {

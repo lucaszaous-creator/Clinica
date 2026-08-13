@@ -128,9 +128,14 @@ public sealed partial class NaoConformidadesGerencialViewModel : ObservableObjec
             using var scope = _escopos.CreateScope();
             var rodada = scope.ServiceProvider.GetRequiredService<RodadaPendenciasService>();
 
+            // Entre o `Clear()` e o último `Add` não pode haver `await` (parcela 62):
+            // reabrir uma NC recarrega no fim, e uma recarga que comece com outra no ar
+            // deixaria a lista com linhas repetidas ou faltando.
+            var linhas = (await rodada.NaoConformidadesAsync())
+                .Select(LinhaNaoConformidade.De).ToList();
+
             _todas.Clear();
-            foreach (var n in await rodada.NaoConformidadesAsync())
-                _todas.Add(LinhaNaoConformidade.De(n));
+            _todas.AddRange(linhas);
 
             // As operadoras com NC, preservando a escolha quando ela ainda existe —
             // atualizar a lista não pode desfazer o filtro de quem está trabalhando nela.

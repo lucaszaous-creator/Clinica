@@ -1233,8 +1233,14 @@ COMBO_SEM_ROTULO = re.compile(
     r"""([A-Za-z0-9_.]+)[^"]*"((?:(?!</?ComboBox|/>|>).)*?)/?>""",
     re.S,
 )
+# O `\??` é o ponto cego que a parcela 64 fechou. A tela de preço por convênio oferecia
+# a especialidade a partir de uma lista de `Especialidade?` — a coleção nasce anulável
+# porque o nulo é a opção "todas" —, e o WPF chama ToString() no valor exatamente como
+# faria num enum não anulável: a caixa mostrava "ClinicaDaDor". A expressão só casava
+# `<Especialidade>`, então a checagem que existe para pegar esse defeito passava por cima
+# dele. Checagem cega é pior do que checagem ausente: ela responde "está limpo".
 COLECAO_TIPADA = re.compile(
-    r"(?:IReadOnlyList|IList|List|ObservableCollection|IEnumerable)<\s*([A-Za-z0-9_]+)\s*>"
+    r"(?:IReadOnlyList|IList|List|ObservableCollection|IEnumerable)<\s*([A-Za-z0-9_]+)\??\s*>"
     r"\s+(?:_)?(\w+)"
 )
 

@@ -6,6 +6,8 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <DockPanel Margin="24">
@@ -80,8 +82,24 @@
             </Grid>
         </Border>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- A visibilidade segue a MENSAGEM; a cor segue a GRAVIDADE (parcela 62).
+             Amarrada a `MensagemEhErro`, a caixa só aparecia no erro — e toda mensagem de
+             ÊXITO ou de estado vazio, que zera o booleano, sumia junto com ele. Quem decide
+             se aparece é o texto; quem decide a cor é a gravidade. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
@@ -121,6 +139,18 @@
                                                    Margin="0,4,0,0"
                                                    FontSize="{StaticResource Fonte.Legenda}"
                                                    Foreground="{StaticResource Brush.Texto.Secundario}" />
+
+                                        <!-- Por que não dá para chamar, na própria linha. A
+                                             pessoa CONTINUA na lista de propósito: quem some
+                                             da lista some da cabeça, e o que falta (colher o
+                                             consentimento no balcão) é uma tarefa da clínica,
+                                             não um motivo para escondê-la. -->
+                                        <TextBlock Text="{Binding ImpedimentoChamada}"
+                                                   TextWrapping="Wrap" Margin="0,4,0,0"
+                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                   Foreground="{StaticResource Brush.Aviso}"
+                                                   Visibility="{Binding TemImpedimento,
+                                                                Converter={StaticResource BoolParaVisibilidade}}" />
                                     </StackPanel>
 
                                     <TextBlock Grid.Column="1" Text="{Binding Faixa}"
@@ -130,7 +160,7 @@
                                     <Button Grid.Column="2" Content="Chamar de volta"
                                             VerticalAlignment="Center"
                                             Style="{StaticResource BotaoAcaoGridSecundario}"
-                                            IsEnabled="{Binding TemTelefone}"
+                                            IsEnabled="{Binding PodeChamar}"
                                             Command="{Binding DataContext.ChamarCommand,
                                                       RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                             CommandParameter="{Binding}" />

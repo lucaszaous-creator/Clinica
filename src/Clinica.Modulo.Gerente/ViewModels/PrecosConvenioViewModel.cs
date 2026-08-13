@@ -138,9 +138,14 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
+            // Entre o `Clear()` e o último `Add` não pode haver `await` (parcela 62):
+            // salvar ou excluir um preço recarrega no fim, e uma recarga que comece com
+            // outra no ar deixaria a tabela com linhas repetidas.
+            var linhas = (await precos.CatalogoAsync())
+                .Select(p => LinhaPreco.De(p, hoje)).ToList();
+
             _todas.Clear();
-            foreach (var p in await precos.CatalogoAsync())
-                _todas.Add(LinhaPreco.De(p, hoje));
+            _todas.AddRange(linhas);
 
             // As operadoras com preço, preservando a escolha quando ela ainda existe —
             // atualizar não pode desfazer o filtro de quem está trabalhando na tabela.
@@ -325,9 +330,11 @@ public sealed partial class PrecoEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var catalogo = scope.ServiceProvider.GetRequiredService<ConvenioCatalogoService>();
 
+            // Entre o `Clear()` e o último `Add` não pode haver `await` (parcela 62).
+            var ativos = (await catalogo.ListarAsync()).Where(c => c.Ativo).ToList();
+
             Convenios.Clear();
-            foreach (var c in await catalogo.ListarAsync())
-                if (c.Ativo) Convenios.Add(c);
+            foreach (var c in ativos) Convenios.Add(c);
 
             if (_precoId == 0) return;
 

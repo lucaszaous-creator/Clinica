@@ -22,7 +22,33 @@ public sealed class LinhaSumido
     public required bool TemPacoteAberto { get; init; }
     public required bool JaChamado { get; init; }
 
+    /// <summary>
+    /// Consentimento de comunicação e marketing VIGENTE (LGPD).
+    ///
+    /// Chamar de volta quem parou de vir é RECALL — comunicação ativa da clínica, não
+    /// aviso sobre uma sessão que o paciente marcou. A rodada de campanha bloqueia quem
+    /// não consentiu desde a parcela 5; esta tela mandava a mesma mensagem sem perguntar,
+    /// e duas regras para o mesmo ato divergem sempre pelo lado errado.
+    /// </summary>
+    public required bool TemConsentimento { get; init; }
+
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
+
+    /// <summary>Só há WhatsApp a abrir com telefone E consentimento — a metade VISÍVEL da regra.</summary>
+    public bool PodeChamar => TemTelefone && TemConsentimento;
+
+    /// <summary>
+    /// Por que não dá para chamar, escrito na linha. A pessoa continua na lista de
+    /// propósito (a regra do projeto: quem não consentiu não some, aparece contado) — o
+    /// que ela precisa é da instrução para resolver, que é colher o consentimento no
+    /// balcão da próxima vez que o paciente aparecer.
+    /// </summary>
+    public string ImpedimentoChamada =>
+        !TemTelefone ? "sem telefone no cadastro"
+        : !TemConsentimento ? "sem consentimento de comunicação (LGPD) — colha no balcão"
+        : string.Empty;
+
+    public bool TemImpedimento => ImpedimentoChamada.Length > 0;
 }
 
 /// <summary>
@@ -117,6 +143,17 @@ public sealed partial class RetencaoViewModel : ObservableObject
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var lista = await servico.SumidosAsync(hoje, JanelaDias);
 
+            // Quem pode receber a mensagem. EM LOTE, pela mesma razão que a campanha usa
+            // o lote: uma consulta por paciente transformaria a tela em dezenas de idas a
+            // um banco remoto. Lista vazia não vai ao banco — perguntar por ninguém.
+            var comConsentimento = lista.Count == 0
+                ? []
+                : (await scope.ServiceProvider
+                    .GetRequiredService<Clinica.Application.Abstracoes.IClinicaRepositorio>()
+                    .PacientesComConsentimentoVigenteAsync(
+                        FinalidadeConsentimento.ComunicacaoEMarketing,
+                        lista.Select(s => s.PacienteId).ToList())).ToHashSet();
+
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
@@ -131,6 +168,7 @@ public sealed partial class RetencaoViewModel : ObservableObject
                     EraFrequente = s.EraFrequente,
                     TemPacoteAberto = s.TemPacoteAberto,
                     JaChamado = s.JaChamado,
+                    TemConsentimento = comConsentimento.Contains(s.PacienteId),
                     Detalhe = $"última sessão em {s.UltimaSessao:dd/MM/yyyy} · "
                               + $"{s.DiasSemVir} dias · {s.TotalSessoes} sessão(ões) no total"
                               + (s.TemPacoteAberto ? " · TEM PACOTE EM ABERTO" : string.Empty)
@@ -183,6 +221,19 @@ public sealed partial class RetencaoViewModel : ObservableObject
         // mais de 90 dias" — sem os dias, o número perde a régua que o define.
         var frequentes = _todos.Count(s => s.EraFrequente);
         var comPacote = _todos.Count(s => s.TemPacoteAberto);
+
+        // Quem não dá para chamar aparece CONTADO, e a lista continua mostrando a pessoa.
+        // É a regra que a rodada de campanha já seguia: quem some da lista some da
+        // cabeça, e "12 pacientes" que na verdade eram 30 faz a clínica concluir que
+        // quase ninguém está sumindo. Contado sobre o TOTAL, como os outros dois.
+        var semConsentimento = _todos.Count(s => !s.TemConsentimento);
+        var semTelefone = _todos.Count(s => s.TemConsentimento && !s.TemTelefone);
+
+        var impedidos = new List<string>();
+        if (semConsentimento > 0)
+            impedidos.Add($"{semConsentimento} sem consentimento de comunicação (LGPD)");
+        if (semTelefone > 0) impedidos.Add($"{semTelefone} sem telefone");
+
         Resumo = _todos.Count == 0
             ? $"Ninguém sem vir há mais de {JanelaDias} dias."
             : FiltroAtivo
@@ -190,7 +241,10 @@ public sealed partial class RetencaoViewModel : ObservableObject
                   + $"{JanelaDias} dias no filtro."
                 : $"{Sumidos.Count} paciente(s) sem vir há mais de {JanelaDias} dias · "
                   + $"{frequentes} eram de tratamento"
-                  + (comPacote > 0 ? $" · {comPacote} com pacote pago em aberto." : ".");
+                  + (comPacote > 0 ? $" · {comPacote} com pacote pago em aberto" : string.Empty)
+                  + (impedidos.Count > 0
+                      ? $" · não dá para chamar: {string.Join(" e ", impedidos)}."
+                      : ".");
 
         VazioDescricao = FiltroAtivo
             ? "Ninguém bate com o filtro — limpe-o para ver a lista inteira da janela."
@@ -208,7 +262,49 @@ public sealed partial class RetencaoViewModel : ObservableObject
     [RelayCommand]
     private void Chamar(LinhaSumido? linha)
     {
-        if (linha?.Telefone is not { } telefone) return;
+        if (linha is null) return;
+
+        try
+        {
+            // A segunda barreira. O item da sidebar já exige GerenciarCampanhas, mas isso
+            // é UMA barreira: atalho de teclado e navegação por chave passam direto por
+            // ela. Chamar de volta é o mesmo ato da rodada de recall, e a autorização
+            // tinha de ser a mesma nos dois lugares.
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarCampanhas, "chamar o paciente de volta");
+        }
+        catch (Exception ex)
+        {
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+            return;
+        }
+
+        // ⚠️ A LGPD, e não um detalhe de tela. Esta mensagem é RECALL — comunicação ativa
+        // da clínica —, e o projeto já decidiu na parcela 5 que ela só sai com
+        // `ComunicacaoEMarketing` vigente: `CampanhaService.GerarRecallAsync` conta quem
+        // ficou de fora e não manda. Aqui a MESMA mensagem saía sem ninguém perguntar,
+        // porque a lista vinha de outro serviço — o mesmo ato com duas regras, e a de
+        // baixo era a que não tinha regra nenhuma.
+        //
+        // A guarda DIZ por que não dá (a lição da parcela 41): o botão já nasce apagado
+        // por `PodeChamar`, e quem chegar por atalho ouve o motivo em vez de ver o clique
+        // cair no vazio.
+        if (!linha.TemConsentimento)
+        {
+            Mensagem = $"{linha.Paciente} não consentiu receber comunicação da clínica (LGPD). "
+                       + "Confirmar a sessão que ele mesmo marcou é transacional e continua "
+                       + "podendo; chamar de volta é marketing, e o consentimento se colhe no "
+                       + "balcão, na ficha do paciente.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        if (linha.Telefone is not { } telefone)
+        {
+            Mensagem = $"{linha.Paciente} está sem telefone no cadastro.";
+            MensagemEhErro = true;
+            return;
+        }
 
         var primeiro = linha.Paciente.Split(' ').FirstOrDefault() ?? linha.Paciente;
         var erro = Whatsapp.Abrir(
@@ -240,8 +336,15 @@ public sealed partial class RetencaoViewModel : ObservableObject
 
         try
         {
+            // Sai da clínica nome e TELEFONE de paciente, num arquivo que qualquer pessoa
+            // abre. A segunda barreira vale aqui pela mesma razão que vale no botão de
+            // chamar — e o CSV alcança a lista inteira de uma vez.
+            SessaoUsuario.Atual.Exigir(
+                Permissao.GerenciarCampanhas, "exportar a lista de pacientes sumidos");
+
             var csv = ExportacaoCsv.Montar(
-                ["Paciente", "Telefone", "Situação", "Faixa", "Era de tratamento", "Pacote em aberto"],
+                ["Paciente", "Telefone", "Situação", "Faixa", "Era de tratamento",
+                 "Pacote em aberto", "Pode receber mensagem"],
                 Sumidos.Select(s => new[]
                 {
                     s.Paciente,
@@ -249,7 +352,11 @@ public sealed partial class RetencaoViewModel : ObservableObject
                     s.Detalhe,
                     s.Faixa,
                     s.EraFrequente ? "sim" : "não",
-                    s.TemPacoteAberto ? "sim" : "não"
+                    s.TemPacoteAberto ? "sim" : "não",
+                    // A coluna existe para a planilha não virar lista de disparo: quem
+                    // trabalha o CSV fora da tela precisa enxergar o mesmo impedimento
+                    // que a tela mostra.
+                    s.PodeChamar ? "sim" : $"não — {s.ImpedimentoChamada}"
                 }));
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(

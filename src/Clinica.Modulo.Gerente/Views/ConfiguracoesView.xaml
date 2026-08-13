@@ -6,6 +6,8 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <Grid>
@@ -17,8 +19,24 @@
                        Text="O que vale para a clínica inteira. Cada bloco salva sozinho — são assuntos diferentes, e um botão único gravaria o que ninguém olhou." />
         </StackPanel>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- A visibilidade segue a MENSAGEM; a cor segue a GRAVIDADE (parcela 62).
+             Amarrada a `MensagemEhErro`, a caixa só aparecia no erro — e toda mensagem de
+             ÊXITO ou de estado vazio, que zera o booleano, sumia junto com ele. Quem decide
+             se aparece é o texto; quem decide a cor é a gravidade. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 

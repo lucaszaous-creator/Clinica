@@ -320,6 +320,16 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
         // A folha aguardando checagem se resolve na sala de infusão — a chave é a única
         // publicada por dois módulos, e por isso vem de ChavesSuite.
         AssuntoDirecao.InfusaoAguardando => (ChavesSuite.SalaInfusao, "Ver sala de infusão"),
+
+        // Os três do faturamento vão para a MESMA tela e dizem abas diferentes, pelo
+        // argumento que a receita glosada já usava acima: "Ver faturamento" três vezes
+        // no mesmo painel faz a direção clicar no primeiro, reconhecer a tela e concluir
+        // que já viu os outros dois. O destino é um só porque a tela é uma só — o que
+        // muda é qual das cinco abas resolve o alerta.
+        AssuntoDirecao.PendenciasVencidas => (ChavesSuite.FaturamentoTiss, "Ver pendências"),
+        AssuntoDirecao.GlosasVencidas or AssuntoDirecao.GlosasAVencer
+            => (ChavesSuite.FaturamentoTiss, "Ver glosas"),
+
         _ => (ChavesSuite.FaturamentoTiss, "Ver faturamento")
     };
 
