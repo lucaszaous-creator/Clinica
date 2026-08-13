@@ -214,6 +214,10 @@ public sealed partial class DocumentosViewModel : ObservableObject
                 {
                     ExigenciaFolha.Periodo => "Gerar PDF",
                     ExigenciaFolha.LancamentoNoCaixa => "Ir para o Caixa",
+                    // O clique NAVEGA, e o rótulo tem de dizer isso: "Emitir" prometeria
+                    // emissão, e a leitura natural de uma tela que troca sem sair papel é
+                    // que o termo saiu — com a pendência do dia continuando acesa.
+                    ExigenciaFolha.TermoParaAssinar => "Colher assinatura…",
                     _ => "Emitir"
                 }
             });
@@ -256,6 +260,19 @@ public sealed partial class DocumentosViewModel : ObservableObject
                     linha.Pendencia = existe
                         ? "Nasce do lançamento no caixa, para não sair recibo em duplicidade."
                         : "O módulo Financeiro não está aberto neste aplicativo.";
+                    break;
+
+                case ExigenciaFolha.TermoParaAssinar:
+                    // Exige paciente, como as clínicas — e NÃO exige procedimento marcado
+                    // para hoje (parcela 66, 3ª rodada): o termo vale a partir da
+                    // assinatura, e quem aparece para tirar dúvidas é justamente quem lê o
+                    // texto com calma. Quem escolhe o modelo é a janela.
+                    linha.PodeGerar = temPaciente && podeEmitir;
+                    linha.Pendencia = !temPaciente
+                        ? "Escolha o paciente ao lado."
+                        : podeEmitir
+                            ? string.Empty
+                            : $"Seu acesso permite ver, não colher ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).";
                     break;
 
                 default: // Periodo
@@ -484,6 +501,10 @@ public sealed partial class DocumentosViewModel : ObservableObject
                     NavegacaoSuite.Ir(ChavesSuite.Caixa);
                     return;
 
+                case ExigenciaFolha.TermoParaAssinar:
+                    await ColherTermoAsync(linha.Folha);
+                    return;
+
                 case ExigenciaFolha.Periodo:
                     await GerarFechamentoAsync();
                     return;
@@ -536,6 +557,33 @@ public sealed partial class DocumentosViewModel : ObservableObject
         await CarregarAsync();
 
         if (concluiu) _snackbar.Sucesso($"{folha.Rotulo} emitido(a).");
+    }
+
+    /// <summary>
+    /// O termo que o PACIENTE assina (parcela 66, 3ª rodada).
+    ///
+    /// Não passa pela janela genérica de documento: o texto e as declarações vêm de um
+    /// MODELO, e é a cópia dele que o paciente lê e assina no tablet. O
+    /// <c>ColetaDeTermo.Abrir</c> é o ponto ÚNICO das quatro portas — pergunta qual termo
+    /// é, resolve os serviços e abre a coleta.
+    ///
+    /// ⚠️ Sem `modeloId`: aqui não há procedimento marcado dizendo qual termo é, e é
+    /// justamente esse o caso que a cliente pediu — colher quando o paciente aparece, sem
+    /// esperar o dia.
+    /// </summary>
+    private async Task ColherTermoAsync(FolhaCatalogo folha)
+    {
+        SessaoUsuario.Atual.Exigir(
+            folha.PermissaoEmitir, $"colher {folha.Rotulo.ToLowerInvariant()}");
+
+        if (Seletor.Selecionado is not { } paciente) return;
+
+        var concluiu = ColetaDeTermo.Abrir(_escopos, paciente.Id, paciente.Nome);
+
+        // Recarrega de qualquer jeito: abrir a janela já emite o termo numerado.
+        await CarregarAsync();
+
+        if (concluiu) _snackbar.Sucesso($"{folha.Rotulo} assinado.");
     }
 
     /// <summary>

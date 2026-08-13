@@ -282,6 +282,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .OrderByDescending(a => a.DataHora)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteNoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default)
+    {
+        var inicio = dia.ToDateTime(TimeOnly.MinValue);
+        var fim = dia.ToDateTime(TimeOnly.MaxValue);
+
+        return await _db.Agendamentos.AsNoTracking()
+            .Where(a => a.PacienteId == pacienteId
+                        && a.DataHora >= inicio && a.DataHora <= fim)
+            .OrderBy(a => a.DataHora)
+            .ToListAsync(ct);
+    }
+
     public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default)
     {
         var query = _db.Pacientes.AsQueryable();
@@ -1285,6 +1298,72 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         var itens = await _db.ItensModelo.Where(i => i.ModeloDocumentoId == modeloId).ToListAsync(ct);
         _db.ItensModelo.RemoveRange(itens);
     }
+
+    // ---- Termo assinado pelo paciente (parcela 66) ----
+
+    public async Task<IReadOnlyList<ExigenciaTermoProcedimento>> ExigenciasTermoAsync(
+        CancellationToken ct = default)
+        => await _db.ExigenciasTermo.AsNoTracking()
+            .Include(x => x.Modelo)
+            .OrderBy(x => x.Modalidade).ThenBy(x => x.ModalidadeCodigo)
+            .ToListAsync(ct);
+
+    public Task<ExigenciaTermoProcedimento?> ObterExigenciaTermoAsync(
+        int exigenciaId, CancellationToken ct = default)
+        => _db.ExigenciasTermo
+            .Include(x => x.Modelo)
+            .FirstOrDefaultAsync(x => x.Id == exigenciaId, ct);
+
+    public async Task AdicionarExigenciaTermoAsync(
+        ExigenciaTermoProcedimento exigencia, CancellationToken ct = default)
+        => await _db.ExigenciasTermo.AddAsync(exigencia, ct);
+
+    public async Task<IReadOnlyList<DocumentoClinico>> TermosDoPacienteNaDataAsync(
+        int pacienteId, DateOnly data, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Itens)
+            .Where(d => d.PacienteId == pacienteId
+                        && d.Data == data
+                        && d.Tipo == TipoDocumentoClinico.TermoProcedimento)
+            .OrderByDescending(d => d.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DocumentoClinico>> TermosDaDataAsync(
+        DateOnly data, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Itens)
+            .Where(d => d.Data == data
+                        && d.Tipo == TipoDocumentoClinico.TermoProcedimento)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DocumentoClinico>> TermosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Itens)
+            .Where(d => d.PacienteId == pacienteId
+                        && d.Tipo == TipoDocumentoClinico.TermoProcedimento)
+            .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DocumentoClinico>> TermosDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        return await _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Itens)
+            .Where(d => pacienteIds.Contains(d.PacienteId)
+                        && d.Tipo == TipoDocumentoClinico.TermoProcedimento)
+            .ToListAsync(ct);
+    }
+
+    // Sem AsNoTracking e sem Include no documento: quem pede o traço quer os BYTES, e é a
+    // única leitura que os traz — arrastá-los em qualquer outra consulta faria a listagem
+    // de documentos carregar uma imagem por linha.
+    public Task<TracoAssinatura?> ObterTracoAssinaturaAsync(
+        int tracoId, CancellationToken ct = default)
+        => _db.TracosAssinatura.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == tracoId, ct);
 
     // ---- Pacotes, planos e vouchers ----
 

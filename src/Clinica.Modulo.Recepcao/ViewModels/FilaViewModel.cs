@@ -3,6 +3,7 @@ using System.Windows.Threading;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
+using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -39,6 +40,17 @@ public sealed partial class CartaoFila : ObservableObject
     /// </summary>
     [ObservableProperty]
     private bool _temGuiaPendente;
+
+    /// <summary>
+    /// O procedimento de hoje exige termo assinado pelo paciente e ele ainda não assinou
+    /// (parcela 66) — o caso é o BSV, com a declaração de jejum.
+    ///
+    /// É calculado na CARGA da fila, e não só no check-in como a elegibilidade completa: a
+    /// conferência do termo é UMA consulta e responde à pergunta que decide se o cartão
+    /// pode andar. Descobrir na maca que falta assinar significa parar o procedimento.
+    /// </summary>
+    [ObservableProperty]
+    private bool _temTermoPendente;
 
     /// <summary>Tempo de espera formatado ("12 min"). Vazio antes do check-in.</summary>
     [ObservableProperty]
@@ -157,6 +169,7 @@ public sealed partial class FilaViewModel : ObservableObject
 
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
+    private readonly TermoProcedimentoService _termos;
     private readonly DispatcherTimer _relogio;
 
     private List<Agendamento> _doDia = [];
@@ -230,13 +243,14 @@ public sealed partial class FilaViewModel : ObservableObject
 
     public FilaViewModel(
         AgendaService agenda, PainelRecepcaoService painel, IServiceScopeFactory escopos,
-        ISnackbarService snackbar, IDialogoService dialogo)
+        ISnackbarService snackbar, IDialogoService dialogo, TermoProcedimentoService termos)
     {
         _agenda = agenda;
         _painel = painel;
         _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
+        _termos = termos;
 
         // Duas coisas por batida, e a segunda é a que faz a chamada do consultório
         // chegar aqui.
@@ -342,6 +356,21 @@ public sealed partial class FilaViewModel : ObservableObject
                 comPendencia = [];
             }
 
+            // Quem ainda tem termo por assinar hoje (parcela 66). Falha aqui, como a
+            // pendência acima, não derruba a fila: é aviso, não o conteúdo da tela.
+            Dictionary<int, IReadOnlyList<SituacaoTermo>> termos;
+            try
+            {
+                termos = new Dictionary<int, IReadOnlyList<SituacaoTermo>>(
+                    await _termos.DoDiaAsync(DateOnly.FromDateTime(Dia)));
+            }
+            catch (Exception ex)
+            {
+                Clinica.Application.Diagnostico.Registrar(
+                    "Recepção — termos do dia não puderam ser conferidos", ex);
+                termos = [];
+            }
+
             if (geracao != _geracaoCarga) return;
 
             Aguardando.Clear();
@@ -372,7 +401,9 @@ public sealed partial class FilaViewModel : ObservableObject
                     EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
                     EhEncaixe = a.Encaixe,
                     Lancamento = DescreverLancamento(a),
-                    TemGuiaPendente = comPendencia.Contains(a.PacienteId)
+                    TemGuiaPendente = comPendencia.Contains(a.PacienteId),
+                    TemTermoPendente = termos.TryGetValue(a.PacienteId, out var doPaciente)
+                                       && doPaciente.Any(t => t.Pendente)
                 };
 
                 Coluna(a.Etapa).Add(cartao);
@@ -712,6 +743,77 @@ public sealed partial class FilaViewModel : ObservableObject
 
             _snackbar.Sucesso($"Sessão de {c.Paciente} concluída — {string.Join(" · ", partes)}.");
         }, "conclusão do atendimento");
+
+    /// <summary>
+    /// Abre a coleta do termo do procedimento (parcela 66) — a PORTA do alerta que o
+    /// check-in dá.
+    ///
+    /// Vem para cá, e não para uma tela do Consultório, porque o termo se colhe com o
+    /// paciente no balcão, antes de ele subir para a sala: quem recebe é quem apresenta o
+    /// papel. Alerta sem porta no mesmo app é pior que alerta nenhum — ele ensina a pessoa
+    /// a ignorá-lo (a lição da parcela 48).
+    ///
+    /// Quando há mais de um termo pendente, colhe o PRIMEIRO e o cartão continua marcado:
+    /// o próximo clique abre o seguinte. Empilhar duas janelas obrigaria o paciente a
+    /// assinar duas vezes sem saber quantas faltam.
+    /// </summary>
+    [RelayCommand]
+    private async Task ColherTermoAsync(CartaoFila? cartao)
+        => await ExecutarAsync(cartao, async c =>
+        {
+            SessaoUsuario.Atual.Exigir(
+                Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente");
+
+            // ⚠️ Só HOJE, e a guarda FALA. O quadro navega dias (`DiaAnterior`/`ProximoDia`),
+            // mas a emissão carimba `DateTime.Today` — colher com o quadro em 12/08 criaria
+            // um termo datado de hoje que nunca casaria com aquele dia: o papel sairia
+            // assinado e a pendência de 12/08 continuaria acesa. Pior que não ter o botão,
+            // porque a pessoa acreditaria ter resolvido.
+            if (Dia.Date != DateTime.Today)
+            {
+                _dialogo.Aviso(
+                    "Termo é do dia do procedimento",
+                    "O termo vale para a SESSÃO, e é colhido no dia dela. Volte para hoje "
+                    + "para colher a assinatura deste paciente.");
+                return;
+            }
+
+            var situacoes = await _termos.SituacaoDoDiaAsync(
+                c.PacienteId, DateOnly.FromDateTime(Dia));
+
+            var pendente = situacoes.FirstOrDefault(s => s.Pendente);
+
+            // Guarda que FALA: o cartão pode ter sido resolvido noutra máquina entre a
+            // carga do quadro e o clique, e sair calada aqui seria botão que não faz nada.
+            if (pendente is null)
+            {
+                c.TemTermoPendente = false;
+                _snackbar.Info($"Não há termo pendente para {c.Paciente}.");
+                return;
+            }
+
+            ColetaDeTermo.Abrir(
+                _escopos, c.PacienteId, c.Paciente,
+                pendente.ModeloId, pendente.DocumentoId,
+                // O profissional do HORÁRIO: sem ele o termo nasce órfão e a via que o
+                // paciente assina — e que fica 20 anos no prontuário — sai com
+                // "Profissional responsável" no lugar do nome e do CRM de quem faz o
+                // procedimento.
+                _doDia.FirstOrDefault(a => a.Id == c.AgendamentoId)?.ProfissionalId);
+
+            // Recarrega SEMPRE, e não só no concluiu: abrir a janela já emite o termo
+            // numerado, e o selo do cartão precisa refletir isso.
+            await CarregarAsync();
+        }, "coleta do termo");
+
+    /// <summary>
+    /// A janela ATIVA, não a principal: com um modal já aberto, a próxima nasceria ATRÁS
+    /// dele e quem clicou concluiria que o botão não fez nada (a lição da parcela 58).
+    /// </summary>
+    private static System.Windows.Window? Dono()
+        => System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>()
+               .FirstOrDefault(w => w.IsActive)
+           ?? System.Windows.Application.Current?.MainWindow;
 
     /// <summary>Volta o cartão uma coluna — clicar errado no kanban é rotina.</summary>
     [RelayCommand]

@@ -104,6 +104,7 @@ public sealed class DocumentoClinicoService
             PacienteId = dados.PacienteId,
             ProfissionalId = dados.ProfissionalId,
             EvolucaoId = dados.EvolucaoId,
+            ModeloOrigemId = dados.ModeloOrigemId,
             Data = data,
             Titulo = Limpar(dados.Titulo),
             Corpo = Limpar(dados.Corpo),
@@ -376,6 +377,54 @@ public sealed class DocumentoClinicoService
             Corpo = termo,
             Itens = itens
         }, operador, ct);
+    }
+
+    /// <summary>
+    /// Emite o TERMO DE PROCEDIMENTO que o paciente vai assinar (parcela 66), COPIANDO o
+    /// texto e as declarações de um <see cref="ModeloDocumento"/>.
+    ///
+    /// Copiar, e não apontar, é a regra do protocolo do mapa corporal e do modelo de
+    /// evolução — e aqui ela não é desenho, é a Lei 13.787/2018: referência viva faria
+    /// corrigir uma palavra do termo hoje reescrever o que um paciente assinou no mês
+    /// passado, e o que ele assinou é justamente o que se contesta.
+    ///
+    /// As declarações nascem SEM RESPOSTA. Quem as responde é o paciente, na coleta, e
+    /// pré-marcar "Sim" seria fabricar a resposta mais conveniente para a clínica — o
+    /// oposto do que o termo existe para provar.
+    /// </summary>
+    public async Task<DocumentoClinico> EmitirTermoProcedimentoAsync(
+        int pacienteId, int modeloId, int? profissionalId = null,
+        string? operador = null, CancellationToken ct = default)
+    {
+        var modelo = await _repo.ObterModeloDocumentoAsync(modeloId, ct)
+            ?? throw new InvalidOperationException("Modelo de termo não encontrado.");
+
+        if (modelo.Tipo != TipoDocumentoClinico.TermoProcedimento)
+            throw new InvalidOperationException(
+                $"\"{modelo.Nome}\" não é um modelo de termo de procedimento.");
+
+        var documento = new DocumentoClinico
+        {
+            Tipo = TipoDocumentoClinico.TermoProcedimento,
+            PacienteId = pacienteId,
+            ProfissionalId = profissionalId,
+            ModeloOrigemId = modelo.Id,
+            Data = DateOnly.FromDateTime(DateTime.Today),
+            Titulo = modelo.Titulo,
+            Corpo = modelo.Corpo,
+            Itens = modelo.Itens
+                .OrderBy(i => i.Ordem)
+                .Select(i => new ItemDocumento
+                {
+                    Ordem = i.Ordem,
+                    Descricao = i.Descricao,
+                    Detalhe = i.Detalhe,
+                    Quantidade = null // a resposta é do paciente, e ele ainda não respondeu
+                })
+                .ToList()
+        };
+
+        return await EmitirAsync(documento, operador, ct);
     }
 
     // ==================== Modelos ====================

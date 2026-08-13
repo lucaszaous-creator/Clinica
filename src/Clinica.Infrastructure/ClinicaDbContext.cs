@@ -56,6 +56,8 @@ public class ClinicaDbContext : DbContext
     public DbSet<ChecagemPrescricao> ChecagensPrescricao => Set<ChecagemPrescricao>();
     public DbSet<AssinaturaDocumento> AssinaturasDocumento => Set<AssinaturaDocumento>();
     public DbSet<ArquivoAssinado> ArquivosAssinados => Set<ArquivoAssinado>();
+    public DbSet<TracoAssinatura> TracosAssinatura => Set<TracoAssinatura>();
+    public DbSet<ExigenciaTermoProcedimento> ExigenciasTermo => Set<ExigenciaTermoProcedimento>();
     public DbSet<PacoteCatalogo> PacotesCatalogo => Set<PacoteCatalogo>();
     public DbSet<PacotePaciente> PacotesPaciente => Set<PacotePaciente>();
     public DbSet<ConsumoPacote> ConsumosPacote => Set<ConsumoPacote>();
@@ -662,6 +664,23 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CertificadoValidoAte).HasColumnType("timestamp without time zone");
             e.Property(x => x.CarimboTempoEm).HasColumnType("timestamp without time zone");
 
+            // ---- Assinatura do PACIENTE (parcela 66) ----
+            e.Property(x => x.PacienteAssinaturaMeio).HasConversion<string>().HasMaxLength(20);
+            e.Property(x => x.PacienteAssinaturaHash).HasMaxLength(64);
+            e.Property(x => x.PacienteDocumentoConferido).HasMaxLength(80);
+            e.Property(x => x.PacienteAssinaturaTestemunha).HasMaxLength(80);
+            e.Property(x => x.MotivoRecusaPaciente).HasMaxLength(500);
+            e.Property(x => x.PacienteAssinadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.PacienteRecusouEm).HasColumnType("timestamp without time zone");
+
+            // SetNull nos dois, pela razão do arquivo assinado logo abaixo: apagar o modelo
+            // não pode apagar o termo que foi copiado dele, e perder o traço não pode
+            // apagar o registro de que o paciente assinou.
+            e.HasOne(x => x.ModeloOrigem).WithMany()
+                .HasForeignKey(x => x.ModeloOrigemId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.TracoAssinatura).WithMany()
+                .HasForeignKey(x => x.TracoAssinaturaId).OnDelete(DeleteBehavior.SetNull);
+
             e.HasOne(x => x.Paciente).WithMany().HasForeignKey(x => x.PacienteId);
             e.HasOne(x => x.Profissional).WithMany()
                 .HasForeignKey(x => x.ProfissionalId).OnDelete(DeleteBehavior.SetNull);
@@ -685,6 +704,11 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.AssinadoEletronicamente);
             e.Ignore(x => x.AssinaturaQualificada);
             e.Ignore(x => x.FraseAssinatura);
+            e.Ignore(x => x.PacienteAssinou);
+            e.Ignore(x => x.PacienteRecusou);
+            e.Ignore(x => x.AguardaAssinaturaDoPaciente);
+            e.Ignore(x => x.FraseAssinaturaPaciente);
+            e.Ignore(x => x.AvisoDeSeloQuebrado);
         });
 
         b.Entity<ItemDocumento>(e =>
@@ -893,6 +917,36 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.ModeloDocumentoId).OnDelete(DeleteBehavior.Cascade);
 
             e.HasIndex(x => x.ModeloDocumentoId);
+        });
+
+        // ---------- Termo assinado pelo paciente (parcela 66) ----------
+
+        b.Entity<TracoAssinatura>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Conteudo).IsRequired();
+            e.Property(x => x.ColhidoEm).HasColumnType("timestamp without time zone");
+
+            e.Ignore(x => x.Tamanho);
+        });
+
+        b.Entity<ExigenciaTermoProcedimento>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Modalidade).HasConversion<string>().HasMaxLength(40);
+            e.Property(x => x.ModalidadeCodigo).HasMaxLength(40);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+
+            // Cascade: a exigência é CONFIGURAÇÃO e só existe apontando para um modelo.
+            // Apagado o modelo, a linha que o exigia não tem mais sentido — e deixá-la
+            // órfã faria o balcão cobrar um termo que ninguém consegue emitir.
+            e.HasOne(x => x.Modelo).WithMany()
+                .HasForeignKey(x => x.ModeloDocumentoId).OnDelete(DeleteBehavior.Cascade);
+
+            // Uma exigência por modalidade+variante: duas fariam o paciente assinar o mesmo
+            // papel duas vezes na mesma sessão.
+            e.HasIndex(x => new { x.Modalidade, x.ModalidadeCodigo }).IsUnique();
         });
 
         // ---------- Campanhas e acesso (parcela 5) ----------

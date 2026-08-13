@@ -115,6 +115,17 @@
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Guia pendente" TextWrapping="Wrap" />
                         </Border>
+                        <!-- O termo pendente é etiqueta, e não só item de menu (parcela 66,
+                             2ª rodada): o aviso do check-in some quando a recepcionista
+                             fecha o diálogo, e sem selo o cartão fica visualmente idêntico
+                             ao de quem já assinou — dado calculado que nenhuma tela mostra
+                             é o defeito recorrente do projeto. -->
+                        <Border Style="{StaticResource Badge.Erro}" Margin="0,0,4,4"
+                                ToolTip="Falta o termo do procedimento assinado — colha no “⋯” antes de o paciente entrar"
+                                Visibility="{Binding TemTermoPendente,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="Termo pendente" TextWrapping="Wrap" />
+                        </Border>
                         <Border Style="{StaticResource Badge.Info}" Margin="0,0,4,4"
                                 ToolTip="Legado: guia não é atendimento — pode apagar"
                                 Visibility="{Binding EhRetornoDoSegundoCodigo,
@@ -133,17 +144,24 @@
                          A metade VISÍVEL da permissão: os comandos já exigem
                          EditarAgenda, e sem este IsEnabled a fila inteira ficava
                          clicável para quem só pode ver — botão aceso que recusa. -->
-                    <DockPanel Margin="0,8,0,0"
-                               IsEnabled="{Binding DataContext.PodeEditarAgenda,
-                                           RelativeSource={RelativeSource AncestorType=UserControl}}">
+                    <DockPanel Margin="0,8,0,0">
+                        <!-- ⚠️ O "⋯" NÃO segue `PodeEditarAgenda` (parcela 66, 2ª rodada).
+                             Ele passou a abrigar a coleta do termo, que é ato de quem tem
+                             `ColherAssinaturaPaciente` — a técnica de enfermagem tem esse
+                             bit e não tem o da agenda, e o menu inteiro apagado a deixava
+                             sem como colher justamente o termo do procedimento que ela vai
+                             executar. Quem decide item a item é o próprio menu; o botão de
+                             PASSO abaixo continua preso à agenda, que é a permissão dele. -->
                         <Button DockPanel.Dock="Right" Content="⋯" Width="30"
                                 Style="{StaticResource BotaoAcaoGridSecundario}"
                                 VerticalAlignment="Center" Margin="6,0,0,0"
-                                ToolTip="Voltar etapa, falta e cancelamento"
+                                ToolTip="Termo do procedimento, voltar etapa, falta e cancelamento"
                                 Click="AoAbrirMenuDoCartao" />
                         <Button Content="{Binding ProximoPasso}"
                                 Style="{StaticResource BotaoPequeno}"
                                 HorizontalAlignment="Left" VerticalAlignment="Center"
+                                IsEnabled="{Binding DataContext.PodeEditarAgenda,
+                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 Visibility="{Binding TemProximoPasso,
                                              Converter={StaticResource BoolParaVisibilidade}}"
                                 Command="{Binding DataContext.AvancarCommand,

@@ -103,6 +103,82 @@ public sealed class LinhaAlerta
     public required bool EhVermelho { get; init; }
 }
 
+/// <summary>
+/// Um termo que o procedimento de HOJE exige deste paciente (parcela 66, 2ª rodada).
+///
+/// ⚠️ A linha existe SÓ para o dia de hoje, e a tela diz isso. A validade do termo é POR
+/// SESSÃO — a declaração de jejum afirma "estou em jejum" e não se herda —, então uma
+/// porta que deixasse colher hoje um termo "para amanhã" produziria um papel assinado que
+/// o balcão não veria como cumprido amanhã: pior do que não ter porta, porque a pessoa
+/// acreditaria ter resolvido.
+/// </summary>
+public sealed class LinhaTermo
+{
+    public required int ModeloId { get; init; }
+    public required int? DocumentoId { get; init; }
+    public required string Nome { get; init; }
+    public required string Procedimento { get; init; }
+    public required bool Pendente { get; init; }
+    public required bool Assinado { get; init; }
+    public required bool Recusado { get; init; }
+    public required string? MotivoRecusa { get; init; }
+    public required IReadOnlyList<string> DeclaracoesNegadas { get; init; }
+
+    /// <summary>
+    /// Quem atende no horário de hoje. Vai para o termo emitido — sem ele a via que o
+    /// paciente assina sai com "Profissional responsável" no lugar do nome e do CRM.
+    /// </summary>
+    public required int? ProfissionalId { get; init; }
+
+    /// <summary>
+    /// O que a linha diz de relance. As três respostas são diferentes de propósito:
+    /// "falta assinar" é tarefa, "recusou" é decisão tomada, e "assinado com declaração
+    /// negada" é o caso GRAVE — o papel está completo e o procedimento pode não estar
+    /// seguro. Fundir os dois últimos faria "resolvido" cobrir um problema clínico.
+    /// </summary>
+    public string Situacao
+    {
+        get
+        {
+            if (Recusado)
+                return string.IsNullOrWhiteSpace(MotivoRecusa)
+                    ? "Paciente recusou assinar"
+                    : $"Paciente recusou: {MotivoRecusa}";
+
+            if (DeclaracoesNegadas.Count > 0)
+                return $"Assinado — respondeu NÃO em: {string.Join("; ", DeclaracoesNegadas)}";
+
+            return Assinado ? "Assinado hoje" : "Falta o paciente assinar";
+        }
+    }
+
+    /// <summary>Vermelho: ou falta assinar, ou o paciente negou uma declaração.</summary>
+    public bool EhVermelho => Pendente || DeclaracoesNegadas.Count > 0;
+
+    /// <summary>
+    /// A metade VISÍVEL do acesso. A que IMPEDE é o <c>Exigir</c> no comando — só
+    /// desabilitar é enfeite, porque o atalho de teclado passa direto.
+    /// </summary>
+    public bool PodeColher
+        => Pendente && SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
+
+    public static LinhaTermo De(SituacaoTermo s) => new()
+    {
+        ModeloId = s.ModeloId,
+        DocumentoId = s.DocumentoId,
+        Nome = s.NomeDoTermo,
+        // Nome do CATÁLOGO, nunca o enum: `{s.Modalidade}` escreveria "BsvComAcupuntura"
+        // na ficha que a recepcionista lê (o defeito da parcela 41).
+        Procedimento = CatalogoModalidades.Nome(s.Modalidade.ToString()),
+        Pendente = s.Pendente,
+        Assinado = s.Assinado,
+        Recusado = s.Recusado,
+        MotivoRecusa = s.MotivoRecusa,
+        DeclaracoesNegadas = s.DeclaracoesNegadas,
+        ProfissionalId = s.ProfissionalId
+    };
+}
+
 /// <summary>Um documento clínico emitido, na lista da ficha.</summary>
 public sealed class LinhaDocumento
 {
@@ -212,6 +288,15 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public ObservableCollection<LinhaDocumento> Documentos { get; } = [];
 
     /// <summary>
+    /// Os termos que o procedimento de HOJE exige deste paciente (parcela 66, 2ª rodada).
+    ///
+    /// A porta nasceu na fila, no check-in. O balcão pediu a mesma coisa aqui pela razão
+    /// que o cliente escreveu: com a ficha aberta na frente do paciente, colher a
+    /// assinatura antes de ele subir para a sala é um clique, e não uma volta à fila.
+    /// </summary>
+    public ObservableCollection<LinhaTermo> Termos { get; } = [];
+
+    /// <summary>
     /// As autorizações de sessões — a "senha" do convênio (parcela 48).
     ///
     /// A recepção já era AVISADA de que a cota ia estourar (<c>ElegibilidadeService</c>,
@@ -316,6 +401,57 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public bool PodePrescrever => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
 
     /// <summary>
+    /// A seção de termos aparece. Fecha para quem não tem <see cref="Permissao.VerProntuario"/>
+    /// — o termo é dado de saúde, e os perfis de balcão financeiro abrem esta ficha.
+    /// Some, não fica apagada: "sem permissão" ao lado de "Termo do BSV" anunciaria que
+    /// existe um BSV marcado para esta pessoa, que é justamente o que não se quer contar.
+    /// </summary>
+    /// <remarks>
+    /// Quem TEM o acesso vê a seção mesmo sem termo nenhum: é ela que explica que o termo é
+    /// colhido no DIA do procedimento, e sumir faria a recepcionista procurar onde assinar
+    /// numa aba que decidiu não mostrar nada. O que a some é a falta de permissão.
+    /// </remarks>
+    public bool TemTermoDoDia => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+
+    /// <summary>
+    /// A conferência não rodou. Terceiro estado escrito, nunca lista vazia silenciosa:
+    /// "não há termo" e "não deu para conferir" são respostas diferentes.
+    /// </summary>
+    [ObservableProperty]
+    private bool _termosNaoVerificados;
+
+    /// <summary>
+    /// A frase da seção, e ela muda de resposta de propósito.
+    ///
+    /// "Nenhum procedimento de hoje exige termo" e "todos assinados" são coisas diferentes,
+    /// e quem lê precisa distingui-las: a primeira significa que não há nada a fazer, a
+    /// segunda que já foi feito. Seção muda sem frase se lê como defeito.
+    /// </summary>
+    public string ResumoTermos
+    {
+        get
+        {
+            if (TermosNaoVerificados)
+                return "Não foi possível conferir os termos deste paciente agora. "
+                       + "Recarregue a ficha antes de liberar o procedimento.";
+
+            if (Termos.Count == 0)
+                return "Nenhum procedimento marcado para hoje exige termo assinado. "
+                       + "Dá para colher agora mesmo assim — o termo vale a partir da "
+                       + "assinatura, e o paciente está aqui.";
+
+            var faltam = Termos.Count(t => t.Pendente);
+
+            return faltam switch
+            {
+                0 => "Os termos de hoje já foram resolvidos.",
+                1 => "Falta 1 termo assinado para o procedimento de hoje.",
+                _ => $"Faltam {faltam} termos assinados para os procedimentos de hoje."
+            };
+        }
+    }
+
+    /// <summary>
     /// Relatório de evolução e anamnese são IMPRESSOS do prontuário — emitir é tirar uma
     /// via do que já está lá, não escrever. Por isso pedem só a leitura.
     /// </summary>
@@ -416,6 +552,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             await CarregarConsentimentosAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarDocumentosAsync(scope, id, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarTermosAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarCrmAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
@@ -727,6 +865,71 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Os termos que o procedimento de HOJE exige (parcela 66, 2ª rodada).
+    ///
+    /// Lê pelo MESMO <see cref="TermoProcedimentoService"/> da fila — nunca uma segunda
+    /// consulta escrita aqui. Duas definições de "falta assinar" divergiriam na primeira
+    /// correção, e a que ninguém lembraria de ajustar é a que a ficha mostra: o erro
+    /// apareceria como seção limpa, indistinguível de termo em dia.
+    ///
+    /// Falhar aqui NÃO derruba a ficha, como o histórico de campanhas acima: é uma seção
+    /// da aba, e o paciente na frente do balcão precisa da ficha inteira. Mas também não
+    /// passa calado — vai para o log, senão a clínica acredita estar coberta e não está.
+    /// </summary>
+    private async Task CarregarTermosAsync(IServiceScope scope, int pacienteId, int geracao)
+    {
+        // ⚠️ LIMPA ANTES de ir ao banco. Sem isto, uma falha na leitura deixaria as linhas
+        // do paciente ANTERIOR na tela — com o nome do novo no cabeçalho e o botão
+        // "Colher assinatura…" aceso apontando para o `DocumentoId` do outro. Um clique
+        // assinaria o termo de quem já saiu, em nome de quem está na frente. É o pior
+        // desfecho possível para uma tela que existe para provar consentimento.
+        Termos.Clear();
+        TermosNaoVerificados = false;
+        OnPropertyChanged(nameof(TemTermoDoDia));
+        OnPropertyChanged(nameof(ResumoTermos));
+
+        // Dado de SAÚDE (parcela 59): o termo diz qual procedimento a pessoa vai fazer e o
+        // que ela declarou sobre o próprio corpo. Os perfis Financeiro e Faturista têm
+        // `VerFichaPaciente` e abrem esta ficha — a lista de documentos abaixo já os filtra
+        // pelo acesso de cada papel, e a seção precisa da mesma barreira. Nem ler nem
+        // desenhar: `TemTermoDoDia` fica falso e a região SOME.
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario)) return;
+
+        try
+        {
+            var servico = scope.ServiceProvider.GetRequiredService<TermoProcedimentoService>();
+
+            var situacoes = await servico.SituacaoDoDiaAsync(
+                pacienteId, DateOnly.FromDateTime(DateTime.Today));
+
+            if (geracao != _geracaoCarga) return;
+
+            // Monta em lista local e só então publica: entre o Clear() e o último Add não
+            // pode haver await, senão duas cargas se intercalam na mesma coleção.
+            var linhas = situacoes.Select(LinhaTermo.De).ToList();
+
+            Termos.Clear();
+            foreach (var l in linhas) Termos.Add(l);
+
+            OnPropertyChanged(nameof(TemTermoDoDia));
+            OnPropertyChanged(nameof(ResumoTermos));
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCarga) return;
+
+            // TERCEIRO ESTADO, nunca lista vazia silenciosa: "não há termo" e "não deu para
+            // conferir" são respostas diferentes, e a segunda não pode ser lida como a
+            // primeira num papel que o procedimento exige.
+            TermosNaoVerificados = true;
+            OnPropertyChanged(nameof(ResumoTermos));
+
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — termos do dia não puderam ser conferidos na ficha", ex);
+        }
+    }
+
     private async Task CarregarDocumentosAsync(IServiceScope scope, int pacienteId, int geracao)
     {
         var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
@@ -954,6 +1157,101 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         _snackbar.Sucesso("Documento emitido.");
         await CarregarAsync();
+    }
+
+    /// <summary>
+    /// Colhe a assinatura do paciente no termo do procedimento de hoje (parcela 66, 2ª
+    /// rodada) — a porta que o cliente pediu dentro da ficha.
+    ///
+    /// A janela é a MESMA da fila (<c>AssinaturaPacienteWindow</c>, no shell): duas telas
+    /// para o mesmo ato divergem na primeira correção, e o que elas colhem é a prova de
+    /// que o paciente consentiu.
+    ///
+    /// Reaproveita o documento já emitido quando ele existe (<c>DocumentoId</c>): o termo
+    /// apresentado e não assinado é um fato, e emitir outro deixaria dois papéis do mesmo
+    /// ato com números diferentes.
+    /// </summary>
+    [RelayCommand]
+    private async Task ColherTermoAsync(LinhaTermo? linha)
+    {
+        // Guarda sobre PARÂMETRO: vindo de botão de linha ela nunca dispara, e é a exceção
+        // que a checagem 21 reconhece.
+        if (linha is null) return;
+
+        // A barreira que IMPEDE, e ela DIZ por que recusou (a lição da parcela 41).
+        if (!SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente))
+        {
+            MensagemEhErro = true;
+            Mensagem = "Você não tem permissão para colher a assinatura do paciente. "
+                       + "Peça à direção o acesso \"Colher assinatura do paciente\".";
+            return;
+        }
+
+        if (!linha.Pendente)
+        {
+            MensagemEhErro = true;
+            Mensagem = "Este termo já foi resolvido hoje.";
+            return;
+        }
+
+        await AbrirColetaAsync(
+            linha.ModeloId, linha.DocumentoId,
+            // O profissional do horário de hoje, quando a linha o conhece: sem ele o termo
+            // nasce órfão e a via impressa sai sem o nome e o CRM de quem faz o procedimento.
+            linha.ProfissionalId);
+    }
+
+    /// <summary>
+    /// Colher um termo AVULSO — sem procedimento marcado para hoje (parcela 66, 3ª rodada).
+    ///
+    /// É a porta que a cliente pediu: o paciente aparece para tirar dúvidas, ou passa no
+    /// balcão, e a assinatura se colhe ali. O termo vale a partir da assinatura, então não
+    /// há por que esperar o dia — e o dia é justamente quando ninguém tem tempo de ler.
+    /// </summary>
+    [RelayCommand]
+    private async Task ColherTermoAvulsoAsync() => await AbrirColetaAsync(null, null, null);
+
+    /// <summary>
+    /// O caminho ÚNICO da ficha para a coleta — as duas portas daqui e as outras três da
+    /// suíte passam pelo mesmo <c>ColetaDeTermo.Abrir</c>.
+    /// </summary>
+    private async Task AbrirColetaAsync(int? modeloId, int? documentoId, int? profissionalId)
+    {
+        // A barreira que IMPEDE, e ela DIZ por que recusou (a lição da parcela 41).
+        if (!SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente))
+        {
+            MensagemEhErro = true;
+            Mensagem = "Você não tem permissão para colher a assinatura do paciente. "
+                       + "Peça à direção o acesso \"Colher assinatura do paciente\".";
+            return;
+        }
+
+        if (PacienteId == 0)
+        {
+            MensagemEhErro = true;
+            Mensagem = "Abra a ficha de um paciente antes de colher o termo.";
+            return;
+        }
+
+        try
+        {
+            var concluiu = Clinica.Desktop.Shell.Componentes.ColetaDeTermo.Abrir(
+                _escopos, PacienteId, Nome, modeloId, documentoId, profissionalId);
+
+            // Recarrega mesmo quando a janela foi fechada sem concluir: o termo pode ter
+            // sido EMITIDO na abertura e só a assinatura ter faltado, e a seção precisa
+            // refletir isso — é a mesma razão do NovoDocumentoAsync acima.
+            await CarregarAsync();
+
+            if (concluiu) _snackbar.Sucesso("Termo do procedimento resolvido.");
+        }
+        catch (Exception ex)
+        {
+            MensagemEhErro = true;
+            Mensagem = $"Não foi possível abrir o termo: {ex.Message}";
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — coleta do termo pela ficha", ex);
+        }
     }
 
     /// <summary>Relatório de evolução da dor, montado do prontuário.</summary>

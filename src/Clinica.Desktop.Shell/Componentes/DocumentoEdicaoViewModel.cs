@@ -295,6 +295,21 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
         IServiceScopeFactory escopos, int pacienteId,
         TipoDocumentoClinico tipoInicial = TipoDocumentoClinico.Receita)
     {
+        // ⚠️ Esta janela NÃO sabe montar o termo que o paciente assina (parcela 66): ela não
+        // copia o modelo, não traz as declarações e não grava `ModeloOrigemId`. Emitir por
+        // aqui produziria um papel numerado do mesmo ato, com a linha de assinatura em
+        // branco e a pendência do dia continuando acesa — falha exibida como sucesso, que é
+        // o desfecho que este projeto recusa desde a parcela 3.
+        //
+        // Recusar no CONSTRUTOR, e não no seletor, porque o tipo também chega por parâmetro:
+        // é a porta por onde a central de documentos passava antes de a exigência
+        // `ProcedimentoDoDia` existir. Quem colhe o termo é a `AssinaturaPacienteWindow`.
+        if (TipoDocumentoInfo.AssinadoPeloPaciente(tipoInicial))
+            throw new InvalidOperationException(
+                $"{TipoDocumentoInfo.Rotular(tipoInicial)} é assinado pelo PACIENTE e não se "
+                + "emite por esta janela. Colha-o na ficha do paciente, aba Documentos, no "
+                + "dia do procedimento.");
+
         _escopos = escopos;
         _pacienteId = pacienteId;
         _tipoSelecionado = tipoInicial;

@@ -2721,3 +2721,217 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   era o próprio defeito. É o mesmo desfecho do ponto cego do enum anulável, na mesma
   parcela, e a lição se repete de propósito: **quando uma checagem responde "está limpo",
   pergunte primeiro o que ela não olha** — e meça o ruído antes de decidir não alargar.
+
+- **O termo que o PACIENTE assina, e a pergunta que decidiu o desenho inteiro** (parcela
+  66): a cliente pediu "algo como o SmartDocs" para o BSV — o consentimento do
+  procedimento e a **declaração de jejum**. O pedido chegou como um item só e são **dois
+  documentos de naturezas opostas**, e é essa separação que resolve tudo. O consentimento
+  do procedimento ganha em ser lido em casa, com calma. A declaração de jejum afirma
+  "**ESTOU** em jejum": assinada na véspera ela é uma declaração sobre o FUTURO, e o valor
+  dela é ser sobre o presente. **Isso derruba o SmartDocs como resposta ao caso trazido** —
+  o link no celular resolve o primeiro documento e é inadequado justamente para o segundo,
+  que foi o que motivou o pedido. Daí a assinatura no BALCÃO, onde o paciente do BSV já
+  está: `InkCanvas` é de fábrica no WPF, não exige e-CPF, não exige internet e não cria
+  deployable novo. **A pergunta que decide não é "que tecnologia o concorrente usa", é
+  "sobre QUANDO este documento afirma alguma coisa".**
+  ⚠️ **O paciente NÃO assina com certificado, e isso não é limitação.** Termo de
+  consentimento é documento ENTRE AS PARTES (MP 2.200-2/2001, art. 10, §2º) — a Lei
+  14.063/2020 chama isso de assinatura SIMPLES. Exigir e-CPF do paciente seria inviável e
+  desnecessário. **O que dá valor a ela é EVIDÊNCIA**: quem, quando, diante de quem, com
+  que documento conferido, e o SHA-256 do que ele tinha na frente — declarações respondidas
+  incluídas, senão o selo deixaria de fora justamente a parte que se contesta ("eu nunca
+  disse que estava em jejum"). E o rodapé escreve "assinatura eletrônica simples", jamais
+  "digital": é a regra do carimbo escaneado, da parcela 3.
+  **A ordem das duas assinaturas é amarra técnica, não preferência**: o PDF não se assina
+  incrementalmente (a restrição que a parcela 42 já encontrou), então o traço do paciente
+  tem de estar DENTRO dos bytes ANTES do selo ICP-Brasil do profissional. Colher depois
+  produziria, em silêncio, um arquivo cujo selo não fecha — a garantia aparente que este
+  projeto recusa. `ColherAsync` RECUSA documento já assinado eletronicamente.
+  **"Não estou em jejum" NÃO impede, e é decisão**: o termo é emitido do mesmo jeito, com a
+  resposta escrita, e acende alerta VERMELHO pelo `ElegibilidadeService`. Bloquear
+  produziria o desfecho pior — ninguém emite o termo, o procedimento acontece assim mesmo e
+  não sobra registro nenhum. Quem decide adiar é quem faz o procedimento.
+  **Validade POR SESSÃO, sem campo de prazo** (decisão da clínica): a chave de "já
+  assinou?" é a DATA. Um "vale por N dias" existiria para nunca ser usado, e regra com
+  exceção que ninguém exerce é código a mais e mais uma resposta possível para a mesma
+  pergunta (a lição do CPF duplicado, parcela 57).
+  **O TEXTO é da clínica, não nosso**: `ModeloDocumento` com as declarações como
+  `ItemModelo`, escrito em Configurações → "Escrever termos…". Não há termo de fábrica —
+  um texto de consentimento embutido seria o sistema opinando sobre risco clínico. E
+  aplicar **COPIA**, como o protocolo do mapa corporal; aqui não é desenho, é a Lei
+  13.787/2018: referência viva faria corrigir uma palavra hoje reescrever o que um
+  paciente assinou no mês passado. Por isso `DocumentoClinico.ModeloOrigemId` é
+  PROCEDÊNCIA — e casar por MODELO, não por tipo, é o que permite dois procedimentos no
+  mesmo dia exigirem dois termos sem um cobrir o outro.
+  ⚠️ **`TipoDocumentoClinico.TermoProcedimento` não reaproveita o `Consentimento`**, que é o
+  termo **LGPD** montado das finalidades: seria o bit sobrecarregado da parcela 49 num
+  papel — sem como conceder um sem o outro, e a segunda via de um sairia com o texto do
+  outro. E a folha nova nasce **fechada** em `FolhaCatalogo` (a regra da parcela 59).
+  **A leitura tem DOIS caminhos e UMA definição**: a fila lê 30 cartões em 3 consultas
+  (`DoDiaAsync`) e a ficha lê um (`SituacaoDoDiaAsync`), e os dois resolvem pela MESMA
+  função privada. Duas definições de "falta assinar" divergiriam na primeira correção, e a
+  que ninguém lembraria de ajustar é a do quadro — onde o erro aparece como **cartão
+  limpo**, indistinguível de termo em dia. `Leitura_em_lote_da_fila_concorda_com_a_leitura_
+  por_paciente` é a amarra.
+  **A porta fica na fila do balcão**, no "⋯" do cartão: o alerta do check-in diz que falta
+  assinar, e alerta sem porta no mesmo app é pior que alerta nenhum (parcela 48). A janela
+  mora no **shell**, como o mapa corporal — ela é apresentada em três lugares e copiá-la
+  daria três telas divergindo na primeira correção.
+  **Lição de teste**: `Os_sete_documentos_geram_PDF` cobrava `TipoDocumentoInfo.Todos` e
+  falhou ao nascer o oitavo tipo — foi a rede que impediu um documento sem PDF de passar no
+  build e só quebrar na frente de quem fosse imprimi-lo. **Asserção contra a lista COMPLETA
+  de um enum é o que faz o tipo novo cobrar a própria cobertura.**
+
+- **A porta do termo na FICHA, e as dezesseis coisas que uma revisão adversarial achou
+  numa parcela que já estava verde** (parcela 66, 2ª rodada). O cliente pediu para colher o
+  termo dentro da ficha do paciente — a porta nasceu na fila, e a ficha é onde a
+  recepcionista já está com a pessoa na frente. Virou uma seção no TOPO da aba Documentos
+  (não aba nova: a ficha já responde seis perguntas), e a decisão que a governa é a mesma
+  da entidade: **ela só mostra o dia de hoje**. Sem procedimento marcado, a seção troca de
+  frase em vez de sumir, e explica que o termo é colhido no dia — colher "para amanhã"
+  produziria um papel que o balcão não veria como cumprido amanhã, que é pior do que não
+  ter porta, porque a pessoa acreditaria ter resolvido.
+  ⚠️ **A lição maior não é a porta: é que a parcela estava com 1531 testes verdes, três
+  redes locais verdes, e tinha DEZESSEIS defeitos reais.** Nenhum deles quebrava build ou
+  teste. Vale a pena listar as famílias, porque elas se repetem:
+  (a) **Dado de saúde sem barreira na tela nova** — a seção da ficha era lida por
+  Financeiro e Faturista, que têm `VerFichaPaciente` e não têm `VerProntuario`. A lista de
+  documentos ao lado já filtrava por acesso; a seção nova, não. **Ao acrescentar região a
+  uma tela existente, copie a barreira da região vizinha.**
+  (b) **Carga que falha deixa a tela do paciente ANTERIOR** — o `catch` logava e saía, e
+  as linhas de quem já tinha saído continuavam ali com o botão aceso apontando para o
+  `DocumentoId` dele. Um clique assinaria o termo de outra pessoa. **Limpe ANTES do await,
+  não depois**, e ponha terceiro estado.
+  (c) **O selo que regera o arquivo sem a parte selada** — `AssinaturaDeDocumentoClinico
+  Service` gerava o PDF para assinar SEM passar o traço do paciente, e como a reimpressão
+  devolve os bytes guardados, o termo selado perderia a assinatura do paciente PARA SEMPRE.
+  É a inversão exata da regra que a própria parcela documentou.
+  (d) **Formulário incompleto gravado como cumprido** — declaração sem resposta virava
+  "Assinado hoje" sem alerta nenhum. Recusar em branco não contradiz o "avisa, mas não
+  impede": aquilo vale para o CONTEÚDO da resposta ("não estou em jejum" é registrado e o
+  procedimento segue sendo decisão de quem o faz); o que se impede é o campo vazio.
+  (e) **Rota que cai no `default:`** — a folha nova na central caía na janela genérica de
+  documento, que não conhece o tipo: papel numerado sem modelo de origem e sem declarações.
+  A saída foi a forma que o RECIBO já usava (`ExigenciaFolha.ProcedimentoDoDia`: o cartão
+  LEVA até onde se colhe, e o rótulo diz "Abrir a ficha" em vez de "Emitir"), mais uma
+  recusa no construtor da janela genérica — **a segunda barreira para a próxima porta**.
+  (f) **Mensagem de erro que manda fazer o que a tela não faz** — "troque o modelo da
+  exigência que existe" e não havia por onde. `ExigirAsync` passou a TROCAR. É seguro
+  porque aplicar COPIA: o termo assinado guarda o texto lido e o `ModeloOrigemId` antigo.
+  (g) **`NULL` não é único no PostgreSQL** — o índice `(Modalidade, ModalidadeCodigo)`
+  ficava inerte justamente no caso NORMAL (código nulo = família inteira), e dois cliques
+  concorrentes criariam duas exigências, fazendo o paciente assinar o mesmo papel duas
+  vezes. Família passou a gravar **string vazia**.
+  (h) **Hash gravado que ninguém recalcula é um número** — `ConteudoIntacto` existia sem
+  chamador em produção, e o rodapé afirmava o selo. Agora o PDF **recalcula na impressão** e
+  a segunda via de um termo alterado sai dizendo que não prova o que foi assinado. A
+  montagem do selo desceu para a ENTIDADE, porque quem precisa dela são dois (o serviço que
+  grava e o PDF que confere) e duas montagens divergiriam.
+  (i) **Alerta em data futura é alerta impossível de atender** — a conferência do termo
+  roda também no formulário de agendamento, que pergunta pela data MARCADA. Marcar um BSV
+  para o mês que vem acendia vermelho sem ter o que fazer. Restrito a hoje.
+  (j) **Dado calculado que nenhuma tela mostra** — `CartaoFila.TemTermoPendente` era
+  computado para todo cartão e só aparecia dentro do menu "⋯". Virou selo.
+  (k) **`IsEnabled` de bloco apagando a permissão de outro ato** — o "⋯" seguia
+  `PodeEditarAgenda`, e a técnica de enfermagem, que tem `ColherAssinaturaPaciente` e não
+  tem o da agenda, não alcançava o único caminho para colher. O bloco perdeu o `IsEnabled`;
+  quem decide item a item é o menu, e o botão de PASSO ficou com a permissão que é dele.
+  (l) **Alerta sem porta no app de quem o lê** — o Consultório recebia "falta o termo" com
+  o paciente na sala e não tinha botão. Ganhou a faixa com a MESMA janela do shell.
+  ⚠️ E a **lição de método**: o script da revisão tinha um bug meu (passei promessas a
+  `parallel`, que espera thunks), então a fase de verificação morreu e o workflow devolveu
+  `{confirmados: [], descartados: []}` — **vazio por defeito, indistinguível de "nada
+  encontrado"**. É o defeito recorrente do projeto cometido na própria ferramenta de achar
+  defeitos. Os achados estavam no `journal.jsonl` o tempo todo. **Resultado vazio de
+  workflow é para ser investigado no journal, nunca lido como aprovação.**
+
+- **Checagem que cobre UM sentido de um erro simétrico está metade cega** (parcela 66, 3ª
+  rodada — o CI reprovou a PR). A `ModelosTermoWindow` do Gerente declarou
+  `xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"` **sem** `;assembly=`, e o tipo mora
+  no shell: `MC3074`. A **checagem 33** existe exatamente para esta família e não viu,
+  porque ela nasceu na parcela 60 pegando o `;assembly=` que **SOBRA** (tela movida entre
+  projetos) — e este é o mesmo erro pelo avesso, o `;assembly=` que **FALTA**.
+  Nenhuma rede local pegava, pela razão de sempre: o XML é bem-formado, o
+  `compilar-sombra` não lê o corpo do XAML e o C# compila. Virou a **checagem 33-B**, que
+  casa cada `clr-namespace:X` sem sufixo contra os namespaces que o projeto DECLARA nos
+  `.cs` dele — projeto sem `.cs` lido responde "não sei" e cala, como a 34. Autotestada
+  contra o caso real e contra os dois legítimos (shell e faturamento, que declaram
+  `Clinica.Desktop.Controls` cada um no seu — o débito permanente da parcela 7).
+  A regra que fica, e que vale para toda checagem futura: **ao escrever uma rede para um
+  erro que tem dois sentidos, cubra os dois no mesmo commit.** O sentido que você deixar de
+  fora é o que a próxima pessoa vai cometer — aqui foram seis parcelas até alguém tentar o
+  outro lado.
+
+- **"Regra com exceção que ninguém vai exercer" tem prazo de validade — e ele acabou antes
+  de a feature chegar à clínica** (parcela 66, 3ª rodada). A validade do termo nasceu POR
+  SESSÃO, sem campo de prazo, com o argumento (bom, e escrito) de que um "vale por N dias"
+  existiria para nunca ser usado. A cliente exerceu a exceção **antes do primeiro uso**: ela
+  quer colher a assinatura quando o paciente aparece — inclusive na consulta em que ele vem
+  tirar dúvidas, semanas antes — e emitir pela central de documentos, sem esperar o dia.
+  E ela tem razão pelo argumento que o próprio desenho já continha: **o dia do procedimento
+  é justamente quando ninguém tem tempo de ler o termo.**
+  O que a distinção original acertou, e que sobreviveu: as DECLARAÇÕES moram dentro do termo,
+  e nem toda declaração sobrevive à antecedência — "estou em jejum" assinado na semana
+  passada é afirmação sobre o futuro. Por isso a validade virou **escolha por procedimento**
+  (`ExigenciaTermoProcedimento.SoValeNoDiaDoProcedimento`, desmarcada por padrão) em vez de
+  desaparecer: a clínica escreve o consentimento longo sem prazo e, se quiser, um termo
+  curto só com o jejum marcado como "a cada sessão". Os dois convivem porque a exigência é
+  por **MODELO**, não por tipo.
+  ⚠️ **Seja qual for a validade, RECUSA e papel pendente contam só no DIA.** Recusa é decisão
+  de um momento, não estado permanente: herdá-la faria um "não" de três semanas atrás calar
+  o pedido no dia do procedimento — e o paciente pode ter mudado de ideia, tanto que veio
+  fazer. E o papel emitido e nunca assinado carrega a DATA da emissão: reusá-lo faria a
+  assinatura de hoje nascer com data velha, que numa exigência "só no dia" não contaria
+  nunca.
+  De quebra, as portas viraram QUATRO (ficha, fila, Consultório, central) e passaram a
+  entrar por um ponto único — `ColetaDeTermo.Abrir`, no shell. Cada uma montava a janela por
+  conta própria (escopo, ViewModel, dono, recarga), e quatro montagens divergem na primeira
+  correção; o que elas colhem é a prova de que o paciente consentiu. Quando o modelo não vem
+  decidido por um procedimento marcado, o ponto único PERGUNTA qual termo é — que é o
+  caminho da coleta avulsa.
+  A lição, e ela é sobre método: **"não construa a exceção que ninguém vai exercer" é uma
+  boa regra para código especulativo, e não para uma decisão que o cliente ainda não tomou.**
+  Quando a exceção depende de como a clínica trabalha, pergunte antes de fechá-la.
+
+- **Tela do paciente: o modelo da MAQUININHA, e por que ela não é um tablet** (parcela 66,
+  5ª rodada — *"há um dispositivo para assinar via touchscreen … quero que o dispositivo
+  ligue na hora aparecendo o lugar certo para o paciente assinar"*). A cliente escolheu
+  **duas telas: ela controla, ele só assina**, e é o desenho da maquininha do cartão — não
+  um espelho da janela da recepcionista. São dois conteúdos diferentes: aqui as declarações
+  com Sim/Não, o documento conferido e o Confirmar; lá o texto GRANDE, as respostas como
+  ela as marcou e a área de assinar.
+  ⚠️ **A área de assinar SOME desta janela quando há a do paciente.** Duas áreas ativas
+  permitiriam a recepcionista assinar pelo paciente sem querer — e o termo diria que ele
+  assinou. No lugar dela fica a linha que explica a ausência: campo que some sem explicação
+  se lê como defeito.
+  ⚠️ **A resposta marcada aqui muda a tela dele NO MESMO INSTANTE**, e isso não é conforto:
+  o selo do termo é o SHA-256 do que o paciente tinha na frente, declarações incluídas. Uma
+  tela atrasada faria a evidência afirmar algo que não é verdade.
+  **O que se grava é o NOME do dispositivo (`\\.\DISPLAY2`), nunca o índice na lista.** O
+  índice muda quando alguém desliga um cabo ou o Windows reordena as telas depois de um
+  reinício — e a tela do paciente viraria a da recepcionista, com o termo em tela cheia por
+  cima do trabalho dela, sem ninguém ter mexido em nada. Tela gravada e ausente responde
+  **"não há segunda tela"**, jamais "use a primeira que aparecer", e a configuração escreve
+  o terceiro estado: silêncio faria a clínica concluir que a feature quebrou quando o que
+  houve foi um cabo solto.
+  **Sem segunda tela, TUDO continua numa janela só, e isso não é modo degradado**: é o modo
+  de quem tem um monitor. A clínica pode ficar meses sem comprar o touch, e a feature não
+  pode esperar por isso — foi o que decidiu o `ParametrosService` devolver **nulo** para a
+  chave vazia, em vez de uma string que o sistema procuraria como nome de monitor.
+  **O botão "Testar" é obrigatório, não conforto**: as telas se chamam `\\.\DISPLAY1` e
+  `\\.\DISPLAY2` e ninguém sabe qual é qual pelo nome. Sem ele, o primeiro a descobrir que o
+  termo abriu no monitor errado seria o PACIENTE, vendo o próprio nome e o procedimento dele
+  numa tela virada para a sala de espera. O exemplo não leva dado de paciente nenhum, pela
+  razão do arquivo de teste da publicação (parcela 53).
+  **Por que MONITOR e não tablet**: um tablet é outro computador — exigiria servidor web,
+  rede confiável no balcão e um caminho de volta para o traço, que é a Fase 2 inteira. Um
+  monitor touch é só mais uma tela do Windows: o traço nasce dentro do mesmo processo que
+  grava o termo, sem rede entre a caneta e o banco. A especificação do que comprar está em
+  `docs/termo-assinado-pelo-paciente.md` §3.8.
+  Detalhes que o código não conta sozinho: a janela dele é `Topmost`, sem barra de título e
+  **dona desta** (painel órfão no balcão é convite para alguém assinar o termo de outra
+  pessoa); o monitor é **impedido de dormir** enquanto o termo está no ar
+  (`SetThreadExecutionState`), senão a proteção de tela apaga o documento no meio da leitura
+  de quem lê devagar; e a enumeração de monitores é **P/Invoke puro** (`EnumDisplayMonitors`),
+  sem WinForms, em pixels FÍSICOS — num arranjo de DPIs diferentes, posicionar em unidades
+  do WPF põe a janela na tela errada.

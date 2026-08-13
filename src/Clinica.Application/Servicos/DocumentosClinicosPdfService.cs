@@ -56,6 +56,16 @@ public sealed class DocumentosClinicosPdfService
     private const float MargemPagina = 42.52f;       // 1,5 cm
     private const float AlturaRodape = 104f;
     private const float AlturaFaixaAssinatura = 58f;
+
+    /// <summary>
+    /// Altura da área onde o traço do paciente é desenhado, acima da linha (parcela 66).
+    ///
+    /// 38 pontos, e não os 46 da primeira versão: com o bloco inteiro travado por
+    /// `ShowEntire()`, cada ponto a mais aqui é um ponto a mais de chance de o bloco não
+    /// caber e a via de uma página virar duas. Uma assinatura manuscrita cabe folgada em
+    /// 38 pontos — a régua é o traço, não a área.
+    /// </summary>
+    private const float AlturaDaAssinatura = 38f;
     // 220 e não 250: o rodapé do documento assinado divide a faixa com o QR e com o
     // texto de conferência, e a 250 as três linhas quebravam no meio da palavra.
     private const float LarguraCarimbo = 220f;
@@ -113,7 +123,14 @@ public sealed class DocumentosClinicosPdfService
             && await _repo.ObterArquivoAssinadoAsync(arquivoId, ct) is { } guardado)
             return guardado.Conteudo;
 
-        return Gerar(documento, prestador);
+        // O traço do paciente (parcela 66) só sai do banco quando o documento tem um: é a
+        // única leitura que traz imagem, e pagá-la em toda receita seria arrastar bytes
+        // para desenhar uma folha que não tem assinatura de paciente nenhuma.
+        var traco = documento.TracoAssinaturaId is int tracoId
+            ? (await _repo.ObterTracoAssinaturaAsync(tracoId, ct))?.Conteudo
+            : null;
+
+        return Gerar(documento, prestador, tracoPaciente: traco);
     }
 
     /// <param name="paraAssinaturaEletronica">
@@ -129,9 +146,20 @@ public sealed class DocumentosClinicosPdfService
     /// Precisa chegar aqui ANTES da assinatura, porque a assinatura sela os bytes e o QR é
     /// um deles. Quem garante a ordem é o <c>PublicacaoDocumentoService.GarantirTokenAsync</c>.
     /// </param>
+    /// <param name="tracoPaciente">
+    /// O PNG da assinatura do paciente (parcela 66). Quando vem preenchido, ele é desenhado
+    /// no lugar da linha em branco, com a frase de evidência embaixo.
+    ///
+    /// ⚠️ Ele precisa entrar ANTES da assinatura com certificado, e não depois: o selo cobre
+    /// uma faixa de BYTES, e acrescentar a imagem em seguida invalidaria a assinatura do
+    /// profissional. Quem impede a ordem errada é o
+    /// <c>AssinaturaDoPacienteService.ColherAsync</c>, que recusa colher traço em documento
+    /// já assinado eletronicamente.
+    /// </param>
     public byte[] Gerar(
         DocumentoClinico documento, DadosPrestador? prestador = null,
-        bool paraAssinaturaEletronica = false, string? urlDoArquivo = null)
+        bool paraAssinaturaEletronica = false, string? urlDoArquivo = null,
+        byte[]? tracoPaciente = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -212,7 +240,14 @@ public sealed class DocumentosClinicosPdfService
                         comEndereco: documento.Tipo == TipoDocumentoClinico.Receita);
 
                     if (!string.IsNullOrWhiteSpace(documento.Corpo))
-                        Paragrafos(col, documento.Corpo!);
+                        Paragrafos(col, documento.Corpo!,
+                            // O TERMO é o único documento cujo corpo é um texto LONGO — dez,
+                            // doze parágrafos de consentimento. Com o espaçamento de 10 que
+                            // serve à receita (duas linhas de orientação), ele empurrava a
+                            // assinatura para uma segunda página que só tinha a assinatura.
+                            // Compacto, a mesma folha cabe inteira — e a via que o paciente
+                            // assina e guarda tem de ser UMA (parcela 66, 4ª rodada).
+                            compacto: documento.Tipo == TipoDocumentoClinico.TermoProcedimento);
 
                     switch (documento.Tipo)
                     {
@@ -243,6 +278,10 @@ public sealed class DocumentosClinicosPdfService
                         case TipoDocumentoClinico.Anamnese:
                             RoteiroComLinhas(col, itens);
                             break;
+
+                        case TipoDocumentoClinico.TermoProcedimento:
+                            Declaracoes(col, itens);
+                            break;
                     }
 
                     if (!string.IsNullOrWhiteSpace(documento.Observacoes))
@@ -253,7 +292,7 @@ public sealed class DocumentosClinicosPdfService
                         });
 
 
-                    Assinaturas(col, documento, paraAssinaturaEletronica);
+                    Assinaturas(col, documento, paraAssinaturaEletronica, tracoPaciente);
                 });
 
                 Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo);
@@ -581,6 +620,51 @@ public sealed class DocumentosClinicosPdfService
     }
 
     /// <summary>
+    /// As declarações do termo de procedimento (parcela 66), com a resposta do paciente.
+    ///
+    /// A resposta sai por EXTENSO ("Sim" / "Não") e não como um X marcado: o que se
+    /// contesta num termo é justamente o que a pessoa afirmou, e um quadradinho preenchido
+    /// admite a leitura de que alguém o marcou depois. A negada sai destacada, porque quem
+    /// pega o papel na sala precisa ver "NÃO — jejum" sem procurar.
+    ///
+    /// Declaração sem resposta sai com um traço, nunca em branco: em branco não se
+    /// distingue de linha que a impressora comeu.
+    /// </summary>
+    private static void Declaracoes(ColumnDescriptor col, IReadOnlyList<ItemDocumento> itens)
+    {
+        if (itens.Count == 0) return;
+
+        col.Item().PaddingTop(4).Text("Declarações do paciente")
+            .Bold().FontSize(11).FontColor(AzulEscuro);
+
+        foreach (var item in itens)
+        {
+            var negativa = RespostaDeclaracao.EhNegativa(item.Quantidade);
+            var respondida = !string.IsNullOrWhiteSpace(item.Quantidade);
+
+            // `ShowEntire()`: a declaração e a resposta dela são UMA linha. Quebrada, o
+            // papel diria "Estou em jejum de 8 horas" no fim de uma página e "Não" no
+            // começo da outra — que é a pior forma possível de partir este documento.
+            col.Item().ShowEntire()
+                .BorderBottom(1).BorderColor(Borda).PaddingVertical(6).Row(row =>
+            {
+                row.RelativeItem().Column(c =>
+                {
+                    c.Item().Text(item.Descricao).SemiBold().FontSize(10.5f);
+                    if (!string.IsNullOrWhiteSpace(item.Detalhe))
+                        c.Item().Text(item.Detalhe!).FontSize(9).FontColor(TextoSecundario);
+                });
+
+                row.ConstantItem(70).AlignRight().AlignMiddle()
+                    .Text(respondida ? item.Quantidade! : "—")
+                    .Bold().FontSize(10)
+                    .FontColor(negativa ? VermelhoForte
+                        : respondida ? VerdeForte : TextoSecundario);
+            });
+        }
+    }
+
+    /// <summary>
     /// Anamnese: o que o prontuário já respondeu vem escrito; o que ele não guarda sai
     /// em linhas, para a entrevista acontecer com o papel na mão.
     /// </summary>
@@ -613,10 +697,94 @@ public sealed class DocumentosClinicosPdfService
     /// clínica não assina no lugar dele.
     /// </summary>
     private static void Assinaturas(
-        ColumnDescriptor col, DocumentoClinico documento, bool assinaturaEletronica)
+        ColumnDescriptor col, DocumentoClinico documento, bool assinaturaEletronica,
+        byte[]? tracoPaciente = null)
     {
         var assinaPaciente = documento.Tipo is TipoDocumentoClinico.Consentimento
-                                 or TipoDocumentoClinico.Anamnese;
+                                 or TipoDocumentoClinico.Anamnese
+                                 or TipoDocumentoClinico.TermoProcedimento;
+
+        // ---- Termo já assinado pelo paciente (parcela 66) ----
+        //
+        // O traço entra no lugar da linha em branco, e a frase de evidência embaixo dele.
+        // ⚠️ A frase diz "assinatura eletrônica simples" e nunca "assinatura digital": o
+        // traço não é certificado, e chamá-lo assim seria a garantia aparente que este
+        // serviço se recusa a produzir desde a parcela 3 — a mesma razão pela qual o
+        // carimbo do profissional não se chama assinatura digital.
+        if (documento.PacienteAssinou && tracoPaciente is { Length: > 0 })
+        {
+            // ⚠️ UM ÚNICO item, e `ShowEntire()` (parcela 66, 4ª rodada — o cliente mandou a
+            // foto do PDF em duas páginas).
+            //
+            // Antes eram TRÊS itens irmãos — a linha de assinaturas, a frase de evidência e
+            // o aviso do selo —, e o QuestPDF quebra a página ENTRE itens: as linhas
+            // ficaram no fim da página 1 e os nomes embaixo delas foram para a 2, com o
+            // cabeçalho repetido no meio. A via saía com a assinatura órfã de quem assinou,
+            // que é o pior lugar possível para um documento se partir.
+            //
+            // `ShowEntire()` faz o bloco andar inteiro: ou cabe onde está, ou desce todo.
+            col.Item().PaddingTop(18).ShowEntire().Column(bloco =>
+            {
+                bloco.Item().Row(row =>
+                {
+                    if (!assinaturaEletronica)
+                    {
+                        row.RelativeItem().Column(c =>
+                        {
+                            c.Item().Height(AlturaDaAssinatura);
+                            c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                            c.Item().PaddingTop(3).AlignCenter()
+                                .Text(documento.Profissional?.Nome ?? "Profissional responsável")
+                                .SemiBold().FontSize(9.5f);
+                            c.Item().AlignCenter()
+                                .Text(documento.Profissional?.RegistroConselho is { Length: > 0 } r
+                                    ? r : "Assinatura e carimbo")
+                                .FontSize(8.5f).FontColor(TextoSecundario);
+                        });
+
+                        row.ConstantItem(40);
+                    }
+
+                    row.RelativeItem().Column(c =>
+                    {
+                        c.Item().Height(AlturaDaAssinatura).AlignBottom().AlignCenter()
+                            .Image(tracoPaciente).FitArea();
+                        c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                        c.Item().PaddingTop(3).AlignCenter()
+                            .Text(documento.Paciente?.Nome ?? "Paciente")
+                            .SemiBold().FontSize(9.5f);
+                        c.Item().AlignCenter().Text("Paciente (ou responsável)")
+                            .FontSize(8.5f).FontColor(TextoSecundario);
+                    });
+                });
+
+                bloco.Item().PaddingTop(8).Text(documento.FraseAssinaturaPaciente)
+                    .FontSize(7.5f).FontColor(TextoSecundario);
+
+                // O selo RECALCULADO, e não o gravado (parcela 66, 2ª rodada). Guardar um
+                // hash que ninguém confere é guardar um número: a garantia só existe quando
+                // tem consequência visível, e esta é a consequência — a segunda via de um
+                // termo alterado depois da assinatura sai DIZENDO que não prova o que foi
+                // assinado.
+                if (documento.AvisoDeSeloQuebrado is { Length: > 0 } aviso)
+                    bloco.Item().PaddingTop(6)
+                        .Background(VermelhoSuave).Border(1).BorderColor(VermelhoForte).Padding(8)
+                        .Text(aviso).SemiBold().FontSize(8).FontColor(VermelhoForte);
+            });
+
+            return;
+        }
+
+        // Recusa: o papel diz que o termo foi apresentado e não foi assinado. Sair com a
+        // linha em branco faria a via parecer um termo que ninguém chegou a mostrar.
+        if (documento.PacienteRecusou)
+        {
+            col.Item().PaddingTop(24)
+                .Background(VermelhoSuave).Border(1).BorderColor(VermelhoForte).Padding(10)
+                .Text(documento.FraseAssinaturaPaciente)
+                .SemiBold().FontSize(9).FontColor(VermelhoForte);
+            return;
+        }
 
         // Na via ASSINADA não há linha para assinar — mas o prescritor tem de aparecer.
         //
@@ -648,7 +816,10 @@ public sealed class DocumentosClinicosPdfService
             return;
         }
 
-        col.Item().PaddingTop(36).Row(row =>
+        // `ShowEntire()` pela razão do bloco assinado acima: a linha de assinatura e o nome
+        // embaixo dela são UMA coisa, e quebrar entre os dois deixa a via com um traço
+        // órfão no fim de uma página e o nome de quem assinou no começo da seguinte.
+        col.Item().PaddingTop(30).ShowEntire().Row(row =>
         {
             if (!assinaturaEletronica)
                 row.RelativeItem().Column(c =>
@@ -680,14 +851,33 @@ public sealed class DocumentosClinicosPdfService
 
     // ==================== Auxiliares ====================
 
-    private static void Paragrafos(ColumnDescriptor col, string texto)
+    /// <param name="compacto">
+    /// Espaçamento e corpo menores, para texto LONGO. O espaçamento de 10 pontos entre
+    /// itens vem da coluna da página e serve a documento curto; num termo de doze
+    /// parágrafos ele sozinho soma mais de cem pontos — uma folha inteira de respiro num
+    /// papel que precisa caber numa página só.
+    /// </param>
+    private static void Paragrafos(ColumnDescriptor col, string texto, bool compacto = false)
     {
-        foreach (var paragrafo in texto.Split('\n'))
+        var paragrafos = texto.Split('\n')
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .ToList();
+
+        if (!compacto)
         {
-            var limpo = paragrafo.Trim();
-            if (limpo.Length == 0) continue;
-            col.Item().Text(limpo).FontSize(10.5f);
+            foreach (var p in paragrafos) col.Item().Text(p).FontSize(10.5f);
+            return;
         }
+
+        // Uma coluna PRÓPRIA, com o espaçamento dela: o `Spacing` da coluna da página vale
+        // entre os blocos da folha (paciente, corpo, declarações, assinatura) e não deve
+        // mudar por causa do miolo de um tipo só.
+        col.Item().Column(c =>
+        {
+            c.Spacing(5);
+            foreach (var p in paragrafos) c.Item().Text(p).FontSize(10f).LineHeight(1.25f);
+        });
     }
 
     private static int Idade(DateOnly nascimento)

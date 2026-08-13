@@ -179,7 +179,25 @@ public enum TipoDocumentoClinico
     PedidoExame,
     RelatorioEvolucao,
     Consentimento,
-    Anamnese
+    Anamnese,
+
+    /// <summary>
+    /// Termo de consentimento de PROCEDIMENTO, assinado pelo paciente (parcela 66) — o
+    /// caso que trouxe a feature é o BSV, com a declaração de jejum junto.
+    ///
+    /// ⚠️ <b>Não é o <see cref="Consentimento"/>.</b> Aquele é o termo <b>LGPD</b>, montado
+    /// de <c>ConsentimentoService.Finalidades</c>, e responde "posso tratar seus dados?".
+    /// Este responde "você foi informado do risco e está preparado para o procedimento?".
+    /// Juntar os dois num tipo só seria o bit sobrecarregado da parcela 49 num papel: não
+    /// haveria como conceder um sem o outro, e a segunda via de um sairia com o texto do
+    /// outro.
+    ///
+    /// O TEXTO e as DECLARAÇÕES são <see cref="ModeloDocumento"/>, não código: cada
+    /// procedimento tem o seu, quem o redige é a responsabilidade técnica da clínica, e
+    /// cada emissão COPIA o modelo — corrigir uma palavra hoje não pode reescrever o que
+    /// um paciente assinou no mês passado.
+    /// </summary>
+    TermoProcedimento
 }
 
 /// <summary>Rótulos e natureza de cada tipo de documento, para a tela e o PDF.</summary>
@@ -194,8 +212,20 @@ public static class TipoDocumentoInfo
         TipoDocumentoClinico.RelatorioEvolucao => "Relatório de evolução",
         TipoDocumentoClinico.Consentimento => "Termo de consentimento",
         TipoDocumentoClinico.Anamnese => "Anamnese",
+        TipoDocumentoClinico.TermoProcedimento => "Termo de procedimento",
         _ => tipo.ToString()
     };
+
+    /// <summary>
+    /// O documento é assinado pelo PACIENTE, e não (só) pelo profissional.
+    ///
+    /// Hoje é um tipo só, e mesmo assim a pergunta mora aqui em vez de espalhada como
+    /// <c>== TermoProcedimento</c> pelas telas: a coleta, o alerta da fila, o catálogo de
+    /// folhas e o PDF precisam da mesma resposta, e quatro cópias divergem na primeira
+    /// vez que um segundo tipo entrar.
+    /// </summary>
+    public static bool AssinadoPeloPaciente(TipoDocumentoClinico tipo)
+        => tipo is TipoDocumentoClinico.TermoProcedimento;
 
     /// <summary>
     /// O documento é montado pelo sistema a partir do prontuário/cadastro (em vez de
@@ -218,7 +248,8 @@ public static class TipoDocumentoInfo
         TipoDocumentoClinico.PedidoExame,
         TipoDocumentoClinico.RelatorioEvolucao,
         TipoDocumentoClinico.Consentimento,
-        TipoDocumentoClinico.Anamnese
+        TipoDocumentoClinico.Anamnese,
+        TipoDocumentoClinico.TermoProcedimento
     ];
 }
 
@@ -257,6 +288,22 @@ public class DocumentoClinico
     /// <summary>Sessão de origem, quando o documento nasceu de uma evolução.</summary>
     public int? EvolucaoId { get; set; }
     public Evolucao? Evolucao { get; set; }
+
+    /// <summary>
+    /// De qual <see cref="ModeloDocumento"/> este documento foi COPIADO (parcela 66).
+    ///
+    /// É PROCEDÊNCIA, nunca referência viva: o conteúdo continua gravado nas colunas deste
+    /// registro, e corrigir o modelo amanhã não muda uma vírgula do que o paciente assinou
+    /// — a mesma regra do protocolo do mapa corporal e do modelo de evolução.
+    ///
+    /// Serve para responder "este paciente já assinou O TERMO DO BSV hoje?": casar por
+    /// TIPO não bastaria, porque dois procedimentos no mesmo dia exigem dois termos
+    /// diferentes e o primeiro passaria a cobrir o segundo.
+    ///
+    /// <c>SetNull</c>: apagar um modelo não pode apagar o termo assinado com ele.
+    /// </summary>
+    public int? ModeloOrigemId { get; set; }
+    public ModeloDocumento? ModeloOrigem { get; set; }
 
     public DateOnly Data { get; set; }
 
@@ -383,6 +430,64 @@ public class DocumentoClinico
     public int? ArquivoAssinadoId { get; set; }
     public ArquivoAssinado? ArquivoAssinado { get; set; }
 
+    // ---- Assinatura do PACIENTE (parcela 66) ----
+    //
+    // Um-para-um com o documento (um termo, um paciente, uma assinatura), então mora na
+    // própria linha — o mesmo argumento que o bloco de cima já escreveu para a assinatura
+    // do profissional. O que NÃO cabe aqui é o traço: são bytes, e bytes na linha fariam
+    // a listagem de documentos arrastar imagem a cada abertura de ficha.
+    //
+    // ⚠️ E o paciente NÃO assina com certificado. Termo de consentimento é documento
+    // ENTRE AS PARTES, e a MP 2.200-2/2001 (art. 10, §2º) admite outro meio quando as
+    // partes o aceitam — a Lei 14.063/2020 chama isso de assinatura SIMPLES. Exigir e-CPF
+    // do paciente seria inviável e desnecessário. O que dá valor a ela é a EVIDÊNCIA
+    // gravada abaixo, e é só isso que o rodapé do PDF pode afirmar.
+
+    /// <summary>Quando o paciente assinou. Null = ainda não assinou.</summary>
+    public DateTime? PacienteAssinadoEm { get; set; }
+
+    /// <summary>Como o traço foi colhido — hoje só há um meio, e a coluna prepara o link.</summary>
+    public MeioAssinaturaPaciente? PacienteAssinaturaMeio { get; set; }
+
+    /// <summary>
+    /// SHA-256 do conteúdo que o paciente TINHA NA FRENTE, em hexadecimal minúsculo.
+    ///
+    /// É a metade que responde "assinou o quê?" — sem ela a assinatura prova que alguém
+    /// riscou a tela, e não o que ele leu antes de riscar. Cobre título, corpo e as
+    /// declarações com as respostas dadas.
+    /// </summary>
+    public string? PacienteAssinaturaHash { get; set; }
+
+    /// <summary>
+    /// O documento de identidade apresentado no ato ("CPF 123.456.789-00", "RG 12.345.678").
+    ///
+    /// É o que substitui o certificado: quem confere a identidade é a pessoa da clínica que
+    /// estava na frente do paciente, e o registro diz o que ela viu.
+    /// </summary>
+    public string? PacienteDocumentoConferido { get; set; }
+
+    /// <summary>
+    /// Quem da clínica colheu a assinatura — <c>SessaoUsuario.Atual.Operador</c>, nunca o
+    /// login do Windows: no balcão duas pessoas dividem a máquina, e a testemunha é
+    /// justamente o que se pergunta quando o termo é contestado.
+    /// </summary>
+    public string? PacienteAssinaturaTestemunha { get; set; }
+
+    /// <summary>O traço em si (PNG), em tabela à parte.</summary>
+    public int? TracoAssinaturaId { get; set; }
+    public TracoAssinatura? TracoAssinatura { get; set; }
+
+    /// <summary>
+    /// O paciente RECUSOU assinar, e por quê.
+    ///
+    /// Recusa é fato: sem onde escrevê-la, o termo fica eternamente "pendente" e ninguém
+    /// distingue quem ainda não foi chamado de quem disse não. Recusado, o documento
+    /// continua emitido — ele é a prova de que o termo foi apresentado.
+    /// </summary>
+    public DateTime? PacienteRecusouEm { get; set; }
+
+    public string? MotivoRecusaPaciente { get; set; }
+
     // ---- Rastro ----
 
     public DateTime CriadoEm { get; set; } = DateTime.Now;
@@ -433,6 +538,162 @@ public class DocumentoClinico
             + $"{AssinadoEm:dd/MM/yyyy HH:mm} (data declarada pelo relógio de quem assinou).",
         _ => $"Assinado eletronicamente por {AssinanteNome} em {AssinadoEm:dd/MM/yyyy HH:mm}."
     };
+
+    /// <summary>O paciente assinou este documento.</summary>
+    public bool PacienteAssinou => PacienteAssinadoEm is not null;
+
+    /// <summary>O paciente recusou assinar — e isso está registrado.</summary>
+    public bool PacienteRecusou => PacienteRecusouEm is not null;
+
+    /// <summary>
+    /// O documento espera a assinatura do paciente: é do tipo que ele assina, não foi
+    /// cancelado, e ele nem assinou nem recusou.
+    /// </summary>
+    public bool AguardaAssinaturaDoPaciente
+        => TipoDocumentoInfo.AssinadoPeloPaciente(Tipo)
+           && !Cancelado && !PacienteAssinou && !PacienteRecusou;
+
+    /// <summary>
+    /// O que o rodapé do PDF escreve sobre a assinatura do PACIENTE.
+    ///
+    /// ⚠️ Ela diz "assinatura eletrônica simples" e jamais "assinatura digital" ou
+    /// "validade jurídica ICP-Brasil" — nada disso é verdade sobre o traço do paciente, e
+    /// garantia aparente é pior que ausência de garantia (a regra do carimbo escaneado da
+    /// parcela 3). O que a frase entrega é a EVIDÊNCIA, que é o que de fato sustenta o
+    /// termo se ele for contestado: quem, quando, diante de quem, com que documento, e o
+    /// selo do conteúdo que estava na tela.
+    /// </summary>
+    public string FraseAssinaturaPaciente
+    {
+        get
+        {
+            if (PacienteRecusou)
+                return $"O paciente recusou assinar em {PacienteRecusouEm:dd/MM/yyyy HH:mm}"
+                       + (string.IsNullOrWhiteSpace(MotivoRecusaPaciente)
+                           ? "." : $": {MotivoRecusaPaciente}");
+
+            if (!PacienteAssinou)
+                return "Aguardando a assinatura do paciente.";
+
+            var frase = "Assinatura eletrônica simples, colhida presencialmente em "
+                        + $"{PacienteAssinadoEm:dd/MM/yyyy 'às' HH:mm}";
+
+            if (!string.IsNullOrWhiteSpace(PacienteAssinaturaTestemunha))
+                frase += $", diante de {PacienteAssinaturaTestemunha}";
+
+            if (!string.IsNullOrWhiteSpace(PacienteDocumentoConferido))
+                frase += $", com {PacienteDocumentoConferido} conferido";
+
+            if (!string.IsNullOrWhiteSpace(PacienteAssinaturaHash))
+                frase += $". Conteúdo selado por SHA-256 {PacienteAssinaturaHash[..12]}…";
+
+            return frase + $" Código de conferência {CodigoVerificacao}.";
+        }
+    }
+
+    /// <summary>
+    /// O que o rodapé escreve quando o conteúdo NÃO bate com o selo (parcela 66, 2ª rodada).
+    ///
+    /// Vazio = nada a dizer (não há selo, ou ele confere). Guardar um hash que ninguém
+    /// recalcula é guardar um número — a conferência só vira garantia quando ela tem
+    /// consequência visível, e a consequência é esta frase saindo impressa na segunda via.
+    /// **Falha exibida como sucesso é o desfecho que este projeto recusa**: um termo
+    /// alterado depois da assinatura não pode sair com um rodapé afirmando integridade.
+    /// </summary>
+    public string AvisoDeSeloQuebrado
+    {
+        get
+        {
+            if (!PacienteAssinou || string.IsNullOrWhiteSpace(PacienteAssinaturaHash))
+                return string.Empty;
+
+            return SeloDoConteudo() == PacienteAssinaturaHash
+                ? string.Empty
+                : "⚠ ATENÇÃO: o conteúdo deste termo NÃO confere com o que foi selado no "
+                  + "momento da assinatura. Esta via não prova o que o paciente assinou.";
+        }
+    }
+
+    /// <summary>
+    /// SHA-256 do que o paciente tinha na frente — a mesma montagem que
+    /// <c>AssinaturaDoPacienteService</c> grava na coleta.
+    ///
+    /// Mora na ENTIDADE porque quem precisa dela são dois: o serviço, que a grava, e o PDF,
+    /// que a recalcula ao imprimir. Duas montagens divergiriam na primeira correção, e a
+    /// divergência apareceria como "selo quebrado" em todo termo válido — que é como se
+    /// ensina alguém a ignorar o aviso.
+    ///
+    /// Cultura INVARIANTE de propósito: o hash é gravado e recalculado meses depois,
+    /// possivelmente noutra máquina.
+    /// </summary>
+    public string SeloDoConteudo()
+    {
+        var texto = new System.Text.StringBuilder();
+
+        texto.Append(Numero).Append('\n');
+        texto.Append(Data.ToString("yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+        texto.Append(TituloImpresso).Append('\n');
+        texto.Append(Corpo ?? string.Empty).Append('\n');
+
+        foreach (var item in Itens.OrderBy(i => i.Ordem))
+            texto.Append(item.Ordem).Append('|')
+                 .Append(item.Descricao).Append('|')
+                 .Append(item.Detalhe ?? string.Empty).Append('|')
+                 .Append(item.Quantidade ?? string.Empty).Append('\n');
+
+        return Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(texto.ToString()))).ToLowerInvariant();
+    }
+}
+
+/// <summary>Por onde o traço do paciente entrou no sistema.</summary>
+public enum MeioAssinaturaPaciente
+{
+    /// <summary>
+    /// Na tela da própria clínica — tablet, monitor sensível ao toque, mesa de assinatura
+    /// ou mouse. É o único meio da parcela 66, e cobre o caso que a motivou: o paciente do
+    /// BSV está de corpo presente minutos antes do procedimento.
+    /// </summary>
+    NaClinica,
+
+    /// <summary>
+    /// Assinou remotamente, por link. ⚠️ NÃO IMPLEMENTADO — o valor existe para a coluna
+    /// não precisar mudar depois, e porque é ele que torna a leitura honesta: sem ele, o
+    /// dia em que o link existir todo termo antigo passaria a parecer remoto.
+    ///
+    /// Ele exige um componente que hoje não temos: <c>IArmazenamentoPublico</c> publica e
+    /// remove — ele não RECEBE, e um S3 estático não aceita POST.
+    /// </summary>
+    LinkRemoto
+}
+
+/// <summary>
+/// O traço da assinatura do paciente, em PNG.
+///
+/// Tabela à parte pela mesma razão do <see cref="ArquivoAssinado"/> e do
+/// <see cref="AnexoProntuario"/>: a listagem de documentos de um paciente com quarenta
+/// termos não pode arrastar quarenta imagens do banco para desenhar quarenta linhas.
+///
+/// Não se apaga junto do documento (<c>SetNull</c>, como o arquivo assinado): cancelar um
+/// termo não pode destruir a prova de que alguém o assinou.
+/// </summary>
+public class TracoAssinatura
+{
+    public int Id { get; set; }
+
+    /// <summary>PNG com fundo transparente, do tamanho da área de coleta.</summary>
+    public byte[] Conteudo { get; set; } = Array.Empty<byte>();
+
+    /// <summary>Largura e altura em que foi colhido — o PDF precisa manter a proporção.</summary>
+    public int Largura { get; set; }
+
+    public int Altura { get; set; }
+
+    public DateTime ColhidoEm { get; set; } = DateTime.Now;
+
+    public int Tamanho => Conteudo.Length;
 }
 
 /// <summary>
@@ -508,4 +769,65 @@ public class ItemModelo
     public string? Detalhe { get; set; }
 
     public string? Quantidade { get; set; }
+}
+
+/// <summary>
+/// "Esta modalidade exige termo assinado pelo paciente, e é ESTE termo" (parcela 66).
+///
+/// É DADO e não código, pela mesma razão do formato do número da guia (parcela 45): a
+/// clínica faz BSV hoje e pode fazer outro procedimento amanhã, e amarrar a exigência a um
+/// <c>switch</c> sobre <see cref="ModalidadeAtendimento"/> obrigaria a publicar versão
+/// nova a cada procedimento novo. Aqui é uma linha em Configurações.
+///
+/// A validade é escolha da clínica por PROCEDIMENTO — ver
+/// <see cref="SoValeNoDiaDoProcedimento"/>.
+/// </summary>
+public class ExigenciaTermoProcedimento
+{
+    public int Id { get; set; }
+
+    /// <summary>A família da modalidade — <c>BsvApenas</c>, <c>BsvComAcupuntura</c>…</summary>
+    public ModalidadeAtendimento Modalidade { get; set; }
+
+    /// <summary>
+    /// Código da variante no catálogo, quando a exigência é só dela. Null = vale para toda
+    /// a família, que é o caso normal: quem faz BSV assina o termo do BSV, seja qual for o
+    /// nome que a clínica deu à variante.
+    /// </summary>
+    public string? ModalidadeCodigo { get; set; }
+
+    /// <summary>O modelo de termo que será COPIADO na emissão.</summary>
+    public int ModeloDocumentoId { get; set; }
+    public ModeloDocumento? Modelo { get; set; }
+
+    /// <summary>
+    /// Desligar em vez de apagar: a clínica que suspende a exigência por um mês não perde
+    /// o texto nem a amarração, e o histórico de quem já assinou continua fazendo sentido.
+    /// </summary>
+    public bool Ativa { get; set; } = true;
+
+    /// <summary>
+    /// O termo só vale para a sessão do DIA — assinado ontem, é pedido de novo hoje.
+    ///
+    /// ⚠️ Nasce <b>FALSO</b>, e isso é decisão da clínica (ago/2026, 3ª rodada): o
+    /// consentimento do procedimento é assinado **quando o paciente estiver por perto** —
+    /// inclusive na consulta em que ele vem tirar dúvidas, semanas antes —, e obrigar a
+    /// esperar o dia jogaria fora justamente o momento em que ele lê o texto com calma.
+    /// Assinado uma vez, está cumprido.
+    ///
+    /// O campo existe porque as DECLARAÇÕES moram dentro do termo, e nem toda declaração
+    /// sobrevive à antecedência: "estou em jejum" assinado na semana passada é uma
+    /// afirmação sobre o futuro. A clínica que quiser perguntar o jejum no dia cria um
+    /// termo curto só com essa declaração e liga esta caixa — os dois convivem, porque a
+    /// exigência é por MODELO e não por tipo.
+    ///
+    /// A primeira versão desta parcela não tinha o campo, com o argumento de que "regra com
+    /// exceção que ninguém exerce é código a mais". A cliente exerceu a exceção antes de a
+    /// feature chegar à clínica — e é ela quem sabe quando o paciente aparece.
+    /// </summary>
+    public bool SoValeNoDiaDoProcedimento { get; set; }
+
+    public DateTime CriadoEm { get; set; } = DateTime.Now;
+
+    public string? CriadoPor { get; set; }
 }

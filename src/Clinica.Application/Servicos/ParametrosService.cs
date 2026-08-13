@@ -154,6 +154,40 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Tela que o PACIENTE vê (parcela 66, 5ª rodada) ----
+
+    public const string ChaveTelaDoPaciente = "TelaDoPacienteDispositivo";
+
+    /// <summary>
+    /// O monitor virado para o paciente, onde a área de assinar aparece — o nome do
+    /// dispositivo do Windows (<c>\\.\DISPLAY2</c>).
+    ///
+    /// Vazio = a clínica não tem segunda tela, e a coleta acontece numa janela só, como
+    /// antes. Não é um estado degradado: é o modo de quem só tem um monitor, e ele precisa
+    /// continuar funcionando por inteiro.
+    ///
+    /// ⚠️ Grava o NOME do dispositivo, nunca o índice na lista. O índice muda quando alguém
+    /// desliga um cabo ou o Windows reordena as telas depois de um reinício — e a tela do
+    /// paciente passaria a ser a da recepcionista, com o termo em tela cheia por cima do
+    /// trabalho dela, sem ninguém ter mexido em nada.
+    ///
+    /// A configuração é por MÁQUINA, mas mora no banco como todo o resto: o balcão tem uma
+    /// máquina só, e mandar a clínica editar arquivo local em cada posto é o ritual de
+    /// instalação que o projeto recusou no SafeID.
+    /// </summary>
+    public async Task<string?> ObterTelaDoPacienteAsync(CancellationToken ct = default)
+    {
+        var valor = await _repo.ObterConfiguracaoAsync(ChaveTelaDoPaciente, ct);
+        return string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
+    }
+
+    public async Task SalvarTelaDoPacienteAsync(string? dispositivo, CancellationToken ct = default)
+    {
+        await _repo.SalvarConfiguracaoAsync(
+            ChaveTelaDoPaciente, dispositivo?.Trim() ?? string.Empty, ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Publicação do documento assinado (parcela 53) ----
 
     public const string ChaveUrlPublicacao = "PublicacaoUrlBase";

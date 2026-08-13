@@ -1,0 +1,231 @@
+<Window x:Class="Clinica.Gerente.Views.ModelosTermoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Termos do procedimento" Width="1080" Height="660"
+        MinWidth="900" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <DockPanel>
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                <TextBlock Text="Termos do procedimento" Style="{StaticResource DialogoTitulo}"
+                           HorizontalAlignment="Left" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           Text="Escreva o texto que o paciente vai ler e assinar, e as declarações que ele responde (jejum, medicações, alergias). Depois diga qual procedimento passa a exigi-lo. O termo vale POR SESSÃO: ele é pedido a cada vez." />
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,14,0,0">
+                <Border Margin="0,0,0,10"
+                        Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}">
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource AlertaPerigo}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="False">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+                </Border>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                            IsCancel="True" MinWidth="110" Margin="0,0,8,0"
+                            VerticalAlignment="Center" />
+                    <Button Content="Salvar termo" Command="{Binding SalvarCommand}"
+                            MinWidth="150" VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeConfigurar}" />
+                </StackPanel>
+            </StackPanel>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="280" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Coluna de LISTA: aqui ela é legítima (é o seletor do item que se edita
+                     ao lado, como o catálogo de um cadastro), e não a faixa que o README
+                     proíbe — a tela inteira existe para editar o item escolhido. -->
+                <DockPanel Grid.Column="0" Margin="0,0,16,0">
+                    <Button DockPanel.Dock="Top" Content="Novo termo" Margin="0,0,0,8"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding NovoCommand}"
+                            IsEnabled="{Binding PodeConfigurar}" />
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <ListBox ItemsSource="{Binding Modelos}"
+                                     SelectedItem="{Binding Selecionado}"
+                                     BorderThickness="0" Background="Transparent">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,4">
+                                            <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Resumo}"
+                                                       Style="{StaticResource TextoSuave}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+
+                            <ctrl:EstadoDaTela Itens="{Binding Modelos}"
+                                               Carregando="{Binding Carregando}"
+                                               NaoVerificado="{Binding NaoVerificado}"
+                                               Titulo="Nenhum termo escrito"
+                                               Descricao="Clique em “Novo termo” para escrever o primeiro — o do BSV, por exemplo." />
+                        </Grid>
+                    </Border>
+                </DockPanel>
+
+                <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Border Style="{StaticResource Card}">
+                            <StackPanel>
+                                <TextBlock Text="O TEXTO" Style="{StaticResource Rotulo}" />
+
+                                <Grid Margin="0,8,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="Nome (só a clínica vê)"
+                                                   Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}"
+                                                 MaxLength="100"
+                                                 ctrl:Ajudantes.Placeholder="ex.: Termo do BSV" />
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="Título impresso" Style="{StaticResource Rotulo}"
+                                                   Margin="0,0,0,4" />
+                                        <TextBox Text="{Binding TituloImpresso, UpdateSourceTrigger=PropertyChanged}"
+                                                 MaxLength="200"
+                                                 ctrl:Ajudantes.Placeholder="ex.: Consentimento para Bloqueio Simpático Venoso" />
+                                    </StackPanel>
+                                </Grid>
+
+                                <TextBlock Text="Texto do termo" Style="{StaticResource Rotulo}"
+                                           Margin="0,12,0,4" />
+                                <TextBox Text="{Binding Corpo, UpdateSourceTrigger=PropertyChanged}"
+                                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="130"
+                                         MaxLength="4000" VerticalScrollBarVisibility="Auto"
+                                         ctrl:Ajudantes.Placeholder="Riscos, alternativas, cuidados antes e depois. É o que o paciente lê antes de assinar." />
+
+                                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,6,0,0"
+                                           TextWrapping="Wrap"
+                                           Text="O conteúdo é responsabilidade técnica da clínica. O sistema guarda, imprime e prova quem assinou — ele não redige nem confere o texto." />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="DECLARAÇÕES QUE O PACIENTE RESPONDE"
+                                           Style="{StaticResource Rotulo}" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           Text="Cada linha vira um Sim/Não na tela da coleta e sai impressa com a resposta. Responder NÃO não impede o procedimento — acende alerta vermelho para quem vai fazê-lo." />
+
+                                <DockPanel Margin="0,8,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Acrescentar"
+                                            Style="{StaticResource BotaoSecundario}" MinWidth="130"
+                                            Margin="8,0,0,0" VerticalAlignment="Center"
+                                            Command="{Binding AcrescentarDeclaracaoCommand}"
+                                            IsEnabled="{Binding PodeConfigurar}" />
+                                    <TextBox Text="{Binding NovaDeclaracao, UpdateSourceTrigger=PropertyChanged}"
+                                             MaxLength="300" VerticalAlignment="Center"
+                                             ctrl:Ajudantes.Placeholder="ex.: Estou em jejum de 8 horas" />
+                                </DockPanel>
+
+                                <ItemsControl ItemsSource="{Binding Declaracoes}" Margin="0,10,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel Margin="0,3">
+                                                <Button DockPanel.Dock="Right" Content="Remover"
+                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                        Margin="8,0,0,0"
+                                                        Command="{Binding DataContext.RemoverDeclaracaoCommand,
+                                                            RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                                <TextBox Text="{Binding Texto, UpdateSourceTrigger=PropertyChanged}"
+                                                         MaxLength="300" VerticalAlignment="Center" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="QUAL PROCEDIMENTO EXIGE ESTE TERMO"
+                                           Style="{StaticResource Rotulo}" />
+
+                                <DockPanel Margin="0,8,0,0">
+                                    <Button DockPanel.Dock="Right" Content="Passar a exigir"
+                                            Style="{StaticResource BotaoSecundario}" MinWidth="150"
+                                            Margin="8,0,0,0" VerticalAlignment="Center"
+                                            Command="{Binding ExigirCommand}"
+                                            IsEnabled="{Binding PodeConfigurar}" />
+                                    <ComboBox ItemsSource="{Binding Modalidades}"
+                                              SelectedItem="{Binding ModalidadeEscolhida}"
+                                              DisplayMemberPath="Nome"
+                                              VerticalAlignment="Center" />
+                                </DockPanel>
+
+                                <CheckBox Margin="0,10,0,0" IsChecked="{Binding SoValeNoDia}"
+                                          Content="Pedir a cada sessão (não vale de um dia para o outro)" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Margin="0,4,0,0"
+                                           Text="Desmarcado (o normal), o termo vale a partir da assinatura — dá para colher quando o paciente aparece, semanas antes. Marque só para o termo curto que pergunta o JEJUM: essa declaração é sobre o dia e não se herda." />
+
+                                <ItemsControl ItemsSource="{Binding Exigencias}" Margin="0,10,0,0"
+                                              Grid.IsSharedSizeScope="True">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="SituacaoTermo" />
+                                                    <ColumnDefinition Width="Auto" SharedSizeGroup="AcaoTermo" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <TextBlock Grid.Column="0" Text="{Binding Modalidade}"
+                                                           VerticalAlignment="Center" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Termo}"
+                                                           VerticalAlignment="Center" Margin="8,0,0,0"
+                                                           Style="{StaticResource CelulaSuave}" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Situacao}"
+                                                           VerticalAlignment="Center" Margin="8,0,0,0"
+                                                           Style="{StaticResource CelulaSuave}" />
+                                                <Button Grid.Column="3" Content="{Binding AcaoRotulo}"
+                                                        Style="{StaticResource BotaoAcaoGrid}" Margin="8,0,0,0"
+                                                        Command="{Binding DataContext.AlternarExigenciaCommand,
+                                                            RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </DockPanel>
+    </Grid>
+</Window>

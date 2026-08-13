@@ -1,0 +1,212 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.AssinaturaPacienteWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Termo do procedimento" Width="900" Height="680"
+        MinWidth="760" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto, e a
+             mensagem ficaria invisível para sempre (a lição da parcela 61). -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <Grid Margin="24">
+        <DockPanel>
+            <!-- A barra de ação é declarada ANTES do miolo rolante: senão o miolo come a
+                 barra, e a barra é onde está o botão (a lição da parcela 47). -->
+            <StackPanel DockPanel.Dock="Top">
+                <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}"
+                           HorizontalAlignment="Left" TextWrapping="Wrap" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap">
+                    <Run Text="{Binding PacienteNome, Mode=OneWay}" FontWeight="SemiBold" />
+                    <Run Text=" · Termo nº " />
+                    <Run Text="{Binding Numero, Mode=OneWay}" />
+                </TextBlock>
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,16,0,0">
+                <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade (a
+                     lição da parcela 62). Amarrar a visibilidade ao booleano de erro
+                     esconderia junto a mensagem de êxito, que zera esse booleano. -->
+                <Border Margin="0,0,0,10"
+                        Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade}}">
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource AlertaPerigo}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="False">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Aviso.Suave}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Aviso}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+                </Border>
+
+                <DockPanel>
+                    <Button DockPanel.Dock="Left" Content="Paciente recusou assinar"
+                            Style="{StaticResource BotaoSecundarioPerigo}" MinWidth="200"
+                            VerticalAlignment="Center" Command="{Binding RecusarCommand}"
+                            IsEnabled="{Binding PodeColher}" />
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                                IsCancel="True" MinWidth="110" Margin="0,0,8,0"
+                                VerticalAlignment="Center" />
+                        <Button Content="Confirmar assinatura" MinWidth="190"
+                                VerticalAlignment="Center" Click="AoConfirmar"
+                                IsEnabled="{Binding PodeConfirmar}" />
+                    </StackPanel>
+                </DockPanel>
+            </StackPanel>
+
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,16,0,0">
+                <StackPanel>
+                    <!-- ===== 1. O QUE O PACIENTE ESTÁ ASSINANDO ===== -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Text="O TERMO" Style="{StaticResource Rotulo}" />
+                            <TextBlock Text="{Binding Corpo}" TextWrapping="Wrap"
+                                       Margin="0,6,0,0" LineHeight="20" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ===== 2. AS DECLARAÇÕES ===== -->
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                        <StackPanel>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="Marcar todas como Sim"
+                                        Style="{StaticResource BotaoSecundario}" MinWidth="180"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding ConfirmarTodasCommand}" />
+                                <TextBlock Text="DECLARAÇÕES DO PACIENTE"
+                                           Style="{StaticResource Rotulo}"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       Text="Leia cada uma com o paciente. Responder NÃO não impede nada: o termo é emitido do mesmo jeito, com a resposta escrita, e quem decide adiar o procedimento é quem vai fazê-lo." />
+
+                            <ItemsControl ItemsSource="{Binding Declaracoes}" Margin="0,8,0,0"
+                                          Grid.IsSharedSizeScope="True">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,6,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="RespostaDeclaracao" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Descricao}"
+                                                           TextWrapping="Wrap" FontWeight="SemiBold" />
+                                                <TextBlock Text="{Binding Detalhe}"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           TextWrapping="Wrap"
+                                                           Visibility="{Binding Detalhe,
+                                                               Converter={StaticResource TextoParaVisibilidade}}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                        VerticalAlignment="Center" Margin="16,0,0,0">
+                                                <RadioButton Content="Sim" MinWidth="70"
+                                                             GroupName="{Binding Ordem}"
+                                                             IsChecked="{Binding EhSim, Mode=TwoWay}" />
+                                                <RadioButton Content="Não" MinWidth="70"
+                                                             GroupName="{Binding Ordem}"
+                                                             IsChecked="{Binding EhNao, Mode=TwoWay}" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ===== 3. A ASSINATURA ===== -->
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                        <StackPanel>
+                            <TextBlock Text="ASSINATURA DO PACIENTE"
+                                       Style="{StaticResource Rotulo}" />
+
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Documento conferido" Style="{StaticResource Rotulo}" />
+                                    <TextBox Text="{Binding DocumentoConferido, UpdateSourceTrigger=PropertyChanged}"
+                                             MaxLength="80"
+                                             ctrl:Ajudantes.Placeholder="ex.: CPF 123.456.789-00 ou RG 12.345.678" />
+                                </StackPanel>
+
+                                <Button Grid.Column="1" Content="Limpar assinatura" Margin="12,0,0,0"
+                                        Style="{StaticResource BotaoSecundario}" MinWidth="150"
+                                        VerticalAlignment="Bottom" Click="AoLimparTraco" />
+                            </Grid>
+
+                            <!-- ===== 3a. UMA TELA: o paciente assina AQUI =====
+                                 Some quando há um monitor virado para ele. Deixar as duas
+                                 áreas ativas permitiria a recepcionista assinar pelo
+                                 paciente sem querer — e o termo diria que ele assinou. -->
+                            <StackPanel x:Name="AreaDeAssinaturaLocal">
+                                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,10,0,0"
+                                           TextWrapping="Wrap"
+                                           Text="Peça ao paciente para assinar na área abaixo, com o dedo ou a caneta do tablet." />
+
+                                <Border Margin="0,6,0,0" BorderThickness="1" CornerRadius="6"
+                                        BorderBrush="{StaticResource Brush.Borda}"
+                                        Background="{StaticResource Brush.Superficie}">
+                                    <Grid>
+                                        <!-- 220 de altura: é o piso REAL para uma assinatura
+                                             caber num tablet sem a pessoa apertar o traço. Quem
+                                             cede é a janela, como no mapa corporal. -->
+                                        <TextBlock x:Name="DicaAssine" Text="Assine aqui"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" FontSize="{StaticResource Fonte.H2}"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+
+                                        <InkCanvas x:Name="AreaAssinatura" Height="220"
+                                                   Background="Transparent"
+                                                   StrokeCollected="AoDesenhar" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+
+                            <!-- ===== 3b. DUAS TELAS: ele assina na dele =====
+                                 A recepcionista precisa SABER que a área sumiu de propósito.
+                                 Sem esta linha, a tela dela só ficaria sem o campo, e "sumiu
+                                 o lugar de assinar" se lê como defeito. -->
+                            <Border x:Name="AvisoTelaDoPaciente" Visibility="Collapsed"
+                                    Style="{StaticResource AlertaSucesso}" Margin="0,10,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="O paciente está assinando na tela dele"
+                                               FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                               Text="O termo apareceu no monitor virado para o paciente, com as declarações como você as marcou aqui. O botão Confirmar acende assim que ele assinar." />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,8,0,0"
+                                       TextWrapping="Wrap"
+                                       Text="Esta é uma assinatura eletrônica SIMPLES, colhida presencialmente. Ela não usa certificado digital do paciente — o que a sustenta é o registro de quem assinou, quando, diante de quem e com que documento conferido." />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
+
+        <!-- Sobreposição: dentro do Grid e como ÚLTIMO filho (a regra da checagem 25).
+             `Vazio` declarado porque sem ele o componente resolve Vazia(null) = true e liga
+             a sobreposição PARA SEMPRE (a lição da parcela 56, checagem 29). -->
+        <ctrl:EstadoDaTela Carregando="{Binding Carregando}"
+                           Vazio="False"
+                           TextoCarregando="Preparando o termo…" />
+    </Grid>
+</Window>
