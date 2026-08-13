@@ -134,6 +134,24 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
             new Dictionary<int, string?> { [1] = jejum, [2] = medicamentos },
             "CPF 123.456.789-00", "ana.recepcao");
 
+    /// <summary>
+    /// Responde "Sim" a TODAS as declarações do documento, sejam quantas forem.
+    ///
+    /// O <see cref="AssinarAsync"/> responde duas porque o modelo do teste tem duas; os
+    /// rascunhos de verdade têm quatro e cinco, e declaração em branco é recusada — como
+    /// deve ser.
+    /// </summary>
+    private async Task<DocumentoClinico> AssinarTudoAsync(int documentoId)
+    {
+        var documento = await _repo.ObterDocumentoAsync(documentoId)
+                        ?? throw new InvalidOperationException("Documento não encontrado.");
+
+        return await _assinaturas.ColherAsync(
+            documentoId, TracoDeTeste(), 600, 220,
+            documento.Itens.ToDictionary(i => i.Ordem, i => (string?)"Sim"),
+            "CPF 123.456.789-00", "ana.recepcao");
+    }
+
     // ==================== 1. Vale por SESSÃO ====================
 
     [Fact]
@@ -502,38 +520,139 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
                 + "com o corpo de uma prescrição, e ninguém perceberia até o paciente ler");
     }
 
+    /// <summary>
+    /// O caso que obrigou a alargar a chave (parcela 67): o BSV pede DOIS papéis.
+    ///
+    /// Com a chave antiga — (modalidade, variante) — amarrar a declaração de jejum apagava o
+    /// consentimento em SILÊNCIO, e a clínica só descobriria quando alguém procurasse o
+    /// consentimento de um paciente e ele não existisse.
+    /// </summary>
     [Fact]
-    public async Task Exigir_de_novo_TROCA_o_modelo_em_vez_de_criar_a_segunda_exigencia()
+    public async Task Exigir_um_SEGUNDO_modelo_ACRESCENTA_em_vez_de_apagar_o_primeiro()
     {
         var paciente = await PacienteAsync();
-        var antigo = await ModeloDoBsvAsync();
-        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, antigo.Id);
+        var consentimento = await ModeloDoBsvAsync();
+        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, consentimento.Id);
         await AgendarBsvAsync(paciente, Hoje);
 
-        // A responsabilidade técnica reescreve o termo como um modelo NOVO.
-        var revisado = new ModeloDocumento
+        // A declaração do dia: o jejum, que não se herda de um dia para o outro.
+        var declaracao = new ModeloDocumento
         {
             Tipo = TipoDocumentoClinico.TermoProcedimento,
-            Nome = "Termo do BSV — revisado",
-            Corpo = "Texto revisado.",
+            Nome = "Declaração do dia — BSV",
+            Corpo = "Declaro que estou em jejum.",
             Itens = [new ItemModelo { Ordem = 1, Descricao = "Estou em jejum de 8 horas" }]
         };
-        _db.ModelosDocumento.Add(revisado);
+        _db.ModelosDocumento.Add(declaracao);
         await _db.SaveChangesAsync();
 
-        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, revisado.Id);
+        await _termos.ExigirAsync(
+            ModalidadeAtendimento.BsvApenas, declaracao.Id, soValeNoDiaDoProcedimento: true);
 
-        (await _termos.ExigenciasAsync()).Should().ContainSingle(
-            "duas exigências fariam o paciente assinar o mesmo papel duas vezes na sessão — "
-            + "e recusar deixaria a clínica sem como trocar o texto, que era a mensagem de "
-            + "erro mandando fazer o que a tela não fazia");
+        (await _termos.ExigenciasAsync()).Should().HaveCount(2,
+            "o consentimento e a declaração de jejum têm validades OPOSTAS e não cabem no "
+            + "mesmo papel — com a chave antiga, o segundo apagava o primeiro sem avisar");
 
-        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
-            .Should().ContainSingle().Subject;
+        var situacoes = await _termos.SituacaoDoDiaAsync(paciente, Hoje);
 
-        situacao.ModeloId.Should().Be(revisado.Id, "o que se cobra a partir de agora é o novo");
+        situacoes.Should().HaveCount(2, "o balcão precisa colher os dois");
+        situacoes.Select(s => s.ModeloId).Should()
+            .BeEquivalentTo(new[] { consentimento.Id, declaracao.Id });
     }
 
+    /// <summary>
+    /// A metade que a chave continua impedindo: a MESMA amarração duas vezes.
+    ///
+    /// Repetir não recusa (a lição da 2ª rodada da parcela 66 — mensagem de erro que manda
+    /// fazer o que a tela não faz), mas também não duplica: o que ela atualiza é a validade.
+    /// </summary>
+    [Fact]
+    public async Task Exigir_o_MESMO_modelo_de_novo_atualiza_a_validade_e_nao_duplica()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await AgendarBsvAsync(paciente, Hoje);
+
+        await _termos.ExigirAsync(
+            ModalidadeAtendimento.BsvApenas, modelo.Id, soValeNoDiaDoProcedimento: false);
+        await _termos.ExigirAsync(
+            ModalidadeAtendimento.BsvApenas, modelo.Id, soValeNoDiaDoProcedimento: true);
+
+        var exigencia = (await _termos.ExigenciasAsync()).Should().ContainSingle(
+            "o mesmo papel duas vezes na mesma sessão é a duplicata que a chave existe para "
+            + "impedir").Subject;
+
+        exigencia.SoValeNoDiaDoProcedimento.Should().BeTrue(
+            "repetir a amarração é como se muda a validade dela");
+    }
+
+    /// <summary>
+    /// Os dois rascunhos do BSV, do jeito que o botão do Gerente os cria — e a razão de
+    /// serem DOIS: as validades são opostas, e é isso que a leitura tem de refletir.
+    /// </summary>
+    [Fact]
+    public async Task Os_dois_termos_do_BSV_convivem_com_validades_opostas()
+    {
+        var paciente = await PacienteAsync();
+        var ontem = Hoje.AddDays(-1);
+
+        var consentimento = ModelosTermoBsv.Consentimento();
+        var declaracao = ModelosTermoBsv.DeclaracaoDoDia();
+        _db.ModelosDocumento.AddRange(consentimento, declaracao);
+        await _db.SaveChangesAsync();
+
+        foreach (var modalidade in ModelosTermoBsv.ModalidadesDoBsv)
+        {
+            await _termos.ExigirAsync(modalidade, consentimento.Id);
+            await _termos.ExigirAsync(
+                modalidade, declaracao.Id, soValeNoDiaDoProcedimento: true);
+        }
+
+        // O paciente veio ONTEM tirar dúvidas e assinou o consentimento com calma — que é a
+        // porta que a 3ª rodada da parcela 66 destravou.
+        var assinadoOntem = await _documentos.EmitirTermoProcedimentoAsync(
+            paciente, consentimento.Id);
+        assinadoOntem.Data = ontem;
+        await _db.SaveChangesAsync();
+        await AssinarTudoAsync(assinadoOntem.Id);
+
+        await AgendarBsvAsync(paciente, Hoje);
+
+        var situacoes = await _termos.SituacaoDoDiaAsync(paciente, Hoje);
+
+        situacoes.Single(s => s.ModeloId == consentimento.Id).Assinado.Should().BeTrue(
+            "o consentimento vale a partir da assinatura — foi para isso que ele foi lido "
+            + "com calma na véspera");
+
+        situacoes.Single(s => s.ModeloId == declaracao.Id).Assinado.Should().BeFalse(
+            "\"ESTOU em jejum\" assinado ontem é uma afirmação sobre o futuro; a declaração "
+            + "do dia não se herda");
+    }
+
+    /// <summary>
+    /// O rascunho DIZ que é rascunho, e diz no nome — que é o que aparece na lista da tela,
+    /// no seletor da coleta avulsa e na linha da exigência. Quem for amarrar a modalidade lê
+    /// o aviso no caminho; um campo à parte ficaria só na tela de edição.
+    /// </summary>
+    [Fact]
+    public void Os_termos_do_BSV_nascem_marcados_como_rascunho()
+    {
+        foreach (var modelo in new[]
+                 { ModelosTermoBsv.Consentimento(), ModelosTermoBsv.DeclaracaoDoDia() })
+        {
+            modelo.Nome.Should().Contain(ModelosTermoBsv.MarcaRascunho);
+            modelo.Tipo.Should().Be(TipoDocumentoClinico.TermoProcedimento);
+            modelo.Corpo.Should().Contain("RASCUNHO",
+                "o texto tem de mandar o responsável técnico revisar ANTES do primeiro uso — "
+                + "termo de fábrica é o que o sistema aplica sem ninguém ler");
+            modelo.Itens.Should().NotBeEmpty("um termo sem declaração não pergunta nada");
+        }
+    }
+
+    /// <summary>
+    /// Aplicar COPIA — a regra do protocolo do mapa corporal, que aqui é a Lei 13.787/2018:
+    /// mexer na configuração hoje não pode reescrever o que o paciente assinou.
+    /// </summary>
     [Fact]
     public async Task Trocar_o_modelo_da_exigencia_nao_toca_no_termo_ja_assinado()
     {

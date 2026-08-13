@@ -282,6 +282,108 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Cria os dois termos do BSV como RASCUNHO e os amarra às duas modalidades de BSV
+    /// (parcela 67).
+    ///
+    /// ⚠️ Isto não contradiz a regra do cabeçalho — "o texto é da clínica, não nosso". O que
+    /// a regra proíbe é o termo de FÁBRICA: o texto que o sistema aplica sozinho, sem
+    /// ninguém ler. Aqui alguém abre esta tela e CLICA; o nome do modelo traz "(rascunho —
+    /// revisar)" e a primeira linha do corpo manda o responsável técnico conferir.
+    ///
+    /// O que mudou a decisão foi o desfecho da alternativa: a lista nascer vazia não fez
+    /// ninguém escrever um termo do zero no meio do expediente — fez o BSV continuar
+    /// acontecendo SEM termo nenhum. Rascunho que alguém revisa é melhor que folha em branco
+    /// que ninguém preenche.
+    ///
+    /// Roda uma vez: se os modelos já existem (pelo nome), avisa e não duplica.
+    /// </summary>
+    [RelayCommand]
+    private async Task CriarModelosDoBsvAsync()
+    {
+        if (!SessaoUsuario.Atual.Pode(Permissao.ConfigurarFaturamento))
+        {
+            MensagemEhErro = true;
+            Mensagem = "Você não tem permissão para configurar os termos.";
+            return;
+        }
+
+        // A confirmação existe porque o botão cria DOIS papéis e liga QUATRO exigências —
+        // e passa o balcão a cobrá-los do dia seguinte em diante. Ato que muda o que a
+        // recepção faz amanhã de manhã não acontece num clique distraído.
+        if (!_dialogo.Confirmar(
+                "Criar os termos do BSV",
+                "Serão criados dois termos como RASCUNHO — o consentimento do procedimento e "
+                + "a declaração do dia (jejum) — e as duas modalidades de BSV passam a "
+                + "exigi-los.\n\n"
+                + "O texto é um ponto de partida: o responsável técnico precisa revisá-lo "
+                + "antes do primeiro uso. Confirma?"))
+            return;
+
+        try
+        {
+            Carregando = true;
+
+            using var scope = _escopos.CreateScope();
+            var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+            var termos = scope.ServiceProvider.GetRequiredService<TermoProcedimentoService>();
+            var operador = SessaoUsuario.Atual.Operador;
+
+            var existentes = await documentos.ModelosAsync(TipoDocumentoClinico.TermoProcedimento);
+
+            var consentimento = ModelosTermoBsv.Consentimento();
+            var declaracao = ModelosTermoBsv.DeclaracaoDoDia();
+
+            // Já existe pelo nome? Não recria. `SalvarModeloAsync` sobrescreve por nome, e
+            // sobrescrever aqui apagaria a revisão que a clínica já tinha feito no texto —
+            // que é justamente o trabalho que este botão existe para começar.
+            if (existentes.Any(m => m.Nome == consentimento.Nome || m.Nome == declaracao.Nome))
+            {
+                MensagemEhErro = true;
+                Mensagem = "Os termos do BSV já foram criados. Edite-os na lista ao lado — "
+                           + "recriá-los apagaria a revisão já feita no texto.";
+                return;
+            }
+
+            var salvoConsentimento = await documentos.SalvarModeloAsync(consentimento, operador);
+            var salvoDeclaracao = await documentos.SalvarModeloAsync(declaracao, operador);
+
+            foreach (var modalidade in ModelosTermoBsv.ModalidadesDoBsv)
+            {
+                // O consentimento vale a partir da assinatura: é o que permite colhê-lo na
+                // consulta em que o paciente vem tirar dúvidas.
+                await termos.ExigirAsync(
+                    modalidade, salvoConsentimento.Id, operador: operador,
+                    soValeNoDiaDoProcedimento: false);
+
+                // A declaração do dia é a exceção que a caixa existe para atender: "ESTOU em
+                // jejum" assinado na véspera é afirmação sobre o futuro.
+                await termos.ExigirAsync(
+                    modalidade, salvoDeclaracao.Id, operador: operador,
+                    soValeNoDiaDoProcedimento: true);
+            }
+
+            MensagemEhErro = false;
+            Mensagem = "Dois termos do BSV criados como RASCUNHO e amarrados às duas "
+                       + "modalidades. Revise o texto com o responsável técnico e apague a "
+                       + "linha de aviso ao aprová-lo.";
+            _snackbar.Sucesso("Termos do BSV criados.");
+
+            await CarregarAsync();
+            Selecionado = Modelos.FirstOrDefault(m => m.Id == salvoConsentimento.Id);
+        }
+        catch (Exception ex)
+        {
+            MensagemEhErro = true;
+            Mensagem = ex.Message;
+            Clinica.Application.Diagnostico.Registrar("Gerente — criar termos do BSV", ex);
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
     /// <summary>Amarra a modalidade escolhida ao termo em foco.</summary>
     [RelayCommand]
     private async Task ExigirAsync()

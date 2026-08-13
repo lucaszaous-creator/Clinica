@@ -61,6 +61,15 @@
                             Command="{Binding NovoCommand}"
                             IsEnabled="{Binding PodeConfigurar}" />
 
+                    <!-- O rascunho do BSV. Fica ABAIXO do "Novo termo" de propósito: quem
+                         vai escrever o próprio texto não deve tropeçar num botão que cria
+                         dois papéis e liga quatro exigências. -->
+                    <Button DockPanel.Dock="Top" Content="Criar os termos do BSV…"
+                            Margin="0,0,0,8"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding CriarModelosDoBsvCommand}"
+                            IsEnabled="{Binding PodeConfigurar}" />
+
                     <Border Style="{StaticResource Card}">
                         <Grid>
                             <ListBox ItemsSource="{Binding Modelos}"
@@ -82,7 +91,7 @@
                                                Carregando="{Binding Carregando}"
                                                NaoVerificado="{Binding NaoVerificado}"
                                                Titulo="Nenhum termo escrito"
-                                               Descricao="Clique em “Novo termo” para escrever o primeiro — o do BSV, por exemplo." />
+                                               Descricao="Clique em “Criar os termos do BSV…” para começar de um rascunho, ou em “Novo termo” para escrever o seu." />
                         </Grid>
                     </Border>
                 </DockPanel>

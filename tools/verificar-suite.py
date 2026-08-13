@@ -1131,6 +1131,23 @@ DESTRUTIVAS = (
     "RenameColumn", "RenameTable", "RenameIndex", "AlterColumn", "AlterTable",
 )
 
+# A saída consciente (parcela 67).
+#
+# Nem toda operação desta lista perde DADO: alargar uma chave única (drop + create com uma
+# coluna a mais) é a que apareceu primeiro, e ela não apaga nada — toda linha que passava na
+# chave antiga passa na nova. Mas a regra não podia virar "DropIndex pode": o mesmo drop
+# usado para ESTREITAR uma chave quebra a clínica no dia seguinte, e a diferença entre os
+# dois casos não está na operação, está na intenção de quem a escreveu.
+#
+# Por isso a exceção é DECLARADA, e o preço dela é escrever a razão no arquivo. Quem escrever
+# a marca sem pensar está mentindo por escrito, num arquivo versionado, com o nome dele no
+# commit — que é o mais longe que uma ferramenta chega.
+#
+# ⚠️ E ela NUNCA fica silenciosa: vira aviso em toda execução, inclusive no CI. Exceção que
+# some da saída é exceção que ninguém revisa — e a próxima pessoa a copiar esta migration
+# como modelo precisa ver que aqui houve uma decisão, não uma permissão.
+MARCA_CONSCIENTE = "MIGRATION-NAO-ADITIVA-CONSCIENTE:"
+
 
 def _corpo_do_up(texto: str) -> str:
     """Só o Up(): o Down() desfaz, e desfazer é destrutivo por definição."""
@@ -1150,15 +1167,35 @@ if MIGRATIONS.is_dir():
         if not carimbo.isdigit() or carimbo <= ANCORA_ADITIVA:
             continue
 
-        corpo = _corpo_do_up(arq.read_text(encoding="utf-8"))
+        texto_migration = arq.read_text(encoding="utf-8")
+        corpo = _corpo_do_up(texto_migration)
         achadas = sorted({d for d in DESTRUTIVAS if f".{d}(" in corpo})
 
-        if achadas:
+        if not achadas:
+            continue
+
+        # A razão é lida do arquivo INTEIRO, e não só do Up(): ela cabe melhor no
+        # comentário de documentação da classe, que é onde alguém a lê.
+        razao = ""
+        for linha in texto_migration.splitlines():
+            if MARCA_CONSCIENTE in linha:
+                razao = linha.split(MARCA_CONSCIENTE, 1)[1].strip()
+                break
+
+        if razao:
+            avisos.append(
+                f"{rel(arq)}: migration não aditiva ({', '.join(achadas)}) DECLARADA como "
+                f"consciente — \"{razao}\". Confira antes de publicar: o faturamento aplica "
+                f"migrations na abertura, e a clínica pode ter versões diferentes em campo.")
+        else:
             erros.append(
                 f"{rel(arq)}: migration NÃO aditiva ({', '.join(achadas)}) — o faturamento "
                 f"está em produção e aplica migrations na abertura. Enquanto houver versões "
                 f"diferentes em campo, migration nova só acrescenta. Ver "
-                f"docs/arquitetura-multi-exe.md.")
+                f"docs/arquitetura-multi-exe.md.\n"
+                f"    Se a operação comprovadamente não perde dado nem quebra versão antiga "
+                f"(alargar uma chave única, por exemplo), escreva a razão no arquivo como "
+                f"`{MARCA_CONSCIENTE} <razão>` — ela vira aviso permanente, nunca silêncio.")
 
 
 # --------------------------------------------------------------- checagem 19
@@ -2451,6 +2488,39 @@ for _tipo, _prop, _esperado in (
         erros.append(
             f"verificar-suite: a checagem 34 mudou de resposta para `{_tipo}.{_prop}` "
             f"(esperado: {_esperado})."
+        )
+
+# Autoteste da SAÍDA CONSCIENTE da checagem 18 (parcela 67).
+#
+# Ela é a única exceção declarável do verificador, e por isso é a que mais precisa de rede:
+# uma marca que passasse a valer sem a razão escrita transformaria a checagem 18 numa
+# formalidade, e é justamente a checagem que protege o app em produção.
+_UP_DESTRUTIVO = (
+    "protected override void Up(MigrationBuilder migrationBuilder)\n"
+    "{\n    migrationBuilder.DropIndex(name: \"IX_x\", table: \"T\");\n}\n"
+)
+for _cenario, _texto, _deve_passar in (
+    ("sem marca", _UP_DESTRUTIVO, False),
+    (f"com marca e razão", f"/// {MARCA_CONSCIENTE} alarga a chave.\n{_UP_DESTRUTIVO}", True),
+    # Marca sem razão NÃO vale: ela é a razão, não um interruptor.
+    ("marca vazia", f"/// {MARCA_CONSCIENTE}\n{_UP_DESTRUTIVO}", False),
+):
+    _corpo = _corpo_do_up(_texto)
+    _achou = any(f".{d}(" in _corpo for d in DESTRUTIVAS)
+    _razao = ""
+    for _linha in _texto.splitlines():
+        if MARCA_CONSCIENTE in _linha:
+            _razao = _linha.split(MARCA_CONSCIENTE, 1)[1].strip()
+            break
+
+    if not _achou:
+        erros.append(
+            f"verificar-suite: a checagem 18 deixou de enxergar o DropIndex ({_cenario})."
+        )
+    elif bool(_razao) is not _deve_passar:
+        erros.append(
+            f"verificar-suite: a saída consciente da checagem 18 mudou de resposta "
+            f"({_cenario}: esperado {'aviso' if _deve_passar else 'erro'})."
         )
 
 # ---------------------------------------------------------------------- saída

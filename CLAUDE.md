@@ -2935,3 +2935,44 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   de quem lê devagar; e a enumeração de monitores é **P/Invoke puro** (`EnumDisplayMonitors`),
   sem WinForms, em pixels FÍSICOS — num arranjo de DPIs diferentes, posicionar em unidades
   do WPF põe a janela na tela errada.
+
+- **Um procedimento exige VÁRIOS termos, e a chave antiga apagava o primeiro em silêncio**
+  (parcela 67). A cliente pediu os termos do BSV prontos, e ao criá-los apareceu o defeito:
+  `ExigenciaTermoProcedimento` tinha chave única `(Modalidade, ModalidadeCodigo)`, então
+  amarrar o **segundo** papel TROCAVA o primeiro. O BSV precisa de dois, e a razão é a mesma
+  que desenhou a parcela 66 inteira: o **consentimento** vale a partir da assinatura (lido
+  com calma, dias antes) e a **declaração de jejum** não se herda (é sobre o dia). São
+  validades OPOSTAS e não cabem no mesmo papel.
+  O mais revelador é que **a leitura sempre soube devolver vários** — `Resolver` percorre as
+  exigências e o balcão lê uma LISTA, com o comentário dizendo "é o que permite dois
+  procedimentos no mesmo dia exigirem dois termos sem um cobrir o outro". Quem não deixava
+  era a ESCRITA. **Quando um lado do sistema fala no plural e o outro no singular, o que
+  está errado é quase sempre o singular** — e o erro não aparece: a exigência antiga
+  simplesmente some da lista.
+  A chave passou a incluir `ModeloDocumentoId`. Repetir a MESMA amarração continua não
+  recusando (a lição da 2ª rodada da 66 — mensagem de erro que manda fazer o que a tela não
+  faz), só que agora ela atualiza a VALIDADE; trocar de modelo é ligar o novo e desligar o
+  antigo, dois cliques **visíveis** — e visível é o ponto, porque a troca automática
+  acontecia sem a lista mostrar o que sumiu.
+- **Rascunho revisável não é termo de fábrica** (parcela 67): a regra da parcela 66 é "o
+  texto é da clínica, não nosso — texto embutido seria o sistema opinando sobre risco
+  clínico", e ela continua valendo. O que a prática mostrou é que **a lista nascer vazia não
+  fez ninguém escrever um termo do zero no meio do expediente — fez o BSV continuar
+  acontecendo sem termo nenhum.** O que a regra proíbe é o texto que o sistema aplica
+  SOZINHO; o que passou a existir é um rascunho que alguém **pede, lê e edita**: botão em
+  Configurações (nada em migration, nada na abertura), nome com "(rascunho — revisar)" e
+  primeira linha do corpo mandando o responsável técnico conferir e apagar o aviso ao
+  aprovar. Criar o modelo **não exige nada de ninguém** enquanto a amarração não for feita, e
+  recriar é recusado — sobrescrever apagaria a revisão que a clínica já fez, que é o trabalho
+  que o botão existe para começar.
+- **A saída CONSCIENTE da checagem 18** (parcela 67): alargar uma chave única é `DropIndex` +
+  `CreateIndex`, e não perde dado — toda linha que passava na chave antiga passa na nova. Mas
+  a regra não podia virar "`DropIndex` pode": o mesmo drop usado para ESTREITAR quebra a
+  clínica no dia seguinte, e **a diferença entre os dois casos não está na operação, está na
+  intenção de quem a escreveu**. Por isso a exceção é DECLARADA (`MIGRATION-NAO-ADITIVA-
+  CONSCIENTE: <razão>` no arquivo) e o preço dela é escrever a razão; marca sem razão não
+  vale, porque a razão É a exceção e não um interruptor. E ela **nunca fica silenciosa**:
+  vira aviso em toda execução, inclusive no CI — exceção que some da saída é exceção que
+  ninguém revisa, e a próxima pessoa a copiar a migration como modelo precisa ver que ali
+  houve uma decisão, não uma permissão. Autotestada nos três cenários (sem marca, com marca
+  e razão, marca vazia).

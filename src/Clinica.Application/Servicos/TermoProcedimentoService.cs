@@ -76,19 +76,29 @@ public sealed class TermoProcedimentoService
         var existentes = await _repo.ExigenciasTermoAsync(ct);
         var codigo = NormalizarCodigo(modalidadeCodigo);
 
-        // ⚠️ Modalidade já exigida TROCA o modelo em vez de recusar (parcela 66, 2ª rodada).
+        // ⚠️ A chave é modalidade+variante+MODELO (parcela 67): um procedimento pode exigir
+        // VÁRIOS termos, e o BSV é o caso que obrigou a mudança — o consentimento (lido com
+        // calma, vale a partir da assinatura) e a declaração do dia (o jejum, que não se
+        // herda) são dois papéis com validades opostas.
         //
-        // A primeira versão lançava "troque o modelo da exigência que existe" — e não havia
-        // por onde trocar: a única saída era desligar a linha antiga, e desligada ela deixa
-        // de cobrar o termo, o que é o oposto do que a clínica queria ao reescrever o
-        // texto. Mensagem de erro que manda fazer o que a tela não faz é botão que não faz
-        // nada com uma etapa a mais.
+        // Até aqui a chave era só modalidade+variante, então exigir o segundo termo APAGAVA
+        // o primeiro em silêncio: a clínica amarrava o jejum e perdia o consentimento sem
+        // uma palavra. O `Resolver` sempre soube devolver vários (ele percorre as
+        // exigências e o balcão lê uma LISTA) — quem não deixava era a escrita.
         //
-        // Trocar é seguro porque aplicar COPIA: os termos já assinados guardam o texto que
-        // o paciente leu e o `ModeloOrigemId` deles continua apontando para o modelo
-        // ANTIGO. O que muda é o que será copiado da próxima vez.
+        // O que se mantém da 2ª rodada da parcela 66: repetir a MESMA amarração não recusa,
+        // atualiza. Antes ela lançava "troque o modelo da exigência que existe" e não havia
+        // por onde trocar — mensagem de erro que manda fazer o que a tela não faz é botão
+        // que não faz nada com uma etapa a mais. Trocar o TEXTO continua sendo editar o
+        // modelo (mesmo Id); trocar de MODELO é ligar o novo e desligar o antigo, dois
+        // cliques visíveis na mesma tela — e visível é o ponto, porque com a chave antiga a
+        // troca acontecia sozinha e a lista deixava de mostrar o que sumiu.
+        //
+        // Aplicar COPIA: os termos já assinados guardam o texto que o paciente leu e o
+        // `ModeloOrigemId` deles continua apontando para o modelo com que foram feitos.
         var existente = existentes.FirstOrDefault(x =>
             x.Modalidade == modalidade
+            && x.ModeloDocumentoId == modeloId
             && string.Equals(x.ModalidadeCodigo, codigo, StringComparison.OrdinalIgnoreCase));
 
         if (existente is not null)
@@ -96,16 +106,20 @@ public sealed class TermoProcedimentoService
             var rastreada = await _repo.ObterExigenciaTermoAsync(existente.Id, ct)
                 ?? throw new InvalidOperationException("Exigência não encontrada.");
 
-            var anterior = rastreada.Modelo?.Nome;
-            rastreada.ModeloDocumentoId = modeloId;
+            // O modelo é o MESMO (é a chave); o que a repetição atualiza é a validade e o
+            // religar de uma exigência desligada — que é o gesto de quem clica "Exigir" de
+            // novo sobre a mesma amarração.
             rastreada.SoValeNoDiaDoProcedimento = soValeNoDiaDoProcedimento;
             rastreada.Ativa = true;
 
             await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
             {
                 Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
-                Acao = "ExigenciaTermoTrocada",
-                Detalhe = $"{modalidade}: \"{anterior}\" passa a ser \"{modelo.Nome}\""
+                Acao = "ExigenciaTermoAtualizada",
+                Detalhe = $"{modalidade} — \"{modelo.Nome}\": "
+                          + (soValeNoDiaDoProcedimento
+                              ? "passa a ser exigido a cada sessão"
+                              : "passa a valer a partir da assinatura")
             }, ct);
 
             await _repo.SalvarAsync(ct);
