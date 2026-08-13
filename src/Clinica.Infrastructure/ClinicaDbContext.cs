@@ -944,9 +944,19 @@ public class ClinicaDbContext : DbContext
             e.HasOne(x => x.Modelo).WithMany()
                 .HasForeignKey(x => x.ModeloDocumentoId).OnDelete(DeleteBehavior.Cascade);
 
-            // Uma exigência por modalidade+variante: duas fariam o paciente assinar o mesmo
-            // papel duas vezes na mesma sessão.
-            e.HasIndex(x => new { x.Modalidade, x.ModalidadeCodigo }).IsUnique();
+            // Uma exigência por modalidade+variante+MODELO (parcela 67).
+            //
+            // A chave nasceu sem o modelo, e isso limitava o procedimento a UM termo — que
+            // não é como o BSV funciona: ele pede o consentimento (lido com calma, vale a
+            // partir da assinatura) E a declaração do dia (o jejum, que não se herda). São
+            // dois papéis com validades opostas, e foi essa diferença que desenhou a
+            // parcela 66 inteira; com a chave antiga, exigir o segundo APAGAVA o primeiro.
+            //
+            // O que a chave continua impedindo é a duplicata de verdade: a MESMA modalidade
+            // exigindo o MESMO modelo duas vezes, que faria o paciente assinar o mesmo papel
+            // duas vezes na mesma sessão.
+            e.HasIndex(x => new { x.Modalidade, x.ModalidadeCodigo, x.ModeloDocumentoId })
+                .IsUnique();
         });
 
         // ---------- Campanhas e acesso (parcela 5) ----------

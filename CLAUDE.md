@@ -2935,3 +2935,86 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   de quem lê devagar; e a enumeração de monitores é **P/Invoke puro** (`EnumDisplayMonitors`),
   sem WinForms, em pixels FÍSICOS — num arranjo de DPIs diferentes, posicionar em unidades
   do WPF põe a janela na tela errada.
+
+- **Um procedimento exige VÁRIOS termos, e a chave antiga apagava o primeiro em silêncio**
+  (parcela 67). A cliente pediu os termos do BSV prontos, e ao criá-los apareceu o defeito:
+  `ExigenciaTermoProcedimento` tinha chave única `(Modalidade, ModalidadeCodigo)`, então
+  amarrar o **segundo** papel TROCAVA o primeiro. O BSV precisa de dois, e a razão é a mesma
+  que desenhou a parcela 66 inteira: o **consentimento** vale a partir da assinatura (lido
+  com calma, dias antes) e a **declaração de jejum** não se herda (é sobre o dia). São
+  validades OPOSTAS e não cabem no mesmo papel.
+  O mais revelador é que **a leitura sempre soube devolver vários** — `Resolver` percorre as
+  exigências e o balcão lê uma LISTA, com o comentário dizendo "é o que permite dois
+  procedimentos no mesmo dia exigirem dois termos sem um cobrir o outro". Quem não deixava
+  era a ESCRITA. **Quando um lado do sistema fala no plural e o outro no singular, o que
+  está errado é quase sempre o singular** — e o erro não aparece: a exigência antiga
+  simplesmente some da lista.
+  A chave passou a incluir `ModeloDocumentoId`. Repetir a MESMA amarração continua não
+  recusando (a lição da 2ª rodada da 66 — mensagem de erro que manda fazer o que a tela não
+  faz), só que agora ela atualiza a VALIDADE; trocar de modelo é ligar o novo e desligar o
+  antigo, dois cliques **visíveis** — e visível é o ponto, porque a troca automática
+  acontecia sem a lista mostrar o que sumiu.
+- **Rascunho revisável não é termo de fábrica** (parcela 67): a regra da parcela 66 é "o
+  texto é da clínica, não nosso — texto embutido seria o sistema opinando sobre risco
+  clínico", e ela continua valendo. O que a prática mostrou é que **a lista nascer vazia não
+  fez ninguém escrever um termo do zero no meio do expediente — fez o BSV continuar
+  acontecendo sem termo nenhum.** O que a regra proíbe é o texto que o sistema aplica
+  SOZINHO; o que passou a existir é um rascunho que alguém **pede, lê e edita**: botão em
+  Configurações (nada em migration, nada na abertura), nome com "(rascunho — revisar)" e
+  primeira linha do corpo mandando o responsável técnico conferir e apagar o aviso ao
+  aprovar. Criar o modelo **não exige nada de ninguém** enquanto a amarração não for feita, e
+  recriar é recusado — sobrescrever apagaria a revisão que a clínica já fez, que é o trabalho
+  que o botão existe para começar.
+- **A saída CONSCIENTE da checagem 18** (parcela 67): alargar uma chave única é `DropIndex` +
+  `CreateIndex`, e não perde dado — toda linha que passava na chave antiga passa na nova. Mas
+  a regra não podia virar "`DropIndex` pode": o mesmo drop usado para ESTREITAR quebra a
+  clínica no dia seguinte, e **a diferença entre os dois casos não está na operação, está na
+  intenção de quem a escreveu**. Por isso a exceção é DECLARADA (`MIGRATION-NAO-ADITIVA-
+  CONSCIENTE: <razão>` no arquivo) e o preço dela é escrever a razão; marca sem razão não
+  vale, porque a razão É a exceção e não um interruptor. E ela **nunca fica silenciosa**:
+  vira aviso em toda execução, inclusive no CI — exceção que some da saída é exceção que
+  ninguém revisa, e a próxima pessoa a copiar a migration como modelo precisa ver que ali
+  houve uma decisão, não uma permissão. Autotestada nos três cenários (sem marca, com marca
+  e razão, marca vazia).
+
+- **A dispensa da checagem 18 tem de ser por OPERAÇÃO, não por ARQUIVO** (parcela 67, 2ª
+  rodada — o achado mais grave da revisão adversarial do próprio diff). A saída consciente
+  nasceu certa na intenção e errada no alcance: a marca valia para o arquivo INTEIRO, então
+  bastava um `DropIndex` inofensivo declarado para um `DropColumn` acrescentado DEPOIS, na
+  mesma migration, passar junto — e a ferramenta ainda imprimia, como justificativa dele, a
+  frase que falava do índice e afirmava "nenhuma linha se perde". **Garantia falsa no log do
+  CI é pior do que checagem nenhuma**, e o caminho é o realista: a migration marcada é
+  justamente a que a próxima pessoa copia como modelo. A marca passou a NOMEAR o que cobre
+  (`MIGRATION-NAO-ADITIVA-CONSCIENTE(DropIndex): razão`); o que não estiver na lista continua
+  erro. A regra geral: **exceção declarada delimita o que dispensa, senão ela dispensa o
+  vizinho.**
+- **`AlterColumn` nunca disparou a checagem 18 — o EF gera a forma GENÉRICA** (parcela 67,
+  2ª rodada). A busca era `.AlterColumn(` e o EF emite `migrationBuilder.AlterColumn<string>(`.
+  A operação **mais** destrutiva da lista (encolher `maxLength`, tornar coluna NOT NULL) era
+  letra morta desde que a checagem nasceu, e ninguém notou porque ela só cala — não erra.
+  Casar `Op(` **ou** `Op<`. A lição: **quando uma checagem procura uma chamada de método,
+  confira como a ferramenta que gera o código a escreve de verdade**, não como você a
+  escreveria.
+- **Autoteste que REIMPLEMENTA a lógica não testa nada** (parcela 67, 2ª rodada): o da saída
+  consciente repetia a leitura da marca linha a linha em vez de chamar a função da checagem.
+  Ele ficaria verde exatamente quando a checagem quebrasse, porque a cópia dentro dele não
+  quebra junto — é a variante mais discreta do defeito recorrente do projeto, aplicada à
+  rede que existe para pegá-lo. **Autoteste chama o código que roda.**
+- **Idempotência ancorada em campo EDITÁVEL não é idempotência** (parcela 67, 2ª rodada): o
+  botão dos termos do BSV guardava-se contra o segundo clique comparando o NOME do modelo —
+  e o nome é justamente o que o desenho pede que mude, porque a marca "(rascunho — revisar)"
+  mora nele para ser apagada na aprovação. Renomeado, o segundo clique criava outro par e
+  ligava mais quatro exigências, que a chave alargada da mesma parcela deixa CONVIVER: o BSV
+  passaria a cobrar quatro papéis, dois deles o rascunho não revisado, e assinar um par não
+  zeraria o outro. **A pergunta certa não era "este texto já existe?", era "o BSV já está
+  configurado?"** — a guarda olha a EXIGÊNCIA. E, de quebra, isso a tornou RESUMÍVEL: são
+  seis gravações contra banco remoto sem transação, e o segundo clique agora completa o que
+  faltou em vez de recusar tudo por causa da metade que ficou.
+- **Declaração de termo é redigida para que "Não" seja um SINAL** (parcela 67, 2ª rodada):
+  responder "Não" acende alerta VERMELHO no balcão e no consultório, então (a) declaração
+  cujo "Não" é NORMAL dilui o alerta — havia um "estou acompanhado, se a clínica exigir",
+  que faria metade dos pacientes acender vermelho e treinaria todo mundo a ignorar o do
+  jejum; e (b) declaração NEGATIVA ("não tive febre") torna a resposta ambígua, porque "Não"
+  vira dupla negação. Todas afirmativas e incondicionais. E o **`Detalhe` sai IMPRESSO na via
+  do paciente**: instrução para a equipe ali ("confira com o paciente quantas horas") produz
+  um documento que fala do leitor na terceira pessoa.
