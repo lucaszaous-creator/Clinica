@@ -134,8 +134,13 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// A metade VISÍVEL do acesso; a que IMPEDE está no comando. Quem atende recebe
     /// <see cref="Permissao.ColherAssinaturaPaciente"/> por padrão desde a parcela 66.
     /// </summary>
+    /// <remarks>
+    /// Não exige pendência: quem atende pode colher um termo AVULSO com o paciente na sala
+    /// — foi para isso que a cliente pediu a porta aqui (o paciente que vem tirar dúvidas
+    /// semanas antes do procedimento). Sem pendência, a janela pergunta qual termo é.
+    /// </remarks>
     public bool PodeColherTermo
-        => TemTermoPendente && SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
+        => SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
 
     /// <summary>
     /// Abre a coleta do termo com o paciente já na sala — a MESMA janela do balcão
@@ -152,42 +157,27 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             return;
         }
 
-        if (TermoPendente is not { } pendente)
+        if (PacienteId == 0)
         {
-            _snackbar.Info("Não há termo pendente para este paciente hoje.");
+            _snackbar.Info("Escolha um paciente antes de colher o termo.");
             return;
         }
 
         try
         {
-            using var scope = _escopos.CreateScope();
+            // Modelo NULO quando não há pendência: a janela pergunta qual termo é. É a
+            // porta que a cliente pediu — o paciente veio tirar dúvidas, e a assinatura se
+            // colhe ali, sem esperar o dia do procedimento.
+            var concluiu = Clinica.Desktop.Shell.Componentes.ColetaDeTermo.Abrir(
+                _escopos, PacienteId, Paciente,
+                TermoPendente?.ModeloId, TermoPendente?.DocumentoId,
+                TermoPendente?.ProfissionalId);
 
-            var vm = new Clinica.Desktop.Shell.Componentes.AssinaturaPacienteViewModel(
-                scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>(),
-                scope.ServiceProvider.GetRequiredService<AssinaturaDoPacienteService>(),
-                scope.ServiceProvider.GetRequiredService<Clinica.Desktop.Controls.IDialogoService>(),
-                PacienteId,
-                pendente.ModeloId,
-                Paciente,
-                pendente.DocumentoId,
-                pendente.ProfissionalId,
-                scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>());
-
-            var janela = new Clinica.Desktop.Shell.Componentes.AssinaturaPacienteWindow(vm)
-            {
-                // A janela ATIVA, não a principal (parcela 58).
-                Owner = System.Windows.Application.Current?.Windows
-                            .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
-                        ?? System.Windows.Application.Current?.MainWindow
-            };
-
-            janela.ShowDialog();
-
-            // Recarrega mesmo sem `Concluido`: abrir a janela já EMITE o termo numerado, e
-            // a tela precisa refletir isso.
+            // Recarrega mesmo sem concluir: abrir a janela já EMITE o termo numerado, e a
+            // tela precisa refletir isso.
             await CarregarAsync();
 
-            if (vm.Concluido) _snackbar.Sucesso("Termo do procedimento resolvido.");
+            if (concluiu) _snackbar.Sucesso("Termo do procedimento resolvido.");
         }
         catch (Exception ex)
         {

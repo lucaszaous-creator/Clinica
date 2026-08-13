@@ -40,17 +40,19 @@ public enum ExigenciaFolha
     LancamentoNoCaixa,
 
     /// <summary>
-    /// O PROCEDIMENTO marcado para hoje (parcela 66). O termo que o paciente assina não se
-    /// emite avulso: o texto vem do modelo que a exigência amarra à modalidade, e a
-    /// validade é POR SESSÃO — a declaração de jejum afirma "estou em jejum" e não se
-    /// herda de um dia para o outro.
+    /// Um paciente e a ESCOLHA de qual termo ele vai assinar (parcela 66, 3ª rodada).
     ///
-    /// É a mesma forma do recibo logo acima, e pela mesma razão: emiti-lo aqui, solto,
-    /// produziria um papel numerado que o balcão nunca veria como cumprido — a pendência
-    /// continuaria acesa e a pessoa acreditaria ter resolvido. O cartão LEVA até onde o
-    /// termo se colhe (a ficha do paciente), em vez de fingir que emite.
+    /// O termo do procedimento não se escreve na janela genérica de documento — o texto e
+    /// as declarações vêm de um MODELO, e é a cópia dele que o paciente lê e assina. Por
+    /// isso ele tem caminho próprio: a tela pergunta qual termo é e abre a coleta no
+    /// tablet, com a assinatura entrando no PDF antes do selo do profissional.
+    ///
+    /// ⚠️ Ele NÃO depende de haver procedimento marcado para hoje. A primeira versão desta
+    /// parcela amarrava a coleta ao dia; a cliente pediu o contrário, e tem razão: quem
+    /// aparece para tirar dúvidas semanas antes é justamente quem lê o termo com calma, e
+    /// o dia do procedimento é quando ninguém tem tempo.
     /// </summary>
-    ProcedimentoDoDia
+    TermoParaAssinar
 }
 
 /// <summary>
@@ -312,7 +314,7 @@ public sealed class CentralDocumentosService
         new("termo-procedimento", "Termo de procedimento",
             "Consentimento do procedimento e as declarações do paciente (jejum, medicações). "
             + "Assinado por ele no tablet, e a assinatura entra no PDF antes do selo do profissional.",
-            NaturezaFolha.Clinico, ExigenciaFolha.ProcedimentoDoDia)
+            NaturezaFolha.Clinico, ExigenciaFolha.TermoParaAssinar)
         {
             TipoClinico = TipoDocumentoClinico.TermoProcedimento,
             PermissaoVer = Permissao.VerProntuario,

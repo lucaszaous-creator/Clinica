@@ -103,13 +103,14 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         return modelo;
     }
 
-    private async Task ExigirNoBsvAsync(int modeloId)
+    private async Task ExigirNoBsvAsync(int modeloId, bool soValeNoDia = false)
     {
         _db.ExigenciasTermo.Add(new ExigenciaTermoProcedimento
         {
             Modalidade = ModalidadeAtendimento.BsvApenas,
             ModeloDocumentoId = modeloId,
-            Ativa = true
+            Ativa = true,
+            SoValeNoDiaDoProcedimento = soValeNoDia
         });
         await _db.SaveChangesAsync();
     }
@@ -136,11 +137,12 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     // ==================== 1. Vale por SESSÃO ====================
 
     [Fact]
-    public async Task Termo_assinado_ontem_nao_vale_para_a_sessao_de_hoje()
+    public async Task Termo_marcado_como_do_DIA_nao_herda_a_assinatura_de_ontem()
     {
         var paciente = await PacienteAsync();
         var modelo = await ModeloDoBsvAsync();
-        await ExigirNoBsvAsync(modelo.Id);
+        // A caixa "pedir a cada sessão" — é o termo curto do JEJUM.
+        await ExigirNoBsvAsync(modelo.Id, soValeNoDia: true);
 
         // Assinado ONTEM, com tudo em ordem.
         await AgendarBsvAsync(paciente, Ontem);
@@ -159,6 +161,56 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         hoje.Should().ContainSingle().Which.Pendente.Should().BeTrue(
             "a declaração de jejum afirma o estado de HOJE — herdá-la de ontem seria "
             + "aceitar uma declaração sobre o futuro");
+    }
+
+    [Fact]
+    public async Task Por_padrao_o_termo_assinado_ANTES_vale_no_dia_do_procedimento()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id); // padrão: vale a partir da assinatura
+
+        // O paciente veio TIRAR DÚVIDAS há três semanas e assinou ali mesmo — sem
+        // procedimento marcado naquele dia.
+        var adiantado = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+        adiantado.Data = Hoje.AddDays(-21);
+        await _db.SaveChangesAsync();
+        await AssinarAsync(adiantado.Id);
+
+        // Hoje o BSV acontece.
+        await AgendarBsvAsync(paciente, Hoje);
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        situacao.Assinado.Should().BeTrue(
+            "o consentimento é assinado quando o paciente está por perto — obrigar a "
+            + "esperar o dia jogaria fora justamente o momento em que ele lê com calma");
+        situacao.Pendente.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Recusa_de_outro_dia_NAO_cala_o_pedido_de_hoje()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+
+        var antigo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+        antigo.Data = Hoje.AddDays(-21);
+        await _db.SaveChangesAsync();
+        await _assinaturas.RecusarAsync(antigo.Id, "Quis pensar melhor.", "ana.recepcao");
+
+        await AgendarBsvAsync(paciente, Hoje);
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        situacao.Pendente.Should().BeTrue(
+            "recusa é decisão de um momento, não estado permanente: herdá-la faria um "
+            + "\"não\" de três semanas atrás calar o pedido no dia do procedimento — e o "
+            + "paciente pode ter mudado de ideia, tanto que veio fazer");
+        situacao.Recusado.Should().BeFalse();
     }
 
     [Fact]
@@ -684,7 +736,7 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         var folha = CentralDocumentosService.Catalogo
             .Should().ContainSingle(f => f.Chave == "termo-procedimento").Subject;
 
-        folha.Exigencia.Should().Be(ExigenciaFolha.ProcedimentoDoDia,
+        folha.Exigencia.Should().Be(ExigenciaFolha.TermoParaAssinar,
             "emitir o termo solto pela central produziria um papel numerado SEM modelo de "
             + "origem e SEM as declarações — a pendência do dia continuaria acesa e a "
             + "pessoa acreditaria ter resolvido. É a mesma forma do recibo, que nasce no "
@@ -714,7 +766,7 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
                 .Should().ContainSingle(f => f.TipoClinico == tipo,
                     $"{TipoDocumentoInfo.Rotular(tipo)} precisa de folha no catálogo").Subject;
 
-            folha.Exigencia.Should().Be(ExigenciaFolha.ProcedimentoDoDia,
+            folha.Exigencia.Should().Be(ExigenciaFolha.TermoParaAssinar,
                 "documento assinado pelo paciente não se emite pela janela genérica: ela "
                 + "não copia o modelo, não traz as declarações e não grava ModeloOrigemId");
         }

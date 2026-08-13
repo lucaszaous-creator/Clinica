@@ -1336,6 +1336,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                         && d.Tipo == TipoDocumentoClinico.TermoProcedimento)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<DocumentoClinico>> TermosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default)
+        => await _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Itens)
+            .Where(d => d.PacienteId == pacienteId
+                        && d.Tipo == TipoDocumentoClinico.TermoProcedimento)
+            .OrderByDescending(d => d.Data).ThenByDescending(d => d.Id)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<DocumentoClinico>> TermosDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return [];
+
+        return await _db.DocumentosClinicos.AsNoTracking()
+            .Include(d => d.Itens)
+            .Where(d => pacienteIds.Contains(d.PacienteId)
+                        && d.Tipo == TipoDocumentoClinico.TermoProcedimento)
+            .ToListAsync(ct);
+    }
+
     // Sem AsNoTracking e sem Include no documento: quem pede o traço quer os BYTES, e é a
     // única leitura que os traz — arrastá-los em qualquer outra consulta faria a listagem
     // de documentos carregar uma imagem por linha.

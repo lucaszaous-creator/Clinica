@@ -184,6 +184,13 @@
                                               VerticalAlignment="Center" />
                                 </DockPanel>
 
+                                <CheckBox Margin="0,10,0,0" IsChecked="{Binding SoValeNoDia}"
+                                          Content="Pedir a cada sessão (não vale de um dia para o outro)" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Margin="0,4,0,0"
+                                           Text="Desmarcado (o normal), o termo vale a partir da assinatura — dá para colher quando o paciente aparece, semanas antes. Marque só para o termo curto que pergunta o JEJUM: essa declaração é sobre o dia e não se herda." />
+
                                 <ItemsControl ItemsSource="{Binding Exigencias}" Margin="0,10,0,0"
                                               Grid.IsSharedSizeScope="True">
                                     <ItemsControl.ItemTemplate>

@@ -84,6 +84,15 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
 
     [ObservableProperty] private OpcaoModalidade? _modalidadeEscolhida;
 
+    /// <summary>
+    /// A exigência nova pede o termo A CADA SESSÃO em vez de valer a partir da assinatura.
+    ///
+    /// Nasce DESMARCADA: o consentimento se assina quando o paciente estiver por perto. A
+    /// caixa serve ao termo curto que pergunta o JEJUM — essa declaração é sobre o dia e
+    /// não se herda.
+    /// </summary>
+    [ObservableProperty] private bool _soValeNoDia;
+
     public bool PodeConfigurar => SessaoUsuario.Atual.Pode(Permissao.ConfigurarFaturamento);
 
     partial void OnSelecionadoChanged(ModeloTermoLinha? value)
@@ -130,7 +139,8 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
                 e.Id,
                 CatalogoModalidades.Nome(e.ModalidadeCodigo ?? e.Modalidade.ToString()),
                 e.Modelo?.Nome ?? "(modelo removido)",
-                e.Ativa)).ToList();
+                e.Ativa,
+                e.SoValeNoDiaDoProcedimento)).ToList();
 
             // ⚠️ O id em foco é guardado ANTES do Clear.
             //
@@ -306,7 +316,8 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
 
             await termos.ExigirAsync(
                 ModalidadeEscolhida.Modalidade, Selecionado.Id,
-                operador: SessaoUsuario.Atual.Operador);
+                operador: SessaoUsuario.Atual.Operador,
+                soValeNoDiaDoProcedimento: SoValeNoDia);
 
             MensagemEhErro = false;
             Mensagem = $"{ModalidadeEscolhida.Nome} passa a exigir \"{Selecionado.Nome}\".";
@@ -385,9 +396,15 @@ public sealed partial class DeclaracaoModelo : ObservableObject
 }
 
 /// <summary>Uma amarração procedimento → termo.</summary>
-public sealed record ExigenciaLinha(int Id, string Modalidade, string Termo, bool Ativa)
+public sealed record ExigenciaLinha(
+    int Id, string Modalidade, string Termo, bool Ativa, bool SoValeNoDia)
 {
-    public string Situacao => Ativa ? "Exigido" : "Desligado";
+    public string Situacao => (Ativa, SoValeNoDia) switch
+    {
+        (false, _) => "Desligado",
+        (true, true) => "Exigido a cada sessão",
+        _ => "Exigido — vale a partir da assinatura"
+    };
 
     public string AcaoRotulo => Ativa ? "Desligar" : "Ligar";
 }

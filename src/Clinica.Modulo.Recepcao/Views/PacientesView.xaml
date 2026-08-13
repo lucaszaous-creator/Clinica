@@ -557,8 +557,18 @@
                 <Border Style="{StaticResource Card}" Margin="0,0,0,12"
                         Visibility="{Binding TemTermoDoDia, Converter={StaticResource BoolParaVisibilidade}}">
                     <StackPanel>
-                        <TextBlock Text="Termo do procedimento — hoje"
-                                   Style="{StaticResource H3}" />
+                        <DockPanel>
+                            <!-- A porta AVULSA (parcela 66, 3ª rodada): colher sem esperar o
+                                 dia. O termo vale a partir da assinatura, e o dia do
+                                 procedimento é justamente quando ninguém tem tempo de ler. -->
+                            <Button DockPanel.Dock="Right" Content="Colher um termo…"
+                                    Style="{StaticResource BotaoSecundario}" MinWidth="160"
+                                    Margin="12,0,0,0" VerticalAlignment="Center"
+                                    ToolTip="Colher a assinatura de um termo agora, mesmo sem procedimento marcado para hoje"
+                                    Command="{Binding ColherTermoAvulsoCommand}" />
+                            <TextBlock Text="Termo do procedimento"
+                                       Style="{StaticResource H3}" VerticalAlignment="Center" />
+                        </DockPanel>
 
                         <TextBlock Text="{Binding ResumoTermos}" TextWrapping="Wrap"
                                    Style="{StaticResource TextoSuave}" Margin="0,4,0,0" />

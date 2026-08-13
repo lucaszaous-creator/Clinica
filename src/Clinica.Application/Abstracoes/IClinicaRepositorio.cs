@@ -631,6 +631,26 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<DocumentoClinico>> TermosDaDataAsync(
         DateOnly data, CancellationToken ct = default);
 
+    /// <summary>
+    /// Todos os termos de procedimento de um paciente, de QUALQUER data, com os itens.
+    ///
+    /// Existe porque a validade deixou de ser sempre "por sessão" (parcela 66, 3ª rodada):
+    /// o termo sem prazo é assinado quando o paciente aparece — na consulta em que ele vem
+    /// tirar dúvidas, semanas antes — e continua valendo no dia do procedimento.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> TermosDoPacienteAsync(
+        int pacienteId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Termos de procedimento de VÁRIOS pacientes, de qualquer data, com os itens.
+    ///
+    /// Em lote pela razão da leitura do dia: a fila pergunta por trinta cartões de uma vez,
+    /// e uma consulta por paciente transformaria a abertura do quadro em trinta idas a um
+    /// banco remoto.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> TermosDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
+
     /// <summary>O traço da assinatura — a única leitura que traz a imagem do banco.</summary>
     Task<TracoAssinatura?> ObterTracoAssinaturaAsync(int tracoId, CancellationToken ct = default);
     /// <summary>

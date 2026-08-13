@@ -2861,3 +2861,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   erro que tem dois sentidos, cubra os dois no mesmo commit.** O sentido que você deixar de
   fora é o que a próxima pessoa vai cometer — aqui foram seis parcelas até alguém tentar o
   outro lado.
+
+- **"Regra com exceção que ninguém vai exercer" tem prazo de validade — e ele acabou antes
+  de a feature chegar à clínica** (parcela 66, 3ª rodada). A validade do termo nasceu POR
+  SESSÃO, sem campo de prazo, com o argumento (bom, e escrito) de que um "vale por N dias"
+  existiria para nunca ser usado. A cliente exerceu a exceção **antes do primeiro uso**: ela
+  quer colher a assinatura quando o paciente aparece — inclusive na consulta em que ele vem
+  tirar dúvidas, semanas antes — e emitir pela central de documentos, sem esperar o dia.
+  E ela tem razão pelo argumento que o próprio desenho já continha: **o dia do procedimento
+  é justamente quando ninguém tem tempo de ler o termo.**
+  O que a distinção original acertou, e que sobreviveu: as DECLARAÇÕES moram dentro do termo,
+  e nem toda declaração sobrevive à antecedência — "estou em jejum" assinado na semana
+  passada é afirmação sobre o futuro. Por isso a validade virou **escolha por procedimento**
+  (`ExigenciaTermoProcedimento.SoValeNoDiaDoProcedimento`, desmarcada por padrão) em vez de
+  desaparecer: a clínica escreve o consentimento longo sem prazo e, se quiser, um termo
+  curto só com o jejum marcado como "a cada sessão". Os dois convivem porque a exigência é
+  por **MODELO**, não por tipo.
+  ⚠️ **Seja qual for a validade, RECUSA e papel pendente contam só no DIA.** Recusa é decisão
+  de um momento, não estado permanente: herdá-la faria um "não" de três semanas atrás calar
+  o pedido no dia do procedimento — e o paciente pode ter mudado de ideia, tanto que veio
+  fazer. E o papel emitido e nunca assinado carrega a DATA da emissão: reusá-lo faria a
+  assinatura de hoje nascer com data velha, que numa exigência "só no dia" não contaria
+  nunca.
+  De quebra, as portas viraram QUATRO (ficha, fila, Consultório, central) e passaram a
+  entrar por um ponto único — `ColetaDeTermo.Abrir`, no shell. Cada uma montava a janela por
+  conta própria (escopo, ViewModel, dono, recarga), e quatro montagens divergem na primeira
+  correção; o que elas colhem é a prova de que o paciente consentiu. Quando o modelo não vem
+  decidido por um procedimento marcado, o ponto único PERGUNTA qual termo é — que é o
+  caminho da coleta avulsa.
+  A lição, e ela é sobre método: **"não construa a exceção que ninguém vai exercer" é uma
+  boa regra para código especulativo, e não para uma decisão que o cliente ainda não tomou.**
+  Quando a exceção depende de como a clínica trabalha, pergunte antes de fechá-la.

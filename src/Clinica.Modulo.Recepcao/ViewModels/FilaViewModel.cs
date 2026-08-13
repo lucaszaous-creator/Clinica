@@ -792,26 +792,18 @@ public sealed partial class FilaViewModel : ObservableObject
                 return;
             }
 
-            using var scope = _escopos.CreateScope();
-            var vm = new AssinaturaPacienteViewModel(
-                scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>(),
-                scope.ServiceProvider.GetRequiredService<AssinaturaDoPacienteService>(),
-                scope.ServiceProvider.GetRequiredService<IDialogoService>(),
-                c.PacienteId,
-                pendente.ModeloId,
-                c.Paciente,
-                pendente.DocumentoId,
+            ColetaDeTermo.Abrir(
+                _escopos, c.PacienteId, c.Paciente,
+                pendente.ModeloId, pendente.DocumentoId,
                 // O profissional do HORÁRIO: sem ele o termo nasce órfão e a via que o
                 // paciente assina — e que fica 20 anos no prontuário — sai com
                 // "Profissional responsável" no lugar do nome e do CRM de quem faz o
                 // procedimento.
-                _doDia.FirstOrDefault(a => a.Id == c.AgendamentoId)?.ProfissionalId,
-                scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>());
+                _doDia.FirstOrDefault(a => a.Id == c.AgendamentoId)?.ProfissionalId);
 
-            var janela = new AssinaturaPacienteWindow(vm) { Owner = Dono() };
-            janela.ShowDialog();
-
-            if (vm.Concluido) await CarregarAsync();
+            // Recarrega SEMPRE, e não só no concluiu: abrir a janela já emite o termo
+            // numerado, e o selo do cartão precisa refletir isso.
+            await CarregarAsync();
         }, "coleta do termo");
 
     /// <summary>

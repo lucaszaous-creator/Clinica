@@ -779,12 +779,8 @@ public class ItemModelo
 /// <c>switch</c> sobre <see cref="ModalidadeAtendimento"/> obrigaria a publicar versão
 /// nova a cada procedimento novo. Aqui é uma linha em Configurações.
 ///
-/// ⚠️ <b>Não há campo de validade, e isso é decisão da clínica (ago/2026): o termo vale
-/// POR SESSÃO.</b> A razão está no caso que originou a feature — a declaração de jejum
-/// afirma "ESTOU em jejum", e uma afirmação sobre o estado de hoje não pode ser herdada da
-/// semana passada. Um campo "vale por N dias" existiria para nunca ser usado, e regra com
-/// exceção que ninguém exerce é código a mais para manter e mais uma resposta possível
-/// para a mesma pergunta (a lição do CPF duplicado, parcela 57).
+/// A validade é escolha da clínica por PROCEDIMENTO — ver
+/// <see cref="SoValeNoDiaDoProcedimento"/>.
 /// </summary>
 public class ExigenciaTermoProcedimento
 {
@@ -809,6 +805,27 @@ public class ExigenciaTermoProcedimento
     /// o texto nem a amarração, e o histórico de quem já assinou continua fazendo sentido.
     /// </summary>
     public bool Ativa { get; set; } = true;
+
+    /// <summary>
+    /// O termo só vale para a sessão do DIA — assinado ontem, é pedido de novo hoje.
+    ///
+    /// ⚠️ Nasce <b>FALSO</b>, e isso é decisão da clínica (ago/2026, 3ª rodada): o
+    /// consentimento do procedimento é assinado **quando o paciente estiver por perto** —
+    /// inclusive na consulta em que ele vem tirar dúvidas, semanas antes —, e obrigar a
+    /// esperar o dia jogaria fora justamente o momento em que ele lê o texto com calma.
+    /// Assinado uma vez, está cumprido.
+    ///
+    /// O campo existe porque as DECLARAÇÕES moram dentro do termo, e nem toda declaração
+    /// sobrevive à antecedência: "estou em jejum" assinado na semana passada é uma
+    /// afirmação sobre o futuro. A clínica que quiser perguntar o jejum no dia cria um
+    /// termo curto só com essa declaração e liga esta caixa — os dois convivem, porque a
+    /// exigência é por MODELO e não por tipo.
+    ///
+    /// A primeira versão desta parcela não tinha o campo, com o argumento de que "regra com
+    /// exceção que ninguém exerce é código a mais". A cliente exerceu a exceção antes de a
+    /// feature chegar à clínica — e é ela quem sabe quando o paciente aparece.
+    /// </summary>
+    public bool SoValeNoDiaDoProcedimento { get; set; }
 
     public DateTime CriadoEm { get; set; } = DateTime.Now;
 

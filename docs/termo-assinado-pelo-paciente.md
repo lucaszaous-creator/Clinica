@@ -4,10 +4,11 @@
 > incluindo a **declaração de jejum**. Pedido da cliente em ago/2026; é o que a My Smart
 > Clinic vende como **SmartDocs** (+R$ 79/mês, ou incluso no plano ULTRA de R$ 389).
 >
-> ✅ **A Fase 1 está IMPLEMENTADA (parcela 66).** As decisões da clínica, tomadas antes da
-> primeira linha: assinatura em **tablet/touchscreen**, **modelos de texto configuráveis**
-> (é o que resolve "quem escreve o termo" e "quais declarações entram" — as duas são da
-> clínica, não nossas) e validade **por sessão**.
+> ✅ **A Fase 1 está IMPLEMENTADA (parcela 66).** As decisões da clínica: assinatura em
+> **tablet/touchscreen**, **modelos de texto configuráveis** (é o que resolve "quem escreve
+> o termo" e "quais declarações entram" — as duas são da clínica, não nossas) e — na 3ª
+> rodada — **o termo vale a partir da assinatura**: colhe-se quando o paciente aparece, sem
+> esperar o dia do procedimento.
 >
 > A Fase 2 (link para assinar em casa) segue **não implementada**, e a seção 4 diz por quê.
 
@@ -20,7 +21,7 @@
 | **Recepção → Fila → "⋯" do cartão** | "Colher o termo do procedimento…", e o cartão ganha o selo **"Termo pendente"** |
 | **Consultório → Atendimento** | Faixa vermelha com o botão de colher, para quando o paciente já está na sala |
 | **Check-in** | O alerta "falta o termo" chega sozinho pelo `ElegibilidadeService` — e daí ao agendamento, à ficha e ao Consultório |
-| **Central de documentos** | O cartão **leva à ficha** em vez de emitir (ver abaixo); a segunda via sai da lista de documentos |
+| **Central de documentos** | Cartão "Termo de procedimento" → **Colher assinatura…**, com a escolha do termo; a segunda via sai da lista |
 
 O termo **nasce numerado** e com código de conferência, como todo documento clínico —
 é por eles que a clínica o acha depois.
@@ -31,11 +32,15 @@ e os perfis Financeiro e Faturista abrem esta mesma ficha. Ela **some**, não fi
 "sem permissão" ao lado de "Termo do BSV" anunciaria que existe um BSV marcado para aquela
 pessoa, que é justamente o que não se quer contar.
 
-⚠️ **A central de documentos NÃO emite o termo** (`ExigenciaFolha.ProcedimentoDoDia`): o
-cartão diz "Abrir a ficha" e navega, como o recibo faz com o Caixa. Emitir solto produziria
-um papel numerado sem modelo de origem e sem declarações — a pendência do dia continuaria
-acesa e a pessoa acreditaria ter resolvido. A janela genérica de documento **recusa** o tipo
-no construtor, para a próxima porta não repetir o erro.
+⚠️ **A central emite pelo caminho PRÓPRIO** (`ExigenciaFolha.TermoParaAssinar`): ela
+pergunta qual termo é e abre a coleta no tablet. O que ela nunca faz é passar pela janela
+genérica de documento — o texto e as declarações vêm de um MODELO, e emitir por lá daria um
+papel numerado sem modelo de origem. A janela genérica **recusa** o tipo no construtor, para
+a próxima porta não repetir o erro.
+
+⚠️ **As quatro portas passam por `ColetaDeTermo.Abrir`** (no shell). Quatro montagens da
+mesma janela — escopo, ViewModel, dono, recarga — divergiriam na primeira correção, e o que
+elas colhem é a prova de que o paciente consentiu.
 
 ## 1. O que o pedido é, e o que ele não é
 
@@ -60,9 +65,13 @@ O pedido chegou como um item só e são **dois documentos com naturezas opostas*
 | | Termo de consentimento do BSV | Declaração de jejum |
 |---|---|---|
 | O que afirma | "Fui informado dos riscos, alternativas e concordo com o procedimento" | "**Estou** em jejum de 8 horas" |
-| Quando vale | Uma vez (ou renovado por período) | **Só hoje, minutos antes** |
-| Onde faz sentido assinar | Em casa, com calma, lendo antes | **No balcão**, na hora |
-| Assinado na véspera | Continua valendo | **Não vale nada** |
+| Quando vale | A partir da assinatura | **Só hoje, minutos antes** |
+| Onde faz sentido assinar | Quando o paciente aparece — na consulta em que tira dúvidas | **No balcão**, na hora |
+| Assinado com antecedência | Continua valendo | **Não vale nada** |
+
+> É essa linha que virou a caixinha `SoValeNoDiaDoProcedimento`: os dois convivem porque a
+> exigência é por **modelo**, não por tipo. A clínica que quiser as duas coisas escreve o
+> consentimento longo (sem prazo) e um termo curto só com o jejum (a cada sessão).
 
 **A declaração de jejum assinada em casa na noite anterior é uma declaração sobre o
 futuro** — e o valor dela é justamente ser sobre o **presente**. Isto derruba o SmartDocs
@@ -235,9 +244,15 @@ estado do paciente **hoje**.
    "Escrever termos…". ⚠️ **Não há termo de fábrica**, e é decisão: um texto de
    consentimento embutido seria o sistema opinando sobre risco clínico. A lista nasce
    vazia e a tela diz o que fazer.
-5. **Validade POR SESSÃO.** Não existe campo de prazo, e o `ExigenciaTermoProcedimento`
-   explica por quê: regra com exceção que ninguém vai exercer é código a mais para manter
-   e mais uma resposta possível para a mesma pergunta.
+5. **Validade: vale a partir da assinatura** (revisto na 3ª rodada). A primeira versão
+   amarrava tudo ao dia da sessão, com o argumento de que "regra com exceção que ninguém
+   vai exercer é código a mais". **A cliente exerceu a exceção antes de a feature chegar à
+   clínica** — e é ela quem sabe quando o paciente aparece. Hoje é uma caixinha por
+   procedimento (`SoValeNoDiaDoProcedimento`), desmarcada por padrão; marcada, serve ao
+   termo curto que pergunta o JEJUM, que é a única declaração que não sobrevive à
+   antecedência.
+   ⚠️ Seja qual for a escolha, **recusa e papel pendente contam só no DIA**: uma recusa de
+   três semanas atrás não pode calar o pedido no dia do procedimento.
 
 ## 6. O que a parcela entregou
 

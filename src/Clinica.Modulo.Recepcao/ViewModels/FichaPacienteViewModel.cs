@@ -437,8 +437,8 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
             if (Termos.Count == 0)
                 return "Nenhum procedimento marcado para hoje exige termo assinado. "
-                       + "O termo vale para a SESSÃO do dia — ele é colhido no dia do "
-                       + "procedimento, não antes.";
+                       + "Dá para colher agora mesmo assim — o termo vale a partir da "
+                       + "assinatura, e o paciente está aqui.";
 
             var faltam = Termos.Count(t => t.Pendente);
 
@@ -1194,41 +1194,56 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             return;
         }
 
+        await AbrirColetaAsync(
+            linha.ModeloId, linha.DocumentoId,
+            // O profissional do horário de hoje, quando a linha o conhece: sem ele o termo
+            // nasce órfão e a via impressa sai sem o nome e o CRM de quem faz o procedimento.
+            linha.ProfissionalId);
+    }
+
+    /// <summary>
+    /// Colher um termo AVULSO — sem procedimento marcado para hoje (parcela 66, 3ª rodada).
+    ///
+    /// É a porta que a cliente pediu: o paciente aparece para tirar dúvidas, ou passa no
+    /// balcão, e a assinatura se colhe ali. O termo vale a partir da assinatura, então não
+    /// há por que esperar o dia — e o dia é justamente quando ninguém tem tempo de ler.
+    /// </summary>
+    [RelayCommand]
+    private async Task ColherTermoAvulsoAsync() => await AbrirColetaAsync(null, null, null);
+
+    /// <summary>
+    /// O caminho ÚNICO da ficha para a coleta — as duas portas daqui e as outras três da
+    /// suíte passam pelo mesmo <c>ColetaDeTermo.Abrir</c>.
+    /// </summary>
+    private async Task AbrirColetaAsync(int? modeloId, int? documentoId, int? profissionalId)
+    {
+        // A barreira que IMPEDE, e ela DIZ por que recusou (a lição da parcela 41).
+        if (!SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente))
+        {
+            MensagemEhErro = true;
+            Mensagem = "Você não tem permissão para colher a assinatura do paciente. "
+                       + "Peça à direção o acesso \"Colher assinatura do paciente\".";
+            return;
+        }
+
+        if (PacienteId == 0)
+        {
+            MensagemEhErro = true;
+            Mensagem = "Abra a ficha de um paciente antes de colher o termo.";
+            return;
+        }
+
         try
         {
-            using var scope = _escopos.CreateScope();
-
-            var vm = new AssinaturaPacienteViewModel(
-                scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>(),
-                scope.ServiceProvider.GetRequiredService<AssinaturaDoPacienteService>(),
-                scope.ServiceProvider.GetRequiredService<IDialogoService>(),
-                PacienteId,
-                linha.ModeloId,
-                Nome,
-                linha.DocumentoId,
-                // O profissional do horário de hoje, quando a linha o conhece: sem ele o
-                // termo nasce órfão e a via impressa sai sem o nome e o CRM de quem faz o
-                // procedimento.
-                linha.ProfissionalId,
-                scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>());
-
-            var janela = new Clinica.Desktop.Shell.Componentes.AssinaturaPacienteWindow(vm)
-            {
-                // A janela ATIVA, não a principal: com um modal já aberto, esta nasceria
-                // atrás dele e quem clicou concluiria que o botão não fez nada (parcela 58).
-                Owner = System.Windows.Application.Current?.Windows
-                            .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
-                        ?? System.Windows.Application.Current?.MainWindow
-            };
-
-            janela.ShowDialog();
+            var concluiu = Clinica.Desktop.Shell.Componentes.ColetaDeTermo.Abrir(
+                _escopos, PacienteId, Nome, modeloId, documentoId, profissionalId);
 
             // Recarrega mesmo quando a janela foi fechada sem concluir: o termo pode ter
             // sido EMITIDO na abertura e só a assinatura ter faltado, e a seção precisa
             // refletir isso — é a mesma razão do NovoDocumentoAsync acima.
             await CarregarAsync();
 
-            if (vm.Concluido) _snackbar.Sucesso("Termo do procedimento resolvido.");
+            if (concluiu) _snackbar.Sucesso("Termo do procedimento resolvido.");
         }
         catch (Exception ex)
         {
