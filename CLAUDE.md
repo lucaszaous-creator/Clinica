@@ -2892,3 +2892,46 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A lição, e ela é sobre método: **"não construa a exceção que ninguém vai exercer" é uma
   boa regra para código especulativo, e não para uma decisão que o cliente ainda não tomou.**
   Quando a exceção depende de como a clínica trabalha, pergunte antes de fechá-la.
+
+- **Tela do paciente: o modelo da MAQUININHA, e por que ela não é um tablet** (parcela 66,
+  5ª rodada — *"há um dispositivo para assinar via touchscreen … quero que o dispositivo
+  ligue na hora aparecendo o lugar certo para o paciente assinar"*). A cliente escolheu
+  **duas telas: ela controla, ele só assina**, e é o desenho da maquininha do cartão — não
+  um espelho da janela da recepcionista. São dois conteúdos diferentes: aqui as declarações
+  com Sim/Não, o documento conferido e o Confirmar; lá o texto GRANDE, as respostas como
+  ela as marcou e a área de assinar.
+  ⚠️ **A área de assinar SOME desta janela quando há a do paciente.** Duas áreas ativas
+  permitiriam a recepcionista assinar pelo paciente sem querer — e o termo diria que ele
+  assinou. No lugar dela fica a linha que explica a ausência: campo que some sem explicação
+  se lê como defeito.
+  ⚠️ **A resposta marcada aqui muda a tela dele NO MESMO INSTANTE**, e isso não é conforto:
+  o selo do termo é o SHA-256 do que o paciente tinha na frente, declarações incluídas. Uma
+  tela atrasada faria a evidência afirmar algo que não é verdade.
+  **O que se grava é o NOME do dispositivo (`\\.\DISPLAY2`), nunca o índice na lista.** O
+  índice muda quando alguém desliga um cabo ou o Windows reordena as telas depois de um
+  reinício — e a tela do paciente viraria a da recepcionista, com o termo em tela cheia por
+  cima do trabalho dela, sem ninguém ter mexido em nada. Tela gravada e ausente responde
+  **"não há segunda tela"**, jamais "use a primeira que aparecer", e a configuração escreve
+  o terceiro estado: silêncio faria a clínica concluir que a feature quebrou quando o que
+  houve foi um cabo solto.
+  **Sem segunda tela, TUDO continua numa janela só, e isso não é modo degradado**: é o modo
+  de quem tem um monitor. A clínica pode ficar meses sem comprar o touch, e a feature não
+  pode esperar por isso — foi o que decidiu o `ParametrosService` devolver **nulo** para a
+  chave vazia, em vez de uma string que o sistema procuraria como nome de monitor.
+  **O botão "Testar" é obrigatório, não conforto**: as telas se chamam `\\.\DISPLAY1` e
+  `\\.\DISPLAY2` e ninguém sabe qual é qual pelo nome. Sem ele, o primeiro a descobrir que o
+  termo abriu no monitor errado seria o PACIENTE, vendo o próprio nome e o procedimento dele
+  numa tela virada para a sala de espera. O exemplo não leva dado de paciente nenhum, pela
+  razão do arquivo de teste da publicação (parcela 53).
+  **Por que MONITOR e não tablet**: um tablet é outro computador — exigiria servidor web,
+  rede confiável no balcão e um caminho de volta para o traço, que é a Fase 2 inteira. Um
+  monitor touch é só mais uma tela do Windows: o traço nasce dentro do mesmo processo que
+  grava o termo, sem rede entre a caneta e o banco. A especificação do que comprar está em
+  `docs/termo-assinado-pelo-paciente.md` §3.8.
+  Detalhes que o código não conta sozinho: a janela dele é `Topmost`, sem barra de título e
+  **dona desta** (painel órfão no balcão é convite para alguém assinar o termo de outra
+  pessoa); o monitor é **impedido de dormir** enquanto o termo está no ar
+  (`SetThreadExecutionState`), senão a proteção de tela apaga o documento no meio da leitura
+  de quem lê devagar; e a enumeração de monitores é **P/Invoke puro** (`EnumDisplayMonitors`),
+  sem WinForms, em pixels FÍSICOS — num arranjo de DPIs diferentes, posicionar em unidades
+  do WPF põe a janela na tela errada.

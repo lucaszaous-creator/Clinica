@@ -22,6 +22,7 @@
 | **Consultório → Atendimento** | Faixa vermelha com o botão de colher, para quando o paciente já está na sala |
 | **Check-in** | O alerta "falta o termo" chega sozinho pelo `ElegibilidadeService` — e daí ao agendamento, à ficha e ao Consultório |
 | **Central de documentos** | Cartão "Termo de procedimento" → **Colher assinatura…**, com a escolha do termo; a segunda via sai da lista |
+| **Gerente → Configurações → "Tela do paciente"** | Escolhe o monitor virado para quem assina, com o botão **Testar**. Ver §3.8 — inclusive o que comprar |
 
 O termo **nasce numerado** e com código de conferência, como todo documento clínico —
 é por eles que a clínica o acha depois.
@@ -213,6 +214,83 @@ seção 2 obriga:
 
 Sem essa separação, o sistema pediria o jejum uma vez por ano ou o consentimento toda
 semana; os dois erros irritam e o primeiro é perigoso.
+
+### 3.8 O aparelho onde o paciente assina — o modelo da MAQUININHA
+
+> Pedido da cliente (ago/2026): *"há um dispositivo para assinar via touchscreen … quero
+> saber como fazer para sempre que aparecer para o paciente assinar, o dispositivo ligar na
+> hora aparecendo o lugar certo para ele assinar"*. A escolha dela foi **duas telas: ela
+> controla, ele só assina**.
+
+**O desenho.** São DUAS janelas, não uma espelhada:
+
+| Tela da recepcionista | Tela do paciente |
+|---|---|
+| O texto do termo, as declarações com Sim/Não, o documento conferido, Confirmar e "Paciente recusou" | Só o texto GRANDE, as declarações como ela as marcou, e a área de assinar |
+
+A tela dele abre **sozinha** quando o termo termina de carregar — não há botão de "enviar
+para o tablet", porque um passo a mais é um passo que se esquece com o paciente esperando.
+Ela nasce sem barra de título, sem botão de fechar e **por cima de tudo** (`Topmost`): quem
+está do outro lado do balcão não pode fechar, mover nem alcançar o que está atrás. O que a
+fecha é o fim da coleta, do lado de cá.
+
+Enquanto o termo está na tela, o sistema **impede o monitor de dormir**
+(`SetThreadExecutionState`): a proteção de tela do Windows não pode apagar o termo no meio
+da leitura de alguém que lê devagar.
+
+⚠️ **A área de assinar SOME da tela da recepcionista quando há a do paciente.** Deixar as
+duas ativas permitiria ela assinar pelo paciente sem querer — e o termo diria que ele
+assinou. No lugar dela fica a linha que explica que a área sumiu de propósito, porque "sumiu
+o campo de assinar" se lê como defeito.
+
+⚠️ **Sem segunda tela configurada, TUDO continua acontecendo numa janela só.** Não é um modo
+degradado: é o modo de quem tem um monitor, e ele funciona por inteiro — a clínica pode
+ficar meses sem comprar o touch e a feature não pode esperar por isso.
+
+**A configuração** fica em **Gerente → Configurações → "Tela do paciente"**: um seletor de
+monitor, **Salvar** e **Testar**. O Testar abre um exemplo (sem dado de paciente nenhum) na
+tela escolhida — as telas do Windows se chamam `\\.\DISPLAY1` e `\\.\DISPLAY2`, e o único
+jeito de saber qual é qual é ver a janela aparecer nela. Sem esse botão, o primeiro a
+descobrir que o termo abriu no monitor errado seria o paciente, vendo o próprio nome e o
+procedimento dele numa tela virada para a sala de espera.
+
+⚠️ **O que se grava é o NOME do dispositivo, nunca a posição na lista.** O índice muda quando
+alguém desliga um cabo ou o Windows reordena as telas depois de um reinício — e a tela do
+paciente passaria a ser a da recepcionista, com o termo em tela cheia por cima do trabalho
+dela, sem ninguém ter mexido em nada. Quando a tela gravada não está ligada, a configuração
+**diz isso por escrito** e a coleta volta à janela única; silêncio faria a clínica concluir
+que a feature quebrou quando o que houve foi um cabo solto.
+
+#### O que comprar
+
+O que o sistema precisa é de um **segundo monitor com toque, ligado ao mesmo PC do balcão** —
+e não de um tablet. A diferença importa: um tablet Android/iPad é **outro computador**, e
+para ele assinar seria preciso um servidor web, uma rede confiável no balcão e um caminho
+para o traço voltar. Um monitor touch é apenas mais uma tela do Windows: o traço nasce dentro
+do mesmo processo que grava o termo, e não há rede nenhuma entre a caneta e o banco.
+
+**O que exigir na hora de comprar:**
+
+| Item | O que pedir | Por quê |
+|---|---|---|
+| Tipo | Monitor **touchscreen capacitivo**, 10 pontos | O resistivo (mais barato) exige pressão e deforma o traço |
+| Tamanho | **10" a 15,6"** | Menor que 10" não cabe a assinatura sem a pessoa apertar o traço |
+| Conexão | **HDMI + USB** (o USB é o toque), ou **USB-C único** se o PC tiver a porta com DisplayPort | Dois cabos é o normal; o toque não vai pelo HDMI |
+| Sistema | Compatível com Windows 10/11 — **HID padrão, sem driver** | Monitor que exige driver do fabricante é o que para de funcionar na próxima atualização |
+| Base | Suporte que **incline**, ou base VESA + braço | O paciente assina sentado; monitor em pé força o pulso |
+| Caneta | **Opcional.** O dedo funciona | Uma caneta capacitiva comum (R$ 20) ajuda quem tem a mão trêmula |
+
+O que **não** é preciso: resolução alta (o termo é texto grande), alto-falante, webcam,
+Windows embarcado, digitalizador Wacom/EMR. Um monitor touch USB de 13"–15,6" resolve, e é
+o mesmo tipo que a farmácia e o cartório usam para o mesmo fim.
+
+⚠️ **O que NÃO serve:** um tablet Android/iPad ligado por Wi-Fi (é outro computador —
+precisaria da Fase 2), um "segundo monitor sem fio" (Miracast espelha a MESMA imagem, e aqui
+as duas telas mostram coisas diferentes), e uma **mesa digitalizadora sem tela** (a pessoa
+assinaria olhando para cima, e a assinatura sai diferente da que ela faz no papel).
+
+Se a clínica já tem um monitor touch, **não precisa comprar nada**: basta ligá-lo,
+estender a área de trabalho do Windows (não duplicar) e apontá-lo em Configurações.
 
 ---
 

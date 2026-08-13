@@ -366,6 +366,57 @@
                     </StackPanel>
                 </Border>
 
+                <!-- ===== Tela do paciente (parcela 66, 5ª rodada) ===== -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Tela do paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,12"
+                                   Text="O monitor virado para quem assina, como a maquininha do cartão: a recepcionista conduz na tela dela e o paciente lê e assina na dele. Sem escolher nada, a assinatura é colhida na própria janela de quem conduz." />
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Monitor" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding TelasDisponiveis}"
+                                          SelectedItem="{Binding TelaDoPaciente, Mode=TwoWay}"
+                                          DisplayMemberPath="Rotulo"
+                                          IsEnabled="{Binding PodeEditar}" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                        VerticalAlignment="Bottom" Margin="10,0,0,0">
+                                <Button Content="Salvar" MinWidth="120"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding SalvarTelaDoPacienteCommand}"
+                                        IsEnabled="{Binding PodeEditar}" />
+                                <Button Content="Testar" Style="{StaticResource BotaoSecundario}"
+                                        MinWidth="120" Margin="10,0,0,0"
+                                        VerticalAlignment="Center"
+                                        Command="{Binding TestarTelaDoPacienteCommand}"
+                                        IsEnabled="{Binding PodeEditar}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Terceiro estado ESCRITO: a tela gravada pode estar desligada, e
+                             silêncio faria a clínica concluir que a feature quebrou quando o
+                             que houve foi um cabo solto. -->
+                        <Border Style="{StaticResource AlertaAviso}" Margin="0,10,0,0"
+                                Visibility="{Binding AvisoTelaDoPaciente, Converter={StaticResource TextoParaVisibilidade}}">
+                            <TextBlock Text="{Binding AvisoTelaDoPaciente}" TextWrapping="Wrap" />
+                        </Border>
+
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" MaxWidth="820"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,6,0,0"
+                                   Text="Use o Testar antes do primeiro paciente: as telas do Windows se chamam \\.\DISPLAY1 e \\.\DISPLAY2, e o único jeito de saber qual é qual é ver o exemplo aparecer nela." />
+                    </StackPanel>
+                </Border>
+
                 <!-- ===== Faturamento ===== -->
                 <Border Style="{StaticResource Card}" Margin="0,12,0,24">
                     <StackPanel>

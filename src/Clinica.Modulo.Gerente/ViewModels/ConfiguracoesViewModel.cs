@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Assinatura.SafeID;
 using Clinica.Application.Modelos;
@@ -257,6 +258,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
                 SafeIdHomologacao = ConfiguracaoSafeID.EhHomologacao(safeId.Ambiente);
             }
             await CarregarPublicacaoAsync(p);
+            await CarregarTelasAsync(p);
 
             JanelaAlertaConsulta = (await p.ObterJanelaAlertaConsultaAsync()).ToString();
             PrazoRecursoGlosa = (await p.ObterPrazoRecursoGlosaAsync()).ToString();
@@ -601,6 +603,101 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     /// Recarregar depois de salvar não é zelo: o serviço aplica limites (clamp), e a tela
     /// tem de mostrar o que ficou GRAVADO, não o que foi digitado.
     /// </summary>
+
+    // ==================== A tela do paciente (parcela 66, 5ª rodada) ====================
+    //
+    // O monitor virado para quem assina — o modelo da maquininha do cartão. Configurar isto
+    // é escolher em qual das telas do Windows a área de assinar deve aparecer.
+    //
+    // ⚠️ O que se GRAVA é o NOME do dispositivo (`\\.\DISPLAY2`), nunca a posição na lista.
+    // O índice muda quando alguém desliga um cabo ou o Windows reordena as telas depois de
+    // um reinício — e a tela do paciente passaria a ser a da recepcionista, com o termo em
+    // tela cheia por cima do trabalho dela, sem ninguém ter mexido em nada.
+
+    public ObservableCollection<TelaDoSistema> TelasDisponiveis { get; } = [];
+
+    /// <summary>
+    /// A escolhida. Nula = a clínica não tem segunda tela, e a coleta acontece numa janela
+    /// só — que NÃO é um modo degradado: é o modo de quem tem um monitor, e a clínica pode
+    /// ficar meses sem comprar o touch.
+    /// </summary>
+    [ObservableProperty] private TelaDoSistema? _telaDoPaciente;
+
+    /// <summary>
+    /// A tela GRAVADA não está mais ligada. Terceiro estado escrito, e não silêncio: sem
+    /// ele, a assinatura voltaria a acontecer numa janela só e a clínica concluiria que a
+    /// feature quebrou — quando o que houve foi um cabo solto.
+    /// </summary>
+    [ObservableProperty] private string _avisoTelaDoPaciente = string.Empty;
+
+    private async Task CarregarTelasAsync(ParametrosService p)
+    {
+        var gravada = await p.ObterTelaDoPacienteAsync();
+
+        // Sem await entre o Clear() e o último Add (a lição da parcela 62): duas cargas
+        // intercaladas deixariam a lista com telas repetidas ou faltando.
+        var telas = TelasDoSistema.Listar();
+
+        TelasDisponiveis.Clear();
+        foreach (var t in telas) TelasDisponiveis.Add(t);
+
+        TelaDoPaciente = telas.FirstOrDefault(t => t.Id == gravada);
+
+        AvisoTelaDoPaciente = gravada is not null && TelaDoPaciente is null
+            ? $"A tela configurada ({gravada}) não está ligada agora. Enquanto isso, o "
+              + "paciente assina na própria janela de quem conduz."
+            : string.Empty;
+    }
+
+    [RelayCommand]
+    private async Task SalvarTelaDoPacienteAsync()
+        => await ExecutarAsync(async p =>
+        {
+            // A principal é recusada: ela é a da recepcionista, e o termo em tela cheia por
+            // cima do trabalho dela seria o oposto do que a configuração serve.
+            if (TelaDoPaciente is { Principal: true })
+                throw new InvalidOperationException(
+                    "Essa é a tela principal, onde o sistema é operado. Escolha o monitor "
+                    + "virado para o paciente.");
+
+            await p.SalvarTelaDoPacienteAsync(TelaDoPaciente?.Id);
+            await CarregarTelasAsync(p);
+
+            return TelaDoPaciente is null
+                ? "Tela do paciente desligada. A assinatura volta a ser colhida na janela de quem conduz."
+                : $"Tela do paciente: {TelaDoPaciente.Rotulo}.";
+        });
+
+    /// <summary>
+    /// Abre a tela escolhida com um exemplo, para a direção CONFERIR que é a certa antes de
+    /// haver um paciente esperando.
+    ///
+    /// Não é conforto: as telas se chamam "\\.\DISPLAY2" e ninguém sabe qual é qual olhando
+    /// o nome. Sem o teste, o primeiro a descobrir que o termo abriu no monitor errado seria
+    /// o paciente — vendo o próprio nome e o procedimento dele numa tela virada para a sala
+    /// de espera.
+    /// </summary>
+    [RelayCommand]
+    private void TestarTelaDoPaciente()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "testar a tela do paciente");
+
+            if (TelaDoPaciente is null)
+            {
+                Erro("Escolha primeiro a tela virada para o paciente.");
+                return;
+            }
+
+            PainelDoPacienteWindow.MostrarExemplo(TelaDoPaciente);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — teste da tela do paciente", ex);
+            Erro(ex.Message);
+        }
+    }
 
     // ==================== Backup da base (parcela 35) ====================
     //

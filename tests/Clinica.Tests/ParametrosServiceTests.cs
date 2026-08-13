@@ -58,6 +58,25 @@ public class ParametrosServiceTests : IDisposable
         snap.ValidadeConsultaDias(Convenio.UnimedIntercambio).Should().Be(25);
     }
 
+    /// <summary>
+    /// A tela do paciente é OPCIONAL, e "não configurada" tem de ser distinguível de
+    /// "configurada com nada": o modo de uma janela só é o normal de quem tem um monitor,
+    /// e uma string vazia devolvida como se fosse nome de dispositivo faria o sistema
+    /// procurar um monitor chamado "" a cada coleta.
+    /// </summary>
+    [Fact]
+    public async Task Tela_do_paciente_nao_configurada_e_nula()
+    {
+        (await _parametros.ObterTelaDoPacienteAsync()).Should().BeNull();
+
+        await _parametros.SalvarTelaDoPacienteAsync(@"\\.\DISPLAY2");
+        (await _parametros.ObterTelaDoPacienteAsync()).Should().Be(@"\\.\DISPLAY2");
+
+        // Desligar a segunda tela volta ao modo de uma janela só.
+        await _parametros.SalvarTelaDoPacienteAsync(null);
+        (await _parametros.ObterTelaDoPacienteAsync()).Should().BeNull();
+    }
+
     public void Dispose()
     {
         _db.Dispose();
