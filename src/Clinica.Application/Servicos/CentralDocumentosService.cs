@@ -37,7 +37,20 @@ public enum ExigenciaFolha
     /// Um lançamento já realizado no caixa. O recibo comprova dinheiro que entrou, e
     /// emiti-lo sem apontar para o lançamento permitiria dois recibos do mesmo pagamento.
     /// </summary>
-    LancamentoNoCaixa
+    LancamentoNoCaixa,
+
+    /// <summary>
+    /// O PROCEDIMENTO marcado para hoje (parcela 66). O termo que o paciente assina não se
+    /// emite avulso: o texto vem do modelo que a exigência amarra à modalidade, e a
+    /// validade é POR SESSÃO — a declaração de jejum afirma "estou em jejum" e não se
+    /// herda de um dia para o outro.
+    ///
+    /// É a mesma forma do recibo logo acima, e pela mesma razão: emiti-lo aqui, solto,
+    /// produziria um papel numerado que o balcão nunca veria como cumprido — a pendência
+    /// continuaria acesa e a pessoa acreditaria ter resolvido. O cartão LEVA até onde o
+    /// termo se colhe (a ficha do paciente), em vez de fingir que emite.
+    /// </summary>
+    ProcedimentoDoDia
 }
 
 /// <summary>
@@ -299,7 +312,7 @@ public sealed class CentralDocumentosService
         new("termo-procedimento", "Termo de procedimento",
             "Consentimento do procedimento e as declarações do paciente (jejum, medicações). "
             + "Assinado por ele no tablet, e a assinatura entra no PDF antes do selo do profissional.",
-            NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
+            NaturezaFolha.Clinico, ExigenciaFolha.ProcedimentoDoDia)
         {
             TipoClinico = TipoDocumentoClinico.TermoProcedimento,
             PermissaoVer = Permissao.VerProntuario,

@@ -59,15 +59,42 @@ public sealed class TermoProcedimentoService
                 + "Escolha um modelo de termo de procedimento.");
 
         var existentes = await _repo.ExigenciasTermoAsync(ct);
-        var codigo = Limpar(modalidadeCodigo);
+        var codigo = NormalizarCodigo(modalidadeCodigo);
 
-        if (existentes.Any(x => x.Modalidade == modalidade
-                                && string.Equals(x.ModalidadeCodigo, codigo,
-                                    StringComparison.OrdinalIgnoreCase)))
-            throw new InvalidOperationException(
-                "Esta modalidade já exige um termo. Troque o modelo da exigência que existe "
-                + "em vez de criar outra — duas exigências para a mesma sessão fariam o "
-                + "paciente assinar o mesmo papel duas vezes.");
+        // ⚠️ Modalidade já exigida TROCA o modelo em vez de recusar (parcela 66, 2ª rodada).
+        //
+        // A primeira versão lançava "troque o modelo da exigência que existe" — e não havia
+        // por onde trocar: a única saída era desligar a linha antiga, e desligada ela deixa
+        // de cobrar o termo, o que é o oposto do que a clínica queria ao reescrever o
+        // texto. Mensagem de erro que manda fazer o que a tela não faz é botão que não faz
+        // nada com uma etapa a mais.
+        //
+        // Trocar é seguro porque aplicar COPIA: os termos já assinados guardam o texto que
+        // o paciente leu e o `ModeloOrigemId` deles continua apontando para o modelo
+        // ANTIGO. O que muda é o que será copiado da próxima vez.
+        var existente = existentes.FirstOrDefault(x =>
+            x.Modalidade == modalidade
+            && string.Equals(x.ModalidadeCodigo, codigo, StringComparison.OrdinalIgnoreCase));
+
+        if (existente is not null)
+        {
+            var rastreada = await _repo.ObterExigenciaTermoAsync(existente.Id, ct)
+                ?? throw new InvalidOperationException("Exigência não encontrada.");
+
+            var anterior = rastreada.Modelo?.Nome;
+            rastreada.ModeloDocumentoId = modeloId;
+            rastreada.Ativa = true;
+
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+                Acao = "ExigenciaTermoTrocada",
+                Detalhe = $"{modalidade}: \"{anterior}\" passa a ser \"{modelo.Nome}\""
+            }, ct);
+
+            await _repo.SalvarAsync(ct);
+            return rastreada;
+        }
 
         var exigencia = new ExigenciaTermoProcedimento
         {
@@ -90,6 +117,18 @@ public sealed class TermoProcedimentoService
         await _repo.SalvarAsync(ct);
         return exigencia;
     }
+
+    /// <summary>
+    /// "Vale para a família inteira" é gravado como STRING VAZIA, nunca NULL.
+    ///
+    /// ⚠️ Não é preciosismo: o índice único é `(Modalidade, ModalidadeCodigo)`, e o
+    /// PostgreSQL trata NULL como DISTINTO de qualquer outro NULL — com null, o índice
+    /// ficaria inerte justamente no caso NORMAL (código nulo = família inteira), e dois
+    /// cliques concorrentes em "Passar a exigir" inseririam duas linhas. Duas exigências
+    /// para a mesma sessão fazem o paciente assinar o mesmo papel duas vezes.
+    /// </summary>
+    private static string NormalizarCodigo(string? codigo)
+        => string.IsNullOrWhiteSpace(codigo) ? string.Empty : codigo.Trim();
 
     /// <summary>
     /// Liga ou desliga uma exigência. Desligar em vez de apagar: a clínica que suspende a
@@ -186,30 +225,46 @@ public sealed class TermoProcedimentoService
     /// que ainda não chegou ENTRA — é justamente o caso que o balcão precisa resolver
     /// antes, e não depois.
     /// </summary>
-    private static IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo)>
+    private static IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo, int? ProfissionalId)>
         ModalidadesQuePedemTermo(IEnumerable<Agendamento> agendamentos)
         => agendamentos
             .Where(a => a.Status is not (StatusAgendamento.Cancelado or StatusAgendamento.Faltou))
-            .Select(a => (a.ModalidadePrevista, Codigo: Limpar(a.ModalidadeCodigo)))
+            .Select(a => (a.ModalidadePrevista, Codigo: Limpar(a.ModalidadeCodigo), a.ProfissionalId))
             .Distinct()
             .ToList();
 
     private static IReadOnlyList<SituacaoTermo> Resolver(
         IReadOnlyList<ExigenciaTermoProcedimento> exigencias,
-        IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo)> modalidades,
+        IReadOnlyList<(ModalidadeAtendimento Modalidade, string? Codigo, int? ProfissionalId)> modalidades,
         IReadOnlyList<DocumentoClinico> termosDeHoje)
     {
         var situacoes = new List<SituacaoTermo>();
 
         foreach (var exigencia in exigencias)
         {
-            var casa = modalidades.Any(m =>
-                m.Modalidade == exigencia.Modalidade
-                && (exigencia.ModalidadeCodigo is null
-                    || string.Equals(exigencia.ModalidadeCodigo, m.Codigo,
-                        StringComparison.OrdinalIgnoreCase)));
+            // Código vazio (ou nulo, nas linhas anteriores à normalização) = vale para a
+            // FAMÍLIA inteira, que é o caso normal: quem faz BSV assina o termo do BSV,
+            // seja qual for o nome que a clínica deu à variante.
+            //
+            // ⚠️ O índice é procurado, e não a tupla: `FirstOrDefault` sobre uma tupla de
+            // valor devolveria `Modalidade = 0`, que é um valor REAL do enum — "não achei"
+            // ficaria indistinguível de "achei a primeira modalidade da lista".
+            var indice = -1;
+            for (var i = 0; i < modalidades.Count; i++)
+            {
+                var m = modalidades[i];
+                if (m.Modalidade != exigencia.Modalidade) continue;
+                if (!string.IsNullOrEmpty(exigencia.ModalidadeCodigo)
+                    && !string.Equals(exigencia.ModalidadeCodigo, m.Codigo,
+                        StringComparison.OrdinalIgnoreCase)) continue;
 
-            if (!casa) continue;
+                indice = i;
+                break;
+            }
+
+            if (indice < 0) continue;
+
+            var profissionalId = modalidades[indice].ProfissionalId;
 
             // O termo cumprido é o que veio DESTE modelo e foi assinado hoje. Casar pelo
             // modelo, e não pelo tipo, é o que permite dois procedimentos no mesmo dia
@@ -231,7 +286,8 @@ public sealed class TermoProcedimentoService
                 assinado is not null,
                 recusado is not null,
                 recusado?.MotivoRecusaPaciente,
-                DeclaracoesNegadas(assinado)));
+                DeclaracoesNegadas(assinado),
+                profissionalId));
         }
 
         return situacoes;
@@ -303,7 +359,8 @@ public sealed record SituacaoTermo(
     bool Assinado,
     bool Recusado,
     string? MotivoRecusa,
-    IReadOnlyList<string> DeclaracoesNegadas)
+    IReadOnlyList<string> DeclaracoesNegadas,
+    int? ProfissionalId = null)
 {
     /// <summary>Falta assinar: nem assinado, nem recusado.</summary>
     public bool Pendente => !Assinado && !Recusado;

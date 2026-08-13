@@ -727,6 +727,16 @@ public sealed class DocumentosClinicosPdfService
 
             col.Item().PaddingTop(10).Text(documento.FraseAssinaturaPaciente)
                 .FontSize(7.5f).FontColor(TextoSecundario);
+
+            // O selo RECALCULADO, e não o gravado (parcela 66, 2ª rodada). Guardar um hash
+            // que ninguém confere é guardar um número: a garantia só existe quando ela tem
+            // consequência visível, e esta é a consequência — a segunda via de um termo
+            // alterado depois da assinatura sai DIZENDO que não prova o que foi assinado.
+            if (documento.AvisoDeSeloQuebrado is { Length: > 0 } aviso)
+                col.Item().PaddingTop(6)
+                    .Background(VermelhoSuave).Border(1).BorderColor(VermelhoForte).Padding(8)
+                    .Text(aviso).SemiBold().FontSize(8).FontColor(VermelhoForte);
+
             return;
         }
 

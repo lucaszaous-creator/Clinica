@@ -708,6 +708,7 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.PacienteRecusou);
             e.Ignore(x => x.AguardaAssinaturaDoPaciente);
             e.Ignore(x => x.FraseAssinaturaPaciente);
+            e.Ignore(x => x.AvisoDeSeloQuebrado);
         });
 
         b.Entity<ItemDocumento>(e =>

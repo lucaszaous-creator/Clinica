@@ -107,6 +107,24 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
+            <!-- A PORTA do termo (parcela 66, 2ª rodada). O alerta acima já dizia "falta o
+                 termo assinado" com o paciente NA SALA, e não havia como colher neste app:
+                 o médico teria de descer ao balcão. Alerta sem porta no mesmo app é pior
+                 que alerta nenhum — ele ensina a pessoa a ignorá-lo (parcela 48). É a MESMA
+                 janela do balcão, não uma cópia. -->
+            <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,10"
+                    Visibility="{Binding TemTermoPendente, Converter={StaticResource BoolParaVisibilidade}}">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Content="Colher assinatura…"
+                            Style="{StaticResource BotaoSecundario}" MinWidth="170"
+                            Margin="12,0,0,0" VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeColherTermo}"
+                            Command="{Binding ColherTermoCommand}" />
+                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap"
+                               Text="O procedimento de hoje exige termo assinado pelo paciente, e ele ainda não assinou. Colha agora — ele está aqui." />
+                </DockPanel>
+            </Border>
+
             <!-- Rodapé fora do scroll: o Salvar não some quando a evolução fica longa.
                  UM primário na tela — o resto é secundário, senão nada é primário. -->
             <Border DockPanel.Dock="Bottom" Margin="0,14,0,0">

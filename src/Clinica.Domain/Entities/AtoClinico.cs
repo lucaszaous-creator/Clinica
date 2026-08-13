@@ -590,6 +590,62 @@ public class DocumentoClinico
             return frase + $" Código de conferência {CodigoVerificacao}.";
         }
     }
+
+    /// <summary>
+    /// O que o rodapé escreve quando o conteúdo NÃO bate com o selo (parcela 66, 2ª rodada).
+    ///
+    /// Vazio = nada a dizer (não há selo, ou ele confere). Guardar um hash que ninguém
+    /// recalcula é guardar um número — a conferência só vira garantia quando ela tem
+    /// consequência visível, e a consequência é esta frase saindo impressa na segunda via.
+    /// **Falha exibida como sucesso é o desfecho que este projeto recusa**: um termo
+    /// alterado depois da assinatura não pode sair com um rodapé afirmando integridade.
+    /// </summary>
+    public string AvisoDeSeloQuebrado
+    {
+        get
+        {
+            if (!PacienteAssinou || string.IsNullOrWhiteSpace(PacienteAssinaturaHash))
+                return string.Empty;
+
+            return SeloDoConteudo() == PacienteAssinaturaHash
+                ? string.Empty
+                : "⚠ ATENÇÃO: o conteúdo deste termo NÃO confere com o que foi selado no "
+                  + "momento da assinatura. Esta via não prova o que o paciente assinou.";
+        }
+    }
+
+    /// <summary>
+    /// SHA-256 do que o paciente tinha na frente — a mesma montagem que
+    /// <c>AssinaturaDoPacienteService</c> grava na coleta.
+    ///
+    /// Mora na ENTIDADE porque quem precisa dela são dois: o serviço, que a grava, e o PDF,
+    /// que a recalcula ao imprimir. Duas montagens divergiriam na primeira correção, e a
+    /// divergência apareceria como "selo quebrado" em todo termo válido — que é como se
+    /// ensina alguém a ignorar o aviso.
+    ///
+    /// Cultura INVARIANTE de propósito: o hash é gravado e recalculado meses depois,
+    /// possivelmente noutra máquina.
+    /// </summary>
+    public string SeloDoConteudo()
+    {
+        var texto = new System.Text.StringBuilder();
+
+        texto.Append(Numero).Append('\n');
+        texto.Append(Data.ToString("yyyy-MM-dd",
+            System.Globalization.CultureInfo.InvariantCulture)).Append('\n');
+        texto.Append(TituloImpresso).Append('\n');
+        texto.Append(Corpo ?? string.Empty).Append('\n');
+
+        foreach (var item in Itens.OrderBy(i => i.Ordem))
+            texto.Append(item.Ordem).Append('|')
+                 .Append(item.Descricao).Append('|')
+                 .Append(item.Detalhe ?? string.Empty).Append('|')
+                 .Append(item.Quantidade ?? string.Empty).Append('\n');
+
+        return Convert.ToHexString(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(texto.ToString()))).ToLowerInvariant();
+    }
 }
 
 /// <summary>Por onde o traço do paciente entrou no sistema.</summary>

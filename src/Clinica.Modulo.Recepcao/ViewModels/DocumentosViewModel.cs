@@ -214,6 +214,10 @@ public sealed partial class DocumentosViewModel : ObservableObject
                 {
                     ExigenciaFolha.Periodo => "Gerar PDF",
                     ExigenciaFolha.LancamentoNoCaixa => "Ir para o Caixa",
+                    // O clique NAVEGA, e o rótulo tem de dizer isso: "Emitir" prometeria
+                    // emissão, e a leitura natural de uma tela que troca sem sair papel é
+                    // que o termo saiu — com a pendência do dia continuando acesa.
+                    ExigenciaFolha.ProcedimentoDoDia => "Abrir a ficha",
                     _ => "Emitir"
                 }
             });
@@ -256,6 +260,19 @@ public sealed partial class DocumentosViewModel : ObservableObject
                     linha.Pendencia = existe
                         ? "Nasce do lançamento no caixa, para não sair recibo em duplicidade."
                         : "O módulo Financeiro não está aberto neste aplicativo.";
+                    break;
+
+                case ExigenciaFolha.ProcedimentoDoDia:
+                    // O termo do paciente (parcela 66) não se emite avulso: o texto vem do
+                    // modelo que a exigência amarra à modalidade, e ele vale POR SESSÃO.
+                    // Mesma forma do recibo acima — o cartão LEVA até onde se colhe.
+                    var temFicha = NavegacaoSuite.Existe(ChavesSuite.PacientesRecepcao);
+                    linha.PodeGerar = temFicha && podeEmitir;
+                    linha.Pendencia = !temFicha
+                        ? "O módulo Recepção não está aberto neste aplicativo."
+                        : podeEmitir
+                            ? "Colhido na ficha do paciente, aba Documentos, no dia do procedimento."
+                            : $"Seu acesso permite ver, não colher ({PerfisAcesso.Rotular(linha.Folha.PermissaoEmitir)}).";
                     break;
 
                 default: // Periodo
@@ -482,6 +499,14 @@ public sealed partial class DocumentosViewModel : ObservableObject
             {
                 case ExigenciaFolha.LancamentoNoCaixa:
                     NavegacaoSuite.Ir(ChavesSuite.Caixa);
+                    return;
+
+                case ExigenciaFolha.ProcedimentoDoDia:
+                    // Leva à ficha, onde a seção "Termo do procedimento — hoje" mostra o
+                    // que falta assinar e tem o botão de colher. Emitir daqui produziria um
+                    // termo SEM modelo de origem e sem declarações — papel numerado do
+                    // mesmo ato, com a pendência continuando acesa.
+                    NavegacaoSuite.Ir(ChavesSuite.PacientesRecepcao);
                     return;
 
                 case ExigenciaFolha.Periodo:

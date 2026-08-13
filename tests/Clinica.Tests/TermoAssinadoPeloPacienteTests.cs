@@ -451,15 +451,63 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
     }
 
     [Fact]
-    public async Task Mesma_modalidade_nao_aceita_duas_exigencias()
+    public async Task Exigir_de_novo_TROCA_o_modelo_em_vez_de_criar_a_segunda_exigencia()
     {
-        var modelo = await ModeloDoBsvAsync();
-        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, modelo.Id);
+        var paciente = await PacienteAsync();
+        var antigo = await ModeloDoBsvAsync();
+        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, antigo.Id);
+        await AgendarBsvAsync(paciente, Hoje);
 
-        var acao = async () => await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, modelo.Id);
+        // A responsabilidade técnica reescreve o termo como um modelo NOVO.
+        var revisado = new ModeloDocumento
+        {
+            Tipo = TipoDocumentoClinico.TermoProcedimento,
+            Nome = "Termo do BSV — revisado",
+            Corpo = "Texto revisado.",
+            Itens = [new ItemModelo { Ordem = 1, Descricao = "Estou em jejum de 8 horas" }]
+        };
+        _db.ModelosDocumento.Add(revisado);
+        await _db.SaveChangesAsync();
 
-        await acao.Should().ThrowAsync<InvalidOperationException>(
-            "duas exigências fariam o paciente assinar o mesmo papel duas vezes na sessão");
+        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, revisado.Id);
+
+        (await _termos.ExigenciasAsync()).Should().ContainSingle(
+            "duas exigências fariam o paciente assinar o mesmo papel duas vezes na sessão — "
+            + "e recusar deixaria a clínica sem como trocar o texto, que era a mensagem de "
+            + "erro mandando fazer o que a tela não fazia");
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        situacao.ModeloId.Should().Be(revisado.Id, "o que se cobra a partir de agora é o novo");
+    }
+
+    [Fact]
+    public async Task Trocar_o_modelo_da_exigencia_nao_toca_no_termo_ja_assinado()
+    {
+        var paciente = await PacienteAsync();
+        var antigo = await ModeloDoBsvAsync();
+        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, antigo.Id);
+
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, antigo.Id);
+        await AssinarAsync(termo.Id);
+
+        var revisado = new ModeloDocumento
+        {
+            Tipo = TipoDocumentoClinico.TermoProcedimento,
+            Nome = "Termo do BSV — revisado",
+            Corpo = "Texto revisado."
+        };
+        _db.ModelosDocumento.Add(revisado);
+        await _db.SaveChangesAsync();
+
+        await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, revisado.Id);
+
+        var guardado = await _repo.ObterDocumentoAsync(termo.Id);
+        guardado!.ModeloOrigemId.Should().Be(antigo.Id,
+            "aplicar COPIA: o termo assinado guarda o texto que o paciente leu e continua "
+            + "apontando para o modelo de onde saiu");
+        guardado.Corpo.Should().Contain("Fui informado");
     }
 
     [Fact]
@@ -517,6 +565,159 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         // E o número acha o documento de volta.
         var achado = await _documentos.PorCodigoAsync(termo.CodigoVerificacao);
         achado!.Id.Should().Be(termo.Id);
+    }
+
+    // ============ O que a revisão adversarial achou (2ª rodada) ============
+
+    [Fact]
+    public async Task Declaracao_em_branco_e_recusada()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+
+        // A recepcionista pula os rádios e o paciente assina.
+        var acao = async () => await _assinaturas.ColherAsync(
+            termo.Id, TracoDeTeste(), 600, 220,
+            new Dictionary<int, string?> { [1] = null, [2] = "Sim" },
+            "CPF 123.456.789-00", "ana.recepcao");
+
+        await acao.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("*jejum*",
+                "sem resposta o termo gravaria, apareceria como \"Assinado hoje\" e NÃO "
+                + "acenderia alerta nenhum: o balcão daria a tarefa por cumprida e o "
+                + "procedimento aconteceria sem ninguém ter perguntado sobre o jejum");
+    }
+
+    [Fact]
+    public async Task O_selo_e_RECALCULADO_na_impressao_e_o_rodape_denuncia_alteracao()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+
+        var assinado = await AssinarAsync(termo.Id);
+        assinado.AvisoDeSeloQuebrado.Should().BeEmpty("recém-assinado, o conteúdo confere");
+
+        // Alguém mexe no que já estava assinado (correção direta no banco é prática
+        // assumida nesta clínica — ver a limpeza de CPF duplicado da parcela 57).
+        assinado.Itens.First().Quantidade = RespostaDeclaracao.Sim == "Sim" ? "Não" : "Sim";
+
+        assinado.AvisoDeSeloQuebrado.Should().Contain("NÃO confere",
+            "guardar um hash que ninguém recalcula é guardar um número — a garantia só "
+            + "existe quando a segunda via SAI dizendo que não prova o que foi assinado");
+    }
+
+    [Fact]
+    public void O_selo_do_dominio_e_o_mesmo_que_o_servico_grava()
+    {
+        // Uma definição só: duas montagens divergiriam na primeira correção, e a
+        // divergência apareceria como "selo quebrado" em TODO termo válido — que é como
+        // se ensina alguém a ignorar o aviso.
+        var documento = new DocumentoClinico
+        {
+            Numero = "2026/0001",
+            CodigoVerificacao = "ABCD",
+            Tipo = TipoDocumentoClinico.TermoProcedimento,
+            Data = Hoje,
+            Corpo = "Texto",
+            Itens = [new ItemDocumento { Ordem = 1, Descricao = "Jejum", Quantidade = "Sim" }]
+        };
+
+        var selo = documento.SeloDoConteudo();
+
+        selo.Should().HaveLength(64).And.MatchRegex("^[0-9a-f]+$");
+        documento.SeloDoConteudo().Should().Be(selo, "a montagem é determinística");
+    }
+
+    [Fact]
+    public async Task A_situacao_leva_o_profissional_do_horario()
+    {
+        var modelo = await ModeloDoBsvAsync();
+        await ExigirNoBsvAsync(modelo.Id);
+
+        var paciente = await PacienteAsync();
+        var profissional = new Profissional { Nome = "Dra. Ana", RegistroConselho = "CRM 12345" };
+        _db.Profissionais.Add(profissional);
+        await _db.SaveChangesAsync();
+
+        _db.Agendamentos.Add(new Agendamento
+        {
+            PacienteId = paciente,
+            ProfissionalId = profissional.Id,
+            DataHora = Hoje.ToDateTime(new TimeOnly(9, 0)),
+            ModalidadePrevista = ModalidadeAtendimento.BsvApenas,
+            Status = StatusAgendamento.Agendado
+        });
+        await _db.SaveChangesAsync();
+
+        var situacao = (await _termos.SituacaoDoDiaAsync(paciente, Hoje))
+            .Should().ContainSingle().Subject;
+
+        situacao.ProfissionalId.Should().Be(profissional.Id,
+            "sem ele o termo nasce órfão e a via que o paciente assina — e que fica 20 anos "
+            + "no prontuário — sai com \"Profissional responsável\" no lugar do nome e do CRM");
+    }
+
+    [Fact]
+    public async Task Exigencia_de_familia_grava_codigo_VAZIO_e_nao_nulo()
+    {
+        var modelo = await ModeloDoBsvAsync();
+        var exigencia = await _termos.ExigirAsync(ModalidadeAtendimento.BsvApenas, modelo.Id);
+
+        exigencia.ModalidadeCodigo.Should().BeEmpty(
+            "o índice único é (Modalidade, ModalidadeCodigo) e o PostgreSQL trata NULL como "
+            + "DISTINTO de qualquer outro NULL — com nulo o índice ficaria inerte no caso "
+            + "NORMAL, e dois cliques concorrentes inseririam duas exigências");
+
+        // E continua casando com a família inteira.
+        var paciente = await PacienteAsync();
+        await AgendarBsvAsync(paciente, Hoje);
+        (await _termos.SituacaoDoDiaAsync(paciente, Hoje)).Should().ContainSingle();
+    }
+
+    // ==================== A central não emite o termo solto ====================
+
+    [Fact]
+    public void A_folha_do_termo_LEVA_ate_onde_ele_se_colhe_em_vez_de_emitir()
+    {
+        var folha = CentralDocumentosService.Catalogo
+            .Should().ContainSingle(f => f.Chave == "termo-procedimento").Subject;
+
+        folha.Exigencia.Should().Be(ExigenciaFolha.ProcedimentoDoDia,
+            "emitir o termo solto pela central produziria um papel numerado SEM modelo de "
+            + "origem e SEM as declarações — a pendência do dia continuaria acesa e a "
+            + "pessoa acreditaria ter resolvido. É a mesma forma do recibo, que nasce no "
+            + "caixa e cujo cartão apenas leva até lá");
+
+        folha.TipoClinico.Should().Be(TipoDocumentoClinico.TermoProcedimento);
+        folha.PermissaoVer.Should().Be(Permissao.VerProntuario,
+            "o termo diz qual procedimento a pessoa vai fazer e o que ela declarou sobre o "
+            + "próprio corpo — é dado de saúde (art. 5º, II)");
+        folha.PermissaoEmitir.Should().Be(Permissao.ColherAssinaturaPaciente);
+    }
+
+    [Fact]
+    public void Todo_tipo_assinado_pelo_paciente_tem_folha_com_exigencia_do_dia()
+    {
+        // A amarra que impede o PRÓXIMO tipo assinado pelo paciente de nascer caindo na
+        // janela genérica: se alguém acrescentar um, esta asserção o cobra.
+        var assinadosPeloPaciente = TipoDocumentoInfo.Todos
+            .Where(TipoDocumentoInfo.AssinadoPeloPaciente)
+            .ToList();
+
+        assinadosPeloPaciente.Should().NotBeEmpty();
+
+        foreach (var tipo in assinadosPeloPaciente)
+        {
+            var folha = CentralDocumentosService.Catalogo
+                .Should().ContainSingle(f => f.TipoClinico == tipo,
+                    $"{TipoDocumentoInfo.Rotular(tipo)} precisa de folha no catálogo").Subject;
+
+            folha.Exigencia.Should().Be(ExigenciaFolha.ProcedimentoDoDia,
+                "documento assinado pelo paciente não se emite pela janela genérica: ela "
+                + "não copia o modelo, não traz as declarações e não grava ModeloOrigemId");
+        }
     }
 
     [Fact]

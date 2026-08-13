@@ -544,6 +544,83 @@
                 <TabItem Header="Documentos">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                         <StackPanel Margin="0,0,0,24">
+
+                <!-- ===== TERMO DO PROCEDIMENTO DE HOJE (parcela 66, 2ª rodada) =====
+                     Vem PRIMEIRO na aba porque é a única coisa aqui com prazo: o paciente
+                     está no balcão e sobe para a sala em minutos. O resto da aba é
+                     histórico e emissão sob demanda.
+
+                     A seção NÃO some quando não há termo — ela troca de frase. "Nenhum
+                     procedimento de hoje exige termo" e "já assinado" são respostas
+                     diferentes, e sumir com a região faria a recepcionista procurar onde
+                     assinar numa aba que decidiu não mostrar nada. -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,12"
+                        Visibility="{Binding TemTermoDoDia, Converter={StaticResource BoolParaVisibilidade}}">
+                    <StackPanel>
+                        <TextBlock Text="Termo do procedimento — hoje"
+                                   Style="{StaticResource H3}" />
+
+                        <TextBlock Text="{Binding ResumoTermos}" TextWrapping="Wrap"
+                                   Style="{StaticResource TextoSuave}" Margin="0,4,0,0" />
+
+                        <ItemsControl ItemsSource="{Binding Termos}" Margin="0,10,0,0"
+                                      Grid.IsSharedSizeScope="True">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type vm:LinhaTermo}">
+                                    <Border Padding="0,10"
+                                            BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" SharedSizeGroup="AcaoTermoFicha" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center"
+                                                        Margin="0,0,12,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Brush.Texto.Primario}"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    <TextBlock Text="{Binding Procedimento}" Margin="8,0,0,0"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                </StackPanel>
+
+                                                <TextBlock Text="{Binding Situacao}" Margin="0,2,0,0"
+                                                           TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                           FontSize="{StaticResource Fonte.Legenda}">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Texto.Secundario}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding EhVermelho}" Value="True">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Erro}" />
+                                                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <Button Grid.Column="1" Content="Colher assinatura…"
+                                                    Style="{StaticResource BotaoSecundario}"
+                                                    VerticalAlignment="Center" MinWidth="170"
+                                                    IsEnabled="{Binding PodeColher}"
+                                                    Command="{Binding DataContext.ColherTermoCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
                 <Border Style="{StaticResource Card}">
                     <StackPanel>
                         <Grid>

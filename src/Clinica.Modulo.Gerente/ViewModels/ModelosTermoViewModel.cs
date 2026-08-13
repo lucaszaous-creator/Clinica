@@ -132,13 +132,22 @@ public sealed partial class ModelosTermoViewModel : ObservableObject
                 e.Modelo?.Nome ?? "(modelo removido)",
                 e.Ativa)).ToList();
 
+            // ⚠️ O id em foco é guardado ANTES do Clear.
+            //
+            // `Modelos.Clear()` faz a ListBox devolver NULL pelo binding de
+            // `SelectedItem` — o mesmo que a prévia do Novo atendimento sofreu na parcela
+            // 50 —, então `Selecionado` já é nulo quando a linha de baixo o consulta. Sem
+            // isto, salvar um termo devolvia o foco para o PRIMEIRO da lista, e a gravação
+            // seguinte ia para o modelo errado, em silêncio.
+            var emFoco = Selecionado?.Id;
+
             Modelos.Clear();
             foreach (var l in linhas) Modelos.Add(l);
 
             Exigencias.Clear();
             foreach (var l in linhasExigencia) Exigencias.Add(l);
 
-            Selecionado = Modelos.FirstOrDefault(m => m.Id == Selecionado?.Id)
+            Selecionado = Modelos.FirstOrDefault(m => m.Id == emFoco)
                           ?? Modelos.FirstOrDefault();
         }
         catch (Exception ex)

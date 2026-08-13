@@ -111,6 +111,29 @@ public sealed class AssinaturaDoPacienteService
             if (respostas.TryGetValue(item.Ordem, out var resposta))
                 item.Quantidade = string.IsNullOrWhiteSpace(resposta) ? null : resposta.Trim();
 
+        // ⚠️ Declaração EM BRANCO é recusada, e é a única recusa desta lista que não é
+        // sobre a assinatura em si.
+        //
+        // A razão: sem resposta o termo grava, aparece como "Assinado hoje" e NÃO acende
+        // alerta nenhum — o balcão dá a tarefa por cumprida e o procedimento acontece sem
+        // ninguém ter perguntado sobre o jejum. Ou seja, pular os rádios produz exatamente
+        // o desfecho que a feature existe para impedir, e produz em silêncio.
+        //
+        // Não contradiz o "avisa, mas não impede": aquilo vale para o CONTEÚDO da resposta
+        // (o "não" é registrado e o procedimento segue sendo decisão de quem o faz). O que
+        // se impede aqui é o formulário incompleto, como o documento de identidade acima.
+        var semResposta = documento.Itens
+            .Where(i => string.IsNullOrWhiteSpace(i.Quantidade))
+            .Select(i => i.Descricao)
+            .ToList();
+
+        if (semResposta.Count > 0)
+            throw new InvalidOperationException(
+                "Falta responder com o paciente: " + string.Join("; ", semResposta)
+                + ". Declaração em branco fica gravada como termo cumprido e não avisa "
+                + "ninguém — responda \"Não\" se for o caso, que o termo é emitido do "
+                + "mesmo jeito.");
+
         var traco = new TracoAssinatura
         {
             Conteudo = tracoPng,
@@ -217,29 +240,14 @@ public sealed class AssinaturaDoPacienteService
     /// <summary>
     /// SHA-256 do que o paciente tinha na frente.
     ///
-    /// A montagem é fixa e em cultura INVARIANTE de propósito: o hash é GRAVADO e
-    /// recalculado meses depois, possivelmente noutra máquina — uma data formatada na
-    /// cultura local faria a conferência acusar adulteração em toda clínica que trocasse
-    /// de computador. É o mesmo cuidado que o <c>ParametrosService</c> toma ao ler número.
+    /// A montagem mora na ENTIDADE (<see cref="DocumentoClinico.SeloDoConteudo"/>) porque
+    /// quem precisa dela são DOIS: este serviço, que a grava na coleta, e o PDF, que a
+    /// recalcula ao imprimir para poder avisar quando o conteúdo não bate. Duas montagens
+    /// divergiriam na primeira correção — e a divergência apareceria como "selo quebrado"
+    /// em todo termo válido, que é como se ensina alguém a ignorar o aviso.
     /// </summary>
     private static string SelarConteudo(DocumentoClinico documento)
-    {
-        var texto = new StringBuilder();
-
-        texto.Append(documento.Numero).Append('\n');
-        texto.Append(documento.Data.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append('\n');
-        texto.Append(documento.TituloImpresso).Append('\n');
-        texto.Append(documento.Corpo ?? string.Empty).Append('\n');
-
-        foreach (var item in documento.Itens.OrderBy(i => i.Ordem))
-            texto.Append(item.Ordem).Append('|')
-                 .Append(item.Descricao).Append('|')
-                 .Append(item.Detalhe ?? string.Empty).Append('|')
-                 .Append(item.Quantidade ?? string.Empty).Append('\n');
-
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(texto.ToString()));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
-    }
+        => documento.SeloDoConteudo();
 
     private async Task<DocumentoClinico> CarregarParaAssinarAsync(
         int documentoId, CancellationToken ct)

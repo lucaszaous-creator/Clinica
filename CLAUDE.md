@@ -2781,3 +2781,66 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   falhou ao nascer o oitavo tipo — foi a rede que impediu um documento sem PDF de passar no
   build e só quebrar na frente de quem fosse imprimi-lo. **Asserção contra a lista COMPLETA
   de um enum é o que faz o tipo novo cobrar a própria cobertura.**
+
+- **A porta do termo na FICHA, e as dezesseis coisas que uma revisão adversarial achou
+  numa parcela que já estava verde** (parcela 66, 2ª rodada). O cliente pediu para colher o
+  termo dentro da ficha do paciente — a porta nasceu na fila, e a ficha é onde a
+  recepcionista já está com a pessoa na frente. Virou uma seção no TOPO da aba Documentos
+  (não aba nova: a ficha já responde seis perguntas), e a decisão que a governa é a mesma
+  da entidade: **ela só mostra o dia de hoje**. Sem procedimento marcado, a seção troca de
+  frase em vez de sumir, e explica que o termo é colhido no dia — colher "para amanhã"
+  produziria um papel que o balcão não veria como cumprido amanhã, que é pior do que não
+  ter porta, porque a pessoa acreditaria ter resolvido.
+  ⚠️ **A lição maior não é a porta: é que a parcela estava com 1531 testes verdes, três
+  redes locais verdes, e tinha DEZESSEIS defeitos reais.** Nenhum deles quebrava build ou
+  teste. Vale a pena listar as famílias, porque elas se repetem:
+  (a) **Dado de saúde sem barreira na tela nova** — a seção da ficha era lida por
+  Financeiro e Faturista, que têm `VerFichaPaciente` e não têm `VerProntuario`. A lista de
+  documentos ao lado já filtrava por acesso; a seção nova, não. **Ao acrescentar região a
+  uma tela existente, copie a barreira da região vizinha.**
+  (b) **Carga que falha deixa a tela do paciente ANTERIOR** — o `catch` logava e saía, e
+  as linhas de quem já tinha saído continuavam ali com o botão aceso apontando para o
+  `DocumentoId` dele. Um clique assinaria o termo de outra pessoa. **Limpe ANTES do await,
+  não depois**, e ponha terceiro estado.
+  (c) **O selo que regera o arquivo sem a parte selada** — `AssinaturaDeDocumentoClinico
+  Service` gerava o PDF para assinar SEM passar o traço do paciente, e como a reimpressão
+  devolve os bytes guardados, o termo selado perderia a assinatura do paciente PARA SEMPRE.
+  É a inversão exata da regra que a própria parcela documentou.
+  (d) **Formulário incompleto gravado como cumprido** — declaração sem resposta virava
+  "Assinado hoje" sem alerta nenhum. Recusar em branco não contradiz o "avisa, mas não
+  impede": aquilo vale para o CONTEÚDO da resposta ("não estou em jejum" é registrado e o
+  procedimento segue sendo decisão de quem o faz); o que se impede é o campo vazio.
+  (e) **Rota que cai no `default:`** — a folha nova na central caía na janela genérica de
+  documento, que não conhece o tipo: papel numerado sem modelo de origem e sem declarações.
+  A saída foi a forma que o RECIBO já usava (`ExigenciaFolha.ProcedimentoDoDia`: o cartão
+  LEVA até onde se colhe, e o rótulo diz "Abrir a ficha" em vez de "Emitir"), mais uma
+  recusa no construtor da janela genérica — **a segunda barreira para a próxima porta**.
+  (f) **Mensagem de erro que manda fazer o que a tela não faz** — "troque o modelo da
+  exigência que existe" e não havia por onde. `ExigirAsync` passou a TROCAR. É seguro
+  porque aplicar COPIA: o termo assinado guarda o texto lido e o `ModeloOrigemId` antigo.
+  (g) **`NULL` não é único no PostgreSQL** — o índice `(Modalidade, ModalidadeCodigo)`
+  ficava inerte justamente no caso NORMAL (código nulo = família inteira), e dois cliques
+  concorrentes criariam duas exigências, fazendo o paciente assinar o mesmo papel duas
+  vezes. Família passou a gravar **string vazia**.
+  (h) **Hash gravado que ninguém recalcula é um número** — `ConteudoIntacto` existia sem
+  chamador em produção, e o rodapé afirmava o selo. Agora o PDF **recalcula na impressão** e
+  a segunda via de um termo alterado sai dizendo que não prova o que foi assinado. A
+  montagem do selo desceu para a ENTIDADE, porque quem precisa dela são dois (o serviço que
+  grava e o PDF que confere) e duas montagens divergiriam.
+  (i) **Alerta em data futura é alerta impossível de atender** — a conferência do termo
+  roda também no formulário de agendamento, que pergunta pela data MARCADA. Marcar um BSV
+  para o mês que vem acendia vermelho sem ter o que fazer. Restrito a hoje.
+  (j) **Dado calculado que nenhuma tela mostra** — `CartaoFila.TemTermoPendente` era
+  computado para todo cartão e só aparecia dentro do menu "⋯". Virou selo.
+  (k) **`IsEnabled` de bloco apagando a permissão de outro ato** — o "⋯" seguia
+  `PodeEditarAgenda`, e a técnica de enfermagem, que tem `ColherAssinaturaPaciente` e não
+  tem o da agenda, não alcançava o único caminho para colher. O bloco perdeu o `IsEnabled`;
+  quem decide item a item é o menu, e o botão de PASSO ficou com a permissão que é dele.
+  (l) **Alerta sem porta no app de quem o lê** — o Consultório recebia "falta o termo" com
+  o paciente na sala e não tinha botão. Ganhou a faixa com a MESMA janela do shell.
+  ⚠️ E a **lição de método**: o script da revisão tinha um bug meu (passei promessas a
+  `parallel`, que espera thunks), então a fase de verificação morreu e o workflow devolveu
+  `{confirmados: [], descartados: []}` — **vazio por defeito, indistinguível de "nada
+  encontrado"**. É o defeito recorrente do projeto cometido na própria ferramenta de achar
+  defeitos. Os achados estavam no `journal.jsonl` o tempo todo. **Resultado vazio de
+  workflow é para ser investigado no journal, nunca lido como aprovação.**

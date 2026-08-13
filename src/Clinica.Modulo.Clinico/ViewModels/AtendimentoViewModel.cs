@@ -122,6 +122,80 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<LinhaAlertaClinico> AlertasClinicos { get; } = [];
 
+    /// <summary>
+    /// O termo do procedimento de hoje que ainda falta assinar (parcela 66, 2ª rodada).
+    /// Null = nada pendente. É o que dá PORTA ao alerta que já chegava aqui.
+    /// </summary>
+    private SituacaoTermo? TermoPendente { get; set; }
+
+    public bool TemTermoPendente => TermoPendente is not null;
+
+    /// <summary>
+    /// A metade VISÍVEL do acesso; a que IMPEDE está no comando. Quem atende recebe
+    /// <see cref="Permissao.ColherAssinaturaPaciente"/> por padrão desde a parcela 66.
+    /// </summary>
+    public bool PodeColherTermo
+        => TemTermoPendente && SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
+
+    /// <summary>
+    /// Abre a coleta do termo com o paciente já na sala — a MESMA janela do balcão
+    /// (<c>AssinaturaPacienteWindow</c>, no shell). Copiá-la daria duas telas divergindo na
+    /// primeira correção, e o que elas colhem é a prova de que o paciente consentiu.
+    /// </summary>
+    [RelayCommand]
+    private async Task ColherTermoAsync()
+    {
+        // A barreira que IMPEDE, e ela DIZ por que recusou (a lição da parcela 41).
+        if (!SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente))
+        {
+            _snackbar.Erro("Você não tem permissão para colher a assinatura do paciente.");
+            return;
+        }
+
+        if (TermoPendente is not { } pendente)
+        {
+            _snackbar.Info("Não há termo pendente para este paciente hoje.");
+            return;
+        }
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+
+            var vm = new Clinica.Desktop.Shell.Componentes.AssinaturaPacienteViewModel(
+                scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>(),
+                scope.ServiceProvider.GetRequiredService<AssinaturaDoPacienteService>(),
+                scope.ServiceProvider.GetRequiredService<Clinica.Desktop.Controls.IDialogoService>(),
+                PacienteId,
+                pendente.ModeloId,
+                Paciente,
+                pendente.DocumentoId,
+                pendente.ProfissionalId,
+                scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>());
+
+            var janela = new Clinica.Desktop.Shell.Componentes.AssinaturaPacienteWindow(vm)
+            {
+                // A janela ATIVA, não a principal (parcela 58).
+                Owner = System.Windows.Application.Current?.Windows
+                            .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
+                        ?? System.Windows.Application.Current?.MainWindow
+            };
+
+            janela.ShowDialog();
+
+            // Recarrega mesmo sem `Concluido`: abrir a janela já EMITE o termo numerado, e
+            // a tela precisa refletir isso.
+            await CarregarAsync();
+
+            if (vm.Concluido) _snackbar.Sucesso("Termo do procedimento resolvido.");
+        }
+        catch (Exception ex)
+        {
+            _snackbar.Erro($"Não foi possível abrir o termo: {ex.Message}");
+            Clinica.Application.Diagnostico.Registrar("Consultório — coleta do termo", ex);
+        }
+    }
+
     /// <summary>Evolução em edição. 0 = sessão nova.</summary>
     [ObservableProperty] private int _evolucaoId;
 
@@ -395,6 +469,21 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                     Texto = a.Descricao,
                     Grave = a.Urgencia == NivelUrgencia.Vermelho
                 });
+
+            // A PORTA do termo (parcela 66, 2ª rodada). O alerta acima já dizia "falta o
+            // termo assinado" com o paciente na sala — e não havia botão, menu nem item de
+            // sidebar neste app para colher: o médico teria de descer ao balcão. Alerta sem
+            // porta no mesmo app é pior que alerta nenhum, porque ensina a ignorá-lo
+            // (parcela 48). O bit `ColherAssinaturaPaciente` já vai para os perfis
+            // Profissional e Enfermagem desde a 66 — o modelo de permissão previu esta
+            // porta antes de ela existir.
+            var termos = servicos.GetRequiredService<TermoProcedimentoService>();
+            var situacoes = await termos.SituacaoDoDiaAsync(
+                PacienteId, DateOnly.FromDateTime(Data));
+
+            TermoPendente = situacoes.FirstOrDefault(s => s.Pendente);
+            OnPropertyChanged(nameof(TemTermoPendente));
+            OnPropertyChanged(nameof(PodeColherTermo));
         }
         catch (Exception ex)
         {

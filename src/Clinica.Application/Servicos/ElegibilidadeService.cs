@@ -117,6 +117,15 @@ public sealed class ElegibilidadeService
         // continuar construível sem o módulo que trouxe a feature.
         if (_termos is null) return;
 
+        // ⚠️ SÓ para HOJE. A conferência é chamada também com data FUTURA — o formulário de
+        // agendamento pergunta pela data marcada, para avisar o que se resolve com o
+        // paciente presente. Um termo, porém, é colhido no DIA da sessão (a validade é por
+        // sessão), então em data futura o alerta seria sempre verdadeiro e IMPOSSÍVEL de
+        // atender: quem marcasse um BSV para o mês que vem veria vermelho sem ter o que
+        // fazer. Alerta que dispara para todo mundo é alerta que ninguém lê — e este
+        // ensinaria a ignorar justamente o que aparece no dia certo.
+        if (referencia != DateOnly.FromDateTime(DateTime.Today)) return;
+
         var situacoes = await _termos.SituacaoDoDiaAsync(pacienteId, referencia, ct);
 
         foreach (var s in situacoes.Where(s => s.Pendente))

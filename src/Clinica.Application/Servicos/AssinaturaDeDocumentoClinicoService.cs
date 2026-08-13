@@ -133,8 +133,23 @@ public sealed class AssinaturaDeDocumentoClinicoService
             ? null
             : await _publicacao.GarantirTokenAsync(documento, ct);
 
+        // ⚠️ O TRAÇO DO PACIENTE TEM DE ENTRAR AQUI (parcela 66, 2ª rodada).
+        //
+        // O selo cobre uma faixa de BYTES e a reimpressão passa a devolver ESTES bytes para
+        // sempre. Gerar o PDF sem o traço produziria, em silêncio, um termo selado com a
+        // linha de assinatura do paciente EM BRANCO — e o original com o traço deixaria de
+        // existir, porque `GerarAsync` devolve o arquivo guardado daí em diante.
+        //
+        // É o defeito exato que o cabeçalho do `AssinaturaDoPacienteService` diz que a
+        // ordem das assinaturas existe para evitar: lá o serviço RECUSA colher traço depois
+        // do selo; aqui a metade que faltava é o selo carregar o traço que já existe.
+        var tracoPaciente = documento.TracoAssinaturaId is int tracoId
+            ? (await _repo.ObterTracoAssinaturaAsync(tracoId, ct))?.Conteudo
+            : null;
+
         var pdf = _pdfs.Gerar(documento, prestador,
-            paraAssinaturaEletronica: true, urlDoArquivo: urlDoArquivo);
+            paraAssinaturaEletronica: true, urlDoArquivo: urlDoArquivo,
+            tracoPaciente: tracoPaciente);
 
         var assinado = await _assinador.AssinarAsync(pdf, certificado, new PedidoAssinatura(
             Motivo: $"{TipoDocumentoInfo.Rotular(documento.Tipo)} {documento.Numero}",

@@ -764,6 +764,20 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.Exigir(
                 Permissao.ColherAssinaturaPaciente, "colher a assinatura do paciente");
 
+            // ⚠️ Só HOJE, e a guarda FALA. O quadro navega dias (`DiaAnterior`/`ProximoDia`),
+            // mas a emissão carimba `DateTime.Today` — colher com o quadro em 12/08 criaria
+            // um termo datado de hoje que nunca casaria com aquele dia: o papel sairia
+            // assinado e a pendência de 12/08 continuaria acesa. Pior que não ter o botão,
+            // porque a pessoa acreditaria ter resolvido.
+            if (Dia.Date != DateTime.Today)
+            {
+                _dialogo.Aviso(
+                    "Termo é do dia do procedimento",
+                    "O termo vale para a SESSÃO, e é colhido no dia dela. Volte para hoje "
+                    + "para colher a assinatura deste paciente.");
+                return;
+            }
+
             var situacoes = await _termos.SituacaoDoDiaAsync(
                 c.PacienteId, DateOnly.FromDateTime(Dia));
 
@@ -786,7 +800,13 @@ public sealed partial class FilaViewModel : ObservableObject
                 c.PacienteId,
                 pendente.ModeloId,
                 c.Paciente,
-                pendente.DocumentoId);
+                pendente.DocumentoId,
+                // O profissional do HORÁRIO: sem ele o termo nasce órfão e a via que o
+                // paciente assina — e que fica 20 anos no prontuário — sai com
+                // "Profissional responsável" no lugar do nome e do CRM de quem faz o
+                // procedimento.
+                _doDia.FirstOrDefault(a => a.Id == c.AgendamentoId)?.ProfissionalId,
+                scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>());
 
             var janela = new AssinaturaPacienteWindow(vm) { Owner = Dono() };
             janela.ShowDialog();

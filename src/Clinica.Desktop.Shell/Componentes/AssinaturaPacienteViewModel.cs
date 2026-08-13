@@ -45,6 +45,12 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
     /// </summary>
     private DocumentoClinico? _documento;
 
+    /// <summary>
+    /// Trilha de LEITURA do prontuário (parcela 52). Opcional só para o construtor não
+    /// quebrar quem monta o VM à mão — em produção ele sempre chega.
+    /// </summary>
+    private readonly AcessoProntuarioService? _acessos;
+
     public AssinaturaPacienteViewModel(
         DocumentoClinicoService documentos,
         AssinaturaDoPacienteService assinaturas,
@@ -53,11 +59,13 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
         int modeloId,
         string pacienteNome,
         int? documentoExistenteId = null,
-        int? profissionalId = null)
+        int? profissionalId = null,
+        AcessoProntuarioService? acessos = null)
     {
         _documentos = documentos;
         _assinaturas = assinaturas;
         _dialogo = dialogo;
+        _acessos = acessos;
         _pacienteId = pacienteId;
         _modeloId = modeloId;
         _profissionalId = profissionalId;
@@ -134,6 +142,29 @@ public sealed partial class AssinaturaPacienteViewModel : ObservableObject
 
         try
         {
+            // A trilha de LEITURA (parcela 52, ponto 4 do compromisso LGPD): esta janela
+            // ABRE dado de saúde — qual procedimento a pessoa vai fazer e o que ela declara
+            // sobre o próprio corpo —, e quem a fecha sem assinar não deixaria rastro
+            // nenhum, porque nenhuma escrita teria acontecido. Registrar UMA vez por
+            // abertura, e não a cada recarga, é o padrão das telas clínicas.
+            //
+            // Falhar aqui NÃO impede a coleta: banco lento não pode travar o paciente na
+            // frente do balcão. Mas também não passa calado — vai para o log, senão a
+            // clínica acredita estar coberta e não está.
+            if (_acessos is not null)
+            {
+                try
+                {
+                    await _acessos.RegistrarAsync(
+                        _pacienteId, Testemunha, OrigemAcessoProntuario.Documento);
+                }
+                catch (Exception ex)
+                {
+                    Application.Diagnostico.Registrar(
+                        "Assinatura do paciente — acesso ao prontuário não pôde ser registrado", ex);
+                }
+            }
+
             _documento = DocumentoExistenteId is int existente
                 ? await _documentos.ObterAsync(existente)
                 : await _documentos.EmitirTermoProcedimentoAsync(

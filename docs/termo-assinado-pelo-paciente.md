@@ -16,12 +16,26 @@
 | Onde | O quê |
 |---|---|
 | **Gerente → Configurações → "Escrever termos…"** | A clínica escreve o texto, as declarações e diz qual procedimento exige qual termo |
-| **Recepção → Fila → "⋯" do cartão** | "Colher o termo do procedimento…" abre a coleta com o paciente no balcão |
+| **Recepção → Pacientes → ficha → aba Documentos** | Seção "Termo do procedimento — hoje", com o botão **"Colher assinatura…"** por termo. É a porta principal: a ficha já está aberta na frente do paciente |
+| **Recepção → Fila → "⋯" do cartão** | "Colher o termo do procedimento…", e o cartão ganha o selo **"Termo pendente"** |
+| **Consultório → Atendimento** | Faixa vermelha com o botão de colher, para quando o paciente já está na sala |
 | **Check-in** | O alerta "falta o termo" chega sozinho pelo `ElegibilidadeService` — e daí ao agendamento, à ficha e ao Consultório |
-| **Central de documentos e ficha** | Segunda via, numerada (`2026/0001`) e com código de conferência |
+| **Central de documentos** | O cartão **leva à ficha** em vez de emitir (ver abaixo); a segunda via sai da lista de documentos |
 
 O termo **nasce numerado** e com código de conferência, como todo documento clínico —
 é por eles que a clínica o acha depois.
+
+⚠️ **A seção só aparece para quem tem `VerProntuario`.** O termo diz qual procedimento a
+pessoa vai fazer e o que ela declarou sobre o próprio corpo — é dado de saúde (art. 5º, II),
+e os perfis Financeiro e Faturista abrem esta mesma ficha. Ela **some**, não fica apagada:
+"sem permissão" ao lado de "Termo do BSV" anunciaria que existe um BSV marcado para aquela
+pessoa, que é justamente o que não se quer contar.
+
+⚠️ **A central de documentos NÃO emite o termo** (`ExigenciaFolha.ProcedimentoDoDia`): o
+cartão diz "Abrir a ficha" e navega, como o recibo faz com o Caixa. Emitir solto produziria
+um papel numerado sem modelo de origem e sem declarações — a pendência do dia continuaria
+acesa e a pessoa acreditaria ter resolvido. A janela genérica de documento **recusa** o tipo
+no construtor, para a próxima porta não repetir o erro.
 
 ## 1. O que o pedido é, e o que ele não é
 
@@ -262,14 +276,37 @@ não faz barulho:
 - **`A_frase_do_rodape_nao_chama_o_traco_de_assinatura_digital`** — a regra do carimbo
   escaneado, da parcela 3.
 
+### O que a revisão adversarial achou depois (2ª rodada)
+
+Uma varredura em seis lentes sobre o diff pronto devolveu **20 achados**. Os que eram
+defeito de verdade foram corrigidos nesta mesma parcela, e cada um virou teste:
+
+| Defeito | Como falhava |
+|---|---|
+| **A seção da ficha vazava dado de saúde** | Financeiro e Faturista têm `VerFichaPaciente` e liam "Termo do BSV · BSV com acupuntura" |
+| **Falha de leitura deixava as linhas do paciente ANTERIOR** | Um clique assinaria o termo de quem já saiu, em nome de quem está na frente |
+| **O selo ICP-Brasil regerava o PDF SEM o traço** | O arquivo selado — que passa a ser o devolvido para sempre — sairia com a linha do paciente em branco |
+| **Declaração em branco = termo cumprido** | Pular os rádios gravava "Assinado hoje" sem alerta: o procedimento aconteceria sem ninguém perguntar do jejum |
+| **A central abria a janela genérica** | Papel numerado sem modelo de origem, com a pendência continuando acesa |
+| **A fila colhia com o quadro em outro dia** | O termo nascia com a data de hoje e nunca casaria com aquele dia |
+| **Salvar em Configurações pulava a seleção** | A gravação seguinte ia para o modelo errado, em silêncio |
+| **A exigência era write-once** | A mensagem mandava "trocar o modelo" e não havia por onde — agora `ExigirAsync` TROCA |
+| **Índice único inerte** | `NULL` é distinto de `NULL` no PostgreSQL: dois cliques criariam duas exigências. Família passou a gravar string VAZIA |
+| **`ConteudoIntacto` sem chamador** | O hash era gravado e impresso e nada o recalculava — agora o rodapé denuncia o termo alterado |
+| **Alerta em data futura** | Marcar um BSV para o mês que vem acendia vermelho impossível de atender |
+| **Termo nascia sem profissional** | A via que fica 20 anos no prontuário saía com "Profissional responsável" no lugar do nome e do CRM |
+| **`TemTermoPendente` calculado e nunca mostrado** | O cartão da fila ficava idêntico ao de quem já assinou |
+| **O "⋯" apagado por `PodeEditarAgenda`** | A técnica de enfermagem tem o bit do ato e não conseguia colher |
+| **Alerta no Consultório sem porta** | O médico lia "falta o termo" com o paciente na sala e tinha de descer ao balcão |
+| **A janela do termo não registrava acesso** | Abrir e fechar sem assinar não deixava rastro — ponto 4 do compromisso LGPD |
+
 ### O que ficou de fora, e é sabido
 
 - **A Fase 2** (link para assinar em casa) — seção 4.
 - **`MeioAssinaturaPaciente.LinkRemoto`** existe no enum e **nenhum código o grava**. É
   deliberado: sem ele, o dia em que o link existir faria todo termo antigo parecer remoto.
-- **Porta no Consultório e na sala de infusão.** A permissão já vai para os três perfis e a
-  janela mora no shell — falta o item de menu. O balcão, que é onde o termo se colhe hoje,
-  está coberto.
+- **Sala de infusão.** A permissão já vai para os três perfis e a janela mora no shell;
+  falta a porta lá. Balcão, ficha e Consultório estão cobertos.
 
 ---
 
