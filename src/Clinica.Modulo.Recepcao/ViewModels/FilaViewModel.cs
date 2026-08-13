@@ -642,19 +642,50 @@ public sealed partial class FilaViewModel : ObservableObject
         }, "início do atendimento");
 
     /// <summary>
-    /// Encerra a sessão. Abre a janela de fechamento em vez de concluir direto: a
-    /// conclusão são QUATRO fatos do mesmo ato — a guia nasce, o pacote debita, o insumo
-    /// sai do estoque e o dinheiro entra no caixa —, e por muito tempo só o primeiro
-    /// acontecia. Ver <see cref="FechamentoSessaoService"/>.
+    /// Encerra a sessão. Concluir são QUATRO fatos do mesmo ato — a guia nasce, o pacote
+    /// debita, o insumo sai do estoque e o dinheiro entra no caixa —, e por muito tempo só
+    /// o primeiro acontecia. Ver <see cref="FechamentoSessaoService"/>.
     ///
-    /// A janela é PROPOSTA confirmada, não automação: o balcão vê o que vai acontecer e
-    /// corrige antes. Cancelar lá não conclui nada — o cartão fica onde estava.
+    /// ⚠️ <b>A GUIA NASCE AQUI, antes de qualquer janela (parcela 65).</b> Até então a
+    /// ordem era a inversa: a janela abria primeiro e a guia só existia se ela fosse
+    /// CONFIRMADA — fechá-la deixava a sessão registrada na agenda e invisível para quem
+    /// fatura. A direção fixou a regra: atendimento que entra no sistema já gera guia,
+    /// agendado ou avulso. Os outros três fatos são o passo seguinte e não podem
+    /// condicionar nem desfazer a guia.
+    ///
+    /// A janela continua sendo PROPOSTA confirmada, e agora só abre quando há o que
+    /// decidir (pacote, dinheiro ou insumo). Fechá-la não desfaz nada.
     /// </summary>
     [RelayCommand]
     private async Task FinalizarAsync(CartaoFila? cartao)
-        => await ExecutarAsync(cartao, c =>
+        => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
+            RegistroAtendimento registro;
+            using (var scope = _escopos.CreateScope())
+            {
+                var fechamento = scope.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
+                registro = await fechamento.RegistrarAtendimentoAsync(
+                    c.AgendamentoId, SessaoUsuario.Atual.Operador);
+            }
+
+            // Os recados do LANÇAMENTO em diálogo, não em snackbar (parcela 62): o
+            // principal deles é a NÃO CONFORMIDADE reaberta porque o paciente voltou, e
+            // ele existe para a secretária cobrar a guia AGORA, com ele ainda no balcão.
+            // Snackbar some em 4s e não sobrevive a quem virou para atender o próximo —
+            // é o mesmo diálogo que o check-in usa para os alertas de elegibilidade.
+            if (registro.RecadosDoLancamento.Count > 0)
+                _dialogo.Aviso($"Atenção — {c.Paciente}",
+                    string.Join("\n\n", registro.RecadosDoLancamento));
+
+            if (!registro.TemDecisao)
+            {
+                _snackbar.Sucesso(registro.GuiasGeradas == 0
+                    ? $"Sessão de {c.Paciente} concluída — particular, sem guia a faturar."
+                    : $"Sessão de {c.Paciente} concluída — {registro.GuiasGeradas} guia(s) no faturamento.");
+                return;
+            }
 
             var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
             var janela = new Janelas.FechamentoSessaoWindow(vm)
@@ -665,25 +696,21 @@ public sealed partial class FilaViewModel : ObservableObject
             // Modal: o await fica com a janela, e o recarregar da fila vem do
             // ExecutarAsync assim que ela fecha — inclusive quando fecha com aviso.
             if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
-                return Task.CompletedTask;
+            {
+                // A sessão está concluída e a guia feita; o que ficou de fora foi o
+                // pacote/caixa. Dizer isso é o que impede a recepcionista de concluir de
+                // novo procurando a guia que já existe.
+                _snackbar.Info($"Sessão de {c.Paciente} concluída e guia gerada — "
+                               + "pacote/caixa não registrados.");
+                return;
+            }
 
-            var partes = new List<string> { $"{resultado.Atendimento.Codigos.Count} código(s)" };
+            var partes = new List<string> { $"{registro.GuiasGeradas} guia(s)" };
             if (resultado.Consumo is not null) partes.Add("1 sessão do pacote");
             if (resultado.Movimentos.Count > 0) partes.Add($"{resultado.Movimentos.Count} insumo(s)");
             if (resultado.Lancamento is not null) partes.Add("entrada no caixa");
 
             _snackbar.Sucesso($"Sessão de {c.Paciente} concluída — {string.Join(" · ", partes)}.");
-
-            // Os recados do LANÇAMENTO em diálogo, não em snackbar (parcela 62): o
-            // principal deles é a NÃO CONFORMIDADE reaberta porque o paciente voltou, e
-            // ele existe para a secretária cobrar a guia AGORA, com ele ainda no balcão.
-            // Snackbar some em 4s e não sobrevive a quem virou para atender o próximo —
-            // é o mesmo diálogo que o check-in usa para os alertas de elegibilidade.
-            if (resultado.TemRecados)
-                _dialogo.Aviso($"Atenção — {c.Paciente}",
-                    string.Join("\n\n", resultado.RecadosDoLancamento));
-
-            return Task.CompletedTask;
         }, "conclusão do atendimento");
 
     /// <summary>Volta o cartão uma coluna — clicar errado no kanban é rotina.</summary>

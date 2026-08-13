@@ -209,22 +209,33 @@ public class FechamentoSessaoTests : IDisposable
         resultado.Avisos.Should().ContainSingle().Which.Should().Contain("NÃO entrou no caixa");
     }
 
+    /// <summary>
+    /// UMA SESSÃO, UMA GUIA, UM DÉBITO — a garantia continua; o mecanismo mudou.
+    ///
+    /// Até a parcela 64 a segunda chamada ESTOURAVA no <c>ConfirmarPresencaAsync</c>. Desde
+    /// a 65 ela reaproveita o atendimento que já existe e segue em silêncio: a guia passou
+    /// a nascer no registro, então a exceção cairia justamente sobre quem clicou duas vezes
+    /// procurando a guia — e recusar não devolveria nada a essa pessoa.
+    ///
+    /// O que este teste cobra é o que importa para a clínica, e vale nos dois desenhos:
+    /// nada é duplicado.
+    /// </summary>
     [Fact]
-    public async Task Concluir_DuasVezes_NaoConcluiDeNovo()
+    public async Task Concluir_DuasVezes_NaoDuplicaNada()
     {
         var pacienteId = await CriarPacienteAsync();
         await VenderPacoteAsync(pacienteId);
         var agendamentoId = await AgendarAsync(pacienteId);
 
-        await _fechamento.ConcluirAsync(new DecisaoFechamento(agendamentoId));
+        var primeiro = await _fechamento.ConcluirAsync(new DecisaoFechamento(agendamentoId));
+        var segundo = await _fechamento.ConcluirAsync(new DecisaoFechamento(agendamentoId));
 
-        // A segunda tentativa morre no ConfirmarPresencaAsync — antes de debitar
-        // qualquer coisa. Uma sessão, uma guia, um débito.
-        var repetir = () => _fechamento.ConcluirAsync(new DecisaoFechamento(agendamentoId));
-        await repetir.Should().ThrowAsync<InvalidOperationException>();
+        segundo.Atendimento.Id.Should().Be(primeiro.Atendimento.Id, "é a mesma sessão");
+        (await _db.Atendimentos.CountAsync()).Should().Be(1);
+        (await _db.Codigos.CountAsync()).Should().Be(primeiro.Atendimento.Codigos.Count);
 
         var saldos = await _pacotes.DoPacienteAsync(pacienteId, Dia);
-        saldos.Single().SaldoSessoes.Should().Be(9);
+        saldos.Single().SaldoSessoes.Should().Be(9, "o pacote debita uma vez por atendimento");
     }
 
     // ==================== A proposta ====================
@@ -401,15 +412,29 @@ public class FechamentoSessaoTests : IDisposable
         proposta.Insumos.Should().BeEmpty();
     }
 
+    /// <summary>
+    /// Agendamento JÁ REALIZADO passou a ser o caso NORMAL desta tela (parcela 65).
+    ///
+    /// A guia nasce quando o atendimento é registrado, e a janela de pacote/insumo/caixa é
+    /// o passo seguinte — então, quando ela abre, o agendamento já está `Realizado`. A
+    /// recusa que existia aqui derrubaria exatamente a janela que veio DEPOIS da guia,
+    /// com a mensagem "este agendamento já teve a presença confirmada" na cara de quem
+    /// acabou de lançar corretamente.
+    ///
+    /// Quem impede a duplicidade é o <c>ConcluirAsync</c> (que reaproveita o atendimento) e
+    /// o <c>AtendimentoJaConsumiuPacoteAsync</c> — não esta recusa.
+    /// </summary>
     [Fact]
-    public async Task Preparar_AgendamentoJaRealizado_Recusa()
+    public async Task Preparar_AgendamentoJaRealizado_Funciona()
     {
         var pacienteId = await CriarPacienteAsync();
         var agendamentoId = await AgendarAsync(pacienteId);
         await _fechamento.ConcluirAsync(new DecisaoFechamento(agendamentoId));
 
-        var preparar = () => _fechamento.PrepararAsync(agendamentoId);
-        await preparar.Should().ThrowAsync<InvalidOperationException>();
+        var proposta = await _fechamento.PrepararAsync(agendamentoId);
+
+        proposta.AgendamentoId.Should().Be(agendamentoId);
+        proposta.PacienteId.Should().Be(pacienteId);
     }
 
     public void Dispose()
