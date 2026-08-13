@@ -267,7 +267,30 @@ public enum Permissao
     /// paralelo noutra frente. Dois membros com o MESMO valor compilam — e "vender
     /// pacote" passaria a ser "mover a fila" em toda base de produção, sem um aviso.
     /// </summary>
-    MovimentarFila = 1 << 27
+    MovimentarFila = 1 << 27,
+
+    /// <summary>
+    /// DEFINIR e apagar a meta do mês — o alvo contra o qual o painel da direção compara o
+    /// realizado (parcela 64).
+    ///
+    /// Nasceu porque <see cref="VerIndicadores"/> estava sobrecarregado: ele significava
+    /// "ver o BI" E "decidir onde a clínica quer chegar", e não havia como conceder um sem
+    /// o outro. É o mesmo defeito que a parcela 49 corrigiu entre ficha e prontuário — a
+    /// granularidade existia na TELA e não no domínio —, e ele mordia justamente no pedido
+    /// da direção: dar a alguém acesso de LEITURA aos números ("o financeiro pode ver")
+    /// entregava junto o poder de APAGAR todas as metas do ano.
+    ///
+    /// Ver e decidir são atos de peso diferente: o realizado é fato, e o alvo é a decisão
+    /// da direção sobre o fato. Apagar uma meta ainda é a variante grave — some a régua, e
+    /// o painel volta a comparar só com o mês anterior, que responde "melhorou?" e nunca
+    /// "chegamos onde a gente disse que ia chegar?".
+    ///
+    /// ⚠️ Isto NÃO tira capacidade de ninguém: nenhum perfil padrão além do Gerente tem
+    /// <see cref="VerIndicadores"/>, e o Gerente recebe <see cref="PerfisAcesso.Todas"/> —
+    /// o bit novo chega ligado a quem já definia meta ontem. O que ele acrescenta é a
+    /// possibilidade de a direção conceder o BI sem conceder o alvo.
+    /// </summary>
+    DefinirMetas = 1 << 28
 }
 
 /// <summary>
@@ -487,6 +510,7 @@ public static class PerfisAcesso
         Permissao.MarcarNaoConformidade => "Decidir não faturar (NC)",
         Permissao.ConfigurarFaturamento => "Configurar o faturamento",
         Permissao.VerIndicadores => "Ver indicadores",
+        Permissao.DefinirMetas => "Definir metas do mês",
         Permissao.GerenciarCampanhas => "Gerenciar campanhas",
         Permissao.GerenciarEquipe => "Cadastrar equipe",
         Permissao.GerenciarUsuarios => "Gerenciar usuários",
@@ -609,6 +633,11 @@ public static class PerfisAcesso
 
         Permissao.VerIndicadores =>
             "Indicadores gerenciais, BI e os relatórios do faturamento.",
+        Permissao.DefinirMetas =>
+            "Criar, corrigir e APAGAR o alvo do mês. Ver o indicador é uma coisa; decidir "
+            + "onde a clínica quer chegar é outra — e apagar a meta faz o painel voltar a "
+            + "comparar só com o mês anterior, que responde \"melhorou?\" e nunca "
+            + "\"chegamos?\".",
         Permissao.GerenciarCampanhas => "Gerar e disparar confirmação, NPS e recall.",
         Permissao.GerenciarEquipe => "Cadastrar profissionais e salas.",
         Permissao.GerenciarUsuarios => "Criar usuário, trocar senha e mexer em permissão.",

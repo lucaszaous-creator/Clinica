@@ -2633,3 +2633,19 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   todas as outras escritas a tinham. **Quando três comandos vizinhos têm a guarda e um não,
   o que está errado é o um** — e o CSV conta como saída de dado, que foi a lição da parcela
   60 aplicada ao export clínico.
+
+- **Ver o número e DECIDIR sobre ele são bits diferentes** (`Permissao.DefinirMetas`,
+  parcela 64): a tela de Metas exigia `VerIndicadores` — o bit de LER o BI — para criar e
+  para APAGAR o alvo do mês. É o bit sobrecarregado da parcela 49 de novo, num par que
+  parece o mesmo assunto e não é: o realizado é FATO, e a meta é a DECISÃO da direção
+  sobre o fato. Enquanto os dois moraram no mesmo bit, dar acesso de leitura aos números a
+  alguém ("o financeiro pode ver") entregava junto o poder de apagar as metas do ano — e
+  meta apagada não deixa buraco visível: o painel volta a comparar com o mês anterior, que
+  responde "melhorou?" e nunca "chegamos onde a gente disse que ia chegar?".
+  ⚠️ Diferente da parcela 49, **esta separação não tira nada de ninguém**: nenhum perfil
+  padrão além do Gerente tinha `VerIndicadores`, e o Gerente recebe `Todas` — o bit novo
+  chega ligado a quem já definia meta ontem. O que ele acrescenta é a possibilidade de
+  conceder o BI sem conceder o alvo, que é o pedido da direção na 49 aplicado ao lugar
+  onde ainda não estava. `Ver_indicadores_nao_da_o_direito_de_definir_meta` falha se
+  alguém os juntar de volta, inclusive pelo caminho discreto (acrescentar o bit ao padrão
+  de um perfil que só deveria ler).
