@@ -133,8 +133,12 @@
 
                     <TextBlock Grid.Column="0" Text="Cobrar por" Style="{StaticResource Rotulo}"
                                VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <!-- ItemTemplate obrigatório: sem ele o WPF chama ToString() e a caixa
+                         oferece "MaisAntigo"/"MaiorValor" — o defeito da parcela 41. O
+                         humanizador do RotulosEnum devolve "Mais antigo" e "Maior valor". -->
                     <ComboBox Grid.Column="1" ItemsSource="{Binding Ordens}"
-                              SelectedItem="{Binding Ordem}" VerticalAlignment="Center" />
+                              SelectedItem="{Binding Ordem}" VerticalAlignment="Center"
+                              ItemTemplate="{StaticResource ItemRotuloEnum}" />
 
                     <TextBlock Grid.Column="2" Text="{Binding Resumo}"
                                Style="{StaticResource TextoSuave}" VerticalAlignment="Center"
@@ -149,12 +153,13 @@
                     </StackPanel>
                 </Grid>
 
-                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaSucesso}"
-                        Visibility="{Binding Vazio, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock TextWrapping="Wrap"
-                               Text="Nenhuma conta de paciente vencida. Nada a cobrar hoje." />
-                </Border>
+                <!-- A faixa verde saiu daqui: ela era a TERCEIRA resposta para "não há
+                     ninguém devendo" na mesma tela — o resumo ao lado do combo já diz, e o
+                     EstadoDaTela abaixo diz de novo, com desenho. "Um estado vazio por
+                     pergunta" é a regra da parcela 37, e três respostas empilhadas foi
+                     exatamente o que o cliente viu como sobreposição. -->
 
+                <Grid>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Devedores}">
                         <ItemsControl.ItemTemplate>
@@ -261,15 +266,23 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+
+                <!-- ⚠️ DENTRO da região da lista, e como ÚLTIMO filho do Grid dela.
+                     Na raiz da tela ele cobria TUDO — os KPIs, o filtro e a coluna de
+                     envelhecimento —, e o "Ninguém devendo" aparecia flutuando no meio
+                     da página, por cima da faixa de aviso. É o defeito que a parcela 58
+                     já tinha corrigido noutras telas: a sobreposição pertence à região
+                     cujo vazio ela explica, não à página. -->
+                <ctrl:EstadoDaTela Itens="{Binding Devedores}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE77B;"
+                                   TextoCarregando="Somando o que está em aberto…"
+                                   Titulo="Ninguém devendo"
+                                   Descricao="{Binding VazioDescricao}" />
+                </Grid>
             </DockPanel>
         </Border>
       </DockPanel>
-        <ctrl:EstadoDaTela Itens="{Binding Devedores}"
-                           Carregando="{Binding Carregando}"
-                           NaoVerificado="{Binding NaoVerificado}"
-                           Glifo="&#xE77B;"
-                           TextoCarregando="Somando o que está em aberto…"
-                           Titulo="Ninguém devendo"
-                           Descricao="{Binding VazioDescricao}" />
     </Grid>
 </UserControl>

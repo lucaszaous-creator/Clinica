@@ -67,7 +67,14 @@ public sealed partial class MetasViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _apuracaoNaoVerificada;
 
-    public bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.VerIndicadores);
+    /// <summary>
+    /// Metade VISÍVEL da permissão. <b>Definir meta é bit próprio desde a parcela 64</b>:
+    /// até aqui a tela pedia <see cref="Permissao.VerIndicadores"/>, que é o bit de LER o
+    /// BI — quem recebesse acesso de leitura aos números ganhava junto o poder de criar e
+    /// APAGAR o alvo do ano, sem que houvesse como separar os dois. Era o bit
+    /// sobrecarregado da parcela 49 outra vez, agora entre ver o fato e decidir sobre ele.
+    /// </summary>
+    public bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.DefinirMetas);
 
     public MetasViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -215,7 +222,7 @@ public sealed partial class MetasViewModel : ObservableObject
 
     private async Task AbrirAsync(LinhaMeta? linha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.VerIndicadores, "definir metas");
+        SessaoUsuario.Atual.Exigir(Permissao.DefinirMetas, "definir metas");
 
         var vm = new MetaEdicaoViewModel(_escopos, Ano, linha);
         var janela = new Janelas.MetaWindow(vm)
@@ -241,7 +248,7 @@ public sealed partial class MetasViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerIndicadores, "excluir metas");
+            SessaoUsuario.Atual.Exigir(Permissao.DefinirMetas, "excluir metas");
 
             if (!_dialogo.ConfirmarPerigo(
                     "Excluir meta",

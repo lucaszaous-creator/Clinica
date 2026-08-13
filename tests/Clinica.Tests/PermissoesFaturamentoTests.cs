@@ -231,6 +231,32 @@ public class PermissoesFaturamentoTests
     }
 
     /// <summary>
+    /// VER o indicador e DEFINIR a meta são bits diferentes (parcela 64).
+    ///
+    /// Até aqui a tela de Metas pedia <see cref="Permissao.VerIndicadores"/> para criar e
+    /// para APAGAR o alvo do mês — o bit de LEITURA do BI autorizando escrita. O efeito é o
+    /// mesmo que a parcela 49 corrigiu entre ficha e prontuário: a direção não conseguia
+    /// dar acesso de leitura aos números ("o financeiro pode ver") sem entregar junto o
+    /// poder de apagar todas as metas do ano.
+    ///
+    /// O teste falha se alguém voltar a juntá-los — inclusive pelo caminho discreto, que é
+    /// acrescentar `DefinirMetas` ao padrão de um perfil que só deveria ler.
+    /// </summary>
+    [Fact]
+    public void Ver_indicadores_nao_da_o_direito_de_definir_meta()
+    {
+        Permissao.DefinirMetas.Should().NotBe(Permissao.VerIndicadores);
+
+        foreach (var perfil in Enum.GetValues<PerfilAcesso>())
+        {
+            var padrao = PerfisAcesso.Padrao(perfil);
+            if (padrao.HasFlag(Permissao.DefinirMetas))
+                perfil.Should().Be(PerfilAcesso.Gerente,
+                    "decidir onde a clínica quer chegar é ato da direção — ver o número não é");
+        }
+    }
+
+    /// <summary>
     /// Nenhum perfil recebe TUDO, salvo o Gerente Geral. É a tradução direta do pedido: se
     /// um perfil operacional acumular todos os bits, a granularidade virou enfeite.
     /// </summary>

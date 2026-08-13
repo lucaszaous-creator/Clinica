@@ -843,6 +843,16 @@ escondidas por permissão — quem instala a Recepção não precisa baixar a te
 > consentiu **não some da lista**: aparece contado no resultado da rodada, para a clínica
 > ir colher o consentimento no balcão.
 
+> ⚠️ **E a linha valia para a rodada, não para a tela ao lado** (corrigido na parcela 64).
+> A tela "Quem parou de vir" abre o WhatsApp com o mesmo convite de retorno — é recall —,
+> e mandava a mensagem **sem checar consentimento**, porque a lista vem de outro serviço
+> (`RetencaoPacienteService`). Duas portas para o mesmo ato, uma com regra e outra sem: a
+> sem regra é a que ninguém confere, porque a existência da outra dá a sensação de que o
+> assunto está coberto. Agora as duas leem o MESMO
+> `PacientesComConsentimentoVigenteAsync`, quem não consentiu segue na lista com o motivo
+> escrito e o botão apagado, e `RetencaoConsentimentoTests` prova que os dois lados
+> respondem igual — revogação incluída.
+
 > **Gerar e enviar são passos separados.** Gerar é a parte automática; enviar é um clique
 > por paciente, porque o número é o WhatsApp da clínica e disparo em massa automatizado
 > por ali termina com o número bloqueado — perder o canal inteiro para economizar cliques

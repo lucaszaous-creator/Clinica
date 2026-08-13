@@ -365,6 +365,12 @@ public sealed partial class CampanhasViewModel : ObservableObject
 
         await ExecutarAsync(async campanhas =>
         {
+            // A segunda barreira, que faltava só aqui — os três irmãos deste arquivo
+            // (enviar, nota e resposta) já a tinham. Dispensar é a escrita que faz o
+            // contato SUMIR da fila sem que ninguém tenha falado com o paciente: é a
+            // mesma família de MarcarNaoConformidade no faturamento, e a única desta
+            // tela capaz de zerar o trabalho que ela existe para cobrar.
+            _sessao.Exigir(Permissao.GerenciarCampanhas, "dispensar o contato");
             await campanhas.DispensarAsync(linha.Id, motivo);
             _snackbar.Sucesso("Contato dispensado.");
         });

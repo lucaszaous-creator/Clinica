@@ -1233,19 +1233,42 @@ COMBO_SEM_ROTULO = re.compile(
     r"""([A-Za-z0-9_.]+)[^"]*"((?:(?!</?ComboBox|/>|>).)*?)/?>""",
     re.S,
 )
+# O `\??` é o ponto cego que a parcela 64 fechou. A tela de preço por convênio oferecia
+# a especialidade a partir de uma lista de `Especialidade?` — a coleção nasce anulável
+# porque o nulo é a opção "todas" —, e o WPF chama ToString() no valor exatamente como
+# faria num enum não anulável: a caixa mostrava "ClinicaDaDor". A expressão só casava
+# `<Especialidade>`, então a checagem que existe para pegar esse defeito passava por cima
+# dele. Checagem cega é pior do que checagem ausente: ela responde "está limpo".
 COLECAO_TIPADA = re.compile(
-    r"(?:IReadOnlyList|IList|List|ObservableCollection|IEnumerable)<\s*([A-Za-z0-9_]+)\s*>"
+    r"(?:IReadOnlyList|IList|List|ObservableCollection|IEnumerable)<\s*([A-Za-z0-9_]+)\??\s*>"
     r"\s+(?:_)?(\w+)"
 )
 
 
 def _enums_do_dominio() -> set[str]:
+    """
+    Enums do DOMÍNIO e da APLICAÇÃO.
+
+    A camada de aplicação entrou na parcela 64, e o motivo foi o cliente: a tela "Quem me
+    deve" oferecia "MaisAntigo" e "MaiorValor" no seletor de ordenação, com a checagem
+    verde. `OrdemInadimplencia` é declarada em `Clinica.Application/Servicos`, e esta
+    função só varria `Clinica.Domain` — o WPF chama `ToString()` sem se importar com a
+    camada em que o enum nasceu.
+
+    Custo medido antes de alargar: UMA ocorrência em toda a suíte, que era o próprio
+    defeito. Checagem cega é pior do que checagem ausente, porque ela responde
+    "está limpo".
+    """
     achados: set[str] = set()
-    dominio = RAIZ / "src" / "Clinica.Domain"
-    if not dominio.exists():
-        return achados
-    for arq in dominio.rglob("*.cs"):
-        achados.update(re.findall(r"\benum\s+([A-Za-z0-9_]+)", arq.read_text(encoding="utf-8")))
+    for camada in ("Clinica.Domain", "Clinica.Application"):
+        raiz = RAIZ / "src" / camada
+        if not raiz.exists():
+            continue
+        for arq in raiz.rglob("*.cs"):
+            if "/obj/" in str(arq) or "/bin/" in str(arq):
+                continue
+            achados.update(
+                re.findall(r"\benum\s+([A-Za-z0-9_]+)", arq.read_text(encoding="utf-8")))
     return achados
 
 
