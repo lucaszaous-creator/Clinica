@@ -290,7 +290,24 @@ public enum Permissao
     /// o bit novo chega ligado a quem já definia meta ontem. O que ele acrescenta é a
     /// possibilidade de a direção conceder o BI sem conceder o alvo.
     /// </summary>
-    DefinirMetas = 1 << 28
+    DefinirMetas = 1 << 28,
+
+    /// <summary>
+    /// Colher a assinatura do PACIENTE num termo de procedimento (parcela 66).
+    ///
+    /// Bit próprio, e não <see cref="EditarPaciente"/> nem <see cref="Prescrever"/>, porque
+    /// o ato não é nenhum dos dois: quem colhe não escreve o termo (o texto é modelo) nem
+    /// altera o cadastro — <b>testemunha</b>. É essa pessoa que o registro nomeia quando o
+    /// termo é contestado, e é por isso que ela precisa ser identificável e concedida
+    /// caso a caso.
+    ///
+    /// Vai para os TRÊS perfis que ficam na frente do paciente antes do procedimento:
+    /// Recepção (colhe no check-in, que é onde o jejum se declara), Profissional (quem faz
+    /// o BSV) e Enfermagem (quem prepara a sala). Deixar de fora qualquer um dos três
+    /// faria o termo depender de a pessoa certa estar livre naquele minuto — e termo que
+    /// atrasa o procedimento é termo que a clínica aprende a pular.
+    /// </summary>
+    ColherAssinaturaPaciente = 1 << 29
 }
 
 /// <summary>
@@ -392,6 +409,7 @@ public static class PerfisAcesso
             Permissao.VerDocumentos |
             Permissao.VenderPacote |
             Permissao.LancarAtendimento |
+            Permissao.ColherAssinaturaPaciente |
             Permissao.GerenciarCampanhas,
 
         // ===== QUEM ATENDE =====
@@ -404,6 +422,7 @@ public static class PerfisAcesso
             Permissao.VerFichaPaciente |
             Permissao.VerProntuario | Permissao.EditarProntuario |
             Permissao.VerDocumentos |
+            Permissao.ColherAssinaturaPaciente |
             Permissao.Prescrever,
 
         // ===== ENFERMAGEM =====
@@ -414,6 +433,7 @@ public static class PerfisAcesso
         PerfilAcesso.Enfermagem =>
             Permissao.VerAgenda |
             Permissao.VerFichaPaciente | Permissao.VerProntuario |
+            Permissao.ColherAssinaturaPaciente |
             Permissao.ChecarPrescricao,
 
         // ===== ADMINISTRATIVO/CAIXA =====
@@ -511,6 +531,7 @@ public static class PerfisAcesso
         Permissao.ConfigurarFaturamento => "Configurar o faturamento",
         Permissao.VerIndicadores => "Ver indicadores",
         Permissao.DefinirMetas => "Definir metas do mês",
+        Permissao.ColherAssinaturaPaciente => "Colher assinatura do paciente",
         Permissao.GerenciarCampanhas => "Gerenciar campanhas",
         Permissao.GerenciarEquipe => "Cadastrar equipe",
         Permissao.GerenciarUsuarios => "Gerenciar usuários",
@@ -638,6 +659,10 @@ public static class PerfisAcesso
             + "onde a clínica quer chegar é outra — e apagar a meta faz o painel voltar a "
             + "comparar só com o mês anterior, que responde \"melhorou?\" e nunca "
             + "\"chegamos?\".",
+        Permissao.ColherAssinaturaPaciente =>
+            "Apresentar o termo do procedimento ao paciente e colher a assinatura dele no "
+            + "tablet. Quem colhe TESTEMUNHA: o nome de quem estava na frente do paciente "
+            + "fica gravado no termo, e é ele que responde se o documento for contestado.",
         Permissao.GerenciarCampanhas => "Gerar e disparar confirmação, NPS e recall.",
         Permissao.GerenciarEquipe => "Cadastrar profissionais e salas.",
         Permissao.GerenciarUsuarios => "Criar usuário, trocar senha e mexer em permissão.",

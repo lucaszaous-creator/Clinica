@@ -90,6 +90,15 @@ public interface IClinicaRepositorio
     Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteAsync(
         int pacienteId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os horários de UM paciente num dia (parcela 66). Existe separado do histórico
+    /// completo acima porque a pergunta do balcão é sobre HOJE, e carregar quarenta
+    /// sessões de um tratamento longo para responder sobre uma seria pagar a leitura
+    /// inteira a cada check-in, num banco remoto.
+    /// </summary>
+    Task<IReadOnlyList<Agendamento>> AgendamentosDoPacienteNoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default);
+
     /// <summary>Paciente com todo o histórico (atendimentos e seus códigos) carregado.</summary>
     Task<Paciente?> ObterPacienteComHistoricoAsync(int pacienteId, CancellationToken ct = default);
 
@@ -587,6 +596,43 @@ public interface IClinicaRepositorio
 
     /// <summary>Apaga os itens de um modelo (regravados por inteiro a cada salvamento).</summary>
     Task RemoverItensDoModeloAsync(int modeloId, CancellationToken ct = default);
+
+    // ---- Termo assinado pelo paciente (parcela 66) ----
+
+    /// <summary>
+    /// Exigências de termo por modalidade, com o modelo carregado. Traz as INATIVAS
+    /// também: quem lê para configurar precisa vê-las, e quem lê para exigir filtra.
+    /// </summary>
+    Task<IReadOnlyList<ExigenciaTermoProcedimento>> ExigenciasTermoAsync(
+        CancellationToken ct = default);
+
+    Task<ExigenciaTermoProcedimento?> ObterExigenciaTermoAsync(
+        int exigenciaId, CancellationToken ct = default);
+
+    Task AdicionarExigenciaTermoAsync(
+        ExigenciaTermoProcedimento exigencia, CancellationToken ct = default);
+
+    /// <summary>
+    /// Termos de procedimento do paciente numa data, com os itens carregados.
+    ///
+    /// A data é a chave porque a validade é POR SESSÃO (decisão da clínica, ago/2026): o
+    /// termo assinado ontem não vale para hoje, e o de hoje vale para a sessão de hoje.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> TermosDoPacienteNaDataAsync(
+        int pacienteId, DateOnly data, CancellationToken ct = default);
+
+    /// <summary>
+    /// Todos os termos de procedimento emitidos numa data, com os itens.
+    ///
+    /// Em lote de propósito: a fila do balcão pergunta por trinta pacientes de uma vez, e
+    /// uma consulta por cartão transformaria a abertura do quadro em sessenta idas a um
+    /// banco remoto — o mesmo argumento do consentimento em lote das campanhas.
+    /// </summary>
+    Task<IReadOnlyList<DocumentoClinico>> TermosDaDataAsync(
+        DateOnly data, CancellationToken ct = default);
+
+    /// <summary>O traço da assinatura — a única leitura que traz a imagem do banco.</summary>
+    Task<TracoAssinatura?> ObterTracoAssinaturaAsync(int tracoId, CancellationToken ct = default);
     /// <summary>
     /// Quais destes pacientes têm consentimento VIGENTE para a finalidade (o registro
     /// mais recente concedeu e não foi revogado). Em lote de propósito: as campanhas

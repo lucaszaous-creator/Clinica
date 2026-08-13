@@ -397,10 +397,25 @@ public class DocumentosClinicosTests : IDisposable
         await salvar.Should().ThrowAsync<InvalidOperationException>();
     }
 
+    /// <summary>Um modelo de termo, para o tipo da parcela 66 ter o que copiar.</summary>
+    private async Task<int> ModeloDeTermoAsync()
+    {
+        var modelo = await _documentos.SalvarModeloAsync(new ModeloDocumento
+        {
+            Tipo = TipoDocumentoClinico.TermoProcedimento,
+            Nome = "Termo do BSV",
+            Titulo = "Consentimento para Bloqueio Simpático Venoso",
+            Corpo = "Fui informado(a) dos riscos e concordo com o procedimento.",
+            Itens = [new ItemModelo { Ordem = 1, Descricao = "Estou em jejum de 8 horas" }]
+        });
+
+        return modelo.Id;
+    }
+
     // ==================== PDF ====================
 
     [Fact]
-    public async Task Os_sete_documentos_geram_PDF()
+    public async Task Os_oito_documentos_geram_PDF()
     {
         var pacienteId = await CriarPacienteAsync();
         var profissionalId = await CriarProfissionalAsync();
@@ -437,7 +452,11 @@ public class DocumentosClinicosTests : IDisposable
             }),
             await _documentos.EmitirRelatorioEvolucaoAsync(pacienteId),
             await _documentos.EmitirTermoConsentimentoAsync(pacienteId),
-            await _documentos.EmitirAnamneseAsync(pacienteId)
+            await _documentos.EmitirAnamneseAsync(pacienteId),
+            // O termo que o PACIENTE assina (parcela 66). Entra aqui porque a asserção
+            // abaixo cobra `TipoDocumentoInfo.Todos`: tipo novo sem PDF passaria no build e
+            // só falharia na frente de quem fosse imprimi-lo.
+            await _documentos.EmitirTermoProcedimentoAsync(pacienteId, await ModeloDeTermoAsync())
         };
 
         emitidos.Select(d => d.Tipo).Should().BeEquivalentTo(TipoDocumentoInfo.Todos);

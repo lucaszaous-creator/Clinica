@@ -31,6 +31,7 @@ public sealed class ElegibilidadeService
     private readonly ConsultaService _consultas;
     private readonly InadimplenciaService? _inadimplencia;
     private readonly PacoteService? _pacotes;
+    private readonly TermoProcedimentoService? _termos;
 
     /// <summary>Dias de antecedência para começar a avisar da carteirinha.</summary>
     public const int JanelaAvisoCarteirinhaDias = 30;
@@ -55,7 +56,8 @@ public sealed class ElegibilidadeService
         ConsentimentoService consentimentos,
         ConsultaService consultas,
         InadimplenciaService? inadimplencia = null,
-        PacoteService? pacotes = null)
+        PacoteService? pacotes = null,
+        TermoProcedimentoService? termos = null)
     {
         _repo = repo;
         _autorizacoes = autorizacoes;
@@ -72,6 +74,11 @@ public sealed class ElegibilidadeService
         // Opcional pela mesma razão do Financeiro acima: o pacote é do módulo Financeiro,
         // e este serviço tem de continuar construível sem ele montado.
         _pacotes = pacotes;
+        // Opcional, e aqui a razão é outra: a clínica que não cadastrou nenhuma exigência
+        // de termo não deve pagar uma leitura por check-in. Sem ele, a conferência não
+        // roda — e como ela só produz alerta quando há exigência ATIVA, não rodar e não
+        // haver exigência dão a mesma tela.
+        _termos = termos;
     }
 
     public async Task<Elegibilidade> ConferirAsync(
@@ -89,8 +96,46 @@ public sealed class ElegibilidadeService
         await ConferirDebitoAsync(pacienteId, referencia, alertas, ct);
         await ConferirGlosaAsync(pacienteId, referencia, alertas, ct);
         await ConferirPacoteAsync(pacienteId, referencia, alertas, ct);
+        await ConferirTermoAsync(pacienteId, referencia, alertas, ct);
 
         return new Elegibilidade(pacienteId, paciente.Nome, alertas);
+    }
+
+    /// <summary>
+    /// Termo de procedimento pendente, ou assinado com declaração negada (parcela 66).
+    ///
+    /// Mora AQUI, e não na tela da fila, pela razão de sempre: daqui o aviso chega sozinho
+    /// ao agendamento, ao check-in, à ficha e ao Consultório. Foi o que a parcela 48 fez
+    /// com o pacote, e a alternativa — escrever a conferência na tela que o cliente
+    /// apontou — deixaria as outras três portas passando.
+    /// </summary>
+    private async Task ConferirTermoAsync(
+        int pacienteId, DateOnly referencia, List<AlertaElegibilidade> alertas,
+        CancellationToken ct)
+    {
+        // Opcional pela mesma razão do Financeiro e do pacote: este serviço tem de
+        // continuar construível sem o módulo que trouxe a feature.
+        if (_termos is null) return;
+
+        var situacoes = await _termos.SituacaoDoDiaAsync(pacienteId, referencia, ct);
+
+        foreach (var s in situacoes.Where(s => s.Pendente))
+            alertas.Add(new AlertaElegibilidade(
+                ImpedimentoElegibilidade.TermoProcedimentoPendente,
+                NivelUrgencia.Vermelho,
+                $"Falta o termo \"{s.NomeDoTermo}\" assinado pelo paciente."));
+
+        // A recusa NÃO vira alerta de pendência: ela já foi decidida, e repeti-la todo dia
+        // como se faltasse assinar mandaria o balcão apresentar de novo um termo que a
+        // pessoa recusou na frente dele. Quem precisa saber dela é quem faz o
+        // procedimento, e isso está na tela do termo.
+
+        foreach (var s in situacoes.Where(s => s.TemDeclaracaoNegada))
+            alertas.Add(new AlertaElegibilidade(
+                ImpedimentoElegibilidade.DeclaracaoDoTermoNegada,
+                NivelUrgencia.Vermelho,
+                $"No termo \"{s.NomeDoTermo}\" o paciente respondeu NÃO em: "
+                + $"{string.Join("; ", s.DeclaracoesNegadas)}."));
     }
 
     private static void ConferirCarteirinha(

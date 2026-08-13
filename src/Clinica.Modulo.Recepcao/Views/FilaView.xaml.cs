@@ -169,6 +169,14 @@ public partial class FilaView : UserControl
             menu.Items.Add(item);
         }
 
+        // A PORTA do termo (parcela 66). Vem primeira quando há termo pendente: o alerta do
+        // check-in diz que falta assinar, e alerta sem porta no mesmo app é pior que alerta
+        // nenhum — ele ensina a pessoa a ignorá-lo (a lição da parcela 48).
+        Acrescentar("Colher o termo do procedimento…", vm.ColherTermoCommand,
+            cartao.TemTermoPendente);
+
+        if (menu.Items.Count > 0) menu.Items.Add(new Separator());
+
         Acrescentar("Voltar uma etapa", vm.VoltarEtapaCommand, cartao.PodeVoltar);
         Acrescentar("Entrou (pular a chamada)", vm.IniciarAtendimentoCommand,
             cartao.PodeIniciar && cartao.Etapa != EtapaFila.Chamado);

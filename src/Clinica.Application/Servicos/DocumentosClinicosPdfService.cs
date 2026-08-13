@@ -113,7 +113,14 @@ public sealed class DocumentosClinicosPdfService
             && await _repo.ObterArquivoAssinadoAsync(arquivoId, ct) is { } guardado)
             return guardado.Conteudo;
 
-        return Gerar(documento, prestador);
+        // O traço do paciente (parcela 66) só sai do banco quando o documento tem um: é a
+        // única leitura que traz imagem, e pagá-la em toda receita seria arrastar bytes
+        // para desenhar uma folha que não tem assinatura de paciente nenhuma.
+        var traco = documento.TracoAssinaturaId is int tracoId
+            ? (await _repo.ObterTracoAssinaturaAsync(tracoId, ct))?.Conteudo
+            : null;
+
+        return Gerar(documento, prestador, tracoPaciente: traco);
     }
 
     /// <param name="paraAssinaturaEletronica">
@@ -129,9 +136,20 @@ public sealed class DocumentosClinicosPdfService
     /// Precisa chegar aqui ANTES da assinatura, porque a assinatura sela os bytes e o QR é
     /// um deles. Quem garante a ordem é o <c>PublicacaoDocumentoService.GarantirTokenAsync</c>.
     /// </param>
+    /// <param name="tracoPaciente">
+    /// O PNG da assinatura do paciente (parcela 66). Quando vem preenchido, ele é desenhado
+    /// no lugar da linha em branco, com a frase de evidência embaixo.
+    ///
+    /// ⚠️ Ele precisa entrar ANTES da assinatura com certificado, e não depois: o selo cobre
+    /// uma faixa de BYTES, e acrescentar a imagem em seguida invalidaria a assinatura do
+    /// profissional. Quem impede a ordem errada é o
+    /// <c>AssinaturaDoPacienteService.ColherAsync</c>, que recusa colher traço em documento
+    /// já assinado eletronicamente.
+    /// </param>
     public byte[] Gerar(
         DocumentoClinico documento, DadosPrestador? prestador = null,
-        bool paraAssinaturaEletronica = false, string? urlDoArquivo = null)
+        bool paraAssinaturaEletronica = false, string? urlDoArquivo = null,
+        byte[]? tracoPaciente = null)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -243,6 +261,10 @@ public sealed class DocumentosClinicosPdfService
                         case TipoDocumentoClinico.Anamnese:
                             RoteiroComLinhas(col, itens);
                             break;
+
+                        case TipoDocumentoClinico.TermoProcedimento:
+                            Declaracoes(col, itens);
+                            break;
                     }
 
                     if (!string.IsNullOrWhiteSpace(documento.Observacoes))
@@ -253,7 +275,7 @@ public sealed class DocumentosClinicosPdfService
                         });
 
 
-                    Assinaturas(col, documento, paraAssinaturaEletronica);
+                    Assinaturas(col, documento, paraAssinaturaEletronica, tracoPaciente);
                 });
 
                 Rodape(page, documento, paraAssinaturaEletronica, urlDoArquivo);
@@ -581,6 +603,47 @@ public sealed class DocumentosClinicosPdfService
     }
 
     /// <summary>
+    /// As declarações do termo de procedimento (parcela 66), com a resposta do paciente.
+    ///
+    /// A resposta sai por EXTENSO ("Sim" / "Não") e não como um X marcado: o que se
+    /// contesta num termo é justamente o que a pessoa afirmou, e um quadradinho preenchido
+    /// admite a leitura de que alguém o marcou depois. A negada sai destacada, porque quem
+    /// pega o papel na sala precisa ver "NÃO — jejum" sem procurar.
+    ///
+    /// Declaração sem resposta sai com um traço, nunca em branco: em branco não se
+    /// distingue de linha que a impressora comeu.
+    /// </summary>
+    private static void Declaracoes(ColumnDescriptor col, IReadOnlyList<ItemDocumento> itens)
+    {
+        if (itens.Count == 0) return;
+
+        col.Item().PaddingTop(4).Text("Declarações do paciente")
+            .Bold().FontSize(11).FontColor(AzulEscuro);
+
+        foreach (var item in itens)
+        {
+            var negativa = RespostaDeclaracao.EhNegativa(item.Quantidade);
+            var respondida = !string.IsNullOrWhiteSpace(item.Quantidade);
+
+            col.Item().BorderBottom(1).BorderColor(Borda).PaddingVertical(8).Row(row =>
+            {
+                row.RelativeItem().Column(c =>
+                {
+                    c.Item().Text(item.Descricao).SemiBold().FontSize(10.5f);
+                    if (!string.IsNullOrWhiteSpace(item.Detalhe))
+                        c.Item().Text(item.Detalhe!).FontSize(9).FontColor(TextoSecundario);
+                });
+
+                row.ConstantItem(70).AlignRight().AlignMiddle()
+                    .Text(respondida ? item.Quantidade! : "—")
+                    .Bold().FontSize(10)
+                    .FontColor(negativa ? VermelhoForte
+                        : respondida ? VerdeForte : TextoSecundario);
+            });
+        }
+    }
+
+    /// <summary>
     /// Anamnese: o que o prontuário já respondeu vem escrito; o que ele não guarda sai
     /// em linhas, para a entrevista acontecer com o papel na mão.
     /// </summary>
@@ -613,10 +676,70 @@ public sealed class DocumentosClinicosPdfService
     /// clínica não assina no lugar dele.
     /// </summary>
     private static void Assinaturas(
-        ColumnDescriptor col, DocumentoClinico documento, bool assinaturaEletronica)
+        ColumnDescriptor col, DocumentoClinico documento, bool assinaturaEletronica,
+        byte[]? tracoPaciente = null)
     {
         var assinaPaciente = documento.Tipo is TipoDocumentoClinico.Consentimento
-                                 or TipoDocumentoClinico.Anamnese;
+                                 or TipoDocumentoClinico.Anamnese
+                                 or TipoDocumentoClinico.TermoProcedimento;
+
+        // ---- Termo já assinado pelo paciente (parcela 66) ----
+        //
+        // O traço entra no lugar da linha em branco, e a frase de evidência embaixo dele.
+        // ⚠️ A frase diz "assinatura eletrônica simples" e nunca "assinatura digital": o
+        // traço não é certificado, e chamá-lo assim seria a garantia aparente que este
+        // serviço se recusa a produzir desde a parcela 3 — a mesma razão pela qual o
+        // carimbo do profissional não se chama assinatura digital.
+        if (documento.PacienteAssinou && tracoPaciente is { Length: > 0 })
+        {
+            col.Item().PaddingTop(28).Row(row =>
+            {
+                if (!assinaturaEletronica)
+                {
+                    row.RelativeItem().Column(c =>
+                    {
+                        c.Item().Height(46);
+                        c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                        c.Item().PaddingTop(3).AlignCenter()
+                            .Text(documento.Profissional?.Nome ?? "Profissional responsável")
+                            .SemiBold().FontSize(9.5f);
+                        c.Item().AlignCenter()
+                            .Text(documento.Profissional?.RegistroConselho is { Length: > 0 } r
+                                ? r : "Assinatura e carimbo")
+                            .FontSize(8.5f).FontColor(TextoSecundario);
+                    });
+
+                    row.ConstantItem(40);
+                }
+
+                row.RelativeItem().Column(c =>
+                {
+                    c.Item().Height(46).AlignBottom().AlignCenter()
+                        .Image(tracoPaciente).FitArea();
+                    c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                    c.Item().PaddingTop(3).AlignCenter()
+                        .Text(documento.Paciente?.Nome ?? "Paciente")
+                        .SemiBold().FontSize(9.5f);
+                    c.Item().AlignCenter().Text("Paciente (ou responsável)")
+                        .FontSize(8.5f).FontColor(TextoSecundario);
+                });
+            });
+
+            col.Item().PaddingTop(10).Text(documento.FraseAssinaturaPaciente)
+                .FontSize(7.5f).FontColor(TextoSecundario);
+            return;
+        }
+
+        // Recusa: o papel diz que o termo foi apresentado e não foi assinado. Sair com a
+        // linha em branco faria a via parecer um termo que ninguém chegou a mostrar.
+        if (documento.PacienteRecusou)
+        {
+            col.Item().PaddingTop(24)
+                .Background(VermelhoSuave).Border(1).BorderColor(VermelhoForte).Padding(10)
+                .Text(documento.FraseAssinaturaPaciente)
+                .SemiBold().FontSize(9).FontColor(VermelhoForte);
+            return;
+        }
 
         // Na via ASSINADA não há linha para assinar — mas o prescritor tem de aparecer.
         //

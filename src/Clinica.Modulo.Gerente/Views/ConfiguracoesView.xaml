@@ -136,6 +136,25 @@
 
                         <Separator Margin="0,18,0,14" />
 
+                        <!-- Ato RARO (escrever o termo de um procedimento novo) mora em
+                             BOTÃO, não em painel aberto — a regra de leiaute do README. -->
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="Escrever termos…"
+                                    Style="{StaticResource BotaoSecundario}" MinWidth="170"
+                                    Margin="16,0,0,0" VerticalAlignment="Center"
+                                    Click="AoAbrirTermos" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Termos assinados pelo paciente"
+                                           Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left" MaxWidth="820"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Text="O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina no tablet antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão." />
+                            </StackPanel>
+                        </DockPanel>
+
+                        <Separator Margin="0,18,0,14" />
+
                         <StackPanel>
                             <TextBlock Text="Certificado em nuvem (SafeID) — opcional"
                                        Style="{StaticResource Rotulo}" Margin="0,0,0,4" />

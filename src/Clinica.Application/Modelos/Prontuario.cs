@@ -145,7 +145,28 @@ public enum ImpedimentoElegibilidade
     /// O pacote está na última sessão, ou vence em poucos dias com saldo sobrando. É a
     /// hora barata de vender a renovação: o paciente está no balcão.
     /// </summary>
-    PacoteNoFim
+    PacoteNoFim,
+
+    /// <summary>
+    /// O procedimento marcado para hoje exige termo assinado pelo paciente e ele ainda não
+    /// assinou (parcela 66). O caso é o BSV.
+    ///
+    /// Entra aqui pelo critério que rege este serviço desde a parcela 27 — o que se resolve
+    /// com o paciente presente e fica caro depois. Descobrir na maca que o termo não foi
+    /// assinado significa parar o procedimento; descobrir no check-in significa um minuto
+    /// com um tablet.
+    /// </summary>
+    TermoProcedimentoPendente,
+
+    /// <summary>
+    /// O termo foi assinado, e o paciente respondeu <b>NÃO</b> a alguma declaração — "não
+    /// estou em jejum", "não informei meus medicamentos" (parcela 66).
+    ///
+    /// É alerta SEPARADO do pendente, e mais grave, porque significa o contrário: ali falta
+    /// papel, aqui o papel está completo e o PROCEDIMENTO pode não estar seguro. Fundi-los
+    /// faria "resolvido" cobrir os dois, e o segundo não se resolve com assinatura nenhuma.
+    /// </summary>
+    DeclaracaoDoTermoNegada
 }
 
 /// <summary>Um alerta de elegibilidade, com a gravidade que a recepção precisa ver.</summary>

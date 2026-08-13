@@ -288,6 +288,24 @@ public sealed class CentralDocumentosService
             PermissaoEmitir = Permissao.EditarPaciente
         },
 
+        // ⚠️ NÃO é o "consentimento" acima, que é o termo LGPD montado do cadastro. Este é o
+        // consentimento do PROCEDIMENTO (o BSV, com a declaração de jejum), o texto vem de
+        // um modelo escrito pela clínica, e quem assina é o PACIENTE. Duas folhas porque
+        // são duas perguntas — ver o enum `TipoDocumentoClinico.TermoProcedimento`.
+        //
+        // `VerProntuario` para ver: o termo diz qual procedimento a pessoa vai fazer e o
+        // que ela declarou sobre o próprio corpo — é dado de saúde (art. 5º, II), ao
+        // contrário da declaração de comparecimento, que só prova presença.
+        new("termo-procedimento", "Termo de procedimento",
+            "Consentimento do procedimento e as declarações do paciente (jejum, medicações). "
+            + "Assinado por ele no tablet, e a assinatura entra no PDF antes do selo do profissional.",
+            NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
+        {
+            TipoClinico = TipoDocumentoClinico.TermoProcedimento,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.ColherAssinaturaPaciente
+        },
+
         new("recibo", "Recibo de pagamento",
             "Comprova dinheiro que JÁ entrou. Nasce de um lançamento do caixa e fica apontando para ele.",
             NaturezaFolha.Financeiro, ExigenciaFolha.LancamentoNoCaixa)

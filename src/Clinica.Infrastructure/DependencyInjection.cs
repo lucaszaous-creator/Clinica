@@ -50,6 +50,12 @@ public static class DependencyInjection
         RegistrarSafeID(services);
         services.AddScoped<DocumentoClinicoService>();
         services.AddScoped<DocumentosClinicosPdfService>();
+        // Termo assinado pelo paciente (parcela 66). O TermoProcedimentoService entra
+        // ANTES do ElegibilidadeService de propósito — é ele que leva o alerta "falta o
+        // termo" às quatro portas do balcão, e sem o registro a conferência sumiria em
+        // silêncio, que é o defeito que a dependência opcional pode esconder.
+        services.AddScoped<TermoProcedimentoService>();
+        services.AddScoped<AssinaturaDoPacienteService>();
         services.AddScoped<ConsentimentoService>();
         services.AddScoped<TitularDadosService>();
         services.AddScoped<ElegibilidadeService>();

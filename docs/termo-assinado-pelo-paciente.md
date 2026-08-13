@@ -1,12 +1,27 @@
-# O termo que o PACIENTE assina — desenho
+# O termo que o PACIENTE assina
 
-> Proposta de como atender o pedido da cliente (ago/2026): termos de consentimento do
-> **BSV (Bloqueio Simpático Venoso)** assinados pelo paciente, incluindo a **declaração de
-> jejum**. É o que a My Smart Clinic vende como **SmartDocs** (+R$ 79/mês, ou incluso no
-> plano ULTRA de R$ 389).
+> Termos de consentimento do **BSV (Bloqueio Simpático Venoso)** assinados pelo paciente,
+> incluindo a **declaração de jejum**. Pedido da cliente em ago/2026; é o que a My Smart
+> Clinic vende como **SmartDocs** (+R$ 79/mês, ou incluso no plano ULTRA de R$ 389).
 >
-> Documento de DESENHO: decide o formato antes de escrever código. Nada aqui está
-> implementado.
+> ✅ **A Fase 1 está IMPLEMENTADA (parcela 66).** As decisões da clínica, tomadas antes da
+> primeira linha: assinatura em **tablet/touchscreen**, **modelos de texto configuráveis**
+> (é o que resolve "quem escreve o termo" e "quais declarações entram" — as duas são da
+> clínica, não nossas) e validade **por sessão**.
+>
+> A Fase 2 (link para assinar em casa) segue **não implementada**, e a seção 4 diz por quê.
+
+## O que ficou pronto
+
+| Onde | O quê |
+|---|---|
+| **Gerente → Configurações → "Escrever termos…"** | A clínica escreve o texto, as declarações e diz qual procedimento exige qual termo |
+| **Recepção → Fila → "⋯" do cartão** | "Colher o termo do procedimento…" abre a coleta com o paciente no balcão |
+| **Check-in** | O alerta "falta o termo" chega sozinho pelo `ElegibilidadeService` — e daí ao agendamento, à ficha e ao Consultório |
+| **Central de documentos e ficha** | Segunda via, numerada (`2026/0001`) e com código de conferência |
+
+O termo **nasce numerado** e com código de conferência, como todo documento clínico —
+é por eles que a clínica o acha depois.
 
 ## 1. O que o pedido é, e o que ele não é
 
@@ -195,50 +210,74 @@ superfície de ataque que o desktop não tem (link com dado de saúde circulando
 em ser lidos com calma, longe do balcão. **Quando não vale:** qualquer declaração sobre o
 estado do paciente **hoje**.
 
-## 5. O que decidir antes de escrever a primeira linha
+## 5. As decisões que a clínica tomou (ago/2026)
 
-1. **Fase 1 sozinha basta?** Minha recomendação é sim: cobre o BSV inteiro, não depende de
-   e-CPF, não depende de internet e não cria deployable novo.
-2. **Como o paciente assina fisicamente** — touchscreen do balcão, tablet ou mesa de
-   assinatura. Muda o hardware, não o código (`InkCanvas` atende os três).
-3. **Quem escreve o texto do termo do BSV.** É documento clínico-jurídico e **não somos nós
-   que o redigimos** — o sistema guarda e versiona; o conteúdo é da responsabilidade
-   técnica da clínica.
-4. **Quais declarações entram na lista** — o jejum é certo; anticoagulante, alergias e
-   medicações em uso são pergunta para a médica.
-5. **A validade do consentimento do procedimento** — por sessão, por série de sessões ou
-   anual.
+1. **Fase 1 sozinha basta.** Cobre o BSV inteiro, não depende de e-CPF, não depende de
+   internet e não cria deployable novo.
+2. **Tablet/touchscreen.** `InkCanvas` de fábrica no WPF; a mesma tela serve para mesa de
+   assinatura e mouse.
+3. e 4. **Modelos de texto configuráveis.** As duas perguntas — quem escreve o termo, e
+   quais declarações entram — deixam de ser decisão de código e viram tela: Configurações →
+   "Escrever termos…". ⚠️ **Não há termo de fábrica**, e é decisão: um texto de
+   consentimento embutido seria o sistema opinando sobre risco clínico. A lista nasce
+   vazia e a tela diz o que fazer.
+5. **Validade POR SESSÃO.** Não existe campo de prazo, e o `ExigenciaTermoProcedimento`
+   explica por quê: regra com exceção que ninguém vai exercer é código a mais para manter
+   e mais uma resposta possível para a mesma pergunta.
 
-## 6. Esboço da parcela
+## 6. O que a parcela entregou
 
-| Passo | O que entra |
+| Camada | O quê |
 |---|---|
-| 1 | `TipoDocumentoClinico.TermoProcedimento`, entrada em `FolhaCatalogo` com permissões, e o modelo de termo em Configurações |
-| 2 | Campos de assinatura do paciente (migration aditiva) + tabela do traço |
-| 3 | `AssinaturaDoPacienteService` — colhe, valida, grava hash do conteúdo, audita no MESMO `SaveChanges` |
-| 4 | Componente de coleta no **shell** (`InkCanvas`), como o mapa corporal e a janela de documento — **não** dentro de um módulo, senão a Recepção o tem e o Consultório não |
-| 5 | Exigência por modalidade + alerta no `ElegibilidadeService` (ponto único: de lá chega à fila, ao check-in, à ficha e ao Consultório) |
-| 6 | Rodapé honesto no PDF e a ordem das duas assinaturas |
-| 7 | Portas: fila, Meu dia, central de documentos, ficha |
+| Domínio | `TipoDocumentoClinico.TermoProcedimento`, campos de assinatura do paciente em `DocumentoClinico`, `TracoAssinatura`, `ExigenciaTermoProcedimento`, `Permissao.ColherAssinaturaPaciente` |
+| Aplicação | `AssinaturaDoPacienteService` (colhe, recusa, sela, audita no mesmo `SaveChanges`), `TermoProcedimentoService` (configura e responde "falta assinar?"), `DocumentoClinicoService.EmitirTermoProcedimentoAsync` |
+| Infra | Migration **aditiva** (9 colunas anuláveis + 2 tabelas) |
+| PDF | Declarações com a resposta por extenso, traço desenhado no lugar da linha, rodapé de evidência |
+| Telas | `AssinaturaPacienteWindow` (no **shell**), `ModelosTermoWindow` (Gerente), porta no "⋯" da fila |
 
-**Testes que precisam existir**, porque o defeito aqui não faz barulho:
+**Permissão**: `ColherAssinaturaPaciente` vai para **Recepção, Profissional e Enfermagem** —
+os três perfis que ficam na frente do paciente antes do procedimento. Deixar um de fora
+faria o termo depender de a pessoa certa estar livre naquele minuto, e termo que atrasa o
+procedimento é termo que a clínica aprende a pular.
 
-- O termo assinado por um paciente **não vale** para a sessão seguinte quando a validade é
-  `PorSessao`.
-- Assinar com e-CPF **depois** do traço mantém o traço dentro dos bytes assinados, e a
-  reimpressão devolve **os mesmos bytes**.
-- Corrigir o modelo **não** altera termo já assinado.
-- "Não estou em jejum" emite o termo, **não** bloqueia, e acende alerta vermelho no
-  `ElegibilidadeService`.
-- Termo cancelado sai do ar se estiver publicado (a regra da parcela 63).
+### Os testes que fixam as regras
+
+`TermoAssinadoPeloPacienteTests` — 19 casos. Os que mais importam, porque o defeito aqui
+não faz barulho:
+
+- **`Termo_assinado_ontem_nao_vale_para_a_sessao_de_hoje`** — se alguém trocar a chave por
+  um prazo em dias, este cai.
+- **`Traco_do_paciente_e_recusado_depois_da_assinatura_do_profissional`** — a ordem das
+  duas assinaturas; colher depois produziria, em silêncio, um PDF cujo selo não fecha.
+- **`Responder_nao_ao_jejum_grava_o_termo_e_marca_a_declaracao_negada`** — o "não" não
+  impede, e vira alerta.
+- **`Corrigir_o_modelo_nao_reescreve_o_termo_ja_assinado`** — aplicar COPIA (Lei
+  13.787/2018).
+- **`Selo_do_conteudo_acusa_quando_o_termo_e_alterado_depois_da_assinatura`** — guardar um
+  hash que ninguém recalcula é guardar um número.
+- **`Leitura_em_lote_da_fila_concorda_com_a_leitura_por_paciente`** — a fila lê 30 cartões
+  em 3 consultas e a ficha lê um; duas definições de "falta assinar" divergiriam, e a que
+  ninguém lembraria de ajustar é a do quadro, onde o erro aparece como **cartão limpo**,
+  indistinguível de termo em dia.
+- **`A_frase_do_rodape_nao_chama_o_traco_de_assinatura_digital`** — a regra do carimbo
+  escaneado, da parcela 3.
+
+### O que ficou de fora, e é sabido
+
+- **A Fase 2** (link para assinar em casa) — seção 4.
+- **`MeioAssinaturaPaciente.LinkRemoto`** existe no enum e **nenhum código o grava**. É
+  deliberado: sem ele, o dia em que o link existir faria todo termo antigo parecer remoto.
+- **Porta no Consultório e na sala de infusão.** A permissão já vai para os três perfis e a
+  janela mora no shell — falta o item de menu. O balcão, que é onde o termo se colhe hoje,
+  está coberto.
 
 ---
 
 ## 7. O que isto vale comercialmente
 
-O SmartDocs deles custa **R$ 79/mês** avulso. Feita a Fase 1, cobrimos o caso real da
-clínica **sem** a dependência que eles têm — e a diferença que resta a favor deles (assinar
-em casa) não serve para o documento que originou o pedido.
+O SmartDocs deles custa **R$ 79/mês** avulso. Com a Fase 1 entregue, cobrimos o caso real
+da clínica **sem** a dependência que eles têm — e a diferença que resta a favor deles
+(assinar em casa) não serve para o documento que originou o pedido.
 
 E há um ganho que eles não têm: **a nossa assinatura de paciente entra debaixo da assinatura
 ICP-Brasil do profissional**, no mesmo arquivo, selada. No SmartDocs as duas coisas são

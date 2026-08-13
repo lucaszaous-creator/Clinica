@@ -2721,3 +2721,63 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   era o próprio defeito. É o mesmo desfecho do ponto cego do enum anulável, na mesma
   parcela, e a lição se repete de propósito: **quando uma checagem responde "está limpo",
   pergunte primeiro o que ela não olha** — e meça o ruído antes de decidir não alargar.
+
+- **O termo que o PACIENTE assina, e a pergunta que decidiu o desenho inteiro** (parcela
+  66): a cliente pediu "algo como o SmartDocs" para o BSV — o consentimento do
+  procedimento e a **declaração de jejum**. O pedido chegou como um item só e são **dois
+  documentos de naturezas opostas**, e é essa separação que resolve tudo. O consentimento
+  do procedimento ganha em ser lido em casa, com calma. A declaração de jejum afirma
+  "**ESTOU** em jejum": assinada na véspera ela é uma declaração sobre o FUTURO, e o valor
+  dela é ser sobre o presente. **Isso derruba o SmartDocs como resposta ao caso trazido** —
+  o link no celular resolve o primeiro documento e é inadequado justamente para o segundo,
+  que foi o que motivou o pedido. Daí a assinatura no BALCÃO, onde o paciente do BSV já
+  está: `InkCanvas` é de fábrica no WPF, não exige e-CPF, não exige internet e não cria
+  deployable novo. **A pergunta que decide não é "que tecnologia o concorrente usa", é
+  "sobre QUANDO este documento afirma alguma coisa".**
+  ⚠️ **O paciente NÃO assina com certificado, e isso não é limitação.** Termo de
+  consentimento é documento ENTRE AS PARTES (MP 2.200-2/2001, art. 10, §2º) — a Lei
+  14.063/2020 chama isso de assinatura SIMPLES. Exigir e-CPF do paciente seria inviável e
+  desnecessário. **O que dá valor a ela é EVIDÊNCIA**: quem, quando, diante de quem, com
+  que documento conferido, e o SHA-256 do que ele tinha na frente — declarações respondidas
+  incluídas, senão o selo deixaria de fora justamente a parte que se contesta ("eu nunca
+  disse que estava em jejum"). E o rodapé escreve "assinatura eletrônica simples", jamais
+  "digital": é a regra do carimbo escaneado, da parcela 3.
+  **A ordem das duas assinaturas é amarra técnica, não preferência**: o PDF não se assina
+  incrementalmente (a restrição que a parcela 42 já encontrou), então o traço do paciente
+  tem de estar DENTRO dos bytes ANTES do selo ICP-Brasil do profissional. Colher depois
+  produziria, em silêncio, um arquivo cujo selo não fecha — a garantia aparente que este
+  projeto recusa. `ColherAsync` RECUSA documento já assinado eletronicamente.
+  **"Não estou em jejum" NÃO impede, e é decisão**: o termo é emitido do mesmo jeito, com a
+  resposta escrita, e acende alerta VERMELHO pelo `ElegibilidadeService`. Bloquear
+  produziria o desfecho pior — ninguém emite o termo, o procedimento acontece assim mesmo e
+  não sobra registro nenhum. Quem decide adiar é quem faz o procedimento.
+  **Validade POR SESSÃO, sem campo de prazo** (decisão da clínica): a chave de "já
+  assinou?" é a DATA. Um "vale por N dias" existiria para nunca ser usado, e regra com
+  exceção que ninguém exerce é código a mais e mais uma resposta possível para a mesma
+  pergunta (a lição do CPF duplicado, parcela 57).
+  **O TEXTO é da clínica, não nosso**: `ModeloDocumento` com as declarações como
+  `ItemModelo`, escrito em Configurações → "Escrever termos…". Não há termo de fábrica —
+  um texto de consentimento embutido seria o sistema opinando sobre risco clínico. E
+  aplicar **COPIA**, como o protocolo do mapa corporal; aqui não é desenho, é a Lei
+  13.787/2018: referência viva faria corrigir uma palavra hoje reescrever o que um
+  paciente assinou no mês passado. Por isso `DocumentoClinico.ModeloOrigemId` é
+  PROCEDÊNCIA — e casar por MODELO, não por tipo, é o que permite dois procedimentos no
+  mesmo dia exigirem dois termos sem um cobrir o outro.
+  ⚠️ **`TipoDocumentoClinico.TermoProcedimento` não reaproveita o `Consentimento`**, que é o
+  termo **LGPD** montado das finalidades: seria o bit sobrecarregado da parcela 49 num
+  papel — sem como conceder um sem o outro, e a segunda via de um sairia com o texto do
+  outro. E a folha nova nasce **fechada** em `FolhaCatalogo` (a regra da parcela 59).
+  **A leitura tem DOIS caminhos e UMA definição**: a fila lê 30 cartões em 3 consultas
+  (`DoDiaAsync`) e a ficha lê um (`SituacaoDoDiaAsync`), e os dois resolvem pela MESMA
+  função privada. Duas definições de "falta assinar" divergiriam na primeira correção, e a
+  que ninguém lembraria de ajustar é a do quadro — onde o erro aparece como **cartão
+  limpo**, indistinguível de termo em dia. `Leitura_em_lote_da_fila_concorda_com_a_leitura_
+  por_paciente` é a amarra.
+  **A porta fica na fila do balcão**, no "⋯" do cartão: o alerta do check-in diz que falta
+  assinar, e alerta sem porta no mesmo app é pior que alerta nenhum (parcela 48). A janela
+  mora no **shell**, como o mapa corporal — ela é apresentada em três lugares e copiá-la
+  daria três telas divergindo na primeira correção.
+  **Lição de teste**: `Os_sete_documentos_geram_PDF` cobrava `TipoDocumentoInfo.Todos` e
+  falhou ao nascer o oitavo tipo — foi a rede que impediu um documento sem PDF de passar no
+  build e só quebrar na frente de quem fosse imprimi-lo. **Asserção contra a lista COMPLETA
+  de um enum é o que faz o tipo novo cobrar a própria cobertura.**

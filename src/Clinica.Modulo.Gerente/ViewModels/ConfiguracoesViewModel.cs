@@ -34,6 +34,13 @@ namespace Clinica.Gerente.ViewModels;
 public sealed partial class ConfiguracoesViewModel : ObservableObject
 {
     private readonly IServiceScopeFactory _escopos;
+
+    /// <summary>
+    /// A fábrica de escopos, para a View montar a janela dos termos (parcela 66). Ela é
+    /// exposta em vez de a View pedir o escopo ao DI por conta própria porque a tela é
+    /// criada pelo shell e não passa pelo contêiner — quem o tem é este ViewModel.
+    /// </summary>
+    public IServiceScopeFactory Escopos => _escopos;
     private readonly ISnackbarService _snackbar;
 
     // ---- Clínica / prestador ----
