@@ -2844,3 +2844,20 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   encontrado"**. É o defeito recorrente do projeto cometido na própria ferramenta de achar
   defeitos. Os achados estavam no `journal.jsonl` o tempo todo. **Resultado vazio de
   workflow é para ser investigado no journal, nunca lido como aprovação.**
+
+- **Checagem que cobre UM sentido de um erro simétrico está metade cega** (parcela 66, 3ª
+  rodada — o CI reprovou a PR). A `ModelosTermoWindow` do Gerente declarou
+  `xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"` **sem** `;assembly=`, e o tipo mora
+  no shell: `MC3074`. A **checagem 33** existe exatamente para esta família e não viu,
+  porque ela nasceu na parcela 60 pegando o `;assembly=` que **SOBRA** (tela movida entre
+  projetos) — e este é o mesmo erro pelo avesso, o `;assembly=` que **FALTA**.
+  Nenhuma rede local pegava, pela razão de sempre: o XML é bem-formado, o
+  `compilar-sombra` não lê o corpo do XAML e o C# compila. Virou a **checagem 33-B**, que
+  casa cada `clr-namespace:X` sem sufixo contra os namespaces que o projeto DECLARA nos
+  `.cs` dele — projeto sem `.cs` lido responde "não sei" e cala, como a 34. Autotestada
+  contra o caso real e contra os dois legítimos (shell e faturamento, que declaram
+  `Clinica.Desktop.Controls` cada um no seu — o débito permanente da parcela 7).
+  A regra que fica, e que vale para toda checagem futura: **ao escrever uma rede para um
+  erro que tem dois sentidos, cubra os dois no mesmo commit.** O sentido que você deixar de
+  fora é o que a próxima pessoa vai cometer — aqui foram seis parcelas até alguém tentar o
+  outro lado.

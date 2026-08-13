@@ -2221,6 +2221,82 @@ for _decl, _projeto, _deve_pegar in (
         )
 
 
+# ------------------------------------------------------------- checagem 33-B
+# O ESPELHO DA 33: `clr-namespace:` SEM `assembly=` para um namespace que o projeto NÃO
+# declara.
+#
+#     MC3074: The tag 'TextoParaVisibilidade' does not exist in XML namespace
+#             'clr-namespace:Clinica.Desktop.Controls'.
+#
+# A 33 pega o `;assembly=` que SOBRA (tela movida entre projetos). Este é o mesmo erro pelo
+# avesso — o `;assembly=` que FALTA —, e foi ele que quebrou o build na parcela 66: a
+# `ModelosTermoWindow` do Gerente declarou `clr-namespace:Clinica.Desktop.Controls` sem o
+# sufixo, e o tipo mora no shell. Sem o `assembly=`, o WPF procura o namespace DENTRO do
+# próprio projeto e não acha.
+#
+# ⚠️ A 33 nasceu cobrindo só uma direção porque só uma tinha mordido. A lição da parcela 66:
+# **checagem que cobre um sentido de um erro simétrico está metade cega** — e a metade que
+# falta é a que a próxima pessoa vai cometer.
+#
+# O critério é textual e conservador: só reclama quando NENHUM arquivo `.cs` do projeto
+# declara aquele namespace. Assim a checagem cala para namespace do próprio projeto (o caso
+# legítimo) e para qualquer coisa que ela não saiba resolver.
+XMLNS_SEM_ASSEMBLY = re.compile(r'clr-namespace:([\w.]+)(?=["\'])')
+
+_namespaces_por_projeto: dict[str, set[str]] = {}
+for _cs in RAIZ.glob("src/*/**/*.cs"):
+    _partes = _cs.relative_to(RAIZ).parts
+    if len(_partes) < 2:
+        continue
+    for _ns in re.findall(r'^\s*namespace\s+([\w.]+)', _cs.read_text(encoding="utf-8"), re.M):
+        _namespaces_por_projeto.setdefault(_partes[1], set()).add(_ns)
+
+_xamls_33b = 0
+for f in list(arvores_com_faturamento):
+    partes = f.relative_to(RAIZ).parts
+    if len(partes) < 2 or partes[0] != "src":
+        continue
+    projeto = partes[1]
+    _xamls_33b += 1
+
+    declarados = _namespaces_por_projeto.get(projeto, set())
+    if not declarados:
+        continue  # projeto sem .cs lido: "não sei" cala, como na 34
+
+    texto = f.read_text(encoding="utf-8")
+    for m in XMLNS_SEM_ASSEMBLY.finditer(texto):
+        ns = m.group(1)
+        if ns in declarados:
+            continue
+        erros.append(
+            f"{rel(f)}:{texto.count(chr(10), 0, m.start()) + 1}: o `xmlns` diz "
+            f"`clr-namespace:{ns}` sem `;assembly=`, mas `{projeto}` não declara esse "
+            f"namespace em nenhum `.cs` — o WPF procura dentro do próprio projeto e recusa "
+            f"com MC3074. Acrescente `;assembly=<projeto que declara o tipo>`."
+        )
+
+if _xamls_33b == 0:
+    erros.append(
+        "verificar-suite: a checagem 33-B não achou XAML nenhum sob `src/<projeto>/`."
+    )
+
+# Autoteste: o caso real da parcela 66, e os dois legítimos.
+for _ns, _projeto, _deve_pegar in (
+    # O defeito real: o Gerente usando um tipo do shell sem dizer o assembly.
+    ("Clinica.Desktop.Controls", "Clinica.Modulo.Gerente", True),
+    # Legítimo: o shell declara esse namespace, então sem `assembly=` está certo.
+    ("Clinica.Desktop.Controls", "Clinica.Desktop.Shell", False),
+    # Legítimo: o faturamento também o declara (os dois design systems, parcela 7).
+    ("Clinica.Desktop.Controls", "Clinica.Desktop", False),
+):
+    _declarados = _namespaces_por_projeto.get(_projeto, set())
+    if _declarados and ((_ns not in _declarados) != _deve_pegar):
+        erros.append(
+            f"verificar-suite: a checagem 33-B mudou de resposta para `{_ns}` em "
+            f"`{_projeto}` (esperado: {'pega' if _deve_pegar else 'deixa passar'})."
+        )
+
+
 # --------------------------------------------------------------- checagem 34
 # ATRIBUTO QUE NÃO É PROPRIEDADE DO CONTROLE PRÓPRIO.
 #
