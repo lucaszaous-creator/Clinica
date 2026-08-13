@@ -56,6 +56,16 @@ public sealed class DocumentosClinicosPdfService
     private const float MargemPagina = 42.52f;       // 1,5 cm
     private const float AlturaRodape = 104f;
     private const float AlturaFaixaAssinatura = 58f;
+
+    /// <summary>
+    /// Altura da área onde o traço do paciente é desenhado, acima da linha (parcela 66).
+    ///
+    /// 38 pontos, e não os 46 da primeira versão: com o bloco inteiro travado por
+    /// `ShowEntire()`, cada ponto a mais aqui é um ponto a mais de chance de o bloco não
+    /// caber e a via de uma página virar duas. Uma assinatura manuscrita cabe folgada em
+    /// 38 pontos — a régua é o traço, não a área.
+    /// </summary>
+    private const float AlturaDaAssinatura = 38f;
     // 220 e não 250: o rodapé do documento assinado divide a faixa com o QR e com o
     // texto de conferência, e a 250 as três linhas quebravam no meio da palavra.
     private const float LarguraCarimbo = 220f;
@@ -230,7 +240,14 @@ public sealed class DocumentosClinicosPdfService
                         comEndereco: documento.Tipo == TipoDocumentoClinico.Receita);
 
                     if (!string.IsNullOrWhiteSpace(documento.Corpo))
-                        Paragrafos(col, documento.Corpo!);
+                        Paragrafos(col, documento.Corpo!,
+                            // O TERMO é o único documento cujo corpo é um texto LONGO — dez,
+                            // doze parágrafos de consentimento. Com o espaçamento de 10 que
+                            // serve à receita (duas linhas de orientação), ele empurrava a
+                            // assinatura para uma segunda página que só tinha a assinatura.
+                            // Compacto, a mesma folha cabe inteira — e a via que o paciente
+                            // assina e guarda tem de ser UMA (parcela 66, 4ª rodada).
+                            compacto: documento.Tipo == TipoDocumentoClinico.TermoProcedimento);
 
                     switch (documento.Tipo)
                     {
@@ -625,7 +642,11 @@ public sealed class DocumentosClinicosPdfService
             var negativa = RespostaDeclaracao.EhNegativa(item.Quantidade);
             var respondida = !string.IsNullOrWhiteSpace(item.Quantidade);
 
-            col.Item().BorderBottom(1).BorderColor(Borda).PaddingVertical(8).Row(row =>
+            // `ShowEntire()`: a declaração e a resposta dela são UMA linha. Quebrada, o
+            // papel diria "Estou em jejum de 8 horas" no fim de uma página e "Não" no
+            // começo da outra — que é a pior forma possível de partir este documento.
+            col.Item().ShowEntire()
+                .BorderBottom(1).BorderColor(Borda).PaddingVertical(6).Row(row =>
             {
                 row.RelativeItem().Column(c =>
                 {
@@ -692,50 +713,64 @@ public sealed class DocumentosClinicosPdfService
         // carimbo do profissional não se chama assinatura digital.
         if (documento.PacienteAssinou && tracoPaciente is { Length: > 0 })
         {
-            col.Item().PaddingTop(28).Row(row =>
+            // ⚠️ UM ÚNICO item, e `ShowEntire()` (parcela 66, 4ª rodada — o cliente mandou a
+            // foto do PDF em duas páginas).
+            //
+            // Antes eram TRÊS itens irmãos — a linha de assinaturas, a frase de evidência e
+            // o aviso do selo —, e o QuestPDF quebra a página ENTRE itens: as linhas
+            // ficaram no fim da página 1 e os nomes embaixo delas foram para a 2, com o
+            // cabeçalho repetido no meio. A via saía com a assinatura órfã de quem assinou,
+            // que é o pior lugar possível para um documento se partir.
+            //
+            // `ShowEntire()` faz o bloco andar inteiro: ou cabe onde está, ou desce todo.
+            col.Item().PaddingTop(18).ShowEntire().Column(bloco =>
             {
-                if (!assinaturaEletronica)
+                bloco.Item().Row(row =>
                 {
+                    if (!assinaturaEletronica)
+                    {
+                        row.RelativeItem().Column(c =>
+                        {
+                            c.Item().Height(AlturaDaAssinatura);
+                            c.Item().LineHorizontal(1).LineColor(TextoSecundario);
+                            c.Item().PaddingTop(3).AlignCenter()
+                                .Text(documento.Profissional?.Nome ?? "Profissional responsável")
+                                .SemiBold().FontSize(9.5f);
+                            c.Item().AlignCenter()
+                                .Text(documento.Profissional?.RegistroConselho is { Length: > 0 } r
+                                    ? r : "Assinatura e carimbo")
+                                .FontSize(8.5f).FontColor(TextoSecundario);
+                        });
+
+                        row.ConstantItem(40);
+                    }
+
                     row.RelativeItem().Column(c =>
                     {
-                        c.Item().Height(46);
+                        c.Item().Height(AlturaDaAssinatura).AlignBottom().AlignCenter()
+                            .Image(tracoPaciente).FitArea();
                         c.Item().LineHorizontal(1).LineColor(TextoSecundario);
                         c.Item().PaddingTop(3).AlignCenter()
-                            .Text(documento.Profissional?.Nome ?? "Profissional responsável")
+                            .Text(documento.Paciente?.Nome ?? "Paciente")
                             .SemiBold().FontSize(9.5f);
-                        c.Item().AlignCenter()
-                            .Text(documento.Profissional?.RegistroConselho is { Length: > 0 } r
-                                ? r : "Assinatura e carimbo")
+                        c.Item().AlignCenter().Text("Paciente (ou responsável)")
                             .FontSize(8.5f).FontColor(TextoSecundario);
                     });
-
-                    row.ConstantItem(40);
-                }
-
-                row.RelativeItem().Column(c =>
-                {
-                    c.Item().Height(46).AlignBottom().AlignCenter()
-                        .Image(tracoPaciente).FitArea();
-                    c.Item().LineHorizontal(1).LineColor(TextoSecundario);
-                    c.Item().PaddingTop(3).AlignCenter()
-                        .Text(documento.Paciente?.Nome ?? "Paciente")
-                        .SemiBold().FontSize(9.5f);
-                    c.Item().AlignCenter().Text("Paciente (ou responsável)")
-                        .FontSize(8.5f).FontColor(TextoSecundario);
                 });
+
+                bloco.Item().PaddingTop(8).Text(documento.FraseAssinaturaPaciente)
+                    .FontSize(7.5f).FontColor(TextoSecundario);
+
+                // O selo RECALCULADO, e não o gravado (parcela 66, 2ª rodada). Guardar um
+                // hash que ninguém confere é guardar um número: a garantia só existe quando
+                // tem consequência visível, e esta é a consequência — a segunda via de um
+                // termo alterado depois da assinatura sai DIZENDO que não prova o que foi
+                // assinado.
+                if (documento.AvisoDeSeloQuebrado is { Length: > 0 } aviso)
+                    bloco.Item().PaddingTop(6)
+                        .Background(VermelhoSuave).Border(1).BorderColor(VermelhoForte).Padding(8)
+                        .Text(aviso).SemiBold().FontSize(8).FontColor(VermelhoForte);
             });
-
-            col.Item().PaddingTop(10).Text(documento.FraseAssinaturaPaciente)
-                .FontSize(7.5f).FontColor(TextoSecundario);
-
-            // O selo RECALCULADO, e não o gravado (parcela 66, 2ª rodada). Guardar um hash
-            // que ninguém confere é guardar um número: a garantia só existe quando ela tem
-            // consequência visível, e esta é a consequência — a segunda via de um termo
-            // alterado depois da assinatura sai DIZENDO que não prova o que foi assinado.
-            if (documento.AvisoDeSeloQuebrado is { Length: > 0 } aviso)
-                col.Item().PaddingTop(6)
-                    .Background(VermelhoSuave).Border(1).BorderColor(VermelhoForte).Padding(8)
-                    .Text(aviso).SemiBold().FontSize(8).FontColor(VermelhoForte);
 
             return;
         }
@@ -781,7 +816,10 @@ public sealed class DocumentosClinicosPdfService
             return;
         }
 
-        col.Item().PaddingTop(36).Row(row =>
+        // `ShowEntire()` pela razão do bloco assinado acima: a linha de assinatura e o nome
+        // embaixo dela são UMA coisa, e quebrar entre os dois deixa a via com um traço
+        // órfão no fim de uma página e o nome de quem assinou no começo da seguinte.
+        col.Item().PaddingTop(30).ShowEntire().Row(row =>
         {
             if (!assinaturaEletronica)
                 row.RelativeItem().Column(c =>
@@ -813,14 +851,33 @@ public sealed class DocumentosClinicosPdfService
 
     // ==================== Auxiliares ====================
 
-    private static void Paragrafos(ColumnDescriptor col, string texto)
+    /// <param name="compacto">
+    /// Espaçamento e corpo menores, para texto LONGO. O espaçamento de 10 pontos entre
+    /// itens vem da coluna da página e serve a documento curto; num termo de doze
+    /// parágrafos ele sozinho soma mais de cem pontos — uma folha inteira de respiro num
+    /// papel que precisa caber numa página só.
+    /// </param>
+    private static void Paragrafos(ColumnDescriptor col, string texto, bool compacto = false)
     {
-        foreach (var paragrafo in texto.Split('\n'))
+        var paragrafos = texto.Split('\n')
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .ToList();
+
+        if (!compacto)
         {
-            var limpo = paragrafo.Trim();
-            if (limpo.Length == 0) continue;
-            col.Item().Text(limpo).FontSize(10.5f);
+            foreach (var p in paragrafos) col.Item().Text(p).FontSize(10.5f);
+            return;
         }
+
+        // Uma coluna PRÓPRIA, com o espaçamento dela: o `Spacing` da coluna da página vale
+        // entre os blocos da folha (paciente, corpo, declarações, assinatura) e não deve
+        // mudar por causa do miolo de um tipo só.
+        col.Item().Column(c =>
+        {
+            c.Spacing(5);
+            foreach (var p in paragrafos) c.Item().Text(p).FontSize(10f).LineHeight(1.25f);
+        });
     }
 
     private static int Idade(DateOnly nascimento)

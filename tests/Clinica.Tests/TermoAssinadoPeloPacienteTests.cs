@@ -619,6 +619,68 @@ public class TermoAssinadoPeloPacienteTests : IDisposable
         achado!.Id.Should().Be(termo.Id);
     }
 
+    // ==================== A VIA IMPRESSA (4ª rodada) ====================
+
+    [Fact]
+    public async Task O_termo_assinado_cabe_em_UMA_pagina()
+    {
+        var paciente = await PacienteAsync();
+        var modelo = await ModeloDoBsvAsync();
+
+        // O texto REAL da clínica, com o tamanho que o cliente imprimiu: o defeito só
+        // aparece quando o corpo é longo o bastante para empurrar a assinatura contra o
+        // fim da página.
+        modelo.Corpo =
+            "Declaro que fui informado(a) pelo médico responsável sobre o procedimento de "
+            + "Bloqueio Simpático Venoso (BSV), incluindo sua finalidade, forma de realização, "
+            + "cuidados necessários e possíveis riscos e intercorrências.\n"
+            + "Declaro estar ciente de que, para a realização do procedimento, devo seguir "
+            + "corretamente as orientações fornecidas pela equipe médica, incluindo:\n"
+            + "Comparecer respeitando o período de jejum orientado pelo médico.\n"
+            + "Informar ao médico todos os medicamentos que utilizo, bem como alergias, "
+            + "doenças ou condições de saúde relevantes.\n"
+            + "Informar previamente qualquer alteração no meu estado de saúde antes do "
+            + "procedimento.\n"
+            + "Seguir as orientações específicas sobre uso ou suspensão de medicamentos, "
+            + "quando aplicável.\n"
+            + "Comparecer acompanhado(a), caso essa orientação seja determinada pela equipe "
+            + "médica.\n"
+            + "Seguir os cuidados e recomendações fornecidos antes e após o procedimento.\n"
+            + "Declaro que tive oportunidade de esclarecer minhas dúvidas e que as informações "
+            + "foram apresentadas de forma compreensível. Estou ciente de que o não cumprimento "
+            + "das orientações de preparo poderá resultar no adiamento ou cancelamento do "
+            + "procedimento, conforme avaliação do médico responsável.\n"
+            + "Confirmo que li, compreendi e concordo com as orientações acima, estando ciente "
+            + "dos cuidados necessários para a realização do procedimento.";
+        await _db.SaveChangesAsync();
+
+        var termo = await _documentos.EmitirTermoProcedimentoAsync(paciente, modelo.Id);
+        await AssinarAsync(termo.Id);
+
+        var completo = await _repo.ObterDocumentoAsync(termo.Id);
+        var pdfs = new DocumentosClinicosPdfService(_repo);
+        var pdf = pdfs.Gerar(completo!, tracoPaciente: PngDeTeste());
+
+        ContarPaginas(pdf).Should().Be(1,
+            "o bloco de assinatura é UM item com ShowEntire: quebrado entre itens, as "
+            + "linhas ficavam no fim da página 1 e os nomes de quem assinou iam para a 2, "
+            + "com o cabeçalho repetido no meio — a via saía com a assinatura órfã");
+    }
+
+    /// <summary>
+    /// Um PNG 1×1 de verdade. O `new byte[512]` dos outros testes basta para o serviço (que
+    /// só confere o TAMANHO), mas o QuestPDF decodifica a imagem ao desenhar.
+    /// </summary>
+    private static byte[] PngDeTeste() => Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+
+    /// <summary>Conta as páginas pelo PDF cru — o mesmo jeito do serviço de assinatura.</summary>
+    private static int ContarPaginas(byte[] pdf)
+    {
+        var texto = System.Text.Encoding.Latin1.GetString(pdf);
+        return System.Text.RegularExpressions.Regex.Matches(texto, @"/Type\s*/Page[^s]").Count;
+    }
+
     // ============ O que a revisão adversarial achou (2ª rodada) ============
 
     [Fact]
