@@ -38,6 +38,48 @@
                        Text="O recall dispara mensagens por regra de tempo; esta é a LISTA, para olhar caso a caso e decidir quem vale um telefonema de verdade — o paciente de tratamento longo que some vale dez recalls disparados no vazio. Quem já tem horário marcado à frente não aparece: ele não está perdido, só ainda não veio." />
         </Border>
 
+        <!-- ===== Filtro =====
+             Linha única acima da lista (REGRA DE LEIAUTE). A janela de dias, acima, muda
+             a CARGA; estes três só estreitam o que já veio — e os dois destaques da
+             linha (era de tratamento, pacote em aberto) viram recorte, porque é por
+             eles que a decisão do telefonema começa. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroNomeSumido, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <CheckBox Grid.Column="2" Content="Só quem era frequente"
+                          IsChecked="{Binding SoFrequentes}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8" />
+
+                <CheckBox Grid.Column="4" Content="Só com pacote em aberto"
+                          IsChecked="{Binding SoComPacoteAberto}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8" />
+
+                <Button Grid.Column="6" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
@@ -104,7 +146,7 @@
                                    Glifo="&#xE77B;"
                                    TextoCarregando="Procurando quem parou de vir…"
                                    Titulo="Ninguém sem vir há mais tempo que a janela escolhida"
-                                   Descricao="Quem já tem horário marcado à frente não entra: ele voltou, só ainda não veio." />
+                                   Descricao="{Binding VazioDescricao}" />
             </Grid>
         </Border>
     </DockPanel>

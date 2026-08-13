@@ -128,15 +128,35 @@ public sealed class LinhaDocumento
     /// </summary>
     public string NomeArquivoAssinado => $"{Tipo}-{Numero.Replace('/', '-')}-assinado.pdf";
 
-    /// <summary>Cancelar duas vezes não existe — o botão desliga depois do primeiro.</summary>
-    public bool PodeCancelar => !Cancelado;
+    /// <summary>
+    /// O acesso que ESTE papel exige para ser visto (parcela 59).
+    ///
+    /// Receita, atestado, pedido de exame, relatório de evolução e anamnese pedem
+    /// <c>VerProntuario</c>; declaração de comparecimento e termo de consentimento pedem
+    /// só a ficha. Quem decide é o CATÁLOGO, para as três telas que listam documento
+    /// clínico não terem três respostas para a mesma pergunta.
+    /// </summary>
+    public required Permissao AcessoParaVer { get; init; }
+
+    /// <summary>O acesso para cancelar ou assinar este papel.</summary>
+    public required Permissao AcessoParaMexer { get; init; }
+
+    /// <summary>
+    /// Cancelar duas vezes não existe — o botão desliga depois do primeiro. E cancelar
+    /// uma receita é ato de quem prescreve: é a metade VISÍVEL do acesso; a que impede é
+    /// o <c>Exigir</c> no comando.
+    /// </summary>
+    public bool PodeCancelar => !Cancelado && SessaoUsuario.Atual.Pode(AcessoParaMexer);
 
     /// <summary>
     /// Assinar depois existe porque emissão e assinatura nem sempre acontecem no mesmo
     /// minuto. Assinado não se reassina (dois arquivos válidos do mesmo ato, e nada
-    /// diria qual o paciente levou) e cancelado não se assina.
+    /// diria qual o paciente levou) e cancelado não se assina. Compõe com o acesso
+    /// (parcela 61), como o <see cref="PodeCancelar"/> logo acima: sem o bit o botão
+    /// ficava aceso e o clique estourava no Exigir.
     /// </summary>
-    public bool PodeAssinar => !Cancelado && !Assinado;
+    public bool PodeAssinar => !Cancelado && !Assinado
+        && SessaoUsuario.Atual.Pode(AcessoParaMexer);
 
     /// <summary>
     /// Só documento ASSINADO se entrega como arquivo. Mandar um PDF sem assinatura pelo
@@ -161,6 +181,8 @@ public sealed class LinhaDocumento
         Codigo = d.CodigoVerificacao,
         Cancelado = d.Cancelado,
         Assinado = d.AssinadoEletronicamente,
+        AcessoParaVer = CentralDocumentosService.AcessoParaVer(d.Tipo),
+        AcessoParaMexer = CentralDocumentosService.AcessoParaEmitir(d.Tipo),
         Situacao = d.Cancelado
             ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
             : d.AssinadoEletronicamente
@@ -283,6 +305,23 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     /// <summary>
+    /// Metade VISÍVEL do acesso a emitir documento clínico (parcela 59).
+    ///
+    /// Ela existe porque a guarda mudou: o botão "Novo documento…" abre a janela que
+    /// oferece receita, atestado e pedido de exame, e o comando passou a exigir
+    /// <see cref="Permissao.Prescrever"/>. Deixá-lo ligado a <c>PodeEditarCadastro</c>
+    /// daria um botão ACESO que só diz "seu acesso não permite" depois do clique — o
+    /// defeito da parcela 41 com uma etapa a mais.
+    /// </summary>
+    public bool PodePrescrever => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
+
+    /// <summary>
+    /// Relatório de evolução e anamnese são IMPRESSOS do prontuário — emitir é tirar uma
+    /// via do que já está lá, não escrever. Por isso pedem só a leitura.
+    /// </summary>
+    public bool PodeEmitirDoProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+
+    /// <summary>
     /// Anonimizar não tem volta, então a barreira é outra: o balcão exporta os dados do
     /// titular, mas quem apaga a identificação é quem responde pela clínica.
     /// </summary>
@@ -296,9 +335,18 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         _dialogo = dialogo;
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): abrir duas fichas em sequência
+    /// deixa oito leituras de cada uma no ar, e a resposta atrasada da primeira chegando
+    /// por último misturaria nome, foto e alertas de pacientes diferentes na mesma tela.
+    /// </summary>
+    private int _geracaoCarga;
+
     /// <summary>Carrega a ficha de um paciente (ou limpa, quando o id é nulo).</summary>
     public async Task AbrirAsync(int? pacienteId)
     {
+        var geracao = ++_geracaoCarga;
+
         if (pacienteId is null)
         {
             TemPaciente = false;
@@ -306,7 +354,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             return;
         }
 
-        PacienteId = pacienteId.Value;
+        // O id fica numa LOCAL: o campo muda quando outra abertura chega durante os
+        // awaits, e as leituras seguintes responderiam pelo paciente errado.
+        var id = pacienteId.Value;
+        PacienteId = id;
         TemPaciente = true;
 
         // A trilha de LEITURA (parcela 52). Fica em AbrirAsync, e não em CarregarAsync,
@@ -315,9 +366,12 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         using (var escopo = _escopos.CreateScope())
         {
             await escopo.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
-                .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                .RegistrarAsync(id, SessaoUsuario.Atual.Operador,
                     OrigemAcessoProntuario.FichaPaciente);
         }
+
+        // Chegou tarde: outra carga mais nova já foi pedida.
+        if (geracao != _geracaoCarga) return;
 
         await CarregarAsync();
     }
@@ -326,6 +380,9 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public async Task CarregarAsync()
     {
         if (PacienteId == 0) return;
+
+        var geracao = ++_geracaoCarga;
+        var id = PacienteId;
 
         try
         {
@@ -336,7 +393,11 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
 
-            var paciente = await pacientes.ObterComHistoricoAsync(PacienteId);
+            var paciente = await pacientes.ObterComHistoricoAsync(id);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             if (paciente is null)
             {
                 TemPaciente = false;
@@ -344,25 +405,39 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             }
 
             AplicarCadastro(paciente);
-            Foto = await pacientes.ObterFotoAsync(PacienteId) ?? paciente.FotoMiniatura;
 
-            await CarregarProntuarioAsync(scope);
-            await CarregarConsentimentosAsync(scope);
-            await CarregarDocumentosAsync(scope);
-            await CarregarCrmAsync(scope);
-            await CarregarElegibilidadeAsync(scope);
-            await CarregarFaltasAsync(scope);
-            await CarregarAutorizacoesAsync(scope);
+            var foto = await pacientes.ObterFotoAsync(id);
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+            Foto = foto ?? paciente.FotoMiniatura;
+
+            await CarregarProntuarioAsync(scope, id, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarConsentimentosAsync(scope, id, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarDocumentosAsync(scope, id, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarCrmAsync(scope, id, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarElegibilidadeAsync(scope, id, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarFaltasAsync(scope, id, geracao);
+            if (geracao != _geracaoCarga) return;
+            await CarregarAutorizacoesAsync(scope, id, geracao);
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Recepção — ficha do paciente não pôde ser carregada", ex);
             Mensagem = $"Não foi possível carregar a ficha: {ex.Message}";
             MensagemEhErro = true;
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -384,17 +459,14 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         // Origem em branco é "ninguém perguntou", e a ficha diz isso com todas as letras
         // em vez de deixar o campo vazio: campo vazio parece defeito, e a recepção só vai
         // colher o dado se souber que ele falta.
+        // O rótulo em si vem de RotulosEnum, que é o ponto único (parcela 62) — aqui
+        // fica só o que é DESTA tela: o "não perguntado" e o nome de quem indicou.
         Origem = p.Origem switch
         {
             null => "Não perguntado",
             OrigemPaciente.Indicacao when !string.IsNullOrWhiteSpace(p.IndicadoPor)
                 => $"Indicação de {p.IndicadoPor}",
-            OrigemPaciente.Indicacao => "Indicação",
-            OrigemPaciente.Encaminhamento => "Encaminhamento médico",
-            OrigemPaciente.RedesSociais => "Redes sociais",
-            OrigemPaciente.Fachada => "Passou em frente",
-            OrigemPaciente.Convenio => "Lista do convênio",
-            var o => o.ToString()!
+            var o => RotulosEnum.De(o)
         };
 
         var codigos = p.Atendimentos.SelectMany(a => a.Codigos).ToList();
@@ -413,19 +485,24 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         return idade;
     }
 
-    private async Task CarregarProntuarioAsync(IServiceScope scope)
+    private async Task CarregarProntuarioAsync(IServiceScope scope, int pacienteId, int geracao)
     {
         var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-        var evolucoes = await prontuario.DoPacienteAsync(PacienteId);
+        var evolucoes = await prontuario.DoPacienteAsync(pacienteId);
+        if (geracao != _geracaoCarga) return;
 
         Prontuario.Clear();
         foreach (var e in evolucoes)
         {
             var anexos = await prontuario.AnexosAsync(e.Id);
+            // Chegou tarde: parar a montagem impede a lista velha de terminar por cima da nova.
+            if (geracao != _geracaoCarga) return;
             Prontuario.Add(LinhaEvolucao.De(e, anexos.Count));
         }
 
-        AplicarEvolucaoDaDor(await prontuario.EvolucaoDaDorAsync(PacienteId));
+        var dor = await prontuario.EvolucaoDaDorAsync(pacienteId);
+        if (geracao != _geracaoCarga) return;
+        AplicarEvolucaoDaDor(dor);
     }
 
     private void AplicarEvolucaoDaDor(EvolucaoDaDor dor)
@@ -460,12 +537,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// chance de reocupar o horário, e misturar os dois esconderia exatamente o
     /// comportamento que o número existe para mostrar.
     /// </summary>
-    private async Task CarregarFaltasAsync(IServiceScope scope)
+    private async Task CarregarFaltasAsync(IServiceScope scope, int pacienteId, int geracao)
     {
         try
         {
             var servico = scope.ServiceProvider.GetRequiredService<RelacionamentoService>();
-            var h = await servico.FaltasDoPacienteAsync(PacienteId);
+            var h = await servico.FaltasDoPacienteAsync(pacienteId);
+            if (geracao != _geracaoCarga) return;
 
             Faltas = h.Faltas == 0
                 ? "nenhuma"
@@ -486,6 +564,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — histórico de falta não pôde ser lido", ex);
+            if (geracao != _geracaoCarga) return;
             // Terceiro estado: "—" é diferente de "nenhuma falta". Dizer que o paciente
             // nunca faltou por causa de uma consulta quebrada seria falha exibida como
             // sucesso — e neste caso a favor de quem falta.
@@ -503,22 +582,26 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// dentro da vigência de cada senha. É por isso que a coluna "usadas" muda sozinha
     /// quando o balcão finaliza uma sessão.
     /// </summary>
-    private async Task CarregarAutorizacoesAsync(IServiceScope scope)
+    private async Task CarregarAutorizacoesAsync(IServiceScope scope, int pacienteId, int geracao)
     {
         try
         {
             AutorizacoesNaoVerificadas = false;
-            Autorizacoes.Clear();
 
             var servico = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
-            foreach (var saldo in await servico.SaldosAsync(
-                         PacienteId, DateOnly.FromDateTime(DateTime.Today)))
+            var saldos = await servico.SaldosAsync(
+                pacienteId, DateOnly.FromDateTime(DateTime.Today));
+            if (geracao != _geracaoCarga) return;
+
+            Autorizacoes.Clear();
+            foreach (var saldo in saldos)
                 Autorizacoes.Add(saldo);
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — autorizações do paciente não puderam ser lidas", ex);
+            if (geracao != _geracaoCarga) return;
             // Terceiro estado. Lista vazia aqui se lê como "este paciente não tem senha
             // nenhuma", que é exatamente a conclusão oposta à verdadeira quando a
             // consulta falhou — e leva alguém a marcar dez sessões sem cota.
@@ -597,10 +680,11 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         }
     }
 
-    private async Task CarregarConsentimentosAsync(IServiceScope scope)
+    private async Task CarregarConsentimentosAsync(IServiceScope scope, int pacienteId, int geracao)
     {
         var servico = scope.ServiceProvider.GetRequiredService<ConsentimentoService>();
-        var situacao = await servico.SituacaoAsync(PacienteId);
+        var situacao = await servico.SituacaoAsync(pacienteId);
+        if (geracao != _geracaoCarga) return;
 
         Consentimentos.Clear();
         foreach (var finalidade in ConsentimentoService.Finalidades)
@@ -624,13 +708,16 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// aqui, no balcão, onde alguém vai atender essa pessoa e precisa saber o que já foi
     /// falado com ela. Falhar aqui não derruba a ficha — é histórico, não o conteúdo.
     /// </summary>
-    private async Task CarregarCrmAsync(IServiceScope scope)
+    private async Task CarregarCrmAsync(IServiceScope scope, int pacienteId, int geracao)
     {
-        Contatos.Clear();
         try
         {
             var campanhas = scope.ServiceProvider.GetRequiredService<CampanhaService>();
-            foreach (var c in await campanhas.DoPacienteAsync(PacienteId))
+            var contatos = await campanhas.DoPacienteAsync(pacienteId);
+            if (geracao != _geracaoCarga) return;
+
+            Contatos.Clear();
+            foreach (var c in contatos)
                 Contatos.Add(LinhaContato.De(c));
         }
         catch (Exception ex)
@@ -640,13 +727,23 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         }
     }
 
-    private async Task CarregarDocumentosAsync(IServiceScope scope)
+    private async Task CarregarDocumentosAsync(IServiceScope scope, int pacienteId, int geracao)
     {
         var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
+        var doPaciente = await servico.DoPacienteAsync(pacienteId);
+        if (geracao != _geracaoCarga) return;
+
+        // Só os papéis que o acesso desta pessoa alcança (parcela 59). A ficha é a porta
+        // que o balcão abre o dia inteiro, e listar "Receituário 2026/0012" aqui contaria
+        // a existência da receita a quem não pode lê-la — que é metade do que a direção
+        // pediu para fechar.
         Documentos.Clear();
-        foreach (var d in await servico.DoPacienteAsync(PacienteId))
-            Documentos.Add(LinhaDocumento.De(d));
+        foreach (var d in doPaciente)
+        {
+            var linha = LinhaDocumento.De(d);
+            if (SessaoUsuario.Atual.Pode(linha.AcessoParaVer)) Documentos.Add(linha);
+        }
     }
 
     private static string Descrever(ConsentimentoLgpd? registro) => registro switch
@@ -661,12 +758,13 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// Conferência de elegibilidade — isolada de propósito: se ela falhar, a ficha
     /// continua abrindo e a tela diz que NÃO conseguiu conferir.
     /// </summary>
-    private async Task CarregarElegibilidadeAsync(IServiceScope scope)
+    private async Task CarregarElegibilidadeAsync(IServiceScope scope, int pacienteId, int geracao)
     {
         try
         {
             var servico = scope.ServiceProvider.GetRequiredService<ElegibilidadeService>();
-            var resultado = await servico.ConferirAsync(PacienteId, DateOnly.FromDateTime(DateTime.Today));
+            var resultado = await servico.ConferirAsync(pacienteId, DateOnly.FromDateTime(DateTime.Today));
+            if (geracao != _geracaoCarga) return;
 
             Alertas.Clear();
             foreach (var a in resultado.Alertas)
@@ -682,6 +780,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — elegibilidade não pôde ser conferida", ex);
+            if (geracao != _geracaoCarga) return;
             Alertas.Clear();
             ElegibilidadeNaoVerificada = true;
         }
@@ -692,7 +791,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task EditarAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+        // O que esta janela edita é o CADASTRO (contato), não o prontuário — o bit é o
+        // da parcela 49. Com EditarProntuario aqui, a barreira NEGAVA ao balcão o
+        // cadastro que ele deve editar, com o botão aceso pelo bit certo ao lado.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "editar o cadastro do paciente");
 
         if (PacienteId == 0) return;
 
@@ -829,7 +931,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoDocumentoAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+        // A janela oferece receita, atestado, declaração e pedido de exame — três dos
+        // quatro mandam alguém tomar ou fazer alguma coisa. `EditarPaciente` (o bit do
+        // CADASTRO) autorizava todos eles até a parcela 59.
+        SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "emitir documento clínico");
 
         if (PacienteId == 0) return;
 
@@ -868,7 +973,11 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task EmitirMontadoAsync(TipoDocumentoClinico tipo)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+        // Os três montados não são iguais: relatório de evolução e anamnese saem do
+        // PRONTUÁRIO; o termo de consentimento sai do cadastro e é colhido no balcão.
+        SessaoUsuario.Atual.Exigir(
+            CentralDocumentosService.AcessoParaEmitir(tipo),
+            $"emitir {TipoDocumentoInfo.Rotular(tipo).ToLowerInvariant()}");
 
         if (PacienteId == 0) return;
 
@@ -954,9 +1063,10 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task CancelarDocumentoAsync(LinhaDocumento? linha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cancelar documento");
-
         if (linha is null || linha.Cancelado) return;
+
+        SessaoUsuario.Atual.Exigir(
+            linha.AcessoParaMexer, $"cancelar {linha.Tipo.ToLowerInvariant()}");
 
         var motivo = _dialogo.PerguntarTexto(
             "Cancelar documento",
@@ -1006,6 +1116,16 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             {
                 var servico = scope.ServiceProvider.GetRequiredService<TitularDadosService>();
                 texto = await servico.ExportarAsync(PacienteId, SessaoUsuario.Atual.Operador);
+
+                // TRILHA DE LEITURA (parcela 62): a exportação do art. 18 leva o
+                // prontuário INTEIRO num arquivo — é o maior acesso que esta tela permite.
+                // O `TitularDadosService` grava a própria linha de auditoria, mas com ação
+                // "DadosDoTitularExportados", que NÃO tem o prefixo `ProntuarioAcessado:`
+                // e por isso não aparece na trilha de leitura filtrada — nem em "quem
+                // abriu este prontuário". O MESMO ato pelo Gerente já registrava aqui.
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.ExportacaoTitular);
             }
 
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(

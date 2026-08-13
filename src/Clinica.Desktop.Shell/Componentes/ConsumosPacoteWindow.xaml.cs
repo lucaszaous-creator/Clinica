@@ -1,7 +1,6 @@
 using System.Windows;
-using Clinica.Financeiro.ViewModels;
 
-namespace Clinica.Financeiro.Janelas;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>
 /// Lista as sessões já debitadas do pacote e devolve ao saldo a que foi debitada por

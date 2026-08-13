@@ -51,8 +51,24 @@ public sealed class PacienteService
         await _repo.SalvarAsync(ct);
     }
 
+    /// <summary>
+    /// Remove a FICHA — e só quando ela é ficha vazia (cadastro criado por engano,
+    /// duplicata sem uso). Com registro clínico, a remoção é RECUSADA: as FKs apagam em
+    /// cascata, e evolução, avaliação, medida, documento e prescrição estão sob a guarda
+    /// de 20 anos da Lei 13.787/2018 — o caminho legal para "quero sair do sistema" é a
+    /// ANONIMIZAÇÃO (art. 16, II da LGPD), que tira o nome e preserva o histórico.
+    /// A recusa mora aqui, no serviço, porque a tela é só uma das portas possíveis.
+    /// </summary>
     public async Task RemoverAsync(int pacienteId, CancellationToken ct = default)
     {
+        if (await _repo.PacienteTemRegistroClinicoAsync(pacienteId, ct))
+            throw new InvalidOperationException(
+                "Este paciente tem registro clínico (evolução, avaliação, medida, documento "
+                + "ou prescrição), e registro clínico não se apaga — a lei exige guardá-lo "
+                + "por 20 anos. Se o paciente pediu para sair do sistema, use a anonimização "
+                + "na ficha dele (LGPD): o nome sai, o histórico clínico fica sem dono "
+                + "identificável.");
+
         await _repo.RemoverPacienteAsync(pacienteId, ct);
         await _repo.SalvarAsync(ct);
     }

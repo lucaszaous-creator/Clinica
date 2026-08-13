@@ -98,9 +98,18 @@ public sealed partial class CustoTransacaoViewModel : ObservableObject
 
     partial void OnMesesJanelaChanged(int value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Trocar a janela de meses dispara outra leitura; a resposta velha chegando por último
+    /// deixaria a série e as barras de um período que não é o escrito no cabeçalho.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Mensagem = null;
@@ -115,34 +124,9 @@ public sealed partial class CustoTransacaoViewModel : ObservableObject
             Periodo = $"{inicio:MM/yyyy} a {fim:MM/yyyy}";
 
             var serie = await custo.SerieAsync(hoje, MesesJanela);
-            Meses.Clear();
-            SeriePercentual.Clear();
-            SerieDeducoes.Clear();
-            foreach (var m in serie)
-            {
-                Meses.Add(LinhaMesCusto.De(m));
-                // Mês sem faturamento vira NULL na série, e a linha se interrompe: um mês
-                // sem base desenhado como 0% inventaria um mês perfeito, que é justamente
-                // o erro contra o qual o gráfico foi construído.
-                SeriePercentual.Add(new PontoGrafico(
-                    m.Rotulo, m.PercentualDeducoes is { } p ? (double)p : null));
-                SerieDeducoes.Add(new PontoGrafico(m.Rotulo, (double)m.Deducoes));
-            }
-
             var resumo = await custo.ResumoAsync(inicio, fim);
-            Bruto = resumo.Bruto.ToString("C");
-            Taxa = resumo.Taxa.ToString("C");
-            Imposto = resumo.Imposto.ToString("C");
-            Liquido = resumo.Liquido.ToString("C");
-            PercentualTaxa = Percentual(resumo.PercentualTaxa);
-            PercentualImposto = Percentual(resumo.PercentualImposto);
-            PercentualDeducoes = Percentual(resumo.PercentualDeducoes);
 
-            MaisCara = resumo.MaisCara is { } m2
-                ? $"Adquirente que mais descontou: {m2.Adquirente} ({m2.Taxa:C})"
-                : null;
-
-            Adquirentes.Clear();
+            var linhasAdquirente = new List<LinhaAdquirente>();
             foreach (var a in await custo.PorAdquirenteAsync(inicio, fim))
             {
                 var faixa = await custo.FaixaDeTabelaAsync(a.Adquirente, hoje);
@@ -159,7 +143,7 @@ public sealed partial class CustoTransacaoViewModel : ObservableObject
                     _ => "sem base para medir"
                 };
 
-                Adquirentes.Add(new LinhaAdquirente
+                linhasAdquirente.Add(new LinhaAdquirente
                 {
                     Rotulo = a.Adquirente,
                     ValorRotulo = $"{a.Taxa:C} de {a.Bruto:C} ({a.Quantidade})",
@@ -168,6 +152,39 @@ public sealed partial class CustoTransacaoViewModel : ObservableObject
                     AcimaDaTabela = faixa is { } f2 && efetiva is { } e2 && e2 > f2.Maior
                 });
             }
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
+            Meses.Clear();
+            SeriePercentual.Clear();
+            SerieDeducoes.Clear();
+            foreach (var m in serie)
+            {
+                Meses.Add(LinhaMesCusto.De(m));
+                // Mês sem faturamento vira NULL na série, e a linha se interrompe: um mês
+                // sem base desenhado como 0% inventaria um mês perfeito, que é justamente
+                // o erro contra o qual o gráfico foi construído.
+                SeriePercentual.Add(new PontoGrafico(
+                    m.Rotulo, m.PercentualDeducoes is { } p ? (double)p : null));
+                SerieDeducoes.Add(new PontoGrafico(m.Rotulo, (double)m.Deducoes));
+            }
+
+            Bruto = resumo.Bruto.ToString("C");
+            Taxa = resumo.Taxa.ToString("C");
+            Imposto = resumo.Imposto.ToString("C");
+            Liquido = resumo.Liquido.ToString("C");
+            PercentualTaxa = Percentual(resumo.PercentualTaxa);
+            PercentualImposto = Percentual(resumo.PercentualImposto);
+            PercentualDeducoes = Percentual(resumo.PercentualDeducoes);
+
+            MaisCara = resumo.MaisCara is { } m2
+                ? $"Adquirente que mais descontou: {m2.Adquirente} ({m2.Taxa:C})"
+                : null;
+
+            Adquirentes.Clear();
+            foreach (var linha in linhasAdquirente)
+                Adquirentes.Add(linha);
 
             var acima = Adquirentes.Count(a => a.AcimaDaTabela);
             Resumo = Adquirentes.Count == 0
@@ -178,6 +195,9 @@ public sealed partial class CustoTransacaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Gerente — custo de transação não pôde ser lido", ex);
             Mensagem = $"Não foi possível medir o custo: {ex.Message}";
             MensagemEhErro = true;

@@ -91,7 +91,8 @@
                                      Text="{Binding Paciente.Termo, UpdateSourceTrigger=PropertyChanged}"
                                      ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
 
-                            <Border Style="{StaticResource Card}" MaxHeight="180" Margin="0,0,0,12"
+                            <!-- Sem Card: moldura dentro de moldura é a colcha do README. -->
+                            <Border MaxHeight="180" Margin="0,0,0,12"
                                     Visibility="{Binding Paciente.TemResultados, Converter={StaticResource BoolParaVisibilidade}}">
                                 <ListBox ItemsSource="{Binding Paciente.Resultados}"
                                          SelectedItem="{Binding Paciente.Selecionado}"
@@ -115,6 +116,43 @@
                                         IsEnabled="{Binding PodeExportar}"
                                         Style="{StaticResource BotaoSecundario}"
                                         HorizontalAlignment="Left" Margin="0,12,0,0" MinWidth="250" />
+
+                                <!-- ===== Quem abriu este prontuário (parcela 61) =====
+                                     A pergunta da cliente ao pé da letra: "quem acessou,
+                                     quando acessou". A leitura própria existia desde a
+                                     parcela 52 sem uma tela que a chamasse. -->
+                                <TextBlock Text="Quem abriu este prontuário"
+                                           Style="{StaticResource H3}" Margin="0,18,0,4" />
+                                <TextBlock Text="{Binding ResumoAcessos}" TextWrapping="Wrap"
+                                           MaxWidth="820" Style="{StaticResource TextoSuave}"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Margin="0,0,0,8" />
+                                <Border Style="{StaticResource Card}" MaxHeight="240"
+                                        Visibility="{Binding TemAcessos,
+                                                     Converter={StaticResource BoolParaVisibilidade}}">
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding Acessos}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="130" />
+                                                            <ColumnDefinition Width="200" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding Quando}"
+                                                                   Style="{StaticResource CelulaSuave}" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding Operador}"
+                                                                   FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="2" Text="{Binding Porta}"
+                                                                   Style="{StaticResource CelulaSuave}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
                             </StackPanel>
                         </StackPanel>
                     </Border>

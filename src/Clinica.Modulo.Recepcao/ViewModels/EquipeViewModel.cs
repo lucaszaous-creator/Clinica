@@ -83,6 +83,13 @@ public sealed partial class EquipeViewModel : ObservableObject
     /// </summary>
     public bool PodeGerenciarEquipe => SessaoUsuario.Atual.Pode(Permissao.GerenciarEquipe);
 
+    /// <summary>
+    /// Fechar a agenda e empurrar as sessões são atos de AGENDA (parcela 62) — o mesmo
+    /// bit do botão "Fechar agenda…" que a tela de Agenda ganhou. Só o CADASTRO da equipe
+    /// (profissional, sala) é que continua sob <c>GerenciarEquipe</c>.
+    /// </summary>
+    public bool PodeEditarAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
     public EquipeViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
@@ -92,9 +99,21 @@ public sealed partial class EquipeViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50). Aqui ele não corrige só uma tela
+    /// desatualizada: TODA ação da tela (excluir, bloquear, reabrir, remarcar em lote)
+    /// termina chamando esta carga, e duas cargas no ar ao mesmo tempo se INTERCALAVAM —
+    /// a segunda limpava a coleção que a primeira ainda estava preenchendo, e a lista
+    /// saía com profissionais repetidos ou faltando. Daí montar tudo em listas locais e
+    /// só ENTÃO publicar: entre o Clear e o último Add não pode haver await.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -105,9 +124,8 @@ public sealed partial class EquipeViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();
 
-            Profissionais.Clear();
-            foreach (var p in await equipe.ProfissionaisAsync())
-                Profissionais.Add(new LinhaProfissional
+            var profissionais = (await equipe.ProfissionaisAsync())
+                .Select(p => new LinhaProfissional
                 {
                     Id = p.Id,
                     Nome = p.Nome,
@@ -115,30 +133,34 @@ public sealed partial class EquipeViewModel : ObservableObject
                     Duracao = p.DuracaoPadraoMinutos is { } d ? $"{d} min" : "padrão da clínica",
                     Situacao = p.Ativo ? "Ativo" : "Inativo",
                     Ativo = p.Ativo
-                });
+                })
+                .ToList();
+            if (geracao != _geracaoCarga) return;
 
-            Salas.Clear();
-            foreach (var s in await equipe.SalasAsync())
-                Salas.Add(new LinhaSala
+            var salas = (await equipe.SalasAsync())
+                .Select(s => new LinhaSala
                 {
                     Id = s.Id,
                     Nome = s.Nome,
                     Capacidade = s.Capacidade == 1 ? "1 atendimento" : $"{s.Capacidade} simultâneos",
                     Situacao = s.Ativa ? "Ativa" : "Inativa",
                     Ativa = s.Ativa
-                });
+                })
+                .ToList();
+            if (geracao != _geracaoCarga) return;
 
             var bloqueios = scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>();
 
-            Bloqueios.Clear();
+            var linhasBloqueio = new List<LinhaBloqueio>();
             foreach (var b in await bloqueios.ListarAsync())
             {
                 // Quem já está marcado dentro do período fechado aparece na linha:
                 // bloquear NÃO desmarca ninguém, e o paciente combinou aquele horário
                 // com uma pessoa — quem desmarca avisa.
                 var marcados = await bloqueios.MarcadosDentroAsync(b);
+                if (geracao != _geracaoCarga) return;
 
-                Bloqueios.Add(new LinhaBloqueio
+                linhasBloqueio.Add(new LinhaBloqueio
                 {
                     Id = b.Id,
                     Alvo = b.DaClinica
@@ -154,9 +176,19 @@ public sealed partial class EquipeViewModel : ObservableObject
                         : $"{marcados.Count} sessão(ões) marcada(s) dentro — remarque"
                 });
             }
+
+            Profissionais.Clear();
+            foreach (var linha in profissionais) Profissionais.Add(linha);
+
+            Salas.Clear();
+            foreach (var linha in salas) Salas.Add(linha);
+
+            Bloqueios.Clear();
+            foreach (var linha in linhasBloqueio) Bloqueios.Add(linha);
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — equipe não pôde ser carregada", ex);
             Mensagem = $"Não foi possível carregar a equipe: {ex.Message}";
@@ -164,7 +196,8 @@ public sealed partial class EquipeViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -224,7 +257,10 @@ public sealed partial class EquipeViewModel : ObservableObject
     [RelayCommand]
     private async Task NovoBloqueioAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "fechar a agenda");
+        // MESMO bit do botão "Fechar agenda…" da tela de Agenda (parcela 62): fechar a
+        // agenda é ato de AGENDA, e exigir `GerenciarEquipe` aqui deixava o balcão de
+        // fora de uma feature vendida como dele.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "fechar a agenda");
 
         var vm = new BloqueioEdicaoViewModel(_escopos);
         var janela = new Janelas.BloqueioWindow(vm)
@@ -328,7 +364,7 @@ public sealed partial class EquipeViewModel : ObservableObject
     {
         if (linha is null) return;
 
-        SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "reabrir a agenda");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "reabrir a agenda");
         if (!_dialogo.Confirmar("Reabrir a agenda",
                 $"Tirar o bloqueio de {linha.Alvo} ({linha.Periodo})? "
                 + "A agenda volta a aceitar marcação nesse período.")) return;

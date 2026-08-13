@@ -8,6 +8,13 @@ namespace Clinica.Domain.Regras;
 /// </summary>
 public sealed class ConfiguracaoRegraGenerica
 {
+    // ⚠️ "Gera guia?" (o PARTICULAR, parcela 60) NÃO mora aqui, e a razão é a mesma que
+    // pôs o formato do número da guia no `ConvenioCadastro`: esta configuração só é lida
+    // pela família Personalizado, e o campo precisa valer para QUALQUER família. Marcá-lo
+    // aqui daria uma caixinha que não faz nada num convênio embutido — o defeito do campo
+    // morto que a parcela 49 tirou da tela de Taxas. Ele está em
+    // `ConvenioCadastro.GeraGuia`, e quem o aplica é o `AtendimentoService`.
+
     /// <summary>Na modalidade acupuntura+eletro, realiza a eletroacupuntura (candidata a 2º código)?</summary>
     public bool FazEletro { get; set; }
 

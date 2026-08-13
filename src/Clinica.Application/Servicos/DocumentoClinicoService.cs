@@ -42,12 +42,23 @@ public sealed class DocumentoClinicoService
         "Conduta inicial"
     ];
 
+    /// <summary>
+    /// A publicação, para o cancelamento tirar o link do ar (parcela 63).
+    ///
+    /// OPCIONAL, como o <c>_consultas</c> do <c>AtendimentoService</c>: os testes que só
+    /// exercitam emissão constroem este serviço sem ele, e exigi-lo obrigaria a montar um
+    /// armazenamento falso em toda suíte que emite um atestado.
+    /// </summary>
+    private readonly PublicacaoDocumentoService? _publicacao;
+
     public DocumentoClinicoService(
-        IClinicaRepositorio repo, ProntuarioService prontuario, ConsentimentoService consentimentos)
+        IClinicaRepositorio repo, ProntuarioService prontuario, ConsentimentoService consentimentos,
+        PublicacaoDocumentoService? publicacao = null)
     {
         _repo = repo;
         _prontuario = prontuario;
         _consentimentos = consentimentos;
+        _publicacao = publicacao;
     }
 
     // ==================== Leitura ====================
@@ -134,6 +145,18 @@ public sealed class DocumentoClinicoService
     /// <summary>
     /// Cancela um documento emitido. NÃO apaga: a via que o paciente levou continua no
     /// mundo, e o registro é o que prova que ela não vale mais.
+    ///
+    /// ⚠️ <b>E TIRA O LINK DO AR</b> (parcela 63). A documentação do
+    /// <c>PublicacaoDocumentoService</c> afirmava que o cancelamento despublicava desde a
+    /// parcela 53, e ele <b>nunca fez isso</b> — a única chamada era a da expiração. Uma
+    /// receita cancelada continuava baixável pelo QR até o prazo vencer, que a clínica
+    /// configura em 30 ou 180 dias: o papel dizia "cancelada" e o endereço público
+    /// entregava o PDF assinado, que é a pior espécie de documento no ar.
+    ///
+    /// Mora AQUI e não na tela porque o cancelamento tem <b>quatro portas</b> (a ficha do
+    /// paciente, as Prescrições, e dois caminhos da central de documentos) — a mesma razão
+    /// pela qual a crítica do número da guia mora no <c>FaturamentoService</c>: corrigir
+    /// numa tela cobre uma e deixa três passando.
     /// </summary>
     public async Task CancelarAsync(
         int documentoId, string motivo, string? operador = null, CancellationToken ct = default)
@@ -159,6 +182,14 @@ public sealed class DocumentoClinicoService
         }, ct);
 
         await _repo.SalvarAsync(ct);
+
+        // Depois do SalvarAsync, e é decisão: o cancelamento é o fato que não pode falhar.
+        // Se o armazenamento estiver fora do ar, o documento continua CANCELADO — e a
+        // falha vai para o log com o caminho do arquivo, pelo próprio DespublicarAsync.
+        // Desfazer o cancelamento porque o S3 não respondeu deixaria válido um documento
+        // que a clínica acabou de invalidar, o que é o pior dos dois desfechos.
+        if (_publicacao is not null)
+            await _publicacao.DespublicarAsync(documento, operador, ct);
     }
 
     // ============ Documentos montados a partir do prontuário ============
@@ -213,7 +244,7 @@ public sealed class DocumentoClinicoService
         // A EVA continua no corpo e as escalas viram ITENS datados, na mesma linha do
         // tempo das sessões: separá-las em dois blocos faria o leitor comparar o escore
         // de agosto com a sessão de junho.
-        var avaliacoes = (await _repo.AvaliacoesDoPacienteAsync(pacienteId, null, ct))
+        var avaliacoes = (await _repo.AvaliacoesDoPacienteAsync(pacienteId, null, ct: ct))
             .Where(a => (inicio is null || a.Data >= inicio) && (fim is null || a.Data <= fim))
             .OrderBy(a => a.Data).ThenBy(a => a.Id)
             .ToList();

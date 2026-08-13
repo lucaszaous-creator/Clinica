@@ -317,6 +317,51 @@ public class FechamentoSessaoTests : IDisposable
     }
 
     [Fact]
+    public async Task Preparar_NaoSugereCobrarOQueAOperadoraPagou()
+    {
+        // O caso que virava cobrança em dobro: a guia do convênio conciliada vira
+        // lançamento com PacienteId, a operadora deposita, o balcão marca "recebido" —
+        // e a sessão seguinte abria com "Cobrar R$ X" pré-marcado com o valor da GUIA.
+        // Quem pagou foi a operadora; o fechamento não pode sugerir cobrar do paciente.
+        var pacienteId = await CriarPacienteAsync();
+        await _financeiro.LancarAsync(
+            Dia.AddDays(-30), TipoLancamento.Entrada, "Particular antiga", 100m,
+            pacienteId: pacienteId, formaPagamento: FormaPagamento.Dinheiro);
+        await _financeiro.LancarAsync(
+            Dia.AddDays(-3), TipoLancamento.Entrada, "Guia Unimed conciliada", 92m,
+            pacienteId: pacienteId, formaPagamento: FormaPagamento.Convenio);
+        var agendamentoId = await AgendarAsync(pacienteId);
+
+        var proposta = await _fechamento.PrepararAsync(agendamentoId);
+
+        // A entrada de convênio não manda na sugestão; a última PARTICULAR manda.
+        proposta.ValorSugerido.Should().Be(100m);
+        proposta.FormaSugerida.Should().Be(FormaPagamento.Dinheiro);
+    }
+
+    [Fact]
+    public async Task Preparar_IgnoraLancamentoLigadoAGuia()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        await _financeiro.LancarAsync(
+            Dia.AddDays(-3), TipoLancamento.Entrada, "Receita da guia", 92m,
+            pacienteId: pacienteId, formaPagamento: FormaPagamento.Pix);
+
+        // Liga o lançamento a uma guia, como a Conciliação faz.
+        var atendimento = await new AtendimentoService(_repo).LancarAsync(
+            pacienteId, Dia.AddDays(-3), ModalidadeAtendimento.AcupunturaSimples);
+        var lancado = await _db.Lancamentos.OrderByDescending(l => l.Id).FirstAsync();
+        lancado.CodigoFaturamentoId = atendimento.Atendimento.Codigos.First().Id;
+        await _db.SaveChangesAsync();
+
+        var agendamentoId = await AgendarAsync(pacienteId);
+        var proposta = await _fechamento.PrepararAsync(agendamentoId);
+
+        proposta.ValorSugerido.Should().BeNull(
+            "lançamento com CodigoFaturamentoId é dinheiro da OPERADORA, não do paciente");
+    }
+
+    [Fact]
     public async Task Preparar_SugereOsInsumosDaUltimaSessao()
     {
         var pacienteId = await CriarPacienteAsync();

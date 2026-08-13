@@ -4,6 +4,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -78,6 +79,42 @@ public sealed partial class CartaoFila : ObservableObject
 
     /// <summary>Só horário em aberto aceita falta/cancelamento.</summary>
     public bool EmAberto => Etapa != EtapaFila.Finalizado;
+
+    /// <summary>
+    /// O rótulo do PRÓXIMO passo — um só por cartão.
+    ///
+    /// Os quatro botões de avanço eram excludentes entre si menos num ponto ("Entrou"
+    /// aparecia junto de "Chegou"), e somados aos três de exceção davam até cinco botões
+    /// por cartão em cinco colunas. O olho para de distinguir o frequente do raro quando
+    /// tudo tem o mesmo peso; aqui o passo seguinte é o único botão sólido, e o resto
+    /// mora no "⋯".
+    /// </summary>
+    public string ProximoPasso => Etapa switch
+    {
+        EtapaFila.Aguardando => "Chegou",
+        EtapaFila.Chegou => "Chamar",
+        EtapaFila.Chamado => "Entrou",
+        EtapaFila.EmAtendimento => "Concluir",
+        _ => string.Empty
+    };
+
+    public bool TemProximoPasso => ProximoPasso.Length > 0;
+
+    /// <summary>
+    /// Quem LANÇOU o horário, e quando (parcela 58). Vai na dica do cartão: o quadro é
+    /// denso de propósito, e uma linha a mais por cartão custaria a densidade que faz o
+    /// dia caber na tela.
+    /// </summary>
+    public required string Lancamento { get; init; }
+
+    /// <summary>A dica do cartão: o que não coube nele e alguém pode precisar.</summary>
+    public string Detalhe => string.Join("\n", new[]
+    {
+        $"{Horario} · {Modalidade}",
+        $"{Profissional} · sala {Sala}",
+        string.IsNullOrWhiteSpace(Observacoes) ? null : $"Obs.: {Observacoes}",
+        Lancamento
+    }.Where(l => l is not null));
 }
 
 /// <summary>
@@ -171,8 +208,25 @@ public sealed partial class FilaViewModel : ObservableObject
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
     /// botão apagado explica por que não dá; a guarda no comando é que impede.
     /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    ///
+    /// ⚠️ <b>`EditarAgenda` OU `MovimentarFila`</b> — a MESMA conta do `ExigirAlgum` dos
+    /// comandos (parcela 62). Enquanto esta metade olhava só `EditarAgenda`, o perfil
+    /// `Profissional` — que a parcela 61 criou com `MovimentarFila` e sem `EditarAgenda` —
+    /// abria o quadro do balcão com TODOS os cartões apagados e o arrasto travado, apesar
+    /// de as guardas o autorizarem. Metade visível mais restrita que a guarda é pior do
+    /// que metade nenhuma: ela mente sobre o que a pessoa pode fazer. O Consultório já
+    /// fazia certo (<c>MeuDiaViewModel.PodeMovimentarFila</c>).
     /// </summary>
-    public bool PodeEditarAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    public bool PodeEditarAgenda => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.EditarAgenda | Permissao.MovimentarFila);
+
+    /// <summary>
+    /// A leitura FALHOU — o terceiro estado (parcela 62). Sem ele, a fila do balcão
+    /// desenhava "ninguém marcado para hoje" quando o banco oscilava na abertura: falha
+    /// com cara de dia vazio, na primeira tela que a recepção abre de manhã. Era a única
+    /// tela de lista do módulo sem ele.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
 
     public FilaViewModel(
         AgendaService agenda, PainelRecepcaoService painel, IServiceScopeFactory escopos,
@@ -249,12 +303,29 @@ public sealed partial class FilaViewModel : ObservableObject
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a batida do relógio e a troca de
+    /// dia concorrem, e a resposta de HOJE chegando por último reescreveria as cinco
+    /// colunas — e o <c>_doDia</c> que os comandos de etapa usam — por cima do dia que a
+    /// pessoa acabou de escolher. A meia-guarda por <c>Carregando</c> não cobria: a
+    /// recarga silenciosa roda com ele desligado.
+    /// </summary>
+    private int _geracaoCarga;
+
     private async Task CarregarAsync(bool silencioso)
     {
+        var geracao = ++_geracaoCarga;
+        if (!silencioso) NaoVerificado = false;
+
         try
         {
             Carregando = !silencioso;
-            _doDia = [.. await _agenda.DoDiaAsync(DateOnly.FromDateTime(Dia))];
+            var doDia = await _agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
+            _doDia = [.. doDia];
 
             // Quem tem guia pendente hoje. Falha aqui não pode derrubar a fila inteira:
             // é aviso, não o conteúdo da tela.
@@ -270,6 +341,8 @@ public sealed partial class FilaViewModel : ObservableObject
                     "Recepção — pendências do dia não puderam ser conferidas", ex);
                 comPendencia = [];
             }
+
+            if (geracao != _geracaoCarga) return;
 
             Aguardando.Clear();
             NaRecepcao.Clear();
@@ -288,13 +361,17 @@ public sealed partial class FilaViewModel : ObservableObject
                     PacienteId = a.PacienteId,
                     Horario = a.DataHora.ToString("HH:mm"),
                     Paciente = a.Paciente?.Nome ?? "(paciente removido)",
-                    Modalidade = a.ModalidadePrevista.ToString(),
+                    // Nome do CATÁLOGO, nunca o enum: `ToString()` escrevia
+                    // "AcupunturaComEletro" no cartão que o médico lê (parcela 41).
+                    Modalidade = CatalogoModalidades.Nome(
+                        a.ModalidadeCodigo ?? a.ModalidadePrevista.ToString()),
                     Profissional = a.Profissional?.Rotulo ?? "—",
                     Sala = a.Sala?.Nome ?? "—",
                     Etapa = a.Etapa,
                     Observacoes = a.Observacoes,
                     EhRetornoDoSegundoCodigo = a.Origem == OrigemAgendamento.RetornoSugerido,
                     EhEncaixe = a.Encaixe,
+                    Lancamento = DescreverLancamento(a),
                     TemGuiaPendente = comPendencia.Contains(a.PacienteId)
                 };
 
@@ -326,12 +403,35 @@ public sealed partial class FilaViewModel : ObservableObject
 
             // Recarga de fundo que falha não interrompe o balcão com um aviso vermelho:
             // ela já foi para o log, e a tela segue com o quadro do minuto anterior.
-            if (!silencioso) _snackbar.Erro($"Não foi possível carregar a fila: {ex.Message}");
+            if (!silencioso && geracao == _geracaoCarga)
+            {
+                // O terceiro estado, além do snackbar: o aviso passageiro some em 4s e o
+                // quadro vazio FICA, afirmando um dia sem ninguém que não foi verificado.
+                NaoVerificado = true;
+                _snackbar.Erro($"Não foi possível carregar a fila: {ex.Message}");
+            }
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// "Marcado por Ana em 08/08/2026 14:32" — ou a frase que assume a lacuna.
+    ///
+    /// Horário anterior à parcela 58 não guarda quem o lançou, e deixar em branco faria a
+    /// dica parecer que não conseguiu carregar.
+    /// </summary>
+    private static string DescreverLancamento(Agendamento a)
+    {
+        if (string.IsNullOrWhiteSpace(a.CriadoPor))
+            return "Marcado antes de o sistema passar a registrar quem lança — sem autoria.";
+
+        return a.CriadoEm is { } quando
+            ? $"Marcado por {a.CriadoPor} em {quando:dd/MM/yyyy HH:mm}"
+            : $"Marcado por {a.CriadoPor}";
     }
 
     private ObservableCollection<CartaoFila> Coluna(EtapaFila etapa) => etapa switch
@@ -371,12 +471,94 @@ public sealed partial class FilaViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// O PRÓXIMO passo do cartão, seja ele qual for — o botão sólido de cada cartão.
+    ///
+    /// Um comando só em vez de quatro visibilidades excludentes: o cartão já sabe em que
+    /// etapa está, e é ele quem diz o rótulo (<see cref="CartaoFila.ProximoPasso"/>).
+    /// </summary>
+    [RelayCommand]
+    private async Task AvancarAsync(CartaoFila? cartao)
+    {
+        if (cartao is null) return;
+
+        switch (cartao.Etapa)
+        {
+            case EtapaFila.Aguardando: await RegistrarChegadaAsync(cartao); break;
+            case EtapaFila.Chegou: await ChamarAsync(cartao); break;
+            case EtapaFila.Chamado: await IniciarAtendimentoAsync(cartao); break;
+            case EtapaFila.EmAtendimento: await FinalizarAsync(cartao); break;
+        }
+    }
+
+    /// <summary>
+    /// ARRASTAR o cartão de uma raia para outra — o gesto que define um kanban.
+    ///
+    /// Ele não substitui os botões: metade do balcão trabalha com o mouse na mão e a
+    /// outra metade não arrasta nada, e um quadro em que a única forma de andar é
+    /// arrastar deixaria a segunda metade sem saída. O que ele faz é dar ao gesto natural
+    /// o mesmo efeito do clique.
+    ///
+    /// As transições legais são EXATAMENTE as dos botões — não uma segunda regra escrita
+    /// aqui. Duas definições de "para onde este cartão pode ir" divergem na primeira
+    /// correção, e a que ninguém lembra de ajustar é a de baixo.
+    ///
+    /// Para TRÁS anda um passo por vez, porque é isso que
+    /// <c>AgendaService.VoltarEtapaAsync</c> faz: ele apaga um carimbo de hora, e apagar
+    /// três de uma vez para atender a um arrasto longo inventaria uma linha do tempo que
+    /// não aconteceu. Movimento impossível não é silêncio — a tela DIZ por que não deu.
+    /// </summary>
+    public async Task MoverParaAsync(CartaoFila? cartao, EtapaFila alvo)
+    {
+        if (cartao is null || cartao.Etapa == alvo) return;
+
+        var legal = (cartao.Etapa, alvo) switch
+        {
+            (EtapaFila.Aguardando, EtapaFila.Chegou) => true,
+            (EtapaFila.Chegou, EtapaFila.Chamado) => true,
+            (EtapaFila.Aguardando or EtapaFila.Chegou or EtapaFila.Chamado,
+                EtapaFila.EmAtendimento) => true,
+            (EtapaFila.EmAtendimento, EtapaFila.Finalizado) => true,
+            // Um passo para trás: o inverso exato do que o serviço sabe desfazer.
+            (EtapaFila.Chegou, EtapaFila.Aguardando) => true,
+            (EtapaFila.Chamado, EtapaFila.Chegou) => true,
+            (EtapaFila.EmAtendimento, EtapaFila.Chamado) => true,
+            _ => false
+        };
+
+        if (!legal)
+        {
+            _snackbar.Info(alvo == EtapaFila.Finalizado
+                ? "Só se conclui quem está em atendimento — leve o cartão para a sala primeiro."
+                : "Este cartão não anda direto para essa coluna. Arraste um passo por vez.");
+            return;
+        }
+
+        var voltando = alvo < cartao.Etapa;
+        if (voltando)
+        {
+            await VoltarEtapaAsync(cartao);
+            return;
+        }
+
+        switch (alvo)
+        {
+            case EtapaFila.Chegou: await RegistrarChegadaAsync(cartao); break;
+            case EtapaFila.Chamado: await ChamarAsync(cartao); break;
+            case EtapaFila.EmAtendimento: await IniciarAtendimentoAsync(cartao); break;
+            case EtapaFila.Finalizado: await FinalizarAsync(cartao); break;
+        }
+    }
+
     /// <summary>Check-in no balcão: o paciente chegou e o cronômetro da espera começa.</summary>
     [RelayCommand]
     private async Task RegistrarChegadaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            // Mover a fila é UM ato com UMA regra nos dois quadros (balcão e consultório):
+            // EditarAgenda OU MovimentarFila — ver a nota no enum Permissao (parcela 61).
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
             await _agenda.RegistrarChegadaAsync(c.AgendamentoId);
 
@@ -440,7 +622,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task ChamarAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
             await _agenda.ChamarAsync(c.AgendamentoId);
             _snackbar.Info($"{c.Paciente} chamado — anuncie para a sala {c.Sala}.");
@@ -451,7 +634,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task IniciarAtendimentoAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
             await _agenda.IniciarAtendimentoAsync(c.AgendamentoId);
             _snackbar.Sucesso($"{c.Paciente} em atendimento.");
@@ -489,6 +673,16 @@ public sealed partial class FilaViewModel : ObservableObject
             if (resultado.Lancamento is not null) partes.Add("entrada no caixa");
 
             _snackbar.Sucesso($"Sessão de {c.Paciente} concluída — {string.Join(" · ", partes)}.");
+
+            // Os recados do LANÇAMENTO em diálogo, não em snackbar (parcela 62): o
+            // principal deles é a NÃO CONFORMIDADE reaberta porque o paciente voltou, e
+            // ele existe para a secretária cobrar a guia AGORA, com ele ainda no balcão.
+            // Snackbar some em 4s e não sobrevive a quem virou para atender o próximo —
+            // é o mesmo diálogo que o check-in usa para os alertas de elegibilidade.
+            if (resultado.TemRecados)
+                _dialogo.Aviso($"Atenção — {c.Paciente}",
+                    string.Join("\n\n", resultado.RecadosDoLancamento));
+
             return Task.CompletedTask;
         }, "conclusão do atendimento");
 
@@ -497,7 +691,8 @@ public sealed partial class FilaViewModel : ObservableObject
     private async Task VoltarEtapaAsync(CartaoFila? cartao)
         => await ExecutarAsync(cartao, async c =>
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
             await _agenda.VoltarEtapaAsync(c.AgendamentoId);
             _snackbar.Info("Cartão devolvido para a coluna anterior.");

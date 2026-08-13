@@ -25,7 +25,8 @@ evolução inteira de todo mundo. A parcela 49 separou:
 | Bit | O que é |
 |---|---|
 | `VerFichaPaciente` | cadastro, contato, convênio, carteirinha, autorizações, consentimentos, documentos emitidos |
-| `EditarPaciente` | cadastrar/editar paciente, colher consentimento, registrar a senha do convênio, emitir documento |
+| `EditarPaciente` | cadastrar/editar paciente, colher consentimento, registrar a senha do convênio, emitir declaração e termo |
+| `VerDocumentos` | abrir a **central de documentos** — mostra só as folhas que os outros acessos da pessoa alcançam |
 | `VerProntuario` | evolução, EVA, mapa corporal, anexos, medidas, escalas, alergias — **dado de saúde** |
 | `EditarProntuario` | escrever no prontuário clínico |
 
@@ -39,18 +40,41 @@ O corte é o da **LGPD**: dado de contato de um lado, dado sensível (art. 5º, 
    é da chefia.
 3. **É dado de saúde?** Se sim, só quem cuida do paciente.
 
+> **`MovimentarFila` (parcela 61)**: mover a fila do dia — chegada, chamada, entrada,
+> voltar o cartão — é um ato mais estreito do que "marcar e remarcar", e é o gesto central
+> do quadro de quem atende. O profissional o recebe SEM ganhar a agenda do balcão junto. A
+> autorização do ato é UMA nos dois quadros: `EditarAgenda` **ou** `MovimentarFila` — quem
+> movia a fila ontem continua movendo hoje.
+
+> **`VenderPacote` (parcela 60) e a leitura por OU (parcela 62)**: vender dez sessões ao
+> paciente é combinar um preço com ele no balcão, e por isso o bit é PRÓPRIO — dar
+> `VerFinanceiro` à recepção abriria junto o caixa, a conciliação e as contas a pagar.
+>
+> A consequência aparece na tela: a Recepção **não tem** `EditarFinanceiro`, então tudo o
+> que o balcão faz com dinheiro (a venda do pacote, o passo do caixa no Finalizar da
+> sessão) precisa perguntar com `PodeAlgum` — o bit do balcão **ou** o do Financeiro.
+> Perguntar só pelo bit do Financeiro compila, passa em todo teste, e apaga da tela do
+> balcão o passo em que a clínica registra o que o paciente acabou de pagar. Foi assim que
+> as duas telas nasceram, e é o que `RecepcaoProntidaoTests` fixa.
+>
+> ⚠️ `Pode` com bits combinados é um **E**, não um OU. `Pode(A | B)` só passa para quem tem
+> os dois — use `PodeAlgum` / `ExigirAlgum` quando a pergunta for "qualquer um dos dois".
+
 ## O padrão
 
 | Permissão | Recepção | Profissional | Enfermagem | Financeiro | Faturista | Gerente |
 |---|:--:|:--:|:--:|:--:|:--:|:--:|
 | Ver agenda e fila | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Marcar e remarcar | ✅ | — | — | — | ✅ | ✅ |
+| Marcar e remarcar | ✅ | — | — | — | — | ✅ |
+| **Chamar e mover a fila do dia** | ✅ | ✅ | — | — | — | ✅ |
 | **Ver ficha do paciente** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Cadastrar e editar paciente** | ✅ | — | — | — | ✅ | ✅ |
+| **Abrir a central de documentos** | ✅ | ✅ | — | ✅ | — | ✅ |
 | **Ver prontuário clínico** | — | ✅ | ✅ | — | — | ✅ |
 | **Escrever no prontuário** | — | ✅ | — | — | — | ✅ |
 | Prescrever e assinar | — | ✅ | — | — | — | ✅ |
 | Checar execução | — | — | ✅ | — | — | ✅ |
+| **Vender pacote de sessões** | ✅ | — | — | ✅ | — | ✅ |
 | Ver financeiro | — | — | — | ✅ | — | ✅ |
 | Lançar no caixa | — | — | — | ✅ | — | ✅ |
 | Ver faturamento | — | — | — | — | ✅ | ✅ |
@@ -88,6 +112,42 @@ desempenho da clínica é outra.
 **E o estorno de baixa saiu junto.** Não foi pedido nominalmente, mas cai na segunda
 pergunta: desfazer apaga o trabalho de outra pessoa e desfaz o elo com a conciliação do
 Financeiro. Errar a baixa é acidente; estornar é decisão.
+
+**O faturista não abre horário na agenda** (parcela 58). A direção pediu depois de o
+sistema materializar a pendência do 2º código como agendamento: horário aberto do lado do
+faturamento aparece na fila do balcão e na agenda de quem atende. Ele **continua vendo** a
+agenda — conferir o dia é parte de faturá-lo.
+
+**A recepção não abre os documentos clínicos** (parcela 59). Foi a reclamação seguinte: *"a
+recepcionista está conseguindo ver os documentos"*. A correção tem duas metades, e
+**nenhuma das duas bastava sozinha**:
+
+1. A central de documentos ganhou **porta própria** (`VerDocumentos`). Antes ela pedia
+   `VerFichaPaciente`, que todo perfil de balcão tem.
+2. **Cada folha declara o acesso que exige** — porque as dez não são a mesma coisa:
+
+   | Folha | Quem VÊ | Quem EMITE |
+   |---|---|---|
+   | Receituário · Atestado · Solicitação de exames | `VerProntuario` | `Prescrever` |
+   | Relatório de evolução · Ficha de anamnese | `VerProntuario` | `VerProntuario` |
+   | Declaração de comparecimento · Termo de consentimento | `VerFichaPaciente` | `EditarPaciente` |
+   | Recibo · Orçamento | `VerFinanceiro` | `EditarFinanceiro` |
+   | Fechamento do período | `VerIndicadores` | `VerIndicadores` |
+
+   Fechar só a porta obrigaria a direção a escolher entre a recepcionista lendo o
+   relatório de evolução de todo mundo e a recepcionista **sem o recibo e a declaração que
+   ela entrega dez vezes por dia** — o bit sobrecarregado da parcela 49 reaparecendo numa
+   tela.
+
+⚠️ **A regra vale nas TRÊS portas**, não só na central: o Receituário da Recepção e a aba
+Documentos da ficha do paciente emitem os mesmos papéis. Por isso a decisão mora no
+**catálogo** (`FolhaCatalogo.PermissaoVer` / `PermissaoEmitir`) e não em cada tela — regra
+de acesso escrita numa porta só é o defeito recorrente do projeto, com o agravante de
+**parecer** coberta.
+
+O efeito para o balcão, na prática: some o item **Receituário** da sidebar, some o botão
+"Novo documento…" da ficha, e na central sobram declaração de comparecimento e termo de
+consentimento. Recibo e orçamento continuam com o Financeiro, que é quem recebe.
 
 ## O que isso NÃO significa
 

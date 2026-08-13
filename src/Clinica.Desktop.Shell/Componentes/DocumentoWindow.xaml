@@ -9,6 +9,7 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <DockPanel Margin="24">
@@ -30,8 +31,30 @@
                     IsDefault="True" MinWidth="170" />
         </StackPanel>
 
-        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- Para onde o QR vai apontar (parcela 63). Só aparece com a assinatura marcada:
+             em papel não há QR, e a frase viraria ruído em toda emissão. -->
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaInfo}" Margin="0,12,0,0"
+                Visibility="{Binding MostrarDestinoDoQr, Converter={StaticResource BoolParaVisibilidade}}">
+            <TextBlock Text="{Binding DestinoDoQr}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Ligado a
+             MensagemEhErro, o aviso de ÊXITO (que zera o booleano) sumia junto com o de
+             erro — o defeito que a parcela 62 corrigiu em cinco telas da Recepção e que
+             estava aqui também. -->
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
@@ -286,7 +309,25 @@
 
                             <StackPanel Grid.Column="4">
                                 <TextBlock Text="CID (opcional)" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding Cid, UpdateSourceTrigger=PropertyChanged}" MaxLength="20" />
+                                <DockPanel>
+                                    <Button DockPanel.Dock="Right" Content="Buscar…" Margin="6,0,0,0"
+                                            Style="{StaticResource BotaoSecundario}" MinWidth="80"
+                                            VerticalAlignment="Center"
+                                            ToolTip="Procurar o código pela palavra (ex.: lombar, ansiedade)"
+                                            Command="{Binding BuscarCidCommand}" />
+                                    <TextBox Text="{Binding Cid, UpdateSourceTrigger=PropertyChanged}"
+                                             MaxLength="20" VerticalAlignment="Center" />
+                                </DockPanel>
+
+                                <!-- O que o código digitado QUER DIZER (parcela 63). É o
+                                     que denuncia o dígito trocado: "M54.4" é tão plausível
+                                     quanto "M54.5" e sai impresso do mesmo jeito. -->
+                                <TextBlock Text="{Binding DescricaoCid}" TextWrapping="Wrap"
+                                           Style="{StaticResource TextoSuave}"
+                                           FontSize="{StaticResource Fonte.Legenda}"
+                                           Visibility="{Binding DescricaoCid,
+                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                        FallbackValue=Collapsed}" />
                             </StackPanel>
                         </Grid>
 

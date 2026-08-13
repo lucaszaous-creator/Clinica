@@ -1954,6 +1954,406 @@ for _xml, _deve_pegar in (
         erros.append(f"verificar-suite: a checagem 29 mudou de resposta para `{_xml}`.")
 
 
+# --------------------------------------------------------------- checagem 30
+# `EstadoDaTela` COM `Visibility` AMARRADA — o binding morre e o vazio vaza pela tela.
+#
+# O componente DECIDE a própria `Visibility` em `Recalcular()`, atribuindo um valor LOCAL.
+# Em WPF, valor local atribuído por código **substitui o binding**: a tela liga a
+# visibilidade a "estou mostrando o prontuário" e, na primeira mudança de `Itens`,
+# `Carregando` ou `NaoVerificado`, o `Recalcular` sobrescreve e o binding deixa de existir.
+#
+# Daí em diante o vazio aparece quando a LISTA está vazia, e não quando a tela dele está
+# aberta — foi assim que "Nenhuma sessão registrada" ficou escrito por cima da lista de
+# pacientes, em produção, no Prontuário e nas Prescrições.
+#
+# Nada falha: XAML bem-formado, propriedade existente, binding válido. Só a tela montada
+# mostra. Quem precisa de condição usa `Ativo`, que entra no cálculo em vez de brigar com
+# ele.
+for _arq in xamls():
+    _texto = _arq.read_text(encoding="utf-8")
+    for _m in re.finditer(r"<ctrl:EstadoDaTela\b[^>]*?/>", _texto, re.S):
+        if "Visibility=" not in _m.group(0):
+            continue
+        erros.append(
+            f"{rel(_arq)}:{_texto.count(chr(10), 0, _m.start()) + 1}: `EstadoDaTela` com "
+            f"`Visibility` amarrada — o componente atribui a própria Visibility como valor "
+            f"LOCAL e apaga esse binding, e aí o vazio passa a aparecer sobre a tela errada. "
+            f"Use `Ativo=\"{{Binding …}}\"`."
+        )
+
+# --------------------------------------------------------------- checagem 31
+# TEMPLATE COM `SharedSizeGroup` USADO SEM `Grid.IsSharedSizeScope`.
+#
+# `SharedSizeGroup` só alinha dentro de um ESCOPO. Cada linha de uma lista é um Grid
+# próprio, então sem o escopo declarado por quem monta a lista as larguras são resolvidas
+# POR LINHA: a linha que tem um selo a mais fica com a última coluna mais larga e empurra
+# as colunas vizinhas daquela linha. A lista deixa de ter colunas e vira uma pilha de
+# linhas que por acaso se parecem.
+#
+# O `ItemPacienteLinha` já trazia o aviso escrito no próprio comentário ("o escopo é
+# declarado por quem monta a lista") — e três das quatro telas que o usam esqueceram.
+# Contrato que depende de alguém lembrar é o que esta checagem existe para substituir.
+_com_grupo = {
+    m.group(1)
+    for _f in xamls() if "Styles" in _f.parts
+    for m in re.finditer(
+        r'<DataTemplate x:Key="([^"]+)"(?:(?!</DataTemplate>).)*?SharedSizeGroup=',
+        _f.read_text(encoding="utf-8"), re.S)
+}
+
+for _arq in xamls():
+    if "Styles" in _arq.parts:
+        continue
+    _texto = _arq.read_text(encoding="utf-8")
+    # ⚠️ Sem tirar os comentários, o COMENTÁRIO que explica a regra satisfaz a checagem e
+    # ela cala para sempre. É o inverso da lição da checagem 19 (lá a prosa fazia disparar,
+    # aqui faz silenciar) e o silêncio é pior: ninguém percebe uma checagem que passou.
+    if "IsSharedSizeScope" in re.sub(r"<!--.*?-->", "", _texto, flags=re.S):
+        continue
+    for _tpl in sorted(_com_grupo):
+        if f"{{StaticResource {_tpl}}}" not in _texto:
+            continue
+        erros.append(
+            f"{rel(_arq)}: usa `{_tpl}`, que alinha as colunas por `SharedSizeGroup`, e "
+            f"não declara `Grid.IsSharedSizeScope=\"True\"` em nenhum ancestral — sem o "
+            f"escopo cada linha resolve a largura sozinha e a lista sai desalinhada."
+        )
+
+# Autoteste: a checagem tem de conhecer o template que originou a regra.
+if _com_grupo and "ItemPacienteLinha" not in _com_grupo:
+    erros.append(
+        "verificar-suite: a checagem 31 não achou `SharedSizeGroup` no `ItemPacienteLinha` "
+        "— o padrão de declaração mudou e ela parou de olhar o que deveria."
+    )
+
+
+# --------------------------------------------------------------- checagem 32
+# `WrapPanel` QUE NUNCA VAI DOBRAR A LINHA.
+#
+# O WrapPanel decide onde quebrar a partir da largura que RECEBE na medição. Num pai que
+# lhe dá largura infinita — docado à esquerda ou à direita num DockPanel, dentro de um
+# StackPanel horizontal, numa coluna `Auto` de Grid, dentro de outro WrapPanel, num Canvas
+# ou num ScrollViewer que rola na horizontal — ele mede como se tivesse a tela toda, alinha
+# tudo numa linha só e EMPURRA o irmão para fora.
+#
+# É a barra de nove botões da agenda: no monitor de quem programa ela cabe e parece certa;
+# no de 1366 px do balcão ela come o título e some pela direita. O `Auto` engana
+# especialmente, porque a intenção declarada ("ocupa o que precisar") é exatamente o que
+# impede a quebra.
+#
+# Nenhuma rede pegava: XAML bem-formado, painel existente, nada lança. Só a tela montada,
+# e só na largura errada — que é a categoria mais cara, porque não reproduz na máquina de
+# quem escreveu.
+#
+# A saída é fazer o WrapPanel ser o filho que PREENCHE (o último de um DockPanel, uma
+# coluna `*` de Grid), e alinhá-lo à direita por `HorizontalAlignment` se for o caso.
+NS_XAML = "{http://schemas.microsoft.com/winfx/2006/xaml/presentation}"
+
+
+def _largura_infinita(pai: ET.Element, filho: ET.Element) -> str | None:
+    """Por que este pai mede o filho com largura infinita? Nulo = ele constrange."""
+    nome_pai = pai.tag.split("}")[-1]
+
+    if nome_pai == "DockPanel":
+        dock = filho.attrib.get(f"{NS_XAML}Dock") or filho.attrib.get("DockPanel.Dock")
+        return f"docado à {dock.lower()} num DockPanel" if dock in ("Left", "Right") else None
+    if nome_pai == "StackPanel":
+        return ("dentro de um StackPanel horizontal"
+                if pai.attrib.get("Orientation") == "Horizontal" else None)
+    if nome_pai == "WrapPanel":
+        return "dentro de outro WrapPanel"
+    if nome_pai == "Canvas":
+        return "dentro de um Canvas"
+    if nome_pai == "ScrollViewer":
+        return ("dentro de um ScrollViewer que rola na horizontal"
+                if pai.attrib.get("HorizontalScrollBarVisibility") in ("Auto", "Visible")
+                else None)
+    if nome_pai == "Grid":
+        coluna = filho.attrib.get(f"{NS_XAML}Column") or filho.attrib.get("Grid.Column") or "0"
+        if not coluna.isdigit():
+            return None
+        definicoes = [
+            cd for c in pai if c.tag.split("}")[-1] == "Grid.ColumnDefinitions" for cd in c
+        ]
+        indice = int(coluna)
+        if indice >= len(definicoes):
+            return None
+        return ('numa coluna `Width="Auto"` de Grid'
+                if definicoes[indice].attrib.get("Width") == "Auto" else None)
+    return None
+
+
+_wraps = 0
+for f, raiz in arvores_com_faturamento.items():
+    pais = {filho: pai for pai in raiz.iter() for filho in pai}
+    for el in raiz.iter():
+        if el.tag.split("}")[-1] != "WrapPanel":
+            continue
+        _wraps += 1
+        pai = pais.get(el)
+        if pai is None:
+            continue
+        if (motivo := _largura_infinita(pai, el)) is None:
+            continue
+        erros.append(
+            f"{rel(f)}: `<WrapPanel>` {motivo} — ele é medido com largura INFINITA, nunca "
+            f"dobra a linha e empurra o irmão para fora da tela. Faça dele o filho que "
+            f"PREENCHE (último de um DockPanel, coluna `*` de Grid) e use "
+            f"`HorizontalAlignment` para encostá-lo onde precisa."
+        )
+
+# Autoteste. O primeiro é a lição da checagem 31: uma checagem que deixa de ENXERGAR não
+# reclama de nada e passa por limpa. Se um dia a suíte não tiver WrapPanel nenhum, é
+# porque o padrão mudou — e é isso que precisa aparecer.
+if _wraps == 0:
+    erros.append(
+        "verificar-suite: a checagem 32 não achou nenhum `<WrapPanel>` — o padrão de "
+        "declaração mudou e ela parou de olhar o que deveria."
+    )
+
+# Os quatro pais que soltam a largura, e os dois que a prendem.
+_amostras_32 = (
+    ('<DockPanel {0}><WrapPanel DockPanel.Dock="Right" /><Border /></DockPanel>', True),
+    ('<StackPanel {0} Orientation="Horizontal"><WrapPanel /></StackPanel>', True),
+    ('<Grid {0}><Grid.ColumnDefinitions><ColumnDefinition Width="Auto" />'
+     '</Grid.ColumnDefinitions><WrapPanel Grid.Column="0" /></Grid>', True),
+    ('<DockPanel {0}><Border DockPanel.Dock="Left" /><WrapPanel /></DockPanel>', False),
+    ('<Grid {0}><Grid.ColumnDefinitions><ColumnDefinition Width="*" />'
+     '</Grid.ColumnDefinitions><WrapPanel Grid.Column="0" /></Grid>', False),
+    ('<StackPanel {0}><WrapPanel /></StackPanel>', False),
+)
+for _xml, _deve_pegar in _amostras_32:
+    _r = ET.fromstring(_xml.format(
+        'xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"'))
+    _pais = {c: p for p in _r.iter() for c in p}
+    _wp = next(e for e in _r.iter() if e.tag.split("}")[-1] == "WrapPanel")
+    if (_largura_infinita(_pais[_wp], _wp) is not None) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 32 mudou de resposta para `{_xml[:52]}…` "
+            f"(esperado: {'pega' if _deve_pegar else 'deixa passar'})."
+        )
+
+
+# --------------------------------------------------------------- checagem 33
+# XAML QUE DECLARA O `assembly=` DO PRÓPRIO PROJETO.
+#
+# `clr-namespace:X;assembly=Y` manda o WPF procurar o namespace X DENTRO do assembly Y.
+# Quando Y é o próprio projeto do arquivo, o compilador de marcação não acha nada e recusa:
+#
+#     MC3074: The tag 'EstadoDaTela' does not exist in XML namespace
+#             'clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell'
+#
+# É o que acontece ao MOVER uma tela de um projeto para outro — o `xmlns` continua nomeando
+# o assembly de origem, que agora é o de destino. Foi assim que a tela de Pacotes, ao subir
+# do Financeiro para o shell, quebrou o build (parcela 60).
+#
+# ⚠️ Nenhuma rede local pegava. O XML é bem-formado, o `compilar-sombra` não lê o CORPO do
+# XAML (ele só gera o `.g.cs` a partir de `x:Class` e `x:Name`), e o C# compila — o defeito
+# existe só para o compilador de MARCAÇÃO, que roda no Windows. Sete minutos de CI por um
+# `;assembly=` que sobra.
+#
+# A forma certa dentro do próprio projeto é `clr-namespace:X`, sem o sufixo.
+ASSEMBLY_NO_XMLNS = re.compile(r'clr-namespace:[^"\';]+;assembly=([\w.]+)')
+
+_xamls_33 = 0
+for f in list(arvores_com_faturamento):
+    # O projeto dono do arquivo é o diretório sob `src/` (mesma convenção do resto do script).
+    partes = f.relative_to(RAIZ).parts
+    if len(partes) < 2 or partes[0] != "src":
+        continue
+    projeto = partes[1]
+    _xamls_33 += 1
+
+    texto = f.read_text(encoding="utf-8")
+    for m in ASSEMBLY_NO_XMLNS.finditer(texto):
+        if m.group(1) != projeto:
+            continue
+        erros.append(
+            f"{rel(f)}:{texto.count(chr(10), 0, m.start()) + 1}: o `xmlns` aponta para "
+            f"`assembly={projeto}`, que é o PRÓPRIO projeto deste arquivo — o compilador de "
+            f"marcação recusa com MC3074/MC3072 e só o CI acusa. Dentro do próprio projeto "
+            f"escreva `clr-namespace:…` sem o `;assembly=`."
+        )
+
+# Autoteste. O primeiro é o guarda contra a checagem ficar cega (lição da 31/32); os
+# demais são o caso real e os dois legítimos.
+if _xamls_33 == 0:
+    erros.append(
+        "verificar-suite: a checagem 33 não achou XAML nenhum sob `src/<projeto>/` — a "
+        "convenção de pastas mudou e ela parou de olhar o que deveria."
+    )
+for _decl, _projeto, _deve_pegar in (
+    ('clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell',
+     'Clinica.Desktop.Shell', True),                       # o defeito real
+    ('clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell',
+     'Clinica.Modulo.Recepcao', False),                    # módulo referenciando o shell
+    ('clr-namespace:Clinica.Desktop.Controls',
+     'Clinica.Desktop.Shell', False),                      # a forma certa dentro do projeto
+):
+    _m = ASSEMBLY_NO_XMLNS.search(_decl)
+    if (_m is not None and _m.group(1) == _projeto) != _deve_pegar:
+        erros.append(
+            f"verificar-suite: a checagem 33 mudou de resposta para `{_decl}` "
+            f"em `{_projeto}` (esperado: {'pega' if _deve_pegar else 'deixa passar'})."
+        )
+
+
+# --------------------------------------------------------------- checagem 34
+# ATRIBUTO QUE NÃO É PROPRIEDADE DO CONTROLE PRÓPRIO.
+#
+#     MC3072: The property 'TextoVazio' does not exist in XML namespace
+#             'clr-namespace:Clinica.Desktop.Controls'.
+#
+# Foi o que quebrou o build na parcela 63: três telas novas declararam `TextoVazio` no
+# `EstadoDaTela`, que tem `TextoCarregando` e `TextoNaoVerificado` — mas o vazio se escreve
+# com `Titulo` + `Descricao`. Errar o nome de uma propriedade de um controle da CASA é o
+# caso mais fácil de cometer, porque o nome plausível existe ao lado do nome certo.
+#
+# ⚠️ Nenhuma rede local pegava, pela mesma razão da 33: o XML é bem-formado, o
+# `compilar-sombra` não lê o CORPO do XAML e o C# compila. Só o compilador de MARCAÇÃO
+# recusa — sete minutos de CI por um nome de atributo.
+#
+# O que ela olha: todo elemento `<prefixo:Tipo ...>` cujo `xmlns` do prefixo aponta para um
+# `clr-namespace` DO REPOSITÓRIO. Para cada atributo simples, exige que exista uma
+# propriedade (ou DP) com aquele nome no tipo — procurada no .cs por todo o repositório,
+# incluindo as classes-base declaradas aqui.
+#
+# O que ela IGNORA de propósito, para não virar ruído que alguém desliga:
+#   - `x:`, `xmlns`, e as anexadas (`Grid.Row`, `Panel.ZIndex`, `DockPanel.Dock`…), que são
+#     de OUTRO tipo;
+#   - tipo que o script não conseguiu achar no repositório — sem a definição não há como
+#     responder, e chutar produziria falso positivo em controle de biblioteca;
+#   - propriedade herdada de `Control`/`FrameworkElement` (Margin, Style, Visibility…),
+#     resolvida por uma lista curta do que o WPF já dá a todo elemento.
+
+# O que todo FrameworkElement/Control já tem — não é preciso achá-lo no repositório.
+HERDADAS_WPF = {
+    "Name", "Style", "Margin", "Padding", "Width", "Height", "MinWidth", "MinHeight",
+    "MaxWidth", "MaxHeight", "HorizontalAlignment", "VerticalAlignment", "Visibility",
+    "IsEnabled", "IsHitTestVisible", "Opacity", "Background", "Foreground", "BorderBrush",
+    "BorderThickness", "FontFamily", "FontSize", "FontWeight", "FontStyle", "ToolTip",
+    "Cursor", "Focusable", "Tag", "DataContext", "Resources", "RenderTransform",
+    "HorizontalContentAlignment", "VerticalContentAlignment", "Content", "ContentTemplate",
+    "SnapsToDevicePixels", "UseLayoutRounding", "ClipToBounds", "Template",
+}
+
+# Bases do WPF cujo repertório HERDADAS_WPF já cobre. Uma cadeia que termina aqui pode
+# responder "não tem"; uma que termina num tipo de fora desconhecido responde "não sei".
+BASES_WPF = {
+    "Control", "UserControl", "Window", "ContentControl", "ItemsControl", "Panel",
+    "Border", "Decorator", "FrameworkElement", "UIElement", "Button", "ButtonBase",
+    "TextBlock", "TextBox", "ToggleButton", "IValueConverter", "DependencyObject",
+}
+
+# `prefixo="clr-namespace:…"` declarado no XAML.
+XMLNS_CLR = re.compile(r'xmlns:(\w+)\s*=\s*"clr-namespace:([^"]+)"')
+# `<prefixo:Tipo` e o corpo da tag até `>` ou `/>`.
+TAG_PREFIXADA = re.compile(r'<(\w+):(\w+)((?:\s+[^<>]*?)?)/?>', re.S)
+# `Atributo="…"` dentro do corpo da tag (sem os anexados, que têm ponto).
+ATRIBUTO_SIMPLES = re.compile(r'(?<![\w.:])([A-Z]\w*)\s*=\s*"')
+
+
+def _membros_do_tipo(nome, _cache={}):
+    """Propriedades declaradas no tipo e nas bases dele, ou None se o tipo não está aqui."""
+    if nome in _cache:
+        return _cache[nome]
+
+    achado = None
+    for cs in RAIZ.joinpath("src").rglob("*.cs"):
+        txt = cs.read_text(encoding="utf-8", errors="ignore")
+        m = re.search(
+            rf'\b(?:class|record)\s+{re.escape(nome)}\b\s*(?::\s*([\w<>, ]+))?', txt)
+        if m is None:
+            continue
+
+        membros = set(re.findall(r'\bpublic\s+(?:static\s+)?[\w<>?\[\], .]+?\s+(\w+)\s*(?:\{|=>)', txt))
+        # DPs registradas: `DependencyProperty.Register(nameof(X)` — a propriedade CLR
+        # costuma existir logo abaixo, mas registrar aqui também cobre o caso solto.
+        membros |= set(re.findall(r'DependencyProperty\.Register\w*\(\s*nameof\((\w+)\)', txt))
+
+        bases = [b.strip() for b in (m.group(1) or "").split(",") if b.strip()]
+        achado = (membros, bases)
+        break
+
+    _cache[nome] = achado
+    return achado
+
+
+def _tem_membro(tipo, atributo, _vistos=None):
+    _vistos = _vistos or set()
+    if tipo in _vistos:
+        return None
+    _vistos.add(tipo)
+
+    info = _membros_do_tipo(tipo)
+    if info is None:
+        return None          # tipo de fora do repositório: sem resposta, e sem chute
+
+    membros, bases = info
+    if atributo in membros:
+        return True
+
+    for base in bases:
+        base = base.split("<")[0]
+        if _tem_membro(base, atributo, _vistos):
+            return True
+
+    # Achamos o tipo e não achamos o membro na cadeia daqui. A resposta depende de ONDE a
+    # cadeia termina:
+    #   - numa base do WPF que a gente conhece (Control, UserControl…): o que ela dá está
+    #     em HERDADAS_WPF, então NÃO ter o membro é resposta — e é o caso da esmagadora
+    #     maioria dos controles da casa, sem o qual a checagem seria inútil;
+    #   - numa base de fora que não conhecemos: "não sei", e calar é o certo.
+    for base in bases:
+        base = base.split("<")[0].strip()
+        if _membros_do_tipo(base) is None and base not in BASES_WPF:
+            return None
+    return False
+
+
+_tags_34 = 0
+for f in list(arvores_com_faturamento):
+    texto = f.read_text(encoding="utf-8")
+    proprios = {p for p, ns in XMLNS_CLR.findall(texto)}
+    if not proprios:
+        continue
+
+    for m in TAG_PREFIXADA.finditer(texto):
+        prefixo, tipo, corpo = m.group(1), m.group(2), m.group(3) or ""
+        if prefixo not in proprios or "." in tipo:
+            continue
+        if _membros_do_tipo(tipo) is None:
+            continue
+        _tags_34 += 1
+
+        for atributo in set(ATRIBUTO_SIMPLES.findall(corpo)):
+            if atributo in HERDADAS_WPF:
+                continue
+            if _tem_membro(tipo, atributo) is False:
+                erros.append(
+                    f"{rel(f)}:{texto.count(chr(10), 0, m.start()) + 1}: `{tipo}` não tem a "
+                    f"propriedade `{atributo}` — o compilador de marcação recusa com MC3072 "
+                    f"e só o CI acusa. Confira o nome no controle."
+                )
+
+# Autoteste: o guarda contra a checagem ficar cega, e o caso real da parcela 63.
+if _tags_34 == 0:
+    erros.append(
+        "verificar-suite: a checagem 34 não examinou nenhuma tag de controle próprio — os "
+        "`xmlns:` mudaram de forma e ela parou de olhar o que deveria."
+    )
+for _tipo, _prop, _esperado in (
+    ("EstadoDaTela", "TextoVazio", False),           # o defeito real (MC3072 no CI)
+    ("EstadoDaTela", "TextoNaoVerificado", True),    # o nome certo, ao lado do errado
+    ("EstadoDaTela", "Titulo", True),
+    ("EstadoDaTela", "Itens", True),
+):
+    if _tem_membro(_tipo, _prop) is not _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 34 mudou de resposta para `{_tipo}.{_prop}` "
+            f"(esperado: {_esperado})."
+        )
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

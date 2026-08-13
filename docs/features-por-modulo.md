@@ -53,13 +53,13 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 | # | Feature | Módulo dono | Estado | Parcela |
 |---|---|---|---|---|
 | 01 | Início — painel com semáforo | Faturamento / Recepção | ✅ / ✅ | 1 |
-| 02 | Agenda multiprofissional | Recepção | ✅ | 1 e 5 |
+| 02 | Agenda multiprofissional | Recepção | ✅ | 1, 5 e 63 |
 | 03 | Fila em kanban | Recepção | ✅ | 1 |
 | 04 | Pacientes — cadastro 360º | Recepção | ✅ | 2 |
 | 05 | Prontuário — evolução + EVA | Recepção | ✅ | 2 |
 | 06 | Mapa corporal | Recepção | ✅ | 3 |
 | 07 | Prescrição | Recepção | ✅ | 3 |
-| 08 | Pacotes, planos e vouchers | Financeiro | ✅ | 4 |
+| 08 | Pacotes, planos e vouchers | Financeiro **e Recepção** | ✅ | 4 e 60 |
 | 09 | Caixa, repasses e conciliação | Financeiro | ✅ | 4 |
 | 10 | Estoque | Financeiro | ✅ | 4 |
 | 11 | Marketing — NPS e recall | Gerente | ✅ | 5 |
@@ -68,6 +68,12 @@ tipos no namespace `Clinica.Desktop.Controls` e as referências ficariam ambígu
 | 14 | Faturamento TISS 4.01 | Faturamento | ✅ | — |
 
 **Placar: as 14 completas.**
+
+> A 02 voltou a ✅ na parcela **63**, e o caminho até aqui é a lição: ela estava marcada
+> ✅ desde a parcela 1 porque o CAMPO `SalaId` existe; a auditoria da parcela 62 a
+> devolveu a 🟡 ao descobrir que **campo não é tela**; e a 63 construiu a visão que
+> faltava. O ✅ de agora é o primeiro que corresponde a uma coluna que a recepcionista
+> consegue ver.
 
 | Estado | Features |
 |---|---|
@@ -136,12 +142,14 @@ zero.**
 > profissional tem na agenda. As guias pendentes aparecem só para os pacientes de HOJE
 > — é o único momento barato de cobrar o documento.
 
-### Feature 02 · Agenda multiprofissional — 🟡 · parcela 1
+### Feature 02 · Agenda multiprofissional — ✅ · parcelas 1, 5 e 63
 
 | Item | Estado | Onde / observação |
 |---|---|---|
 | Grade de horários com remarcação | ✅ | `AgendaView` (Recepção) + `AgendaService.RemarcarAsync` |
-| Visão por profissional ou por sala | ✅ | `Agendamento.ProfissionalId`/`SalaId`, uma coluna por profissional |
+| Visão por profissional | ✅ | uma coluna por profissional na grade (`AgendaViewModel.Colunas`) |
+| **Visão por SALA** | ✅ | **parcela 63** — `AgendaViewModel.AgruparPorSala`: as colunas viram as salas, o vão livre leva a sala para o formulário (`SalaPreferidaId`) e "Sem sala" continua aparecendo, porque é o caso NORMAL desta clínica. Vale no modo dia; na semana as colunas já são os dias |
+| **Vão FECHADO na grade** | ✅ | **parcela 63** — férias, feriado e folga aparecem pintados com o motivo. A marcação já era recusada pelo `AgendaService`; o vão bloqueado era visualmente idêntico ao livre, e o livre é clicável desde a parcela 58 |
 | Encaixe rápido e lista de espera | ✅ | `Agendamento.Encaixe`, `ListaEsperaService` |
 | **Quem chamar para o horário que vagou** | ✅ | `CandidatosParaAsync` — cancelar/faltar já aponta a lista para o horário (parcela 25) |
 | Confirmação **automática** por WhatsApp | ✅ | `CampanhaService.GerarConfirmacoesAsync` — rodada diária, agora também com porta na própria Recepção (`ConfirmacoesWindow`, parcela 26) |
@@ -264,14 +272,18 @@ zero.**
 | Modelos de receita e orientação | ✅ | `ModeloDocumento`, aplicados, criados e **apagados** na `DocumentoWindow` (parcela 25) |
 | Impressão com a marca SemDor | ✅ | `DocumentosClinicosPdfService` (usa `MarcaSemDor`) |
 | Carimbo do profissional e código de conferência | ✅ | nome + registro no conselho, e `DocumentoClinico.CodigoVerificacao` |
-| Assinatura digital com certificado (ICP-Brasil) | ⬜ | **não entregue** — ver abaixo |
+| Assinatura digital com certificado (ICP-Brasil) | ✅ | **parcelas 42 e 43** — assinatura qualificada PAdES (PKCS#7 SHA-256) na folha de infusão e nos quatro documentos que saem da clínica, com CPF conferido de dentro do certificado |
 
-> **O que "assinatura digital" entrega hoje, e o que não entrega.** Sai impresso o
-> carimbo do profissional (nome e registro no conselho), a linha de assinatura e um
-> código de conferência que acha o documento no sistema para comparar com o papel.
-> **Não** há certificado ICP-Brasil: chamar o que existe de assinatura digital seria
-> mentir sobre o que a via garante. Se o cliente precisar de validade jurídica de
-> assinatura eletrônica, isso é escopo novo.
+> **O que "assinatura digital" entrega hoje, e o que não entrega.** Assinatura
+> QUALIFICADA ICP-Brasil (parcelas 42 e 43): PKCS#7 destacado SHA-256 embutido no PDF,
+> CPF do assinante conferido de dentro do certificado contra o cadastro do profissional,
+> carimbo do tempo RFC 3161 opcional e QR que leva ao validador de saúde do ITI. A via
+> sem assinatura eletrônica continua saindo com carimbo, linha de assinatura e código de
+> conferência — vale à caneta, como sempre valeu. O que **não** há é LTV/PAdES-LT (a
+> assinatura é PAdES-B, e o rodapé diz isso) nem receituário de controle especial
+> eletrônico (depende do SNCR da ANVISA). ⚠️ Pendência OPERACIONAL, não de código: a
+> assinatura nunca foi validada em campo com um e-CPF de verdade — sem certificado no
+> posto, assinar e publicar não funcionam em produção.
 
 > O modelo **nasce do documento que o profissional acabou de escrever** ("guardar como
 > modelo"), e não de uma tela de cadastro: ninguém senta para cadastrar modelos antes de
@@ -1040,7 +1052,7 @@ que nunca foi catalogada aqui — e o cliente, com razão, cobrou pelo que via n
 | **GESTÃO** · Sala de infusão | Recepção · Consultório | 🔵 | `Desktop.Shell/Componentes/SalaInfusaoView` (parcelas 42 e 48) |
 | **PACIENTE** · Telemedicina | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
 | **PACIENTE** · Portal do paciente | — | ❌ | **FORA DE ESCOPO** por decisão do cliente (jul/2026) |
-| **FINANCEIRO** · Pacotes / Sessões | Financeiro | ✅ | `PacotesView` |
+| **FINANCEIRO** · Pacotes / Sessões | Financeiro **e Recepção** | ✅ | `Desktop.Shell/Componentes/PacotesView` — a tela SUBIU para o shell na parcela 60 e os dois módulos publicam a MESMA chave (`ChavesSuite.Pacotes`); quem vende dez sessões ao paciente é o balcão, com ele na frente |
 | **FINANCEIRO** · Financeiro | Financeiro | ✅ | `CaixaView` + Conciliação, Produção, Repasses |
 | **FINANCEIRO** · Faturamento (TISS) | Gerente | ✅ | `FaturamentoTissView` — 5 abas (parcelas 10b–10d) |
 | **FINANCEIRO** · Estoque | Financeiro | ✅ | `EstoqueView` |
@@ -1081,11 +1093,14 @@ Levantado no código, não na memória. Conferido de novo na **parcela 48**.
 | ~~Sala de infusão fora do alcance da enfermagem~~ | Recepção | **✅ parcela 48** — a tela subiu para o shell; os dois módulos publicam a mesma chave |
 | NFS-e no fechamento | Financeiro | Depende de integração fiscal municipal — decisão comercial |
 | Gerar lote TISS pelo Gerente | Gerente | **Decisão de projeto, não pendência**: o número do lote é sequência do faturamento, e dois apps gerando em paralelo produziriam dois com o mesmo número |
-| **Conciliação bancária (OFX)** | Financeiro | O extrato do banco ainda é conferido a olho contra a tela de recebíveis |
-| **Faixa lateral de 300–400 px** | Financeiro · Gerente | `ContasView`, `EstoqueView`, `PacotesView`, `RepassesView`, `AcessosView`, `CampanhasView` ainda têm o padrão que o `README.md` proíbe. A Recepção foi limpa nas parcelas 47 e 48 |
+| ~~**Conciliação bancária (OFX)**~~ | Financeiro | **✅ parcela 63** — `LeitorOfx` + `ConciliacaoBancariaService` + aba "Extrato do banco". O sistema PROPÕE o par e a pessoa confirma; nada concilia sozinho |
+| ~~**Faixa lateral de 300–400 px**~~ | Financeiro · Gerente | **✅ já estava paga** — a parcela 49 converteu as cinco do Financeiro (catálogo de pacotes, contas fixas, regras de repasse, validades do estoque, alíquota) em botão + janela. A varredura da parcela 63 conferiu as seis telas e **nenhuma tem faixa**: os 330 px do `AcessosView` e os 300 do `CampanhasView` são a coluna de **Ações** de uma tabela de largura inteira — o falso positivo que a parcela 54 já tinha documentado. Esta linha estava obsoleta |
 
-> Só as três últimas continuam abertas, e nenhuma delas está na proposta comercial — são
-> evolução levantada no código, não dívida com o cliente.
+> **Nenhuma continua aberta.** As três últimas foram fechadas na parcela 63 — e a de
+> leiaute só precisava ser CONFERIDA: já estava paga desde a 49, e a planilha é que não
+> tinha sido atualizada. É o defeito da feature 02 pelo avesso (lá o ✅ mentia a favor,
+> aqui o pendente mentia contra), e a lição é a mesma: **linha de placar sem conferência
+> no código é chute com aparência de registro.**
 
 ## Divergências da proposta
 
@@ -1095,9 +1110,11 @@ O documento já foi ao cliente. Estas precisam de decisão comercial:
 2. ~~**Página 23 marca ✓ em "Prontuário com mapa corporal e EVA"**~~ — **resolvida na
    parcela 3.** A EVA saiu na parcela 2 e o mapa corporal saiu agora; a afirmação passou
    a ser inteiramente verdadeira.
-3. **"Assinatura digital" da feature 07.** O que existe é carimbo do profissional, linha
-   de assinatura e código de conferência — **não** certificado ICP-Brasil. Se a clínica
-   precisar de validade jurídica de assinatura eletrônica, é escopo novo.
+3. ~~**"Assinatura digital" da feature 07.**~~ — **resolvida nas parcelas 42 e 43.** A
+   assinatura qualificada ICP-Brasil existe (PAdES-B, com QR para o validador de saúde do
+   ITI); a divergência que RESTA é operacional: falta o e-CPF da clínica para o teste de
+   campo, e sem ele a feature não opera em produção. Cobrar o certificado é ação
+   comercial, não técnica.
 4. **"Confirmação automática por WhatsApp" (feature 02).** O que a parcela 5 automatiza é
    a RODADA — descobrir quem confirmar, escrever a mensagem, aplicar a LGPD e não repetir
    ninguém. O **disparo continua sendo um clique por paciente**, de propósito: o número é

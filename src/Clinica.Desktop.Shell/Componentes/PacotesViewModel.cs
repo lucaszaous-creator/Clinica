@@ -8,7 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Clinica.Financeiro.ViewModels;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Uma linha do catálogo de pacotes, formatada para a tela.</summary>
 public sealed class LinhaCatalogo
@@ -32,6 +32,17 @@ public sealed class LinhaPacoteVendido
     public required string ValorFormatado { get; init; }
     public required string Compra { get; init; }
     public required bool Ativo { get; init; }
+
+    /// <summary>
+    /// Debitar sessão é ato do BALCÃO (parcela 62): o estado da linha COMPÕE com a
+    /// permissão, senão o botão fica aceso e o clique estoura no <c>ExigirAlgum</c> —
+    /// o defeito da parcela 41.
+    /// </summary>
+    public bool PodeUsarSessao => Ativo && SessaoUsuario.Atual.PodeAlgum(
+        Permissao.VenderPacote | Permissao.EditarFinanceiro);
+
+    /// <summary>Cancelar a venda desfaz dinheiro de outra pessoa: continua no financeiro.</summary>
+    public bool PodeCancelarVenda => Ativo && SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 }
 
 /// <summary>
@@ -55,6 +66,40 @@ public sealed partial class PacotesViewModel : ObservableObject
     public ObservableCollection<LinhaCatalogo> Catalogo { get; } = [];
     public ObservableCollection<LinhaPacoteVendido> Vendidos { get; } = [];
 
+    /// <summary>Tudo o que o banco devolveu; <see cref="Vendidos"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaPacoteVendido> _todosVendidos = [];
+
+    // ---- Filtro (em memória: a lista já veio inteira, e refazer a consulta a cada
+    // tecla seria pagar o banco remoto para responder o que a tela já sabe).
+    [ObservableProperty] private string _filtroPaciente = string.Empty;
+
+    /// <summary>Só os pacotes com saldo valendo — o recorte de quem está cobrando no balcão.</summary>
+    [ObservableProperty] private bool _soAtivos;
+
+    partial void OnFiltroPacienteChanged(string value) => Refiltrar();
+    partial void OnSoAtivosChanged(bool value) => Refiltrar();
+
+    public bool FiltroAtivo => SoAtivos || !string.IsNullOrWhiteSpace(FiltroPaciente);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroPaciente = string.Empty;
+        SoAtivos = false;
+    }
+
+    /// <summary>
+    /// O estado vazio muda de frase quando há filtro: "nenhum pacote vendido" e "nenhum
+    /// bate com o filtro" são respostas diferentes — sem isso, um filtro esquecido faz a
+    /// clínica dar a carteira por vazia.
+    /// </summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "A situação do pacote é calculada na hora — vencimento não precisa de rotina.";
+
+    /// <summary>Totais do que foi CARREGADO — o resumo não pode mudar quando o filtro muda o recorte.</summary>
+    private int _totalAtivos;
+    private int _sessoesEmSaldo;
+
     [ObservableProperty] private LinhaCatalogo? _catalogoSelecionado;
     [ObservableProperty] private bool _carregando;
 
@@ -73,6 +118,24 @@ public sealed partial class PacotesViewModel : ObservableObject
     /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
     /// </summary>
     public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+
+    /// <summary>
+    /// VENDER, consumir e orçar — os atos do BALCÃO (parcela 62).
+    ///
+    /// A parcela 60 criou <see cref="Permissao.VenderPacote"/> justamente para a recepção
+    /// vender dez sessões sem ganhar o caixa, a conciliação e as contas a pagar junto — e
+    /// esta tela continuou exigindo <c>EditarFinanceiro</c> em TUDO. O resultado é o pior
+    /// desfecho possível de uma permissão bem-intencionada: o item abre para quem tem o
+    /// bit e nenhum botão funciona.
+    ///
+    /// O corte é o do ato, não o da tela: <b>vender, debitar sessão e orçar</b> são do
+    /// balcão; <b>o CATÁLOGO</b> (preço de tabela) e o <b>CANCELAMENTO de uma venda</b>
+    /// continuam sob <c>EditarFinanceiro</c> — o primeiro muda o preço para todo mundo,
+    /// o segundo desfaz o dinheiro que outra pessoa registrou (a regra 2 da parcela 49,
+    /// a mesma que separou <c>EstornarBaixa</c> de <c>BaixarGuia</c>).
+    /// </summary>
+    public bool PodeVender => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.VenderPacote | Permissao.EditarFinanceiro);
 
     public PacotesViewModel(
         PacoteService pacotes, DocumentoFinanceiroService documentos,
@@ -114,24 +177,25 @@ public sealed partial class PacotesViewModel : ObservableObject
 
             var vendidos = await _pacotes.VendidosAsync();
 
-            Vendidos.Clear();
+            _todosVendidos.Clear();
             foreach (var v in vendidos)
-                Vendidos.Add(new LinhaPacoteVendido
+                _todosVendidos.Add(new LinhaPacoteVendido
                 {
                     Id = v.PacoteId,
                     PacienteId = v.PacienteId,
                     Paciente = v.PacienteNome ?? "—",
                     Nome = v.Nome,
                     Saldo = v.SaldoRotulo,
-                    Situacao = v.Situacao.ToString(),
+                    Situacao = Clinica.Domain.RotulosEnum.De(v.Situacao),
                     ValorFormatado = v.Valor.ToString("C"),
                     Compra = v.DataCompra.ToString("dd/MM/yyyy"),
                     Ativo = v.Ativo
                 });
 
-            var ativos = vendidos.Count(v => v.Ativo);
-            Resumo = $"{vendidos.Count} pacote(s) vendidos · {ativos} ativo(s) · "
-                     + $"{vendidos.Where(v => v.Ativo).Sum(v => v.SaldoSessoes ?? 0)} sessão(ões) em saldo";
+            _totalAtivos = vendidos.Count(v => v.Ativo);
+            _sessoesEmSaldo = vendidos.Where(v => v.Ativo).Sum(v => v.SaldoSessoes ?? 0);
+
+            Refiltrar();
         }
         catch (Exception ex)
         {
@@ -145,11 +209,38 @@ public sealed partial class PacotesViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco.
+    /// </summary>
+    private void Refiltrar()
+    {
+        Vendidos.Clear();
+        foreach (var v in _todosVendidos.Where(v =>
+                     (!SoAtivos || v.Ativo)
+                     && Busca.Casa(v.Paciente, FiltroPaciente)))
+            Vendidos.Add(v);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O resumo DIZ que está filtrado: "12 pacotes" e "12 de 90 no filtro" respondem
+        // perguntas diferentes, e quem volta à tela depois do café não lembra o filtro.
+        Resumo = FiltroAtivo
+            ? $"{Vendidos.Count} de {_todosVendidos.Count} pacote(s) no filtro · "
+              + $"{_totalAtivos} ativo(s) no total"
+            : $"{_todosVendidos.Count} pacote(s) vendidos · {_totalAtivos} ativo(s) · "
+              + $"{_sessoesEmSaldo} sessão(ões) em saldo";
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhum pacote vendido bate com o filtro — limpe-o para ver todos."
+            : "A situação do pacote é calculada na hora — vencimento não precisa de rotina.";
+    }
+
     private static string ResumirCatalogo(PacoteCatalogo p)
     {
         var sessoes = p.SessoesIncluidas is { } n ? $"{n} sessões" : "sessões livres";
         var validade = p.ValidadeDias is { } dias ? $" · vale {dias} dias" : string.Empty;
-        return $"{p.Tipo} · {sessoes}{validade}";
+        // Rótulo, nunca o identificador: "Sessoes" sem cedilha é o enum vazando (parcela 41).
+        return $"{Clinica.Domain.RotulosEnum.De(p.Tipo)} · {sessoes}{validade}";
     }
 
     // ==================== Catálogo ====================
@@ -169,7 +260,7 @@ public sealed partial class PacotesViewModel : ObservableObject
     [RelayCommand]
     private void AbrirCatalogo()
     {
-        new Janelas.CatalogoPacotesWindow(this)
+        new CatalogoPacotesWindow(this)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         }.ShowDialog();
@@ -186,7 +277,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
 
         var vm = new PacoteCatalogoEdicaoViewModel(_pacotes);
-        var janela = new Janelas.PacoteCatalogoWindow(vm)
+        var janela = new PacoteCatalogoWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };
@@ -224,10 +315,11 @@ public sealed partial class PacotesViewModel : ObservableObject
     [RelayCommand]
     private async Task VenderAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote");
 
         var vm = new PacoteVendaViewModel(_pacotes, _escopos);
-        var janela = new Janelas.PacoteVendaWindow(vm)
+        var janela = new PacoteVendaWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };
@@ -243,7 +335,8 @@ public sealed partial class PacotesViewModel : ObservableObject
     {
         if (linha is null) return;
 
-        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "debitar sessão do pacote");
         if (!_dialogo.Confirmar("Usar uma sessão",
                 $"Debitar uma sessão de \"{linha.Nome}\" ({linha.Paciente})? Hoje o saldo é: "
                 + $"{linha.Saldo}.")) return;
@@ -278,7 +371,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         var vm = new ConsumosPacoteViewModel(
             _pacotes, _dialogo, linha.Id, $"{linha.Nome} — {linha.Paciente}");
 
-        var janela = new Janelas.ConsumosPacoteWindow(vm)
+        var janela = new ConsumosPacoteWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow
         };
@@ -325,6 +418,11 @@ public sealed partial class PacotesViewModel : ObservableObject
             Erro("Escolha um pacote do catálogo para orçar.");
             return;
         }
+
+        // O bit que a folha declara no catálogo (parcela 59): orçamento é documento
+        // financeiro, e a tela abre com só VerFinanceiro.
+        SessaoUsuario.Atual.ExigirAlgum(
+            Permissao.VenderPacote | Permissao.EditarFinanceiro, "emitir orçamento");
 
         var destinatario = _dialogo.PerguntarTexto(
             "Orçamento", "Para quem é o orçamento? (nome de quem vai receber o papel)");

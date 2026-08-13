@@ -53,12 +53,19 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
     public string LimiteTexto =>
         $"Até {ProntuarioService.TamanhoMaximoAnexo / (1024 * 1024)} MB por arquivo.";
 
-    public AnexosSessaoViewModel(IServiceScopeFactory escopos, int evolucaoId, string sessao)
+    public AnexosSessaoViewModel(
+        IServiceScopeFactory escopos, int evolucaoId, string sessao, int pacienteId)
     {
         _escopos = escopos;
         _evolucaoId = evolucaoId;
+        _pacienteId = pacienteId;
         Sessao = sessao;
     }
+
+    private readonly int _pacienteId;
+
+    /// <summary>A janela é de UMA sessão — registra uma vez por abertura.</summary>
+    private bool _acessoRegistrado;
 
     [RelayCommand]
     public async Task CarregarAsync()
@@ -71,6 +78,17 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
+
+            // Laudo e imagem de exame são dado de saúde: abrir a janela entra na trilha
+            // da parcela 52 (origem DOCUMENTO), uma vez por abertura — recarregar depois
+            // de anexar não é um acesso novo.
+            if (!_acessoRegistrado && _pacienteId != 0)
+            {
+                _acessoRegistrado = true;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(_pacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.Documento);
+            }
 
             foreach (var a in await prontuario.AnexosAsync(_evolucaoId))
                 Anexos.Add(a);

@@ -61,8 +61,12 @@ public sealed partial class PacientesViewModel : ObservableObject
     /// Habilita os botões de escrita da tela. É a metade VISÍVEL da permissão: o
     /// botão apagado explica por que não dá; a guarda no comando é que impede.
     /// Só desabilitar seria enfeite — um atalho de teclado passaria direto.
+    ///
+    /// O nome casa com o do XAML e com o bit (EditarPaciente = CADASTRO, parcela 49).
+    /// Com o nome antigo ("PodeEditarProntuario"), o binding do "Novo paciente" não
+    /// resolvia, e IsEnabled ficava no padrão true — barreira visível morta em silêncio.
     /// </summary>
-    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
+    public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
 
     public PacientesViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)

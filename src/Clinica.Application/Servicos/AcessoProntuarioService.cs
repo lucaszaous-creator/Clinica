@@ -23,7 +23,15 @@ public enum OrigemAcessoProntuario
     ExportacaoTitular,
 
     /// <summary>Documento emitido ou reimpresso a partir do prontuário.</summary>
-    Documento
+    Documento,
+
+    /// <summary>
+    /// Dado clínico exportado para ARQUIVO (o CSV da curva de dor, das medidas). Separado
+    /// de <see cref="ExportacaoTitular"/> porque são fatos diferentes: lá é o paciente
+    /// exercendo o art. 18; aqui é o dado de saúde SAINDO do sistema para um arquivo — o
+    /// caminho mais fácil de ele sair da clínica, e o que uma investigação procura.
+    /// </summary>
+    ExportacaoClinica
 }
 
 /// <summary>
@@ -126,6 +134,43 @@ public sealed class AcessoProntuarioService
     }
 
     /// <summary>
+    /// Registra a exportação da CLÍNICA INTEIRA: uma linha por paciente exportado, num
+    /// só SaveChanges. É o maior acesso possível à base — deixá-lo fora da trilha
+    /// enquanto o acesso a UM paciente é registrado seria cobrir o menor caso e perder o
+    /// maior. Sem janela de silêncio: exportar tudo é ato deliberado, nunca a mesma tela
+    /// recarregando. Devolve quantas linhas gravou (0 = falhou, com rastro no log).
+    /// </summary>
+    public async Task<int> RegistrarExportacaoDaClinicaAsync(
+        IReadOnlyCollection<int> pacienteIds, string? operador, CancellationToken ct = default)
+    {
+        try
+        {
+            var quem = string.IsNullOrWhiteSpace(operador) ? "?" : operador.Trim();
+            var acao = $"{PrefixoAcao}:{OrigemAcessoProntuario.ExportacaoTitular}";
+            var agora = _agora();
+
+            foreach (var pacienteId in pacienteIds)
+                await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+                {
+                    DataHora = agora,
+                    Operador = quem,
+                    Acao = acao,
+                    PacienteId = pacienteId,
+                    Detalhe = "Exportação do prontuário da clínica inteira"
+                }, ct);
+
+            await _repo.SalvarAsync(ct);
+            return pacienteIds.Count;
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar(
+                "Auditoria — exportação da clínica não pôde ser registrada na trilha", ex);
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// Quem abriu o prontuário deste paciente, do mais recente para o mais antigo.
     ///
     /// É a pergunta da cliente ao pé da letra, e por isso tem leitura PRÓPRIA em vez de
@@ -176,6 +221,7 @@ public sealed class AcessoProntuarioService
         OrigemAcessoProntuario.Atendimento => "Tela de atendimento aberta",
         OrigemAcessoProntuario.ExportacaoTitular => "Dados do titular exportados (LGPD art. 18, II)",
         OrigemAcessoProntuario.Documento => "Documento do prontuário aberto",
+        OrigemAcessoProntuario.ExportacaoClinica => "Dados clínicos exportados para arquivo",
         _ => "Prontuário acessado"
     };
 }

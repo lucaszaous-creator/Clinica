@@ -50,7 +50,9 @@ public sealed class ConvenioCatalogoService
         CatalogoConvenios.Atualizar(lista.Select(c => new EntradaConvenio(
             c.Codigo, c.Nome, c.Familia, c.Ativo,
             c.Familia == Convenio.Personalizado ? c.ParaConfig() : null,
-            c.FormatoNumeroGuia)));
+            c.FormatoNumeroGuia,
+            c.RegistroAnsOperadora,
+            c.GeraGuia)));
     }
 
     public async Task SalvarAsync(IEnumerable<ConvenioCadastro> convenios, CancellationToken ct = default)

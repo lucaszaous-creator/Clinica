@@ -79,16 +79,10 @@
                     </StackPanel>
                 </Button>
             </DockPanel>
-            <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,14"
-                    Visibility="{Binding TemPendencias, Converter={StaticResource BoolParaVisibilidade}}">
-                <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="&#xEA8F;" Style="{StaticResource Icone}" FontSize="19"
-                               VerticalAlignment="Center" Margin="0,0,10,0" Foreground="White" />
-                    <TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="15" FontWeight="Bold" Foreground="White">
-                        <Run Text="Existem " /><Run Text="{Binding TotalCodigos, Mode=OneWay}" /><Run Text=" guias pendentes de baixa. Dê baixa assim que possível para não perder o faturamento." />
-                    </TextBlock>
-                </StackPanel>
-            </Border>
+            <!-- A faixa vermelha "Existem N guias pendentes" saiu (a regra do README):
+                 numa tela cujo ASSUNTO é ter pendências ela nunca sai — vira moldura —,
+                 e o N já mora 40 px abaixo, nos KPIs "Guias em aberto" e "Urgentes".
+                 O banner que fica é o da RODADA, que é evento, não estado permanente. -->
 
             <!-- Banner da rodada de pendências (fechamento de ciclo periódico) -->
             <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,14"
@@ -161,24 +155,105 @@
             </Border>
         </WrapPanel>
 
+        <!-- ===== Filtros (parcela 61): a resposta a "12 pendências de QUÊ?" =====
+             CHIPS para as perguntas de duas respostas que o faturista alterna o dia
+             inteiro (1º/2º código, atrasada/no prazo) — a contagem no rótulo mostra a
+             distribuição ANTES do clique. COMBOS para as listas longas (tipo do código,
+             modalidade, especialidade, convênio). E o resumo por extenso logo abaixo,
+             com o Limpar — a lista filtrada DIZ que está filtrada. -->
         <Grid Grid.Row="2" Margin="0,0,0,10">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="Convênio:" VerticalAlignment="Center" Margin="0,0,6,0" />
-            <ComboBox Width="200" ItemsSource="{Binding OpcoesConvenio}" SelectedItem="{Binding FiltroConvenio}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-            <TextBlock Text="Urgência:" VerticalAlignment="Center" Margin="16,0,6,0" />
-            <ComboBox Width="140" ItemsSource="{Binding OpcoesUrgencia}" SelectedItem="{Binding FiltroUrgencia}" />
+        <StackPanel Grid.Column="0" Margin="0,0,12,0">
+            <WrapPanel VerticalAlignment="Center">
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,6"
+                              IsChecked="{Binding ChipPrimeiros}"
+                              ToolTip="Só as guias do 1º código — a que nasce com o atendimento.">
+                    <TextBlock TextTrimming="CharacterEllipsis">
+                        <Run Text="1º código" /><Run Text=" · " /><Run Text="{Binding TotalPrimeiros, Mode=OneWay}" FontWeight="SemiBold" />
+                    </TextBlock>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,14,6"
+                              IsChecked="{Binding ChipSegundos}"
+                              ToolTip="Só as guias do 2º código — a que o convênio libera +24h depois, e que este painel existe para não deixar esquecer.">
+                    <TextBlock TextTrimming="CharacterEllipsis">
+                        <Run Text="2º código" /><Run Text=" · " /><Run Text="{Binding TotalSegundos, Mode=OneWay}" FontWeight="SemiBold" />
+                    </TextBlock>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,8,6"
+                              IsChecked="{Binding ChipAtrasadas}"
+                              ToolTip="A data prevista de faturamento já passou (semáforo vermelho).">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" Margin="0,0,6,0" VerticalAlignment="Center"
+                                 Fill="{StaticResource Brush.Semaforo.Vermelho}" />
+                        <TextBlock TextTrimming="CharacterEllipsis">
+                            <Run Text="Atrasadas" /><Run Text=" · " /><Run Text="{Binding TotalAtrasadas, Mode=OneWay}" FontWeight="SemiBold" />
+                        </TextBlock>
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource ChipFiltro}" Margin="0,0,14,6"
+                              IsChecked="{Binding ChipNoPrazo}"
+                              ToolTip="A data prevista ainda não chegou (semáforo amarelo).">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" Margin="0,0,6,0" VerticalAlignment="Center"
+                                 Fill="{StaticResource Brush.Semaforo.Amarelo}" />
+                        <TextBlock TextTrimming="CharacterEllipsis">
+                            <Run Text="No prazo" /><Run Text=" · " /><Run Text="{Binding TotalNoPrazo, Mode=OneWay}" FontWeight="SemiBold" />
+                        </TextBlock>
+                    </StackPanel>
+                </ToggleButton>
+
+                <TextBlock Text="Código:" VerticalAlignment="Center" Margin="0,0,6,6" />
+                <ComboBox Width="170" Margin="0,0,12,6"
+                          ItemsSource="{Binding OpcoesTipo}" SelectedItem="{Binding FiltroTipo}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="Modalidade:" VerticalAlignment="Center" Margin="0,0,6,6" />
+                <ComboBox Width="170" Margin="0,0,12,6"
+                          ItemsSource="{Binding OpcoesModalidade}" SelectedItem="{Binding FiltroModalidade}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="Especialidade:" VerticalAlignment="Center" Margin="0,0,6,6" />
+                <ComboBox Width="170" Margin="0,0,12,6"
+                          ItemsSource="{Binding OpcoesEspecialidade}" SelectedItem="{Binding FiltroEspecialidade}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="Convênio:" VerticalAlignment="Center" Margin="0,0,6,6" />
+                <ComboBox Width="190" Margin="0,0,0,6"
+                          ItemsSource="{Binding OpcoesConvenio}" SelectedItem="{Binding FiltroConvenio}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextTrimming="CharacterEllipsis" HorizontalAlignment="Left" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </WrapPanel>
+
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding ResumoRecorte}" VerticalAlignment="Center"
+                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+                <Button Content="Limpar filtros" Margin="10,0,0,0" VerticalAlignment="Center"
+                        Style="{StaticResource BotaoFantasma}" Padding="8,3"
+                        Command="{Binding LimparFiltrosCommand}"
+                        Visibility="{Binding TemFiltro, Converter={StaticResource BoolParaVisibilidade}}" />
+            </StackPanel>
         </StackPanel>
-        <Button Grid.Column="1" Style="{StaticResource BotaoSecundario}"
+        <Button Grid.Column="1" Style="{StaticResource BotaoSecundario}" VerticalAlignment="Top"
                 ToolTip="Dar baixa em várias guias de uma vez (selecione as linhas com Ctrl/Shift + clique)"
                 Command="{Binding DarBaixaEmLoteCommand}"
                 IsEnabled="{Binding PodeBaixar}"
@@ -194,8 +269,11 @@
         <DockPanel>
         <TextBlock DockPanel.Dock="Top" Text="Guias e códigos pendentes" Style="{StaticResource H2}" Margin="0,0,0,8" />
         <Grid>
-        <ctrl:EmptyState Glifo="&#xE930;" Titulo="Nenhuma pendência" Panel.ZIndex="1"
-                         Descricao="Tudo em dia por aqui. Use Atualizar (F5) para recarregar.">
+        <!-- Título e descrição vêm do VM: "nenhuma pendência" e "nenhuma bate com o
+             filtro" são respostas DIFERENTES, e um filtro esquecido respondendo "tudo
+             em dia" faria a clínica dar o dia por resolvido com o painel pendente. -->
+        <ctrl:EmptyState Glifo="&#xE930;" Titulo="{Binding TituloVazio}" Panel.ZIndex="1"
+                         Descricao="{Binding DescricaoVazio}">
             <ctrl:EmptyState.Style>
                 <Style TargetType="ctrl:EmptyState" BasedOn="{StaticResource {x:Type ctrl:EmptyState}}">
                     <Setter Property="Visibility" Value="Collapsed" />

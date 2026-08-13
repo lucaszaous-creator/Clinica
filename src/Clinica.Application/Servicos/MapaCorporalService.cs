@@ -218,23 +218,6 @@ public sealed class MapaCorporalService
         return protocolo;
     }
 
-    /// <summary>Guarda como protocolo o mapa JÁ GRAVADO de uma sessão.</summary>
-    public async Task<ProtocoloCorporal> SalvarComoProtocoloDaSessaoAsync(
-        int evolucaoId, string nome, bool daClinica = false, string? descricao = null,
-        string? operador = null, CancellationToken ct = default)
-    {
-        var evolucao = await _repo.ObterEvolucaoAsync(evolucaoId, ct)
-            ?? throw new InvalidOperationException("Sessão não encontrada.");
-
-        var mapa = await _repo.ObterMapaDaEvolucaoAsync(evolucaoId, ct);
-        if (mapa is null || mapa.Pontos.Count == 0)
-            throw new InvalidOperationException(
-                "Esta sessão não tem nenhum ponto marcado no mapa.");
-
-        return await SalvarComoProtocoloAsync(
-            evolucao.PacienteId, nome, Copiar(mapa.Pontos), daClinica, descricao, operador, ct);
-    }
-
     public async Task ExcluirProtocoloAsync(
         int protocoloId, string? operador = null, CancellationToken ct = default)
     {

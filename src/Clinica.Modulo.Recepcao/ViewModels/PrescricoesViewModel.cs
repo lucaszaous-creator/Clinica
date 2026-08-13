@@ -48,8 +48,17 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
     [ObservableProperty] private string _paciente = string.Empty;
 
-    /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
-    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
+    /// <summary>
+    /// Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.
+    ///
+    /// ⚠️ É <see cref="Permissao.Prescrever"/> desde a parcela 59, e não
+    /// <c>EditarPaciente</c>. Esta tela emite RECEITA, ATESTADO e PEDIDO DE EXAME pela
+    /// janela genérica — três papéis que mandam alguém tomar ou fazer alguma coisa. Usar o
+    /// bit do CADASTRO para autorizá-los é o bit sobrecarregado que a parcela 49 corrigiu
+    /// no domínio e que sobrevivia aqui: quem digita o telefone de um paciente passava a
+    /// poder assinar uma receita para ele.
+    /// </summary>
+    public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
 
     /// <summary>
     /// Emitir exige paciente escolhido, além da permissão. Sem isto o botão ficava aceso
@@ -108,10 +117,23 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
     private int PacienteId => Seletor.Selecionado?.Id ?? 0;
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a troca de paciente dispara uma
+    /// carga por seleção, e a resposta atrasada do paciente anterior chegando por último
+    /// poria os documentos dele sob o nome do paciente novo no cabeçalho.
+    /// </summary>
+    private int _geracaoCarga;
+
+    /// <summary>Último paciente cujo acesso já entrou na trilha — a tela recarrega mais do que troca.</summary>
+    private int _acessoRegistradoDe;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
-        SemPaciente = PacienteId == 0;
+        var geracao = ++_geracaoCarga;
+        var pacienteId = PacienteId;
+
+        SemPaciente = pacienteId == 0;
         Documentos.Clear();
 
         if (SemPaciente)
@@ -131,11 +153,33 @@ public sealed partial class PrescricoesViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
-            foreach (var d in await servico.DoPacienteAsync(PacienteId))
-                Documentos.Add(LinhaDocumento.De(d));
+            // Trilha de LEITURA (parcela 52), na troca de paciente: receita e atestado
+            // são dado de saúde, e esta porta ficava fora da trilha.
+            if (_acessoRegistradoDe != pacienteId)
+            {
+                _acessoRegistradoDe = pacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(pacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.Documento);
+            }
+
+            var doPaciente = await servico.DoPacienteAsync(pacienteId);
+
+            // Chegou tarde: outra seleção já pediu uma carga mais nova.
+            if (geracao != _geracaoCarga) return;
+
+            // Mesmo filtro da ficha: o catálogo decide o que cada acesso alcança, e as
+            // duas telas listam o MESMO documento (parcela 59).
+            foreach (var d in doPaciente)
+            {
+                var linha = LinhaDocumento.De(d);
+                if (SessaoUsuario.Atual.Pode(linha.AcessoParaVer)) Documentos.Add(linha);
+            }
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Recepção — documentos não puderam ser carregados", ex);
             Mensagem = ex.Message;
@@ -143,7 +187,8 @@ public sealed partial class PrescricoesViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -159,7 +204,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "emitir documento clínico");
 
             var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
             var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
@@ -354,7 +399,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "emitir documento");
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "emitir documento clínico");
 
             var motivo = _dialogo.PerguntarTexto(
                 "Cancelar documento",

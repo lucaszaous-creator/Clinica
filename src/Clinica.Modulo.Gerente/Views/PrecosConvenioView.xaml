@@ -21,6 +21,41 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
+        <!-- ===== Filtro =====
+             Linha única acima da lista (REGRA DE LEIAUTE). O cadastro guarda o histórico
+             inteiro — reajuste é linha nova —, e a pergunta da renegociação é "quanto
+             esta operadora paga HOJE": convênio + "só o que vale hoje" respondem sem
+             varrer linha fora de vigência. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding ConveniosPreco}"
+                              SelectedItem="{Binding FiltroConvenioPreco}" />
+                </StackPanel>
+
+                <CheckBox Grid.Column="2" Content="Só o que vale hoje"
+                          IsChecked="{Binding SoValendoHoje}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8" />
+
+                <Button Grid.Column="4" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <!-- ===== Catálogo ===== -->
         <Border Style="{StaticResource Card}">
             <DockPanel>
@@ -43,8 +78,10 @@
                     </StackPanel>
                 </Grid>
 
+                <!-- A frase muda quando há filtro: "não há preço" e "nenhum bate com o
+                     filtro" são respostas diferentes. -->
                 <TextBlock TextWrapping="Wrap" MaxWidth="820" DockPanel.Dock="Top"
-                           Text="Nenhum preço cadastrado. Sem tabela, a conciliação continua pedindo o valor digitado — o sistema não inventa um valor de mercado.">
+                           Text="{Binding VazioDescricao}">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
                             <Setter Property="Visibility" Value="Collapsed" />

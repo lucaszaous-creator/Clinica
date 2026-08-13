@@ -1,8 +1,8 @@
-<UserControl x:Class="Clinica.Financeiro.Views.PacotesView"
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.PacotesView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
-             xmlns:vm="clr-namespace:Clinica.Financeiro.ViewModels"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+             xmlns:vm="clr-namespace:Clinica.Desktop.Shell.Componentes"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -27,14 +27,51 @@
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
                             Command="{Binding AbrirCatalogoCommand}"
-                            ToolTip="O que está à venda — a tabela que a clínica define uma vez" />
+                            IsEnabled="{Binding PodeEditarFinanceiro}"
+                            ToolTip="O que está à venda — a tabela que a clínica define uma vez. Mudar o preço vale para todo mundo, então fica no financeiro." />
                     <Button Content="Orçamento…" MinHeight="36" MinWidth="130"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding OrcarCommand}" />
+                            Command="{Binding OrcarCommand}"
+                            IsEnabled="{Binding PodeVender}" />
                 </StackPanel>
             </Grid>
         </StackPanel>
+
+        <!-- ===== Filtro =====
+             Linha única acima da lista (REGRA DE LEIAUTE): é o que a pessoa AJUSTA
+             enquanto cobra no balcão, não uma tela à parte. O recorte é em memória —
+             a lista já veio inteira do banco. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <CheckBox Grid.Column="2" Content="Só ativos" IsChecked="{Binding SoAtivos}"
+                          VerticalAlignment="Bottom" Margin="0,0,0,8"
+                          ToolTip="Só os pacotes com saldo valendo — cancelados, esgotados e vencidos ficam de fora" />
+
+                <Button Grid.Column="4" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
 
         <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
@@ -52,7 +89,7 @@
                             <Button Content="Atualizar" Style="{StaticResource BotaoSecundario}"
                                     Command="{Binding CarregarCommand}" />
                             <Button Content="Vender pacote…" Margin="8,0,0,0"
-                                    Command="{Binding VenderCommand}" IsEnabled="{Binding PodeEditarFinanceiro}" />
+                                    Command="{Binding VenderCommand}" IsEnabled="{Binding PodeVender}" />
                         </StackPanel>
                     </Grid>
 
@@ -93,7 +130,7 @@
                                                     <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                                 </Border>
                                                 <Button Content="Usar sessão" Style="{StaticResource BotaoPequeno}"
-                                                        IsEnabled="{Binding Ativo}"
+                                                        IsEnabled="{Binding PodeUsarSessao}"
                                                         Command="{Binding DataContext.ConsumirCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
@@ -108,7 +145,7 @@
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Cancelar" Margin="8,0,0,0"
                                                         Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        IsEnabled="{Binding Ativo}"
+                                                        IsEnabled="{Binding PodeCancelarVenda}"
                                                         Command="{Binding DataContext.CancelarPacoteCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
@@ -129,6 +166,6 @@
                            Glifo="&#xE8C7;"
                            TextoCarregando="Lendo os pacotes…"
                            Titulo="Nenhum pacote vendido"
-                           Descricao="A situação do pacote é calculada na hora — vencimento não precisa de rotina." />
+                           Descricao="{Binding VazioDescricao}" />
     </Grid>
 </UserControl>

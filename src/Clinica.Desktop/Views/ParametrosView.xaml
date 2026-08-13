@@ -119,6 +119,31 @@
                                            Text="A baixa recusa o número que não seguir esta forma. Serve para o zero digitado como &quot;O&quot; não passar batido e só aparecer no retorno da operadora, semanas depois. &quot;Sem validação&quot; aceita o que for digitado." />
                             </StackPanel>
 
+                            <!-- Registro ANS por operadora (parcela 60): é o destino do
+                                 lote TISS DESTA operadora. Em branco, o lote usa o
+                                 registro global de Clínica/prestador — que era o único
+                                 que existia quando o lote engolia todas de uma vez. -->
+                            <StackPanel Margin="0,12,0,0">
+                                <TextBlock Text="Registro ANS desta operadora (lote TISS)" Style="{StaticResource Rotulo}" />
+                                <TextBox Text="{Binding RegistroAnsOperadora, UpdateSourceTrigger=PropertyChanged}"
+                                         HorizontalAlignment="Left" Width="260" MaxLength="20" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left" MaxWidth="620" Margin="0,4,0,0"
+                                           Text="Sai no cabeçalho do lote TISS desta operadora. Em branco, o lote usa o registro global de Clínica/prestador." />
+                            </StackPanel>
+
+                            <!-- PARTICULAR (parcela 60). Fica FORA do painel da regra
+                                 genérica pela mesma razão do formato do número: vale para
+                                 qualquer família, e dentro dele seria uma caixinha que não
+                                 faz nada num convênio embutido. -->
+                            <StackPanel Margin="0,14,0,0">
+                                <CheckBox Content="Este convênio GERA GUIA para faturar"
+                                          IsChecked="{Binding GeraGuia}" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           HorizontalAlignment="Left" MaxWidth="620" Margin="24,4,0,0"
+                                           Text="Desmarque para cadastrar o PARTICULAR — o paciente que vem sem convênio. O atendimento continua sendo registrado (modalidade, especialidade e data entram nos indicadores), mas nenhuma guia entra no painel de pendências nem na rodada de 10 dias. A cobrança é no caixa." />
+                            </StackPanel>
+
                             <!-- Ajustes da regra genérica — só fazem sentido quando a família é Personalizado -->
                             <StackPanel Visibility="{Binding EhPersonalizado, Converter={StaticResource BoolParaVisibilidade}}">
                                 <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,8,0,4" />

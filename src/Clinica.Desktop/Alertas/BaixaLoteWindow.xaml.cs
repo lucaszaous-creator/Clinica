@@ -37,7 +37,9 @@ public partial class BaixaLoteWindow : Window
         Linhas = itens.Select(i => new Linha
         {
             CodigoId = i.CodigoId,
-            Descricao = $"{i.PacienteNome} — {i.Tipo} ({(i.Ordem == OrdemCodigo.Primeiro ? "1º" : "2º")} código)",
+            // Rótulo central, nunca o enum cru: "ConsultaEspecialidade" na linha é o
+            // defeito da parcela 41 — o Ordem estava rotulado à mão e o Tipo passou batido.
+            Descricao = $"{i.PacienteNome} — {RotulosEnum.De(i.Tipo)} ({RotulosEnum.De(i.Ordem)})",
             Formato = CatalogoConvenios.FormatoDoNumeroDaGuia(i.ConvenioCodigo ?? i.Convenio.ToString())
         }).ToList();
         Lista.ItemsSource = Linhas;

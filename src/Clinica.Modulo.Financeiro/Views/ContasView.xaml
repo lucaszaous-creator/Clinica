@@ -99,6 +99,12 @@
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                 VerticalAlignment="Center">
+                        <!-- O filtro que existia no ViewModel desde a parcela 12 e nunca
+                             tinha sido ligado: sem ele, "só o que eu tenho a pagar" era
+                             varredura visual numa lista que mistura os dois sentidos. -->
+                        <ComboBox ItemsSource="{Binding TiposDeConta}"
+                                  SelectedItem="{Binding TipoDeContaEscolhido}"
+                                  Width="150" Margin="0,0,12,0" />
                         <TextBlock Text="Horizonte" Style="{StaticResource Rotulo}"
                                    VerticalAlignment="Center" Margin="0,0,6,0" />
                         <ComboBox ItemsSource="{Binding Horizontes}"

@@ -78,6 +78,18 @@ public sealed class SessaoUsuario
            || (Permissoes & permissao) == permissao;
 
     /// <summary>
+    /// Os acessos que VALEM para esta sessão, como conjunto (parcela 59).
+    ///
+    /// Existe para quem precisa FILTRAR uma lista pelo acesso — o catálogo de folhas da
+    /// central de documentos — em vez de perguntar por um bit de cada vez. E existe aqui,
+    /// e não como `Permissoes` cru, porque a regra do "sem sessão autenticada, libera"
+    /// mora nesta classe: lida direto, a propriedade devolveria <c>Nenhuma</c> fora do
+    /// login e a tela abriria VAZIA, que é o oposto do que <see cref="Pode"/> decide.
+    /// Duas respostas para "o que esta pessoa alcança?" é o começo de uma divergir.
+    /// </summary>
+    public Permissao Efetivas => Autenticado ? Permissoes : PerfisAcesso.Todas;
+
+    /// <summary>
     /// Bloqueia a ação quando falta permissão. As telas já tratam exceção e mostram a
     /// mensagem inline, então o texto aqui é o que o usuário vai ler.
     ///
@@ -88,6 +100,29 @@ public sealed class SessaoUsuario
     public void Exigir(Permissao permissao, string acao)
     {
         if (Pode(permissao)) return;
+
+        throw new InvalidOperationException(
+            $"Seu acesso não permite {acao}. Fale com a direção da clínica.");
+    }
+
+    /// <summary>
+    /// Basta UM dos bits — para o ato que DUAS permissões alcançam.
+    ///
+    /// <see cref="Pode"/> com bits combinados exige TODOS (é um E, não um OU), então o
+    /// ato coberto por mais de um bit precisa desta variante. O caso que a criou é a
+    /// fila do dia (parcela 61): <see cref="Permissao.EditarAgenda"/> sempre a moveu
+    /// pelo balcão, e <see cref="Permissao.MovimentarFila"/> é o corte estreito de quem
+    /// atende — exigir só o bit novo tiraria a fila de quem a movia ontem.
+    /// </summary>
+    public bool PodeAlgum(Permissao permissoes)
+        => !Autenticado
+           || permissoes == Permissao.Nenhuma
+           || (Permissoes & permissoes) != 0;
+
+    /// <summary>A segunda barreira de <see cref="PodeAlgum"/> — mesma regra do <see cref="Exigir"/>.</summary>
+    public void ExigirAlgum(Permissao permissoes, string acao)
+    {
+        if (PodeAlgum(permissoes)) return;
 
         throw new InvalidOperationException(
             $"Seu acesso não permite {acao}. Fale com a direção da clínica.");

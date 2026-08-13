@@ -1681,6 +1681,250 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   duplicidade e taxa histórica por padrão (convênio+tipo). `TissRetornoImport.Ler` importa o
   demonstrativo XML da operadora e pré-preenche as decisões do retorno (casadas pelo nº real
   da guia); a leitura é tolerante ao nome local dos elementos (varia entre operadoras).
+- **O lote TISS é POR OPERADORA, e a guarda de duplicidade era o que tornava o erro
+  irreversível** (parcela 60 — revisão completa): o "lote do período" engolia as guias de
+  TODAS as operadoras num XML endereçado a UMA (o registro ANS era um campo global), e as
+  demais **nunca mais entravam em lote** — `LoteTissId` preenchido as escondia das
+  candidatas para sempre, e a tela dizia "nenhuma guia nova", que se lê como dia fraco.
+  Agora a exportação agrupa por operadora e gera **um lote e um XML por grupo** (uma
+  operadora só = o fluxo de sempre, sem cerimônia); o registro ANS mora no
+  `ConvenioCadastro` (dado, não código — em branco cai no global); `LoteTiss.ConvenioCodigo`
+  grava de quem o lote é; e o **estorno da baixa solta o `LoteTissId`** — guia rebaixada
+  com o número certo volta às candidatas, com o lote antigo registrado na observação. O
+  agrupamento é pelo `ConvenioDaGuia` (código do catálogo, família como caminho de baixo),
+  o MESMO do nome de exibição — outro critério fundiria operadoras que só compartilham a
+  regra.
+- **A cópia que ficou para trás é onde a permissão vaza** (parcela 60): a revisão achou
+  cinco brechas críticas de permissão, TODAS no app de faturamento — sempre o mesmo
+  formato: o módulo equivalente da suíte tinha as duas barreiras e a cópia do
+  `Clinica.Desktop` não (estorno pela ficha, agenda, cadastro de paciente, autorizações,
+  usuário). Os bits envolvidos eram exatamente os que as parcelas 49/58 tiraram dos perfis
+  — cada tela esquecida era um caminho de volta. **Ao aplicar permissão nova, procure a
+  MESMA ação nos dois lados** (suíte e faturamento); e a rodada fixou também: emitir na
+  janela de documento confere o bit do tipo QUE ESTÁ NO COMBO (`AcessoParaEmitir`), não o
+  da porta por onde se entrou — trocar o seletor para "Receita" exigia `Prescrever` só no
+  papel.
+- **Excluir paciente era a última porta que apagava prontuário** (parcela 60): as FKs
+  clínicas apagam em CASCATA com a linha do paciente, e o botão Excluir do faturamento
+  levava evolução, avaliação, medida, documento e prescrição juntos — com o
+  `ConformidadeProntuarioTests` verde, porque ele só olhava os `Remover*Async` da
+  interface. `PacienteService.RemoverAsync` agora RECUSA quando há registro clínico
+  (explica a guarda de 20 anos e aponta a anonimização); ficha vazia continua removível. A
+  lição de teste: **fixar a regra pela lista de métodos proibidos não cobre o método que
+  apaga por arrasto** — o teste novo exercita a cascata de verdade.
+- **O descarte de resposta fora de ordem virou padrão de TODA carga async** (parcela 60):
+  a regra da parcela 50 valia em DUAS telas; a revisão achou mais de quarenta com o mesmo
+  defeito, seis delas críticas (deduções GRAVADAS do valor antigo; CPF gravado no
+  profissional errado; prontuário de um paciente sob o nome de outro). O padrão é um só —
+  contador `_geracaoCarga`, guarda após cada await, catch e `Carregando` condicionais — e
+  agora está em todos os ViewModels que leem banco por tecla, clique ou timer. Tela nova
+  com carga async NASCE com o contador; guarda de reentrância (`if (Carregando) return`)
+  no método de carga é incompatível com ele (descarta a carga NOVA) e foi removida onde
+  conflitava.
+- **A sala executa o que não alcançava imprimir** (parcela 61 — auditoria de prontidão do
+  módulo clínico antes de produção; achou onze lacunas, todas do defeito recorrente). Todo
+  o desenho da checagem da parcela 42 assume a via IMPRESSA (a enfermeira assina à caneta),
+  e a única porta de impressão morava na tela de quem PRESCREVE, num exe que a máquina da
+  enfermagem não instala. A impressão entrou na sala e na folha de execução; a folha também
+  se acha pelo **código impresso** (`PorCodigoAsync`, que estava sem chamador) — a técnica
+  está com o papel na mão, e a lista só mostra hoje. **Suspender item** ganhou porta na
+  folha de execução sob o bit `Prescrever` (é ato de quem prescreve, não de quem executa —
+  o botão fica fora do painel de `PodeMexer` de propósito). O contador de folhas aguardando
+  (`PendentesDoDiaAsync`, também sem chamador) virou alerta do painel da direção
+  (`AssuntoDirecao.InfusaoAguardando`), pelo argumento do prontuário em aberto: a sala vê a
+  própria fila, a direção é quem vê a soma. E o `DoDiaAsync` duplicado do
+  `PrescricaoInternaService` foi REMOVIDO: duas definições de "a fila da sala" divergem na
+  primeira correção, e a cópia sem chamador é a que ninguém lembraria de ajustar.
+- **Mover a fila é UM ato com UMA regra nos dois quadros** (`Permissao.MovimentarFila`,
+  parcela 61): a Recepção exigia `EditarAgenda` para carimbar chegada/chamada/entrada, e o
+  quadro do médico aceitava `VerAgenda` — a MESMA escrita na MESMA tabela com duas regras,
+  e a de baixo deixava quem só lê a agenda carimbar chamada. O bit novo é o corte estreito
+  de quem atende (o perfil `Profissional` o recebe por padrão, SEM ganhar `EditarAgenda` —
+  marcar horário de terceiros continua sendo do balcão), e a autorização do ato é
+  `EditarAgenda` OU `MovimentarFila` nos dois lados, via `SessaoUsuario.PodeAlgum` /
+  `ExigirAlgum` (novos — `Pode` com bits combinados é um E, não um OU): quem movia a fila
+  ontem pelo balcão continua movendo hoje. O Meu dia ganhou as transições que faltavam
+  (Entrou / Voltar — a coluna EM ATENDIMENTO só enchia se o BALCÃO clicasse) e o arrasto da
+  parcela 58; **Finalizar continua não existindo lá, e é decisão**: concluir são quatro
+  fatos do mesmo ato (guia, pacote, insumo, caixa) e três são do balcão.
+- **`BooleanToVisibilityConverter` sobre STRING é `Collapsed` para sempre** (parcela 61 —
+  a mensagem da folha de execução, a justificativa da rodela e o nome do executante nunca
+  apareceram desde a parcela 42). O conversor do WPF devolve `Collapsed` para qualquer
+  valor que não seja `bool`: não é erro de compilação nem de binding — o elemento só nunca
+  aparece, e as três redes ficam verdes. O faturamento tem `TextoParaVisibilidadeConverter`
+  desde sempre; o shell não tinha e as telas ligavam `{Binding Mensagem}` no conversor de
+  bool. Entrou `Clinica.Desktop.Controls.TextoParaVisibilidade` no shell. **Ao ligar
+  `Visibility` a uma propriedade, confira o TIPO dela** — string pede o conversor de texto.
+- **A trilha de leitura cobre a PORTA que abre o dado, não só a tela clássica** (parcela
+  60): Prescrições, Prescrição de infusão, Anexos e a Folha de execução expunham dado de
+  saúde sem registrar acesso — e `OrigemAcessoProntuario.Documento` existia no enum sem um
+  único escritor. Todas registram agora (na TROCA de paciente ou uma vez por janela, nunca
+  a cada `CarregarAsync`), o export CSV ganhou `Exigir(VerProntuario)` + origem própria
+  (`ExportacaoClinica` — dado de saúde saindo para arquivo é o que uma investigação
+  procura), e `AcessoProntuarioService.DoPacienteAsync` — a resposta a "quem abriu este
+  prontuário", sem chamador desde a parcela 52 — ganhou porta na tela de Guarda do Gerente.
+  As abas do workspace continuam cobertas pela janela de silêncio por ORIGEM: quatro abas
+  do mesmo paciente no mesmo atendimento são UM acesso, e isso é desenho, não buraco.
+- **O painel de pendências diz DE QUÊ elas são** (parcela 61 — a direção perguntou:
+  *"12 pendências, mas 12 pendências de quê? 1º código? 2º? Acupuntura? Consulta?"*).
+  A resposta tem duas formas, e a escolha entre elas não é estilo: **CHIP com contagem**
+  para as perguntas de DUAS respostas que o faturista alterna o dia inteiro (1º/2º
+  código, atrasada/no prazo — estilo `ChipFiltro`, pílula com a distribuição visível
+  ANTES do clique, contada sempre sobre o TOTAL e nunca sobre o recorte); **combo
+  rotulado** para as listas longas (tipo do código, modalidade, especialidade,
+  convênio). Cada dupla de chips é exclusiva (marcar um desmarca o irmão; desmarcar os
+  dois é "todas"). Para isso `PendenciaCodigo` ganhou `Modalidade` e `Especialidade` —
+  aditivo, `init` nulo, o padrão de sempre para record compartilhado com produção — e a
+  especialidade cai da do CÓDIGO para a do atendimento, o mesmo caminho de baixo da
+  consulta de guias (parcela 45). O resumo escreve o recorte por extenso ("12 de 30 —
+  2º código · acupuntura"), o Limpar só aparece quando há o que limpar, e o vazio
+  distingue "não há pendência" de "nenhuma bate com o filtro" — um filtro esquecido
+  respondendo "tudo em dia" faria a clínica dar o dia por resolvido com o painel inteiro
+  pendente.
+- **O circuito clínico é testado de ponta a ponta** (`CircuitoClinicoTests`, parcela 61):
+  o `CircuitoCompletoTests` cobria agenda → faturamento → financeiro e nenhum elo clínico.
+  Os quatro circuitos fixados: prescrição assinada → sala → checagem → encerramento (a
+  folha SOME da fila e fica na conferência), sala → painel da direção (com a asserção de
+  que o bloco não caiu em `NaoVerificados` — elo partido aqui vira ZERO com cara de dia
+  tranquilo), reação na sala → alergia → PRÓXIMA prescrição recusada na assinatura, e
+  acesso registrado → "quem abriu este prontuário". A chave da sala de infusão — a única
+  publicada por DOIS módulos — saiu das duas strings à mão e virou `ChavesSuite.SalaInfusao`.
+
+- **Nenhum defeito da Recepção QUEBRAVA nada — e é por isso que eles chegaram até aqui**
+  (parcela 62, auditoria de prontidão do balcão antes de produção). Dez grupos, e o que os
+  une é a ausência de sintoma: build verde, 1441 testes verdes, três redes locais verdes, e
+  quem descobre é a recepcionista com o paciente na frente. São as variantes do defeito
+  recorrente do projeto que nenhuma ferramenta alcança.
+  **A porta que não abre, a venda que o dono da tela não pode fazer.** A Recepção publicava
+  o item "Pacotes" e o `CriarTela` dela **não tinha o case** — o menu acendia e nada
+  acontecia. Nenhuma rede viu porque a chave era uma string à mão dos dois lados; virou
+  `ChavesSuite.Pacotes`, como a sala de infusão na 61. E a tela, que subiu para o shell
+  vinda do Financeiro, perguntava por `EditarFinanceiro` em toda ação — bit que o perfil
+  Recepção **não tem**. O balcão ganhou o item e não podia vender nada por ele.
+  ⚠️ A regra que sai daí vale para toda tela que sobe para o shell: **ao mover uma tela
+  entre módulos, releia as permissões que ela exige.** Elas foram escolhidas para o dono
+  ANTIGO. `Pode(A | B)` é um **E**; a pergunta "o bit do balcão ou o do Financeiro" é
+  `PodeAlgum` (parcela 61), e foi o mesmo conserto no passo do CAIXA do Finalizar da sessão
+  — o balcão via o campo de dinheiro apagado justamente no ato de registrar o que o
+  paciente acabou de pagar.
+  **O aviso que morria entre duas camadas.** `FechamentoSessaoService.ConcluirAsync`
+  recebia os avisos de `AtendimentoService.LancarAsync` e **abria uma lista nova vazia**.
+  Pelo Finalizar da Fila — o caminho que a clínica usa todo dia — a NC reaberta ("o
+  paciente voltou, cobre a guia AGORA") e o anúncio do 2º código, que é o assunto do
+  produto, nunca chegaram ao balcão. `RecadosDoLancamento` fica **separado** de `Avisos`:
+  aquele é o que FALHOU e segura a janela aberta, este é o que ACONTECEU — somá-los faria
+  um fechamento perfeito com uma NC reaberta aparecer como fechamento com erro, e três dias
+  depois ninguém mais lê a janela.
+  **Mensagem de sucesso invisível em cinco telas.** O par `<Border AlertaPerigo
+  Visibility="{Binding MensagemEhErro}">` mostra a caixa quando o booleano é verdadeiro, e
+  a mensagem de ÊXITO (que zera `MensagemEhErro`) some junto com a de erro. Cinco janelas
+  gravavam certo e não diziam nada. Agora a visibilidade segue a `Mensagem` (via
+  `TextoParaVisibilidade`) e a COR segue `MensagemEhErro` num `DataTrigger`: **quem decide
+  se aparece é o texto; quem decide a cor é a gravidade.**
+  **Releitura de fundo na Agenda e no Painel.** Só a Fila tinha relógio. A agenda é a
+  ÚNICA tela da suíte em que duas pessoas escrevem no mesmo dado ao mesmo tempo, e o vão
+  vago é clicável desde a parcela 58: um horário marcado na outra máquina continuava
+  aparecendo livre, e a recepcionista marcaria por cima. Três recusas na batida — só HOJE,
+  só no modo DIA (a semana refaz sete colunas com um await no meio de cada, e piscaria) e
+  nunca por cima de uma carga no ar. O Painel bate a cada DOIS minutos, não um: são
+  contagens do dia, e cada batida custa três consultas ao banco remoto.
+  **O descarte de resposta fora de ordem tem uma metade que a parcela 60 não escreveu.** O
+  contador de geração impede a leitura VELHA de sobrescrever a nova; ele não impede duas
+  leituras de se INTERCALAREM dentro da mesma coleção. `Equipe` e `Lançados hoje` faziam
+  `Clear()` e depois `await` num laço — a segunda carga limpava o que a primeira ainda
+  estava preenchendo, e a lista saía com linhas repetidas ou faltando. A regra completa é:
+  **entre o `Clear()` e o último `Add` não pode haver `await`** — monte em lista local e só
+  então publique.
+  **E campo não é tela, nem na planilha.** A feature 02 marcava ✅ em "visão por
+  profissional ou por sala" porque `Agendamento.SalaId` existe. A sala é gravada,
+  respeitada no choque com a capacidade dela e bloqueável por período; **não há modo de
+  grade que a use como coluna**. Voltou a 🟡 em `docs/features-por-modulo.md`, com o motivo
+  escrito. É o defeito recorrente do projeto na versão mais barata de cometer e a mais cara
+  de descobrir: em produção, quem o encontra é o cliente lendo a própria proposta.
+
+- **A varredura de "capacidade sem porta" achou o contrário: código morto que DUPLICA a
+  tela** (parcela 63). Varrer os 50+ serviços por método sem chamador em produção
+  devolveu ~20 nomes, e quase nenhum era feature faltando — eram **segundas definições**
+  do que a tela já faz por outro caminho (`PerderAsync` ao lado do movimento genérico de
+  perda, `AtrasadosAsync` ao lado do atraso que a tela de Recebíveis já calcula,
+  `ConferirConformidadeAsync` ao lado do `ConformidadeDocumentoClinico.Conferir` estático,
+  os quatro do `MapaCorporalService` ao lado do que o ViewModel faz em memória). Oito com
+  ZERO referência em `src` e em `tests` foram removidos. **Duas definições da mesma regra
+  divergem na primeira correção, e a que ninguém lembra de ajustar é sempre a segunda.**
+  ⚠️ E a varredura tem um resultado que só aparece depois de conferir caso a caso: dos
+  seis "métodos órfãos" que eu tinha listado como buraco de feature, **um era falso** — a
+  tela de Recebíveis já marca e conta os depósitos atrasados. Método sem chamador é
+  SINTOMA, não diagnóstico: antes de construir a porta, procure se a tela não a tem por
+  outro caminho.
+
+- **O que a auditoria de features achou, e o padrão que se repete** (parcela 63): quatro
+  capacidades prontas sem porta, duas features que nunca existiram, e uma linha de placar
+  que estava errada nos DOIS sentidos.
+  **A agenda ganhou as duas metades que faltavam da feature 02.** A visão por SALA nunca
+  existiu — a sala era gravada, respeitada no choque com a capacidade dela e bloqueável
+  por período, e nenhum modo de grade a usava como coluna. E o **vão fechado** era
+  visualmente idêntico ao vão livre, que é clicável desde a parcela 58: a recepcionista
+  escolhia o paciente, preenchia o formulário e levava a recusa do `AgendaService` no
+  Salvar, com ele na frente dela. Os bloqueios são lidos por PERÍODO e cruzados em
+  memória — havia um `BloqueioDoHorarioAsync` que respondia por um vão só e nunca teve
+  chamador, e usá-lo daria ~150 idas ao banco para desenhar uma tela. "Sem sala" é coluna
+  de primeira classe: metade dos horários não informa sala, e escondê-los faria a visão
+  por sala mostrar um dia cheio como se estivesse vazio.
+  ⚠️ **O bug mais grave da parcela não estava na lista: CANCELAR uma receita não a tirava
+  do ar.** A documentação do `PublicacaoDocumentoService` afirmava, desde a parcela 53,
+  que o cancelamento despublicava; a única chamada de `DespublicarAsync` era a da
+  EXPIRAÇÃO. O papel dizia "CANCELADA" e o endereço público continuava entregando o PDF
+  assinado por até 180 dias. A correção mora no SERVIÇO porque o cancelamento tem
+  **quatro portas** (ficha do paciente, Prescrições e dois caminhos da central) — a mesma
+  razão pela qual a crítica do número da guia mora no `FaturamentoService`. De quebra,
+  `DespublicarAsync` passou a devolver `bool` e a receber o operador: engolir a falha do
+  S3 fazia a tela dizer "saiu do ar" com o arquivo ainda acessível, que é falha exibida
+  como sucesso.
+  **O modelo de evolução** fechou a lacuna mais cara do dia a dia clínico: `ModeloDocumento`
+  existe desde a parcela 3 e serve só aos papéis IMPRESSOS, enquanto a evolução — o texto
+  mais escrito do sistema — era redigitada por inteiro a cada sessão. Vale a regra do
+  protocolo do mapa corporal: **aplicar COPIA, nunca aponta**, e aqui ela não é desenho, é
+  a Lei 13.787/2018 — referência viva faria corrigir uma palavra do roteiro hoje reescrever
+  o prontuário da semana passada. É por copiar que o modelo é a única coisa "de prontuário"
+  que **se apaga mesmo**. O índice de nome é POR DONO: um global faria o "Sessão padrão" de
+  um profissional sobrescrever o de outro em silêncio.
+  **O CID-10 virou atalho com conferência.** O campo era texto livre em `DocumentoClinico`
+  e em `ProblemaPaciente`, e "M54.4" digitado no lugar de "M54.5" é tão plausível quanto
+  ele — nada denunciava. O catálogo mora em CÓDIGO pelo desenho das escalas (classificação
+  PUBLICADA, não configuração da clínica) e **não é a CID-10 inteira**: são os códigos
+  desta clínica, o campo continua aceitando qualquer texto, e a tela diz isso. Recusar o
+  que está fora da lista seria a regra apertada demais que o projeto já rejeitou no
+  formato do número da guia. A metade que pega o erro é a DESCRIÇÃO ao lado do campo.
+  **A conciliação bancária por OFX** fechou o último ponto do financeiro em que o mês
+  dependia de alguém não se distrair. O leitor é à mão (o OFX 1.x tem tags que não fecham
+  — não é XML), o valor é lido em cultura INVARIANTE (em pt-BR, "-2500.00" viraria
+  -250000), e o sistema **propõe, a pessoa confirma**. A folga de datas é de três dias e
+  não de trinta: folga grande casaria o aluguel de julho com o de agosto e a tela passaria
+  a pedir desempate em tudo, que é como se ensina alguém a clicar sem olhar. A metade que
+  ninguém pede é `SoNoSistema` — dado como recebido aqui e ausente do banco.
+  ⚠️ **E a "dívida de leiaute" das seis telas já estava PAGA** desde a parcela 49; a
+  planilha é que não tinha sido atualizada. Os 330 px do `AcessosView` e os 300 do
+  `CampanhasView` são a coluna de **Ações** — o falso positivo que a parcela 54 já
+  documentara. Somado ao ✅ falso da feature 02, a lição fecha nos dois sentidos: **linha
+  de placar sem conferência no código é chute com aparência de registro**, e ela erra
+  tanto a favor quanto contra.
+
+- **Nome de propriedade errado em controle da CASA: só o compilador de MARCAÇÃO pega**
+  (parcela 63, checagem 34 — o CI reprovou o PR). Três telas novas declararam
+  `TextoVazio` no `EstadoDaTela`, que tem `TextoCarregando` e `TextoNaoVerificado` — o
+  vazio se escreve com `Titulo` + `Descricao`. `MC3072`, e nenhuma rede local via: o XML é
+  bem-formado, o `compilar-sombra` **não lê o corpo** do XAML e o C# compila. É a irmã da
+  checagem 33, e o que a torna fácil de cometer é o nome plausível existir AO LADO do
+  certo.
+  A checagem casa cada atributo de `<ctrl:Tipo …>` com as propriedades declaradas no tipo
+  e nas bases dele. As duas decisões que a mantêm utilizável: cadeia que termina numa base
+  do WPF conhecida responde **"não tem"** (sem isso ela calaria para todo controle que
+  herda de `Control`, que são todos); cadeia que termina em tipo de fora desconhecido
+  responde **"não sei"** e cala.
+  ⚠️ O autoteste pegou os DOIS erros dela antes de mim — a primeira versão respondia "não
+  sei" para o caso real, e a segunda acusava o `Key` de `x:Key` por o *lookbehind* não
+  excluir os dois-pontos. **Checagem nova sem autoteste do caso real e do caso legítimo é
+  checagem que nasce cega ou barulhenta.**
 
 ### Convenções
 
@@ -1838,6 +2082,271 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   cadastrado pela carteirinha, quem chegou sem documento —, e vazio vira NULO para dois
   documentos "" não serem iguais.
 
+- **GUIA NÃO É ATENDIMENTO — e o sistema materializava a pendência como HORÁRIO**
+  (parcela 58; a cliente mandou a foto de uma paciente sem agendamento ocupando a fila do
+  dia e a agenda). `AgendaService.ConfirmarPresencaAsync` criava, ao confirmar a presença,
+  um `Agendamento` de verdade (`OrigemAgendamento.RetornoSugerido`) na data prevista do 2º
+  código, às 9h, "para não esquecer de obtê-lo".
+  O 2º código é obtido +24h depois **pela SECRETÁRIA, no sistema do convênio** — o paciente
+  não volta para nada. Materializá-lo como horário punha na fila do balcão e na agenda dos
+  MÉDICOS uma pessoa que não tem hora marcada e não vai aparecer.
+  ⚠️ **E não era ruído visual.** O cartão fantasma vinha com "Chegou / Entrou / Falta /
+  Cancelar": um clique em Entrou → Finalizar lança um atendimento NOVO e gera guias NOVAS
+  para uma sessão que nunca aconteceu — faturamento inventado a partir de uma pendência de
+  faturamento. É a inversão exata do que o produto existe para fazer.
+  **Não faltava lembrete, sobrava um no lugar errado**: o 2º código já nasce como
+  `CodigoFaturamento` com `DataPrevistaFaturamento`, aparece no painel de pendências com
+  semáforo, entra na rodada bloqueante ao vencer o prazo e é mostrado ao balcão pelo
+  `PainelRecepcaoService` junto dos pacientes do dia.
+  O valor do enum FICA (é gravado como texto e há linhas assim em produção; apagá-lo
+  quebraria a leitura delas), e o selo "Retorno do 2º código" segue na tela justamente
+  para a clínica reconhecer e limpar as que sobraram.
+  A lição, que é a mais cara desta lista: **ao ligar dois módulos, pergunte se o que
+  atravessa é o FATO ou só o lembrete dele.** Pendência de faturamento é fato do
+  faturamento; ela se mostra onde se resolve, e não vira agenda de quem atende.
+
+- **`EstadoDaTela` com `Visibility` AMARRADA: o binding morre e o vazio vaza pela tela**
+  (parcela 58 — o cliente mandou a foto de "Nenhuma sessão registrada" escrito por cima da
+  lista de pacientes CHEIA, no Prontuário e nas Prescrições da Recepção). O componente
+  decide a própria `Visibility` em `Recalcular()`, atribuindo um valor **local** — e em WPF
+  valor local atribuído por código **substitui o binding**. A tela ligava a visibilidade a
+  "estou mostrando o prontuário"; na primeira mudança de `Itens`, `Carregando` ou
+  `NaoVerificado` o `Recalcular` sobrescrevia e o binding deixava de existir. Daí em diante
+  o vazio aparecia quando a LISTA estava vazia, e não quando a tela dele estava aberta.
+  A saída é `Ativo`, que entra no CÁLCULO em vez de brigar com ele; e o componente volta
+  para dentro da região a que pertence, como último filho do Grid dela — na raiz da tela
+  ele cobre tudo, que é o defeito que a PR #113 já tinha corrigido noutras telas. Virou a
+  **checagem 30**.
+- **`SharedSizeGroup` sem `Grid.IsSharedSizeScope` não alinha NADA** (parcela 58): cada
+  linha de uma lista é um Grid próprio, então sem o escopo as larguras são resolvidas POR
+  LINHA — a linha que tem o selo "Carteirinha vencida" fica com a última coluna mais larga
+  e empurra o telefone daquela linha para a esquerda. A lista deixa de ter colunas e vira
+  uma pilha de linhas que por acaso se parecem. O `ItemPacienteLinha` trazia o aviso
+  escrito no próprio comentário ("o escopo é declarado por quem monta a lista") e **três
+  das quatro telas que o usam esqueceram**. Contrato que depende de alguém lembrar é o que
+  a **checagem 31** existe para substituir.
+  ⚠️ A checagem nasceu CEGA e o autoteste é que mostrou: ela procurava
+  `IsSharedSizeScope` no texto do arquivo, e o **comentário que explica a regra** satisfazia
+  a busca — a tela ficava desalinhada com a checagem verde. É o inverso da lição da
+  checagem 19 (lá a prosa fazia disparar, aqui fazia silenciar), e o silêncio é pior:
+  ninguém percebe uma checagem que passou. **Toda checagem que procura uma marca no texto
+  tem de tirar os comentários antes.**
+
+- **A AGENDA era uma pilha de cartões; agenda é LINHA DO TEMPO** (parcela 58 — *"o iClinic
+  está dando um banho na gente nessa questão de fila/agenda"*). A da Recepção empilhava os
+  horários numa coluna por profissional, contíguos: o das 9h colado no das 15h. Ela
+  respondia **"quais horários existem"**, e a pergunta do balcão com o paciente na frente é
+  outra — **"quando cabe?"**. Numa pilha, ela só se responde lendo cartão por cartão; numa
+  grade, o **vazio tem tamanho**, e é isso que a torna legível de longe.
+  As decisões:
+  (a) **O vão livre é CLICÁVEL e abre o formulário já na hora e na coluna clicadas**
+  (`ProfissionalPreferidoId` — um ID, não a entidade, porque a lista de profissionais é
+  carregada do banco DEPOIS do construtor, e atribuir a entidade de fora abriria o combo em
+  branco justamente na coluna que a pessoa apontou). Redigitar a hora que se acabou de
+  apontar com o dedo é onde ela sai errada.
+  (b) **A janela de horas é a padrão da clínica ESTICADA pelo que existe no dia** — nunca
+  00:00–23:59, que daria 48 faixas vazias para rolar antes do primeiro paciente; e uma
+  sessão às 6h30 puxa a grade para cima em vez de ficar de fora.
+  (c) **A sessão de uma hora marca a faixa seguinte como CONTINUAÇÃO**, senão a meia hora
+  de dentro dela apareceria vaga e a recepção marcaria por cima.
+  (d) **Cancelado e falta ficam apagados, nunca sumindo** (a regra da folha do dia, parcela
+  29) — e o vão deles volta a ser oferecido, porque o horário de fato vagou.
+  (e) **Colunas de largura IGUAL** (`UniformGrid`), que é o que mantém cabeçalho e faixas no
+  mesmo prumo sem uma única `SharedSizeGroup`; o cabeçalho rola JUNTO, porque congelá-lo
+  exigiria dois `ScrollViewer` sincronizados à mão — mais peça para desalinhar do que valor.
+  (f) **Os sete botões saíram do cartão** e foram para a janela do horário. Sete botões em
+  cada um de quarenta cartões é uma tela em que o olho para de distinguir o frequente do
+  raro — e não caberiam em 46 px. A janela **não executa nada**: devolve a INTENÇÃO, e quem
+  age é a ViewModel, para as sete ações continuarem com um dono só (permissão,
+  recarregamento e erro no mesmo lugar).
+  (g) **A lista de espera saiu da faixa lateral de 320 px** e virou botão com a contagem no
+  rótulo. Ela se consulta quando um horário VAGA; a agenda é o que se olha o tempo todo.
+  E o "quem chamar para as 14h" ABRE a janela em vez de repintar um painel que ninguém
+  estava olhando.
+  ⚠️ **A janela de cima passou a ser dona do próximo modal** (`Dono()` = a janela ATIVA, não
+  `MainWindow`): com a lista de espera aberta, o formulário nasceria ATRÁS dela, e a
+  recepção concluiria que o clique não fez nada.
+
+- **`WrapPanel` que nunca dobra a linha** (parcela 58, checagem 32): a barra da agenda tem
+  nove controles. Num `Grid` de coluna `Width="Auto"` — ou docado num `DockPanel`, ou dentro
+  de um `StackPanel` horizontal — o `WrapPanel` é medido com largura **infinita**: ele
+  alinha tudo numa linha só e empurra o título para fora da tela. O `Auto` engana
+  especialmente, porque a intenção declarada ("ocupa o que precisar") é exatamente o que
+  impede a quebra. A saída é fazê-lo o filho que **PREENCHE** e encostá-lo com
+  `HorizontalAlignment`. Nenhuma rede pegava — XAML bem-formado, nada lança —, e o defeito
+  **não reproduz na máquina de quem escreve**: só na largura errada.
+
+- **Kanban se ARRASTA — e o arrasto não pode ser o único caminho** (parcela 58): a fila
+  ganhou arrastar-e-soltar entre as cinco raias, com realce da raia de destino (alvo de
+  soltar sem realce é alvo que se erra, e errar aqui manda o paciente para a coluna do
+  lado). Três regras:
+  **as transições legais são EXATAMENTE as dos botões** — não uma segunda regra escrita no
+  arrasto, porque duas definições de "para onde este cartão pode ir" divergem na primeira
+  correção e a de baixo é a que ninguém lembra de ajustar; **para trás anda um passo por
+  vez**, porque `VoltarEtapaAsync` apaga UM carimbo de hora e apagar três de uma vez para
+  atender a um arrasto longo inventaria uma linha do tempo que não aconteceu; e
+  **movimento impossível não é silêncio** — a tela diz por que não deu (a lição da parcela
+  41 aplicada ao gesto).
+  O handler de `PreviewMouseLeftButtonDown` **não marca o evento como tratado** e o arrasto
+  só começa depois do limiar do sistema: sem isso o clique nunca chegaria aos botões do
+  cartão, e o quadro perderia a metade que funciona para quem não arrasta nada.
+  ⚠️ **O menu "⋯" e o arrasto moram em CÓDIGO, não em XAML**: um `ContextMenu` declarado
+  vive num `Popup`, fora da árvore visual da tela, e os comandos precisariam de
+  `PlacementTarget.Tag` para chegar ao ViewModel — binding que erra o caminho falha em
+  RUNTIME, calado, que é a categoria que nenhuma rede local pega. Em código, o
+  `compilar-sombra` pega.
+
+- **Quem LANÇOU o atendimento e o agendamento** (parcela 58): a direção pediu para ver de
+  quem é cada lançamento. A trilha de auditoria responde "quem fez isso?" desde a parcela
+  21 — mas ela é outra tela, filtrada por período, e a pergunta que se faz olhando a agenda
+  é sobre **aquela linha, agora**. `Agendamento.CriadoPor/CriadoEm` e
+  `Atendimento.LancadoPor/LancadoEm` são migration **aditiva** (quatro `AddColumn`), e o
+  operador chega da TELA (`SessaoUsuario.Atual.Operador`): o serviço não lê a sessão, pela
+  razão de sempre — é o chamador que sabe quem está logado, e no balcão duas pessoas
+  dividem a máquina.
+  **Nulo é decisão**: linha anterior à parcela guarda `null`, nunca `""` nem o usuário do
+  Windows, e a tela escreve *"marcado antes de o sistema passar a registrar quem lança"* —
+  em branco não se distingue de "não carregou".
+  A confirmação de presença leva **quem CONCLUIU**, não quem marcou o horário semanas
+  atrás: são dois atos e duas pessoas, e o segundo é o que gera as GUIAS.
+
+- **A Agenda saiu do perfil Faturista** (parcela 58): a direção pediu *"retire a Agenda do
+  módulo faturamento ou permita granular que o faturista possa ou não abrir um
+  agendamento"*, e a razão é a mesma que derrubou o agendamento fantasma do 2º código —
+  horário aberto do lado do faturamento aparece na fila do balcão e na agenda de quem
+  atende. A escolha foi **granular, não amputação**: `PerfilAcesso.Faturista` perdeu
+  `EditarAgenda` e **manteve `VerAgenda`**, porque conferir o dia é parte de faturá-lo, e
+  tirar as duas juntas seria tirar capacidade de quem a usava (a regra 3 do bloco do
+  faturamento). Devolver é um clique em Acessos.
+  As **duas barreiras** entraram no `AgendaViewModel` do faturamento no mesmo commit —
+  `PodeAgendar` nos botões e `Exigir` em `AbrirCadastroAsync`, que é o ponto único por onde
+  Novo, Remarcar e "agendar na faixa" passam. Bit sem guarda seria só uma caixinha na tela
+  de Acessos.
+
+- **DUAS PORTAS, UMA ESTEIRA — e a diferença entre elas não tinha sido decidida, tinha
+  sido esquecida** (parcela 60). Havia dois caminhos para criar atendimento, e do lado do
+  faturamento eles eram idênticos — a guia nascia certa —, o que é exatamente por que
+  ninguém notou. Em volta dela, não: **pela agenda** (Fila → Finalizar) o
+  `FechamentoSessaoService` fazia QUATRO coisas — a guia nasce, o pacote debita, o insumo
+  sai do estoque, o dinheiro entra no caixa; **pelo avulso** acontecia UMA.
+  O custo era invisível e diário: paciente com pacote de dez sessões lançado pelo avulso
+  consumia sessão **sem debitar** (a clínica atendia de graça, e é o que o `PacoteService`
+  existe para impedir), e o particular que pagou no balcão não aparecia no caixa — o mês
+  fechava com uma diferença que não tinha nome. Não havia uma linha de comentário
+  explicando a escolha porque **não houve escolha**.
+  A saída não foi escolher uma das duas telas: foi ver que **quem chega sem horário está
+  pedindo um ENCAIXE**, e encaixe a agenda já sabia fazer. "Novo atendimento" continua no
+  menu (decisão da direção) e por dentro faz `AgendarAsync(hora real, encaixe: true)` →
+  `RegistrarChegadaAsync` → **a MESMA `FechamentoSessaoWindow` da Fila**. Não há uma
+  segunda tela de decisão: duas telas para a mesma pergunta divergem na primeira correção.
+  ⚠️ **O efeito estrutural é a amarra**: `AtendimentoService.LancarAsync` ficou com **UM
+  ÚNICO CHAMADOR** em todo o sistema (`AgendaService.ConfirmarPresencaAsync`). Ponto único
+  deixou de ser documentação e virou o que o compilador mostra. `registrarNaAgenda` morreu
+  — e com ele o **agendamento fantasma às 9h fixo**, sem profissional, que o avulso criava
+  porque `Atendimento` só guarda `DateOnly` e não havia hora para copiar; ele aparecia na
+  grade num horário em que ninguém foi atendido e CONTAVA na ocupação do dia. Não era o
+  fantasma da parcela 58 (aquele nascia `Agendado` e tinha o botão "Entrou", que fabricava
+  guia): era ruído na grade e um número de ocupação errado — a mesma família, sem o
+  estrago.
+  **O que a unificação custou, e por que valeu**: `Agendamento.PrimeiroCodigo` (migration
+  aditiva). A escolha de qual código o convênio libera primeiro é da tela, e precisava
+  atravessar o horário para chegar ao motor — sem a coluna, unificar teria custado a
+  feature. De quebra ela ficou disponível também no agendamento normal.
+  **Cancelar o fechamento não desfaz o encaixe**: o horário fica com o check-in carimbado,
+  e o paciente aparece na Fila em "Na recepção". É a verdade — ele chegou —, e apagar o
+  registro sumiria com o único sinal de que há alguém no balcão esperando.
+  `Avulso_e_agendado_produzem_os_mesmos_fatos` é a amarra em teste: ele falha se alguém
+  abrir uma terceira porta que pule algum dos fatos, que é como a segunda foi aberta.
+- **Mover XAML entre projetos quebra o `xmlns`, e só o CI acusa** (parcela 60, checagem
+  33): `clr-namespace:X;assembly=Y` manda o WPF procurar o namespace X **dentro** do
+  assembly Y. Quando Y é o próprio projeto do arquivo, o compilador de marcação não acha
+  nada e recusa (`MC3074`, `MC3072`). É o que acontece ao mover uma tela de um projeto para
+  outro: o `xmlns` continua nomeando o assembly de ORIGEM, que agora é o de DESTINO.
+  Foi assim que a tela de Pacotes, ao subir do Financeiro para o shell, derrubou o build.
+  ⚠️ **Nenhuma rede local pegava**: o XML é bem-formado, o `compilar-sombra` **não lê o
+  corpo** do XAML (ele só gera o `.g.cs` a partir de `x:Class` e `x:Name`) e o C# compila.
+  O defeito existe só para o compilador de MARCAÇÃO, que roda no Windows — sete minutos de
+  CI por um `;assembly=` que sobra. Dentro do próprio projeto a forma certa é
+  `clr-namespace:…` **sem** o sufixo.
+- **A venda de pacote subiu para o shell** (parcela 60): a tela existe desde a parcela 4 e
+  a única porta estava no app do FINANCEIRO — mas quem vende dez sessões ao paciente é a
+  RECEPÇÃO, no balcão, com ele na frente. Décima primeira ocorrência do defeito recorrente,
+  e ela bloqueava justamente o caso que motivou o Particular. A tela não foi copiada:
+  **subiu** (`Componentes/PacotesView`), como a sala de infusão na parcela 48, e os dois
+  módulos publicam a **MESMA chave** — a dedupe do `ShellViewModel` faz o Gerente, que
+  carrega os dois, mostrar uma linha só.
+  ⚠️ O item passou a exigir `Permissao.VenderPacote`, bit **próprio**, e não
+  `VerFinanceiro`: dar o financeiro ao balcão abriria junto o caixa, a conciliação e as
+  contas a pagar. Vender um pacote é combinar um preço com o paciente; ler o dinheiro da
+  clínica é outra coisa — o mesmo corte que a parcela 49 fez entre ficha e prontuário.
+- **O PARTICULAR não é um convênio: é a ausência de um** (`ConvenioCadastro.GeraGuia`,
+  parcela 60). O enum `Convenio` não tem "sem convênio", então o paciente que vem sem plano
+  não tinha onde ser cadastrado — e as duas saídas eram ruins de jeitos diferentes:
+  (a) cadastrá-lo sob um convênio qualquer faz o motor gerar guia com data prevista, que
+  entra no painel de pendências, vence o prazo e abre a **rodada BLOQUEANTE** — travando a
+  tela de quem fatura por uma guia que nunca vai a operadora nenhuma, porque não há
+  operadora; (b) não cadastrar o atendimento, e aí a sessão não existe em lugar nenhum:
+  nem guia, nem prontuário, nem caixa.
+  A saída é um sinalizador no CADASTRO, e **o código continua nascendo** — marcado
+  `NaoAplicavel`. Não é preciosismo: `EstaPendente` já ignora esse status, então o
+  particular sai das pendências e da rodada **sem uma linha de código nova**; o invariante
+  "não há atendimento sem código" é o que prova que `AtendimentoService.LancarAsync`
+  continua sendo ponto único; e o registro da sessão (modalidade, especialidade, data) é o
+  que alimenta os indicadores — sumir com ele faria a clínica medir só o convênio.
+  ⚠️ **O sinalizador mora no `ConvenioCadastro`, não em `ConfiguracaoRegraGenerica`**, pela
+  mesma razão que pôs o formato do número da guia lá: aquela configuração só é lida pela
+  família Personalizado, e o campo tem de valer para **qualquer** família. Dentro dela
+  seria uma caixinha que não faz nada num convênio embutido — o campo morto que a parcela
+  49 tirou da tela de Taxas.
+  ⚠️ **E quem aplica é o `AtendimentoService`, não as regras.** São seis regras com vários
+  ramos cada, e a modalidade Consulta delega para `RegraConsultaAvulsa`, que monta o código
+  por fora: um ramo esquecido produziria guia pendente para um particular, e ela só
+  apareceria **dez dias depois**, travando a rodada. Pós-processar no ponto por onde a
+  PRÉVIA e o LANÇAMENTO passam é o único jeito que não tem como ser esquecido — e é o que
+  garante que a tela não prometa "nenhuma guia" e o serviço grave uma.
+  **Código fora do catálogo é presumido FATURÁVEL** (`CatalogoConvenios.GeraGuia` devolve
+  `true`): o erro nesse sentido é uma guia a mais para conferir; no sentido contrário seria
+  o sistema parar de gerar guia para um convênio de verdade, em silêncio, e só descoberto
+  no fim do mês.
+- **Migration de coluna `bool` não-anulável: o EF gera `defaultValue: false`, e quase nunca
+  é isso que você quer** (parcela 60). O gerador não sabe o que a coluna significa — viu um
+  `bool` e pôs o default da linguagem. Aplicada assim, a coluna `GeraGuia` teria desligado
+  a guia de **todos os convênios já cadastrados** na primeira abertura depois da
+  atualização: o app abriria, os atendimentos continuariam nascendo, e as guias
+  simplesmente parariam de existir. **Confira o `defaultValue` de toda coluna nova
+  não-anulável, e pergunte o que as linhas JÁ GRAVADAS valem** — é isso que o default
+  precisa dizer, não o que o tipo devolve por omissão.
+- **Porta e CONTEÚDO são duas permissões, e uma sem a outra não resolve** (parcela 59 — a
+  direção viu a recepcionista abrindo os documentos e pediu a permissão granular). A
+  central de documentos pedia `VerFichaPaciente`, que todo perfil de balcão tem: a
+  recepção alcançava as dez folhas, inclusive relatório de evolução e anamnese.
+  **A porta sozinha seria o defeito do bit sobrecarregado de novo** (parcela 49), agora
+  numa tela: as dez folhas não são a mesma coisa — receituário, atestado, pedido de exame,
+  relatório de evolução e anamnese carregam dado de saúde (art. 5º, II); **declaração de
+  comparecimento e termo de consentimento não**, e os dois saem do balcão o dia inteiro.
+  Um bit só obrigaria a direção a escolher entre a recepcionista lendo a evolução de todo
+  mundo e a recepcionista sem o recibo que ela emite dez vezes por dia.
+  Daí as duas metades: `Permissao.VerDocumentos` fecha a SEÇÃO, e cada folha declara o que
+  exige (`FolhaCatalogo.PermissaoVer` / `PermissaoEmitir`).
+  ⚠️ **O acesso NÃO segue a `NaturezaFolha`**, e a distinção é o ponto: a natureza diz de
+  que lado da clínica a folha vem (é o que agrupa os cartões), e sete são "do
+  atendimento". Amarrar o acesso a ela tiraria da recepção dois papéis que ela entrega
+  todo dia para proteger um dado que eles não carregam.
+  ⚠️ **A regra mora no CATÁLOGO porque são TRÊS portas**: a central, o Receituário da
+  Recepção e a aba Documentos da ficha emitem os mesmos papéis. Corrigir só a que o
+  cliente apontou deixaria a correção cosmética — bastaria clicar no item ao lado para ler
+  as mesmas receitas. É o defeito recorrente do projeto na variante que mais engana: a que
+  **parece** coberta.
+  Três decisões menores que valem além desta tela: **cartão que a pessoa não alcança SOME,
+  não fica apagado** — "sem permissão" ao lado de "Relatório de evolução" anuncia que
+  existe um relatório daquele paciente, que é justamente o que não se quer contar; **a
+  lista do que já saiu passa pelo mesmo filtro dos cartões**, senão a tela esconderia o
+  botão de emitir receita e mostraria "Receituário 2026/0012 — Maria Silva" logo abaixo; e
+  **folha sem acesso declarado nasce FECHADA** (`Permissao.Nenhuma` faz `Pode` LIBERAR, e
+  um papel novo nasceria aberto para todo mundo sem ninguém notar até vazar).
+  `SessaoUsuario.Efetivas` existe para filtrar LISTA por acesso sem repetir a regra do
+  "sem sessão autenticada, libera" — lida como `Permissoes` cru, a central abriria sem um
+  único cartão fora do login, e tela vazia se lê como defeito.
 - **A rodada bloqueante é DIRIGIDA a quem fatura, e a dispensa é um BIT — não o contrário**
   (`Permissao.DispensarRodadaPendencias`, parcela 57): a trava de 10 dias abria para
   qualquer um que pudesse baixar OU marcar NC, e o Gerente Geral recebe `Todas` — então a

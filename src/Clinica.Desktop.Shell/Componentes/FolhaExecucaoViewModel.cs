@@ -113,6 +113,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     private readonly IDialogoService _dialogo;
     private readonly int _prescricaoId;
 
+    /// <summary>Último paciente cujo acesso já entrou na trilha — a folha recarrega a cada checagem.</summary>
+    private int _acessoRegistradoDe;
+
     public ObservableCollection<LinhaExecucaoItem> Itens { get; } = [];
     public ObservableCollection<string> Alertas { get; } = [];
 
@@ -128,6 +131,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [ObservableProperty] private bool _emExecucao;
     [ObservableProperty] private bool _execucaoCompleta;
 
+    /// <summary>Já houve checagem — o registro de execução tem o que mostrar.</summary>
+    [ObservableProperty] private bool _temRegistroExecucao;
+
     /// <summary>Hora sugerida para a próxima checagem. Sugestão — o campo é de quem executou.</summary>
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH\\:mm");
 
@@ -139,6 +145,13 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
     /// <summary>Encerrar exige tudo checado, e o botão diz isso antes do clique.</summary>
     public bool PodeEncerrar => PodeMexer && ExecucaoCompleta;
+
+    /// <summary>
+    /// Suspender é ato de QUEM PRESCREVE, não de quem executa — por isso o bit é
+    /// <see cref="Permissao.Prescrever"/>, e não o da checagem. O botão fica apagado
+    /// para a enfermagem com a dica dizendo por quê.
+    /// </summary>
+    public bool PodeSuspender => SessaoUsuario.Atual.Pode(Permissao.Prescrever) && EmExecucao;
 
     public FolhaExecucaoViewModel(
         IServiceScopeFactory escopos, IDialogoService dialogo, int prescricaoId)
@@ -153,6 +166,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(PodeMexer));
         OnPropertyChanged(nameof(PodeEncerrar));
+        OnPropertyChanged(nameof(PodeSuspender));
     }
 
     partial void OnExecucaoCompletaChanged(bool value)
@@ -172,6 +186,18 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             var prescricao = await servico.ObterAsync(_prescricaoId)
                 ?? throw new InvalidOperationException("Prescrição não encontrada.");
 
+            // Trilha de LEITURA (parcela 52): esta janela abre a folha de QUALQUER
+            // paciente da fila do dia — itens prescritos e alergias — a partir da Sala de
+            // Infusão, sem paciente escolhido antes. Registrada na troca de prescrição
+            // (a janela recarrega a cada checagem, e o paciente é o mesmo).
+            if (_acessoRegistradoDe != prescricao.PacienteId)
+            {
+                _acessoRegistradoDe = prescricao.PacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(prescricao.PacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.Documento);
+            }
+
             Numero = prescricao.Numero;
             Paciente = prescricao.Paciente?.Nome ?? "—";
             Cabecalho = $"{RotulosEnum.De(prescricao.Situacao)} · "
@@ -182,6 +208,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
             EmExecucao = prescricao.PodeChecar;
             ExecucaoCompleta = prescricao.ExecucaoCompleta;
+            TemRegistroExecucao = prescricao.Realizados + prescricao.NaoRealizados > 0;
 
             Itens.Clear();
             foreach (var item in prescricao.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id))
@@ -295,6 +322,99 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         {
             Application.Diagnostico.Registrar(
                 "Consultório — execução não pôde ser encerrada", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Imprime a folha de PRESCRIÇÃO — a via que a enfermagem confere e assina à caneta.
+    ///
+    /// Era a metade que faltava da sala: todo o desenho da checagem assume a via impressa,
+    /// e a única porta de impressão morava na tela de quem prescreve, num app que a máquina
+    /// da enfermagem não instala. Quando há assinatura eletrônica, saem os BYTES GUARDADOS —
+    /// a assinatura cobre bytes, e um PDF "igual" regerado agora abriria como inválido.
+    /// </summary>
+    [RelayCommand]
+    private Task ImprimirAsync() => ImprimirFolhaAsync(FolhaPrescricao.Prescricao);
+
+    /// <summary>O espelho eletrônico do que foi checado — prontuário e conferência do fim do dia.</summary>
+    [RelayCommand]
+    private Task ImprimirRegistroAsync() => ImprimirFolhaAsync(FolhaPrescricao.RegistroExecucao);
+
+    private async Task ImprimirFolhaAsync(FolhaPrescricao folhaPedida)
+    {
+        try
+        {
+            FolhaAssinada folha;
+            using (var scope = _escopos.CreateScope())
+            {
+                var assinaturas = scope.ServiceProvider
+                    .GetRequiredService<AssinaturaDePrescricaoService>();
+                folha = await assinaturas.FolhaAsync(_prescricaoId, folhaPedida);
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                folha.Pdf, ImpressaoPdf.NomeSeguro(folha.NomeArquivo));
+
+            // A conferência da assinatura é DITA, nas três respostas possíveis: íntegra,
+            // alterada, ou não foi possível conferir — abrir em silêncio faria a terceira
+            // passar por sucesso.
+            Mensagem = erro ?? folha.Conferencia?.Frase;
+            MensagemEhErro = erro is not null || folha.Conferencia is { Integra: false };
+        }
+        catch (Exception ex)
+        {
+            Application.Diagnostico.Registrar(
+                "Sala de infusão — folha não pôde ser impressa", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Tira um item da folha ASSINADA — o caminho de correção de quem prescreve, diferente
+    /// da "rodela" (que registra o que aconteceu na sala). O serviço recusa item já
+    /// checado; aqui a guarda DIZ isso em vez de deixar a exceção falar.
+    /// </summary>
+    [RelayCommand]
+    private async Task SuspenderAsync(LinhaExecucaoItem? linha)
+    {
+        if (linha is null) return;
+
+        if (linha.Checado || linha.Suspenso)
+        {
+            Mensagem = linha.Suspenso
+                ? "Este item já está suspenso."
+                : "Este item já foi checado pela enfermagem e não se suspende — se a "
+                  + "checagem está errada, quem executou deve retificá-la.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "suspender item de prescrição");
+
+            var motivo = _dialogo.PerguntarTexto(
+                "Suspender item",
+                $"Por que o item {linha.Ordem} ({linha.Descricao}) não deve mais ser feito? "
+                + "O item continua na folha, marcado como suspenso, com este motivo ao lado.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
+            using var scope = _escopos.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
+            await servico.SuspenderItemAsync(
+                linha.ItemId, motivo, SessaoUsuario.Atual.Operador);
+
+            Mensagem = null;
+            MensagemEhErro = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Application.Diagnostico.Registrar(
+                "Sala de infusão — item não pôde ser suspenso", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

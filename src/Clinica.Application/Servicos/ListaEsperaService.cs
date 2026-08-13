@@ -26,10 +26,6 @@ public sealed class ListaEsperaService
     public Task<IReadOnlyList<ListaEspera>> AguardandoAsync(CancellationToken ct = default)
         => _repo.ListaEsperaAsync(somenteAguardando: true, ct);
 
-    /// <summary>Tudo, inclusive já agendado/removido (histórico da lista).</summary>
-    public Task<IReadOnlyList<ListaEspera>> TodosAsync(CancellationToken ct = default)
-        => _repo.ListaEsperaAsync(somenteAguardando: false, ct);
-
     public async Task<ListaEspera> AdicionarAsync(
         int pacienteId, int? profissionalId = null, string? modalidadeCodigo = null,
         PeriodoPreferido periodo = PeriodoPreferido.Qualquer,
@@ -94,7 +90,8 @@ public sealed class ListaEsperaService
     public async Task<Agendamento> ChamarAsync(
         int pedidoId, DateTime dataHora, ModalidadeAtendimento modalidade,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        bool encaixe = false, string? modalidadeCodigo = null, CancellationToken ct = default)
+        bool encaixe = false, string? modalidadeCodigo = null, CancellationToken ct = default,
+        string? operador = null)
     {
         var pedido = await _repo.ObterListaEsperaAsync(pedidoId, ct)
             ?? throw new InvalidOperationException("Pedido da lista de espera não encontrado.");
@@ -114,7 +111,8 @@ public sealed class ListaEsperaService
             profissionalId: profissionalId ?? pedido.ProfissionalId,
             salaId: salaId,
             duracaoMinutos: duracaoMinutos,
-            encaixe: encaixe);
+            encaixe: encaixe,
+            operador: operador);
 
         pedido.Status = StatusListaEspera.Agendado;
         pedido.ResolvidoEm = DateTime.Now;
@@ -122,7 +120,7 @@ public sealed class ListaEsperaService
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
-            Operador = "?",
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
             Acao = "ListaEsperaChamada",
             Detalhe = $"Chamado para {dataHora:dd/MM/yyyy HH:mm}",
             PacienteId = pedido.PacienteId

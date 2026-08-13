@@ -18,9 +18,11 @@
                   SelectedItem="{Binding Instrumento}"
                   DisplayMemberPath="Nome" MinWidth="260" MaxWidth="340"
                   VerticalAlignment="Center" />
+            <!-- O IsEnabled cobre as TRÊS pré-condições da guarda (escala + paciente +
+                 permissão): botão aceso que não faz nada é o defeito da parcela 41. -->
             <Button Content="Aplicar" Margin="8,0,0,0" MinWidth="120"
                 Command="{Binding AplicarCommand}"
-                IsEnabled="{Binding PodeEditarProntuario}" />
+                IsEnabled="{Binding PodeAplicar}" />
         </StackPanel>
 
             <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"

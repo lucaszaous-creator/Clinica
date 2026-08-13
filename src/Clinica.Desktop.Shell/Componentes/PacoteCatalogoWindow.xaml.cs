@@ -1,12 +1,11 @@
 using System.Windows;
-using Clinica.Financeiro.ViewModels;
 
-namespace Clinica.Financeiro.Janelas;
+namespace Clinica.Desktop.Shell.Componentes;
 
 /// <summary>Quem fecha é o ViewModel, pelo evento Concluido — a janela não conhece serviço.</summary>
-public partial class PacoteVendaWindow : Window
+public partial class PacoteCatalogoWindow : Window
 {
-    public PacoteVendaWindow(PacoteVendaViewModel vm)
+    public PacoteCatalogoWindow(PacoteCatalogoEdicaoViewModel vm)
     {
         InitializeComponent();
         DataContext = vm;

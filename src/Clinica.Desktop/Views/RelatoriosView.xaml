@@ -52,8 +52,11 @@
         </WrapPanel>
 
         <!-- KPIs -->
-        <UniformGrid Grid.Row="2" Columns="6" Margin="0,0,0,20">
-            <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+        <!-- WrapPanel, não UniformGrid de largura inteira (a regra do README, parcela 50):
+             seis colunas iguais davam ~215 px por KPI em 1366 px, com o rótulo em duas
+             linhas e o valor raspando a borda. Cada cartão pede a largura que precisa. -->
+        <WrapPanel Grid.Row="2" Margin="0,0,0,20">
+            <Border Style="{StaticResource CardKpi}" MinWidth="190" Margin="0,0,12,12">
                 <StackPanel>
                     <TextBlock Text="Códigos gerados" Style="{StaticResource CardKpi.Rotulo}" />
                     <TextBlock Text="{Binding Resumo.TotalCodigos, FallbackValue=0}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
@@ -112,7 +115,7 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
-        </UniformGrid>
+        </WrapPanel>
 
         <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>

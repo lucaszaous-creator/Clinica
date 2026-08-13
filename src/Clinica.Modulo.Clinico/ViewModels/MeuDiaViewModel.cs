@@ -52,6 +52,18 @@ public sealed class LinhaSessao
     /// <summary>Já foi chamado — o consultório pode desistir, e o balcão para de anunciar.</summary>
     public bool PodeDesfazerChamada => Etapa == EtapaFila.Chamado;
 
+    /// <summary>
+    /// O paciente pode ENTRAR: já fez check-in (chamado ou não — quem entra sem ter sido
+    /// chamado teve a chamada carimbada junto, ver <c>AgendaService.IniciarAtendimentoAsync</c>).
+    /// </summary>
+    public bool PodeEntrar => Etapa is EtapaFila.Chegou or EtapaFila.Chamado;
+
+    /// <summary>
+    /// Desfazer o "entrou" clicado por engano. Só da coluna EM ATENDIMENTO: a chamada tem
+    /// o próprio desfazer, e o check-in é ato do balcão — não se desfaz daqui.
+    /// </summary>
+    public bool PodeVoltarEtapa => Etapa == EtapaFila.EmAtendimento;
+
     /// <summary>A chamada está pendente há tempo demais — vale insistir com o balcão.</summary>
     public bool ChamadaDemorada { get; init; }
 
@@ -113,6 +125,9 @@ public sealed class LinhaRegistroPendente
     public required string Modalidade { get; init; }
     public required string Atraso { get; init; }
 
+    /// <summary>Quem atendeu — vazio quando o agendamento não tem profissional. É o que alimenta o filtro do modo sem vínculo.</summary>
+    public string Profissional { get; init; } = string.Empty;
+
     public static LinhaRegistroPendente De(RegistroPendente r, DateOnly hoje)
     {
         var dias = r.DiasEmAberto(hoje);
@@ -121,6 +136,7 @@ public sealed class LinhaRegistroPendente
             AgendamentoId = r.AgendamentoId,
             PacienteId = r.PacienteId,
             Paciente = r.PacienteNome,
+            Profissional = r.Profissional ?? string.Empty,
             Quando = r.DataHora.ToString("dd/MM 'às' HH:mm"),
             Modalidade = r.Modalidade,
             Atraso = dias == 1 ? "ontem" : $"há {dias} dias"
@@ -213,6 +229,13 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// <summary>Há alguém no balcão para chamar.</summary>
     public bool TemProximo => _proximoAgendamentoId != 0;
 
+    /// <summary>
+    /// O botão grande do dia: precisa de alguém no balcão E da permissão de mover a
+    /// fila. Composto no VM porque o botão só liga UMA propriedade — as duas condições
+    /// em MultiBinding no XAML seriam a versão frágil disto.
+    /// </summary>
+    public bool PodeChamarProximo => TemProximo && PodeMovimentarFila;
+
     /// <summary>O quadro está vazio nas CINCO colunas — dia sem movimento nenhum.</summary>
     public bool QuadroVazio => Aguardando.Count == 0 && NaRecepcao.Count == 0
                                && Chamados.Count == 0 && EmAtendimento.Count == 0
@@ -223,6 +246,15 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// alguém de lá seria mandar a recepção anunciar um nome com dois dias de antecedência.
     /// </summary>
     public bool EhHoje => Dia.Date == DateTime.Today;
+
+    /// <summary>
+    /// Metade visível da permissão de mover a fila; a que impede é o <c>ExigirAlgum</c>
+    /// nos comandos. A regra é UMA nos dois quadros (balcão e consultório):
+    /// <c>EditarAgenda</c> OU <c>MovimentarFila</c> — mover a fila grava carimbo de hora,
+    /// e escrita sob <c>VerAgenda</c> era a divergência que a parcela 61 corrigiu.
+    /// </summary>
+    public bool PodeMovimentarFila => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.EditarAgenda | Permissao.MovimentarFila);
 
     private readonly System.Windows.Threading.DispatcherTimer _relogio;
 
@@ -291,8 +323,18 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     [RelayCommand]
     public Task CarregarAsync() => CarregarAsync(silencioso: false);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a batida do relógio e o stepper
+    /// de dia concorrem, e a resposta de HOJE chegando por último deixaria o quadro de um
+    /// dia sob o título de outro. A meia-guarda por <c>Carregando</c> não cobria — a
+    /// recarga silenciosa roda com ele desligado.
+    /// </summary>
+    private int _geracaoCarga;
+
     private async Task CarregarAsync(bool silencioso)
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = !silencioso;
@@ -317,6 +359,10 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             var consultorio = scope.ServiceProvider.GetRequiredService<ConsultorioService>();
 
             var doDia = await consultorio.DoDiaAsync(dia, profissionalId);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Profissional = doDia.ProfissionalNome;
 
             foreach (var s in doDia.Sessoes) Coluna(s.Etapa).Add(LinhaSessao.De(s));
@@ -324,6 +370,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             _proximoAgendamentoId = doDia.ProximoAChamar?.AgendamentoId ?? 0;
             ProximoNome = doDia.ProximoAChamar?.PacienteNome ?? string.Empty;
             OnPropertyChanged(nameof(TemProximo));
+            OnPropertyChanged(nameof(PodeChamarProximo));
             OnPropertyChanged(nameof(QuadroVazio));
 
             // Não há linha de "resumo" abaixo do título: cada coluna do quadro carrega a
@@ -336,10 +383,14 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             // em que ele foi conferir o que aconteceu na semana retrasada.
             //
             // Aqui só se conta. A LISTA mora na tela dela.
-            PendentesCount = (await consultorio.RegistrosPendentesAsync(hoje, profissionalId)).Count;
+            var pendentes = (await consultorio.RegistrosPendentesAsync(hoje, profissionalId)).Count;
+            if (geracao != _geracaoCarga) return;
+            PendentesCount = pendentes;
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Consultório — o dia não pôde ser carregado", ex);
 
@@ -353,7 +404,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -407,7 +459,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     {
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "chamar o paciente");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "chamar o paciente");
 
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
@@ -434,7 +487,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerAgenda, "desfazer a chamada");
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "desfazer a chamada");
 
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
@@ -450,6 +504,133 @@ public sealed partial class MeuDiaViewModel : ObservableObject
                 "Consultório — chamada não pôde ser desfeita", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// O paciente ENTROU na sala. Era a transição que faltava do lado do médico: sem ela,
+    /// a coluna EM ATENDIMENTO do quadro dele só enchia se o BALCÃO clicasse — e quem
+    /// abre a porta para o paciente é o profissional, não a recepção. Entrar sem ter sido
+    /// chamado carimba a chamada junto (linha do tempo com entrada e sem chamada não
+    /// existe — regra do <c>AgendaService</c>).
+    /// </summary>
+    [RelayCommand]
+    private async Task EntrarAsync(LinhaSessao? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "marcar a entrada");
+
+            using var scope = _escopos.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            await agenda.IniciarAtendimentoAsync(linha.AgendamentoId);
+
+            Mensagem = $"{linha.Paciente} em atendimento.";
+            MensagemEhErro = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — entrada não pôde ser marcada", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Desfaz o "entrou" clicado por engano — um passo por vez, como no balcão: apagar
+    /// mais de um carimbo de uma vez inventaria uma linha do tempo que não aconteceu.
+    ///
+    /// FINALIZAR continua não existindo aqui, e é decisão: concluir a sessão são quatro
+    /// fatos do mesmo ato (guia, pacote, insumo, caixa — <c>FechamentoSessaoService</c>),
+    /// e três deles são do balcão. O médico encerra escrevendo a evolução; quem fecha a
+    /// sessão é quem fecha a conta.
+    /// </summary>
+    [RelayCommand]
+    private async Task VoltarEtapaAsync(LinhaSessao? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.MovimentarFila, "voltar o cartão");
+
+            using var scope = _escopos.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+            await agenda.VoltarEtapaAsync(linha.AgendamentoId);
+
+            Mensagem = $"{linha.Paciente} devolvido à coluna anterior.";
+            MensagemEhErro = false;
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — etapa não pôde ser desfeita", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// ARRASTAR o cartão entre as raias — o mesmo gesto da fila do balcão (parcela 58),
+    /// que ficou seis parcelas sem chegar ao quadro de quem atende.
+    ///
+    /// As transições legais são EXATAMENTE as dos botões — não uma segunda regra escrita
+    /// aqui. O que o quadro do médico NÃO faz continua não fazendo pelo arrasto: check-in
+    /// (é do balcão, com a conferência de elegibilidade) e conclusão (quatro fatos do
+    /// mesmo ato, três do balcão). Movimento impossível não é silêncio — a tela DIZ.
+    /// </summary>
+    public async Task MoverParaAsync(LinhaSessao? linha, EtapaFila alvo)
+    {
+        if (linha is null || linha.Etapa == alvo) return;
+
+        var legal = (linha.Etapa, alvo) switch
+        {
+            (EtapaFila.Chegou, EtapaFila.Chamado) => true,
+            (EtapaFila.Chegou or EtapaFila.Chamado, EtapaFila.EmAtendimento) => true,
+            // Um passo para trás: o inverso exato do que o serviço sabe desfazer.
+            (EtapaFila.Chamado, EtapaFila.Chegou) => true,
+            (EtapaFila.EmAtendimento, EtapaFila.Chamado) => true,
+            _ => false
+        };
+
+        if (!legal)
+        {
+            Mensagem = alvo switch
+            {
+                EtapaFila.Finalizado =>
+                    "Concluir a sessão é do balcão (Finalizar, na fila): junto da guia "
+                    + "saem o pacote, o insumo e o caixa.",
+                EtapaFila.Chegou when linha.Etapa == EtapaFila.Aguardando =>
+                    "O check-in é do balcão — é lá que carteirinha e cota são conferidas "
+                    + "com o paciente na frente.",
+                _ => "Este cartão não anda direto para essa coluna. Um passo por vez."
+            };
+            MensagemEhErro = true;
+            return;
+        }
+
+        if (alvo == EtapaFila.Chegou)
+        {
+            await DesfazerChamadaAsync(linha);
+        }
+        else if (alvo == EtapaFila.Chamado && linha.Etapa == EtapaFila.EmAtendimento)
+        {
+            await VoltarEtapaAsync(linha);
+        }
+        else if (alvo == EtapaFila.Chamado)
+        {
+            await ChamarAsync(linha);
+        }
+        else
+        {
+            await EntrarAsync(linha);
         }
     }
 

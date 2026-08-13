@@ -142,26 +142,45 @@ public class AjustesFluxoTests : IDisposable
 
     // ---------- (5) Novo atendimento reflete na agenda ----------
 
+    /// <summary>
+    /// O lançamento avulso continua aparecendo na agenda do dia — só que pelo caminho
+    /// certo (parcela 60).
+    ///
+    /// Antes, `LancarAsync(registrarNaAgenda: true)` criava um `Agendamento` sintético às
+    /// **9h fixo**, sem profissional e sem sala, porque `Atendimento` só guarda
+    /// `DateOnly` e não havia hora para copiar. Ele aparecia na grade num horário em que
+    /// ninguém foi atendido e contava na ocupação do dia.
+    ///
+    /// Agora a tela marca um ENCAIXE na hora real e a esteira da Fila o conclui — e é por
+    /// isso que `LancarAsync` deixou de criar horário nenhum: ele ficou com um trabalho
+    /// só, e com um chamador só.
+    /// </summary>
     [Fact]
-    public async Task LancarComRegistrarNaAgenda_CriaAgendamentoRealizadoNoDia()
+    public async Task AvulsoApareceNaAgendaDoDia_NaHoraREAL()
     {
         var pacienteService = new PacienteService(_repo);
         var paciente = await pacienteService.SalvarNovoAsync(
             new Paciente { Nome = "Agenda", Convenio = Convenio.UnimedIntercambio });
 
-        var atendimentos = new AtendimentoService(_repo);
-        var dia = new DateOnly(2026, 7, 20);
+        var agenda = new AgendaService(_repo, new AtendimentoService(_repo));
+        var quando = new DateTime(2026, 7, 20, 15, 30, 0);
 
-        var resultado = await atendimentos.LancarAsync(
-            paciente.Id, dia, ModalidadeAtendimento.AcupunturaComEletro, registrarNaAgenda: true);
+        var ag = await agenda.AgendarAsync(
+            paciente.Id, quando, ModalidadeAtendimento.AcupunturaComEletro, null,
+            encaixe: true, operador: "recepcao");
+        var resultado = await agenda.ConfirmarPresencaAsync(ag.Id);
 
-        var todos = await _db.Agendamentos.AsNoTracking().ToListAsync();
-        var naAgenda = todos.Where(a => DateOnly.FromDateTime(a.DataHora) == dia).ToList();
+        var naAgenda = (await _db.Agendamentos.AsNoTracking().ToListAsync())
+            .Where(a => DateOnly.FromDateTime(a.DataHora) == DateOnly.FromDateTime(quando))
+            .ToList();
 
-        naAgenda.Should().ContainSingle();
+        naAgenda.Should().ContainSingle("uma sessão gera UM horário — não o horário mais o fantasma");
         naAgenda[0].Status.Should().Be(StatusAgendamento.Realizado);
         naAgenda[0].AtendimentoId.Should().Be(resultado.Atendimento.Id);
         naAgenda[0].PacienteId.Should().Be(paciente.Id);
+        naAgenda[0].DataHora.TimeOfDay.Should().Be(new TimeSpan(15, 30, 0),
+            "o horário do avulso é o real, e nunca mais 9h fixo");
+        naAgenda[0].Encaixe.Should().BeTrue("quem chega sem hora marcada é um encaixe");
     }
 
     [Fact]

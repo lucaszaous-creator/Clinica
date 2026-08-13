@@ -1,6 +1,7 @@
 <Window x:Class="Clinica.Clinico.Janelas.PrescricaoInternaWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
         Title="Prescrição de infusão" Width="1040" Height="660"
         MinWidth="900" MinHeight="520"
         WindowStartupLocation="CenterOwner"
@@ -8,6 +9,9 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto, e a
+             mensagem desta janela nunca aparecia (parcela 61). -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <DockPanel Margin="24">
@@ -68,7 +72,7 @@
         </Border>
 
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
-                Visibility="{Binding Mensagem, Converter={StaticResource BoolParaVisibilidade},
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
                              FallbackValue=Collapsed}">
             <Border.Style>
                 <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">

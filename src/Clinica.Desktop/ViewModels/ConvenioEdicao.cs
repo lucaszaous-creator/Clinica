@@ -36,6 +36,20 @@ public partial class ConvenioEdicao : ObservableObject
     /// </summary>
     [ObservableProperty] private FormatoNumeroGuia _formatoNumeroGuia = FormatoNumeroGuia.SemValidacao;
 
+    /// <summary>
+    /// Registro ANS desta operadora (parcela 60): é o destino que sai no cabeçalho do
+    /// lote TISS dela. Em branco, o lote usa o registro global do prestador.
+    /// </summary>
+    [ObservableProperty] private string? _registroAnsOperadora;
+
+    /// <summary>
+    /// Este convênio gera guia para faturar? (parcela 60) Desmarcado, é o PARTICULAR.
+    ///
+    /// Fora do painel da regra genérica pela MESMA razão do formato acima: vale para
+    /// qualquer família, e dentro dele seria uma caixinha morta num convênio embutido.
+    /// </summary>
+    [ObservableProperty] private bool _geraGuia = true;
+
     // Configuração da regra genérica (só tem efeito quando Familia == Personalizado)
     [ObservableProperty] private bool _fazEletro;
     [ObservableProperty] private bool _temSegundoCodigo;
@@ -59,6 +73,8 @@ public partial class ConvenioEdicao : ObservableObject
         _familia = c.Familia;
         _ativo = c.Ativo;
         _formatoNumeroGuia = c.FormatoNumeroGuia;
+        _registroAnsOperadora = c.RegistroAnsOperadora;
+        _geraGuia = c.GeraGuia;
         _fazEletro = c.FazEletro;
         _temSegundoCodigo = c.TemSegundoCodigo;
         _formaSegundoCodigo = c.FormaSegundoCodigo;
@@ -78,6 +94,9 @@ public partial class ConvenioEdicao : ObservableObject
         Familia = Familia,
         Ativo = Ativo,
         FormatoNumeroGuia = FormatoNumeroGuia,
+        RegistroAnsOperadora = string.IsNullOrWhiteSpace(RegistroAnsOperadora)
+            ? null : RegistroAnsOperadora.Trim(),
+        GeraGuia = GeraGuia,
         FazEletro = FazEletro,
         TemSegundoCodigo = TemSegundoCodigo,
         FormaSegundoCodigo = FormaSegundoCodigo,

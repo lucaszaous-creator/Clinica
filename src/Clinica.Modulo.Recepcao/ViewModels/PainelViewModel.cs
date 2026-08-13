@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Windows.Threading;
 using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
@@ -105,43 +106,126 @@ public sealed partial class PainelViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _pendenciasNaoVerificadas;
 
+    /// <summary>
+    /// O RESUMO do dia não pôde ser lido — o terceiro estado do painel inteiro
+    /// (parcela 62). O XAML já ligava <c>NaoVerificado</c> e a propriedade NÃO EXISTIA:
+    /// binding morto, que em WPF falha calado. A frase "os números não estão zerados —
+    /// eles não puderam ser lidos" estava escrita na tela e nunca apareceu, e o painel
+    /// mostrava zeros de uma leitura que falhou. É o defeito que este componente existe
+    /// para impedir, dentro da tela de abertura do balcão.
+    /// </summary>
+    [ObservableProperty] private bool _naoVerificado;
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): os steppers de dia disparam uma
+    /// carga por clique, e num banco remoto a resposta de ontem pode chegar depois da de
+    /// hoje — o painel mostraria o dia errado sob o título certo. Só a carga mais nova
+    /// escreve na tela.
+    /// </summary>
+    private int _geracaoCarga;
+
+    /// <summary>
+    /// A releitura de fundo. Ligada e desligada pela View (Loaded/Unloaded), como na
+    /// Fila e na Agenda — o shell cria uma tela nova a cada navegação.
+    /// </summary>
+    private readonly DispatcherTimer _relogio;
+
     public PainelViewModel(
         PainelRecepcaoService painel, RelacionamentoService relacionamento)
     {
         _painel = painel;
         _relacionamento = relacionamento;
+
+        // Dois minutos, e não um: o painel são CONTAGENS do dia, que mudam mais devagar
+        // do que a coluna de um cartão na fila, e cada batida custa três consultas ao
+        // banco remoto. Um minuto aqui seria pagar o dobro pela mesma resposta.
+        _relogio = new DispatcherTimer { Interval = TimeSpan.FromMinutes(2) };
+        _relogio.Tick += (_, _) => _ = ReconferirAsync();
+
         _ = CarregarAsync();
     }
 
     partial void OnDiaChanged(DateTime value) => _ = CarregarAsync();
 
     [RelayCommand]
-    public async Task CarregarAsync()
+    public Task CarregarAsync() => CarregarAsync(silencioso: false);
+
+    private async Task CarregarAsync(bool silencioso)
     {
+        var geracao = ++_geracaoCarga;
+
         var dia = DateOnly.FromDateTime(Dia);
         try
         {
-            Carregando = true;
-            Mensagem = string.Empty;
-            MensagemEhErro = false;
+            if (!silencioso)
+            {
+                Carregando = true;
+                NaoVerificado = false;
+                Mensagem = string.Empty;
+                MensagemEhErro = false;
+            }
 
             var resumo = await _painel.ResumoAsync(dia);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             AplicarResumo(resumo);
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Recepção — painel não pôde ser carregado", ex);
+
+            // Releitura de fundo que falha não pinta a tela: o painel segue com o que
+            // tinha, e o log guarda o motivo.
+            if (silencioso) return;
+
+            NaoVerificado = true;
             Mensagem = $"Não foi possível carregar o painel: {ex.Message}";
             MensagemEhErro = true;
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (!silencioso && geracao == _geracaoCarga) Carregando = false;
         }
 
-        await CarregarPendenciasAsync(dia);
-        await CarregarAniversariantesAsync(dia);
+        await CarregarPendenciasAsync(dia, geracao);
+        await CarregarAniversariantesAsync(dia, geracao);
     }
+
+    /// <summary>
+    /// A batida do relógio (parcela 62). O painel é a tela de ABERTURA do balcão — é a
+    /// que fica no monitor a manhã inteira sem ninguém tocar —, e ela conta quem chegou,
+    /// quem falta e as guias pendentes do dia. Sem releitura, o número que a
+    /// recepcionista olha às 11h é o das 8h, e ela concluiria que ninguém chegou.
+    ///
+    /// Só HOJE, pela razão da Fila: quem está olhando o painel de terça que vem não tem
+    /// nada correndo, e recarregar por baixo faria os números se mexerem enquanto lê.
+    /// </summary>
+    private async Task ReconferirAsync()
+    {
+        if (Dia.Date != DateTime.Today || Carregando) return;
+
+        try
+        {
+            await CarregarAsync(silencioso: true);
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — releitura automática do painel falhou", ex);
+        }
+    }
+
+    /// <summary>Liga a releitura (chamada quando a tela entra em cena).</summary>
+    public void IniciarRelogio() => _relogio.Start();
+
+    /// <summary>Desliga a releitura (chamada quando a tela sai de cena).</summary>
+    public void PararRelogio() => _relogio.Stop();
 
     /// <summary>
     /// Aniversariantes do dia e dos próximos dias. A janela existe porque a clínica não
@@ -149,12 +233,15 @@ public sealed partial class PainelViewModel : ObservableObject
     ///
     /// Isolada do resto, como as pendências: se falhar, o painel continua mostrando o dia.
     /// </summary>
-    private async Task CarregarAniversariantesAsync(DateOnly dia)
+    private async Task CarregarAniversariantesAsync(DateOnly dia, int geracao)
     {
         try
         {
             AniversariantesNaoVerificados = false;
             var lista = await _relacionamento.AniversariantesAsync(dia, JanelaAniversarioDias);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Aniversariantes.Clear();
             foreach (var a in lista)
@@ -171,6 +258,9 @@ public sealed partial class PainelViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — aniversariantes não puderam ser lidos", ex);
             Aniversariantes.Clear();
@@ -222,11 +312,14 @@ public sealed partial class PainelViewModel : ObservableObject
     /// Guias pendentes dos pacientes do dia. Isolada do resto de propósito: se ela
     /// falhar, o painel continua mostrando o dia — e diz que não conseguiu conferir.
     /// </summary>
-    private async Task CarregarPendenciasAsync(DateOnly dia)
+    private async Task CarregarPendenciasAsync(DateOnly dia, int geracao)
     {
         try
         {
             var pendencias = await _painel.PendenciasDoDiaAsync(dia);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Pendencias.Clear();
             foreach (var p in pendencias)
@@ -234,7 +327,8 @@ public sealed partial class PainelViewModel : ObservableObject
                 {
                     PacienteId = p.PacienteId,
                     Paciente = p.PacienteNome,
-                    Descricao = p.Descricao ?? $"{p.Tipo} ({p.Ordem})",
+                    Descricao = p.Descricao
+                        ?? $"{Clinica.Domain.RotulosEnum.De(p.Tipo)} ({Clinica.Domain.RotulosEnum.De(p.Ordem)})",
                     Atraso = p.DiasEmAtraso <= 0
                         ? "vence hoje"
                         : $"{p.DiasEmAtraso} dia(s) em atraso",
@@ -245,6 +339,9 @@ public sealed partial class PainelViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — pendências do dia não puderam ser verificadas", ex);
             Pendencias.Clear();

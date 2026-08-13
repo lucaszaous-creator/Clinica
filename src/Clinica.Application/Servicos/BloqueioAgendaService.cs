@@ -73,6 +73,20 @@ public sealed class BloqueioAgendaService
         => _repo.ObterBloqueioAsync(bloqueioId, ct);
 
     /// <summary>
+    /// Os fechamentos que esbarram no período — o que a GRADE da agenda precisa para
+    /// pintar os vãos fechados (parcela 63).
+    ///
+    /// É por PERÍODO, e não por horário, de propósito. Existia um
+    /// <c>BloqueioDoHorarioAsync</c> que respondia por um vão só, e usá-lo na grade daria
+    /// uma consulta por célula: um dia com seis colunas e 26 faixas são ~150 idas a um
+    /// banco remoto para desenhar uma tela. Aqui é uma leitura, e o cruzamento com cada
+    /// vão acontece em memória.
+    /// </summary>
+    public Task<IReadOnlyList<BloqueioAgenda>> NoPeriodoAsync(
+        DateTime inicio, DateTime fim, CancellationToken ct = default)
+        => _repo.BloqueiosNoPeriodoAsync(inicio, fim, ct);
+
+    /// <summary>
     /// Cria o bloqueio e devolve, junto, quem já está marcado dentro dele.
     ///
     /// A lista vem no RESULTADO, e não como recusa: a clínica pode ter decidido tirar
@@ -218,15 +232,4 @@ public sealed class BloqueioAgendaService
             .OrderBy(a => a.DataHora)
             .ToList();
     }
-
-    /// <summary>
-    /// A agenda está fechada neste horário para este recurso? Devolve o bloqueio que
-    /// alcança, ou null. A marcação já é recusada pela própria agenda — isto serve para
-    /// a tela AVISAR antes do clique.
-    /// </summary>
-    public async Task<BloqueioAgenda?> BloqueioDoHorarioAsync(
-        DateTime inicio, DateTime fim, int? profissionalId = null, int? salaId = null,
-        CancellationToken ct = default)
-        => (await _repo.BloqueiosNoPeriodoAsync(inicio, fim, ct))
-            .FirstOrDefault(b => b.AlcancaRecurso(profissionalId, salaId));
 }

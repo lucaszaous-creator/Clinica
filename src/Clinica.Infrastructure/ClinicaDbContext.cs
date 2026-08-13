@@ -29,6 +29,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<Sala> Salas => Set<Sala>();
     public DbSet<ListaEspera> ListaEspera => Set<ListaEspera>();
     public DbSet<Evolucao> Evolucoes => Set<Evolucao>();
+    public DbSet<ModeloEvolucao> ModelosEvolucao => Set<ModeloEvolucao>();
 
     /// <summary>
     /// O conteúdo que cada sessão já teve antes das correções (parcela 52) — é o que
@@ -129,6 +130,9 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<Atendimento>(e =>
         {
+            // Quem lançou o atendimento e quando (parcela 58).
+            e.Property(a => a.LancadoPor).HasMaxLength(80);
+            e.Property(a => a.LancadoEm).HasColumnType("timestamp without time zone");
             e.HasKey(a => a.Id);
             e.Property(a => a.Numero).HasMaxLength(30);
             e.HasIndex(a => a.Numero);
@@ -174,6 +178,7 @@ public class ClinicaDbContext : DbContext
             e.HasKey(l => l.Id);
             e.Property(l => l.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(l => l.RegistroAnsOperadora).HasMaxLength(20);
+            e.Property(l => l.ConvenioCodigo).HasMaxLength(40);
             e.Property(l => l.ProtocoloOperadora).HasMaxLength(60);
             e.Property(l => l.ObservacaoRetorno).HasMaxLength(500);
             e.HasIndex(l => l.Numero).IsUnique();
@@ -205,6 +210,7 @@ public class ClinicaDbContext : DbContext
             e.Property(c => c.CategoriaComApp).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.CategoriaSemApp).HasConversion<string>().HasMaxLength(20);
             e.Property(c => c.FormatoNumeroGuia).HasConversion<string>().HasMaxLength(20);
+            e.Property(c => c.RegistroAnsOperadora).HasMaxLength(20);
         });
 
         b.Entity<ModalidadeCadastro>(e =>
@@ -236,6 +242,10 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<Agendamento>(e =>
         {
+            // Quem lançou o horário e quando (parcela 58). Hora de PAREDE, como o resto da
+            // agenda — evita o erro do Npgsql com DateTime local.
+            e.Property(a => a.CriadoPor).HasMaxLength(80);
+            e.Property(a => a.CriadoEm).HasColumnType("timestamp without time zone");
             e.HasKey(a => a.Id);
             // Hora de parede (sem fuso). Evita o erro do Npgsql com DateTime local/unspecified.
             e.Property(a => a.DataHora).HasColumnType("timestamp without time zone");
@@ -245,6 +255,9 @@ public class ClinicaDbContext : DbContext
             e.Property(a => a.EspecialidadeConsultaCodigo).HasMaxLength(40);
             e.Property(a => a.Status).HasConversion<string>().HasMaxLength(20);
             e.Property(a => a.Origem).HasConversion<string>().HasMaxLength(20);
+            // TEXTO, como todo enum deste banco. Gravado como int, acrescentar um valor no
+            // meio do enum reescreveria o significado das linhas já salvas.
+            e.Property(a => a.PrimeiroCodigo).HasConversion<string>().HasMaxLength(40);
             e.Property(a => a.Observacoes).HasMaxLength(500);
             e.HasOne(a => a.Paciente).WithMany().HasForeignKey(a => a.PacienteId);
             // Sem cascade a partir do atendimento (relação opcional).
@@ -831,6 +844,28 @@ public class ClinicaDbContext : DbContext
             e.Ignore(x => x.Tamanho);
         });
 
+        b.Entity<ModeloEvolucao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
+            e.Property(x => x.QueixaPrincipal).HasMaxLength(2000);
+            e.Property(x => x.Conduta).HasMaxLength(2000);
+            e.Property(x => x.TextoEvolucao).HasMaxLength(4000);
+            e.Property(x => x.Orientacoes).HasMaxLength(2000);
+            e.Property(x => x.CriadoPor).HasMaxLength(80);
+            e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.AtualizadoEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Profissional).WithMany()
+                .HasForeignKey(x => x.ProfissionalId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Nome único POR DONO, e não global: o modelo "Sessão padrão" da clínica e o
+            // "Sessão padrão" da Dra. Ana são dois modelos diferentes, e um índice global
+            // faria o segundo sobrescrever o primeiro em silêncio.
+            e.HasIndex(x => new { x.ProfissionalId, x.Nome }).IsUnique();
+        });
+
         b.Entity<ModeloDocumento>(e =>
         {
             e.HasKey(x => x.Id);
@@ -958,6 +993,16 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.ConvenioCodigo).HasMaxLength(40);
             e.Property(x => x.Observacoes).HasMaxLength(500);
             e.Property(x => x.CriadoPor).HasMaxLength(80);
+
+            // Conciliação bancária (parcela 63). O FITID é do banco e não tem tamanho
+            // padronizado; 100 cobre com folga o que os bancos brasileiros emitem.
+            e.Property(x => x.IdBancario).HasMaxLength(100);
+            e.Property(x => x.ConciliadoEm).HasColumnType("timestamp without time zone");
+
+            // Índice, e não índice ÚNICO: uma transação do extrato pode legitimamente
+            // corresponder a mais de um lançamento (o depósito da adquirente é UM crédito
+            // para várias vendas). Único aqui recusaria a conciliação correta.
+            e.HasIndex(x => x.IdBancario);
             e.Property(x => x.CriadoEm).HasColumnType("timestamp without time zone");
 
             // Taxa da maquininha e imposto (parcela 9). O liquido NAO e coluna: e

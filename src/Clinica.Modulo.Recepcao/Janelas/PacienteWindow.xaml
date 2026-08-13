@@ -8,6 +8,8 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <!-- O formulário inteiro rola: com a escala do Windows em 150% ou 175% um
@@ -151,7 +153,8 @@
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
                 <TextBlock Text="Como conheceu a clínica" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                <ComboBox ItemsSource="{Binding Origens}" SelectedItem="{Binding Origem}" />
+                <ComboBox ItemsSource="{Binding Origens}" SelectedItem="{Binding Origem}"
+                          ItemTemplate="{StaticResource ItemRotuloEnum}" />
             </StackPanel>
             <StackPanel Grid.Column="2">
                 <TextBlock Text="Quem indicou" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
@@ -164,8 +167,19 @@
         <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" Height="56" TextWrapping="Wrap" />
 
         <!-- Feedback inline: é formulário, a mensagem fica na tela enquanto o usuário corrige. -->
-        <Border Style="{StaticResource AlertaPerigo}" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <Border Margin="0,12,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 

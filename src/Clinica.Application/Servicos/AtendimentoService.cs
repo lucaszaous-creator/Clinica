@@ -62,9 +62,9 @@ public sealed class AtendimentoService
 
     public async Task<ResultadoLancamento> LancarAsync(
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
-        CancellationToken ct = default, bool registrarNaAgenda = false, TipoCodigo? primeiroCodigo = null,
+        CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
-        string? especialidadeConsultaCodigo = null)
+        string? especialidadeConsultaCodigo = null, string? operador = null)
     {
         var paciente = await _repo.ObterPacienteAsync(pacienteId, ct)
             ?? throw new InvalidOperationException($"Paciente {pacienteId} não encontrado.");
@@ -89,7 +89,11 @@ public sealed class AtendimentoService
             EspecialidadeConsultaCodigo = ehConsulta
                 ? especialidadeConsultaCodigo ?? especialidadeConsulta?.ToString()
                 : null,
-            Observacoes = observacoes
+            Observacoes = observacoes,
+            // Quem lançou, e quando. Vem do chamador (`SessaoUsuario.Atual.Operador` na
+            // tela): este serviço é compartilhado com o faturamento e não lê a sessão.
+            LancadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),
+            LancadoEm = DateTime.Now
         };
 
         var historicoMes = await _repo.CodigosDoPacienteNoMesAsync(pacienteId, data.Year, data.Month, ct);
@@ -110,6 +114,7 @@ public sealed class AtendimentoService
         };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);
+        AplicarParticular(paciente, resultado);
 
         atendimento.Categoria = resultado.Categoria;
         atendimento.Codigos.AddRange(resultado.Codigos);
@@ -169,28 +174,22 @@ public sealed class AtendimentoService
             }
         }
 
-        // Lançamento direto (tela "Novo atendimento"): registra também na agenda do dia, já
-        // como presença realizada e vinculado ao atendimento, para que o paciente apareça
-        // na agenda na data marcada. Quando o atendimento nasce da própria agenda
-        // (AgendaService.ConfirmarPresenca), este registro não é criado (evita duplicidade).
-        if (registrarNaAgenda)
-        {
-            var agendamento = new Agendamento
-            {
-                PacienteId = pacienteId,
-                DataHora = DateTime.SpecifyKind(data.ToDateTime(new TimeOnly(9, 0)), DateTimeKind.Unspecified),
-                ModalidadePrevista = modalidade,
-                ModalidadeCodigo = atendimento.ModalidadeCodigo,
-                EspecialidadeConsulta = atendimento.EspecialidadeConsulta,
-                EspecialidadeConsultaCodigo = atendimento.EspecialidadeConsultaCodigo,
-                Status = StatusAgendamento.Realizado,
-                Origem = OrigemAgendamento.Manual,
-                AtendimentoId = atendimento.Id,
-                Observacoes = observacoes
-            };
-            await _repo.AdicionarAgendamentoAsync(agendamento, ct);
-            await _repo.SalvarAsync(ct);
-        }
+        // ⚠️ AQUI havia o `registrarNaAgenda` (parcela 60, removido).
+        //
+        // O lançamento avulso criava um `Agendamento` sintético às **9h fixo**, sem
+        // profissional e sem sala, porque `Atendimento` só guarda `DateOnly Data` — não há
+        // hora para copiar. Ele aparecia na grade da agenda num horário em que ninguém foi
+        // atendido, na coluna "Sem profissional", e CONTAVA na ocupação do dia.
+        //
+        // O conserto não foi apagar o registro: foi inverter a ordem. O avulso passou a
+        // marcar um ENCAIXE de verdade, na hora real, e a Fila o conclui — então o
+        // horário existe, é honesto, e este serviço voltou a ter um trabalho só: gerar o
+        // atendimento e as guias.
+        //
+        // O efeito colateral é a amarra que a direção pediu: `LancarAsync` ficou com UM
+        // ÚNICO chamador em todo o sistema (`AgendaService.ConfirmarPresencaAsync`), e o
+        // pacote, o insumo e o caixa deixaram de depender de qual porta a recepcionista
+        // usou. Ponto único deixou de ser documentação e virou estrutura.
 
         return new ResultadoLancamento(atendimento, resultado.Avisos);
     }
@@ -323,6 +322,52 @@ public sealed class AtendimentoService
         };
 
         var resultado = _regras.Para(paciente.Convenio).Gerar(paciente, atendimento, contexto);
+        AplicarParticular(paciente, resultado);
         return new PreviaLancamento(resultado.Codigos, resultado.Categoria, resultado.Avisos);
+    }
+
+    /// <summary>
+    /// PARTICULAR: o paciente que vem sem convênio (parcela 60).
+    ///
+    /// Até aqui ele não tinha onde ser cadastrado — o enum <see cref="Convenio"/> não tem
+    /// "sem convênio" —, e as duas saídas eram ruins de jeitos diferentes: cadastrá-lo sob
+    /// um convênio qualquer gerava guia com data prevista, que entra no painel de
+    /// pendências, vence o prazo e abre a <b>rodada BLOQUEANTE</b> por uma guia que nunca
+    /// vai a operadora nenhuma; ou não cadastrar o atendimento, e aí a sessão não existe
+    /// em lugar nenhum.
+    ///
+    /// A marcação acontece AQUI, e não dentro das regras, por três razões:
+    ///
+    /// <list type="number">
+    /// <item>O sinalizador é do CADASTRO do convênio, não da regra genérica — ele tem de
+    /// valer para qualquer família. Dentro de <c>RegraGenerica</c> ele seria uma caixinha
+    /// que não faz nada num convênio embutido.</item>
+    /// <item>São seis regras e cada uma tem vários ramos; um ramo esquecido produziria uma
+    /// guia pendente para um particular, e ela só apareceria dez dias depois travando a
+    /// rodada de quem fatura.</item>
+    /// <item>É o mesmo ponto por onde a PRÉVIA e o LANÇAMENTO passam — que é o que garante
+    /// que a tela não prometa "nenhuma guia" e o serviço grave uma.</item>
+    /// </list>
+    ///
+    /// ⚠️ O código NÃO some. <see cref="StatusCodigo.NaoAplicavel"/> é o que faz
+    /// <c>CodigoFaturamento.EstaPendente</c> ignorá-lo — o particular sai das pendências e
+    /// da rodada sem uma linha de código nova. E o registro da sessão (modalidade,
+    /// especialidade, data) continua alimentando os indicadores: sumir com ele faria a
+    /// clínica medir só o convênio.
+    /// </summary>
+    private static void AplicarParticular(Paciente paciente, ResultadoFaturamento resultado)
+    {
+        if (CatalogoConvenios.GeraGuia(paciente.ConvenioCodigo ?? paciente.Convenio.ToString()))
+            return;
+
+        foreach (var c in resultado.Codigos) c.Status = StatusCodigo.NaoAplicavel;
+
+        // Os avisos do motor falam de faturamento ("2º código não é possível", "este
+        // convênio não fatura BSV") e não querem dizer nada para um particular — quem lê
+        // é a recepcionista, com o paciente na frente dela.
+        resultado.Avisos.Clear();
+        resultado.Avisos.Add(
+            "Atendimento PARTICULAR: não há guia a faturar. O registro da sessão fica, "
+            + "e a cobrança é no caixa.");
     }
 }

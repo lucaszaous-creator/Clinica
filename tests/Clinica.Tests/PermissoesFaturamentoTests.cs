@@ -31,7 +31,6 @@ public class PermissoesFaturamentoTests
     [InlineData(Permissao.GerenciarLotesTiss)]
     [InlineData(Permissao.LancarAtendimento)]
     [InlineData(Permissao.VerAgenda)]
-    [InlineData(Permissao.EditarAgenda)]
     [InlineData(Permissao.VerFichaPaciente)]
     [InlineData(Permissao.EditarPaciente)]
     public void Faturista_faz_o_trabalho_do_dia(Permissao permissao)
@@ -53,6 +52,12 @@ public class PermissoesFaturamentoTests
     ///   ele tem.
     /// · <b>ConfigurarFaturamento</b> — muda a regra para todo mundo, não o registro de
     ///   uma guia.
+    /// · <b>EditarAgenda</b> (parcela 58) — quem MARCA horário é o balcão, com o paciente
+    ///   na frente. O faturista continua com <c>VerAgenda</c>, porque olhar o dia é parte
+    ///   de faturá-lo; o que ele perde é abrir horário na agenda dos médicos. A direção
+    ///   pediu isso depois de o sistema materializar a pendência do 2º código como
+    ///   AGENDAMENTO (a mesma parcela): guia não é atendimento, e um horário aberto do
+    ///   lado do faturamento aparece na fila do balcão e na agenda de quem atende.
     ///
     /// Nenhum é proibição absoluta: a direção concede qualquer um a uma pessoa específica
     /// em Acessos, sem mexer no perfil dos outros. O padrão é o que ela NÃO precisa
@@ -65,8 +70,39 @@ public class PermissoesFaturamentoTests
     [InlineData(Permissao.VerProntuario)]
     [InlineData(Permissao.EditarProntuario)]
     [InlineData(Permissao.ConfigurarFaturamento)]
+    [InlineData(Permissao.EditarAgenda)]
     public void Faturista_nao_recebe_o_que_e_da_direcao(Permissao permissao)
         => PerfisAcesso.Padrao(PerfilAcesso.Faturista).HasFlag(permissao).Should().BeFalse();
+
+    /// <summary>
+    /// O faturista continua VENDO a agenda (parcela 58).
+    ///
+    /// Tirar `EditarAgenda` sem manter `VerAgenda` seria tirar capacidade de quem a usava
+    /// — a regra 3 do bloco do faturamento no CLAUDE.md. O que a direção pediu foi
+    /// impedir que ele ABRA horário; conferir o dia é parte de faturá-lo.
+    /// </summary>
+    [Fact]
+    public void Faturista_continua_vendo_a_agenda_sem_poder_marcar()
+    {
+        var padrao = PerfisAcesso.Padrao(PerfilAcesso.Faturista);
+
+        padrao.HasFlag(Permissao.VerAgenda).Should().BeTrue(
+            "conferir o dia é parte de faturá-lo");
+        padrao.HasFlag(Permissao.EditarAgenda).Should().BeFalse(
+            "quem marca horário é o balcão, com o paciente na frente");
+    }
+
+    /// <summary>
+    /// A RECEPÇÃO marca horário — é o outro lado da decisão acima.
+    ///
+    /// Tirar `EditarAgenda` do faturista só faz sentido porque a capacidade continua
+    /// inteira em quem é dono dela. Um teste que fixasse só a remoção deixaria passar a
+    /// versão em que a agenda ficou sem ninguém que pudesse mexer nela.
+    /// </summary>
+    [Fact]
+    public void Recepcao_marca_horario()
+        => PerfisAcesso.Padrao(PerfilAcesso.Recepcao)
+            .HasFlag(Permissao.EditarAgenda).Should().BeTrue();
 
     // ================================================================
     // O PADRÃO DE CADA PERFIL (parcela 49)

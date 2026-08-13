@@ -112,6 +112,13 @@ public sealed partial class CampanhasViewModel : ObservableObject
     partial void OnSituacaoSelecionadaChanged(string value) => _ = CarregarAsync();
     partial void OnJanelaSelecionadaChanged(string value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Tipo, situação e janela disparam a MESMA leitura; num banco remoto a mais velha pode
+    /// responder por último e encher a fila com o filtro que a pessoa acabou de trocar.
+    /// </summary>
+    private int _geracaoCarga;
+
     /// <summary>Intervalo da janela escolhida. Sempre inclui alguns dias à frente.</summary>
     private (DateOnly Inicio, DateOnly Fim) Intervalo(DateOnly hoje) => JanelaSelecionada switch
     {
@@ -126,6 +133,8 @@ public sealed partial class CampanhasViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -142,6 +151,9 @@ public sealed partial class CampanhasViewModel : ObservableObject
 
             var lista = await campanhas.ContatosAsync(TipoFiltro(), StatusFiltro(), inicio, fim);
 
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Contatos.Clear();
             foreach (var c in lista) Contatos.Add(Converter(c, hoje));
 
@@ -150,6 +162,9 @@ public sealed partial class CampanhasViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Gerente — campanhas não puderam ser carregadas", ex);
             Mensagem = $"Não foi possível carregar as campanhas: {ex.Message}";
@@ -157,7 +172,8 @@ public sealed partial class CampanhasViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

@@ -209,7 +209,65 @@ public enum Permissao
     /// TRANCA na abertura. Esconder o aviso junto faria a direção deixar de saber que há
     /// guia vencida — que é o oposto do que a rodada existe para garantir.
     /// </summary>
-    DispensarRodadaPendencias = 1 << 24
+    DispensarRodadaPendencias = 1 << 24,
+
+    /// <summary>
+    /// Abrir a CENTRAL DE DOCUMENTOS — a porta da seção (parcela 59).
+    ///
+    /// A direção viu a recepcionista alcançando os documentos e pediu a permissão
+    /// granular. Ela é a PORTA: sem este bit, o item some da sidebar.
+    ///
+    /// ⚠️ A porta sozinha não resolveria, e é isso que faz este bit não ser a metade
+    /// interessante da parcela. As dez folhas não são a mesma coisa — receituário,
+    /// atestado, pedido de exame, relatório de evolução e anamnese carregam DADO DE SAÚDE;
+    /// declaração de comparecimento, termo de consentimento, recibo e orçamento não. Um
+    /// bit só obrigaria a direção a escolher entre a recepcionista lendo a evolução de
+    /// todo mundo e a recepcionista sem o recibo que ela emite dez vezes por dia — que é
+    /// exatamente o defeito do bit sobrecarregado que a parcela 49 corrigiu.
+    ///
+    /// Por isso cada folha declara o que exige (<c>FolhaCatalogo.PermissaoVer</c> /
+    /// <c>PermissaoEmitir</c>): com a porta aberta, a pessoa vê só o que os OUTROS bits
+    /// dela alcançam. É o corte da LGPD de novo — dado de contato de um lado, dado
+    /// sensível (art. 5º, II) do outro.
+    /// </summary>
+    VerDocumentos = 1 << 25,
+
+    /// <summary>
+    /// Vender pacote de sessões e lançar consumo (parcela 60).
+    ///
+    /// A tela existe desde a parcela 4 e a única porta estava no app do FINANCEIRO — mas
+    /// quem vende dez sessões ao paciente é a RECEPÇÃO, no balcão, com ele na frente. É o
+    /// defeito recorrente do projeto na variante "a porta está no módulo de quem não usa",
+    /// e ele bloqueava justamente o caso que motivou o PARTICULAR: o paciente sem convênio
+    /// que compra um pacote.
+    ///
+    /// ⚠️ É um bit PRÓPRIO, e não <see cref="VerFinanceiro"/>, porque dar o financeiro ao
+    /// balcão abriria junto o caixa, a conciliação e as contas a pagar. Vender um pacote é
+    /// combinar um preço com o paciente; ler o dinheiro da clínica é outra coisa — o mesmo
+    /// corte que a parcela 49 fez entre ficha e prontuário.
+    /// </summary>
+    VenderPacote = 1 << 26,
+
+    /// <summary>
+    /// Mover a FILA do dia: registrar chegada, chamar, desfazer a chamada, marcar a
+    /// entrada e voltar o cartão uma etapa — os carimbos de hora da parcela 38.
+    ///
+    /// Existe porque o quadro tem DOIS lados (balcão e consultório) e o ato é o mesmo
+    /// fato na mesma tabela. Antes deste bit, a Recepção exigia <see cref="EditarAgenda"/>
+    /// e o Consultório aceitava <see cref="VerAgenda"/> — a mesma escrita com duas regras,
+    /// e a de baixo deixava quem só LÊ a agenda carimbar chamada pelo quadro do médico.
+    ///
+    /// O profissional recebe ESTE bit e não <see cref="EditarAgenda"/>: chamar o próprio
+    /// paciente é o gesto central do quadro dele, e marcar/remarcar horário de terceiros
+    /// continua sendo do balcão. A autorização do ato é UMA nos dois quadros:
+    /// <see cref="EditarAgenda"/> OU este bit (ver <c>SessaoUsuario.ExigirAlgum</c>) —
+    /// quem já movia a fila ontem pelo balcão continua movendo hoje.
+    ///
+    /// ⚠️ 1 &lt;&lt; 27, e não 26: o bit 26 já era <see cref="VenderPacote"/>, nascido em
+    /// paralelo noutra frente. Dois membros com o MESMO valor compilam — e "vender
+    /// pacote" passaria a ser "mover a fila" em toda base de produção, sem um aviso.
+    /// </summary>
+    MovimentarFila = 1 << 27
 }
 
 /// <summary>
@@ -297,19 +355,32 @@ public static class PerfisAcesso
         //
         // LancarAtendimento fica: a recepção JÁ cria atendimento com guia pelo caminho da
         // agenda (Fila → Finalizar) desde a parcela 6, e tirá-lo quebraria o fluxo do dia.
+        //
+        // VerDocumentos entrou na parcela 59, e ele NÃO devolve o que a direção mandou
+        // tirar: com a porta aberta, a recepção continua vendo só o que os outros bits
+        // dela alcançam — declaração de comparecimento, termo de consentimento, recibo e
+        // orçamento. Receituário, atestado, pedido de exame, relatório de evolução e
+        // anamnese pedem `VerProntuario`, que ela não tem desde a parcela 49, e por isso
+        // somem da tela. Tirar a porta inteira levaria junto os quatro papéis que o balcão
+        // emite todo dia.
         PerfilAcesso.Recepcao =>
-            Permissao.VerAgenda | Permissao.EditarAgenda |
+            Permissao.VerAgenda | Permissao.EditarAgenda | Permissao.MovimentarFila |
             Permissao.VerFichaPaciente | Permissao.EditarPaciente |
+            Permissao.VerDocumentos |
+            Permissao.VenderPacote |
             Permissao.LancarAtendimento |
             Permissao.GerenciarCampanhas,
 
         // ===== QUEM ATENDE =====
         // A ficha para saber quem é, o prontuário para saber o que foi feito, e a receita.
-        // Não mexe em agenda de terceiros nem em dinheiro.
+        // Não mexe em agenda de terceiros nem em dinheiro. MovimentarFila e não
+        // EditarAgenda: chamar o próprio paciente é o gesto central do quadro dele;
+        // marcar e remarcar horário continua sendo do balcão.
         PerfilAcesso.Profissional =>
-            Permissao.VerAgenda |
+            Permissao.VerAgenda | Permissao.MovimentarFila |
             Permissao.VerFichaPaciente |
             Permissao.VerProntuario | Permissao.EditarProntuario |
+            Permissao.VerDocumentos |
             Permissao.Prescrever,
 
         // ===== ENFERMAGEM =====
@@ -326,9 +397,14 @@ public static class PerfisAcesso
         // Ganhou a FICHA na parcela 49: sem ela a tela de inadimplência mostrava dívida de
         // gente que o operador não podia abrir para conferir o telefone. Continua sem o
         // prontuário — cobrar não precisa saber o diagnóstico de ninguém.
+        // VerDocumentos entra porque o RECIBO e o ORÇAMENTO são folhas financeiras: quem
+        // recebe é quem comprova. As clínicas continuam fora — cobrar não exige saber o
+        // diagnóstico de ninguém, e é a regra 3 da lista acima.
         PerfilAcesso.Financeiro =>
             Permissao.VerAgenda |
             Permissao.VerFichaPaciente |
+            Permissao.VerDocumentos |
+            Permissao.VenderPacote |
             Permissao.VerFinanceiro | Permissao.EditarFinanceiro,
 
         // ===== FATURISTA =====
@@ -349,8 +425,13 @@ public static class PerfisAcesso
         //
         // Continua sem ConfigurarFaturamento: mudar catálogo de convênio ou prazo da
         // rodada muda a regra para todo mundo.
+        // ⚠️ SEM `EditarAgenda` (parcela 58, a pedido da direção): quem marca horário é o
+        // BALCÃO, que tem o paciente na frente. O faturista continua VENDO a agenda —
+        // é o que ele precisa para conferir o que foi atendido — e o bit volta num clique
+        // em Acessos para quem a clínica quiser. Isto TIRA o que ele fazia ontem, e é de
+        // propósito: é o mesmo movimento da parcela 49, onde a remoção É o pedido.
         PerfilAcesso.Faturista =>
-            Permissao.VerAgenda | Permissao.EditarAgenda |
+            Permissao.VerAgenda |
             Permissao.VerFichaPaciente | Permissao.EditarPaciente |
             Permissao.VerFaturamento | Permissao.BaixarGuia |
             Permissao.RegistrarGlosa | Permissao.GerenciarLotesTiss |
@@ -387,8 +468,11 @@ public static class PerfisAcesso
     {
         Permissao.VerAgenda => "Ver agenda e fila",
         Permissao.EditarAgenda => "Marcar e remarcar",
+        Permissao.MovimentarFila => "Chamar e mover a fila do dia",
         Permissao.VerFichaPaciente => "Ver ficha do paciente",
         Permissao.EditarPaciente => "Cadastrar e editar paciente",
+        Permissao.VerDocumentos => "Abrir a central de documentos",
+        Permissao.VenderPacote => "Vender pacote de sessões",
         Permissao.DispensarRodadaPendencias => "Entrar sem responder à rodada de pendências",
         Permissao.VerProntuario => "Ver prontuário clínico",
         Permissao.EditarProntuario => "Escrever no prontuário",
@@ -427,14 +511,17 @@ public static class PerfisAcesso
     /// </summary>
     public static string Assunto(Permissao permissao) => permissao switch
     {
-        Permissao.VerAgenda or Permissao.EditarAgenda => "Agenda e balcão",
+        Permissao.VerAgenda or Permissao.EditarAgenda
+            or Permissao.MovimentarFila => "Agenda e balcão",
 
-        Permissao.VerFichaPaciente or Permissao.EditarPaciente => "Paciente (cadastro)",
+        Permissao.VerFichaPaciente or Permissao.EditarPaciente
+            or Permissao.VerDocumentos => "Paciente (cadastro)",
 
         Permissao.VerProntuario or Permissao.EditarProntuario
             or Permissao.Prescrever or Permissao.ChecarPrescricao => "Clínico (dado sensível)",
 
-        Permissao.VerFinanceiro or Permissao.EditarFinanceiro => "Financeiro",
+        Permissao.VerFinanceiro or Permissao.EditarFinanceiro
+            or Permissao.VenderPacote => "Financeiro",
 
         Permissao.VerFaturamento or Permissao.BaixarGuia or Permissao.EstornarBaixa
             or Permissao.RegistrarGlosa or Permissao.GerenciarLotesTiss
@@ -458,6 +545,10 @@ public static class PerfisAcesso
     {
         Permissao.VerAgenda => "Abrir a agenda, a fila do dia e o painel do balcão.",
         Permissao.EditarAgenda => "Marcar, remarcar, cancelar, dar check-in e concluir.",
+        Permissao.MovimentarFila =>
+            "Mover a fila do dia: registrar chegada, chamar o paciente, marcar a entrada e "
+            + "voltar o cartão. É o que o profissional usa no quadro dele — não inclui "
+            + "marcar nem remarcar horário.",
 
         Permissao.VerFichaPaciente =>
             "Cadastro, contato, convênio, carteirinha, autorizações e documentos emitidos. "
@@ -465,6 +556,11 @@ public static class PerfisAcesso
         Permissao.EditarPaciente =>
             "Cadastrar e editar paciente, colher consentimento LGPD, registrar a senha do "
             + "convênio e emitir documento.",
+        Permissao.VerDocumentos =>
+            "Abrir a central de documentos. Ela mostra SÓ as folhas que os outros acessos "
+            + "da pessoa alcançam: receituário, atestado, pedido de exame, relatório de "
+            + "evolução e anamnese pedem \"Ver prontuário clínico\"; recibo e orçamento "
+            + "pedem \"Ver financeiro\". Sem este acesso, a seção some da sidebar.",
         Permissao.DispensarRodadaPendencias =>
             "Passado o prazo, a abertura do faturamento TRAVA numa janela que só fecha com "
             + "uma decisão por guia. Quem tem este acesso entra direto — continua vendo o "
@@ -485,6 +581,10 @@ public static class PerfisAcesso
             + "checa não deve ser quem prescreve.",
 
         Permissao.VerFinanceiro => "Caixa, conciliação, contas e produção.",
+        Permissao.VenderPacote =>
+            "Vender pacote de sessões ao paciente e lançar consumo. É bit próprio de "
+            + "propósito: quem vende as dez sessões é o BALCÃO, com o paciente na frente, "
+            + "e dar o financeiro inteiro a ele abriria junto o caixa e as contas.",
         Permissao.EditarFinanceiro => "Lançar, realizar e cancelar movimento de caixa.",
 
         Permissao.VerFaturamento => "Ler guias, pendências, lotes e a consulta de guias.",

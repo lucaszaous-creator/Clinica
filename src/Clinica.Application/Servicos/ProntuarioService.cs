@@ -165,14 +165,6 @@ public sealed class ProntuarioService
         => _repo.VersoesDaEvolucaoAsync(evolucaoId, ct);
 
     /// <summary>
-    /// O prontuário INTEIRO do paciente, canceladas incluídas — a leitura da guarda de 20
-    /// anos e da exportação. A tela do dia a dia usa <see cref="DoPacienteAsync"/>.
-    /// </summary>
-    public Task<IReadOnlyList<Evolucao>> DoPacienteComCanceladasAsync(
-        int pacienteId, CancellationToken ct = default)
-        => _repo.EvolucoesDoPacienteAsync(pacienteId, true, ct);
-
-    /// <summary>
     /// CANCELA uma sessão do prontuário. Não apaga (parcela 52).
     ///
     /// Até aqui este método chamava <c>Remove()</c> no banco, e levava os anexos junto.
@@ -215,6 +207,86 @@ public sealed class ProntuarioService
             PacienteId = evolucao.PacienteId
         }, ct);
 
+        await _repo.SalvarAsync(ct);
+    }
+
+    // ==================== Modelos de evolução (parcela 63) ====================
+
+    /// <summary>
+    /// Os modelos que este profissional enxerga: os DELE mais os da clínica.
+    ///
+    /// A sessão de acupuntura tem sempre a mesma forma, e era redigitada por inteiro toda
+    /// vez — <c>ModeloDocumento</c> existia desde a parcela 3 e servia só aos papéis
+    /// impressos, enquanto a evolução, que é o texto mais escrito do sistema, não tinha
+    /// nada.
+    /// </summary>
+    public Task<IReadOnlyList<ModeloEvolucao>> ModelosAsync(
+        int? profissionalId = null, CancellationToken ct = default)
+        => _repo.ModelosEvolucaoAsync(profissionalId, ct);
+
+    /// <summary>
+    /// Grava um modelo. Nome repetido para o MESMO dono sobrescreve em vez de duplicar —
+    /// é o que quem clica "salvar como modelo" pela segunda vez espera, e é a mesma regra
+    /// do modelo de documento.
+    /// </summary>
+    public async Task<ModeloEvolucao> SalvarModeloAsync(
+        ModeloEvolucao modelo, string? operador = null, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(modelo.Nome))
+            throw new InvalidOperationException("Dê um nome ao modelo.");
+
+        // Modelo vazio, aplicado, apagaria o que já estava escrito na sessão — e o
+        // profissional não teria como saber que foi ele. Recusar na gravação é barato.
+        if (!modelo.TemConteudo)
+            throw new InvalidOperationException(
+                "O modelo não tem nenhuma linha preenchida. Escreva ao menos um campo — "
+                + "modelo vazio, aplicado, limparia a sessão em vez de preenchê-la.");
+
+        modelo.Nome = modelo.Nome.Trim();
+
+        var existente = await _repo.ObterModeloEvolucaoPorNomeAsync(
+            modelo.ProfissionalId, modelo.Nome, ct);
+
+        if (existente is not null && existente.Id != modelo.Id)
+        {
+            existente.QueixaPrincipal = modelo.QueixaPrincipal;
+            existente.Conduta = modelo.Conduta;
+            existente.TextoEvolucao = modelo.TextoEvolucao;
+            existente.Orientacoes = modelo.Orientacoes;
+            existente.Ordem = modelo.Ordem;
+            existente.Ativo = true;
+            existente.AtualizadoEm = DateTime.Now;
+
+            await _repo.SalvarAsync(ct);
+            return existente;
+        }
+
+        if (modelo.Id == 0)
+        {
+            modelo.CriadoPor = operador;
+            await _repo.AdicionarModeloEvolucaoAsync(modelo, ct);
+        }
+        else
+        {
+            modelo.AtualizadoEm = DateTime.Now;
+        }
+
+        await _repo.SalvarAsync(ct);
+        return modelo;
+    }
+
+    /// <summary>
+    /// Apaga um modelo — e apagar aqui é APAGAR mesmo, ao contrário de tudo o que é
+    /// prontuário neste sistema.
+    ///
+    /// A diferença é o que ele é: não registra o que aconteceu com nenhum paciente, é
+    /// rascunho de apoio. E como aplicar COPIA o texto para a sessão, nenhuma evolução
+    /// escrita com ele muda quando ele some. É a mesma decisão da parcela 25 para o
+    /// protocolo do mapa corporal e o modelo de documento.
+    /// </summary>
+    public async Task RemoverModeloAsync(int modeloId, CancellationToken ct = default)
+    {
+        await _repo.RemoverModeloEvolucaoAsync(modeloId, ct);
         await _repo.SalvarAsync(ct);
     }
 

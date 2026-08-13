@@ -182,6 +182,21 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     /// <summary>Metade VISÍVEL da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
+    public bool TemPaciente => !SemPaciente;
+
+    /// <summary>
+    /// Sem paciente escolhido não há lista de problemas onde escrever, e o botão diz isso
+    /// apagado — a tela abre pela sidebar sem ninguém em foco, e botão aceso que não faz
+    /// nada faz quem clica concluir que o sistema quebrou (parcela 41).
+    /// </summary>
+    public bool PodeNovoProblema => TemPaciente && PodeEditarProntuario;
+
+    partial void OnSemPacienteChanged(bool value)
+    {
+        OnPropertyChanged(nameof(TemPaciente));
+        OnPropertyChanged(nameof(PodeNovoProblema));
+    }
+
     public ProntuarioClinicoViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar,
         IDialogoService dialogo, PacienteEmFoco foco)
@@ -211,9 +226,19 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
     partial void OnIncluirProblemasEncerradosChanged(bool value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a tela recarrega a cada tecla do
+    /// filtro de sessão, e a resposta do termo ANTIGO chegando por último ANEXARIA as
+    /// sessões dele à lista do termo novo — com o resumo dizendo "3 de 40 contêm X" sobre
+    /// uma lista que tem outra coisa. Quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         SemPaciente = PacienteId == 0;
         Sessoes.Clear();
         Problemas.Clear();
@@ -260,6 +285,9 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
             var correcoes = await prontuario.ContagemDeVersoesAsync(
                 filtradas.Select(e => e.Id).ToList());
 
+            // Chegou tarde: outra tecla já pediu uma carga mais nova.
+            if (geracao != _geracaoCarga) return;
+
             foreach (var e in filtradas)
                 Sessoes.Add(LinhaSessaoProntuario.De(
                     e,
@@ -272,10 +300,12 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
                 // sozinho faria o profissional concluir que o paciente veio três vezes.
                 : $"{Sessoes.Count} de {todas.Count} sessão(ões) contêm “{termo}”.";
 
-            await CarregarProblemasAsync(scope.ServiceProvider);
+            await CarregarProblemasAsync(scope.ServiceProvider, geracao);
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — prontuário não pôde ser carregado", ex);
@@ -284,7 +314,8 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -292,13 +323,16 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
     /// A lista de problemas falha SOZINHA: o prontuário não pode deixar de abrir porque
     /// uma consulta quebrou. É a mesma regra dos blocos do painel da direção.
     /// </summary>
-    private async Task CarregarProblemasAsync(IServiceProvider servicos)
+    private async Task CarregarProblemasAsync(IServiceProvider servicos, int geracao)
     {
         try
         {
             var servico = servicos.GetRequiredService<ProblemaPacienteService>();
             var lista = await servico.DoPacienteAsync(
                 PacienteId, somenteAtivos: !IncluirProblemasEncerrados);
+
+            // Chegou tarde: outra carga já está no ar, e a lista é dela.
+            if (geracao != _geracaoCarga) return;
 
             foreach (var p in lista) Problemas.Add(LinhaProblema.De(p));
 
@@ -315,6 +349,8 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         {
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — lista de problemas não pôde ser lida", ex);
+
+            if (geracao != _geracaoCarga) return;
 
             // Terceiro estado, dito no lugar onde o profissional olha: lista vazia por
             // falha não pode se parecer com "este paciente não tem alergia nenhuma".
@@ -388,7 +424,8 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
         try
         {
             var vm = new AnexosSessaoViewModel(
-                _escopos, linha.EvolucaoId, $"Sessão de {linha.Data} — {Paciente}");
+                _escopos, linha.EvolucaoId, $"Sessão de {linha.Data} — {Paciente}",
+                PacienteId);
 
             new AnexosSessaoWindow(vm)
             {
@@ -418,7 +455,15 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
     private async Task AbrirProblemaAsync(ProblemaPaciente? existente)
     {
-        if (PacienteId == 0) return;
+        if (PacienteId == 0)
+        {
+            // A guarda DIZ por que não dá, em vez de voltar calada (parcela 41): o botão
+            // apagado explica, e esta é a metade que impede quem chega por atalho.
+            Mensagem = "Escolha um paciente antes de registrar um problema — a lista é do "
+                     + "prontuário de alguém.";
+            MensagemEhErro = true;
+            return;
+        }
 
         try
         {

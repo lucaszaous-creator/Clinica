@@ -6,6 +6,7 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
 
         <!-- ===== A RAIA do quadro =====
              Cinco raias, um template. A raia NÃO é um Card com borda: cinco cartões
@@ -15,11 +16,14 @@
 
              Raia vazia mostra um traço, nunca vão branco: quatro raias vazias sem marca
              nenhuma viram um buraco de mil pixels ao lado da única que tem conteúdo. -->
+        <!-- AllowDrop: a raia é o alvo do cartão arrastado (parcela 61) — os handlers
+             moram no code-behind, como na fila do balcão. -->
         <Style x:Key="RaiaDoQuadro" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource Brush.LinhaAlt}" />
             <Setter Property="CornerRadius" Value="{StaticResource Raio.Grande}" />
             <Setter Property="Padding" Value="10,10,10,4" />
             <Setter Property="Margin" Value="0,0,10,0" />
+            <Setter Property="AllowDrop" Value="True" />
         </Style>
 
         <!-- ===== O cartão =====
@@ -28,7 +32,9 @@
              botões, e eles se acendem pelo estado do próprio cartão. -->
         <DataTemplate x:Key="CartaoDoDia">
             <Border Padding="12,10" Margin="0,0,0,8"
-                    CornerRadius="{StaticResource Raio.Medio}" BorderThickness="1">
+                    CornerRadius="{StaticResource Raio.Medio}" BorderThickness="1"
+                    PreviewMouseLeftButtonDown="AoPressionarCartao"
+                    MouseMove="AoMoverSobreCartao">
                 <Border.Style>
                     <Style TargetType="Border">
                         <Setter Property="Background" Value="{StaticResource Brush.Superficie}" />
@@ -113,6 +119,8 @@
                          vinte cartões parecer um formulário. -->
                     <WrapPanel Margin="0,4,0,0">
                         <Button Content="Chamar" Margin="0,0,6,4"
+                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
+                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 Visibility="{Binding PodeChamar,
                                              Converter={StaticResource BoolParaVisibilidade}}"
                                 Command="{Binding DataContext.ChamarCommand,
@@ -120,9 +128,33 @@
                                 CommandParameter="{Binding}" />
                         <Button Content="Desfazer" Margin="0,0,6,4"
                                 Style="{StaticResource BotaoAcaoGridSecundario}"
+                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
+                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 Visibility="{Binding PodeDesfazerChamada,
                                              Converter={StaticResource BoolParaVisibilidade}}"
                                 Command="{Binding DataContext.DesfazerChamadaCommand,
+                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}" />
+                        <!-- As transições que faltavam (parcela 61): sem elas a coluna EM
+                             ATENDIMENTO do quadro do médico só enchia se o BALCÃO clicasse. -->
+                        <Button Content="Entrou" Margin="0,0,6,4"
+                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                ToolTip="O paciente entrou na sala. Entrar sem ter sido chamado carimba a chamada junto."
+                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
+                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                Visibility="{Binding PodeEntrar,
+                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                Command="{Binding DataContext.EntrarCommand,
+                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                CommandParameter="{Binding}" />
+                        <Button Content="Voltar" Margin="0,0,6,4"
+                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                ToolTip="Desfaz o &quot;entrou&quot; clicado por engano — um passo por vez."
+                                IsEnabled="{Binding DataContext.PodeMovimentarFila,
+                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                Visibility="{Binding PodeVoltarEtapa,
+                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                Command="{Binding DataContext.VoltarEtapaCommand,
                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 CommandParameter="{Binding}" />
                         <Button Content="{Binding RotuloRegistro}" Margin="0,0,0,4"
@@ -210,7 +242,7 @@
 
                     <Button MinWidth="200" Padding="16,8"
                             Command="{Binding ChamarProximoCommand}"
-                            IsEnabled="{Binding TemProximo}"
+                            IsEnabled="{Binding PodeChamarProximo}"
                             Visibility="{Binding EhHoje,
                                          Converter={StaticResource BoolParaVisibilidade}}">
                         <Button.Style>
@@ -228,8 +260,23 @@
             </StackPanel>
         </Grid>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- A mensagem aparece SEMPRE que existe — o recado "Ana foi chamada, a recepção
+             já está vendo" também é saída, e saída sem tela é o defeito da parcela 53.
+             Só a COR muda com o erro. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background"
+                                    Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
@@ -249,7 +296,12 @@
                         <ColumnDefinition Width="*" MinWidth="200" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0" Style="{StaticResource RaiaDoQuadro}">
+                    <!-- Tag = o EtapaFila alvo do arrasto. Todas as cinco recebem o solto,
+                         mesmo as que não aceitam movimento (aguardando, finalizados):
+                         movimento impossível não é silêncio — o ViewModel diz por quê. -->
+                    <Border Grid.Column="0" Style="{StaticResource RaiaDoQuadro}" Tag="Aguardando"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="AGUARDANDO"
                                                 Itens="{Binding Aguardando}" />
@@ -260,7 +312,9 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Column="1" Style="{StaticResource RaiaDoQuadro}">
+                    <Border Grid.Column="1" Style="{StaticResource RaiaDoQuadro}" Tag="Chegou"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="NA RECEPÇÃO"
                                                 Itens="{Binding NaRecepcao}" />
@@ -271,7 +325,9 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Column="2" Style="{StaticResource RaiaDoQuadro}">
+                    <Border Grid.Column="2" Style="{StaticResource RaiaDoQuadro}" Tag="Chamado"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="CHAMADO"
                                                 Itens="{Binding Chamados}" />
@@ -282,7 +338,9 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Column="3" Style="{StaticResource RaiaDoQuadro}">
+                    <Border Grid.Column="3" Style="{StaticResource RaiaDoQuadro}" Tag="EmAtendimento"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="EM ATENDIMENTO"
                                                 Itens="{Binding EmAtendimento}" />
@@ -293,7 +351,10 @@
                         </DockPanel>
                     </Border>
 
-                    <Border Grid.Column="4" Style="{StaticResource RaiaDoQuadro}" Margin="0">
+                    <Border Grid.Column="4" Style="{StaticResource RaiaDoQuadro}" Margin="0"
+                            Tag="Finalizado"
+                            DragOver="AoArrastarSobreRaia" DragEnter="AoEntrarNaRaia"
+                            DragLeave="AoSairDaRaia" Drop="AoSoltarNaRaia">
                         <DockPanel>
                             <ctrl:CabecalhoRaia DockPanel.Dock="Top" Titulo="FINALIZADOS"
                                                 Itens="{Binding Finalizados}" />
@@ -308,8 +369,12 @@
 
             <!-- O vazio é do QUADRO INTEIRO: raia vazia sozinha é rotina do dia, e cada
                  uma já diz "—" no lugar dela. -->
+            <!-- NaoVerificado ligado (parcela 61): sem ele, banco fora do ar desenhava
+                 "Nenhum horário marcado" — falha com cara de dia vazio, na tela de
+                 abertura do médico. Era a ÚNICA tela do módulo sem esta ligação. -->
             <ctrl:EstadoDaTela Vazio="{Binding QuadroVazio}"
                                Carregando="{Binding Carregando}"
+                               NaoVerificado="{Binding NaoVerificado}"
                                Glifo="&#xE787;"
                                TextoCarregando="Montando o seu dia…"
                                Titulo="Nenhum horário marcado neste dia"

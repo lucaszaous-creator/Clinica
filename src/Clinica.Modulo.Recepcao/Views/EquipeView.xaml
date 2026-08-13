@@ -182,11 +182,14 @@
                                        FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0"
                                        Text="Férias, feriado, folga, sala em manutenção." />
                         </StackPanel>
+                        <!-- BotaoSecundario, como os vizinhos "Novo profissional" e "Nova
+                             sala": BotaoPequeno é de LINHA densa de grid (parcela 49), e
+                             aqui ele saía 10 px mais baixo que os outros dois cabeçalhos. -->
                         <Button Content="Fechar agenda…" HorizontalAlignment="Right"
                                 VerticalAlignment="Center"
-                                Style="{StaticResource BotaoPequeno}"
+                                Style="{StaticResource BotaoSecundario}"
                                 Command="{Binding NovoBloqueioCommand}"
-                                IsEnabled="{Binding PodeGerenciarEquipe}" />
+                                IsEnabled="{Binding PodeEditarAgenda}" />
                     </Grid>
 
                     <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" MaxWidth="820" Margin="0,0,0,8"
@@ -266,7 +269,7 @@
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Reabrir"
                                                         Style="{StaticResource BotaoPequeno}"
-                                                        IsEnabled="{Binding DataContext.PodeGerenciarEquipe,
+                                                        IsEnabled="{Binding DataContext.PodeEditarAgenda,
                                                                     RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         Command="{Binding DataContext.ExcluirBloqueioCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"

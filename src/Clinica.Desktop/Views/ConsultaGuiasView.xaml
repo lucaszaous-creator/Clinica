@@ -112,6 +112,13 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Data" Binding="{Binding Atendimento.Data, StringFormat=dd/MM/yyyy}" Width="Auto" />
                 <DataGridTextColumn Header="Atend. nº" Binding="{Binding Atendimento.Numero}" Width="Auto" />
+                <!-- Quem LANÇOU o atendimento (parcela 58). A direção pediu isso: a
+                     trilha de auditoria responde "quem fez isso?" desde a parcela 21, mas
+                     ela é outra tela, filtrada por período — e a pergunta que se faz
+                     auditando a consulta é sobre AQUELA linha. Vazio nas guias anteriores
+                     a esta parcela: inventar um nome seria pior. -->
+                <DataGridTextColumn Header="Lançou por" Binding="{Binding Atendimento.LancadoPor}"
+                                    Width="Auto" />
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
                                     Binding="{Binding Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
@@ -154,10 +161,23 @@
                 <DataGridTemplateColumn Header="Ações" Width="Auto">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <Button Content="Capa" Style="{StaticResource BotaoAcaoGridSecundario}"
-                                    ToolTip="Reimprimir a capa de faturamento deste atendimento"
-                                    Command="{Binding DataContext.CapaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
-                                    CommandParameter="{Binding}" />
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Capa" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        ToolTip="Reimprimir a capa de faturamento deste atendimento"
+                                        Command="{Binding DataContext.CapaCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+
+                                <!-- "O que aconteceu com esta guia?" — baixa, estorno,
+                                     glosa, lote, NC. A trilha existe desde a parcela 21 e
+                                     o faturamento, que é onde essas ações acontecem, não
+                                     tinha uma linha dela (parcela 63). -->
+                                <Button Content="Histórico" Margin="6,0,0,0"
+                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                        ToolTip="Quem mexeu nesta guia, quando e o quê"
+                                        IsEnabled="{Binding DataContext.PodeVerHistorico, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        Command="{Binding DataContext.HistoricoCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                        CommandParameter="{Binding}" />
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

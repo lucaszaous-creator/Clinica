@@ -6,6 +6,7 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <DockPanel Margin="24,20,24,24">
@@ -61,7 +62,7 @@
         </Grid>
 
         <Border DockPanel.Dock="Top" Margin="0,0,0,12"
-                Visibility="{Binding Mensagem, Converter={StaticResource BoolParaVisibilidade},
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
                              FallbackValue=Collapsed}">
             <Border.Style>
                 <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
@@ -173,8 +174,7 @@
                 <ctrl:EstadoDaTela Itens="{Binding Prescricoes}"
                                    Carregando="{Binding Carregando}"
                                    NaoVerificado="{Binding NaoVerificado}"
-                                   Visibility="{Binding TemPaciente,
-                                                Converter={StaticResource BoolParaVisibilidade}}"
+                                   Ativo="{Binding TemPaciente}"
                                    Glifo="&#xE95E;"
                                    TextoCarregando="Procurando prescrições…"
                                    Titulo="Nenhuma prescrição de infusão para este paciente"

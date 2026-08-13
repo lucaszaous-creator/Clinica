@@ -307,9 +307,36 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     [RelayCommand] private async Task ProximoDia() { Dia = Dia.AddDays(ModoSemana ? 7 : 1); await Recarregar(); }
     [RelayCommand] private async Task Hoje() { Dia = DateTime.Today; await Recarregar(); }
 
+    /// <summary>
+    /// Quem pode MARCAR horário por aqui (parcela 58).
+    ///
+    /// Todos os caminhos que abrem o cadastro passam por <see cref="AbrirCadastroAsync"/>,
+    /// e é por isso que a barreira mora lá: "Novo horário", "Remarcar" e o clique numa
+    /// faixa livre da grade são três portas para o mesmo ato, e checar em cada uma
+    /// cobriria as que alguém lembrasse.
+    ///
+    /// A direção pediu que o faturista não abra horário na agenda da clínica: quem marca
+    /// é o balcão, que tem o paciente na frente. O `Faturista` deixou de receber
+    /// `EditarAgenda` por padrão — ele continua VENDO a agenda (`VerAgenda`), que é o que
+    /// ele precisa para conferir o que foi atendido, e o bit volta num clique em Acessos
+    /// para quem a clínica quiser.
+    /// </summary>
+    public bool PodeAgendar { get; } = SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    /// <summary>
+    /// Confirmar presença é o ato que CRIA o atendimento e as guias — o bit é o de
+    /// lançar atendimento, não o de mexer na agenda: quem confere o dia (VerAgenda)
+    /// não gera guia por engano num clique.
+    /// </summary>
+    public bool PodeConfirmarPresenca { get; } = SessaoUsuario.Atual.Pode(Permissao.LancarAtendimento);
+
     /// <summary>Abre o cadastro de agendamento; com faixa, já vai com data e hora preenchidas.</summary>
     private async Task AbrirCadastroAsync(DateTime? inicio, int? agendamentoId = null)
     {
+        // Duas barreiras, as duas obrigatórias: o botão apagado EXPLICA, este Exigir
+        // IMPEDE — atalho de teclado e clique na faixa passam por cima do IsEnabled.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar ou remarcar horário");
+
         var janela = new Alertas.AgendamentoWindow(
             new AgendamentoEdicaoViewModel(_scopeFactory, _dialogo), inicio, agendamentoId)
         {
@@ -363,6 +390,10 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     private async Task ConfirmarPresenca(CartaoAgendamento? cartao)
     {
         if (cartao is null) return;
+
+        // Segunda barreira antes da pergunta: confirmar presença gera atendimento e guias.
+        SessaoUsuario.Atual.Exigir(Permissao.LancarAtendimento, "confirmar presença e gerar o atendimento");
+
         if (!_dialogo.Confirmar("Confirmar presença",
             $"Confirmar presença de {cartao.Paciente} e gerar o atendimento (códigos de faturamento)?")) return;
 
@@ -373,7 +404,8 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
             using (var scope = _scopeFactory.CreateScope())
             {
                 var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-                var resultado = await agenda.ConfirmarPresencaAsync(cartao.Item.Id);
+                var resultado = await agenda.ConfirmarPresencaAsync(
+                    cartao.Item.Id, operador: SessaoUsuario.Atual.Operador);
                 Mensagem = $"Atendimento gerado com {resultado.Atendimento.Codigos.Count} código(s).";
             }
 
@@ -393,6 +425,9 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     private async Task Cancelar(CartaoAgendamento? cartao)
     {
         if (cartao is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "cancelar o agendamento");
+
         if (!_dialogo.ConfirmarPerigo("Cancelar agendamento",
             $"Cancelar o horário de {cartao.Paciente} às {cartao.Hora}?")) return;
 
@@ -408,6 +443,9 @@ public partial class AgendaViewModel : ObservableObject, IAtalhosDeTela
     private async Task Faltou(CartaoAgendamento? cartao)
     {
         if (cartao is null) return;
+
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar falta");
+
         using (var scope = _scopeFactory.CreateScope())
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();

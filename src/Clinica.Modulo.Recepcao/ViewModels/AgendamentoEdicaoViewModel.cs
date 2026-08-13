@@ -89,6 +89,23 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// <summary>Pedido da lista de espera que originou este horário (fecha ao salvar).</summary>
     public int? PedidoListaEsperaId { get; set; }
 
+    /// <summary>
+    /// Profissional já escolhido por quem abriu o formulário — o clique num vão da coluna
+    /// dele na grade.
+    ///
+    /// É um ID e não a entidade porque a lista de profissionais é carregada do banco
+    /// DEPOIS do construtor: atribuir <see cref="Profissional"/> de fora nunca acharia o
+    /// item, e o combo abriria em branco justamente na coluna que a pessoa apontou.
+    /// </summary>
+    public int? ProfissionalPreferidoId { get; set; }
+
+    /// <summary>
+    /// A sala da coluna clicada, na visão por SALA (parcela 63) — o par do de cima, e
+    /// pela mesma razão: quem clicou no vão da Sala 2 às 14h não deve ter de escolher a
+    /// Sala 2 num combo logo em seguida.
+    /// </summary>
+    public int? SalaPreferidaId { get; set; }
+
     /// <summary>A janela fecha quando isto dispara — o comando de salvar segue assíncrono.</summary>
     public event Action? Concluido;
 
@@ -122,6 +139,16 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a conferência dispara a cada
+    /// TECLA da hora/duração e a cada troca de combo — num banco remoto, a resposta de
+    /// "14:0" chegando depois da de "14:30" apagaria o choque REAL (ou inventaria um que
+    /// não existe), e a recepção marcaria em cima. A cópia do faturamento já tinha guarda
+    /// equivalente; esta não tinha nenhuma. Quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoConflitos;
+    private int _geracaoElegibilidade;
+
+    /// <summary>
     /// Conferência da elegibilidade do paciente escolhido, na data escolhida.
     ///
     /// Falha aqui não impede marcar — mas também não passa em branco: sem o aviso, a
@@ -129,6 +156,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// </summary>
     private async Task ConferirElegibilidadeAsync()
     {
+        var geracao = ++_geracaoElegibilidade;
+
         Elegibilidade.Clear();
         OnPropertyChanged(nameof(TemAvisoElegibilidade));
 
@@ -140,17 +169,24 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
             var servico = scope.ServiceProvider.GetRequiredService<ElegibilidadeService>();
 
             var resultado = await servico.ConferirAsync(paciente.Id, DateOnly.FromDateTime(Data));
+
+            // Chegou tarde: a tela já está em outro paciente ou outra data.
+            if (geracao != _geracaoElegibilidade) return;
+
             foreach (var alerta in resultado.Alertas) Elegibilidade.Add(alerta.Descricao);
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoElegibilidade) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — elegibilidade não pôde ser conferida ao marcar", ex);
             Elegibilidade.Add("Não foi possível conferir carteirinha e cota agora.");
         }
         finally
         {
-            OnPropertyChanged(nameof(TemAvisoElegibilidade));
+            if (geracao == _geracaoElegibilidade)
+                OnPropertyChanged(nameof(TemAvisoElegibilidade));
         }
     }
 
@@ -179,8 +215,14 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
             Profissionais.Clear();
             foreach (var p in await equipe.ProfissionaisAtivosAsync()) Profissionais.Add(p);
 
+            if (ProfissionalPreferidoId is { } preferido)
+                Profissional = Profissionais.FirstOrDefault(p => p.Id == preferido);
+
             Salas.Clear();
             foreach (var s in await equipe.SalasAtivasAsync()) Salas.Add(s);
+
+            if (SalaPreferidaId is { } salaPreferida)
+                Sala = Salas.FirstOrDefault(s => s.Id == salaPreferida);
 
             await Seletor.BuscarAsync(imediato: true);
 
@@ -231,6 +273,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     /// </summary>
     private async Task ConferirConflitosAsync()
     {
+        var geracao = ++_geracaoConflitos;
+
         Conflitos.Clear();
         OnPropertyChanged(nameof(TemConflito));
 
@@ -246,6 +290,9 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                 pacienteId: Seletor.Selecionado?.Id,
                 ignorarAgendamentoId: _agendamentoId);
 
+            // Chegou tarde: outra tecla já pediu uma conferência mais nova.
+            if (geracao != _geracaoConflitos) return;
+
             foreach (var c in achados.Select(Descrever).Distinct())
                 Conflitos.Add(c);
         }
@@ -256,7 +303,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
         }
         finally
         {
-            OnPropertyChanged(nameof(TemConflito));
+            if (geracao == _geracaoConflitos)
+                OnPropertyChanged(nameof(TemConflito));
         }
     }
 
@@ -330,7 +378,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     pedidoId, dataHora, ModalidadeSelecionada.Base,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
                     duracaoMinutos: DuracaoInformada(), encaixe: Encaixe,
-                    modalidadeCodigo: ModalidadeSelecionada.Codigo);
+                    modalidadeCodigo: ModalidadeSelecionada.Codigo,
+                    operador: SessaoUsuario.Atual.Operador);
             }
             else if (EmSerie && PodeMarcarEmSerie)
             {
@@ -351,7 +400,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
-                    duracaoMinutos: DuracaoInformada());
+                    duracaoMinutos: DuracaoInformada(),
+                    operador: SessaoUsuario.Atual.Operador);
 
                 // A série que pulou datas NÃO fecha a janela em silêncio: a recepção
                 // precisa ver quais não entraram para resolver agora, com o paciente
@@ -376,7 +426,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
                     especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
-                    duracaoMinutos: DuracaoInformada(), encaixe: Encaixe);
+                    duracaoMinutos: DuracaoInformada(), encaixe: Encaixe,
+                    operador: SessaoUsuario.Atual.Operador);
             }
 
             Concluido?.Invoke();

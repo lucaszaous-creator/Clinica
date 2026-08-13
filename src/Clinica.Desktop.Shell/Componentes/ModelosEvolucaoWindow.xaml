@@ -1,0 +1,127 @@
+<Window x:Class="Clinica.Desktop.Shell.Componentes.ModelosEvolucaoWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Modelos de evolução" Width="760" Height="580"
+        MinWidth="640" MinHeight="460"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <DockPanel Margin="24">
+        <TextBlock DockPanel.Dock="Top" Text="Modelos de evolução"
+                   Style="{StaticResource DialogoTitulo}" HorizontalAlignment="Left" />
+        <TextBlock DockPanel.Dock="Top" Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                   Text="Aplicar COPIA o texto para esta sessão — daí em diante ele é dela. Corrigir o modelo depois não reescreve nenhuma sessão já salva, e nada é gravado até você salvar a evolução." />
+
+        <!-- ===== Rodapé: aplicar e fechar ===== -->
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
+                    HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Fechar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0"
+                    VerticalAlignment="Center" />
+            <Button Content="Aplicar nesta sessão" Command="{Binding AplicarCommand}"
+                    IsDefault="True" MinWidth="180" VerticalAlignment="Center"
+                    IsEnabled="{Binding PodeMexer}" />
+        </StackPanel>
+
+        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. -->
+        <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ===== Guardar o que está escrito ===== -->
+        <Border DockPanel.Dock="Bottom" Style="{StaticResource Card}" Margin="0,16,0,0">
+            <StackPanel>
+                <TextBlock Text="GUARDAR ESTA SESSÃO COMO MODELO"
+                           Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox Grid.Column="0" Text="{Binding NomeNovo, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="100" VerticalAlignment="Center"
+                             ctrl:Ajudantes.Placeholder="Nome do modelo (ex.: Sessão de acupuntura — lombar)" />
+
+                    <CheckBox Grid.Column="1" Content="Da clínica" IsChecked="{Binding ParaAClinica}"
+                              VerticalAlignment="Center" Margin="12,0,0,0"
+                              ToolTip="Marcado, o modelo aparece para toda a equipe. Desmarcado, é só seu." />
+
+                    <Button Grid.Column="2" Content="Guardar" Margin="12,0,0,0"
+                            Style="{StaticResource BotaoSecundario}" MinWidth="110"
+                            VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeMexer}"
+                            Command="{Binding SalvarComoModeloCommand}" />
+                </Grid>
+
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,8,0,0"
+                           Text="Guarda o que está escrito na evolução agora. Um nome já usado sobrescreve o modelo anterior."
+                           Visibility="{Binding TemTextoParaSalvar, Converter={StaticResource BoolParaVisibilidade}}" />
+            </StackPanel>
+        </Border>
+
+        <!-- ===== A lista ===== -->
+        <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+            <Grid>
+                <DockPanel>
+                    <Button DockPanel.Dock="Bottom" Content="Apagar o modelo escolhido"
+                            HorizontalAlignment="Left" Margin="0,10,0,0"
+                            Style="{StaticResource BotaoSecundarioPerigo}"
+                            IsEnabled="{Binding PodeMexer}"
+                            ToolTip="O modelo some da lista. As sessões escritas com ele NÃO mudam — o texto foi copiado para cada uma."
+                            Command="{Binding ApagarCommand}" />
+
+                    <ListBox ItemsSource="{Binding Modelos}" SelectedItem="{Binding Selecionado}"
+                             BorderThickness="0" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <Border Style="{StaticResource Badge.Info}" Margin="8,0,0,0"
+                                                Visibility="{Binding DaClinica,
+                                                             Converter={StaticResource BoolParaVisibilidade}}">
+                                            <TextBlock Text="{Binding Dono}" TextTrimming="CharacterEllipsis" />
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Previa}" Style="{StaticResource TextoSuave}"
+                                               TextWrapping="Wrap" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+
+                <!-- Último filho do Grid: é sobreposição, e "Ativo" entra no cálculo em vez
+                     de brigar com o binding de Visibility (a lição da parcela 58). -->
+                <ctrl:EstadoDaTela Itens="{Binding Modelos}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Titulo="Nenhum modelo ainda"
+                                   Descricao="Escreva uma evolução e guarde-a aqui — a próxima sessão parecida começa preenchida."
+                                   TextoNaoVerificado="Não foi possível ler os modelos." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</Window>

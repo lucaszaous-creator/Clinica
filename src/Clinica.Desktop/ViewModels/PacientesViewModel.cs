@@ -92,9 +92,16 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
         await Seletor.BuscarAsync(imediato: true);
     }
 
+    // As duas barreiras: a seção abre com VerFichaPaciente, e sem estas guardas quem
+    // tem só a leitura (Profissional, Enfermagem, Financeiro) criava, editava e excluía
+    // cadastro pelo app de faturamento — o mesmo fluxo que a Recepção já tranca.
+    public bool PodeEditarCadastro => SessaoUsuario.Atual.Pode(Permissao.EditarPaciente);
+
     /// <summary>Abre a janela de cadastro (vazia para novo, preenchida para edição).</summary>
     public async Task<bool> AbrirCadastroAsync(int? pacienteId)
     {
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "cadastrar ou editar paciente");
+
         var janela = new Alertas.PacienteEdicaoWindow(new PacienteEdicaoViewModel(_scopeFactory), pacienteId)
         {
             Owner = System.Windows.Application.Current.MainWindow
@@ -118,12 +125,28 @@ public partial class PacientesViewModel : ObservableObject, IAtalhosDeTela
     private async Task Excluir(Paciente? p)
     {
         if (p is null) return;
-        if (!_dialogo.ConfirmarPerigo("Confirmar exclusão",
-            $"Excluir o paciente \"{p.Nome}\"?\nTodos os atendimentos e códigos dele também serão removidos.")) return;
 
-        using var scope = _scopeFactory.CreateScope();
-        var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
-        await service.RemoverAsync(p.Id);
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "excluir paciente");
+
+        if (!_dialogo.ConfirmarPerigo("Confirmar exclusão",
+            $"Excluir o paciente \"{p.Nome}\"?\nTodos os atendimentos e códigos dele também serão removidos.\n\n"
+            + "Paciente com registro clínico (evolução, documento, prescrição) não pode ser "
+            + "excluído — a lei manda guardar o prontuário por 20 anos.")) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<PacienteService>();
+            await service.RemoverAsync(p.Id);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // A recusa do serviço (prontuário sob guarda legal) chega explicada, não
+            // como "erro inesperado" do handler global.
+            _dialogo.Aviso("Não foi possível excluir", ex.Message);
+            return;
+        }
+
         await Seletor.BuscarAsync(imediato: true);
     }
 

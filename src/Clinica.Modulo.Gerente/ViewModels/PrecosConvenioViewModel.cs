@@ -66,6 +66,49 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
 
     public ObservableCollection<LinhaPreco> Precos { get; } = [];
 
+    /// <summary>Tudo o que o banco devolveu; <see cref="Precos"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaPreco> _todas = [];
+
+    // ---- Filtro (em memória, sobre o que já foi lido). O cadastro guarda o histórico
+    // INTEIRO — cada reajuste é linha nova —, e a pergunta na renegociação é "quanto a
+    // Unimed paga hoje?": sem recorte, ela se responde varrendo linhas fora de vigência.
+    public const string TodosConvenios = "Todos os convênios";
+
+    /// <summary>As operadoras COM preço cadastrado — oferecer as sem linha daria filtro que só leva a vazio.</summary>
+    public ObservableCollection<string> ConveniosPreco { get; } = [TodosConvenios];
+
+    [ObservableProperty] private string _filtroConvenioPreco = TodosConvenios;
+
+    /// <summary>Só as linhas vigentes hoje — o que a conciliação está propondo agora.</summary>
+    [ObservableProperty] private bool _soValendoHoje;
+
+    /// <summary>O `Clear()` do combo devolve nulo pelo binding (lição da parcela 56) — remonta sob guarda.</summary>
+    private bool _montandoConvenios;
+
+    partial void OnSoValendoHojeChanged(bool value) => Refiltrar();
+    partial void OnFiltroConvenioPrecoChanged(string value)
+    {
+        if (value is null)
+        {
+            FiltroConvenioPreco = TodosConvenios;
+            return;
+        }
+        if (!_montandoConvenios) Refiltrar();
+    }
+
+    public bool FiltroAtivo => FiltroConvenioPreco != TodosConvenios || SoValendoHoje;
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroConvenioPreco = TodosConvenios;
+        SoValendoHoje = false;
+    }
+
+    /// <summary>O estado vazio muda de frase quando há filtro — "não há preço" e "nenhum bate com o filtro" são respostas diferentes.</summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "Nenhum preço cadastrado. Sem tabela, a conciliação continua pedindo o valor digitado — o sistema não inventa um valor de mercado.";
+
     [ObservableProperty] private string _resumo = string.Empty;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
@@ -95,20 +138,63 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
-            Precos.Clear();
+            _todas.Clear();
             foreach (var p in await precos.CatalogoAsync())
-                Precos.Add(LinhaPreco.De(p, hoje));
+                _todas.Add(LinhaPreco.De(p, hoje));
 
-            var vigentes = Precos.Count(p => p.ValendoAgora);
-            Resumo = Precos.Count == 0
-                ? "Nenhum preço cadastrado — a conciliação continua pedindo o valor digitado."
-                : $"{Precos.Count} preço(s) cadastrado(s) · {vigentes} valendo hoje.";
+            // As operadoras com preço, preservando a escolha quando ela ainda existe —
+            // atualizar não pode desfazer o filtro de quem está trabalhando na tabela.
+            var escolhido = FiltroConvenioPreco;
+            _montandoConvenios = true;
+            try
+            {
+                ConveniosPreco.Clear();
+                ConveniosPreco.Add(TodosConvenios);
+                foreach (var nome in _todas.Select(l => l.Convenio).Distinct().OrderBy(n => n))
+                    ConveniosPreco.Add(nome);
+                FiltroConvenioPreco = ConveniosPreco.Contains(escolhido)
+                    ? escolhido : TodosConvenios;
+            }
+            finally
+            {
+                _montandoConvenios = false;
+            }
+
+            Refiltrar();
         }
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Gerente — tabela de preço não pôde ser lida", ex);
             Erro($"Não foi possível ler a tabela: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco (o padrão
+    /// da tela de Consultas da Recepção).
+    /// </summary>
+    private void Refiltrar()
+    {
+        Precos.Clear();
+        foreach (var p in _todas.Where(p =>
+                     (FiltroConvenioPreco == TodosConvenios || p.Convenio == FiltroConvenioPreco)
+                     && (!SoValendoHoje || p.ValendoAgora)))
+            Precos.Add(p);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O resumo DIZ que está filtrado: "6 preços" e "6 de 30 no filtro" respondem
+        // perguntas diferentes. O "valendo hoje" continua sendo o do TOTAL.
+        var vigentes = _todas.Count(p => p.ValendoAgora);
+        Resumo = _todas.Count == 0
+            ? "Nenhum preço cadastrado — a conciliação continua pedindo o valor digitado."
+            : FiltroAtivo
+                ? $"{Precos.Count} de {_todas.Count} preço(s) no filtro · {vigentes} valendo hoje no total."
+                : $"{Precos.Count} preço(s) cadastrado(s) · {vigentes} valendo hoje.";
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhum preço bate com o filtro — limpe-o para ver a tabela inteira."
+            : "Nenhum preço cadastrado. Sem tabela, a conciliação continua pedindo o valor digitado — o sistema não inventa um valor de mercado.";
     }
 
     /// <summary>

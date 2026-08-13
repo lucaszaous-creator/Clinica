@@ -12,6 +12,74 @@ namespace Clinica.Domain.Entities;
 /// de a guia existir (a sessão acontece, o faturamento vem depois), e uma sessão
 /// particular pode nunca gerar guia nenhuma.
 /// </summary>
+/// <summary>
+/// Um MODELO de evolução (parcela 63): o roteiro da sessão que se repete.
+///
+/// A sessão de acupuntura da clínica tem sempre a mesma forma — a mesma estrutura de
+/// queixa, a mesma conduta de base, as mesmas orientações de fim — e era redigitada por
+/// inteiro toda vez. <c>ModeloDocumento</c> existia desde a parcela 3 e servia só aos
+/// papéis IMPRESSOS; a evolução, que é o texto escrito com mais frequência no sistema,
+/// não tinha nada.
+///
+/// <b>Aplicar COPIA, nunca aponta</b> — a mesma regra do protocolo do mapa corporal e da
+/// venda do pacote. Referência viva faria corrigir uma palavra do modelo hoje reescrever
+/// o prontuário da sessão da semana passada, que é exatamente o que a Lei 13.787/2018
+/// proíbe. Depois de aplicado, o texto é da SESSÃO e segue a vida dele.
+///
+/// Por isso o modelo <b>se apaga mesmo</b>, ao contrário de tudo o que é prontuário: ele
+/// não é registro do que aconteceu com ninguém, é um rascunho de apoio — e as sessões
+/// escritas com ele não mudam, porque não o referenciam. É a mesma decisão da parcela 25
+/// para o protocolo e o modelo de documento.
+/// </summary>
+public class ModeloEvolucao
+{
+    public int Id { get; set; }
+
+    /// <summary>Como o profissional o encontra na lista ("Sessão de acupuntura — lombar").</summary>
+    public string Nome { get; set; } = string.Empty;
+
+    /// <summary>
+    /// De quem é o modelo. Nulo = da CLÍNICA, e todo mundo vê.
+    ///
+    /// A separação existe porque cada profissional escreve de um jeito, e um modelo
+    /// pessoal na lista de todos vira ruído para os outros cinco. O da clínica é o
+    /// padrão combinado; o pessoal é o atalho de quem o escreveu.
+    /// </summary>
+    public int? ProfissionalId { get; set; }
+    public Profissional? Profissional { get; set; }
+
+    public string? QueixaPrincipal { get; set; }
+
+    public string? Conduta { get; set; }
+
+    public string? TextoEvolucao { get; set; }
+
+    public string? Orientacoes { get; set; }
+
+    public bool Ativo { get; set; } = true;
+
+    public int Ordem { get; set; }
+
+    public DateTime CriadoEm { get; set; } = DateTime.Now;
+
+    public string? CriadoPor { get; set; }
+
+    public DateTime? AtualizadoEm { get; set; }
+
+    /// <summary>Da clínica inteira, e não de uma pessoa.</summary>
+    public bool DaClinica => ProfissionalId is null;
+
+    /// <summary>
+    /// Modelo sem uma única linha preenchida não serve para nada e, aplicado, apagaria o
+    /// que já estava escrito na sessão. Vale a pena recusar na gravação.
+    /// </summary>
+    public bool TemConteudo =>
+        !string.IsNullOrWhiteSpace(QueixaPrincipal)
+        || !string.IsNullOrWhiteSpace(Conduta)
+        || !string.IsNullOrWhiteSpace(TextoEvolucao)
+        || !string.IsNullOrWhiteSpace(Orientacoes);
+}
+
 public class Evolucao
 {
     public int Id { get; set; }

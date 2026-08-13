@@ -362,8 +362,15 @@ public class AgendaMultiprofissionalTests : IDisposable
             "o atendimento e os códigos já existem — o caminho é estornar");
     }
 
+    /// <summary>
+    /// Confirmar presença não cria horário nenhum — nem herdando profissional e sala.
+    ///
+    /// O teste antigo fixava a herança do "retorno sugerido" do 2º código. Ele deixou de
+    /// existir na parcela 58: guia não é atendimento, e materializar a pendência como
+    /// horário punha na agenda do profissional um paciente que não vem.
+    /// </summary>
     [Fact]
-    public async Task ConfirmarPresenca_RetornoSugeridoHerdaProfissionalESala()
+    public async Task ConfirmarPresenca_NaoOcupaAAgendaDoProfissionalComOSegundoCodigo()
     {
         var prof = await CriarProfissionalAsync();
         var sala = await CriarSalaAsync();
@@ -373,10 +380,8 @@ public class AgendaMultiprofissionalTests : IDisposable
 
         await _agenda.ConfirmarPresencaAsync(ag.Id);
 
-        var retorno = await _db.Agendamentos.AsNoTracking()
-            .FirstAsync(a => a.Origem == OrigemAgendamento.RetornoSugerido);
-        retorno.ProfissionalId.Should().Be(prof.Id, "continuidade é o padrão");
-        retorno.SalaId.Should().Be(sala.Id);
+        (await _db.Agendamentos.AsNoTracking().CountAsync()).Should().Be(1,
+            "a agenda do profissional não recebe horário por causa de uma guia pendente");
     }
 
     public void Dispose()

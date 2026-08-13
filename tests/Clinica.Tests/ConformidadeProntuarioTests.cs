@@ -150,6 +150,38 @@ public class ConformidadeProntuarioTests : IDisposable
     }
 
     [Fact]
+    public async Task Excluir_paciente_com_registro_clinico_e_RECUSADO()
+    {
+        // A porta que o teste acima não via: RemoverPacienteAsync não apaga "só a ficha" —
+        // as FKs clínicas apagam em CASCATA, e o prontuário inteiro iria junto. Ficha
+        // vazia (cadastro por engano) pode sair; ficha com prontuário, nunca.
+        var pacienteId = await CriarPacienteAsync();
+        await SessaoAsync(pacienteId, Dia);
+
+        var pacientes = new PacienteService(_repo);
+
+        var recusa = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => pacientes.RemoverAsync(pacienteId));
+        recusa.Message.Should().Contain("20 anos", "a recusa explica a guarda legal");
+        recusa.Message.Should().Contain("anonimiza", "e aponta o caminho certo (LGPD art. 16, II)");
+
+        (await _db.Pacientes.AnyAsync(p => p.Id == pacienteId)).Should().BeTrue();
+        (await _db.Evolucoes.AnyAsync(e => e.PacienteId == pacienteId)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Excluir_ficha_VAZIA_continua_permitido()
+    {
+        // A recusa não pode virar trava geral: a duplicata cadastrada por engano, sem um
+        // único registro clínico, é exatamente o caso em que remover é o certo.
+        var pacienteId = await CriarPacienteAsync("Duplicada Sem Uso");
+
+        await new PacienteService(_repo).RemoverAsync(pacienteId);
+
+        (await _db.Pacientes.AnyAsync(p => p.Id == pacienteId)).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Corrigir_a_sessao_preserva_o_texto_anterior_recuperavel()
     {
         var paciente = await CriarPacienteAsync();
@@ -389,6 +421,55 @@ public class ConformidadeProntuarioTests : IDisposable
             .Single(a => a.Nome == "prontuario-sessoes.csv").Conteudo;
 
         sessoes.Should().Contain("\"agulhamento; sem intercorrência\nretorno em 7 dias\"");
+    }
+
+    [Fact]
+    public async Task A_exportacao_leva_a_lista_de_problemas_com_as_ALERGIAS()
+    {
+        // A lacuna que a auditoria achou: o prontuário exportado saía SEM as alergias —
+        // o próximo fornecedor receberia um paciente "sem alergia nenhuma".
+        var paciente = await CriarPacienteAsync("Alérgica Conhecida");
+        _db.ProblemasPaciente.Add(new ProblemaPaciente
+        {
+            PacienteId = paciente,
+            Natureza = NaturezaProblema.Alergia,
+            Descricao = "dipirona",
+            CriadoPor = "dra.ana"
+        });
+        await _db.SaveChangesAsync();
+
+        var arquivos = await _exportacao.ExportarAsync();
+
+        var problemas = arquivos.Single(a => a.Nome == "prontuario-problemas.csv").Conteudo;
+        problemas.Should().Contain("Alergia").And.Contain("dipirona");
+
+        // E os arquivos novos existem mesmo vazios — coluna estável é contrato.
+        arquivos.Should().Contain(a => a.Nome == "prontuario-mapa-corporal.csv");
+        arquivos.Should().Contain(a => a.Nome == "prontuario-avaliacoes-respostas.csv");
+    }
+
+    [Fact]
+    public async Task A_guarda_conta_o_prazo_pelo_problema_quando_ele_e_o_ultimo_registro()
+    {
+        var paciente = await CriarPacienteAsync();
+        await SessaoAsync(paciente, Dia);
+
+        var inicioDoProblema = Dia.AddMonths(3);
+        _db.ProblemasPaciente.Add(new ProblemaPaciente
+        {
+            PacienteId = paciente,
+            Natureza = NaturezaProblema.Diagnostico,
+            Descricao = "lombalgia crônica",
+            Inicio = inicioDoProblema
+        });
+        await _db.SaveChangesAsync();
+
+        var situacao = await _guarda.DoPacienteAsync(paciente);
+
+        situacao.UltimoRegistro.Should().Be(inicioDoProblema,
+            "o prazo conta do ÚLTIMO registro de qualquer natureza — sem o problema na "
+            + "conta, um paciente cujo último fato clínico é um diagnóstico anotado teria "
+            + "o prazo calculado pelo registro errado");
     }
 
     [Fact]

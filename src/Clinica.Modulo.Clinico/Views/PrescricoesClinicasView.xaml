@@ -178,8 +178,7 @@
                 <ctrl:EstadoDaTela Itens="{Binding Documentos}"
                                    Carregando="{Binding Carregando}"
                                    NaoVerificado="{Binding NaoVerificado}"
-                                   Visibility="{Binding TemPaciente,
-                                                Converter={StaticResource BoolParaVisibilidade}}"
+                                   Ativo="{Binding TemPaciente}"
                                    Glifo="&#xE8A5;"
                                    TextoCarregando="Procurando documentos…"
                                    Titulo="Nenhum documento emitido para este paciente"

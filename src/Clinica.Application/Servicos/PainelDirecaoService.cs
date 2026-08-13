@@ -53,7 +53,14 @@ public enum AssuntoDirecao
     /// paga em reais: prontuário incompleto é risco legal e, quando a guia já foi
     /// faturada, é a glosa por falta de documentação esperando o convênio pedir o laudo.
     /// </summary>
-    ProntuarioEmAberto
+    ProntuarioEmAberto,
+
+    /// <summary>
+    /// Folhas de infusão assinadas hoje que ainda têm item sem checagem. A sala vê a
+    /// própria fila; a direção é quem enxerga a clínica inteira — e folha do dia que
+    /// termina sem checagem é administração sem o registro que responde por ela.
+    /// </summary>
+    InfusaoAguardando
 }
 
 /// <summary>Uma coisa que a direção precisa resolver, já escrita como se fala.</summary>
@@ -106,6 +113,12 @@ public sealed record PainelDirecao(
     /// cobrança sem o registro que a sustenta.
     /// </summary>
     int SessoesSemEvolucaoComGuia,
+
+    /// <summary>
+    /// Folhas de infusão de HOJE com item aguardando checagem (parcela 61). Vem do
+    /// <c>ChecagemPrescricaoService</c>, dono da leitura — o painel não recalcula.
+    /// </summary>
+    int FolhasInfusaoAguardando,
 
     int PendenciasVencidas,
     int PendenciasEmAberto,
@@ -187,6 +200,7 @@ public sealed class PainelDirecaoService
     private readonly MetaService _metas;
     private readonly ConsultorioService _consultorio;
     private readonly OrcamentoService _orcamentos;
+    private readonly ChecagemPrescricaoService _checagens;
 
     public PainelDirecaoService(
         IClinicaRepositorio repo,
@@ -200,12 +214,14 @@ public sealed class PainelDirecaoService
         ReceitaGlosadaService receitaGlosada,
         MetaService metas,
         OrcamentoService orcamentos,
-        ConsultorioService consultorio)
+        ConsultorioService consultorio,
+        ChecagemPrescricaoService checagens)
     {
         _receitaGlosada = receitaGlosada;
         _metas = metas;
         _consultorio = consultorio;
         _orcamentos = orcamentos;
+        _checagens = checagens;
         _repo = repo;
         _financeiro = financeiro;
         _contas = contas;
@@ -515,6 +531,32 @@ public sealed class PainelDirecaoService
             naoVerificados.Add("Prontuário em aberto");
         }
 
+        // ---- Sala de infusão (parcela 61) ----
+        //
+        // O mesmo argumento do prontuário em aberto, aplicado à enfermagem: a sala vê a
+        // própria fila, e ninguém via a soma. Folha assinada cujo dia termina com item sem
+        // checagem é administração sem o registro que responde por ela — ou medicação que
+        // não entrou e ninguém escreveu por quê.
+        var folhasInfusaoAguardando = 0;
+        try
+        {
+            folhasInfusaoAguardando = await _checagens.PendentesDoDiaAsync(hoje, null, ct);
+
+            if (folhasInfusaoAguardando > 0)
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.InfusaoAguardando,
+                    $"{folhasInfusaoAguardando} folha(s) de infusão com item aguardando checagem",
+                    "Folha assinada hoje e ainda sem a checagem completa da enfermagem. No "
+                    + "fim do dia isso é administração sem registro — ou item não feito sem "
+                    + "o motivo escrito.",
+                    GravidadeDirecao.Aviso));
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — sala de infusão não pôde ser lida", ex);
+            naoVerificados.Add("Sala de infusão");
+        }
+
         // ---- Glosa e o prazo de recurso ----
         int glosasVencidas = 0, glosasAVencer = 0;
         try
@@ -558,6 +600,7 @@ public sealed class PainelDirecaoService
             guiasGlosadas, valorGlosado,
             metas,
             sessoesSemEvolucao, sessoesSemEvolucaoComGuia,
+            folhasInfusaoAguardando,
             pendenciasVencidas, pendenciasAbertas,
             glosasVencidas, glosasAVencer,
             // Perigo primeiro. O painel é lido de cima para baixo, e a ordem é a única

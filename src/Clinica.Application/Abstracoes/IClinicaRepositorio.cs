@@ -129,6 +129,14 @@ public interface IClinicaRepositorio
     Task AdicionarPacienteAsync(Paciente paciente, CancellationToken ct = default);
     Task RemoverPacienteAsync(int pacienteId, CancellationToken ct = default);
 
+    /// <summary>
+    /// O paciente tem algum REGISTRO CLÍNICO (evolução, avaliação, medida, documento,
+    /// prescrição, problema)? É a pergunta que decide se a ficha pode ser removida:
+    /// as FKs clínicas apagam em cascata, e prontuário está sob guarda legal de 20 anos
+    /// (Lei 13.787/2018) — remover a linha do paciente levaria tudo junto, em silêncio.
+    /// </summary>
+    Task<bool> PacienteTemRegistroClinicoAsync(int pacienteId, CancellationToken ct = default);
+
     // ---- Retrato do paciente ----
 
     /// <summary>Foto em tamanho cheio do paciente (tabela à parte). Null quando não há retrato.</summary>
@@ -354,9 +362,14 @@ public interface IClinicaRepositorio
 
     Task<MedidaClinica?> ObterMedidaAsync(int medidaId, CancellationToken ct = default);
 
-    /// <summary>Série do paciente, da mais recente para a mais antiga; um tipo ou todos.</summary>
+    /// <summary>
+    /// Série do paciente, da mais recente para a mais antiga; um tipo ou todos.
+    /// <paramref name="incluirCanceladas"/> é para a EXPORTAÇÃO — a curva da tela nunca
+    /// desenha cancelada, mas o prontuário sob guarda a contém.
+    /// </summary>
     Task<IReadOnlyList<MedidaClinica>> MedidasDoPacienteAsync(
-        int pacienteId, string? tipoCodigo = null, CancellationToken ct = default);
+        int pacienteId, string? tipoCodigo = null, bool incluirCanceladas = false,
+        CancellationToken ct = default);
 
 
     // ---- Lista de problemas (parcela 37) ----
@@ -386,8 +399,14 @@ public interface IClinicaRepositorio
     /// data, e trazer junto as nove a dez respostas de cada aplicação multiplicaria por
     /// dez o que passa pela rede para desenhar uma tabela que não as mostra.
     /// </summary>
+    /// <param name="incluirCanceladas">
+    /// A EXPORTAÇÃO passa true: a cancelada fica fora da curva da tela, mas faz parte do
+    /// prontuário sob guarda — sem ela, o LEIA-ME da exportação prometia o que o arquivo
+    /// não continha.
+    /// </param>
     Task<IReadOnlyList<AvaliacaoClinica>> AvaliacoesDoPacienteAsync(
-        int pacienteId, string? instrumentoCodigo = null, CancellationToken ct = default);
+        int pacienteId, string? instrumentoCodigo = null, bool incluirCanceladas = false,
+        CancellationToken ct = default);
 
 
     /// <summary>
@@ -531,6 +550,26 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<int> PrescricoesInternasPendentesAsync(
         DateOnly data, int? profissionalId = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Modelos de evolução visíveis para um profissional (parcela 63): os DELE mais os da
+    /// clínica. Sem profissional informado, só os da clínica.
+    ///
+    /// O modelo de evolução é a única coisa "de prontuário" que se APAGA mesmo, e isso é
+    /// decisão: ele não registra o que aconteceu com ninguém — é rascunho de apoio, e
+    /// aplicar COPIA, então nenhuma sessão escrita com ele muda quando ele some.
+    /// </summary>
+    Task<IReadOnlyList<ModeloEvolucao>> ModelosEvolucaoAsync(
+        int? profissionalId = null, CancellationToken ct = default);
+
+    Task<ModeloEvolucao?> ObterModeloEvolucaoAsync(int modeloId, CancellationToken ct = default);
+
+    /// <summary>Pelo par dono+nome — salvar com nome repetido SOBRESCREVE em vez de duplicar.</summary>
+    Task<ModeloEvolucao?> ObterModeloEvolucaoPorNomeAsync(
+        int? profissionalId, string nome, CancellationToken ct = default);
+
+    Task AdicionarModeloEvolucaoAsync(ModeloEvolucao modelo, CancellationToken ct = default);
+    Task RemoverModeloEvolucaoAsync(int modeloId, CancellationToken ct = default);
 
     /// <summary>Modelos de documento, opcionalmente de um tipo só.</summary>
     Task<IReadOnlyList<ModeloDocumento>> ModelosDocumentoAsync(

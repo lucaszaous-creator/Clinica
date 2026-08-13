@@ -100,11 +100,18 @@ public sealed class GuardaProntuarioService
             ?? throw new InvalidOperationException("Paciente não encontrado.");
 
         // As canceladas entram: elas continuam sob guarda, e é justamente por isso que
-        // deixaram de ser apagadas.
+        // deixaram de ser apagadas. Vale para avaliação e medida também — até aqui as
+        // duas listas vinham sem as canceladas, e o prazo podia sair do registro errado.
         var sessoes = await _repo.EvolucoesDoPacienteAsync(pacienteId, true, ct);
-        var avaliacoes = await _repo.AvaliacoesDoPacienteAsync(pacienteId, null, ct);
-        var medidas = await _repo.MedidasDoPacienteAsync(pacienteId, null, ct);
+        var avaliacoes = await _repo.AvaliacoesDoPacienteAsync(
+            pacienteId, null, incluirCanceladas: true, ct);
+        var medidas = await _repo.MedidasDoPacienteAsync(
+            pacienteId, null, incluirCanceladas: true, ct);
         var documentos = await _repo.DocumentosDoPacienteAsync(pacienteId, ct);
+        // A lista de problemas também é registro datado do prontuário: um paciente cujo
+        // último fato clínico é um problema anotado (uma alergia descoberta, um
+        // diagnóstico) teria o prazo contado do registro errado sem ela.
+        var problemas = await _repo.ProblemasDoPacienteAsync(pacienteId, somenteAtivos: false, ct);
         // A folha de infusão é registro clínico como qualquer outro: ela diz o que entrou
         // no paciente e a que horas. Ficou de fora da primeira versão desta classe, o que
         // contrariava a própria regra 8 do CLAUDE.md — entidade clínica entra na guarda e
@@ -121,6 +128,10 @@ public sealed class GuardaProntuarioService
         // que interessa à guarda, e não o carimbo de criação da linha.
         foreach (var d in documentos) candidatos.Add((d.Data, "documento emitido"));
         foreach (var pr in prescricoes) candidatos.Add((pr.Data, "prescrição de infusão"));
+        // O problema entra pela data que ele CARREGA: o início declarado quando há, e o
+        // dia do registro quando não há (problema sem início ainda é fato anotado).
+        foreach (var pb in problemas)
+            candidatos.Add((pb.Inicio ?? DateOnly.FromDateTime(pb.CriadoEm), "problema anotado"));
 
         var ultimo = candidatos.Count == 0
             ? default((DateOnly Data, string Origem)?)

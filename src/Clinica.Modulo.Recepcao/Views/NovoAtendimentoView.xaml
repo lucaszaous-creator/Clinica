@@ -123,7 +123,13 @@
                                    Style="{StaticResource TextoSuave}"
                                    Foreground="{StaticResource Brush.Erro}" />
 
-                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                        <!-- ⚠️ `Grid.IsSharedSizeScope`: o `ItemPacienteLinha` alinha as colunas por
+                     `SharedSizeGroup`, e sem o ESCOPO declarado aqui cada linha resolve a
+                     largura sozinha — a linha que tem o selo "Carteirinha vencida" fica com a
+                     última coluna mais larga e empurra o telefone daquela linha para a
+                     esquerda. A lista deixa de ter colunas e vira uma pilha de linhas
+                     desalinhadas, que foi o que o cliente viu em produção. -->
+                <ListBox Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
                                  SelectedItem="{Binding Seletor.Selecionado}"
                                  ItemTemplate="{StaticResource ItemPacienteLinha}"
                                  BorderThickness="0" Background="Transparent"
@@ -283,6 +289,20 @@
                                        VerticalAlignment="Center" Margin="0,0,8,0" />
                             <DatePicker SelectedDate="{Binding Data}" Width="150"
                                         VerticalAlignment="Center" />
+                            <!-- A HORA existe desde a parcela 60: o avulso marca um encaixe
+                                 de verdade, e encaixe sem hora não é encaixe. Antes o
+                                 sistema carimbava 9h fixo, porque `Atendimento` só guarda a
+                                 data — e o horário aparecia na agenda dos médicos num
+                                 momento em que ninguém foi atendido. -->
+                            <TextBlock Text="Hora" Style="{StaticResource Rotulo}"
+                                       VerticalAlignment="Center" Margin="14,0,8,0" />
+                            <!-- 110 e não 80: o campo tem 12px de padding por lado (Padding.Campo),
+                                 e "00:00" nos 56px restantes saía cortado na escala de fonte do
+                                 balcão — o cliente mandou a foto do "12:4…". -->
+                            <TextBox Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
+                                     Width="110" MaxLength="5" TextAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     ToolTip="Hora da sessão. Entra na agenda como encaixe." />
                         </StackPanel>
                     </Grid>
                     <Separator Margin="0,4,0,10" />
@@ -615,7 +635,7 @@
                                     <ColumnDefinition Width="130" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE" Style="{StaticResource Rotulo}" Margin="0" />
+                                <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE / QUEM LANÇOU" Style="{StaticResource Rotulo}" Margin="0" />
                                 <TextBlock Grid.Column="1" Text="GUIAS" Style="{StaticResource Rotulo}" Margin="0" />
                                 <TextBlock Grid.Column="2" Text="ATENDIMENTO" Style="{StaticResource Rotulo}" Margin="0" />
                                 <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
@@ -636,6 +656,14 @@
                                                 <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Modalidade}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                <!-- Quem lançou (parcela 58). A conferência do dia é
+                                                     onde a pergunta da direção nasce, e até aqui a
+                                                     resposta só existia na trilha de auditoria — em
+                                                     outra tela e em outro app. -->
+                                                <TextBlock Text="{Binding Lancamento}"
                                                            FontSize="{StaticResource Fonte.Legenda}"
                                                            Foreground="{StaticResource Brush.Texto.Secundario}"
                                                            Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />

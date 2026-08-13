@@ -47,6 +47,34 @@ public class PendenciasFaturamentoTests : IDisposable
         return codigo;
     }
 
+    /// <summary>
+    /// A pendência carrega MODALIDADE e ESPECIALIDADE (parcela 61) — a resposta a
+    /// "12 pendências de quê?" dos filtros do painel. A especialidade segue o caminho da
+    /// consulta de guias (parcela 45): a do CÓDIGO quando ele a tem, senão a do
+    /// atendimento — sem o caminho de baixo, a guia de um atendimento com especialidade
+    /// declarada ficaria fora do filtro da própria especialidade.
+    /// </summary>
+    [Fact]
+    public async Task Pendencia_carrega_modalidade_e_especialidade_com_fallback()
+    {
+        var p = new Paciente { Nome = "Filtrada", Convenio = Convenio.UnimedIntercambio, Sexo = Sexo.Feminino };
+        _db.Pacientes.Add(p);
+        await _db.SaveChangesAsync();
+
+        var hoje = new DateOnly(2026, 8, 12);
+        var atendimentos = new AtendimentoService(_repo);
+        await atendimentos.LancarAsync(p.Id, hoje, ModalidadeAtendimento.Consulta,
+            especialidadeConsulta: Especialidade.Psiquiatria);
+
+        var pendencias = await _pendencias.CodigosPendentesAsync(hoje);
+
+        pendencias.Should().NotBeEmpty();
+        pendencias.Should().OnlyContain(x => x.Modalidade == ModalidadeAtendimento.Consulta);
+        // O código da consulta avulsa carrega a especialidade; quando não carregar, o
+        // fallback do atendimento responde — as duas fontes dão a MESMA resposta aqui.
+        pendencias.Should().OnlyContain(x => x.Especialidade == Especialidade.Psiquiatria);
+    }
+
     [Fact]
     public async Task GlosasARecorrer_SemaforoPorDiasRestantes()
     {

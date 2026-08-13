@@ -55,6 +55,48 @@ public sealed partial class CaixaViewModel : ObservableObject
 
     public ObservableCollection<LinhaCaixa> Linhas { get; } = [];
 
+    /// <summary>O que a última carga trouxe; <see cref="Linhas"/> é o recorte do filtro.</summary>
+    private readonly List<LinhaCaixa> _todas = [];
+
+    /// <summary>A última carga veio SEM o corte de 300 — dá para refiltrar em memória sem mentir.</summary>
+    private bool _cargaCompleta;
+
+    // ---- Filtro. Os rótulos são const porque a linha (StatusRotulo) e o combo usam os
+    // MESMOS — string repetida divergiria na primeira correção de texto.
+    public const string TodasSituacoes = "Todas";
+    public const string SituacaoPrevisto = "Previsto";
+    public const string SituacaoRealizado = "Realizado";
+    public const string SituacaoCancelado = "Cancelado";
+
+    // Strings, nunca o enum cru: `StatusLancamento` amarrado direto ao ComboBox sairia
+    // como identificador (o defeito da parcela 41). E o nome é único no repositório —
+    // a checagem 20 casa o ItemsSource pelo NOME num mapa global.
+    public string[] OpcoesSituacaoLancamento { get; } =
+        [TodasSituacoes, SituacaoPrevisto, SituacaoRealizado, SituacaoCancelado];
+
+    [ObservableProperty] private string _filtroTexto = string.Empty;
+    [ObservableProperty] private string _filtroSituacao = TodasSituacoes;
+
+    partial void OnFiltroTextoChanged(string value) => AplicarFiltro();
+    partial void OnFiltroSituacaoChanged(string value) => AplicarFiltro();
+
+    public bool FiltroAtivo =>
+        FiltroSituacao != TodasSituacoes || !string.IsNullOrWhiteSpace(FiltroTexto);
+
+    [RelayCommand]
+    private void LimparFiltro()
+    {
+        FiltroTexto = string.Empty;
+        FiltroSituacao = TodasSituacoes;
+    }
+
+    /// <summary>"N de M no filtro" — vazio sem filtro; o número mora junto do campo que corta.</summary>
+    [ObservableProperty] private string _resumoFiltro = string.Empty;
+
+    /// <summary>O estado vazio muda de frase quando há filtro (lição da lista de espera, parcela 25).</summary>
+    [ObservableProperty] private string _vazioDescricao =
+        "Receita de guia entra pela Conciliação, já vinculada.";
+
     [ObservableProperty]
     private DateTime _mes = new(DateTime.Today.Year, DateTime.Today.Month, 1);
 
@@ -132,9 +174,29 @@ public sealed partial class CaixaViewModel : ObservableObject
 
     partial void OnMesChanged(DateTime value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês (ou ativar um filtro,
+    /// que recarrega sem o corte) duas vezes rápido deixaria a lista de uma carga sob os
+    /// controles da outra — num banco remoto a leitura mais velha pode responder por último.
+    /// </summary>
+    private int _geracaoCarga;
+
+    /// <summary>
+    /// Filtro mudou: o corte de 300 linhas tornaria a busca MENTIROSA — "não achei" sobre
+    /// um mês pela metade se lê como "não existe". Com filtro ativo a carga vem sem
+    /// limite; com a carga completa em mãos (ou sem filtro), o recorte é só memória.
+    /// </summary>
+    private void AplicarFiltro()
+    {
+        if (FiltroAtivo && !_cargaCompleta) _ = CarregarAsync();
+        else Refiltrar();
+    }
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -142,15 +204,21 @@ public sealed partial class CaixaViewModel : ObservableObject
             var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
             var fim = inicio.AddMonths(1).AddDays(-1);
 
-            // Corte no banco. Os totais abaixo continuam saindo do mês INTEIRO (vêm da
-            // projeção, não desta lista), então limitar a exibição não falseia o saldo.
-            var lancamentos = await _financeiro.DoPeriodoAsync(inicio, fim, LimiteLinhas);
-            Truncado = lancamentos.Count >= LimiteLinhas;
-            Linhas.Clear();
+            // Corte no banco só SEM filtro. Os totais abaixo continuam saindo do mês
+            // INTEIRO (vêm da projeção, não desta lista), então limitar a exibição não
+            // falseia o saldo.
+            int? limite = FiltroAtivo ? null : LimiteLinhas;
+            var lancamentos = await _financeiro.DoPeriodoAsync(inicio, fim, limite);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
+            _cargaCompleta = limite is null;
+            _todas.Clear();
             foreach (var l in lancamentos)
             {
                 var entrada = l.Tipo == TipoLancamento.Entrada;
-                Linhas.Add(new LinhaCaixa
+                _todas.Add(new LinhaCaixa
                 {
                     Id = l.Id,
                     Data = l.Data.ToString("dd/MM"),
@@ -166,7 +234,11 @@ public sealed partial class CaixaViewModel : ObservableObject
                 });
             }
 
+            Refiltrar();
+
             var resumo = await _financeiro.ResumoAsync(inicio, fim);
+            if (geracao != _geracaoCarga) return;
+
             Entradas = $"{resumo.EntradasRealizadas:C}";
             Saidas = $"{resumo.SaidasRealizadas:C}";
             Saldo = $"{resumo.SaldoRealizado:C}";
@@ -177,14 +249,50 @@ public sealed partial class CaixaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — caixa não pôde ser carregado", ex);
             _snackbar.Erro($"Não foi possível carregar o caixa: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// Aplica o filtro sobre o que já foi lido — em memória, sem ida ao banco.
+    /// </summary>
+    private void Refiltrar()
+    {
+        Linhas.Clear();
+
+        var filtradas = _todas.Where(l =>
+            (FiltroSituacao == TodasSituacoes || l.StatusRotulo == FiltroSituacao)
+            // Descrição OU categoria: quem digita "aluguel" não sabe (nem deve saber)
+            // em qual das duas colunas o lançamento guarda a palavra.
+            && (Busca.Casa(l.Descricao, FiltroTexto) || Busca.Casa(l.Categoria, FiltroTexto)));
+
+        // Sem filtro o corte de exibição continua valendo; com filtro a lista é completa
+        // por construção — e o aviso "Truncado" NUNCA aparece, senão ele desdiria a busca.
+        if (!FiltroAtivo) filtradas = filtradas.Take(LimiteLinhas);
+        foreach (var l in filtradas) Linhas.Add(l);
+
+        Truncado = !FiltroAtivo
+                   && (_cargaCompleta ? _todas.Count > LimiteLinhas : _todas.Count >= LimiteLinhas);
+
+        OnPropertyChanged(nameof(FiltroAtivo));
+
+        // O resumo DIZ que está filtrado — e mora ao lado do campo que corta.
+        ResumoFiltro = FiltroAtivo
+            ? $"{Linhas.Count} de {_todas.Count} lançamento(s) no filtro"
+            : string.Empty;
+
+        VazioDescricao = FiltroAtivo
+            ? "Nenhum lançamento bate com o filtro — limpe-o para ver o mês inteiro."
+            : "Receita de guia entra pela Conciliação, já vinculada.";
     }
 
     /// <summary>
@@ -295,6 +403,10 @@ public sealed partial class CaixaViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        // O bit que a folha declara no catálogo (parcela 59): emitir recibo é escrever
+        // no financeiro, e a tela abre com só VerFinanceiro.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "emitir recibo");
+
         if (!linha.EhEntrada)
         {
             _snackbar.Erro("Só se dá recibo de dinheiro que entrou.");
@@ -386,11 +498,13 @@ public sealed partial class CaixaViewModel : ObservableObject
     [RelayCommand]
     private void ProximoMes() => Mes = Mes.AddMonths(1);
 
+    // As MESMAS consts do combo de filtro: o casamento do recorte é por texto, e uma
+    // string repetida aqui divergiria na primeira correção.
     private static string Rotular(StatusLancamento status) => status switch
     {
-        StatusLancamento.Previsto => "Previsto",
-        StatusLancamento.Realizado => "Realizado",
-        StatusLancamento.Cancelado => "Cancelado",
+        StatusLancamento.Previsto => SituacaoPrevisto,
+        StatusLancamento.Realizado => SituacaoRealizado,
+        StatusLancamento.Cancelado => SituacaoCancelado,
         _ => status.ToString()
     };
 }

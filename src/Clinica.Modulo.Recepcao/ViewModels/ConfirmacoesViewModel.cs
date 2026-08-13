@@ -66,6 +66,13 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeEditar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o dia dispara uma carga por
+    /// mudança, e a resposta do dia anterior pode chegar depois da do novo — a lista diria
+    /// "avisado" sobre as sessões do dia errado. Só a carga mais nova escreve na tela.
+    /// </summary>
+    private int _geracaoCarga;
+
     public ConfirmacoesViewModel(IServiceScopeFactory escopos)
     {
         _escopos = escopos;
@@ -77,7 +84,8 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
-        if (Carregando) return;
+        var geracao = ++_geracaoCarga;
+
         Carregando = true;
         try
         {
@@ -90,6 +98,9 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
             var dia = DateOnly.FromDateTime(Dia);
             var contatos = await campanhas.ContatosAsync(
                 TipoContato.ConfirmacaoSessao, null, dia, dia);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Contatos.Clear();
             foreach (var c in contatos.OrderBy(c => c.Agendamento?.DataHora))
@@ -121,13 +132,17 @@ public sealed partial class ConfirmacoesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Recepção — rodada de confirmação não pôde ser lida", ex);
             Erro($"Não foi possível ler a rodada: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

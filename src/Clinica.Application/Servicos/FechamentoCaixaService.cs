@@ -134,7 +134,7 @@ public sealed class FechamentoCaixaService
             Acao = "CaixaConferido",
             Detalhe = $"{dia:dd/MM/yyyy}: esperado {proposta.Esperado:C}, contado {valorContado:C}"
                       + (diferenca == 0m ? " — bateu" : $" — diferença de {diferenca:C}"),
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
 
@@ -166,7 +166,7 @@ public sealed class FechamentoCaixaService
         {
             Acao = "CaixaReaberto",
             Detalhe = $"{dia:dd/MM/yyyy}: {motivo.Trim()}",
-            Operador = operador ?? Environment.UserName
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador
         }, ct);
         await _repo.SalvarAsync(ct);
     }

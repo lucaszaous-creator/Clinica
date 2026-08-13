@@ -31,6 +31,42 @@
                    Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}"
                    Text="Seu acesso não está vinculado a um profissional cadastrado, então esta é a dívida da clínica inteira. Peça à direção para ligar o seu usuário ao seu cadastro em Profissionais e salas." />
 
+        <!-- ===== Filtro =====
+             Linha única acima da lista (REGRA DE LEIAUTE). O combo de profissional só
+             aparece no modo SEM VÍNCULO — com vínculo a lista já é de um profissional
+             só, e a caixinha não recortaria nada. -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroPacienteRegistro, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80"
+                             ctrl:Ajudantes.Placeholder="Parte do nome — o acento não atrapalha" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Width="220" Margin="16,0,0,0"
+                            Visibility="{Binding SemVinculo, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Text="Profissional" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding ProfissionaisDaLista}"
+                              SelectedItem="{Binding FiltroProfissionalRegistro}" />
+                </StackPanel>
+
+                <Button Grid.Column="2" Content="Limpar filtro" Margin="16,0,0,0"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
@@ -92,7 +128,7 @@
                                    Glifo="&#xE73E;"
                                    TextoCarregando="Procurando sessões sem registro…"
                                    Titulo="Prontuário em dia"
-                                   Descricao="Toda sessão atendida nos últimos dias já tem evolução escrita." />
+                                   Descricao="{Binding VazioDescricao}" />
             </Grid>
         </Border>
     </DockPanel>

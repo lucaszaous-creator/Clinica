@@ -1,6 +1,7 @@
 <UserControl x:Class="Clinica.Gerente.Views.NaoConformidadesGerencialView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -18,6 +19,43 @@
                     Style="{StaticResource BotaoSecundario}" Command="{Binding CarregarCommand}" />
         </Grid>
 
+        <!-- ===== Filtro =====
+             Linha única acima da lista (REGRA DE LEIAUTE). A pergunta desta tela é o
+             PADRÃO das justificativas, e padrão se acha estreitando — por convênio, ou
+             pelo termo que se repete ("documento", "carteirinha"). -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Convênio" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding ConveniosNc}"
+                              SelectedItem="{Binding FiltroConvenioNc}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Paciente ou justificativa" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding FiltroBuscaNc, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="120"
+                             ctrl:Ajudantes.Placeholder="Nome ou trecho da justificativa — o acento não atrapalha" />
+                </StackPanel>
+
+                <Button Grid.Column="4" Content="Limpar filtro"
+                        Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" />
+            </Grid>
+        </Border>
+
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
@@ -29,7 +67,9 @@
                            TextWrapping="Wrap" Margin="0,0,0,8"
                            Text="Cada linha é uma sessão que a clínica prestou e decidiu não faturar. A justificativa vem por extenso de propósito: o PADRÃO delas é o que interessa — dez NCs por 'paciente não trouxe o documento' é problema de processo no balcão, não dez acidentes." />
 
-                <TextBlock DockPanel.Dock="Top" Text="Nenhuma guia em não conformidade.">
+                <!-- A frase muda quando há filtro: "não há NC" e "nenhuma bate com o
+                     filtro" são respostas diferentes. -->
+                <TextBlock DockPanel.Dock="Top" Text="{Binding VazioDescricao}" TextWrapping="Wrap">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
                             <Setter Property="Visibility" Value="Collapsed" />

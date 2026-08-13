@@ -33,13 +33,11 @@
             </StackPanel>
         </Grid>
 
-        <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Acento.Tint}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
-                CornerRadius="{StaticResource Raio.Medio}" Padding="16,12" Margin="0,0,0,16">
-            <TextBlock TextWrapping="Wrap" MaxWidth="820"
-                       Foreground="{StaticResource Brush.Texto.Primario}"
-                       Text="O painel da direção compara o mês com o mês anterior — isso responde “melhorou?”, não “chegamos onde a gente disse que ia chegar?”. A meta declara o alvo, e o painel passa a medir desempenho contra a decisão, com aviso quando o ritmo do mês não alcança o alvo." />
-        </Border>
+        <!-- Contexto permanente é LINHA de texto, não faixa colorida (a regra do README). -->
+        <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" MaxWidth="820"
+                   HorizontalAlignment="Left" Margin="0,0,0,12"
+                   Style="{StaticResource TextoSuave}"
+                   Text="A meta declara o alvo: o painel deixa de comparar só com o mês anterior (“melhorou?”) e passa a medir contra a decisão (“chegamos aonde dissemos?”), avisando quando o ritmo do mês não alcança." />
 
         <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
                 Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">

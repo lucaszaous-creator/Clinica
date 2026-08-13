@@ -209,8 +209,12 @@
                                                 Width="{Binding LarguraBarra}" />
                                     </Border>
 
+                                    <!-- Altura fixa do cartão pede TETO no texto (parcela 50):
+                                         sem o MaxHeight, a frase de três linhas era cortada
+                                         pela base do cartão no meio de uma letra. -->
                                     <TextBlock Text="{Binding Situacao}" Margin="0,8,0,0"
-                                               TextWrapping="Wrap"
+                                               TextWrapping="Wrap" MaxHeight="34"
+                                               TextTrimming="CharacterEllipsis"
                                                FontSize="{StaticResource Fonte.Legenda}">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">

@@ -27,6 +27,13 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                <TextBox Width="110" VerticalAlignment="Center" Margin="0,0,8,0"
+                         Text="{Binding CodigoBusca, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="O código de conferência impresso na folha. Acha a prescrição de qualquer dia — a lista só mostra hoje." />
+                <Button Content="Abrir pelo código" MinWidth="130" VerticalAlignment="Center"
+                        Margin="0,0,12,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding AbrirPorCodigoCommand}" />
                 <CheckBox Content="Mostrar encerradas" VerticalAlignment="Center"
                           Margin="0,0,12,0" IsChecked="{Binding IncluirEncerradas}" />
                 <Button Content="Atualizar" MinWidth="110" VerticalAlignment="Center"
@@ -94,11 +101,23 @@
                                             </Border>
                                         </StackPanel>
 
-                                        <Button Grid.Column="2" Content="Abrir folha" MinWidth="130"
-                                                VerticalAlignment="Center"
-                                                Command="{Binding DataContext.AbrirCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Imprimir" MinWidth="100" Margin="0,0,8,0"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource BotaoSecundario}"
+                                                    ToolTip="A via de prescrição — a que se confere e assina à caneta durante a execução."
+                                                    Command="{Binding DataContext.ImprimirCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Content="Abrir folha" MinWidth="130"
+                                                    VerticalAlignment="Center"
+                                                    IsEnabled="{Binding DataContext.PodeChecar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.AbrirCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

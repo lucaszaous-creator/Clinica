@@ -6,14 +6,14 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Controle de glosas" Style="{StaticResource H1}" />
 
         <WrapPanel Grid.Row="1" Margin="0,0,0,10">
-            <CheckBox Content="Mostrar só glosas em aberto" IsChecked="{Binding SomenteEmAberto}" VerticalAlignment="Center" />
-            <Button Command="{Binding BuscarCommand}" Style="{StaticResource BotaoSecundario}" Margin="16,0,0,0">
+            <Button Command="{Binding BuscarCommand}" Style="{StaticResource BotaoSecundario}">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="&#xE72C;" Style="{StaticResource Icone}" FontSize="13" Margin="0,0,6,0" />
                     <TextBlock Text="Atualizar" />
@@ -40,8 +40,40 @@
                        Foreground="{StaticResource Brush.Erro}" />
         </WrapPanel>
 
+        <!-- ===== Filtro =====
+             O recorte roda em memória sobre a carga completa: é isso que dá o total
+             honesto do resumo — a caixinha "em aberto", ligada por padrão, escondia o
+             resto sem dizer que a lista era parcial. -->
+        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,10">
+            <WrapPanel>
+                <StackPanel Width="220" Margin="0,0,12,4">
+                    <TextBlock Text="Paciente" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding FiltroPaciente, UpdateSourceTrigger=PropertyChanged}"
+                             Style="{StaticResource CampoPesquisa}" />
+                </StackPanel>
+                <StackPanel Width="160" Margin="0,0,16,4">
+                    <TextBlock Text="Nº da guia" Style="{StaticResource Rotulo}" />
+                    <TextBox Text="{Binding FiltroGuia, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+                <CheckBox Content="Mostrar só glosas em aberto" IsChecked="{Binding SomenteEmAberto}"
+                          VerticalAlignment="Bottom" Margin="0,0,16,8" />
+                <CheckBox Content="Só prazo de recurso vencido" IsChecked="{Binding SoPrazoVencido}"
+                          VerticalAlignment="Bottom" Margin="0,0,16,8"
+                          ToolTip="Só as glosas cujo prazo de recorrer já passou — as que viraram decisão" />
+                <Button Content="Limpar filtro" Command="{Binding LimparFiltroCommand}"
+                        IsEnabled="{Binding FiltroAtivo}"
+                        Style="{StaticResource BotaoSecundario}"
+                        VerticalAlignment="Bottom" MinWidth="110" Margin="0,0,16,0" />
+                <!-- O resumo diz que a lista é PARCIAL: "5 em aberto de 40 no total" e
+                     "40 glosas" respondem perguntas diferentes. -->
+                <TextBlock Text="{Binding Resumo}" VerticalAlignment="Bottom" Margin="0,0,0,6"
+                           TextWrapping="Wrap" MaxWidth="360"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" />
+            </WrapPanel>
+        </Border>
+
         <!-- O padrão da própria clínica: o que mais glosa aqui, e o que fazer a respeito -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Margin="0,0,0,10"
+        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="0,0,0,10"
                 Visibility="{Binding MotivosRecorrentes.Count, Converter={StaticResource ZeroParaVisibilidade}}">
             <StackPanel>
                 <TextBlock Text="O que mais glosa nesta clínica" Style="{StaticResource H3}" Margin="0,0,0,4" />
@@ -71,7 +103,7 @@
             </StackPanel>
         </Border>
 
-        <Border Grid.Row="3" Style="{StaticResource Card}">
+        <Border Grid.Row="4" Style="{StaticResource Card}">
         <DataGrid ItemsSource="{Binding Glosas}">
             <DataGrid.Columns>
                 <DataGridTemplateColumn Header="" Width="30">

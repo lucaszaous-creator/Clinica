@@ -81,6 +81,12 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
     /// <summary>Mostra também as já encerradas — a conferência do fim do dia.</summary>
     [ObservableProperty] private bool _incluirEncerradas;
 
+    /// <summary>
+    /// O código de conferência impresso na folha (ex.: "K7Q2…"): quem está com o papel na
+    /// mão acha a folha por ele, de qualquer dia — a lista só mostra hoje.
+    /// </summary>
+    [ObservableProperty] private string _codigoBusca = string.Empty;
+
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeChecar => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
 
@@ -112,8 +118,18 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
 
     private Task ReleituraSilenciosaAsync() => BuscarAsync(silenciosa: true);
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a batida do relógio e a caixa
+    /// "incluir encerradas" concorrem SEM coordenação nenhuma — a resposta velha chegando
+    /// por último deixava a lista do estado oposto ao da caixa marcada, numa tela de
+    /// checagem de medicação.
+    /// </summary>
+    private int _geracaoCarga;
+
     private async Task BuscarAsync(bool silenciosa)
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             if (!silenciosa)
@@ -129,6 +145,9 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var folhas = await servico.DoDiaAsync(hoje, incluirEncerradas: IncluirEncerradas);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Folhas.Clear();
             foreach (var folha in folhas)
@@ -146,7 +165,7 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             // de uma oscilação de rede — mas o problema não pode sumir.
             Application.Diagnostico.Registrar("Consultório — sala de infusão", ex);
 
-            if (silenciosa) return;
+            if (silenciosa || geracao != _geracaoCarga) return;
 
             NaoVerificado = true;
             Mensagem = ex.Message;
@@ -154,7 +173,8 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
         }
         finally
         {
-            if (!silenciosa) Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (!silenciosa && geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -163,8 +183,95 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
     private async Task AbrirAsync(LinhaSalaInfusao? linha)
     {
         if (linha is null) return;
+        await AbrirFolhaAsync(linha.PrescricaoId);
+    }
 
-        var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, linha.PrescricaoId);
+    /// <summary>
+    /// Acha a folha pelo CÓDIGO impresso nela — a conferência que este sistema oferece no
+    /// lugar do ICP-Brasil, e que até aqui só a Recepção alcançava (para documento
+    /// clínico). A técnica está com o papel na mão; o código é a ponte de volta.
+    /// </summary>
+    [RelayCommand]
+    private async Task AbrirPorCodigoAsync()
+    {
+        var codigo = CodigoBusca.Trim();
+        if (codigo.Length == 0)
+        {
+            Mensagem = "Digite o código de conferência impresso na folha (ex.: K7Q2M3).";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            int prescricaoId;
+            using (var scope = _escopos.CreateScope())
+            {
+                var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
+                var prescricao = await servico.PorCodigoAsync(codigo);
+                if (prescricao is null)
+                {
+                    Mensagem = $"Nenhuma prescrição com o código \"{codigo}\". Confira o "
+                             + "papel — o código não usa as letras I e O nem os dígitos 0 e 1.";
+                    MensagemEhErro = true;
+                    return;
+                }
+                prescricaoId = prescricao.Id;
+            }
+
+            Mensagem = null;
+            MensagemEhErro = false;
+            CodigoBusca = string.Empty;
+            await AbrirFolhaAsync(prescricaoId);
+        }
+        catch (Exception ex)
+        {
+            Application.Diagnostico.Registrar(
+                "Sala de infusão — busca pelo código não pôde ser feita", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Imprime a via de PRESCRIÇÃO — a que a enfermagem confere e assina à caneta. É a
+    /// porta que faltava na sala: a impressão só existia na tela de quem prescreve, num
+    /// app que a máquina da enfermagem não instala.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImprimirAsync(LinhaSalaInfusao? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            FolhaAssinada folha;
+            using (var scope = _escopos.CreateScope())
+            {
+                var assinaturas = scope.ServiceProvider
+                    .GetRequiredService<AssinaturaDePrescricaoService>();
+                folha = await assinaturas.FolhaAsync(
+                    linha.PrescricaoId, FolhaPrescricao.Prescricao);
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                folha.Pdf, ImpressaoPdf.NomeSeguro(folha.NomeArquivo));
+
+            Mensagem = erro ?? folha.Conferencia?.Frase;
+            MensagemEhErro = erro is not null || folha.Conferencia is { Integra: false };
+        }
+        catch (Exception ex)
+        {
+            Application.Diagnostico.Registrar(
+                "Sala de infusão — folha não pôde ser impressa", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    private async Task AbrirFolhaAsync(int prescricaoId)
+    {
+        var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, prescricaoId);
         var janela = new FolhaExecucaoWindow(vm)
         {
             Owner = System.Windows.Application.Current?.MainWindow

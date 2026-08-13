@@ -109,9 +109,18 @@ public sealed partial class EstoqueViewModel : ObservableObject
         }.ShowDialog();
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): dois "Atualizar" seguidos num
+    /// banco remoto podem responder invertidos, e a leitura mais velha sobrescreveria a
+    /// nova — o saldo da tela mentiria sobre a prateleira.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     private async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -120,6 +129,9 @@ public sealed partial class EstoqueViewModel : ObservableObject
             MensagemEhErro = false;
 
             var saldos = await _estoque.SaldosAsync();
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Itens.Clear();
             foreach (var s in saldos)
@@ -136,6 +148,9 @@ public sealed partial class EstoqueViewModel : ObservableObject
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var validades = await _estoque.ValidadesAsync(hoje);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Validades.Clear();
             foreach (var v in validades)
@@ -160,19 +175,29 @@ public sealed partial class EstoqueViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Financeiro — estoque não pôde ser carregado", ex);
             Erro($"Não foi possível carregar o estoque: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
     partial void OnCustoInicioChanged(DateTime value) => _ = CarregarCustosAsync();
 
     partial void OnCustoFimChanged(DateTime value) => _ = CarregarCustosAsync();
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): ajustar as duas datas do período
+    /// dispara duas cargas seguidas, e a do período antigo respondendo por último deixaria
+    /// o custo de um recorte sob as datas do outro.
+    /// </summary>
+    private int _geracaoCustos;
 
     /// <summary>
     /// Quanto custou cada sessão em insumo, no período.
@@ -185,6 +210,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
     [RelayCommand]
     private async Task CarregarCustosAsync()
     {
+        var geracao = ++_geracaoCustos;
+
         try
         {
             var de = DateOnly.FromDateTime(CustoInicio);
@@ -198,6 +225,9 @@ public sealed partial class EstoqueViewModel : ObservableObject
 
             var sessoes = await _estoque.CustosDeSessaoAsync(de, ate);
             var resumo = await _estoque.ResumoCustoSessoesAsync(de, ate);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCustos) return;
 
             CustosSessao.Clear();
             foreach (var s in sessoes)
@@ -224,6 +254,8 @@ public sealed partial class EstoqueViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCustos) return;
+
             Clinica.Application.Diagnostico.Registrar(
                 "Financeiro — custo por sessão não pôde ser lido", ex);
             Erro($"Não foi possível ler o custo por sessão: {ex.Message}");

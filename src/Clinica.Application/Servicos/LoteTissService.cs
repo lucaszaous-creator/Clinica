@@ -1,6 +1,7 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Modelos;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Servicos;
 
@@ -26,13 +27,35 @@ public sealed class LoteTissService
         => _repo.CodigosBaixadosSemLoteAsync(inicio, fim, ct);
 
     /// <summary>
+    /// O código de convênio (catálogo) de uma guia candidata — o do PACIENTE, com a
+    /// família como caminho de baixo para cadastros anteriores ao catálogo dinâmico.
+    /// É a MESMA resolução de <c>CatalogoConvenios.Nome(codigo, familia)</c>, e mora
+    /// aqui porque agrupar por outro critério na tela criaria dois lotes "da mesma"
+    /// operadora ou fundiria duas que só compartilham a regra.
+    /// </summary>
+    public static string ConvenioDaGuia(CodigoFaturamento c)
+        => c.Atendimento?.Paciente is { } p
+            ? p.ConvenioCodigo ?? p.Convenio.ToString()
+            // Guia sem paciente carregado não tem operadora conhecida — ela não entra em
+            // lote POR operadora (e a consulta de candidatas sempre carrega o paciente).
+            : string.Empty;
+
+    /// <summary>
     /// Cria o lote com as guias baixadas do período que ainda não foram exportadas,
     /// consumindo o próximo número da sequência TISS. Nulo se não houver guia nova.
+    ///
+    /// O lote é POR OPERADORA (<paramref name="convenioCodigo"/>): o XML tem UM destino,
+    /// e um lote "do período" com todas as operadoras dentro mandava as guias das demais
+    /// para o registro ANS errado — e, pior, a guarda de duplicidade passava a escondê-las
+    /// de todo lote futuro. Nulo mantém o comportamento antigo (todas), para a clínica de
+    /// operadora única e para os testes do fluxo legado.
     /// </summary>
     public async Task<LoteTiss?> CriarAsync(DateOnly inicio, DateOnly fim, string? registroAnsOperadora,
-        string? operador = null, CancellationToken ct = default)
+        string? operador = null, string? convenioCodigo = null, CancellationToken ct = default)
     {
         var codigos = await _repo.CodigosBaixadosSemLoteAsync(inicio, fim, ct);
+        if (convenioCodigo is not null)
+            codigos = codigos.Where(c => ConvenioDaGuia(c) == convenioCodigo).ToList();
         if (codigos.Count == 0)
             return null;
 
@@ -41,13 +64,16 @@ public sealed class LoteTissService
         {
             Numero = numero,
             DataGeracao = DateOnly.FromDateTime(DateTime.Today),
-            RegistroAnsOperadora = registroAnsOperadora
+            RegistroAnsOperadora = registroAnsOperadora,
+            ConvenioCodigo = convenioCodigo
         };
         foreach (var c in codigos)
             lote.Codigos.Add(c);
 
         await _repo.AdicionarLoteAsync(lote, ct);
-        await Auditar(operador, "LoteCriado", $"Lote nº {numero} com {codigos.Count} guia(s), período {inicio:dd/MM} a {fim:dd/MM/yyyy}", ct);
+        await Auditar(operador, "LoteCriado",
+            $"Lote nº {numero} com {codigos.Count} guia(s), período {inicio:dd/MM} a {fim:dd/MM/yyyy}"
+            + (convenioCodigo is null ? "" : $", convênio {CatalogoConvenios.Nome(convenioCodigo)}"), ct);
         await _repo.SalvarAsync(ct);
         await _parametros.ConfirmarNumeroLoteTissAsync(numero, ct);
         return lote;

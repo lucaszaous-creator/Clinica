@@ -29,10 +29,20 @@ public sealed class ModuloRecepcao : IModuloApp
 
     /// <summary>
     /// A sala de infusão (parcela 48). A chave é a MESMA que o Consultório publica —
-    /// é a mesma tela, e chave diferente faria a navegação da suíte abrir duas.
+    /// é a mesma tela, e chave diferente faria a navegação da suíte abrir duas. Por ser
+    /// a única chave publicada por DOIS módulos, ela mora em <see cref="ChavesSuite"/>:
+    /// escrita à mão de cada lado, renomear uma compilava dos dois e quebrava em produção.
     /// </summary>
-    public const string ChaveSalaInfusao = "consultorio-sala-infusao";
+    public const string ChaveSalaInfusao = ChavesSuite.SalaInfusao;
     public const string ChaveDocumentos = ChavesSuite.Documentos;
+
+    /// <summary>
+    /// Pacotes de sessões (parcela 60). A chave é a MESMA que o Financeiro publica — é a
+    /// mesma tela, e chave diferente faria o Gerente, que carrega os dois, mostrar a linha
+    /// duas vezes. Mora em <see cref="ChavesSuite"/> desde a parcela 62, pela razão da
+    /// sala de infusão: string à mão dos dois lados sempre compila.
+    /// </summary>
+    public const string ChavePacotes = ChavesSuite.Pacotes;
     public const string ChaveEquipe = "equipe";
 
     // ===== Itens COMPOSTOS (parcela 55) =====
@@ -162,7 +172,27 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChaveDocumentos, Rotulo = "Documentos", Glifo = "\uE8B7",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
+            // \u26A0\uFE0F A PORTA \u00E9 `VerDocumentos` desde a parcela 59, a pedido da dire\u00E7\u00E3o \u2014 antes
+            // era `VerFichaPaciente`, que todo perfil de balc\u00E3o tem, e por isso a
+            // recepcionista alcan\u00E7ava as dez folhas. O bit fecha a SE\u00C7\u00C3O; o que decide o
+            // que aparece DENTRO dela \u00E9 o acesso de cada folha
+            // (`FolhaCatalogo.PermissaoVer`) \u2014 sem isso, fechar a porta levaria junto o
+            // recibo e a declara\u00E7\u00E3o de comparecimento que o balc\u00E3o emite todo dia.
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerDocumentos
+        },
+
+        // PACOTES DE SESSÕES (parcela 60). A tela existe desde a parcela 4 e a única porta
+        // estava no app do FINANCEIRO — mas quem vende dez sessões ao paciente é o BALCÃO,
+        // com ele na frente. É o defeito recorrente do projeto na variante "a porta está no
+        // módulo de quem não usa", e ele bloqueava o caso que motivou o PARTICULAR: o
+        // paciente sem convênio que compra um pacote.
+        //
+        // A tela não foi copiada: SUBIU para o shell (`Componentes/PacotesView`), como a
+        // sala de infusão na parcela 48, e os dois módulos publicam a MESMA chave.
+        new ItemMenuModulo
+        {
+            Chave = ChavePacotes, Rotulo = "Pacotes / Sessões", Glifo = "",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VenderPacote
         },
 
         // ===== Sub-telas =====
@@ -192,7 +222,13 @@ public sealed class ModuloRecepcao : IModuloApp
         new ItemMenuModulo
         {
             Chave = ChavePrescricoes, Rotulo = "Receitu\u00E1rio", Glifo = "\uE8A5",
-            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerFichaPaciente
+            // \u26A0\uFE0F `VerProntuario` desde a parcela 59. A tela LISTA os documentos cl\u00EDnicos do
+            // paciente \u2014 receita, atestado, pedido de exame \u2014 e emite qualquer um deles
+            // pela janela gen\u00E9rica. Deix\u00E1-la em `VerFichaPaciente` faria a porta nova da
+            // central de documentos ser cosm\u00E9tica: bastaria a pessoa clicar no item ao
+            // lado para ler as mesmas receitas. Checagem de acesso que s\u00F3 existe numa
+            // porta \u00E9 o defeito recorrente do projeto, com o agravante de PARECER coberta.
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.VerProntuario
         },
         // Chamar de volta quem parou de vir (parcela 48). Quem telefona é o BALCÃO — e é
         // por isso que ela continua aqui, virando aba de "Marketing / Recall" só onde a
@@ -215,6 +251,9 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<RetornoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
+        // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
+        // Faltavam as duas coisas — o item acendia na sidebar e nada abria (parcela 62).
+        servicos.AddTransient<PacotesViewModel>();
         servicos.AddTransient<ProntuarioViewModel>();
         servicos.AddTransient<PrescricoesViewModel>();
         servicos.AddTransient<EquipeViewModel>();
@@ -238,6 +277,15 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveSalaInfusao => new SalaInfusaoView
         {
             DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()
+        },
+        // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado
+        // e este `case` NÃO existia: o shell marcava o item como ativo, `MontarTela`
+        // devolvia null e a navegação saía em silêncio — menu aceso, tela parada. Item
+        // publicado sem `case` é o "botão que não faz nada" da parcela 41 na sidebar, e
+        // nenhuma rede o via: a chave era string à mão, que sempre compila.
+        ChavePacotes => new PacotesView
+        {
+            DataContext = servicos.GetRequiredService<PacotesViewModel>()
         },
         ChaveProntuario => new ProntuarioView { DataContext = servicos.GetRequiredService<ProntuarioViewModel>() },
         ChavePrescricoes => new PrescricoesView { DataContext = servicos.GetRequiredService<PrescricoesViewModel>() },

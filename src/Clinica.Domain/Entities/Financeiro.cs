@@ -127,6 +127,30 @@ public class LancamentoFinanceiro
     public int? CodigoFaturamentoId { get; set; }
     public CodigoFaturamento? CodigoFaturamento { get; set; }
 
+    // ---------- Conciliação bancária (parcela 63) ----------
+
+    /// <summary>
+    /// Quando este lançamento foi casado com uma linha do EXTRATO do banco.
+    ///
+    /// Nulo = ainda não conferido contra o banco, que é o estado de tudo o que existe hoje
+    /// e continua sendo o normal para quem não importa OFX. Conciliar não muda o valor
+    /// nem o status do lançamento: ele diz que o dinheiro APARECEU no extrato, o que é
+    /// outra pergunta.
+    /// </summary>
+    public DateTime? ConciliadoEm { get; set; }
+
+    /// <summary>
+    /// O <c>FITID</c> da transação no extrato — o identificador que o BANCO deu a ela.
+    ///
+    /// É a chave de idempotência: importar o mesmo arquivo duas vezes não pode conciliar
+    /// duas vezes, e é por ele que se sabe QUAL linha do extrato corresponde a este
+    /// lançamento quando alguém for conferir a conferência.
+    /// </summary>
+    public string? IdBancario { get; set; }
+
+    /// <summary>Já foi visto no extrato do banco.</summary>
+    public bool Conciliado => ConciliadoEm is not null;
+
     /// <summary>Convênio pagador (nulo em receita particular).</summary>
     public Convenio? Convenio { get; set; }
 

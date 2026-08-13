@@ -7,8 +7,10 @@ using Clinica.Domain.Regras;
 namespace Clinica.Application.Servicos;
 
 /// <summary>
-/// Agenda da recepção. Ao confirmar a presença, gera o atendimento (e os códigos de faturamento)
-/// e cria automaticamente um retorno sugerido para a obtenção do 2º código (+24h).
+/// Agenda da recepção. Ao confirmar a presença, gera o atendimento e os códigos de
+/// faturamento — e SÓ isso: a obtenção do 2º código (+24h) é trabalho da secretária no
+/// sistema do convênio, e vive no painel de pendências, não na agenda (ver
+/// <see cref="ConfirmarPresencaAsync"/>).
 ///
 /// A partir da parcela 1 ela é multiprofissional: o horário pode apontar para um
 /// <see cref="Profissional"/> e uma <see cref="Sala"/>, e o choque entre dois horários
@@ -40,7 +42,7 @@ public sealed class AgendaService
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        bool encaixe = false)
+        bool encaixe = false, string? operador = null, TipoCodigo? primeiroCodigo = null)
     {
         // Variante do catálogo: a base (comportamento) vem do código. Sem código, usa o enum.
         if (modalidadeCodigo is not null)
@@ -73,7 +75,16 @@ public sealed class AgendaService
             ProfissionalId = profissionalId,
             SalaId = salaId,
             DuracaoMinutos = duracaoMinutos,
-            Encaixe = encaixe
+            Encaixe = encaixe,
+            // Nas modalidades duplas, qual código o convênio libera primeiro. Atravessa o
+            // horário para chegar ao motor na confirmação da presença — é o que permitiu o
+            // avulso virar encaixe sem perder a escolha que a tela dele sempre ofereceu.
+            PrimeiroCodigo = primeiroCodigo,
+            // Quem marcou, e quando. O operador chega da TELA (`SessaoUsuario.Atual`) —
+            // este serviço não lê a sessão, pela mesma razão dos demais: é o chamador que
+            // sabe quem está logado.
+            CriadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),
+            CriadoEm = DateTime.Now
         };
         await _repo.AdicionarAgendamentoAsync(ag, ct);
         await _repo.SalvarAsync(ct);
@@ -297,7 +308,7 @@ public sealed class AgendaService
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, string? operador = null)
     {
         if (quantidade < 2)
             throw new InvalidOperationException(
@@ -330,7 +341,7 @@ public sealed class AgendaService
                     modalidadeCodigo: modalidadeCodigo,
                     especialidadeConsultaCodigo: especialidadeConsultaCodigo,
                     profissionalId: profissionalId, salaId: salaId,
-                    duracaoMinutos: duracaoMinutos);
+                    duracaoMinutos: duracaoMinutos, operador: operador);
 
                 agendamento.SerieId = serieId;
                 marcados.Add(agendamento);
@@ -390,11 +401,6 @@ public sealed class AgendaService
         var prof = await _repo.ObterProfissionalAsync(profissionalId.Value, ct);
         return prof?.DuracaoPadraoMinutos ?? Agendamento.DuracaoPadraoMinutos;
     }
-
-    /// <summary>Agenda do dia de um profissional (coluna da grade).</summary>
-    public async Task<IReadOnlyList<Agendamento>> DoDiaPorProfissionalAsync(
-        DateOnly dia, int? profissionalId, CancellationToken ct = default)
-        => (await DoDiaAsync(dia, ct)).Where(a => a.ProfissionalId == profissionalId).ToList();
 
     /// <summary>Ocupação do dia, um item por profissional (mais um para "sem profissional").</summary>
     public async Task<IReadOnlyList<OcupacaoProfissional>> OcupacaoDoDiaAsync(
@@ -548,10 +554,29 @@ public sealed class AgendaService
            ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
 
     /// <summary>
-    /// Confirma a presença: gera o atendimento com os códigos e, havendo 2º código,
-    /// cria um retorno sugerido na data prevista (para não esquecer de obtê-lo).
+    /// Confirma a presença: gera o atendimento com os códigos pelas regras do convênio.
+    ///
+    /// ⚠️ NÃO cria mais "retorno sugerido" para o 2º código (parcela 58).
+    ///
+    /// GUIA NÃO É ATENDIMENTO, e confundir os dois é o defeito mais caro que este serviço
+    /// já teve. O 2º código é obtido +24h depois PELA SECRETÁRIA, no sistema do convênio —
+    /// o paciente não volta para nada. Materializá-lo como `Agendamento` punha na fila do
+    /// balcão e na agenda dos MÉDICOS uma pessoa que não tem horário marcado e não vai
+    /// aparecer.
+    ///
+    /// E não era só ruído visual. O cartão fantasma vinha com "Chegou / Entrou / Falta /
+    /// Cancelar": um clique em Entrou → Finalizar lança um atendimento NOVO e gera guias
+    /// NOVAS para uma sessão que nunca aconteceu. Faturamento inventado a partir de uma
+    /// pendência de faturamento.
+    ///
+    /// O 2º código já tem o lugar dele, e é o coração do produto: ele nasce como
+    /// <c>CodigoFaturamento</c> com `DataPrevistaFaturamento`, aparece no painel de
+    /// pendências com semáforo, entra na rodada bloqueante quando vence o prazo e é
+    /// mostrado ao balcão pelo `PainelRecepcaoService` junto dos pacientes do dia. Não
+    /// faltava lembrete — sobrava um, no lugar errado.
     /// </summary>
-    public async Task<ResultadoLancamento> ConfirmarPresencaAsync(int agendamentoId, CancellationToken ct = default)
+    public async Task<ResultadoLancamento> ConfirmarPresencaAsync(
+        int agendamentoId, CancellationToken ct = default, string? operador = null)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
@@ -563,33 +588,12 @@ public sealed class AgendaService
             ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista, ag.Observacoes, ct,
             especialidadeConsulta: ag.EspecialidadeConsulta,
             modalidadeCodigo: ag.ModalidadeCodigo,
-            especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo);
+            especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo,
+            primeiroCodigo: ag.PrimeiroCodigo,
+            operador: operador);
 
         ag.Status = StatusAgendamento.Realizado;
         ag.AtendimentoId = resultado.Atendimento.Id;
-
-        // Retorno sugerido para o 2º código (obtido 24h depois).
-        var segundo = resultado.Atendimento.Codigos
-            .FirstOrDefault(c => c.Ordem == OrdemCodigo.Segundo);
-        if (segundo is not null)
-        {
-            var retorno = new Agendamento
-            {
-                PacienteId = ag.PacienteId,
-                DataHora = segundo.DataPrevistaFaturamento.ToDateTime(new TimeOnly(9, 0)),
-                ModalidadePrevista = ag.ModalidadePrevista,
-                ModalidadeCodigo = ag.ModalidadeCodigo,
-                Origem = OrigemAgendamento.RetornoSugerido,
-                Status = StatusAgendamento.Agendado,
-                Observacoes = "Retorno para obter o 2º código (eletroacupuntura/acupuntura).",
-                // O retorno herda quem e onde: continuidade é o padrão, e o horário
-                // sugerido já nasce na coluna certa da agenda.
-                ProfissionalId = ag.ProfissionalId,
-                SalaId = ag.SalaId,
-                DuracaoMinutos = ag.DuracaoMinutos
-            };
-            await _repo.AdicionarAgendamentoAsync(retorno, ct);
-        }
 
         await _repo.SalvarAsync(ct);
         return resultado;

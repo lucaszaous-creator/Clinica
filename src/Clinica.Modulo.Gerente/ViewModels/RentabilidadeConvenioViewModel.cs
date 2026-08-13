@@ -101,9 +101,18 @@ public sealed partial class RentabilidadeConvenioViewModel : ObservableObject
 
     partial void OnMesesJanelaChanged(int value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Trocar a janela de meses dispara outra leitura; a resposta velha chegando por último
+    /// faria a direção comparar operadoras sobre um período que não é o do cabeçalho.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Mensagem = null;
@@ -117,11 +126,16 @@ public sealed partial class RentabilidadeConvenioViewModel : ObservableObject
             var fim = new DateOnly(hoje.Year, hoje.Month, 1).AddMonths(1).AddDays(-1);
             Periodo = $"{inicio:MM/yyyy} a {fim:MM/yyyy}";
 
+            var porConvenio = await servico.PorConvenioAsync(inicio, fim);
+            var r = await servico.ResumoAsync(inicio, fim);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Convenios.Clear();
-            foreach (var c in await servico.PorConvenioAsync(inicio, fim))
+            foreach (var c in porConvenio)
                 Convenios.Add(LinhaConvenio.De(c));
 
-            var r = await servico.ResumoAsync(inicio, fim);
             Guias = r.Guias.ToString();
             Bruto = r.Bruto.ToString("C");
             Retido = r.Retido.ToString("C");
@@ -147,6 +161,9 @@ public sealed partial class RentabilidadeConvenioViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Gerente — rentabilidade por convênio falhou", ex);
             Mensagem = $"Não foi possível medir a rentabilidade: {ex.Message}";
             MensagemEhErro = true;

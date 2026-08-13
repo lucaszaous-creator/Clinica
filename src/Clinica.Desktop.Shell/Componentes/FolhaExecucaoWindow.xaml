@@ -9,6 +9,9 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto, e a
+             mensagem/justificativa ficavam invisíveis para sempre (parcela 61). -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <DockPanel Margin="24">
@@ -74,7 +77,18 @@
                            Text="Encerrar fecha a folha: ela sai da sala e não pode mais ser checada. A assinatura da execução é a sua, à caneta, na via impressa." />
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <Button Content="Fechar" IsCancel="True" MinWidth="100"
+                    <Button Content="Imprimir folha" MinWidth="130"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            ToolTip="A via que a enfermagem confere e assina à caneta. Com assinatura eletrônica, sai o arquivo guardado."
+                            Command="{Binding ImprimirCommand}" />
+                    <Button Content="Imprimir registro" Margin="8,0,0,0" MinWidth="150"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding TemRegistroExecucao}"
+                            ToolTip="O espelho eletrônico do que já foi checado. Habilita depois da primeira checagem."
+                            Command="{Binding ImprimirRegistroCommand}" />
+                    <Button Content="Fechar" IsCancel="True" MinWidth="100" Margin="8,0,0,0"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}" />
                     <Button Content="Encerrar execução" Margin="8,0,0,0" MinWidth="170"
@@ -86,7 +100,7 @@
         </Border>
 
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
-                Visibility="{Binding Mensagem, Converter={StaticResource BoolParaVisibilidade},
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
                              FallbackValue=Collapsed}">
             <Border.Style>
                 <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
@@ -138,14 +152,14 @@
                                                        Margin="0,4,0,0"
                                                        Foreground="{StaticResource Brush.Erro}"
                                                        Visibility="{Binding Justificativa,
-                                                                    Converter={StaticResource BoolParaVisibilidade},
+                                                                    Converter={StaticResource TextoParaVisibilidade},
                                                                     FallbackValue=Collapsed}" />
                                             <TextBlock Text="{Binding Executante}" TextWrapping="Wrap"
                                                        Style="{StaticResource TextoSuave}"
                                                        FontSize="{StaticResource Fonte.Legenda}"
                                                        Margin="0,3,0,0"
                                                        Visibility="{Binding Executante,
-                                                                    Converter={StaticResource BoolParaVisibilidade},
+                                                                    Converter={StaticResource TextoParaVisibilidade},
                                                                     FallbackValue=Collapsed}" />
                                         </StackPanel>
 
@@ -174,28 +188,44 @@
                                         </TextBlock>
 
                                         <StackPanel Grid.Column="3" Orientation="Horizontal"
-                                                    VerticalAlignment="Center"
-                                                    IsEnabled="{Binding DataContext.PodeMexer,
-                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}">
-                                            <Button Content="✓ Realizado" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoAcaoGrid}"
-                                                    Visibility="{Binding Pendente,
-                                                                 Converter={StaticResource BoolParaVisibilidade}}"
-                                                    Command="{Binding DataContext.RealizadoCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="○ Não realizado" Margin="0,0,6,0"
-                                                    Style="{StaticResource BotaoSecundarioPerigo}"
-                                                    Visibility="{Binding Pendente,
-                                                                 Converter={StaticResource BoolParaVisibilidade}}"
-                                                    Command="{Binding DataContext.NaoRealizadoCommand,
-                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                    CommandParameter="{Binding}" />
-                                            <Button Content="Retificar"
+                                                    VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal"
+                                                        IsEnabled="{Binding DataContext.PodeMexer,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                <Button Content="✓ Realizado" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoAcaoGrid}"
+                                                        Visibility="{Binding Pendente,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.RealizadoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="○ Não realizado" Margin="0,0,6,0"
+                                                        Style="{StaticResource BotaoSecundarioPerigo}"
+                                                        Visibility="{Binding Pendente,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.NaoRealizadoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Retificar"
+                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        Visibility="{Binding Checado,
+                                                                     Converter={StaticResource BoolParaVisibilidade}}"
+                                                        Command="{Binding DataContext.RetificarCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                            </StackPanel>
+
+                                            <!-- Fora do painel de PodeMexer de propósito: suspender é ato
+                                                 de quem PRESCREVE (bit Prescrever), e o painel ao lado é
+                                                 da checagem (bit ChecarPrescricao). -->
+                                            <Button Content="Suspender" Margin="6,0,0,0"
                                                     Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                    Visibility="{Binding Checado,
+                                                    IsEnabled="{Binding DataContext.PodeSuspender,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    ToolTip="O item não deve mais ser feito — decisão de quem prescreve, com motivo. Item já checado não se suspende."
+                                                    Visibility="{Binding Pendente,
                                                                  Converter={StaticResource BoolParaVisibilidade}}"
-                                                    Command="{Binding DataContext.RetificarCommand,
+                                                    Command="{Binding DataContext.SuspenderCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                         </StackPanel>

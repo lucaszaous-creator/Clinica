@@ -59,8 +59,13 @@ public sealed class LinhaPrescricaoInterna
             Cancelada = p.Cancelada,
             TemAssinatura = p.AssinaturaDoPrescritor is not null,
             TemRegistroExecucao = p.Realizados + p.NaoRealizados > 0,
-            PodeCancelar = p.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada,
-            PodeEditar = p.PodeEditar
+            // O estado da linha COMPÕE com a permissão (parcela 61): sem o bit, o botão
+            // ficava aceso e o clique estourava no Exigir — botão aceso que só explode é
+            // o defeito da parcela 41. O Exigir do comando continua sendo a barreira que
+            // impede; esta é a metade que explica.
+            PodeCancelar = (p.Situacao is SituacaoPrescricao.Rascunho or SituacaoPrescricao.Assinada)
+                           && SessaoUsuario.Atual.Pode(Permissao.Prescrever),
+            PodeEditar = p.PodeEditar && SessaoUsuario.Atual.Pode(Permissao.Prescrever)
         };
     }
 }
@@ -147,9 +152,21 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): a troca de paciente dispara uma
+    /// carga por seleção, e a resposta atrasada do paciente anterior chegando por último
+    /// exibiria a folha de infusão dele sob o nome do paciente novo.
+    /// </summary>
+    private int _geracaoCarga;
+
+    /// <summary>Último paciente cujo acesso já entrou na trilha — a tela recarrega mais do que troca.</summary>
+    private int _acessoRegistradoDe;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         SemPaciente = _pacienteId == 0;
         Prescricoes.Clear();
 
@@ -169,11 +186,28 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var servico = scope.ServiceProvider.GetRequiredService<PrescricaoInternaService>();
 
-            foreach (var prescricao in await servico.DoPacienteAsync(_pacienteId))
+            // Trilha de LEITURA (parcela 52), na troca de paciente: a folha de infusão é
+            // prescrição — dado de saúde —, e esta porta ficava fora da trilha.
+            if (_acessoRegistradoDe != _pacienteId)
+            {
+                _acessoRegistradoDe = _pacienteId;
+                await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                    .RegistrarAsync(_pacienteId, SessaoUsuario.Atual.Operador,
+                        OrigemAcessoProntuario.Documento);
+            }
+
+            var prescricoes = await servico.DoPacienteAsync(_pacienteId);
+
+            // Chegou tarde: outra seleção já pediu uma carga mais nova.
+            if (geracao != _geracaoCarga) return;
+
+            foreach (var prescricao in prescricoes)
                 Prescricoes.Add(LinhaPrescricaoInterna.De(prescricao));
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Application.Diagnostico.Registrar(
                 "Consultório — prescrições de infusão não puderam ser carregadas", ex);
@@ -182,7 +216,8 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

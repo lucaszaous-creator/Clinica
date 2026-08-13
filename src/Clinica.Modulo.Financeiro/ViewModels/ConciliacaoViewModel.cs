@@ -3,6 +3,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -242,6 +243,13 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
     partial void OnMesChanged(DateTime value) => _ = CarregarAsync();
 
     /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o mês duas vezes rápido
+    /// deixa duas cargas no ar, e a resposta velha chegando por último deixaria as guias
+    /// de um mês sob o título do outro — na tela em que se lança dinheiro.
+    /// </summary>
+    private int _geracaoCarga;
+
+    /// <summary>
     /// Ligado enquanto a lista de convênios é remontada.
     ///
     /// ⚠️ `Convenios.Clear()` faz o `ComboBox` zerar a seleção e devolver <c>null</c> pelo
@@ -338,6 +346,8 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
@@ -346,7 +356,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             var fim = inicio.AddMonths(1).AddDays(-1);
 
             var guias = await _financeiro.GuiasSemLancamentoAsync(inicio, fim);
-            _todas.Clear();
+            var novas = new List<LinhaConciliacao>();
             foreach (var g in guias)
             {
                 // A TABELA DE PREÇO cadastrada no Gerente (parcela 20) preenche o valor.
@@ -356,18 +366,27 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
                 // ser digitado — como sempre foi; o sistema não inventa valor de mercado.
                 var proposto = await _precos.ProporAsync(g);
 
-                _todas.Add(new LinhaConciliacao
+                novas.Add(new LinhaConciliacao
                 {
                     Guia = g,
                     DataBaixa = g.DataBaixa.ToString("dd/MM/yyyy"),
                     Paciente = g.Paciente,
                     Convenio = CatalogoConvenios.Nome(g.ConvenioCodigo, g.Convenio),
                     NumeroGuia = g.NumeroGuiaReal ?? "—",
-                    Tipo = g.Tipo.ToString(),
+                    // Rótulo, nunca o identificador: "ConsultaEspecialidade" na coluna
+                    // Tipo é o defeito da parcela 41 — o Gerente já resolve pelo mesmo caminho.
+                    Tipo = RotulosEnum.De(g.Tipo),
                     Valor = proposto.Houve ? proposto.Valor.ToString("0.##") : string.Empty,
                     Procedencia = proposto.Houve ? proposto.Procedencia : null
                 });
             }
+
+            // Chegou tarde: outro mês já pediu uma carga mais nova — os valores que a
+            // pessoa digitou nas linhas da carga vigente não podem ser apagados por esta.
+            if (geracao != _geracaoCarga) return;
+
+            _todas.Clear();
+            _todas.AddRange(novas);
 
             // As operadoras do mês, em ordem. A escolha anterior é preservada quando ela
             // ainda existe — trocar de mês não pode desfazer o filtro de quem está
@@ -392,20 +411,23 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             _snackbar.Erro($"Não foi possível carregar a conciliação: {ex.Message}");
         }
         finally
         {
-            Carregando = false;
+            // A carga superada não apaga o "Carregando" da que ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
 
         // Cada lado carrega sozinho: a aba das glosadas quebrar não pode levar junto a
         // lista de guias a lançar, que é o trabalho do dia.
-        await CarregarGlosadasAsync();
+        await CarregarGlosadasAsync(geracao);
     }
 
-    private async Task CarregarGlosadasAsync()
+    private async Task CarregarGlosadasAsync(int geracao)
     {
         var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
         var fim = inicio.AddMonths(1).AddDays(-1);
@@ -415,6 +437,9 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         {
             GlosadasNaoVerificadas = false;
             var receitas = await _glosadas.PendentesAsync(inicio, fim);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
 
             Glosadas.Clear();
             foreach (var r in receitas)
@@ -455,6 +480,9 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             // Falha nunca aparece como sucesso: a aba diz que não conseguiu conferir.
             Clinica.Application.Diagnostico.Registrar(
                 "Financeiro — receita glosada não pôde ser carregada", ex);
+
+            if (geracao != _geracaoCarga) return;
+
             Glosadas.Clear();
             GlosadasNaoVerificadas = true;
             ResumoGlosadas = $"Não foi possível conferir as glosas deste mês: {ex.Message}";
@@ -501,7 +529,15 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             await _glosadas.CancelarReceitaAsync(
                 linha.Receita.CodigoId, motivo, SessaoUsuario.Atual.Operador);
 
-            _snackbar.Info($"Receita de {linha.Paciente} cancelada — a guia voltou para a conciliação.");
+            // A guia volta ao mês do ATENDIMENTO, não ao carregado: a aba "A lançar"
+            // filtra pela data da sessão, e a glosa pode ter chegado meses depois. Sem
+            // dizer o mês, quem cancela em setembro procura a guia de junho em setembro
+            // — e conclui que ela sumiu.
+            var voltouPara = linha.Receita.DataAtendimento is { } atendimento
+                             && (atendimento.Year != Mes.Year || atendimento.Month != Mes.Month)
+                ? $" de {atendimento:MMMM/yyyy} (mês do atendimento)"
+                : string.Empty;
+            _snackbar.Info($"Receita de {linha.Paciente} cancelada — a guia voltou para a conciliação{voltouPara}.");
             await CarregarAsync();
         }
         catch (Exception ex)
@@ -515,6 +551,10 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
     private async Task LancarAsync(LinhaConciliacao? linha)
     {
         if (linha is null) return;
+
+        // O mesmo bit do irmão CancelarReceita: lançar é entrar dinheiro no caixa —
+        // barrar o desfazer e deixar o fazer aberto era a assimetria errada.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar receita no caixa");
 
         // Valores.TentarLerDecimal, e não decimal.TryParse: é o leitor do projeto, que
         // aceita "1.250,00" e "1250.00" sem depender da cultura da máquina.

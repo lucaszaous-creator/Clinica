@@ -13,7 +13,15 @@ public enum StatusAgendamento
 public enum OrigemAgendamento
 {
     Manual,          // marcado pela secretária
-    RetornoSugerido, // sugerido automaticamente (retorno de 24h do 2º código)
+    /// <summary>
+    /// ⚠️ LEGADO — não se cria mais (parcela 58). O sistema materializava a pendência do
+    /// 2º código como um horário na agenda, e isso confundia GUIA com ATENDIMENTO: punha
+    /// na fila do balcão e na agenda dos médicos um paciente que não tem horário e não vai
+    /// aparecer. O valor continua aqui porque é gravado como TEXTO e há linhas assim em
+    /// produção — apagá-lo faria o EF quebrar ao lê-las. O selo "Retorno do 2º código"
+    /// segue na tela justamente para a clínica reconhecer e limpar as que sobraram.
+    /// </summary>
+    RetornoSugerido,
     ListaEspera      // chamado da lista de espera para um horário que vagou
 }
 
@@ -76,6 +84,19 @@ public class Agendamento
     public OrigemAgendamento Origem { get; set; } = OrigemAgendamento.Manual;
 
     public string? Observacoes { get; set; }
+
+    /// <summary>
+    /// Nas modalidades DUPLAS, qual código o convênio libera primeiro (parcela 60).
+    ///
+    /// Existe porque o lançamento avulso deixou de chamar
+    /// <c>AtendimentoService.LancarAsync</c> direto e passou a marcar um ENCAIXE que a
+    /// Fila conclui — e essa escolha, que a tela do avulso sempre ofereceu, precisava
+    /// atravessar o horário para chegar ao motor de regras. Sem a coluna, unificar os dois
+    /// caminhos custaria a feature.
+    ///
+    /// Nulo é o caso normal: o convênio decide, e é o que toda linha anterior vale.
+    /// </summary>
+    public TipoCodigo? PrimeiroCodigo { get; set; }
 
     /// <summary>Preenchido quando a presença é confirmada e um atendimento é gerado.</summary>
     public int? AtendimentoId { get; set; }
@@ -201,6 +222,26 @@ public class Agendamento
     /// </summary>
     public bool ColideCom(DateTime inicio, DateTime fim)
         => DataHora < fim && inicio < FimPrevisto;
+
+
+    /// <summary>
+    /// Quem LANÇOU isto no sistema, e quando (parcela 58).
+    ///
+    /// A direção pediu para ver de quem é cada lançamento. A trilha de auditoria já
+    /// responde "quem fez isso?" (parcela 21), mas ela é uma tela à parte, filtrada por
+    /// período — e a pergunta que se faz olhando a agenda é sobre AQUELA linha, agora.
+    ///
+    /// É o operador do LOGIN (`SessaoUsuario.Atual.Operador`), nunca o usuário do Windows:
+    /// no balcão duas pessoas dividem a mesma máquina, e o login do Windows apagaria a
+    /// diferença entre elas — foi por isso que `SessaoUsuario` existe.
+    ///
+    /// Nulo nas linhas anteriores a esta parcela, e a tela DIZ isso em vez de deixar em
+    /// branco: em branco não se distingue de "não carregou".
+    /// </summary>
+    public string? CriadoPor { get; set; }
+
+    /// <summary>Quando foi lançado. Nulo nas linhas anteriores à parcela 58.</summary>
+    public DateTime? CriadoEm { get; set; }
 
     /// <summary>Ocupa a agenda (não foi cancelado nem faltou).</summary>
     public bool OcupaAgenda

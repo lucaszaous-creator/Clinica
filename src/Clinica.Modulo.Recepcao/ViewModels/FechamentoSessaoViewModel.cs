@@ -109,9 +109,19 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
     /// <summary>
     /// Metade VISÍVEL da permissão do caixa: quem não pode lançar vê o bloco apagado com
     /// a explicação, em vez de um campo que recusa no fim. A que impede é o
-    /// <c>Exigir</c> no comando.
+    /// <c>ExigirAlgum</c> no comando.
+    ///
+    /// ⚠️ <b>`LancarAtendimento` OU `EditarFinanceiro` (parcela 62).</b> Concluir a sessão
+    /// são QUATRO fatos do mesmo ato (parcela 6): a guia nasce, o pacote debita, o insumo
+    /// sai e <b>o dinheiro entra no caixa</b>. Exigir só `EditarFinanceiro` na quarta
+    /// ponta fechava justamente ela para o perfil que faz as outras três — o balcão
+    /// concluía a sessão do particular e a entrada não era registrada, e o mês fechava
+    /// com uma diferença sem nome. É o mesmo corte da parcela 60 no `VenderPacote`:
+    /// registrar o dinheiro DESTA sessão é do balcão; abrir o caixa, a conciliação e as
+    /// contas a pagar da clínica continua sendo `VerFinanceiro`/`EditarFinanceiro`.
     /// </summary>
-    public bool PodeLancarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
+    public bool PodeLancarFinanceiro => SessaoUsuario.Atual.PodeAlgum(
+        Permissao.LancarAtendimento | Permissao.EditarFinanceiro);
 
     /// <summary>Idem <see cref="NaoConcluida"/>: a explicação só aparece a quem não pode.</summary>
     public bool SemPermissaoFinanceiro => !PodeLancarFinanceiro;
@@ -254,7 +264,9 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
 
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "concluir o atendimento");
             if (GerarLancamento)
-                SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar a entrada no caixa");
+                SessaoUsuario.Atual.ExigirAlgum(
+                    Permissao.LancarAtendimento | Permissao.EditarFinanceiro,
+                    "lançar a entrada no caixa");
 
             using var scope = _escopos.CreateScope();
             var fechamento = scope.ServiceProvider.GetRequiredService<FechamentoSessaoService>();

@@ -33,6 +33,14 @@ public sealed record ReceitaGlosada(
     public string? ConvenioCodigo { get; init; }
 
     /// <summary>
+    /// Data do ATENDIMENTO da guia. A aba "A lançar" filtra por ela, e a das glosadas
+    /// pela data da glosa — cancelada a receita, a guia reaparece no MÊS DO ATENDIMENTO,
+    /// que pode não ser o carregado. É este campo que deixa a tela dizer para onde a
+    /// guia voltou, em vez de "voltou" e ninguém a achar. Aditivo, com padrão nulo.
+    /// </summary>
+    public DateOnly? DataAtendimento { get; init; }
+
+    /// <summary>
     /// A receita ainda é só promessa — é este caso que infla o previsto e o que a tela
     /// resolve com um clique.
     /// </summary>
@@ -147,7 +155,8 @@ public sealed class ReceitaGlosadaService
                     lancamento.Status,
                     lancamento.Data)
                 {
-                    ConvenioCodigo = c.Atendimento.Paciente.ConvenioCodigo
+                    ConvenioCodigo = c.Atendimento.Paciente.ConvenioCodigo,
+                    DataAtendimento = c.Atendimento.Data
                 };
             })
             // A mais antiga primeiro: o prazo de recurso corre contra ela, e é a que

@@ -371,6 +371,98 @@ public class CentralDocumentosTests : IDisposable
             .WithMessage("*anterior ao início*");
     }
 
+    // ================================================================
+    // O FILTRO POR ACESSO (parcela 59)
+    //
+    // A direção viu a recepcionista alcançando os documentos. Esconder o CARTÃO de emitir
+    // receita e deixar "Receituário 2026/0012 — Maria Silva" na lista logo abaixo não
+    // esconderia nada: o que se quer proteger é a informação de que aquela receita existe.
+    // ================================================================
+
+    [Fact]
+    public async Task Emitidas_FiltraPeloAcessoDeQuemOLHA()
+    {
+        var paciente = await PacienteAsync();
+        var profissional = await ProfissionalAsync();
+
+        await ReceitaAsync(paciente, profissional);
+        await ReciboAsync(paciente, 150m);
+
+        var balcao = PerfisAcesso.Padrao(PerfilAcesso.Recepcao);
+
+        // A recepção não tem prontuário (parcela 49) nem financeiro: das duas folhas, ela
+        // não alcança nenhuma.
+        (await _central.EmitidasAsync(Inicio, Fim, acessos: balcao)).Should().BeEmpty();
+
+        // Quem atende vê a receita e não o recibo; o caixa, o contrário.
+        (await _central.EmitidasAsync(
+                Inicio, Fim, acessos: PerfisAcesso.Padrao(PerfilAcesso.Profissional)))
+            .Should().ContainSingle().Which.Natureza.Should().Be(NaturezaFolha.Clinico);
+
+        (await _central.EmitidasAsync(
+                Inicio, Fim, acessos: PerfisAcesso.Padrao(PerfilAcesso.Financeiro)))
+            .Should().ContainSingle().Which.Natureza.Should().Be(NaturezaFolha.Financeiro);
+    }
+
+    /// <summary>
+    /// O resumo conta sobre o RESULTADO do filtro, e não sobre a base: "2 folhas emitidas"
+    /// acima de uma lista de uma faria a pessoa procurar a que falta — e, pior, contaria
+    /// que ela existe.
+    /// </summary>
+    [Fact]
+    public async Task Resumo_ContaSobreOQueAPessoaAlcanca()
+    {
+        var paciente = await PacienteAsync();
+        var profissional = await ProfissionalAsync();
+
+        await ReceitaAsync(paciente, profissional);
+        await ReciboAsync(paciente, 150m);
+
+        (await _central.ResumoAsync(Inicio, Fim)).Emitidas.Should().Be(2);
+
+        var doCaixa = await _central.ResumoAsync(
+            Inicio, Fim, acessos: PerfisAcesso.Padrao(PerfilAcesso.Financeiro));
+
+        doCaixa.Emitidas.Should().Be(1);
+        doCaixa.PorFolha.Should().ContainSingle().Which.Folha.Should().Be("Recibo de pagamento");
+    }
+
+    /// <summary>
+    /// Sem acesso informado, nada muda. É o que mantém os outros chamadores (e o app fora
+    /// do login) funcionando: o filtro é uma decisão de quem chama, não um padrão novo.
+    /// </summary>
+    [Fact]
+    public async Task Emitidas_SemAcessoInformado_NaoFiltra()
+    {
+        var paciente = await PacienteAsync();
+        var profissional = await ProfissionalAsync();
+
+        await ReceitaAsync(paciente, profissional);
+        await ReciboAsync(paciente, 150m);
+
+        (await _central.EmitidasAsync(Inicio, Fim)).Should().HaveCount(2);
+    }
+
+    /// <summary>
+    /// Cada linha diz de que folha é. É por essa chave que a tela resolve o acesso para
+    /// cancelar e republicar — sem ela, a metade que IMPEDE teria de adivinhar pelo rótulo.
+    /// </summary>
+    [Fact]
+    public async Task Emitidas_TrazemAChaveDaFolha()
+    {
+        var paciente = await PacienteAsync();
+        var profissional = await ProfissionalAsync();
+
+        await ReceitaAsync(paciente, profissional);
+        await ReciboAsync(paciente, 150m);
+
+        var folhas = await _central.EmitidasAsync(Inicio, Fim);
+
+        folhas.Should().Contain(f => f.Chave == "receita");
+        folhas.Should().Contain(f => f.Chave == "recibo");
+        folhas.Should().OnlyContain(f => f.Chave != string.Empty);
+    }
+
     public void Dispose()
     {
         _db.Dispose();

@@ -141,9 +141,18 @@ public sealed partial class RecebiveisViewModel : ObservableObject
 
     partial void OnHorizonteDiasChanged(int value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50): trocar o horizonte duas vezes
+    /// rápido deixaria os depósitos de uma janela sob os totais da outra — num banco
+    /// remoto a leitura mais velha pode responder por último.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Mensagem = null;
@@ -155,11 +164,20 @@ public sealed partial class RecebiveisViewModel : ObservableObject
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var ate = hoje.AddDays(Math.Max(HorizonteDias, 0));
 
+            var esperados = await recebiveis.EsperadosAsync(ate);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Depositos.Clear();
-            foreach (var d in await recebiveis.EsperadosAsync(ate))
+            foreach (var d in esperados)
                 Depositos.Add(LinhaRecebivel.De(d, hoje));
 
             var r = await recebiveis.ResumoAsync(hoje, ate);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             AVencer = r.LiquidoAVencer.ToString("C");
             Atrasado = r.LiquidoAtrasado.ToString("C");
             Total = r.Total.ToString("C");
@@ -177,6 +195,9 @@ public sealed partial class RecebiveisViewModel : ObservableObject
             var confirmados = await recebiveis.ConfirmadosAsync(
                 hoje.AddDays(-Math.Max(DiasConfirmados, 0)), hoje);
 
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Confirmados.Clear();
             foreach (var d in confirmados)
                 Confirmados.Add(LinhaConfirmado.De(d));
@@ -189,6 +210,8 @@ public sealed partial class RecebiveisViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Financeiro — recebíveis não puderam ser lidos", ex);
             Erro($"Não foi possível ler os recebíveis: {ex.Message}");
         }

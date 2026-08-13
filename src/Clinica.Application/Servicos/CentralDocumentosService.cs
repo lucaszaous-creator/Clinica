@@ -59,6 +59,34 @@ public sealed record FolhaCatalogo(
     public TipoDocumentoFinanceiro? TipoFinanceiro { get; init; }
 
     /// <summary>
+    /// O acesso para VER esta folha — o cartão dela na central e as vias já emitidas
+    /// (parcela 59).
+    ///
+    /// A direção viu a recepcionista alcançando os documentos. A porta da seção
+    /// (<see cref="Permissao.VerDocumentos"/>) resolve metade; a outra metade é esta,
+    /// porque <b>as dez folhas não são a mesma coisa</b>: receituário, atestado, pedido de
+    /// exame, relatório de evolução e anamnese carregam DADO DE SAÚDE (art. 5º, II);
+    /// declaração de comparecimento, termo de consentimento, recibo e orçamento não.
+    ///
+    /// Um bit só obrigaria a direção a escolher entre a recepcionista lendo a evolução de
+    /// todo mundo e a recepcionista sem o recibo que ela emite dez vezes por dia — que é o
+    /// bit sobrecarregado que a parcela 49 corrigiu, reaparecendo numa tela.
+    ///
+    /// ⚠️ Fica no CATÁLOGO, e não na tela, porque a central não é a única porta: o
+    /// Receituário da Recepção e a aba Documentos da ficha emitem os mesmos papéis.
+    /// Regra de acesso escrita numa tela só é o defeito recorrente do projeto na variante
+    /// mais cara — a que dá a impressão de estar coberta.
+    /// </summary>
+    public required Permissao PermissaoVer { get; init; }
+
+    /// <summary>
+    /// O acesso para EMITIR esta folha. Mais forte que o de ver, na mesma família: quem lê
+    /// o prontuário não necessariamente escreve nele, e receita e pedido de exame mandam
+    /// alguém tomar ou fazer alguma coisa — daí <see cref="Permissao.Prescrever"/>.
+    /// </summary>
+    public required Permissao PermissaoEmitir { get; init; }
+
+    /// <summary>
     /// O sistema monta o conteúdo a partir do prontuário, em vez de alguém escrever.
     /// </summary>
     public bool MontadaDoProntuario => Exigencia == ExigenciaFolha.PacienteComProntuario;
@@ -89,6 +117,14 @@ public sealed record FolhaEmitida(
     public decimal? Valor { get; init; }
 
     /// <summary>
+    /// De quem é a folha (parcela 62). Aditivo, <c>init</c> nulo — no financeiro o
+    /// destinatário nem sempre é paciente do sistema. Existe para a REIMPRESSÃO de folha
+    /// clínica poder registrar a trilha de acesso: 2ª via de receita é dado de saúde
+    /// saindo em PDF, e a tela não tinha como dizer de quem.
+    /// </summary>
+    public int? PacienteId { get; init; }
+
+    /// <summary>
     /// Até quando o link publicado fica no ar (parcela 53). <c>null</c> quando o documento
     /// nunca foi publicado ou já saiu do ar.
     /// </summary>
@@ -101,6 +137,16 @@ public sealed record FolhaEmitida(
     /// impresso volta a funcionar.
     /// </summary>
     public bool JaTeveLink { get; init; }
+
+    /// <summary>
+    /// A chave da folha do catálogo (parcela 59). É por ela que a tela sabe qual acesso
+    /// esta linha exige — para ver, e para cancelar ou republicar o link.
+    ///
+    /// Vazia só se um tipo novo entrar no enum sem entrar no catálogo; a lista então
+    /// recusa a linha em vez de mostrá-la, que é a resposta segura para um papel cujo
+    /// acesso ninguém declarou.
+    /// </summary>
+    public string Chave { get; init; } = string.Empty;
 }
 
 /// <summary>Quantas de cada folha saíram no período.</summary>
@@ -162,61 +208,146 @@ public sealed class CentralDocumentosService
     /// É estático porque é o CATÁLOGO — a lista de papéis que a clínica emite não depende
     /// do banco. O que vem do banco é o que já foi emitido.
     /// </summary>
+    /// ⚠️ <b>O acesso de cada folha não segue a NATUREZA dela</b> (parcela 59), e a
+    /// diferença é o ponto: <c>NaturezaFolha.Clinico</c> diz de que lado da clínica a folha
+    /// vem — é o que agrupa os cartões na tela —, e sete folhas são "do atendimento". Só
+    /// que a <b>declaração de comparecimento</b> prova que a pessoa esteve aqui, e o
+    /// <b>termo de consentimento</b> é montado do cadastro: nenhum dos dois diz o que ela
+    /// tem, e os dois saem do BALCÃO o dia inteiro. Amarrar o acesso à natureza tiraria da
+    /// recepção dois papéis que ela emite todo dia para proteger um dado que eles não
+    /// carregam.
     public static IReadOnlyList<FolhaCatalogo> Catalogo { get; } =
     [
         new("receita", "Receituário",
             "Prescrição de fitoterápico, suplemento ou orientação de uso. Exige o profissional que assina.",
             NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
-        { TipoClinico = TipoDocumentoClinico.Receita },
+        {
+            TipoClinico = TipoDocumentoClinico.Receita,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.Prescrever
+        },
 
         new("atestado", "Atestado",
             "Afastamento por N dias. O CID só sai impresso com autorização expressa do paciente.",
             NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
-        { TipoClinico = TipoDocumentoClinico.Atestado },
+        {
+            TipoClinico = TipoDocumentoClinico.Atestado,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.Prescrever
+        },
 
+        // Comparecimento: prova que a pessoa ESTEVE aqui, com hora de chegada e de saída.
+        // Não diz o que ela tem, e quem o entrega é o balcão — fica no cadastro.
         new("comparecimento", "Declaração de comparecimento",
             "Prova de que o paciente esteve na clínica, com hora de chegada e de saída.",
             NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
-        { TipoClinico = TipoDocumentoClinico.Comparecimento },
+        {
+            TipoClinico = TipoDocumentoClinico.Comparecimento,
+            PermissaoVer = Permissao.VerFichaPaciente,
+            PermissaoEmitir = Permissao.EditarPaciente
+        },
 
         new("pedido-exame", "Solicitação de exames",
             "Lista de exames pedidos. Exige o profissional que assina.",
             NaturezaFolha.Clinico, ExigenciaFolha.Paciente)
-        { TipoClinico = TipoDocumentoClinico.PedidoExame },
+        {
+            TipoClinico = TipoDocumentoClinico.PedidoExame,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.Prescrever
+        },
 
+        // Montada do prontuário: emitir é IMPRIMIR o que já está lá, não escrever. Por
+        // isso ver e emitir pedem o mesmo bit — exigir `EditarProntuario` para tirar uma
+        // segunda via seria confundir ler com escrever.
         new("relatorio-evolucao", "Relatório de evolução clínica",
             "Montado do prontuário: as sessões, a queixa e a evolução da dor. Não se digita.",
             NaturezaFolha.Clinico, ExigenciaFolha.PacienteComProntuario)
-        { TipoClinico = TipoDocumentoClinico.RelatorioEvolucao },
+        {
+            TipoClinico = TipoDocumentoClinico.RelatorioEvolucao,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.VerProntuario
+        },
 
         new("anamnese", "Ficha de anamnese",
             "Montada do cadastro e da primeira avaliação. Não se digita.",
             NaturezaFolha.Clinico, ExigenciaFolha.PacienteComProntuario)
-        { TipoClinico = TipoDocumentoClinico.Anamnese },
+        {
+            TipoClinico = TipoDocumentoClinico.Anamnese,
+            PermissaoVer = Permissao.VerProntuario,
+            PermissaoEmitir = Permissao.VerProntuario
+        },
 
+        // O termo de consentimento é montado do CADASTRO e colhido no balcão — é a peça da
+        // LGPD, não do prontuário. Quem o entrega é quem recebe o paciente.
         new("consentimento", "Termo de consentimento",
             "Montado do cadastro. Revogar não apaga: cancela-se com motivo e emite-se outro.",
             NaturezaFolha.Clinico, ExigenciaFolha.PacienteComProntuario)
-        { TipoClinico = TipoDocumentoClinico.Consentimento },
+        {
+            TipoClinico = TipoDocumentoClinico.Consentimento,
+            PermissaoVer = Permissao.VerFichaPaciente,
+            PermissaoEmitir = Permissao.EditarPaciente
+        },
 
         new("recibo", "Recibo de pagamento",
             "Comprova dinheiro que JÁ entrou. Nasce de um lançamento do caixa e fica apontando para ele.",
             NaturezaFolha.Financeiro, ExigenciaFolha.LancamentoNoCaixa)
-        { TipoFinanceiro = TipoDocumentoFinanceiro.Recibo },
+        {
+            TipoFinanceiro = TipoDocumentoFinanceiro.Recibo,
+            PermissaoVer = Permissao.VerFinanceiro,
+            PermissaoEmitir = Permissao.EditarFinanceiro
+        },
 
         new("orcamento", "Orçamento",
             "Proposta do que vai custar, com validade. Os valores ficam gravados na emissão.",
             NaturezaFolha.Financeiro, ExigenciaFolha.Paciente)
-        { TipoFinanceiro = TipoDocumentoFinanceiro.Orcamento },
+        {
+            TipoFinanceiro = TipoDocumentoFinanceiro.Orcamento,
+            PermissaoVer = Permissao.VerFinanceiro,
+            PermissaoEmitir = Permissao.EditarFinanceiro
+        },
 
+        // Conferência de um PERÍODO, não de uma pessoa: é relatório gerencial, e o bit é o
+        // mesmo que guarda os relatórios do faturamento desde a parcela 49.
         new(ChaveFechamentoPeriodo, "Fechamento do período",
             "Conferência da semana ou do mês: taxa de baixa, quebra por convênio, pendências vencidas nominais e glosas em aberto.",
             NaturezaFolha.Gerencial, ExigenciaFolha.Periodo)
+        {
+            PermissaoVer = Permissao.VerIndicadores,
+            PermissaoEmitir = Permissao.VerIndicadores
+        }
     ];
+
+    /// <summary>
+    /// As folhas que ESTE conjunto de acessos alcança (parcela 59).
+    ///
+    /// Ponto único, no serviço e não na tela: a central, o Receituário da Recepção e a aba
+    /// Documentos da ficha emitem os mesmos papéis, e regra de acesso escrita numa porta
+    /// só é o defeito recorrente do projeto com o agravante de PARECER coberto.
+    /// </summary>
+    public static IReadOnlyList<FolhaCatalogo> CatalogoPara(Permissao acessos)
+        => Catalogo.Where(f => acessos.HasFlag(f.PermissaoVer)).ToList();
 
     /// <summary>A folha pela chave, ou null se a chave não existe no catálogo.</summary>
     public static FolhaCatalogo? Folha(string chave)
         => Catalogo.FirstOrDefault(f => f.Chave == chave);
+
+    /// <summary>A folha de um tipo de documento CLÍNICO. Null se o tipo não está no catálogo.</summary>
+    public static FolhaCatalogo? Folha(TipoDocumentoClinico tipo)
+        => Catalogo.FirstOrDefault(f => f.TipoClinico == tipo);
+
+    /// <summary>
+    /// O acesso para VER um documento clínico deste tipo.
+    ///
+    /// Tipo fora do catálogo cai em <see cref="Permissao.VerProntuario"/> — o mais
+    /// restritivo dos dois candidatos. Papel novo cujo acesso ninguém declarou nasce
+    /// FECHADO: nascer aberto é o defeito que só aparece quando já vazou.
+    /// </summary>
+    public static Permissao AcessoParaVer(TipoDocumentoClinico tipo)
+        => Folha(tipo)?.PermissaoVer ?? Permissao.VerProntuario;
+
+    /// <summary>O acesso para EMITIR ou CANCELAR um documento clínico deste tipo.</summary>
+    public static Permissao AcessoParaEmitir(TipoDocumentoClinico tipo)
+        => Folha(tipo)?.PermissaoEmitir ?? Permissao.Prescrever;
 
     /// <summary>Rótulo da folha correspondente a um documento clínico.</summary>
     public static string RotularClinico(TipoDocumentoClinico tipo)
@@ -243,7 +374,7 @@ public sealed class CentralDocumentosService
     /// <param name="pacienteId">Um paciente só, ou null para todos.</param>
     public async Task<IReadOnlyList<FolhaEmitida>> EmitidasAsync(
         DateOnly inicio, DateOnly fim, string? chaveFolha = null, int? pacienteId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default, Permissao? acessos = null)
     {
         var folha = chaveFolha is null ? null : Folha(chaveFolha);
 
@@ -272,8 +403,10 @@ public sealed class CentralDocumentosService
                 d.Data, d.CriadoEm, d.CriadoPor,
                 d.Cancelado, d.MotivoCancelamento)
             {
+                PacienteId = d.PacienteId,
                 PublicadoAte = d.PublicadoAte,
-                JaTeveLink = !string.IsNullOrWhiteSpace(d.TokenPublicacao)
+                JaTeveLink = !string.IsNullOrWhiteSpace(d.TokenPublicacao),
+                Chave = Catalogo.FirstOrDefault(f => f.TipoClinico == d.Tipo)?.Chave ?? string.Empty
             }));
         }
 
@@ -292,23 +425,41 @@ public sealed class CentralDocumentosService
                     d.Destinatario, null,
                     d.Data, d.CriadoEm, d.CriadoPor,
                     d.Cancelado, d.MotivoCancelamento)
-                { Valor = d.ValorTotal }));
+                {
+                    Valor = d.ValorTotal,
+                    Chave = Catalogo.FirstOrDefault(f => f.TipoFinanceiro == d.Tipo)?.Chave
+                            ?? string.Empty
+                }));
         }
 
         return lista
+            .Where(f => acessos is not { } a || Alcanca(a, f.Chave))
             .OrderByDescending(f => f.Data)
             .ThenByDescending(f => f.CriadoEm)
             .ToList();
     }
 
     /// <summary>
+    /// Este conjunto de acessos alcança a folha desta chave? Chave desconhecida é NÃO —
+    /// papel cujo acesso ninguém declarou não aparece por omissão.
+    /// </summary>
+    private static bool Alcanca(Permissao acessos, string chave)
+        => Folha(chave) is { } f && acessos.HasFlag(f.PermissaoVer);
+
+    /// <summary>
     /// Quantas de cada folha saíram no período. Conta sobre o MESMO recorte da lista —
     /// dois números diferentes para o mesmo papel na mesma tela é pior do que um só.
     /// </summary>
+    /// <remarks>
+    /// O resumo conta sobre o RESULTADO do filtro de acesso, e não sobre a base: "12
+    /// folhas emitidas" acima de uma lista de quatro faria a pessoa procurar as oito que
+    /// faltam. É a mesma regra da auditoria (parcela 21) e do filtro da Conciliação.
+    /// </remarks>
     public async Task<ResumoFolhas> ResumoAsync(
-        DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        DateOnly inicio, DateOnly fim, CancellationToken ct = default,
+        Permissao? acessos = null)
     {
-        var emitidas = await EmitidasAsync(inicio, fim, ct: ct);
+        var emitidas = await EmitidasAsync(inicio, fim, ct: ct, acessos: acessos);
         if (emitidas.Count == 0) return new ResumoFolhas(0, 0, []);
 
         return new ResumoFolhas(

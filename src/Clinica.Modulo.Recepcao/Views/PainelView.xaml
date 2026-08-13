@@ -88,20 +88,23 @@
                     </Border>
                 </WrapPanel>
 
-                <UniformGrid Columns="4" Margin="0,0,0,16">
-                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                <!-- WrapPanel pela mesma razão da fileira acima (parcela 50): o UniformGrid
+                     esticava estes quatro até a borda direita, e as duas fileiras saíam
+                     com larguras diferentes — parecia grade quebrada porque era. -->
+                <WrapPanel Margin="0,0,0,16">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Faltas" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding Faltas}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Taxa de falta" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding TaxaFalta}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource CardKpi}" Margin="0,0,12,0">
+                    <Border Style="{StaticResource CardKpi}" MinWidth="200" Margin="0,0,12,0">
                         <StackPanel>
                             <TextBlock Text="Encaixes" Style="{StaticResource CardKpi.Rotulo}" />
                             <TextBlock Text="{Binding Encaixes}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
@@ -113,7 +116,7 @@
                             <TextBlock Text="{Binding ListaDeEspera}" Style="{StaticResource CardKpi.Valor}" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </Border>
-                </UniformGrid>
+                </WrapPanel>
 
                 <Grid>
                     <Grid.ColumnDefinitions>

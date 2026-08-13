@@ -121,9 +121,18 @@ public sealed partial class AuditoriaViewModel : ObservableObject
 
     partial void OnSomenteAcessosChanged(bool value) => _ = CarregarAsync();
 
+    /// <summary>
+    /// Número da carga mais recente pedida — descarte de resposta fora de ordem (parcela 50).
+    /// Cada tecla do filtro e cada troca de paciente refazem a consulta; a resposta velha
+    /// chegando por último mostraria a trilha de um filtro que já não está na tela.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Mensagem = null;
@@ -144,11 +153,19 @@ public sealed partial class AuditoriaViewModel : ObservableObject
                 Limite = Limite
             };
 
-            if (Acoes.Count == 0)
-                foreach (var a in await auditoria.AcoesConhecidasAsync())
-                    Acoes.Add(a);
+            var acoesConhecidas = Acoes.Count == 0
+                ? await auditoria.AcoesConhecidasAsync()
+                : null;
 
             var eventos = await auditoria.ConsultarAsync(filtro);
+            var r = await auditoria.ResumoAsync(filtro);
+
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
+            if (acoesConhecidas is not null)
+                foreach (var a in acoesConhecidas)
+                    Acoes.Add(a);
 
             // O nome sai do seletor quando há paciente filtrado — uma consulta a menos,
             // e é o único caso em que a lista inteira fala da mesma pessoa.
@@ -156,8 +173,6 @@ public sealed partial class AuditoriaViewModel : ObservableObject
 
             Eventos.Clear();
             foreach (var e in eventos) Eventos.Add(LinhaAuditoria.De(e, nome));
-
-            var r = await auditoria.ResumoAsync(filtro);
 
             PorAcao.Clear();
             foreach (var (acao, vezes) in r.PorAcao.Take(12))
@@ -181,6 +196,9 @@ public sealed partial class AuditoriaViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            // Chegou tarde: outra carga mais nova já foi pedida.
+            if (geracao != _geracaoCarga) return;
+
             Clinica.Application.Diagnostico.Registrar("Gerente — trilha de auditoria não pôde ser lida", ex);
             Mensagem = $"Não foi possível ler a trilha: {ex.Message}";
             MensagemEhErro = true;
