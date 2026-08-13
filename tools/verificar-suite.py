@@ -1246,12 +1246,29 @@ COLECAO_TIPADA = re.compile(
 
 
 def _enums_do_dominio() -> set[str]:
+    """
+    Enums do DOMÍNIO e da APLICAÇÃO.
+
+    A camada de aplicação entrou na parcela 64, e o motivo foi o cliente: a tela "Quem me
+    deve" oferecia "MaisAntigo" e "MaiorValor" no seletor de ordenação, com a checagem
+    verde. `OrdemInadimplencia` é declarada em `Clinica.Application/Servicos`, e esta
+    função só varria `Clinica.Domain` — o WPF chama `ToString()` sem se importar com a
+    camada em que o enum nasceu.
+
+    Custo medido antes de alargar: UMA ocorrência em toda a suíte, que era o próprio
+    defeito. Checagem cega é pior do que checagem ausente, porque ela responde
+    "está limpo".
+    """
     achados: set[str] = set()
-    dominio = RAIZ / "src" / "Clinica.Domain"
-    if not dominio.exists():
-        return achados
-    for arq in dominio.rglob("*.cs"):
-        achados.update(re.findall(r"\benum\s+([A-Za-z0-9_]+)", arq.read_text(encoding="utf-8")))
+    for camada in ("Clinica.Domain", "Clinica.Application"):
+        raiz = RAIZ / "src" / camada
+        if not raiz.exists():
+            continue
+        for arq in raiz.rglob("*.cs"):
+            if "/obj/" in str(arq) or "/bin/" in str(arq):
+                continue
+            achados.update(
+                re.findall(r"\benum\s+([A-Za-z0-9_]+)", arq.read_text(encoding="utf-8")))
     return achados
 
 

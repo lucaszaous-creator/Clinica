@@ -2649,3 +2649,37 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   onde ainda não estava. `Ver_indicadores_nao_da_o_direito_de_definir_meta` falha se
   alguém os juntar de volta, inclusive pelo caminho discreto (acrescentar o bit ao padrão
   de um perfil que só deveria ler).
+
+- **Teto posto no elemento errado não encolhe o conteúdo: ele o DECEPA** (parcela 64 — o
+  cliente mandou a foto do mapa corporal com "Repetir a anterior" e "Limpar" meio visíveis,
+  encavalados no resumo). O `MaxHeight="260"` estava no `DockPanel` do painel inteiro, e
+  não no `ScrollViewer` da lista de pontos, que é o único filho que cresce sem limite.
+  Protocolo, campo de observações e a linha de ações somam mais de 260 px sozinhos — então
+  o `StackPanel` do topo era cortado, e o que ficava fora do corte eram justamente os dois
+  botões e a frase "Nenhum ponto marcado". A pergunta que decide onde o teto vai: **qual
+  filho cresce com o DADO?** É nele. Os de altura conhecida não podem ser cortados.
+- **Três respostas para a mesma pergunta se leem como sobreposição** (parcela 64, tela
+  "Quem me deve"): o resumo ao lado do combo dizia "Nenhuma conta de paciente vencida", uma
+  faixa verde `AlertaSucesso` repetia a MESMA frase, e o `EstadoDaTela` dizia "Ninguém
+  devendo" com desenho. O cliente descreveu como faixa sobreposta no lugar errado, e era
+  isso mesmo: o `EstadoDaTela` estava na RAIZ da tela, cobrindo KPIs, filtro e a coluna de
+  envelhecimento, e caía por cima da faixa verde. Duas correções, e as duas são regras
+  velhas: **"um estado vazio por pergunta"** (parcela 37) e **a sobreposição pertence à
+  REGIÃO cujo vazio ela explica, nunca à página** (parcela 58, que já a tinha corrigido
+  noutras telas e não nesta).
+- **Coluna elástica ao lado de coluna FIXA dá o excesso todo para a elástica** (parcela 64,
+  Conciliação): `Paciente` era `*` e `Convênio` 170 px fixos, então numa tela larga o nome
+  do paciente ganhava meio palmo de branco enquanto "Unimed Costa do Sol Intercâmbio" saía
+  truncado ao lado — e o número da guia colava nele. Quando DUAS colunas têm conteúdo de
+  tamanho imprevisível, as duas são estrela e o que se escolhe é a PROPORÇÃO (`2*` e
+  `1.3*`, com piso); fixa fica só para o que tem tamanho conhecido — data, número, campo de
+  digitar. E célula de tabela precisa de respiro: sem margem, "Unimed Costa do
+  Sol Inte…37034962" se lê como uma coisa só.
+- **A checagem 20 tinha um SEGUNDO ponto cego: o enum da camada de APLICAÇÃO** (parcela 64
+  — o cliente viu "MaisAntigo" e "MaiorValor" no seletor de "Quem me deve"). A função que
+  monta a lista de enums varria só `src/Clinica.Domain`, e `OrdemInadimplencia` mora em
+  `Clinica.Application/Servicos` — o WPF chama `ToString()` sem se importar com a camada em
+  que o enum nasceu. Custo de alargar, medido ANTES: uma ocorrência em toda a suíte, que
+  era o próprio defeito. É o mesmo desfecho do ponto cego do enum anulável, na mesma
+  parcela, e a lição se repete de propósito: **quando uma checagem responde "está limpo",
+  pergunte primeiro o que ela não olha** — e meça o ruído antes de decidir não alargar.

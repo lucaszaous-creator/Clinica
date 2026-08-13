@@ -92,7 +92,13 @@
              Os nomes dos comandos são os do MapaCorporalViewModel — este bloco é o
              mesmo que existia na janela de evolução da Recepção, movido inteiro para
              cá em vez de reescrito, justamente para nenhuma função se perder na mudança. -->
-        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0" MaxHeight="260">
+        <!-- ⚠️ O teto de altura mora no ScrollViewer da LISTA DE PONTOS, lá embaixo, e
+             NÃO aqui. Enquanto ele esteve neste DockPanel, ele limitava o painel INTEIRO:
+             protocolo, observações e a linha de ações somam mais de 260 px sozinhos, então
+             o StackPanel do topo era cortado e o que sobrava fora do corte eram justamente
+             os botões "Repetir a anterior" e "Limpar" — meio visíveis, encavalados no
+             resumo. Teto posto no elemento errado não encolhe o conteúdo: ele o decepa. -->
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,10,0,0">
             <StackPanel DockPanel.Dock="Top">
                 <Border Style="{StaticResource AlertaInfo}" Margin="0,0,0,8"
                         Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
@@ -158,7 +164,10 @@
                 </Grid>
             </StackPanel>
 
-            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+            <!-- É ESTA lista que precisa de teto: ela cresce com o número de pontos
+                 marcados e empurraria a figura para fora da janela. As ações acima têm
+                 altura conhecida e não podem ser cortadas. -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,8,0,0" MaxHeight="180">
                 <ItemsControl ItemsSource="{Binding Pontos}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type comp:PontoMapaItem}">
