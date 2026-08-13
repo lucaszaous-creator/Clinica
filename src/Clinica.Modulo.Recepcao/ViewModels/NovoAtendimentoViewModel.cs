@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Configuracao;
 using Clinica.Desktop.Shell.Modulos;
@@ -993,6 +994,18 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
         // Guarda contra duplo clique: dois lançamentos gerariam códigos duplicados.
         if (Ocupado) return;
+
+        // ===== PASSO 0: este paciente já foi lançado hoje? (parcela 65) =====
+        //
+        // A guia passou a nascer no clique, então o segundo clique não custa mais um
+        // horário a limpar: custa um jogo de guias DUPLICADO indo para o faturamento. A
+        // pergunta é feita antes de qualquer gravação.
+        //
+        // É pergunta e não recusa: um paciente pode ser atendido duas vezes no mesmo dia
+        // (a sessão da manhã e a consulta da tarde), e recusar travaria o balcão num caso
+        // legítimo que a recepcionista não teria como contornar.
+        if (!await ConfirmarSeJaLancadoHojeAsync(paciente)) return;
+
         Ocupado = true;
 
         int agendamentoId;
@@ -1044,14 +1057,71 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             return;
         }
 
+        RegistroAtendimento registro;
         try
         {
-            // ===== PASSO 2: a MESMA janela da Fila =====
+            // ===== PASSO 2: A GUIA NASCE AQUI (parcela 65) =====
             //
-            // Não há uma segunda tela de decisão: é a `FechamentoSessaoWindow` que a
-            // recepcionista já usa todo dia, com as mesmas propostas (o pacote que vence
-            // primeiro, o valor da última entrada do paciente com a procedência). Duas
-            // telas para a mesma decisão divergiriam na primeira correção.
+            // Registrar o atendimento é o ato; a guia é consequência imediata dele e já
+            // segue para o faturamento. Nada depois deste ponto pode condicionar ou
+            // desfazer a guia.
+            //
+            // Antes, a guia só nascia se a janela de fechamento fosse CONFIRMADA — e
+            // fechá-la deixava um horário na agenda, o paciente marcado como presente e
+            // nenhuma guia. Em 12/08/2026 a mesma sessão foi lançada TRÊS vezes em 71
+            // segundos por causa disso: a recepcionista não via guia nenhuma e tentava de
+            // novo. Lançamento que não fatura é a inversão exata do motivo de o produto
+            // existir.
+            using var scope = _scopeFactory.CreateScope();
+            var fechamento = scope.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
+
+            registro = await fechamento.RegistrarAtendimentoAsync(
+                agendamentoId, SessaoUsuario.Atual.Operador);
+
+            MontarCodigos(registro.Atendimento.Codigos);
+            foreach (var a in registro.RecadosDoLancamento) Avisos.Add(a);
+
+            _ultimoAtendimentoId = registro.Atendimento.Id;
+            NumeroAtendimento = registro.Atendimento.Numero;
+            Lancado = true;
+
+            // A conferência do dia acompanha na hora: o que acabou de nascer aparece lá
+            // embaixo sem ninguém precisar clicar em Atualizar.
+            await CarregarDoDiaAsync();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — atendimento não pôde ser registrado", ex);
+            Mensagem = $"O horário foi marcado, mas o atendimento NÃO foi registrado e "
+                       + $"nenhuma guia foi gerada: {ex.Message}. O paciente está na Fila — "
+                       + "conclua por lá.";
+            return;
+        }
+        finally
+        {
+            Ocupado = false;
+        }
+
+        // ===== PASSO 3: pacote, insumo e caixa — só quando há o que decidir =====
+        //
+        // A janela é a MESMA `FechamentoSessaoWindow` da Fila (duas telas para a mesma
+        // decisão divergiriam na primeira correção), e agora ela abre sobre um atendimento
+        // que JÁ EXISTE: fechá-la não desfaz nada.
+        //
+        // E ela só abre quando há algo a decidir — pacote a debitar, dinheiro a lançar ou
+        // insumo a baixar. Para o paciente de convênio sem pacote não há nada que a
+        // recepcionista possa responder ali, e pedir confirmação de uma tela vazia é o que
+        // ensina a fechar janela sem ler.
+        if (!registro.TemDecisao)
+        {
+            Mensagem = registro.GuiasGeradas == 0
+                ? "Atendimento registrado. Este convênio não gera guia (particular)."
+                : $"Atendimento registrado — {registro.GuiasGeradas} guia(s) no faturamento.";
+            return;
+        }
+
+        try
+        {
             var vm = new FechamentoSessaoViewModel(_scopeFactory, agendamentoId);
             var janela = new Janelas.FechamentoSessaoWindow(vm)
             {
@@ -1062,40 +1132,58 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
             if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
             {
-                // Fechou sem concluir. O horário FICA, com o check-in carimbado — e isso é
-                // a verdade: o paciente chegou. Ele aparece na Fila em "Na recepção", que é
-                // onde sessão não terminada mora, e de lá se conclui ou se cancela.
-                //
-                // Apagar o encaixe aqui seria pior: sumiria da tela o único registro de que
-                // alguém está no balcão esperando.
-                Mensagem = "O horário foi marcado e o paciente está na Fila, em "
-                           + "\"Na recepção\". Conclua por lá para gerar a guia.";
+                // Fechou sem decidir. A guia está feita — o que ficou para trás é o pacote
+                // e o caixa, e a mensagem diz exatamente isso. Não é mais meio-lançamento:
+                // é lançamento completo com um passo opcional pendente.
+                Mensagem = "Atendimento registrado e guia gerada. O pacote/caixa NÃO foram "
+                           + "registrados — dá para resolver pela Fila ou pelo Financeiro.";
                 return;
             }
 
-            MontarCodigos(resultado.Atendimento.Codigos);
-
-            // Os avisos do fechamento são a parte que não pode ser escondida: o atendimento
-            // pode ter sido concluído e o pacote NÃO ter debitado.
+            // Os avisos do fechamento são a parte que não pode ser escondida: a sessão
+            // pode ter sido concluída e o pacote NÃO ter debitado.
             foreach (var a in resultado.Avisos) Avisos.Add(a);
-
-            _ultimoAtendimentoId = resultado.Atendimento.Id;
-            NumeroAtendimento = resultado.Atendimento.Numero;
-            Lancado = true;
-
-            // A conferência do dia acompanha na hora: o que acabou de nascer aparece lá
-            // embaixo sem ninguém precisar clicar em Atualizar.
             await CarregarDoDiaAsync();
         }
         catch (Exception ex)
         {
             LogSuite.Registrar("Novo atendimento — fechamento não pôde ser concluído", ex);
-            Mensagem = $"O horário foi marcado, mas o fechamento falhou: {ex.Message}. "
-                       + "O paciente está na Fila — conclua por lá.";
+            Mensagem = $"Atendimento registrado e guia gerada, mas o pacote/caixa falhou: "
+                       + $"{ex.Message}. Resolva pela Fila ou pelo Financeiro.";
         }
-        finally
+    }
+
+    /// <summary>
+    /// Pergunta antes de lançar de novo alguém que já foi lançado hoje.
+    ///
+    /// Desde a parcela 65 a guia nasce no clique, então o clique repetido manda um jogo de
+    /// guias duplicado ao faturamento — e guia duplicada só aparece na operadora, semanas
+    /// depois. Falha da conferência não impede o lançamento (banco lento não pode travar o
+    /// balcão), mas fica registrada.
+    /// </summary>
+    private async Task<bool> ConfirmarSeJaLancadoHojeAsync(Paciente paciente)
+    {
+        try
         {
-            Ocupado = false;
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+            var dia = DateOnly.FromDateTime(Data.Date);
+
+            var quantos = await repo.ContarAtendimentosDoPacienteAsync(paciente.Id, dia, dia);
+            if (quantos == 0) return true;
+
+            var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
+            return dialogo.ConfirmarPerigo(
+                "Atendimento repetido?",
+                $"{paciente.Nome} já tem {quantos} atendimento(s) lançado(s) em "
+                + $"{dia:dd/MM/yyyy}, com guia(s) no faturamento.\n\n"
+                + "Lançar de novo cria OUTRO atendimento e OUTRAS guias para o mesmo dia.\n\n"
+                + "Confira em LANÇADOS HOJE, no fim desta tela. Lançar mesmo assim?");
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — conferência de lançamento repetido falhou", ex);
+            return true;
         }
     }
 

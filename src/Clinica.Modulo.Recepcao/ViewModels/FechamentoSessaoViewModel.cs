@@ -126,15 +126,23 @@ public sealed partial class FechamentoSessaoViewModel : ObservableObject
     /// <summary>Idem <see cref="NaoConcluida"/>: a explicação só aparece a quem não pode.</summary>
     public bool SemPermissaoFinanceiro => !PodeLancarFinanceiro;
 
-    /// <summary>Uma frase com o que o botão vai fazer — lida antes do clique, não depois.</summary>
+    /// <summary>
+    /// Uma frase com o que o botão vai fazer — lida antes do clique, não depois.
+    ///
+    /// ⚠️ Ela NÃO promete mais gerar a guia (parcela 65): quando esta janela abre, o
+    /// atendimento já foi registrado e a guia já está no faturamento. Manter a promessa
+    /// antiga faria a recepcionista concluir "para garantir a guia" — e é essa dúvida que
+    /// produziu a sessão lançada três vezes em 12/08/2026.
+    /// </summary>
     public string ResumoDoQueVaiAcontecer
     {
         get
         {
-            var partes = new List<string> { "gera a guia do atendimento" };
+            var partes = new List<string>();
             if (TemPacote && DebitarPacote) partes.Add("debita 1 sessão do pacote");
             if (GerarLancamento) partes.Add("lança a entrada no caixa");
-            return "Concluir " + string.Join(", ", partes) + ".";
+            if (partes.Count == 0) return "A guia já está no faturamento. Não há mais nada a registrar.";
+            return "A guia já está no faturamento. Concluir " + string.Join(" e ", partes) + ".";
         }
     }
 

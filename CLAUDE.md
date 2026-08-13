@@ -2257,6 +2257,44 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   registro sumiria com o único sinal de que há alguém no balcão esperando.
   `Avulso_e_agendado_produzem_os_mesmos_fatos` é a amarra em teste: ele falha se alguém
   abrir uma terceira porta que pule algum dos fatos, que é como a segunda foi aberta.
+- **ATENDIMENTO QUE ENTRA NO SISTEMA JÁ GERA GUIA — a unificação da parcela 60 pendurou a
+  guia no clique errado** (parcela 65; o cliente achou em produção, no dia seguinte). Ao
+  unificar a esteira, a guia deixou de nascer no lançamento e passou a nascer na
+  **confirmação da `FechamentoSessaoWindow`**. Quem fechasse aquela janela ficava com o
+  horário na agenda, o paciente marcado como presente e **nenhuma guia** — e, como o
+  encaixe tinha sido criado, a tela parecia ter funcionado.
+  Em **12/08/2026** a mesma paciente foi lançada **três vezes em 71 segundos** (encaixes
+  161, 162 e 163, todos com `ChegadaEm` carimbado e `AtendimentoId` nulo): a recepcionista
+  não via guia nenhuma e tentava de novo. Zero guias, três cartões na fila para uma sessão.
+  A mensagem que explicava existia — inline, numa tela que a pessoa já dava por concluída.
+  **Ninguém tenta três vezes em um minuto se a mensagem chegou.**
+  A regra que a direção fixou é uma só e vale para as DUAS portas: **registrou o
+  atendimento, a guia nasce e vai para o faturamento**. Pacote, insumo e caixa são o passo
+  SEGUINTE e não podem condicionar nem desfazer a guia — é a MESMA hierarquia que o
+  `ConcluirAsync` já aplicava entre os quatro fatos (só o atendimento derruba a operação;
+  os outros três viram aviso), agora estendida ao **momento** em que cada um acontece.
+  `FechamentoSessaoService.RegistrarAtendimentoAsync` é o ponto único, e é **idempotente
+  por agendamento**: quem já tem `AtendimentoId` é reaproveitado, nunca reconfirmado —
+  dois cliques no Finalizar não viram duas guias.
+  ⚠️ **A recusa de "agendamento já realizado" teve de SAIR do `PrepararAsync`.** Com a guia
+  antes da janela, `Realizado` virou o caso NORMAL da tela, e a recusa derrubaria
+  justamente a janela que veio depois do lançamento correto. Quem impede a duplicidade é o
+  reaproveitamento do atendimento e o `AtendimentoJaConsumiuPacoteAsync` — nunca uma
+  exceção na cara de quem clicou duas vezes procurando a guia que ele não viu.
+  **A janela só abre quando há o que decidir** (`RegistroAtendimento.TemDecisao`: pacote,
+  dinheiro ou insumo). Para o paciente de convênio sem pacote não há uma única pergunta a
+  responder ali, e pedir confirmação de uma tela vazia é como se ensina alguém a fechar
+  janela sem ler — que é a causa raiz do dia 12.
+  **E o segundo clique passou a custar caro**, então ganhou pergunta: antes de criar o
+  encaixe, a tela confere se o paciente já tem atendimento naquele dia e pergunta. É
+  PERGUNTA e não recusa — o paciente pode ter a sessão da manhã e a consulta da tarde, e
+  recusar travaria o balcão num caso legítimo que a recepcionista não teria como contornar.
+  A lição, que vale para a próxima unificação: **ao juntar dois fluxos, pergunte em que
+  momento cada fato passa a existir — e não deixe o fato IRREVERSÍVEL depender do passo
+  OPCIONAL.** A guia é o que a clínica não pode perder; o pacote e o caixa se resolvem
+  depois, por outra tela. Inverter essa ordem não quebra teste nenhum: os 1512 continuavam
+  verdes, porque cada um deles chamava `ConcluirAsync` — o caminho que ninguém questiona é
+  o que os testes exercitam.
 - **Mover XAML entre projetos quebra o `xmlns`, e só o CI acusa** (parcela 60, checagem
   33): `clr-namespace:X;assembly=Y` manda o WPF procurar o namespace X **dentro** do
   assembly Y. Quando Y é o próprio projeto do arquivo, o compilador de marcação não acha

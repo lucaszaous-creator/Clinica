@@ -1,4 +1,5 @@
 using Clinica.Application.Abstracoes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Servicos;
@@ -89,6 +90,43 @@ public sealed record ResultadoFechamento(
 }
 
 /// <summary>
+/// O atendimento acabou de ser REGISTRADO: ele existe, as guias existem e já estão no
+/// faturamento. O que vem junto é a proposta do que ainda pode ser decidido.
+///
+/// Por que este record existe (parcela 65)
+/// ---------------------------------------
+/// Até aqui a guia só nascia quando a janela de fechamento era CONFIRMADA. Quem fechasse
+/// a janela ficava com um horário na agenda, o paciente marcado como presente e
+/// <b>nenhuma guia</b> — e como o encaixe tinha sido criado, a tela parecia ter
+/// funcionado pela metade. No dia 12/08/2026 a mesma sessão foi lançada três vezes em 71
+/// segundos por causa disso: a recepcionista não via guia nenhuma e tentava de novo.
+///
+/// A regra agora é uma só, e vale para as DUAS portas (avulso e Finalizar da fila):
+/// <b>registrou o atendimento, a guia nasce e vai para o faturamento</b>. Pacote, insumo
+/// e caixa são o passo seguinte e não podem condicionar nem desfazer a guia — que é a
+/// mesma hierarquia que o <see cref="FechamentoSessaoService.ConcluirAsync"/> já aplicava
+/// entre os quatro fatos, agora estendida ao momento em que cada um acontece.
+/// </summary>
+public sealed record RegistroAtendimento(
+    Atendimento Atendimento,
+    PropostaFechamento Proposta,
+    IReadOnlyList<string> RecadosDoLancamento,
+    bool JaExistia)
+{
+    /// <summary>
+    /// Há algo para a recepção decidir — pacote a debitar, dinheiro a lançar ou insumo a
+    /// baixar. Quando não há, abrir a janela seria pedir confirmação de uma tela vazia, e
+    /// o lançamento termina em um clique.
+    /// </summary>
+    public bool TemDecisao =>
+        Proposta.TemPacote || Proposta.SugereLancamento || Proposta.Insumos.Count > 0;
+
+    /// <summary>Quantas guias faturáveis nasceram (o Particular gera código não aplicável).</summary>
+    public int GuiasGeradas =>
+        Atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
+}
+
+/// <summary>
 /// Fecha a sessão na RECEPÇÃO: conclui o atendimento e, no mesmo ato, debita o pacote,
 /// baixa o insumo e lança o dinheiro no caixa.
 ///
@@ -139,9 +177,16 @@ public sealed class FechamentoSessaoService
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
 
-        if (ag.Status == StatusAgendamento.Realizado)
-            throw new InvalidOperationException("Este agendamento já teve a presença confirmada.");
-
+        // ⚠️ Agendamento JÁ REALIZADO não é mais erro aqui (parcela 65).
+        //
+        // A guia passou a nascer no instante em que o atendimento é registrado, e a
+        // proposta de pacote/insumo/caixa é o passo SEGUINTE — então quando esta tela
+        // abre, o atendimento já existe e o agendamento já está `Realizado`. Recusar
+        // aqui derrubaria justamente a janela que veio depois da guia.
+        //
+        // O que impede a duplicidade não é esta recusa: é o <see cref="ConcluirAsync"/>,
+        // que reaproveita o atendimento existente em vez de confirmar a presença de novo,
+        // e o `AtendimentoJaConsumiuPacoteAsync` do PacoteService.
         var dia = hoje ?? DateOnly.FromDateTime(ag.DataHora);
 
         var pacote = await PacoteADebitarAsync(ag.PacienteId, dia, ct);
@@ -167,6 +212,59 @@ public sealed class FechamentoSessaoService
     }
 
     /// <summary>
+    /// REGISTRA o atendimento: a guia nasce aqui e vai para o faturamento na hora.
+    ///
+    /// Este é o ponto que a direção fixou na parcela 65: <b>atendimento que entrou no
+    /// sistema já gera guia</b>, agendado ou avulso, sem depender de mais nenhum clique.
+    /// Antes, o único caminho para gerar a guia era confirmar a janela de fechamento — e
+    /// fechar aquela janela deixava a sessão registrada na agenda e invisível para quem
+    /// fatura.
+    ///
+    /// A proposta de pacote/insumo/caixa é montada ANTES de confirmar a presença, porque
+    /// ela descreve o que ainda pode ser decidido e a tela precisa dela para saber se vale
+    /// a pena abrir (<see cref="RegistroAtendimento.TemDecisao"/>).
+    ///
+    /// ⚠️ É IDEMPOTENTE por agendamento. Chamar duas vezes devolve o MESMO atendimento em
+    /// vez de estourar — dois cliques no Finalizar não podem virar duas guias para a mesma
+    /// sessão. A duplicidade que sobra é a de agendamentos distintos para a mesma sessão, e
+    /// essa se impede na porta (a tela pergunta antes de criar o segundo encaixe).
+    /// </summary>
+    public async Task<RegistroAtendimento> RegistrarAtendimentoAsync(
+        int agendamentoId, string? operador = null, DateOnly? hoje = null,
+        CancellationToken ct = default)
+    {
+        var proposta = await PrepararAsync(agendamentoId, hoje, ct);
+        var (atendimento, recados, jaExistia) =
+            await GarantirAtendimentoAsync(agendamentoId, operador, ct);
+
+        return new RegistroAtendimento(atendimento, proposta, recados, jaExistia);
+    }
+
+    /// <summary>
+    /// Devolve o atendimento do agendamento, confirmando a presença se ele ainda não
+    /// existir. É o ponto único que impede a segunda guia: quem já tem
+    /// <c>AtendimentoId</c> é reaproveitado, nunca reconfirmado.
+    /// </summary>
+    private async Task<(Atendimento Atendimento, IReadOnlyList<string> Recados, bool JaExistia)>
+        GarantirAtendimentoAsync(int agendamentoId, string? operador, CancellationToken ct)
+    {
+        var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
+            ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
+
+        if (ag.AtendimentoId is { } id)
+        {
+            var existente = await _repo.ObterAtendimentoAsync(id, ct)
+                ?? throw new InvalidOperationException(
+                    $"O agendamento {agendamentoId} aponta para o atendimento {id}, que não existe mais.");
+
+            return (existente, [], true);
+        }
+
+        var resultado = await _agenda.ConfirmarPresencaAsync(agendamentoId, ct, operador);
+        return (resultado.Atendimento, resultado.Avisos, false);
+    }
+
+    /// <summary>
     /// Executa o fechamento. A ordem importa: o atendimento nasce primeiro porque pacote,
     /// insumo e lançamento se penduram nele.
     ///
@@ -174,12 +272,17 @@ public sealed class FechamentoSessaoService
     /// como aviso quando falham. A alternativa seria desfazer o atendimento porque o
     /// estoque de uma agulha não bateu — e o atendimento aconteceu de verdade, o paciente
     /// foi embora, a guia precisa existir.
+    ///
+    /// Desde a parcela 65 o atendimento normalmente JÁ EXISTE quando este método é
+    /// chamado (a guia nasce no registro, não aqui). O <see cref="GarantirAtendimentoAsync"/>
+    /// reaproveita o que existe e mantém o método funcionando também para quem o chama
+    /// direto, sem ter passado pelo registro.
     /// </summary>
     public async Task<ResultadoFechamento> ConcluirAsync(
         DecisaoFechamento decisao, string? operador = null, CancellationToken ct = default)
     {
-        var resultado = await _agenda.ConfirmarPresencaAsync(decisao.AgendamentoId, ct, operador);
-        var atendimento = resultado.Atendimento;
+        var (atendimento, recadosDoLancamento, _) =
+            await GarantirAtendimentoAsync(decisao.AgendamentoId, operador, ct);
 
         var avisos = new List<string>();
         ConsumoPacote? consumo = null;
@@ -250,7 +353,7 @@ public sealed class FechamentoSessaoService
         // ele ainda está no balcão.
         return new ResultadoFechamento(atendimento, consumo, lancamento, movimentos, avisos)
         {
-            RecadosDoLancamento = resultado.Avisos
+            RecadosDoLancamento = recadosDoLancamento
         };
     }
 
