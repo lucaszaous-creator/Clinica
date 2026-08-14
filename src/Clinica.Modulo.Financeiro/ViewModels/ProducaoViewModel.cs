@@ -71,6 +71,8 @@ public sealed partial class ProducaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — produção não pôde ser carregada", ex);
             _snackbar.Erro($"Não foi possível carregar a produção: {ex.Message}");
         }
         finally

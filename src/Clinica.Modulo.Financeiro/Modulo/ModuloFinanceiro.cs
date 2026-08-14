@@ -52,8 +52,8 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveCaixa, Rotulo = "Financeiro", Glifo = "\uE8C7",
-            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
+            Chave = ChaveCaixa, Rotulo = "Financeiro", Glifo = "\uE825",
+            Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro, Inicial = true
         },
         new ItemMenuModulo
         {
@@ -91,7 +91,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9D2",
+            Chave = ChaveProducao, Rotulo = "Produ\u00e7\u00e3o", Glifo = "\uE9F5",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         },
         new ItemMenuModulo
@@ -111,7 +111,7 @@ public sealed class ModuloFinanceiro : IModuloApp
         },
         new ItemMenuModulo
         {
-            Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8FD",
+            Chave = ChavePlanoContas, Rotulo = "Plano de contas", Glifo = "\uE8EC",
             Grupo = GrupoSidebar.Financeiro, Requer = Permissao.VerFinanceiro
         }
     ];

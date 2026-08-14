@@ -236,6 +236,8 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar ou remarcar");
+
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();

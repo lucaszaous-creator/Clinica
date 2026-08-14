@@ -196,6 +196,8 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
+
             Ocupado = true;
             await _financeiro.LancarAsync(
                 data: DateOnly.FromDateTime(Data),
@@ -217,6 +219,8 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — lançamento não pôde ser salvo", ex);
             Erro($"Não foi possível salvar: {ex.Message}");
         }
         finally

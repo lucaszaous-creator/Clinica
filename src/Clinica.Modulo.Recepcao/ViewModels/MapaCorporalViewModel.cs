@@ -231,6 +231,8 @@ public sealed partial class MapaCorporalViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "guardar o protocolo");
+
             using var scope = _escopos.CreateScope();
             var mapas = scope.ServiceProvider.GetRequiredService<MapaCorporalService>();
 

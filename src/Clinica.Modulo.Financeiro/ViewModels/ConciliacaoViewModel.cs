@@ -119,6 +119,8 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — conciliação não pôde ser carregada", ex);
             _snackbar.Erro($"Não foi possível carregar a conciliação: {ex.Message}");
         }
         finally
@@ -159,6 +161,8 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — guia não pôde virar receita no caixa", ex);
             _snackbar.Erro(ex.Message);
         }
     }

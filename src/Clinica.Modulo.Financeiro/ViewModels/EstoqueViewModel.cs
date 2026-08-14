@@ -251,6 +251,8 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "movimentar o estoque");
+
             Salvando = true;
 
             if (!decimal.TryParse(Quantidade, out var quantidade))

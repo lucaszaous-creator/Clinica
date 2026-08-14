@@ -1,4 +1,5 @@
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -84,6 +85,8 @@ public sealed partial class SalaEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "cadastrar sala");
+
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();

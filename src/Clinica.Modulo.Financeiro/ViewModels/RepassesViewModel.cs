@@ -346,6 +346,8 @@ public sealed partial class RegraRepasseViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "cadastrar regra de repasse");
+
             Salvando = true;
 
             decimal? percentual = null;

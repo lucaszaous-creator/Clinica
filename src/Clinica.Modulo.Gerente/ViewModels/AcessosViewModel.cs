@@ -127,6 +127,8 @@ public sealed partial class AcessosViewModel : ObservableObject
     private async Task ExcluirAsync(LinhaUsuario? linha)
     {
         if (linha is null) return;
+        _sessao.Exigir(Permissao.GerenciarUsuarios, "excluir usuário");
+
         if (!_dialogo.ConfirmarPerigo("Excluir usuário",
                 $"Excluir {linha.Nome}? Só é possível enquanto ele nunca entrou no sistema — "
                 + "se já entrou, desative-o em vez de excluir.")) return;
@@ -143,6 +145,7 @@ public sealed partial class AcessosViewModel : ObservableObject
     private async Task RedefinirSenhaAsync(LinhaUsuario? linha)
     {
         if (linha is null) return;
+        _sessao.Exigir(Permissao.GerenciarUsuarios, "redefinir a senha de outra pessoa");
 
         var senha = _dialogo.PerguntarTexto(
             "Redefinir senha",

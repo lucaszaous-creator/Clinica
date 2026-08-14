@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -109,6 +110,8 @@ public sealed partial class ProfissionalEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "cadastrar profissional");
+
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();

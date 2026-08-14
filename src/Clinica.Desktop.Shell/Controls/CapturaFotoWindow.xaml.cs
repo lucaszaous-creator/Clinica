@@ -79,6 +79,10 @@ public partial class CapturaFotoWindow : Window
         }
         catch (Exception ex)
         {
+            // Listar dispositivos NÃO é a exceção muda documentada (essa é a decodificação
+            // de quadro, 30x/s): webcam que não aparece é chamado de suporte, e sem rastro
+            // não há o que conferir.
+            LogSuite.Registrar("Suíte — câmeras não puderam ser listadas", ex);
             cameras = Array.Empty<DispositivoCamera>();
             Erro($"Não foi possível acessar as câmeras deste computador: {ex.Message}");
         }
@@ -162,6 +166,7 @@ public partial class CapturaFotoWindow : Window
         }
         catch (Exception ex)
         {
+            LogSuite.Registrar("Suíte — arquivo de foto não pôde ser lido", ex);
             Erro($"Não foi possível ler o arquivo: {ex.Message}");
         }
     }
@@ -183,6 +188,7 @@ public partial class CapturaFotoWindow : Window
         }
         catch (Exception ex)
         {
+            LogSuite.Registrar("Suíte — foto não pôde ser preparada", ex);
             Erro($"Não foi possível preparar a foto: {ex.Message}");
         }
     }

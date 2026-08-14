@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -97,6 +98,8 @@ public sealed partial class ListaEsperaEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "adicionar à lista de espera");
+
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var espera = scope.ServiceProvider.GetRequiredService<ListaEsperaService>();

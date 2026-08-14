@@ -221,6 +221,8 @@ public sealed partial class CampanhasViewModel : ObservableObject
     {
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarCampanhas, "rodar a campanha");
+
             Carregando = true;
             using var scope = _escopos.CreateScope();
             var campanhas = scope.ServiceProvider.GetRequiredService<CampanhaService>();
@@ -343,6 +345,8 @@ public sealed partial class CampanhasViewModel : ObservableObject
     {
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarCampanhas, "registrar o contato da campanha");
+
             Carregando = true;
             using (var scope = _escopos.CreateScope())
                 await acao(scope.ServiceProvider.GetRequiredService<CampanhaService>());

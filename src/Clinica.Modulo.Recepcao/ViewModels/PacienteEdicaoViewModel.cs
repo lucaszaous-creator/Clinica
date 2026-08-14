@@ -3,6 +3,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
 using Clinica.Desktop.Shell.Controls;
 using Clinica.Domain;
+using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -194,6 +195,8 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "salvar o cadastro do paciente");
+
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();

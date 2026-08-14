@@ -148,6 +148,8 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
     {
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.GerenciarUsuarios, "criar ou alterar usuário");
+
             Salvando = true;
             Mensagem = string.Empty;
             MensagemEhErro = false;

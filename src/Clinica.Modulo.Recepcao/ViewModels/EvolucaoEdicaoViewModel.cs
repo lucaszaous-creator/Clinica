@@ -144,6 +144,8 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
@@ -213,6 +215,8 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "anexar arquivo ao prontuário");
+
             var bytes = await File.ReadAllBytesAsync(dialogo.FileName);
             var extensao = Path.GetExtension(dialogo.FileName).ToLowerInvariant();
             var ehImagem = extensao is ".jpg" or ".jpeg" or ".png" or ".bmp";
@@ -280,6 +284,8 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "remover anexo do prontuário");
+
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
             await prontuario.RemoverAnexoAsync(anexo.Id);

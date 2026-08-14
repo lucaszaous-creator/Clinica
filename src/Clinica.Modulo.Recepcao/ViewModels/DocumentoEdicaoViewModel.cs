@@ -205,6 +205,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "salvar modelo de documento");
+
             using var scope = _escopos.CreateScope();
             var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
 
@@ -248,6 +250,8 @@ public sealed partial class DocumentoEdicaoViewModel : ObservableObject
 
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "emitir documento");
+
             var dados = MontarDocumento();
 
             byte[] pdf;
