@@ -14,6 +14,11 @@
 > ⚠️ A **15** não vem de parcela nenhuma: saiu de uma pergunta de arquitetura, sem uma linha
 > de código escrita. Está aqui porque a assinatura dos achados é a mesma do denominador comum
 > — **nada falha** —, e porque um deles é a Família 6 com roupa nova.
+>
+> ⚠️ E as **16 a 23** não vêm de código nenhum: são a **virada do banco para a VPS**, feita ao
+> vivo, com a clínica trabalhando do outro lado. Estão aqui porque em campo **não existem as
+> três redes** — a única rede é o critério que o roteiro escreve —, e porque metade delas é
+> sobre critério que não conseguia reprovar. A assinatura é a mesma: nada falhou.
 
 ## O placar, e o que ele diz
 
@@ -461,6 +466,223 @@ quanto o teste** — e ele alcança comentário, que nenhuma rede lê.
 
 ---
 
+## Adendo II — a virada do banco para a VPS, e a rede que não existe em campo
+
+> A clínica saiu da Neon (banco gerenciado, cobrança por uso, servidor fora do país) para uma
+> VPS brasileira com PostgreSQL fechado por **mTLS** — certificado de cliente em cada máquina,
+> nada exposto. O desenho está em `docs/banco-na-vps.md` e o roteiro da noite em
+> `docs/virada.md`. Aqui ficam só os **erros do caminho**.
+>
+> A diferença de fundo em relação a tudo o que está acima: **em campo não existem as três
+> redes.** Não há `compilar-sombra`, não há `verificar-suite`, não há os 1546 testes. A única
+> rede é o **critério que o roteiro escreve**.
+
+### O placar
+
+| Quem achou | O quê | O que isso significa |
+|---|---|---|
+| O roteiro (a única rede que existe em campo) | 2 | A versão do Postgres da Neon conferida **antes** de copiar; a contagem tabela a tabela no fim. Foram as duas únicas coisas que funcionaram sozinhas — e as duas eram passos com critério objetivo |
+| Uma conferência escrita **depois** do fato | 1 | Máquinas instaladas continuavam gravando na Neon. Nada acusou, e o roteiro dava o passo por feito |
+| Eu, refazendo o diagnóstico do zero | 1 | O `subir-pg18.sh` nunca tinha tido efeito — e horas de diagnóstico partiram dessa premissa |
+| O cliente, na tela | 2 | Senha recusada (`28P01`); painel dizendo "usuário ou senha incorretos" sendo outra coisa |
+| **Ninguém ainda** | **1** | A janela da virada: o que foi gravado na Neon depois da foto final |
+
+⚠️ **A linha que importa é a segunda.** A migração "não acusou nada", as 20 máquinas foram
+instaladas sem um erro, e a clínica continuou gravando no banco antigo. Nenhum passo falhou —
+a mesma assinatura do denominador comum, agora sem nenhuma ferramenta para pegá-la.
+
+---
+
+## Família 16 — "Rodou" não é "teve efeito", e "não acusou nada" não é prova
+
+Três casos, e os três produzem a mesma sensação de trabalho concluído.
+
+**Os casos:**
+
+- **O `subir-pg18.sh` rodou e não subiu nada.** A Neon serve PostgreSQL 18 e o Ubuntu traz o
+  16; o script existia para acertar isso. Ele foi executado, não teve saída conferida, e por
+  **horas** eu diagnostiquei erros partindo de "o cluster é 18". O `pg_lsclusters` mostrou 16.
+  A virada acabou acontecendo no 16 — que é suportado até 2028 e o app não distingue —, mas
+  todo raciocínio no meio partiu de uma premissa falsa.
+- **As máquinas foram instaladas e a clínica continuou gravando na Neon.** O `.bat` rodou
+  certo em todas, a variável de ambiente estava correta na máquina **e** no processo. A causa
+  é de uma linha: **programa aberto não relê variável de ambiente.** O app já estava aberto
+  desde antes da configuração.
+- **"Fiz a migração e não acusou nada."** Ausência de reclamação lida como confirmação.
+
+**Por que nenhuma rede pegou:** não há rede — e o roteiro, que é a rede em campo, tinha o
+passo certo ("fechar e reabrir o app → conferir que abriu **com os dados**") com um critério
+**incapaz de reprovar**: a Neon também tem os dados. O app abre igual nos dois bancos. O
+critério existia, era objetivo, e passava do mesmo jeito nos dois desfechos.
+
+O que resolveu foi uma conferência escrita depois (`onde-esta.sh`): contar as **duas** bases e
+ver **qual delas cresce**. Essa só passa de um jeito.
+
+**A regra:** todo passo de campo precisa de um critério que consiga **REPROVAR**. Antes de
+escrevê-lo, pergunte: **o que eu veria se este passo NÃO tivesse funcionado?** Se a resposta
+for "a mesma coisa", não é critério — é decoração. E o corolário para script de operação:
+**script que não imprime a prova do que fez é script que ninguém conferiu.**
+
+---
+
+## Família 17 — O ambiente herdado decide o que você não disse
+
+**Os casos:**
+
+- **Seis tempos-limite silenciosos ao ler a Neon** — de dentro da VPS, que **hospeda o banco
+  de destino**. O `psql` montou a conexão com pedaços da linha de comando e pedaços do
+  ambiente, e o ambiente carregava a porta do cluster **local** (45432) e endereços IPv6 que
+  não roteiam dali. Nada mentiu: ele fez exatamente o que o ambiente mandou.
+- **`pg_restore: unsupported version (1.16) in file header`** — o wrapper do Ubuntu escolhe o
+  binário pela versão do **cluster padrão**, não pela do arquivo que está sendo lido. Um dump
+  em formato 18 chegou ao `pg_restore` 16.
+
+**Por que nenhuma rede pegou:** as duas máquinas do problema são a mesma máquina. Numa VPS que
+hospeda o banco de destino, **toda variável de cliente já aponta para o lado errado** — e é o
+único lugar onde ninguém pensa nisso, justamente porque "é o servidor do banco".
+
+**A regra:** conexão de migração **dita todos os campos** — `unset` explícito do que vaza
+(`PGPORT`, `PGHOST`, `PGHOSTADDR`, `PGUSER`, `PGDATABASE`, `PGPASSWORD`) e host, porta,
+usuário, base e senha declarados na chamada. É mais curto do que descobrir qual deles vazou.
+E **quando há duas versões do mesmo binário instaladas, use o caminho completo** — o wrapper
+resolve pela versão do cluster, não pela do arquivo.
+
+---
+
+## Família 18 — `set -e` transforma aviso conhecido em fracasso, e apaga a prova
+
+Na migração definitiva, o dump trazia no cabeçalho um `SET transaction_timeout` que o
+PostgreSQL 16 não conhece. Erro **conhecido e inofensivo** — o restore tinha funcionado. Só
+que o `set -e` matou o script ali: sem `ANALYZE`, e principalmente **sem imprimir as
+contagens**, que eram a única coisa capaz de provar que estava tudo certo.
+
+Quem estava na clínica, à noite, no meio de uma virada, viu um erro em vermelho e nenhum
+número. É o pior desfecho possível de um passo que deu certo.
+
+Agravante: o diagnóstico inicial partiu do cluster errado (Família 16), então a mensagem foi
+lida contra a premissa errada.
+
+**A regra:** em roteiro de campo, **quem decide o desfecho é a CONFERÊNCIA no fim, não o
+código de saída de cada comando.** Etapa cujo erro é conhecido e inofensivo roda com o erro
+explicitamente tolerado, e a prova fica com a contagem. **Script que morre antes de imprimir a
+prova deixa quem está na clínica sem saber se refaz tudo.** (A doença oposta é igualmente
+ruim: `|| true` em cima do passo que importa.)
+
+---
+
+## Família 19 — Mensagem de erro que aponta a causa errada custa mais que o silêncio
+
+Dois casos, um nosso e um de fora.
+
+- **`28P01: password authentication failed`** na primeira máquina. A senha estava certa: ela
+  fora gerada com `openssl rand -base64 24`, e os `/`, `+` e `=` do base64 quebram a
+  *connection string*. O gerador estava correto; o **formato de quem consome** é que não
+  aceita o alfabeto dele. Conserto: `openssl rand -hex`.
+- **O painel (Cockpit) dizendo "usuário ou senha incorretos"** através do túnel SSH. As
+  credenciais estavam certas — era **recusa de origem**. A providência natural diante daquela
+  frase é trocar a senha de root da VPS: o dano teria sido causado pela mensagem, não pelo
+  defeito.
+
+**A regra, de que o projeto já tinha metade:** a parcela 41 fixou que *guarda que volta em
+silêncio é botão que não faz nada*. O degrau seguinte é este — **a guarda fala, e fala outra
+coisa**. A mensagem nomeia a **checagem que falhou**, quase nunca a causa; quando ela não bate
+com o que você sabe, **leia o log do sistema antes de agir sobre o que ela diz**.
+E do nosso lado: **valor gerado tem de caber no formato de quem o consome** — senha, número de
+guia, nome de `SharedSizeGroup` (parcela 50). É a mesma família.
+
+---
+
+## Família 20 — Instrução não é controle
+
+Pedi **duas vezes** que dado de paciente não fosse colado no chat. Foi colado nas duas. E com
+razão: a pessoa estava diagnosticando, e era o que a tela mostrava.
+
+A terceira tentativa não foi um terceiro aviso — foi **reescrever a ferramenta**. O
+`orfaos.sh` passou a comparar **carimbos de hora e contagens** em vez de linhas: a saída dele
+**não tem como** conter nome de paciente.
+
+**Por que nenhuma rede pegou:** o compromisso de conformidade do `CLAUDE.md` protege o
+**produto**. Aqui o caminho de vazamento era a **ferramenta de operar o produto**, que não
+estava na lista de ninguém. Pior: leitura por `psql` **não deixa rastro nenhum** — o
+`AcessoProntuarioService` cobre as telas do sistema, não o terminal do servidor.
+
+**A regra:** **quando a proteção depende de alguém lembrar, ela já falhou.** É a mesma frase
+do `PoliticaBackupService` (backup que depende de clicar existe no manual, não no disco) e da
+crítica do número da guia (validar na tela cobre uma porta de quatro). Ferramenta de operação
+que toca base clínica **nasce sem poder imprimir dado de paciente**: ela responde *quantos* e
+*quando*; quem precisa do nome abre a tela do sistema, que registra o acesso.
+
+> **Nota que vale por si:** senhas circularam no chat durante a instalação. O estrago foi
+> nenhum, e não por sorte — **o desenho tem duas fechaduras**: sem o certificado de cliente, a
+> senha do banco não abre nada. Foi o mTLS que transformou um vazamento em um aborrecimento.
+> É o argumento mais forte a favor dele, e ele não aparece em auditoria nenhuma.
+
+---
+
+## Família 21 — "Automatizado" é medida de quem executa, não de quem escreve
+
+Foram **três** versões do kit de instalação até ele ser aceito, e as três eram "automáticas"
+pela minha medida:
+
+1. gerar certificado e instruções por máquina → *"porra, fazer isso em 20 máquinas?"*;
+2. um `.bat` por máquina, pedindo a lista de nomes → *"não tenho os 20 nomes, são aleatórios,
+   não quero essa info"*;
+3. **pilha de certificados anônimos** → aceito.
+
+O critério só apareceu quando foi dito como **número**: *"só aceito se eu tiver que mandar só
+1 comando na VPS"*.
+
+O desenho que saiu daí merece registro, porque foi a restrição que o produziu: o `.bat` pega
+**o primeiro `.pfx` livre da pasta**, move-o para `usados\` e escreve uma linha no
+`registro.txt`. Ninguém digita nome de máquina, e **a planilha de revogação se escreve
+sozinha** — o registro é subproduto da instalação, não uma tarefa ao lado dela.
+
+**A regra:** antes de entregar roteiro de operação, **conte**: quantos comandos, quantos campos
+a preencher, quantas decisões por máquina. Se o número não for o que a pessoa aceita, o
+roteiro não está pronto — e **esse número se pergunta, não se estima**.
+
+---
+
+## Família 22 — A branch que ficou aberta enquanto a `main` andou
+
+A PR da virada teria mostrado **289 arquivos e 41.774 deleções**: a `main` avançara 7 PRs, e o
+diff — correto como diff — apagaria o trabalho de todas elas. Depois de trazer a `main` para
+dentro da branch (sem um conflito), foram 8 arquivos e 696 inserções.
+
+**A regra:** antes de abrir PR de branch que ficou dias parada, rode
+`git diff origin/main..HEAD --stat` e **leia o número de DELEÇÕES antes do de arquivos**. É a
+única linha que denuncia isso, e ela aparece antes de qualquer revisor.
+
+---
+
+## Família 23 — A virada não é um instante: é uma JANELA, e ela é por máquina
+
+O roteiro (`docs/virada.md`) supunha um momento: todos fora do sistema → foto final → viradas.
+No mundo real a troca aconteceu **máquina a máquina**, ao longo de horas, com notebooks
+remotos — e, pela Família 16, cada máquina só virou de fato quando o app foi **fechado e
+reaberto**. Tudo o que foi lançado na Neon entre a foto e a virada de cada máquina ficou lá.
+
+Resultado: **dois bancos que divergiram do mesmo instantâneo**, com os **IDs colidindo** — o
+atendimento 152 da Neon e o 152 da VPS são registros diferentes.
+
+**Como NÃO se conserta: por SQL.** Três razões, e a segunda é a do produto:
+
+1. os IDs colidem, então não há `INSERT` que preserve as duas verdades;
+2. `AtendimentoService.LancarAsync` é **ponto único** — ele gera as guias pelas regras do
+   convênio, debita o pacote, baixa o insumo e lança no caixa. Um `INSERT` cria um atendimento
+   **sem a guia**, que é exatamente o defeito que o produto existe para impedir;
+3. é **prontuário**: estado inconsistente custa mais que redigitar três linhas.
+
+O conserto é **relançar pelo app**, e a conta é pequena de propósito — a janela é de horas.
+
+**A regra para a próxima virada:** decida entre as duas honestamente. Ou **para todo mundo de
+verdade** (inclusive remoto) e vira num movimento só; ou **aceita-se a janela**, e aí o
+relançamento é **parte do roteiro**, com a consulta que NOMEIA os registros perdidos (a que
+compara carimbos dos dois lados) escrita **antes** — não depois, com a clínica já trabalhando
+nos dois bancos.
+
+---
+
 ## O denominador comum
 
 Tirando os deslizes de código que as redes pegaram, **quase todos** os defeitos desta rodada
@@ -477,6 +699,16 @@ as redes tenham falhado; é que **nenhuma delas pergunta se o produto cumpriu o 
 dele**. Elas conferem que o código compila, que a regra calcula certo e que a tela monta.
 Que a guia chegue ao faturamento quando alguém atende um paciente é uma afirmação sobre o
 FLUXO, e fluxo se testa de ponta a ponta ou não se testa.
+
+⚠️ **E a virada do banco fecha o argumento pelo outro lado.** Ali não havia verde nenhum para
+se enganar com ele — não havia teste, build nem checagem —, e o desfecho foi o mesmo: nenhum
+comando falhou, as 20 máquinas instalaram sem um erro, e a clínica passou dois dias gravando
+no banco antigo. Ou seja: **o problema nunca foi confiar no verde. É aceitar como resposta
+qualquer coisa que passaria dos dois jeitos** — e o verde é só a forma mais confortável disso.
+
+> A pergunta que unifica o documento inteiro: **o que eu veria se isto NÃO tivesse
+> funcionado?** Se a resposta for "exatamente o que estou vendo", não sei se funcionou — sei
+> que nada reclamou.
 
 As perguntas que teriam pego a maioria, e que valem para a próxima parcela:
 
@@ -498,6 +730,16 @@ As perguntas que teriam pego a maioria, e que valem para a próxima parcela:
     antigo?** (Família 14)
 13. **O que aqui só é verdade porque há UM usuário humano, autenticado, por processo?**
     (Família 15)
+
+E as que a virada acrescentou, para todo roteiro que sai da máquina de quem programa:
+
+14. **O que eu veria se este passo NÃO tivesse funcionado?** Se for a mesma coisa, o critério
+    não reprova nada. (Famílias 16, 18)
+15. **Que variável desta máquina já aponta para o outro lado?** (Família 17)
+16. **Esta proteção depende de alguém lembrar?** (Família 20)
+17. **Quantos comandos e quantos campos sobram para quem executa — e eu perguntei o número?**
+    (Família 21)
+18. **Isto acontece num instante ou numa janela? Quem grava durante ela?** (Família 23)
 
 A décima terceira é a única que se pode fazer **antes de existir código** — e é por isso que
 ela é a mais barata da lista. As outras doze precisam de um diff para ter onde morder; esta
