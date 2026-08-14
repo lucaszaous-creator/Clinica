@@ -204,7 +204,18 @@ public sealed partial class OrcamentoViewModel : ObservableObject
             DocumentoEmitidoId = emitido.Id;
             NumeroEmitido = emitido.Numero;
 
-            await ImprimirAsync(emitido);
+            // A janela só fecha se a impressão não tiver nada a dizer.
+            //
+            // ⚠️ Antes o `Concluido` disparava SEMPRE, inclusive depois de `ImprimirAsync`
+            // ter escrito a mensagem de falha: a janela fechava por cima do aviso e a
+            // pessoa ficava achando que o orçamento saiu. É falha exibida como sucesso —
+            // e a pior variante dela, porque o orçamento ESTÁ emitido e numerado: quem
+            // conclui que não saiu emite outro, e a clínica fica com dois números para a
+            // mesma proposta.
+            //
+            // Cancelar o diálogo de salvar NÃO conta como falha (`SalvarEAbrirAsync`
+            // devolve nulo), então desistir de imprimir continua fechando a janela.
+            if (!await ImprimirAsync(emitido)) return;
             Concluido?.Invoke();
         }
         catch (Exception ex)
@@ -219,7 +230,11 @@ public sealed partial class OrcamentoViewModel : ObservableObject
         }
     }
 
-    private async Task ImprimirAsync(DocumentoFinanceiro emitido)
+    /// <summary>
+    /// Gera e abre o PDF. Devolve <c>false</c> quando há uma mensagem na tela para a pessoa
+    /// LER — e nesse caso a janela não pode fechar por cima dela.
+    /// </summary>
+    private async Task<bool> ImprimirAsync(DocumentoFinanceiro emitido)
     {
         try
         {
@@ -234,8 +249,10 @@ public sealed partial class OrcamentoViewModel : ObservableObject
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
                 pdf, ImpressaoPdf.NomeSeguro($"Orcamento-{emitido.Numero.Replace('/', '-')}.pdf"));
 
-            if (erro is null) return;
-            Erro(erro);
+            if (erro is null) return true;
+            Erro($"O orçamento {emitido.Numero} está emitido e guardado, mas o arquivo não "
+                 + $"saiu: {erro} Reimprima pela lista de documentos — não emita outro.");
+            return false;
         }
         catch (Exception ex)
         {
@@ -243,7 +260,9 @@ public sealed partial class OrcamentoViewModel : ObservableObject
                 "Recepção — orçamento não pôde ser impresso", ex);
             // O orçamento ESTÁ emitido e numerado: dizer só "falhou" faria a pessoa emitir
             // outro e ficar com dois números para a mesma proposta.
-            Erro($"O orçamento {emitido.Numero} está emitido, mas o PDF não pôde ser gerado: {ex.Message}");
+            Erro($"O orçamento {emitido.Numero} está emitido, mas o PDF não pôde ser gerado: "
+                 + $"{ex.Message} Reimprima pela lista de documentos — não emita outro.");
+            return false;
         }
     }
 

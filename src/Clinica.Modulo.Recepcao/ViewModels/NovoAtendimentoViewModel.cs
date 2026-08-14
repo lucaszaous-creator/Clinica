@@ -266,6 +266,23 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     public bool TemMensagem => !string.IsNullOrWhiteSpace(Mensagem);
 
+    /// <summary>
+    /// A mensagem é ERRO (vermelha) ou AVISO (âmbar)?
+    ///
+    /// ⚠️ Até aqui não existia, e o XAML pintava a faixa de vermelho FIXO — então a frase
+    /// mais importante desta tela, <i>"Atendimento registrado e guia gerada"</i>, saía com
+    /// a cara de falha. Ela aparece justamente quando a pessoa fecha a janela de fechamento
+    /// sem decidir: a guia — o que a clínica não pode perder (parcela 65) — está feita, e o
+    /// que ficou pendente é o pacote e o caixa, que se resolvem depois pela Fila.
+    ///
+    /// Vermelho ali produz exatamente o comportamento que a parcela 65 documenta: em
+    /// 12/08/2026 a mesma paciente foi lançada TRÊS vezes em 71 segundos porque a
+    /// recepcionista não viu confirmação nenhuma. Anunciar sucesso com a cor do erro é a
+    /// mesma armadilha com uma etapa a mais — e o clique repetido agora manda um jogo de
+    /// guias DUPLICADO à operadora.
+    /// </summary>
+    [ObservableProperty] private bool _mensagemEhErro;
+
     /// <summary>Aviso de guias pendentes do paciente selecionado (para a secretária cobrar na hora). Nulo = sem pendências.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TemAvisoPendencias))]
@@ -913,6 +930,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         ResumoBaixas = null;
         Observacoes = null;
         Mensagem = null;
+        MensagemEhErro = false;
         Data = DateTime.Today;
         Seletor.Limpar();
         Seletor.Termo = null;
@@ -973,22 +991,26 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         if (Seletor.Selecionado is not { } paciente)
         {
             Mensagem = "Selecione o paciente.";
+            MensagemEhErro = true;
             return;
         }
         if (ModalidadeSelecionada is null)
         {
             Mensagem = "Selecione a modalidade.";
+            MensagemEhErro = true;
             return;
         }
         if (ModalidadeConsulta && EspecialidadeSelecionada is null)
         {
             Mensagem = "Informe a especialidade da consulta.";
+            MensagemEhErro = true;
             return;
         }
 
         if (!TimeOnly.TryParse(Hora, out var hora))
         {
             Mensagem = "Informe a hora da sessão no formato HH:mm.";
+            MensagemEhErro = true;
             return;
         }
 
@@ -1014,6 +1036,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             CodigosGerados.Clear();
             Avisos.Clear();
             Mensagem = null;
+            MensagemEhErro = false;
 
             // ===== PASSO 1: o horário existe de verdade (parcela 60) =====
             //
@@ -1053,6 +1076,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         {
             LogSuite.Registrar("Novo atendimento — encaixe não pôde ser marcado", ex);
             Mensagem = $"Não foi possível marcar o horário: {ex.Message}";
+            MensagemEhErro = true;
             Ocupado = false;
             return;
         }
@@ -1095,6 +1119,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             Mensagem = $"O horário foi marcado, mas o atendimento NÃO foi registrado e "
                        + $"nenhuma guia foi gerada: {ex.Message}. O paciente está na Fila — "
                        + "conclua por lá.";
+            MensagemEhErro = true;
             return;
         }
         finally
@@ -1242,6 +1267,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         catch (Exception ex)
         {
             Mensagem = $"Não foi possível gerar a capa: {ex.Message}";
+            MensagemEhErro = true;
             return;
         }
 
