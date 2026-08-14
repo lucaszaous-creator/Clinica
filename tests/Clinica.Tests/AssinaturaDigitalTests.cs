@@ -88,7 +88,7 @@ public class AssinaturaDigitalTests
         byte[] der = [0x30, 0x03, 0x02, 0x01, 0x00];
         var comFolga = der.Concat(new byte[500]).ToArray();
 
-        AssinaturaDigitalService.RecortarDer(comFolga).Should().Equal(der);
+        AssinaturaDigitalService.RecortarAsn1(comFolga).Should().Equal(der);
     }
 
     [Fact]
@@ -99,24 +99,42 @@ public class AssinaturaDigitalTests
         byte[] der = [0x30, 0x82, 0x00, 0x04, 0xAB, 0x00, 0xCD, 0x00];
         var comFolga = der.Concat(new byte[2000]).ToArray();
 
-        AssinaturaDigitalService.RecortarDer(comFolga).Should().Equal(der);
+        AssinaturaDigitalService.RecortarAsn1(comFolga).Should().Equal(der);
     }
 
     [Theory]
     [InlineData(new byte[] { 0x30 })]                    // curto demais para ter comprimento
-    [InlineData(new byte[] { 0x30, 0x80, 0x01 })]        // indefinido: existe em BER, não em DER
     [InlineData(new byte[] { 0x30, 0x0A, 0x01 })]        // diz 10 bytes e só tem 1
-    public void Cabecalho_ilegivel_devolve_nulo_em_vez_de_bytes_pela_metade(byte[] entrada)
+    [InlineData(new byte[] { 0x30, 0x80, 0x01 })]        // indefinida e SEM o 00 00 do fim
+    public void Estrutura_ilegivel_devolve_nulo_em_vez_de_bytes_pela_metade(byte[] entrada)
     {
-        AssinaturaDigitalService.RecortarDer(entrada).Should().BeNull();
+        AssinaturaDigitalService.RecortarAsn1(entrada).Should().BeNull();
+    }
+
+    /// <summary>
+    /// ⚠️ O caso que a clínica levou em 14/08/2026: o SafeID devolve o CMS em <b>BER com
+    /// comprimento INDEFINIDO</b> (<c>30 80 … 00 00</c>) — legal em CMS (RFC 5652) e recusado
+    /// pela primeira versão do recorte, que lia o cabeçalho à mão e tratava o <c>0x80</c>
+    /// como erro. Os bytes estavam perfeitos; quem não sabia lê-los era o recorte.
+    /// </summary>
+    [Fact]
+    public void CMS_em_BER_com_comprimento_INDEFINIDO_e_aceito()
+    {
+        // SEQUENCE indefinida { INTEGER 0 } — o mesmo formato do cabeçalho que veio do PSC.
+        byte[] indefinido = [0x30, 0x80, 0x02, 0x01, 0x00, 0x00, 0x00];
+        var comFolga = indefinido.Concat(new byte[500]).ToArray();
+
+        AssinaturaDigitalService.RecortarAsn1(comFolga).Should().Equal(indefinido);
     }
 
     /// <summary>
     /// A prova de que o recorte serve para o que ele existe: um CMS destacado de verdade,
     /// com o enchimento do <c>/Contents</c> em volta, volta decodificável.
     /// </summary>
-    [Fact]
-    public void Um_CMS_de_verdade_com_enchimento_volta_inteiro()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]   // BER indefinido — o que o SafeID devolve
+    public void Um_CMS_de_verdade_com_enchimento_volta_inteiro(bool indefinido)
     {
         var conteudo = "os bytes cobertos pelo ByteRange"u8.ToArray();
 
@@ -128,9 +146,9 @@ public class AssinaturaDigitalTests
 
         var assinado = new SignedCms(new ContentInfo(conteudo), detached: true);
         assinado.ComputeSignature(new CmsSigner(certificado));
-        var pkcs7 = assinado.Encode();
+        var pkcs7 = indefinido ? ParaComprimentoIndefinido(assinado.Encode()) : assinado.Encode();
 
-        var recortado = AssinaturaDigitalService.RecortarDer(
+        var recortado = AssinaturaDigitalService.RecortarAsn1(
             pkcs7.Concat(new byte[32 * 1024 - pkcs7.Length]).ToArray());
 
         recortado.Should().Equal(pkcs7);
@@ -138,6 +156,20 @@ public class AssinaturaDigitalTests
         var relido = new SignedCms(new ContentInfo(conteudo), detached: true);
         relido.Decode(recortado!);
         relido.CheckSignature(verifySignatureOnly: true);   // não lança = fechou
+    }
+
+    /// <summary>
+    /// Reescreve o SEQUENCE de fora na forma INDEFINIDA (<c>30 80 … 00 00</c>), que é como o
+    /// SafeID entrega. O miolo continua igual — muda só o cabeçalho e o marcador de fim.
+    /// </summary>
+    private static byte[] ParaComprimentoIndefinido(byte[] der)
+    {
+        AsnDecoder.ReadEncodedValue(
+            der, AsnEncodingRules.DER, out var inicioConteudo, out var tamanho, out _);
+
+        return [0x30, 0x80,
+                .. der.AsSpan(inicioConteudo, tamanho).ToArray(),
+                0x00, 0x00];
     }
 
     [Fact]

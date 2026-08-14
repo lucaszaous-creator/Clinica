@@ -3115,3 +3115,24 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   parece diligência e é o que faz o cliente testar de novo. **Quando a mensagem muda a cada
   rodada, pare de ler e REPRODUZA o caminho.** O experimento que resolveu tem trinta linhas
   e devia ter sido a primeira coisa.
+- **O CMS não vem em DER: vem em BER com comprimento INDEFINIDO** (parcela 67, 6ª rodada —
+  e foi a mensagem-com-evidência da rodada anterior que resolveu em UMA tentativa). A tela
+  trouxe `o cabeçalho DER não é legível (começa em 308006092A864886, 32768 bytes
+  disponíveis)`, e o hexa diz tudo: `30` SEQUENCE, **`80` comprimento indefinido**, `06 09`
+  OID de nove bytes, `2A 86 48 86 F7 0D 01 07 02` = `1.2.840.113549.1.7.2` = signedData.
+  Um PKCS#7 perfeito — só que em **BER**, que é sobre o que o CMS é definido (RFC 5652),
+  e não em DER.
+  O `RecortarDer` da 4ª rodada lia o cabeçalho À MÃO e **recusava explicitamente** o `0x80`,
+  com um comentário meu dizendo que "existe em BER, não em DER" — a premissa certa e a
+  conclusão errada: eu tratei como defeito o formato que o fornecedor usa. Agora quem conta
+  os bytes é o `AsnDecoder` do próprio .NET em modo BER, que percorre a estrutura e acha o
+  `00 00` do fim. **Parser de ASN.1 escrito à mão é onde se erra justamente o caso do
+  fornecedor** — e o `SignedCms.Decode` sempre aceitou os dois (foi por isso que o
+  `ExigirPkcs7` passou e a mensagem dizia "produzida").
+  ⚠️ **A lição de método, e é a que fecha a série**: as rodadas 3, 4 e 5 foram diagnóstico
+  por inferência e custaram três testes ao cliente. A rodada 5 acrescentou UMA coisa — a
+  frase passou a nomear a causa e a imprimir os primeiros bytes — e a 6ª foi resolvida no
+  primeiro relato, sem hipótese nenhuma. **Mensagem de erro que carrega a evidência não é
+  conforto: é o que substitui a próxima rodada de adivinhação.** Quando um caminho novo
+  encosta em formato de terceiro, a evidência entra JUNTO com o código, não depois de ele
+  falhar.

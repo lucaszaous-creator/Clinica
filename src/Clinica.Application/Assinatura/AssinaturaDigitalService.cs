@@ -347,11 +347,11 @@ public sealed class AssinaturaDigitalService
             return (null, $"o espaço da assinatura ({comFolga.Length} bytes) está todo em "
                           + "zeros — a assinatura não chegou a ser escrita no arquivo");
 
-        var recortado = RecortarDer(comFolga);
+        var recortado = RecortarAsn1(comFolga);
 
         return recortado is not null
             ? (recortado, string.Empty)
-            : (null, $"o cabeçalho DER não é legível (começa em "
+            : (null, $"a estrutura ASN.1 não é legível (começa em "
                      + $"{Convert.ToHexString(comFolga.AsSpan(0, Math.Min(8, comFolga.Length)))}, "
                      + $"{comFolga.Length} bytes disponíveis)");
     }
@@ -373,37 +373,35 @@ public sealed class AssinaturaDigitalService
     /// de token, embora tenha sido no SafeID que apareceu (14/08/2026), porque é a primeira
     /// vez que este caminho roda fora dos testes.
     /// </summary>
-    /// <returns>Os bytes exatos do DER, ou null quando o cabeçalho não é legível.</returns>
-    public static byte[]? RecortarDer(byte[] comFolga)
+    /// ⚠️ <b>E o PKCS#7 nem sempre vem em DER.</b> A primeira versão desta função lia o
+    /// cabeçalho à mão e RECUSAVA o comprimento indefinido (<c>30 80 … 00 00</c>), com um
+    /// comentário dizendo que "existe em BER, não em DER". A premissa estava errada onde
+    /// importa: o CMS é definido sobre <b>BER</b> (RFC 5652), e o SafeID devolve exatamente
+    /// assim — foi o que a clínica levou em 14/08/2026, com o cabeçalho
+    /// <c>30 80 06 09 2A 86 48 86…</c> (SEQUENCE indefinida, OID <c>1.2.840.113549.1.7.2</c>,
+    /// signedData). Os bytes estavam perfeitos; quem não sabia lê-los era este recorte.
+    ///
+    /// Por isso quem conta os bytes agora é o <see cref="AsnDecoder"/> do próprio .NET, em
+    /// BER: ele percorre a estrutura, acha o fim (inclusive o <c>00 00</c> do comprimento
+    /// indefinido) e devolve quantos bytes consumiu. Parser de ASN.1 escrito à mão é onde se
+    /// erra o caso que o fornecedor usa — e foi o que aconteceu.
+    /// </summary>
+    /// <returns>Os bytes exatos do PKCS#7, ou null quando a estrutura não é legível.</returns>
+    public static byte[]? RecortarAsn1(byte[] comFolga)
     {
         if (comFolga is null || comFolga.Length < 2) return null;
 
-        var primeiro = comFolga[1];
-        int cabecalho, conteudo;
-
-        if (primeiro < 0x80)
+        try
         {
-            // Forma curta: o próprio byte é o comprimento.
-            cabecalho = 2;
-            conteudo = primeiro;
-        }
-        else
-        {
-            // Forma longa: os 7 bits de baixo dizem QUANTOS bytes de comprimento vêm depois.
-            // 0x80 puro é comprimento indefinido — existe em BER, não em DER, e um PKCS#7
-            // assim não teria como ser recortado com segurança.
-            var bytesDeComprimento = primeiro & 0x7F;
-            if (bytesDeComprimento is 0 or > 4
-                || comFolga.Length < 2 + bytesDeComprimento) return null;
+            AsnDecoder.ReadEncodedValue(
+                comFolga, AsnEncodingRules.BER,
+                out _, out _, out var consumidos);
 
-            cabecalho = 2 + bytesDeComprimento;
-            conteudo = 0;
-            for (var i = 0; i < bytesDeComprimento; i++)
-                conteudo = (conteudo << 8) | comFolga[2 + i];
+            return consumidos <= 0 || consumidos > comFolga.Length
+                ? null
+                : comFolga[..consumidos];
         }
-
-        var total = cabecalho + conteudo;
-        return total <= 0 || total > comFolga.Length ? null : comFolga[..total];
+        catch (AsnContentException) { return null; }
     }
 
     /// <summary>
