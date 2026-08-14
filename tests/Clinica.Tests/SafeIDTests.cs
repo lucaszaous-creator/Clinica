@@ -524,6 +524,61 @@ public class SafeIDTests
         Assert.Contains(Convert.ToHexString("nao sou "u8.ToArray()), erro.Message);
     }
 
+    /// <summary>
+    /// ⚠️ O SafeID devolve o CMS em BER com comprimento INDEFINIDO (<c>30 80 … 00 00</c>), e
+    /// <b>PDF assinado exige DER</b> (ISO 32000-1 / PAdES). Aceitar o BER só no nosso
+    /// <c>Conferir</c> produziria um arquivo que a casa aprova e que o Adobe e o validador do
+    /// ITI podem recusar — e quem descobre isso é o farmacêutico, com a receita na mão.
+    ///
+    /// A conversão não toca na assinatura: ela cobre os atributos assinados, não a
+    /// codificação de fora. Este teste prova as duas metades — sai DER, e ainda confere.
+    /// </summary>
+    [Fact]
+    public async Task CMS_em_BER_do_PSC_entra_no_PDF_normalizado_em_DER()
+    {
+        var conteudo = "os bytes cobertos"u8.ToArray();
+        var (berDoPsc, derEsperado) = Pkcs7EmBerEEmDer(conteudo);
+
+        Assert.Equal(0x80, berDoPsc[1]);          // é mesmo o indefinido que o PSC manda
+
+        var cliente = new ClienteSafeID(
+            new HttpClient(HandlerQueResponde(Envelope(berDoPsc, id: null))), Opcoes);
+
+        var certificado = new CertificadoDeNuvem(
+            "A3:1", CertificadoIcpBrasil.Ler(
+                X509Certificate2.CreateFromPem(PemDeTeste("Dra. Ana Souza", "12345678909"))));
+
+        var voltou = await new AssinadorSafeID(cliente, "t", certificado, "Receita")
+            .GetSignatureAsync(new MemoryStream([1, 2, 3]));
+
+        Assert.NotEqual(0x80, voltou[1]);         // saiu DER, comprimento definido
+        Assert.Equal(derEsperado, voltou);
+
+        // E a assinatura sobrevive à conversão — é o que a torna segura.
+        var confere = new SignedCms(new ContentInfo(conteudo), detached: true);
+        confere.Decode(voltou);
+        confere.CheckSignature(verifySignatureOnly: true);
+    }
+
+    /// <summary>O mesmo CMS nas duas codificações: a do PSC (BER indefinido) e a do PDF (DER).</summary>
+    private static (byte[] Ber, byte[] Der) Pkcs7EmBerEEmDer(byte[] conteudo)
+    {
+        using var rsa = RSA.Create(2048);
+        var pedido = new CertificateRequest(
+            "CN=Dra. Ana Souza", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var certificado = pedido.CreateSelfSigned(
+            DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(1));
+
+        var cms = new SignedCms(new ContentInfo(conteudo), detached: true);
+        cms.ComputeSignature(new CmsSigner(certificado));
+        var der = cms.Encode();
+
+        AsnDecoder.ReadEncodedValue(
+            der, AsnEncodingRules.DER, out var inicio, out var tamanho, out _);
+
+        return ([0x30, 0x80, .. der.AsSpan(inicio, tamanho).ToArray(), 0x00, 0x00], der);
+    }
+
     /// <summary>Um CMS destacado de verdade, como o PSC devolve com `signature_format: CMS`.</summary>
     private static byte[] Pkcs7DeTeste()
     {

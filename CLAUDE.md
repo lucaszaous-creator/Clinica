@@ -3136,3 +3136,22 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   conforto: é o que substitui a próxima rodada de adivinhação.** Quando um caminho novo
   encosta em formato de terceiro, a evidência entra JUNTO com o código, não depois de ele
   falhar.
+- **Aceitar o formato do fornecedor não é o mesmo que EMITIR o formato da norma** (parcela
+  67, 7ª rodada — achado ao responder "temos 100% de certeza?", e a resposta honesta era
+  não). A rodada anterior fez o nosso `Conferir` aceitar o CMS em BER indefinido que o
+  SafeID devolve. Isso resolve metade: **PDF assinado exige DER** (ISO 32000-1 e
+  PAdES/ETSI EN 319 142). Embutir o BER produziria um arquivo que o NOSSO validador aprova
+  e que o Adobe e o validador do ITI podem recusar — e quem descobriria é o farmacêutico,
+  com a receita na mão. É a **garantia aparente virada do avesso**: em vez de o sistema
+  mentir para a clínica, ele diria a verdade para a clínica e produziria um arquivo que o
+  mundo lá fora não lê.
+  `AssinadorSafeID` passou a **normalizar para DER** (`SignedCms.Decode` + `Encode`) antes
+  de devolver os bytes ao PDFsharp. Medido antes de decidir: o reencode devolve **o DER
+  byte a byte idêntico** ao que o PSC teria produzido, e `CheckSignature` continua
+  passando — a assinatura cobre os atributos assinados, não a codificação de fora.
+  O `RecortarAsn1` continua aceitando BER de propósito: é o que mantém legível qualquer
+  folha assinada ANTES desta correção.
+  ⚠️ A pergunta que produziu isto vale mais que a correção: **"e se o nosso lado estiver
+  certo e o de fora não?"** Toda integração que aceita o formato de um terceiro tem essa
+  segunda metade, e ela não aparece em teste nenhum da casa — por definição, o teste da
+  casa usa o leitor da casa.

@@ -110,9 +110,16 @@ public sealed class AssinadorSafeID : IDigitalSigner
                 + $"espaço reservado ({TamanhoReservado}). A folha NÃO foi assinada — "
                 + "aumente TamanhoReservado.");
 
-        ExigirPkcs7(pkcs7);
+        // Confere que é PKCS#7 E normaliza para DER (ver ExigirPkcs7EnormalizarParaDer).
+        var der = ExigirPkcs7EnormalizarParaDer(pkcs7);
 
-        return pkcs7;
+        if (der.Length > TamanhoReservado)
+            throw new InvalidOperationException(
+                $"O SafeID devolveu uma assinatura de {der.Length} bytes, maior que o "
+                + $"espaço reservado ({TamanhoReservado}). A folha NÃO foi assinada — "
+                + "aumente TamanhoReservado.");
+
+        return der;
     }
 
     /// <summary>
@@ -132,8 +139,23 @@ public sealed class AssinadorSafeID : IDigitalSigner
     /// Ela mora neste ponto, e não no <c>ClienteSafeID</c>, porque aquele é transporte: ele
     /// entrega o que o PSC mandou. Aqui é onde a assinatura vira PDF, e é o único caminho
     /// pelo qual uma assinatura em nuvem chega a um documento da clínica.
+    ///
+    /// E ela NORMALIZA PARA DER — a metade que faltava
+    /// -----------------------------------------------
+    /// O SafeID devolve o CMS em <b>BER com comprimento indefinido</b> (<c>30 80 … 00 00</c>).
+    /// Isso é legal em CMS (RFC 5652) e o nosso <c>Conferir</c> passou a aceitar; só que
+    /// <b>PDF assinado exige DER</b> (ISO 32000-1 e PAdES/ETSI EN 319 142). Embutir o BER
+    /// produziria um arquivo que o NOSSO validador aprova e que o Adobe e o validador do ITI
+    /// podem recusar — e quem descobre isso é o farmacêutico, com a receita na mão.
+    /// Fazer só o leitor da casa aceitar seria a garantia aparente de novo, agora do lado de
+    /// fora: o sistema diria "assinatura conferida" sobre um arquivo que ninguém mais lê.
+    ///
+    /// A conversão é <b>segura e medida</b>: a assinatura cobre os atributos assinados, não a
+    /// codificação de fora, e <c>Decode</c> + <c>Encode</c> devolve exatamente o DER que o
+    /// PSC teria produzido — byte a byte, com <c>CheckSignature</c> passando.
     /// </summary>
-    private static void ExigirPkcs7(byte[] pkcs7)
+    /// <returns>Os mesmos bytes em DER.</returns>
+    private static byte[] ExigirPkcs7EnormalizarParaDer(byte[] pkcs7)
     {
         try
         {
@@ -143,6 +165,8 @@ public sealed class AssinadorSafeID : IDigitalSigner
             if (cms.SignerInfos.Count == 0)
                 throw new InvalidOperationException(
                     "O SafeID devolveu um PKCS#7 SEM assinante. A folha NÃO foi assinada.");
+
+            return cms.Encode();
         }
         catch (CryptographicException ex)
         {
