@@ -397,8 +397,20 @@ public class ClinicaDbContext : DbContext
         // ---------- Prontuário e LGPD (parcela 2) ----------
         // A evolução é do PACIENTE; o vínculo com atendimento/agendamento é opcional,
         // porque a sessão acontece antes de a guia existir (e a particular não gera guia).
+        // A versão guardada de uma evolução corrigida (parcela 52). O bloco existe
+        // só por causa da data: sem ele, SubstituidaEm cai no padrão do Npgsql
+        // ("with time zone") e a CORREÇÃO de uma evolução estoura no Postgres.
+        b.Entity<VersaoEvolucao>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.SubstituidaEm).HasColumnType("timestamp without time zone");
+        });
+
         b.Entity<Evolucao>(e =>
         {
+            // Hora de PAREDE, como toda data da casa: o Npgsql RECUSA DateTime com
+            // Kind=Local em coluna "with time zone", e o sistema grava DateTime.Now.
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
             e.HasKey(x => x.Id);
             e.Property(x => x.QueixaPrincipal).HasMaxLength(1000);
             e.Property(x => x.Conduta).HasMaxLength(4000);
@@ -425,6 +437,9 @@ public class ClinicaDbContext : DbContext
 
         b.Entity<AnexoProntuario>(e =>
         {
+            // Hora de PAREDE, como toda data da casa: o Npgsql RECUSA DateTime com
+            // Kind=Local em coluna "with time zone", e o sistema grava DateTime.Now.
+            e.Property(x => x.CanceladoEm).HasColumnType("timestamp without time zone");
             e.HasKey(x => x.Id);
             e.Property(x => x.NomeArquivo).IsRequired().HasMaxLength(200);
             e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(20);
@@ -443,6 +458,9 @@ public class ClinicaDbContext : DbContext
         // ---- Medidas clínicas seriadas (parcela 37) ----
         b.Entity<MedidaClinica>(e =>
         {
+            // Hora de PAREDE, como toda data da casa: o Npgsql RECUSA DateTime com
+            // Kind=Local em coluna "with time zone", e o sistema grava DateTime.Now.
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
             e.HasKey(x => x.Id);
             e.Property(x => x.TipoCodigo).IsRequired().HasMaxLength(30);
             e.Property(x => x.TipoNome).IsRequired().HasMaxLength(120);
@@ -507,6 +525,9 @@ public class ClinicaDbContext : DbContext
         // ---- Avaliações clínicas por instrumento (parcela 36) ----
         b.Entity<AvaliacaoClinica>(e =>
         {
+            // Hora de PAREDE, como toda data da casa: o Npgsql RECUSA DateTime com
+            // Kind=Local em coluna "with time zone", e o sistema grava DateTime.Now.
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
             e.HasKey(x => x.Id);
             e.Property(x => x.InstrumentoCodigo).IsRequired().HasMaxLength(30);
             e.Property(x => x.InstrumentoNome).IsRequired().HasMaxLength(120);
@@ -670,6 +691,9 @@ public class ClinicaDbContext : DbContext
             e.Property(x => x.CertificadoValidoDe).HasColumnType("timestamp without time zone");
             e.Property(x => x.CertificadoValidoAte).HasColumnType("timestamp without time zone");
             e.Property(x => x.CarimboTempoEm).HasColumnType("timestamp without time zone");
+            // Hora de PAREDE, como toda data da casa: o Npgsql RECUSA DateTime com
+            // Kind=Local em coluna "with time zone", e o sistema grava DateTime.Now.
+            e.Property(x => x.PublicadoEm).HasColumnType("timestamp without time zone");
 
             // ---- Assinatura do PACIENTE (parcela 66) ----
             e.Property(x => x.PacienteAssinaturaMeio).HasConversion<string>().HasMaxLength(20);

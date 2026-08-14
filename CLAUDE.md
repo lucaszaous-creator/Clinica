@@ -3189,3 +3189,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   camada: **mensagem de erro que carrega a evidência substitui a próxima rodada de
   adivinhação.** Quando uma tradução de erro tem um caminho "não sei o que é isto", esse
   caminho é o que vai aparecer na clínica — e é o que precisa dizer mais, não menos.
+- **Data COM fuso: o defeito que o SQLite não pode pegar** (parcela 67, 9ª rodada — a
+  clínica assinou um documento com SUCESSO e levou *"An error occurred while saving the
+  entity changes"* na publicação). O sistema grava hora de PAREDE (`DateTime.Now`,
+  `Kind=Local`), e o Npgsql **RECUSA** isso numa coluna `timestamp with time zone` ("only
+  UTC is supported"). O padrão do provedor para `DateTime` é justamente **com** fuso — então
+  esquecer o `HasColumnType("timestamp without time zone")` numa propriedade nova **não
+  quebra nada** até alguém tentar gravá-la em produção.
+  Eram **SEIS** colunas, e a publicação era só a que apareceu: as outras cinco são da
+  parcela 52 — cancelar evolução, anexo, avaliação e medida, e versionar evolução. Ou seja,
+  **as garantias de prontuário imutável que a auditoria da cliente exigiu estavam todas
+  quebradas no Postgres desde que nasceram**, e a clínica só não descobriu porque ninguém
+  tinha cancelado um registro clínico ainda.
+  ⚠️ **Os 1580 testes não podiam pegar, e isso é estrutural**: eles rodam em SQLite, que
+  guarda data como texto e não liga para o `Kind`. É a mesma família do `xmin` (concorrência
+  otimista, "só no Npgsql — testes rodam em SQLite e ficam de fora"), só que aqui o buraco
+  não estava documentado. `DatasSemFusoTests` fecha por outro caminho: lê o **MODELO** do EF
+  e cobra `timestamp without time zone` de toda propriedade `DateTime`. Ela falha no commit
+  em que alguém esquecer, que é meses antes de a clínica esbarrar.
+  **Ao acrescentar propriedade `DateTime`, declare o tipo da coluna.** O provedor não erra
+  a favor.
+- **Comentário que promete o que o código não faz é pior que comentário nenhum** (parcela
+  67, 9ª rodada, o segundo defeito do mesmo log). `AssinaturaDeDocumentoClinicoService`
+  dizia, por escrito, *"publica DEPOIS de gravar … falhar aqui não desfaz nada — vira frase
+  no resultado"* — e **não havia `try`**. A exceção da publicação subia por cima de tudo, e
+  a tela dizia que o documento NÃO tinha sido assinado, quando ele tinha e estava gravado.
+  É o pior desfecho possível: quem lê "não foi assinado" **emite de novo**, e ficam dois
+  documentos do mesmo ato — exatamente o que o comentário de `DocumentoEdicaoViewModel`
+  avisa duas telas acima. `ResultadoPublicacao.Falhou` já existia; faltava alguém chamá-lo.
+  A lição de leitura: **quando um comentário descreve um comportamento de degradação,
+  confira se existe o `catch` que o realiza.** Intenção escrita não é intenção executada, e
+  o comentário faz o revisor seguinte parar de procurar.
