@@ -3018,3 +3018,64 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   vira dupla negação. Todas afirmativas e incondicionais. E o **`Detalhe` sai IMPRESSO na via
   do paciente**: instrução para a equipe ali ("confira com o paciente quantas horas") produz
   um documento que fala do leitor na terceira pessoa.
+
+- **Auditoria de prontidão de Recepção, Gerente e Financeiro** (parcela 68). Nenhum dos
+  defeitos abaixo quebrava build, teste ou rede local: 1550 testes verdes, `verificar-suite`
+  verde, `compilar-sombra` verde. Quem descobriria cada um é a clínica, e a maioria só
+  depois de o estrago estar feito.
+  ⚠️ **`decimal.TryParse` cru lê "40.5" como 405, e o "leitor do projeto" fazia o mesmo.**
+  A varredura começou por sete chamadas cruas (repasse, estoque, venda de pacote) e
+  terminou num lugar bem pior: `Valores.TentarLerDecimal` tentava pt-BR e, *se falhasse*, a
+  cultura invariante — e ela **nunca falha**, porque em pt-BR o ponto é separador de MILHAR.
+  Medido rodando de verdade: `"50.00"` → 5.000, `"3.9"` → 39. O caminho invariante era
+  inalcançável e a documentação do método prometia justamente o que ele não fazia. Liam por
+  ali o caixa, as contas, a conciliação de guia, a contagem da GAVETA, o repasse, a taxa, o
+  tributo, a meta, o preço por convênio e a venda de pacote.
+  A conta subiu para o DOMÍNIO (`LeituraNumero`) e essa é a lição: enquanto morou em
+  `Clinica.Desktop.Shell` — `net8.0-windows` — a suíte de testes não a alcançava, e o
+  defeito atravessou parcelas com o CI verde. **Regra que decide dinheiro e não dá para
+  testar apodrece sem ninguém notar** (é o argumento do relógio injetado da parcela 42).
+  Quem decide o separador decimal é a POSIÇÃO, não a cultura; e a validação de GRUPOS
+  entrou porque o próprio teste pegou meu erro — sem ela `"1.2,3.4"` era lido como 123,4.
+  **Leitura parcial de texto que não é número é pior que recusa, porque ela grava.**
+  ⚠️ **O login entrava como MOTIVO do cancelamento no prontuário.**
+  `CancelarAsync(evolucaoId, motivo, operador)` chamado com dois argumentos: o
+  `MotivoCancelamento` gravava "ana.silva", `CanceladaPor` ficava nulo, a auditoria assinava
+  `"?"` e a recusa de motivo em branco nunca disparava (login não é branco). A tela vizinha
+  fazia certo, e o MESMO arquivo usava o padrão certo duas vezes logo abaixo — a lição da
+  parcela 64 outra vez. A raiz era a assinatura: enquanto `operador` teve valor padrão, a
+  chamada de dois argumentos COMPILAVA. **Assinatura que aceita a chamada errada vai
+  receber a chamada errada.**
+  ⚠️ **A aba "Prontuário" da ficha não tinha barreira, e a exportação do art. 18 tampouco.**
+  A ficha abre com `VerFichaPaciente`, que o perfil Recepção tem e que a parcela 49 separou
+  de `VerProntuario` justamente para isto. A aba entregava a evolução inteira; e "Exportar
+  meus dados" — que o `TitularDadosService` monta COM o texto da evolução — pedia o bit do
+  cadastro. Duas portas para o mesmo dado, e fechar uma só teria deixado a correção
+  cosmética. A aba **some** em vez de ficar apagada (aba escrita "Prontuário" já anuncia que
+  existe prontuário daquele paciente) e a **leitura não acontece**.
+  ⚠️ **`BooleanToVisibilityConverter` sobre um INT** — o bloco "no sistema e NÃO no extrato"
+  da conciliação bancária nunca apareceu. A parcela 61 achou este defeito sobre STRING,
+  criou o conversor de texto e corrigiu as três telas; **ninguém procurou o mesmo erro sobre
+  outro tipo.** Virou a **checagem 35**, que nasceu com um falso positivo que o próprio
+  autoteste me obrigou a consertar: `ForaDaFila` é `string` num ViewModel e `bool` noutro,
+  então **nome ambíguo responde "não sei" e CALA** (a doutrina da checagem 34).
+  Outros da mesma família: sucesso pintado de vermelho no Novo atendimento (a cor fixa em
+  `Brush.Erro` dava à confirmação "guia gerada" a cara de falha — o gatilho do lançamento
+  triplicado da parcela 65); janela de orçamento fechando por cima do aviso de que o PDF
+  falhou; CPF do profissional anterior sobrevivendo a uma leitura que falhou e sendo
+  GRAVADO no novo; exportação do prontuário da clínica gravando os arquivos ANTES da trilha
+  de acesso; "Feliz aniversário" saindo sem consentimento de marketing (a TERCEIRA porta do
+  mesmo ato — a campanha tinha a regra, a tela de sumidos ganhou na 64, o painel não); e
+  "Concluir" aceso na fila para quem só tem `MovimentarFila`.
+  A lição de método, e ela vale para a próxima auditoria: **quando um ato tem várias
+  portas, corrigir as que alguém apontou não fecha o assunto** — é preciso procurar a
+  próxima, e ela costuma estar no módulo de quem não pediu a correção.
+  ⚠️ **E a lição sobre a própria ferramenta**: a varredura rodou como workflow e a fase de
+  verificação morreu no limite de sessão, devolvendo `{confirmados: [], descartados: 66}` —
+  **vazio por defeito, indistinguível de "nada encontrado"**. Os 66 achados estavam no
+  `journal.jsonl` o tempo todo. É a mesma armadilha da parcela 66, e a regra continua:
+  **resultado vazio de workflow é para ser investigado no journal, nunca lido como
+  aprovação.** Cada achado foi conferido à mão antes de virar mudança, e a conferência
+  REFUTOU dois deles (a caixa de mensagem do `PrescricoesView`, que só mostra erros mesmo, e
+  a faixa de 320 px da central de documentos, que é o "painel de apoio" que o
+  `docs/design-system/layout-navegacao.md` sanciona).
