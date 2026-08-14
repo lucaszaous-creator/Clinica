@@ -6,6 +6,8 @@
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
         <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+        <!-- Para CONTAGEM: o conversor de bool devolve Collapsed para um int. -->
+        <ctrl:ContagemParaVisibilidade x:Key="ContagemParaVisibilidade" />
     </UserControl.Resources>
 
     <!-- Grid POR FORA (hospeda a sobreposição do estado), DockPanel por dentro (empilha):
@@ -63,7 +65,8 @@
                  dizer nada. -->
             <Border DockPanel.Dock="Bottom" Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
                     MaxHeight="180"
-                    Visibility="{Binding SoNoSistema.Count, Converter={StaticResource BoolParaVisibilidade}}">
+                    Visibility="{Binding SoNoSistema.Count,
+                                 Converter={StaticResource ContagemParaVisibilidade}}">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" TextWrapping="Wrap" FontWeight="SemiBold"
                                Text="No sistema e NÃO no extrato — dado como recebido/pago aqui e sem correspondência no banco:" />
