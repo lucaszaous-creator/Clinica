@@ -180,8 +180,16 @@ public sealed class ProntuarioService
     /// paciente errado — fica melhor resolvido assim: some do tratamento de quem não a
     /// teve e continua provando o que aconteceu.
     /// </summary>
+    /// <remarks>
+    /// ⚠️ <b><c>operador</c> não tem valor padrão, e isso é a correção de um defeito real.</b>
+    /// Enquanto ele foi opcional, <c>CancelarAsync(id, operador)</c> COMPILAVA — e era
+    /// exatamente o que a ficha do paciente fazia: o login entrava como <c>motivo</c>, o
+    /// operador ficava nulo e a auditoria assinava "?". Assinatura que aceita a chamada
+    /// errada é assinatura que vai receber a chamada errada; sem o padrão, o compilador
+    /// passa a ser a rede.
+    /// </remarks>
     public async Task CancelarAsync(
-        int evolucaoId, string motivo, string? operador = null, CancellationToken ct = default)
+        int evolucaoId, string motivo, string? operador, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(motivo))
             throw new InvalidOperationException(

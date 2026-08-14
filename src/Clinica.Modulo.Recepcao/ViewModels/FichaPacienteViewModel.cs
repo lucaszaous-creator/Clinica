@@ -1023,22 +1023,49 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         await AbrirEvolucaoAsync(linha.EvolucaoId);
     }
 
+    /// <summary>
+    /// Cancelar a sessão do prontuário — a MESMA regra da tela de Prontuário, e é por isso
+    /// que ela está escrita igual aqui.
+    ///
+    /// ⚠️ Esta era a versão FROUXA do mesmo ato. Ela chamava
+    /// <c>CancelarAsync(evolucaoId, SessaoUsuario.Atual.Operador)</c>, e a assinatura é
+    /// <c>(evolucaoId, motivo, operador)</c>: o login de quem estava no balcão entrava como
+    /// <b>MOTIVO</b>, e o operador ficava NULO. O estrago era inteiro na parte que a Lei
+    /// 13.787/2018 exige — a rastreabilidade da retificação:
+    ///
+    /// <list type="bullet">
+    /// <item><c>MotivoCancelamento</c> gravava "ana.silva"; quem abrisse o prontuário daqui
+    ///       a vinte anos leria o login no lugar da justificativa;</item>
+    /// <item><c>CanceladaPor</c> ficava nulo — ninguém assinava o cancelamento;</item>
+    /// <item>a auditoria gravava <c>Operador = "?"</c>, e ela existe desde a parcela 21
+    ///       justamente para responder "quem fez isso?";</item>
+    /// <item>a recusa de motivo em branco do serviço nunca disparava, porque o login nunca
+    ///       é branco — a exigência existia e não era cobrada de ninguém.</item>
+    /// </list>
+    ///
+    /// A confirmação também mentia: dizia "Apagar a sessão… os anexos vão junto", e desde a
+    /// parcela 52 nada é apagado. Prometer exclusão de registro clínico é o contrário do
+    /// que o sistema faz e do que a lei permite.
+    /// </summary>
     [RelayCommand]
     private async Task ExcluirEvolucaoAsync(LinhaEvolucao? linha)
     {
         if (linha is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-        if (!_dialogo.ConfirmarPerigo("Excluir do prontuário",
-                $"Apagar a sessão de {linha.Data}? Os anexos dela vão junto, e o prontuário "
-                + "é documento clínico — a exclusão fica registrada na auditoria.")) return;
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Cancelar sessão do prontuário",
+            $"Por que a sessão de {linha.Data} está sendo cancelada? Ela NÃO é apagada — "
+            + "sai do prontuário que se lê e fica guardada, com este motivo ao lado.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
 
         try
         {
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.CancelarAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info("Sessão excluída do prontuário.");
+            await prontuario.CancelarAsync(linha.EvolucaoId, motivo, SessaoUsuario.Atual.Operador);
+            _snackbar.Info("Sessão cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)
