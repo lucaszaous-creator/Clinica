@@ -22,15 +22,22 @@ public sealed class RelatorioService
 
         var resumo = Resumir(codigos);
 
+        // Agrupa pela OPERADORA (código do catálogo), com a família como caminho de baixo —
+        // o MESMO critério do `RentabilidadeConvenioService` e do lote TISS. Agrupar pelo
+        // enum fundia toda operadora cadastrada em Configurações numa linha "Personalizado",
+        // que é justamente o ONDE que esta tabela existe para responder.
         var porConvenio = codigos
-            .GroupBy(c => c.Atendimento?.Paciente?.Convenio ?? default)
+            .GroupBy(c => (
+                Familia: c.Atendimento?.Paciente?.Convenio ?? default,
+                Codigo: c.Atendimento?.Paciente?.ConvenioCodigo))
             .Select(g =>
             {
                 var r = Resumir(g);
-                return new FaturamentoPorConvenio(g.Key, r.TotalCodigos, r.Baixados, r.Pendentes, r.TaxaBaixa,
-                    r.Glosadas, r.TaxaGlosa, r.TempoMedioBaixaDias, r.NaoConformidades);
+                return new FaturamentoPorConvenio(g.Key.Familia, r.TotalCodigos, r.Baixados, r.Pendentes,
+                    r.TaxaBaixa, r.Glosadas, r.TaxaGlosa, r.TempoMedioBaixaDias, r.NaoConformidades,
+                    g.Key.Codigo);
             })
-            .OrderBy(c => c.Convenio)
+            .OrderBy(c => c.Nome)
             .ToList();
 
         var envelhecimento = await EnvelhecimentoAsync(referencia, ct);

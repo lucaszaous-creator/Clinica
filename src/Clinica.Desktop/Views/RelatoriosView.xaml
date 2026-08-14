@@ -132,7 +132,7 @@
                               IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Convênio"
-                                                Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
+                                                Binding="{Binding Nome}" Width="2*" />
                             <DataGridTextColumn Header="Gerados" Binding="{Binding TotalCodigos}" Width="*" />
                             <DataGridTextColumn Header="Baixados" Binding="{Binding Baixados}" Width="*" />
                             <DataGridTextColumn Header="Pendentes" Binding="{Binding Pendentes}" Width="*" />

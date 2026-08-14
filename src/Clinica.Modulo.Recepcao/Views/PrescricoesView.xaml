@@ -14,6 +14,8 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <Grid>
@@ -73,8 +75,30 @@
                     IsEnabled="{Binding PodeEmitirDocumento}" />
         </Grid>
 
-                <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                        Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+                <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade.
+                     ⚠️ Amarrada a `MensagemEhErro`, esta caixa engolia a INSTRUÇÃO da
+                     entrega: "Entregar ao paciente" grava o PDF assinado, copia o arquivo
+                     para a área de transferência e abre a conversa do WhatsApp — e a frase
+                     que manda COLAR o arquivo na conversa (`EntregaAoPaciente`, que zera o
+                     booleano no caminho de sucesso) nunca chegava à tela. Sem ela o
+                     WhatsApp abre vazio, a recepcionista escreve "segue sua receita" e o
+                     paciente não recebe arquivo nenhum — que é justamente o que a parcela
+                     43 decidiu evitar, porque a assinatura vive nos BYTES e a via impressa
+                     é só cópia. -->
+                <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                        Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                     FallbackValue=Collapsed}">
+                    <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                    <Setter Property="BorderThickness" Value="1" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
                 </Border>
 

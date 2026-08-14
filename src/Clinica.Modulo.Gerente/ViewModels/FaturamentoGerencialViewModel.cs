@@ -197,7 +197,10 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
             foreach (var c in relatorio.PorConvenio)
                 PorConvenio.Add(new LinhaConvenioGerencial
                 {
-                    Convenio = ConvenioInfo.NomeExibicao(c.Convenio),
+                    // `c.Nome` resolve pelo CÓDIGO da operadora (família como caminho de
+                    // baixo). `NomeExibicao(c.Convenio)` devolvia "Personalizado" para
+                    // toda operadora cadastrada em Configurações.
+                    Convenio = c.Nome,
                     Total = c.TotalCodigos,
                     Baixados = c.Baixados,
                     Pendentes = c.Pendentes,

@@ -168,10 +168,17 @@ public sealed class FechamentoPdfService
                             foreach (var c in vencidas)
                             {
                                 var atraso = hoje.DayNumber - c.DataPrevistaFaturamento.DayNumber;
+                                // ⚠️ Duas colunas saíam com o identificador do PROGRAMADOR
+                                // num papel que vai à mesa da direção e ao contador:
+                                // `NomeExibicao(familia)` escreve "Personalizado" para toda
+                                // operadora cadastrada em Configurações, e `Tipo.ToString()`
+                                // escreve "ConsultaEspecialidade". `ConvenioNome` resolve
+                                // pelo código (parcela 50) e `RotulosEnum` é o ponto único
+                                // do rótulo (parcela 41).
                                 Linha(t,
                                     c.Atendimento?.Paciente?.Nome ?? "?",
-                                    ConvenioInfo.NomeExibicao(c.Atendimento?.Paciente?.Convenio ?? default),
-                                    c.Tipo.ToString(),
+                                    c.Atendimento?.Paciente?.ConvenioNome ?? "—",
+                                    Clinica.Domain.RotulosEnum.De(c.Tipo),
                                     c.DataPrevistaFaturamento.ToString("dd/MM/yyyy"),
                                     $"{atraso} d");
                             }
