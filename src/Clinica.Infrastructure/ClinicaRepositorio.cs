@@ -2226,6 +2226,12 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     /// </summary>
     private static string? Traduzir(DbUpdateException ex)
     {
+        // Registro gravado por uma versão mais nova (ver ConversorEnumTolerante). A frase já
+        // vem escrita para quem está na tela; sem isto o que apareceria é o "An error
+        // occurred while saving the entity changes" do EF.
+        if (ex.GetBaseException() is RegistroDeVersaoMaisNovaException recusa)
+            return recusa.Message;
+
         if (ex.GetBaseException() is Npgsql.PostgresException pg)
         {
             if (pg.SqlState == "23505")                      // unique_violation

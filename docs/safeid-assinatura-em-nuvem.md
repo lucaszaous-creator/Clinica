@@ -188,3 +188,40 @@ Duas coisas que a coleção não tinha e o demo tem:
 Deliberadamente **não** foi criada uma classe que lance `NotImplementedException`: provedor que
 aparece no seletor e falha no clique é o "botão aceso que não faz nada" da parcela 41, na tela
 que dá valor jurídico ao documento.
+
+## O `raw_signature` não é sempre o base64 padrão
+
+O primeiro documento assinado em nuvem na clínica levou **"O SafeID devolveu uma assinatura que
+não pôde ser decodificada"** (ago/2026). Não era a assinatura que faltava — era a leitura dela
+que só aceitava uma forma.
+
+`Convert.FromBase64String` é estrito exatamente nos três pontos em que um serviço REST costuma
+ser frouxo, e **as três falhas produzem a mesma exceção**, sem dizer qual foi:
+
+| forma que chega | por que chega assim | o que o .NET faz |
+|---|---|---|
+| **base64url** (`-` e `_` no lugar de `+` e `/`) | é a forma que o resto desta integração usa — o PKCE do próprio `ClienteSafeID` a produz — e a que sai de qualquer camada pensada para URL | `FormatException` |
+| **sem o enchimento** (`=` do fim) | o comprimento deixa de fechar em múltiplo de 4 | `FormatException` |
+| **com armadura PEM** (`-----BEGIN PKCS7-----`) | o mesmo conteúdo, embrulhado | `FormatException` |
+
+`ClienteSafeID.DecodificarAssinatura` aceita as três, e mais o **hexadecimal** — que alguns PSCs
+devolvem para o resultado cru.
+
+⚠️ **O hexa é testado ANTES do base64, e a ordem não é preferência.** O alfabeto do hexa cabe
+inteiro dentro do do base64: `FromBase64String` **aceita** qualquer hexa e devolve lixo. Deixá-lo
+por último não o tornaria só inalcançável — manteria a resposta em hexa entrando **calada** no
+`/Contents` do PDF, produzindo um PDF com assinatura inválida em vez de uma recusa. Que é a
+garantia aparente que o projeto recusa desde a parcela 3. Por isso ele só ganha quando o
+resultado começa em `0x30`, o `SEQUENCE` que abre todo DER e portanto todo PKCS#7 — um base64 de
+verdade lido como hexa não cai aí (um DER em base64 começa em `MII`, não em `30`).
+
+**Quando nada serve, recusar continua sendo o certo — mas a mensagem carrega a evidência**: o
+tamanho, o começo do que veio e **quais caracteres** estão fora do base64. A frase do .NET
+("contains a non-base 64 character") não diz qual é, e foi por isso que a primeira ocorrência não
+deu para diagnosticar pelo log. Mostrar o começo do valor é seguro e é decisão: a assinatura
+destacada cobre um **hash**, não o documento — não há nome de paciente, CID nem medicação dentro
+dela; e o que veio no lugar já não é assinatura de nada.
+
+De quebra, `status` e `message` da resposta entram na frase de "não devolveu a assinatura": o PSC
+responde 200 com o motivo no corpo em alguns casos, e a frase sozinha mandava a clínica procurar
+defeito no celular da médica.

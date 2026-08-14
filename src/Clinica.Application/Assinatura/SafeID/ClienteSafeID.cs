@@ -4,6 +4,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
 namespace Clinica.Application.Assinatura.SafeID;
 
@@ -27,7 +28,7 @@ namespace Clinica.Application.Assinatura.SafeID;
 /// de tempo" (texto da doc), então não sai com política AD-RT. Não é regressão — a assinatura
 /// de hoje já é PAdES-B —, e o carimbo continua vindo da ACT RFC 3161 configurada pela clínica.
 /// </summary>
-public sealed class ClienteSafeID
+public sealed partial class ClienteSafeID
 {
     private readonly HttpClient _http;
     private readonly OpcoesSafeID _opcoes;
@@ -238,16 +239,141 @@ public sealed class ClienteSafeID
         var assinatura = lido?.Signatures?.FirstOrDefault(s => s.Id == identificador)
             ?? lido?.Signatures?.FirstOrDefault();
 
-        if (assinatura?.RawSignature is not { Length: > 0 } base64)
+        if (assinatura?.RawSignature is not { Length: > 0 } bruto)
             throw new InvalidOperationException(
-                "O SafeID não devolveu a assinatura do documento. A folha NÃO foi assinada.");
+                "O SafeID não devolveu a assinatura do documento. A folha NÃO foi assinada."
+                + DetalheDoPsc(lido));
 
-        try { return Convert.FromBase64String(base64); }
-        catch (FormatException ex)
+        return DecodificarAssinatura(bruto);
+    }
+
+    /// <summary>
+    /// Lê o <c>raw_signature</c>, que a doc do PSC chama de "base64" e que nem sempre chega
+    /// no base64 <b>padrão</b>.
+    ///
+    /// Por que não é só <c>Convert.FromBase64String</c>
+    /// ------------------------------------------------
+    /// Porque ele é estrito nas três coisas em que um serviço REST costuma ser frouxo, e
+    /// qualquer uma delas produz a mesma <see cref="FormatException"/> sem dizer qual foi:
+    ///
+    /// 1. <b>Alfabeto</b> — base64url troca <c>+</c> e <c>/</c> por <c>-</c> e <c>_</c>. É a
+    ///    forma que todo o resto desta integração já usa (o PKCE desta mesma classe a
+    ///    produz), e é a que um gateway HTTP devolve quando o valor passou por uma camada
+    ///    pensada para URL.
+    /// 2. <b>Enchimento</b> — sem os <c>=</c> do fim, o comprimento não fecha em múltiplo de
+    ///    4 e ele recusa um valor que é perfeitamente decodificável.
+    /// 3. <b>Armadura PEM</b> — <c>-----BEGIN PKCS7-----</c> em volta do mesmo conteúdo.
+    ///
+    /// O hexadecimal — que alguns PSCs devolvem para o resultado cru — é testado <b>ANTES</b>
+    /// do base64, e isso não é preferência: o alfabeto do hexa cabe inteiro dentro do do
+    /// base64, então <c>Convert.FromBase64String</c> ACEITA qualquer hexa e devolve lixo.
+    /// Deixá-lo por último não o tornaria só inalcançável: manteria a resposta em hexa
+    /// entrando calada no <c>/Contents</c> do PDF, que é a garantia aparente que este projeto
+    /// recusa desde a parcela 3. Por isso ele só ganha quando o resultado começa em
+    /// <c>0x30</c> — o SEQUENCE que abre todo DER, e portanto todo PKCS#7. Um base64 de
+    /// verdade lido como hexa não cai aí (um DER em base64 começa em "MII", não em "30").
+    ///
+    /// <b>Recusar continua sendo o desfecho certo quando nada serve</b>, e a mensagem carrega
+    /// a evidência: sem ela a próxima ocorrência recomeça do zero, porque a frase do .NET não
+    /// diz qual caractere ofendeu nem com o que o valor se parecia.
+    /// </summary>
+    private static byte[] DecodificarAssinatura(string bruto)
+    {
+        var limpo = SemArmaduraNemEspaco(bruto);
+
+        if (TentarHexadecimalDer(limpo, out var bytes)) return bytes;
+        if (TentarBase64(limpo, out bytes)) return bytes;
+        if (TentarBase64(limpo.Replace('-', '+').Replace('_', '/'), out bytes)) return bytes;
+
+        throw new InvalidOperationException(
+            "O SafeID devolveu uma assinatura que não pôde ser decodificada. A folha NÃO foi "
+            + "assinada. " + Evidencia(bruto));
+    }
+
+    /// <summary>Tira a armadura PEM e todo espaço em branco, inclusive quebras de linha.</summary>
+    private static string SemArmaduraNemEspaco(string valor)
+    {
+        var semArmadura = ArmaduraPem().Replace(valor, string.Empty);
+        return new string(semArmadura.Where(c => !char.IsWhiteSpace(c)).ToArray());
+    }
+
+    [GeneratedRegex("-----[A-Z0-9 ]*-----")]
+    private static partial Regex ArmaduraPem();
+
+    private static bool TentarBase64(string valor, out byte[] bytes)
+    {
+        bytes = [];
+        if (valor.Length == 0) return false;
+
+        // O enchimento que falta é acrescentado aqui; o que sobra continua sendo recusado,
+        // porque aí o valor está mesmo corrompido e não apenas encurtado.
+        var resto = valor.Length % 4;
+        var completo = resto == 0 ? valor : valor + new string('=', 4 - resto);
+
+        try
         {
-            throw new InvalidOperationException(
-                "O SafeID devolveu uma assinatura que não pôde ser decodificada.", ex);
+            bytes = Convert.FromBase64String(completo);
+            return bytes.Length > 0;
         }
+        catch (FormatException) { return false; }
+    }
+
+    /// <summary>
+    /// Hexadecimal, e só quando o que sai dele é DER (ver o porquê da ordem em
+    /// <see cref="DecodificarAssinatura"/>).
+    /// </summary>
+    private static bool TentarHexadecimalDer(string valor, out byte[] bytes)
+    {
+        bytes = [];
+        if (valor.Length < 4 || valor.Length % 2 != 0 || !valor.All(Uri.IsHexDigit)) return false;
+
+        try
+        {
+            var lido = Convert.FromHexString(valor);
+            if (lido[0] != 0x30) return false;      // não é SEQUENCE: não é PKCS#7
+
+            bytes = lido;
+            return true;
+        }
+        catch (FormatException) { return false; }
+    }
+
+    /// <summary>
+    /// O que a próxima ocorrência precisa ter na mão: o tamanho, o começo do valor e os
+    /// caracteres que não pertencem ao base64 — que é o que nomeia a causa de uma vez.
+    ///
+    /// Mostrar o começo é seguro e é decisão: a assinatura destacada cobre um <b>hash</b>,
+    /// não o documento, então não há nome de paciente, CID nem medicação dentro dela. E o
+    /// que o PSC devolveu aqui já não é assinatura de nada — é o texto que veio no lugar.
+    /// </summary>
+    private static string Evidencia(string bruto)
+    {
+        var invalidos = bruto
+            .Where(c => !char.IsWhiteSpace(c) && !EhCaractereBase64(c))
+            .Distinct().Take(6).ToArray();
+
+        var inicio = bruto.Length <= 24 ? bruto : bruto[..24] + "…";
+
+        return $"O PSC devolveu {bruto.Length} caractere(s), começando por \"{inicio}\""
+            + (invalidos.Length > 0
+                ? $", com caractere(s) fora do base64: {string.Join(' ', invalidos)}."
+                : " — e o comprimento não fecha em base64.");
+    }
+
+    private static bool EhCaractereBase64(char c)
+        => char.IsAsciiLetterOrDigit(c) || c is '+' or '/' or '=' or '-' or '_';
+
+    /// <summary>
+    /// O que o PSC disse ao lado das assinaturas. Ele responde 200 com o corpo explicando o
+    /// motivo em alguns casos, e "não devolveu a assinatura" sozinho manda procurar defeito
+    /// no lugar errado.
+    /// </summary>
+    private static string DetalheDoPsc(RespostaAssinatura? lido)
+    {
+        var detalhe = string.Join(" ", new[] { lido?.Status, lido?.Message }
+            .Where(t => !string.IsNullOrWhiteSpace(t)));
+
+        return detalhe.Length == 0 ? string.Empty : $" O PSC respondeu: {detalhe}";
     }
 
     /// <summary>Diz se um CPF tem certificado no PSC, e quais slots.</summary>
@@ -367,7 +493,9 @@ public sealed class ClienteSafeID
 
     private sealed record RespostaAssinatura(
         [property: JsonPropertyName("certificate_alias")] string? CertificateAlias,
-        [property: JsonPropertyName("signatures")] List<ItemAssinatura>? Signatures);
+        [property: JsonPropertyName("signatures")] List<ItemAssinatura>? Signatures,
+        [property: JsonPropertyName("status")] string? Status,
+        [property: JsonPropertyName("message")] string? Message);
 
     private sealed record ItemAssinatura(
         [property: JsonPropertyName("id")] string? Id,

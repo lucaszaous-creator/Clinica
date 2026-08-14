@@ -638,7 +638,14 @@ public class ClinicaDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Numero).IsRequired().HasMaxLength(20);
             e.Property(x => x.CodigoVerificacao).IsRequired().HasMaxLength(20);
-            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+
+            // Tolerante na LEITURA, recusado na ESCRITA (ver ConversorEnumTolerante). Este
+            // enum CRESCE — foram sete tipos até a parcela 65 e oito na 66 — e é lido pelos
+            // cinco apps, que se atualizam em canais separados sobre o MESMO banco.
+            e.Property(x => x.Tipo)
+                .HasConversion(new ConversorEnumTolerante<TipoDocumentoClinico>(
+                    TipoDocumentoClinico.Desconhecido))
+                .HasMaxLength(30);
             e.Property(x => x.Titulo).HasMaxLength(200);
             e.Property(x => x.Corpo).HasMaxLength(4000);
             e.Property(x => x.Observacoes).HasMaxLength(1000);
@@ -893,7 +900,12 @@ public class ClinicaDbContext : DbContext
         b.Entity<ModeloDocumento>(e =>
         {
             e.HasKey(x => x.Id);
-            e.Property(x => x.Tipo).HasConversion<string>().HasMaxLength(30);
+            // O mesmo enum, e o mesmo risco: o modelo do termo de procedimento é gravado
+            // por um app e lido por todos os outros.
+            e.Property(x => x.Tipo)
+                .HasConversion(new ConversorEnumTolerante<TipoDocumentoClinico>(
+                    TipoDocumentoClinico.Desconhecido))
+                .HasMaxLength(30);
             e.Property(x => x.Nome).IsRequired().HasMaxLength(100);
             e.Property(x => x.Titulo).HasMaxLength(200);
             e.Property(x => x.Corpo).HasMaxLength(4000);

@@ -119,6 +119,18 @@ public sealed class DocumentosClinicosPdfService
         var documento = await _repo.ObterDocumentoAsync(documentoId, ct)
             ?? throw new InvalidOperationException($"Documento {documentoId} não encontrado.");
 
+        // Documento gravado por uma versão mais nova: esta não sabe montar o miolo dele. A
+        // folha SAIRIA — com cabeçalho, número e assinatura, e sem as declarações no meio —,
+        // e é justamente a garantia aparente que este serviço recusa desde a parcela 3.
+        // A segunda via guardada continua saindo (o `return` abaixo), porque ali os bytes já
+        // existem e não dependem deste build entender o tipo.
+        if (documento.Tipo == TipoDocumentoClinico.Desconhecido
+            && documento.ArquivoAssinadoId is null)
+            throw new InvalidOperationException(
+                $"O documento {documento.Numero} é de um tipo que esta versão do sistema não "
+                + "conhece, e imprimi-lo produziria uma folha incompleta. Atualize o sistema "
+                + "para abri-lo.");
+
         if (documento.ArquivoAssinadoId is int arquivoId
             && await _repo.ObterArquivoAssinadoAsync(arquivoId, ct) is { } guardado)
             return guardado.Conteudo;
