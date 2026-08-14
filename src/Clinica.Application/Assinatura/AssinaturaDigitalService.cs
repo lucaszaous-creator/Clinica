@@ -209,9 +209,10 @@ public sealed class AssinaturaDigitalService
             // O buraco ENTRE os dois trechos é o /Contents <...> com o PKCS#7 em hexa. É
             // por ficar fora do ByteRange que a assinatura consegue estar dentro do
             // arquivo que ela assina.
-            var pkcs7 = LerConteudoAssinatura(pdfAssinado, inicio1 + tamanho1, inicio2);
+            var (pkcs7, porque) = LerConteudoAssinatura(pdfAssinado, inicio1 + tamanho1, inicio2);
             if (pkcs7 is null)
-                return ConferenciaAssinatura.NaoConferida("o bloco de assinatura está ilegível");
+                return ConferenciaAssinatura.NaoConferida(
+                    $"o bloco de assinatura está ilegível — {porque}");
 
             var cobertos = new byte[tamanho1 + tamanho2];
             Buffer.BlockCopy(pdfAssinado, inicio1, cobertos, 0, tamanho1);
@@ -311,22 +312,48 @@ public sealed class AssinaturaDigitalService
             int.Parse(achado.Groups[4].Value));
     }
 
-    private static byte[]? LerConteudoAssinatura(byte[] pdf, int inicio, int fim)
+    /// <summary>
+    /// Os bytes do PKCS#7, ou <c>null</c> mais o MOTIVO — e o motivo é a metade que importa:
+    /// "o bloco de assinatura está ilegível" sozinho não distingue "o espaço está todo em
+    /// zeros" de "o cabeçalho DER não bate", que pedem investigações opostas. Foi essa frase
+    /// muda que chegou à clínica em 14/08/2026 e não deu para diagnosticar.
+    /// </summary>
+    private static (byte[]? Bytes, string Porque) LerConteudoAssinatura(
+        byte[] pdf, int inicio, int fim)
     {
-        if (inicio < 0 || fim > pdf.Length || fim <= inicio) return null;
+        if (inicio < 0 || fim > pdf.Length || fim <= inicio)
+            return (null, $"a faixa do /Contents não fecha (de {inicio} a {fim}, "
+                          + $"arquivo de {pdf.Length} bytes)");
 
         var bruto = Encoding.Latin1.GetString(pdf, inicio, fim - inicio).Trim();
         var hexa = bruto.TrimStart('<').TrimEnd('>');
 
         // Um nibble solto no fim só pode ser lixo do enchimento: o PKCS#7 é byte-alinhado.
         if (hexa.Length % 2 == 1) hexa = hexa[..^1];
-        if (hexa.Length == 0) return null;
+        if (hexa.Length == 0) return (null, "o /Contents veio vazio");
 
         byte[] comFolga;
         try { comFolga = Convert.FromHexString(hexa); }
-        catch (FormatException) { return null; }
+        catch (FormatException)
+        {
+            var ruim = hexa.FirstOrDefault(c => !Uri.IsHexDigit(c));
+            return (null, $"o /Contents tem caractere fora do hexadecimal ('{ruim}')");
+        }
 
-        return RecortarDer(comFolga);
+        // Tudo zero significa que o espaço foi RESERVADO e a assinatura nunca foi escrita
+        // nele. É um estado bem diferente de "o cabeçalho não bate", e confundir os dois foi
+        // o que fez esta frase não ajudar em nada quando ela apareceu na clínica.
+        if (comFolga.All(b => b == 0))
+            return (null, $"o espaço da assinatura ({comFolga.Length} bytes) está todo em "
+                          + "zeros — a assinatura não chegou a ser escrita no arquivo");
+
+        var recortado = RecortarDer(comFolga);
+
+        return recortado is not null
+            ? (recortado, string.Empty)
+            : (null, $"o cabeçalho DER não é legível (começa em "
+                     + $"{Convert.ToHexString(comFolga.AsSpan(0, Math.Min(8, comFolga.Length)))}, "
+                     + $"{comFolga.Length} bytes disponíveis)");
     }
 
     /// <summary>
@@ -396,7 +423,7 @@ public sealed class AssinaturaDigitalService
             if (faixa is null) return null;
 
             var (inicio1, tamanho1, inicio2, _) = faixa.Value;
-            var pkcs7 = LerConteudoAssinatura(pdfAssinado, inicio1 + tamanho1, inicio2);
+            var (pkcs7, _) = LerConteudoAssinatura(pdfAssinado, inicio1 + tamanho1, inicio2);
             if (pkcs7 is null) return null;
 
             var cms = new SignedCms();

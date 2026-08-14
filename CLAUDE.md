@@ -3086,3 +3086,32 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   entrada mais TOLERANTE, ela precisa vir junto da conferência do que a entrada deveria
   ser.** Tolerância sem conferência só empurra a falha para mais longe da causa — e o
   segundo erro é sempre mais caro de diagnosticar que o primeiro.
+- **A assinatura em nuvem assinava o hash de NADA — e o defeito morava no vão entre dois
+  testes que passavam** (parcela 67, 5ª rodada; três mensagens de erro diferentes em três
+  dias até alguém REPRODUZIR o caminho em vez de deduzi-lo). O `RangedStream` que o
+  PDFsharp entrega ao `IDigitalSigner` chega **sem posição**: `Position` nem getter
+  utilizável tem (lança `NullReferenceException`), `CanSeek` **lança** em vez de devolver
+  false — o que derruba `CopyTo` —, e **ler antes de posicionar devolve ZERO bytes, calado**.
+  `AssinadorSafeID` fazia `SHA256.HashDataAsync(conteudoCoberto)` direto, então o que subia
+  para o PSC era `e3b0c442…b7852b855` — o SHA-256 da cadeia vazia, **a mesma constante em
+  toda folha da clínica**. O PSC assinava esse hash corretamente e devolvia um PKCS#7
+  impecável: nenhum erro em lugar nenhum até a conferência dizer que o documento "foi
+  alterado", porque a assinatura de fato cobre outra coisa. **Assinatura válida sobre
+  conteúdo nenhum é a garantia aparente na forma mais perigosa que este projeto já
+  produziu** — e a única que sai da clínica com valor jurídico afirmado no rodapé.
+  ⚠️ **Nenhum teste podia pegar, e é isso que a lição tem de mudar.** Havia teste para a
+  montagem da requisição, para a leitura da resposta, para o recorte do PKCS#7 e para a
+  conferência com certificado LOCAL. Não havia um só que assinasse um PDF **pelo assinador
+  de nuvem** e depois o CONFERISSE — o circuito inteiro. Cada peça verde, o produto delas
+  quebrado. É o `CircuitoCompletoTests` da parcela 33 aplicado a outro assunto: **quando um
+  caminho é montado de peças testadas, o teste que falta é sempre o do CAMINHO.**
+  A rede que ficou junto da correção: assinar o hash da cadeia vazia é **recusado**. Não é
+  paranoia — é a única forma de a próxima versão do PDFsharp (ou outro caminho de
+  salvamento) não devolver o defeito em silêncio.
+  ⚠️ E a lição de MÉTODO, que custou três rodadas ao cliente: **eu diagnostiquei por
+  inferência três vezes seguidas.** Cada correção era um defeito real e provado — o
+  `raw_signature` que não era base64 padrão, o `TrimEnd('0')` que comia o byte `0x00` — e
+  nenhuma era ESTA. Ler o código e deduzir a causa a partir da mensagem de erro é o que
+  parece diligência e é o que faz o cliente testar de novo. **Quando a mensagem muda a cada
+  rodada, pare de ler e REPRODUZA o caminho.** O experimento que resolveu tem trinta linhas
+  e devia ter sido a primeira coisa.
