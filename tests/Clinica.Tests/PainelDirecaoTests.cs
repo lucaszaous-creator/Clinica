@@ -58,7 +58,8 @@ public class PainelDirecaoTests : IDisposable
             new FechamentoCaixaService(_repo),
             new RodadaPendenciasService(_repo, pendencias, parametros),
             pendencias,
-            new InadimplenciaService(_repo, _financeiro));
+            new InadimplenciaService(_repo, _financeiro),
+            new EstoqueService(_repo));
     }
 
     private Task EntradaAsync(DateOnly dia, decimal valor,
@@ -296,6 +297,43 @@ public class PainelDirecaoTests : IDisposable
         // treinaria a clínica a fechar no automático.
         p.DiasCaixaNaoConferido.Should().Be(0);
         p.Alertas.Should().NotContain(a => a.Assunto == AssuntoDirecao.CaixaNaoConferido);
+    }
+
+    [Fact]
+    public async Task InsumoAbaixoDoMinimo_ViraAlertaDeAVISO()
+    {
+        var estoque = new EstoqueService(_repo);
+        await estoque.SalvarItemAsync(
+            new ItemEstoque { Nome = "Agulha 0,25x30", Unidade = "cx", EstoqueMinimo = 5 },
+            operador: "ana");
+
+        var p = await _painel.MontarAsync(Hoje);
+
+        // A tela de Estoque já marcava o item na linha — mas só para quem estivesse com
+        // ela aberta. Agulha que acabou é problema da manhã, não da hora da sessão.
+        p.ItensAbaixoDoMinimo.Should().Be(1);
+        var alerta = p.Alertas.Should().ContainSingle(
+            a => a.Assunto == AssuntoDirecao.EstoqueBaixo).Subject;
+        alerta.Detalhe.Should().Contain("Agulha");
+        // Aviso, não perigo: o mínimo é a MARGEM, não o zero. Marcar como perigo faria o
+        // alerta de verdade — o estoque zerado — parecer igual a este.
+        alerta.Gravidade.Should().Be(GravidadeDirecao.Aviso);
+    }
+
+    [Fact]
+    public async Task InsumoSemMinimoCadastrado_NaoAlerta()
+    {
+        var estoque = new EstoqueService(_repo);
+        await estoque.SalvarItemAsync(
+            new ItemEstoque { Nome = "Algodão", Unidade = "pct", EstoqueMinimo = 0 },
+            operador: "ana");
+
+        var p = await _painel.MontarAsync(Hoje);
+
+        // Sem mínimo cadastrado não há do que reclamar: alertar sobre todo item zerado
+        // encheria o painel de linhas que a clínica não pediu para vigiar.
+        p.ItensAbaixoDoMinimo.Should().Be(0);
+        p.Alertas.Should().NotContain(a => a.Assunto == AssuntoDirecao.EstoqueBaixo);
     }
 
     [Fact]

@@ -61,6 +61,44 @@
                                 HorizontalAlignment="Left" Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
+
+                <!-- Todo documento sai com um código no rodapé, e até aqui não havia
+                     onde conferi-lo: o papel prometia uma verificação que o sistema
+                     não sabia fazer. -->
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Conferir uma via" Style="{StaticResource H3}"
+                                   Margin="0,0,0,4" />
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                                   Text="Digite o código impresso no rodapé do papel. Serve para quem liga com a via na mão — a operadora, o RH da empresa, o próprio paciente." />
+
+                        <TextBox Text="{Binding CodigoConferir, UpdateSourceTrigger=PropertyChanged}"
+                                 MaxLength="20" />
+                        <Button Content="Conferir" Command="{Binding ConferirCommand}"
+                                Style="{StaticResource BotaoSecundario}" MinWidth="100"
+                                HorizontalAlignment="Left" Margin="0,8,0,0" />
+
+                        <Border Margin="0,10,0,0" Padding="10,8"
+                                CornerRadius="{StaticResource Raio.Medio}"
+                                Visibility="{Binding ConferenciaRespondeu, Converter={StaticResource BoolParaVisibilidade}}">
+                            <Border.Style>
+                                <!-- Não achar é RESPOSTA, não erro: quem confere precisa
+                                     ouvir "este papel não saiu daqui" com todas as letras. -->
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ConferenciaAchou}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Sucesso.Suave}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <TextBlock Text="{Binding ResultadoConferencia}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}" />
+                        </Border>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </ScrollViewer>
 

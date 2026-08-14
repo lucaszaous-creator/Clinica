@@ -87,6 +87,12 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [ObservableProperty] private bool _semPapel;
     [ObservableProperty] private bool _carregando;
 
+    // ---- Conferência do código do rodapé ----
+    [ObservableProperty] private string? _codigoConferir;
+    [ObservableProperty] private string _resultadoConferencia = string.Empty;
+    [ObservableProperty] private bool _conferenciaAchou;
+    [ObservableProperty] private bool _conferenciaRespondeu;
+
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -242,6 +248,53 @@ public sealed partial class DocumentosViewModel : ObservableObject
             ? $"CANCELADA — {e.MotivoCancelamento}"
             : $"código {e.CodigoVerificacao}"
     };
+
+    /// <summary>
+    /// Confere uma via em papel pelo código do rodapé.
+    ///
+    /// Todo documento nasce com um código de conferência e ele é IMPRESSO desde a parcela 3
+    /// — e não havia consulta por ele em lugar nenhum: o papel prometia uma verificação que
+    /// o sistema não sabia fazer. É a resposta para quem liga com o papel na mão (a
+    /// operadora, o RH da empresa, o próprio paciente) perguntando se aquilo saiu daqui.
+    /// </summary>
+    [RelayCommand]
+    private async Task ConferirAsync()
+    {
+        ConferenciaRespondeu = false;
+        ConferenciaAchou = false;
+        ResultadoConferencia = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(CodigoConferir)) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var central = scope.ServiceProvider.GetRequiredService<CentralDocumentosService>();
+            var achado = await central.ConferirCodigoAsync(CodigoConferir);
+
+            ConferenciaRespondeu = true;
+            ConferenciaAchou = achado is not null;
+
+            // Não achar é resposta, não erro: quem confere precisa ouvir "este papel não
+            // saiu daqui" com todas as letras.
+            ResultadoConferencia = achado is null
+                ? "Nenhum documento com este código. A via não saiu deste sistema — ou o código foi lido errado."
+                : achado.Cancelado
+                    // Cancelado é o caso que mais importa acertar: o papel existe, é
+                    // autêntico, e NÃO vale mais.
+                    ? $"{achado.FolhaRotulo} {achado.Numero}, de {achado.Data:dd/MM/yyyy}, para {achado.Paciente ?? "—"} — "
+                      + $"CANCELADO ({achado.MotivoCancelamento}). Esta via não vale."
+                    : $"{achado.FolhaRotulo} {achado.Numero}, emitido em {achado.Data:dd/MM/yyyy} "
+                      + $"para {achado.Paciente ?? "—"}. Válido.";
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — código de documento não pôde ser conferido", ex);
+            Mensagem = $"Não foi possível conferir o código: {ex.Message}";
+            MensagemEhErro = true;
+        }
+    }
 
     // ==================== Gerar ====================
 

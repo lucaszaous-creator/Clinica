@@ -24,6 +24,7 @@ public enum AssuntoDirecao
     DepositoAtrasado,
     CaixaNaoConferido,
     GuiasSemReceita,
+    EstoqueBaixo,
     PendenciasVencidas,
     GlosasVencidas,
     GlosasAVencer
@@ -54,6 +55,7 @@ public sealed record PainelDirecao(
     decimal EspecieNaoConferida,
     int PacientesDevendo,
     decimal TotalDevidoPorPacientes,
+    int ItensAbaixoDoMinimo,
     int GuiasSemReceita,
     int PendenciasVencidas,
     int PendenciasEmAberto,
@@ -131,6 +133,7 @@ public sealed class PainelDirecaoService
     private readonly RodadaPendenciasService _rodada;
     private readonly PendenciaService _pendencias;
     private readonly InadimplenciaService _inadimplencia;
+    private readonly EstoqueService _estoque;
 
     public PainelDirecaoService(
         IClinicaRepositorio repo,
@@ -140,7 +143,8 @@ public sealed class PainelDirecaoService
         FechamentoCaixaService fechamento,
         RodadaPendenciasService rodada,
         PendenciaService pendencias,
-        InadimplenciaService inadimplencia)
+        InadimplenciaService inadimplencia,
+        EstoqueService estoque)
     {
         _repo = repo;
         _financeiro = financeiro;
@@ -150,6 +154,7 @@ public sealed class PainelDirecaoService
         _rodada = rodada;
         _pendencias = pendencias;
         _inadimplencia = inadimplencia;
+        _estoque = estoque;
     }
 
     public async Task<PainelDirecao> MontarAsync(DateOnly hoje, CancellationToken ct = default)
@@ -299,6 +304,35 @@ public sealed class PainelDirecaoService
             naoVerificados.Add("Guias sem receita");
         }
 
+        // ---- Insumo abaixo do mínimo ----
+        var itensAbaixoDoMinimo = 0;
+        try
+        {
+            // A tela de Estoque já marca o item na linha e conta quantos faltam — mas só
+            // para quem está com ela aberta. Agulha que acabou é problema da manhã, não da
+            // hora da sessão, e a manhã é aqui.
+            var faltando = await _estoque.AbaixoDoMinimoAsync(ct);
+            itensAbaixoDoMinimo = faltando.Count;
+
+            if (itensAbaixoDoMinimo > 0)
+            {
+                var piores = string.Join(", ", faltando.Take(3).Select(i => i.Nome));
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.EstoqueBaixo,
+                    $"{itensAbaixoDoMinimo} insumo(s) abaixo do mínimo",
+                    $"{piores}{(itensAbaixoDoMinimo > 3 ? " e outros" : string.Empty)}. "
+                    + "Repor agora custa uma compra; descobrir na sessão custa a sessão.",
+                    // Aviso: ainda há saldo (o mínimo é a margem, não o zero). Marcar como
+                    // perigo faria o alerta de verdade — o estoque zerado — parecer igual.
+                    GravidadeDirecao.Aviso));
+            }
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Painel da direção — estoque não pôde ser lido", ex);
+            naoVerificados.Add("Estoque");
+        }
+
         // ---- Pendências de faturamento com prazo vencido ----
         int pendenciasVencidas = 0, pendenciasAbertas = 0;
         try
@@ -362,6 +396,7 @@ public sealed class PainelDirecaoService
             contas, recebiveis,
             diasCaixa, especieNaoConferida,
             pacientesDevendo, totalDevido,
+            itensAbaixoDoMinimo,
             guiasSemReceita,
             pendenciasVencidas, pendenciasAbertas,
             glosasVencidas, glosasAVencer,

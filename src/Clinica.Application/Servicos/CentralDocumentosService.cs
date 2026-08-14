@@ -303,6 +303,44 @@ public sealed class CentralDocumentosService
                 .ToList());
     }
 
+    // ==================== Conferência do código ====================
+
+    /// <summary>
+    /// Confere uma via em papel pelo código do rodapé (parcela 27).
+    ///
+    /// Todo documento — clínico e financeiro — nasce com um `CodigoVerificacao`, e ele é
+    /// IMPRESSO no rodapé desde a parcela 3. Não havia consulta por ele em lugar nenhum: o
+    /// papel prometia uma conferência que o sistema não sabia fazer. Do lado financeiro nem
+    /// método de repositório existia.
+    ///
+    /// É a resposta para quem liga com o papel na mão — a operadora, o RH da empresa, o
+    /// próprio paciente — perguntando se aquele atestado saiu mesmo daqui.
+    ///
+    /// Procura nos dois lados porque quem confere não sabe (nem tem por que saber) se o
+    /// papel na mão dele é clínico ou financeiro.
+    /// </summary>
+    public async Task<FolhaEmitida?> ConferirCodigoAsync(
+        string? codigo, CancellationToken ct = default)
+    {
+        var limpo = (codigo ?? string.Empty).Trim().ToUpperInvariant();
+        if (limpo.Length == 0) return null;
+
+        if (await _repo.ObterDocumentoPorCodigoAsync(limpo, ct) is { } c)
+            return new FolhaEmitida(
+                c.Id, NaturezaFolha.Clinico, c.Numero, c.CodigoVerificacao,
+                RotularClinico(c.Tipo), c.Paciente?.Nome, c.Profissional?.Nome,
+                c.Data, c.CriadoEm, c.CriadoPor, c.Cancelado, c.MotivoCancelamento);
+
+        if (await _repo.ObterDocumentoFinanceiroPorCodigoAsync(limpo, ct) is { } f)
+            return new FolhaEmitida(
+                f.Id, NaturezaFolha.Financeiro, f.Numero, f.CodigoVerificacao,
+                RotularFinanceiro(f.Tipo), f.Destinatario, null,
+                f.Data, f.CriadoEm, f.CriadoPor, f.Cancelado, f.MotivoCancelamento)
+            { Valor = f.ValorTotal };
+
+        return null;
+    }
+
     // ==================== Fechamento do período ====================
 
     /// <summary>

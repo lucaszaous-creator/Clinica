@@ -32,7 +32,7 @@ public sealed class ModuloFinanceiro : IModuloApp
     public const string ChaveConciliacao = ChavesSuite.Conciliacao;
     public const string ChaveProducao = "producao";
     public const string ChavePacotes = "pacotes";
-    public const string ChaveEstoque = "estoque";
+    public const string ChaveEstoque = ChavesSuite.Estoque;
     public const string ChaveRepasses = "repasses";
     public const string ChaveTaxas = "taxas";
     public const string ChavePlanoContas = "plano-contas";

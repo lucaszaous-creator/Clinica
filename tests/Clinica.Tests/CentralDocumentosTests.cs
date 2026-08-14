@@ -346,6 +346,78 @@ public class CentralDocumentosTests : IDisposable
         await Task.CompletedTask;
     }
 
+    // ---------------- Conferência do código ----------------
+
+    [Fact]
+    public async Task ConferirCodigo_AchaOCLINICO()
+    {
+        var paciente = await PacienteAsync();
+        var profissional = await ProfissionalAsync();
+        var receita = await ReceitaAsync(paciente, profissional);
+
+        var achado = await _central.ConferirCodigoAsync(receita.CodigoVerificacao);
+
+        // O código é impresso no rodapé desde a parcela 3 e não havia consulta por ele em
+        // lugar nenhum: o papel prometia uma verificação que o sistema não sabia fazer.
+        achado.Should().NotBeNull();
+        achado!.Numero.Should().Be(receita.Numero);
+        achado.FolhaRotulo.Should().Be("Receituário");
+    }
+
+    [Fact]
+    public async Task ConferirCodigo_AchaOFINANCEIRO()
+    {
+        var paciente = await PacienteAsync();
+        var recibo = await ReciboAsync(paciente, 150m);
+
+        // Do lado financeiro nem método de repositório existia — o recibo saía com código
+        // e não havia como conferi-lo de jeito nenhum.
+        var achado = await _central.ConferirCodigoAsync(recibo.CodigoVerificacao);
+
+        achado.Should().NotBeNull();
+        achado!.Natureza.Should().Be(NaturezaFolha.Financeiro);
+        achado.Valor.Should().Be(150m);
+    }
+
+    [Fact]
+    public async Task ConferirCodigo_IgnoraCaixaEEspacos()
+    {
+        var paciente = await PacienteAsync();
+        var profissional = await ProfissionalAsync();
+        var receita = await ReceitaAsync(paciente, profissional);
+
+        // Quem digita está lendo de um papel, muitas vezes ao telefone.
+        var achado = await _central.ConferirCodigoAsync(
+            "  " + receita.CodigoVerificacao.ToLowerInvariant() + " ");
+
+        achado.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ConferirCodigo_CanceladoAINDAAparece_MarcadoComoCancelado()
+    {
+        var paciente = await PacienteAsync();
+        var profissional = await ProfissionalAsync();
+        var receita = await ReceitaAsync(paciente, profissional);
+        await _clinicos.CancelarAsync(receita.Id, "Dose errada", "ana");
+
+        var achado = await _central.ConferirCodigoAsync(receita.CodigoVerificacao);
+
+        // É o caso que mais importa acertar: o papel existe, é autêntico, e NÃO vale mais.
+        // Devolver null aqui diria "não saiu daqui", que é mentira.
+        achado.Should().NotBeNull();
+        achado!.Cancelado.Should().BeTrue();
+        achado.MotivoCancelamento.Should().Be("Dose errada");
+    }
+
+    [Fact]
+    public async Task ConferirCodigo_Inexistente_OuVazio_DevolveNull()
+    {
+        (await _central.ConferirCodigoAsync("XXXXXX")).Should().BeNull();
+        (await _central.ConferirCodigoAsync("   ")).Should().BeNull();
+        (await _central.ConferirCodigoAsync(null)).Should().BeNull();
+    }
+
     // ---------------- Fechamento do período ----------------
 
     [Fact]

@@ -476,6 +476,14 @@ public interface IClinicaRepositorio
         int documentoId, CancellationToken ct = default);
 
     /// <summary>Documentos financeiros do período, do mais recente ao mais antigo.</summary>
+    /// <summary>
+    /// Documento financeiro pelo código impresso no rodapé (parcela 27). O código já era
+    /// GERADO e IMPRESSO em todo recibo e orçamento desde a parcela 4, e não havia consulta
+    /// nenhuma por ele — o rodapé prometia uma conferência que o sistema não sabia fazer.
+    /// </summary>
+    Task<DocumentoFinanceiro?> ObterDocumentoFinanceiroPorCodigoAsync(
+        string codigo, CancellationToken ct = default);
+
     Task<IReadOnlyList<DocumentoFinanceiro>> DocumentosFinanceirosAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 

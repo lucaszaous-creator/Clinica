@@ -25,6 +25,11 @@ public sealed class DocumentoFinanceiroService
     public Task<DocumentoFinanceiro?> ObterAsync(int documentoId, CancellationToken ct = default)
         => _repo.ObterDocumentoFinanceiroAsync(documentoId, ct);
 
+    /// <summary>Confere uma via em papel pelo código impresso no rodapé.</summary>
+    public Task<DocumentoFinanceiro?> PorCodigoAsync(string codigo, CancellationToken ct = default)
+        => _repo.ObterDocumentoFinanceiroPorCodigoAsync(
+            (codigo ?? string.Empty).Trim().ToUpperInvariant(), ct);
+
     public Task<IReadOnlyList<DocumentoFinanceiro>> DoPeriodoAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => _repo.DocumentosFinanceirosAsync(inicio, fim, ct);

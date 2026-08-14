@@ -220,6 +220,7 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
     {
         AssuntoDirecao.ContasVencidas => (ChavesSuite.Contas, "Ver contas"),
         AssuntoDirecao.PacientesDevendo => (ChavesSuite.Inadimplencia, "Ver quem deve"),
+        AssuntoDirecao.EstoqueBaixo => (ChavesSuite.Estoque, "Ver estoque"),
         AssuntoDirecao.DepositoAtrasado => (ChavesSuite.Recebiveis, "Ver recebíveis"),
         AssuntoDirecao.CaixaNaoConferido => (ChavesSuite.FechamentoCaixa, "Conferir caixa"),
         AssuntoDirecao.GuiasSemReceita => (ChavesSuite.Conciliacao, "Ver conciliação"),

@@ -1038,6 +1038,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(d => d.Paciente)
             .FirstOrDefaultAsync(d => d.Id == documentoId, ct);
 
+    public Task<DocumentoFinanceiro?> ObterDocumentoFinanceiroPorCodigoAsync(
+        string codigo, CancellationToken ct = default)
+        => _db.DocumentosFinanceiros.AsNoTracking()
+            .Include(d => d.Itens)
+            .Include(d => d.Paciente)
+            .FirstOrDefaultAsync(d => d.CodigoVerificacao == codigo, ct);
+
     public async Task<IReadOnlyList<DocumentoFinanceiro>> DocumentosFinanceirosAsync(
         DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => await _db.DocumentosFinanceiros.AsNoTracking()

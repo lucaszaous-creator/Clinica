@@ -24,6 +24,9 @@ public static class ChavesSuite
     /// <summary>Central de documentos — as nove folhas (Recepção).</summary>
     public const string Documentos = "documentos";
 
+    /// <summary>Estoque de insumos (Financeiro).</summary>
+    public const string Estoque = "estoque";
+
     /// <summary>Contas a pagar/receber (Financeiro).</summary>
     public const string Contas = "contas";
 
