@@ -55,6 +55,9 @@ public sealed class AssinadorSafeID : IDigitalSigner
     /// </summary>
     public const int TamanhoReservado = 32 * 1024;
 
+    /// <summary>SHA-256 da cadeia vazia — o hash que um stream não lido produz.</summary>
+    private static readonly byte[] HashDeNada = SHA256.HashData([]);
+
     public Task<int> GetSignatureSizeAsync() => Task.FromResult(TamanhoReservado);
 
     /// <summary>
@@ -68,7 +71,30 @@ public sealed class AssinadorSafeID : IDigitalSigner
     {
         ArgumentNullException.ThrowIfNull(conteudoCoberto);
 
+        // ⚠️ O RangedStream do PDFsharp chega SEM POSIÇÃO, e ler antes de posicionar devolve
+        // ZERO bytes — sem erro, sem exceção, sem aviso. O `Position` nem tem getter que
+        // funcione (lança NullReferenceException); o setter, sim.
+        //
+        // Sem esta linha, o que sobe para o PSC é o SHA-256 de NADA
+        // (e3b0c442…b7852b855, o hash da cadeia vazia) — a MESMA constante para toda folha
+        // da clínica. O PSC assina esse hash corretamente e devolve um PKCS#7 perfeito, e é
+        // isso que torna o defeito tão caro: não há erro em lugar nenhum até a conferência
+        // dizer que o documento "foi alterado", porque a assinatura de fato cobre outra
+        // coisa. Assinatura válida sobre conteúdo nenhum é a garantia aparente na sua forma
+        // mais perigosa.
+        conteudoCoberto.Position = 0;
+
         var hash = await SHA256.HashDataAsync(conteudoCoberto);
+
+        // A rede que faltava, e ela é barata: assinar o hash da cadeia VAZIA nunca é um
+        // pedido legítimo. Se o stream voltar a chegar vazio (outra versão do PDFsharp, outro
+        // caminho de salvamento), a folha NÃO é assinada e alguém lê o motivo — em vez de a
+        // clínica descobrir semanas depois, no validador do ITI, com as receitas na rua.
+        if (hash.SequenceEqual(HashDeNada))
+            throw new InvalidOperationException(
+                "O conteúdo coberto pela assinatura veio VAZIO — a folha NÃO foi assinada. "
+                + "Assinar o hash da cadeia vazia produziria um documento com assinatura "
+                + "válida que não cobre coisa alguma.");
 
         var pkcs7 = await _cliente.AssinarHashAsync(
             _token, hash,
