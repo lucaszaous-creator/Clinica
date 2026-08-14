@@ -741,6 +741,6 @@ E as que a virada acrescentou, para todo roteiro que sai da máquina de quem pro
     (Família 21)
 18. **Isto acontece num instante ou numa janela? Quem grava durante ela?** (Família 23)
 
-A décima terceira é a única que se pode fazer **antes de existir código** — e é por isso que
-ela é a mais barata da lista. As outras doze precisam de um diff para ter onde morder; esta
-precisa só de uma mudança de contexto anunciada.
+A da **Família 15** é a única da lista que se faz **antes de existir código**: as demais
+precisam de um diff ou de um roteiro em execução para ter onde morder. É o que a torna a mais
+barata — basta uma mudança de contexto anunciada.
