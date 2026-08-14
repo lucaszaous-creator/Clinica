@@ -524,17 +524,21 @@ public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
         }
     }
 
+    // Os dois pelo leitor do projeto (`Valores`), nunca pelo `TryParse` cru: ele lê na
+    // cultura da MÁQUINA, e numa máquina pt-BR o ponto é separador de MILHAR — o preço de
+    // tabela digitado "1200.00" entraria no catálogo como R$ 120.000 e as "10" sessões
+    // digitadas "1.234" viravam 1234. Nenhum dos dois dá erro: eles gravam outro número.
     private static int? LerInteiro(string? texto, string oQue)
     {
         if (string.IsNullOrWhiteSpace(texto)) return null;
-        if (int.TryParse(texto, out var valor)) return valor;
+        if (Valores.TentarLerInteiro(texto, out var valor)) return valor;
         throw new InvalidOperationException($"Não entendi {oQue}: use só números.");
     }
 
     private static decimal? LerDecimal(string? texto, string oQue)
     {
         if (string.IsNullOrWhiteSpace(texto)) return null;
-        if (decimal.TryParse(texto, out var valor)) return valor;
+        if (Valores.TentarLerValor(texto, out var valor)) return valor;
         throw new InvalidOperationException($"Não entendi {oQue}: use um número como 250,00.");
     }
 }
