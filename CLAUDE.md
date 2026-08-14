@@ -3018,3 +3018,36 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   vira dupla negação. Todas afirmativas e incondicionais. E o **`Detalhe` sai IMPRESSO na via
   do paciente**: instrução para a equipe ali ("confira com o paciente quantas horas") produz
   um documento que fala do leitor na terceira pessoa.
+- **"Vazio" não é nulo, e `??` não dispara para string vazia** (parcela 67, 2ª rodada): a
+  lista do Gerente escrevia "Acupuntura + eletroacupuntura" em TODA exigência de família. A
+  cadeia é instrutiva porque cada passo é razoável sozinho — `Nome(codigo ??
+  familia.ToString())` → quem grava normaliza "vale para a família" como string VAZIA, nunca
+  nulo (`NULL` não é único no PostgreSQL) → o `??` não dispara → o catálogo não acha `""` →
+  `Enum.TryParse("")` falha → cai no literal de fallback. **Nenhuma junção erra alto**: não
+  há exceção, não há log, há um nome errado na tela. Quando um campo tem "ausente" e "vazio"
+  como estados distintos, `??` cobre um só; e quando existe o par código+família, o ponto
+  único é `Nome(codigo, familia)` — o código vence, a família é o caminho de baixo, como
+  `CatalogoConvenios.Nome` já fazia e o catálogo de modalidades não fazia.
+- **Ao mudar uma regra de negócio, procure o TEXTO DA TELA que a explicava** (parcela 67, 2ª
+  rodada): o cabeçalho da tela de termos continuava afirmando "o termo vale POR SESSÃO: ele é
+  pedido a cada vez" — sobra da 1ª versão da 66, contradizendo a legenda da caixinha logo
+  abaixo, que estava certa. O dano não é cosmético: quem lê no topo que o consentimento longo
+  será pedido em toda sessão conclui que é inviável e DESLIGA a exigência — a garantia que a
+  parcela existe para dar. Texto de tela não compila, não tem teste, e continua afirmando a
+  regra antiga com toda a autoridade de estar escrito na interface.
+- **O veredito de REFUTAÇÃO não é palavra final** (parcela 67, 2ª rodada — lição de método).
+  Na revisão adversarial do próprio diff, com a fase de verificação funcionando: **três** dos
+  oito achados confirmados também tinham sido refutados por outra lente, e **dois** dados como
+  refutados eram verdadeiros — justamente os de CONTEÚDO (o `Detalhe` impresso na via do
+  paciente e a declaração cujo "Não" é legítimo). É onde o "advogado do código" tem menos com
+  o que trabalhar: o código está tecnicamente correto e o defeito é de significado. O que
+  salvou os casos foi a **diversidade de LENTES**, não a quantidade de céticos — o mesmo
+  defeito visto por ângulos diferentes sobrevive ao ângulo que erra. E achado sobre a própria
+  ferramenta pede verificação **empírica**, não argumento: os dois buracos da checagem 18
+  foram confirmados reintroduzindo o defeito e vendo a ferramenta passar.
+- ⚠️ **A retrospectiva desta rodada, por FAMÍLIA de erro, está em `docs/licoes-dos-erros.md`.**
+  As entradas acima são cronológicas; lá o mesmo material está cortado por padrão — as dez
+  famílias, o placar de quem achou cada defeito (as três redes: 9; o CI: 1; a revisão
+  adversarial: 8, com tudo verde; o cliente: 1) e as oito perguntas que teriam pego a maioria.
+  O denominador comum de quase todos: **nada falha** — o sistema faz uma coisa levemente
+  diferente da que diz fazer, e quem descobre é quem usa.
