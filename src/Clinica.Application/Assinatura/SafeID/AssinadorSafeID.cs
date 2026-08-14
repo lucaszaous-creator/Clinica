@@ -157,27 +157,52 @@ public sealed class AssinadorSafeID : IDigitalSigner
     /// <returns>Os mesmos bytes em DER.</returns>
     private static byte[] ExigirPkcs7EnormalizarParaDer(byte[] pkcs7)
     {
+        var cms = new SignedCms();
+
+        // ⚠️ As duas etapas têm `catch` SEPARADOS de propósito. Juntas, um erro de reencode
+        // sairia com a frase "não são um PKCS#7" sobre bytes que SÃO um PKCS#7 válido — e
+        // mensagem plausível e errada é o que fez esta integração custar seis rodadas de
+        // diagnóstico. Cada falha diz o que de fato aconteceu.
         try
         {
-            var cms = new SignedCms();
             cms.Decode(pkcs7);
-
-            if (cms.SignerInfos.Count == 0)
-                throw new InvalidOperationException(
-                    "O SafeID devolveu um PKCS#7 SEM assinante. A folha NÃO foi assinada.");
-
-            return cms.Encode();
         }
         catch (CryptographicException ex)
         {
             // O começo em hexa vai na mensagem porque é o que nomeia a causa: um CMS abre em
-            // 30 82 (SEQUENCE), e o que vier diferente disto diz de imediato que o PSC
-            // respondeu noutro formato. Não há dado de paciente aqui — isto cobre um HASH.
+            // 30 82 (ou 30 80, em BER), e o que vier diferente disto diz de imediato que o
+            // PSC respondeu noutro formato. Não há dado de paciente aqui — isto cobre um HASH.
             var inicio = Convert.ToHexString(pkcs7.AsSpan(0, Math.Min(8, pkcs7.Length)));
 
             throw new InvalidOperationException(
                 $"O SafeID devolveu {pkcs7.Length} byte(s) que não são um PKCS#7 "
                 + $"(começam em {inicio}). A folha NÃO foi assinada. Detalhe: {ex.Message}",
+                ex);
+        }
+
+        if (cms.SignerInfos.Count == 0)
+            throw new InvalidOperationException(
+                "O SafeID devolveu um PKCS#7 SEM assinante. A folha NÃO foi assinada.");
+
+        try
+        {
+            return cms.Encode();
+        }
+        catch (CryptographicException ex)
+        {
+            // Medido: BER indefinido em até quatro níveis — muito além do que um PSC emite —
+            // reencoda para o DER byte a byte idêntico. Só um CMS indefinido até o miolo
+            // (inclusive o certificado embutido, que nenhum PSC reescreve) derruba o reencode.
+            //
+            // Recusar é o certo mesmo assim: os bytes originais são um CMS válido, mas em BER,
+            // e PDF assinado exige DER — embuti-los produziria um arquivo que a NOSSA
+            // conferência aprova e que o Adobe e o ITI podem recusar. Melhor a clínica saber
+            // agora, com a via em papel valendo, do que o farmacêutico descobrir depois.
+            throw new InvalidOperationException(
+                $"O SafeID devolveu uma assinatura VÁLIDA, mas em BER que não foi possível "
+                + $"converter para DER — e o PDF assinado exige DER. A folha NÃO foi "
+                + $"assinada; ela continua valendo impressa e assinada à caneta. "
+                + $"Detalhe: {ex.Message}",
                 ex);
         }
     }
