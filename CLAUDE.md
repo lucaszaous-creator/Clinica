@@ -3045,9 +3045,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   defeito visto por ângulos diferentes sobrevive ao ângulo que erra. E achado sobre a própria
   ferramenta pede verificação **empírica**, não argumento: os dois buracos da checagem 18
   foram confirmados reintroduzindo o defeito e vendo a ferramenta passar.
+- **A decisão certa carrega o contexto em que nasceu, e o contexto não está na assinatura do
+  método** (revisão de arquitetura, ago/2026 — a pergunta "e se houvesse um site em PHP com
+  API para o agendamento?"). Nenhuma linha de código foi escrita e a leitura achou seis
+  premissas que valem **enquanto houver um processo, um humano autenticado, uma pessoa por
+  vez**: `SessaoUsuario.Atual` é singleton de PROCESSO e, sem autenticação, `Efetivas`
+  devolve `PerfisAcesso.Todas` (certo no balcão — "tela vazia parece defeito" —, um usuário
+  para o servidor inteiro num processo web); os catálogos (`CatalogoConvenios` e irmãos) são
+  cache estático que um segundo processo deixa envelhecer **sem erro e sem log**;
+  `GarantirSemChoqueAsync` é check-then-act sem transação, e hoje quem serializa é a
+  recepcionista; **"livre" quer dizer "ninguém marcou", não "a clínica trabalha"** — não há
+  escala do profissional, e a janela 07:00–20:00 é constante da camada WPF; `encaixe: true`
+  fura tudo, inclusive bloqueio de feriado, porque foi feito para uma decisão humana; e a
+  recusa de CPF repetido **diz o nome de quem já tem aquele CPF**, que é o que a transforma
+  em instrução no balcão (parcela 57) e num oráculo de CPF → nome se devolvida pela internet
+  — a Família 6 com roupa nova, o texto falando com quem o lê depois de o leitor mudar.
+  A pergunta que acha tudo isso de uma vez, antes de existir código: **o que aqui só é
+  verdade porque há UM usuário humano, autenticado, por processo?** Ela não aparece em teste
+  nenhum, porque o teste também roda num processo só.
+  ⚠️ Corolário sobre decisão de ARQUITETURA: o `docs/banco-na-vps.md` descartou "API HTTPS no
+  meio" por razões corretas (234 métodos no repositório, 179 `SalvarAsync` por change
+  tracking, `xmin` que não atravessa HTTP) — mas aquilo respondia "trocar a camada de dados
+  dos cinco apps de desktop", não "cinco endpoints para um site". É a lição da parcela 51
+  fora do lugar onde foi escrita: **quando uma decisão exclui um caminho, o motivo tem prazo
+  de validade — releia-o antes de citá-lo.** Decisão citada pela conclusão, e não pela razão,
+  vira regra que ninguém sabe mais por que existe.
 - ⚠️ **A retrospectiva desta rodada, por FAMÍLIA de erro, está em `docs/licoes-dos-erros.md`.**
-  As entradas acima são cronológicas; lá o mesmo material está cortado por padrão — as dez
+  As entradas acima são cronológicas; lá o mesmo material está cortado por padrão — as quinze
   famílias, o placar de quem achou cada defeito (as três redes: 9; o CI: 1; a revisão
-  adversarial: 8, com tudo verde; o cliente: 1) e as oito perguntas que teriam pego a maioria.
+  adversarial: 8, com tudo verde; o cliente: 1) e as treze perguntas que teriam pego a maioria.
   O denominador comum de quase todos: **nada falha** — o sistema faz uma coisa levemente
   diferente da que diz fazer, e quem descobre é quem usa.

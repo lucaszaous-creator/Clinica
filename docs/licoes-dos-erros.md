@@ -10,6 +10,10 @@
 > As famílias **1 a 10** saem das parcelas 66 e 67. As **11 a 14** vêm do adendo da parcela
 > **65** — o defeito que o cliente achou em produção no dia seguinte ao merge, e o único
 > desta lista que nenhuma rede, nenhum teste e nenhuma revisão pegou.
+>
+> ⚠️ A **15** não vem de parcela nenhuma: saiu de uma pergunta de arquitetura, sem uma linha
+> de código escrita. Está aqui porque a assinatura dos achados é a mesma do denominador comum
+> — **nada falha** —, e porque um deles é a Família 6 com roupa nova.
 
 ## O placar, e o que ele diz
 
@@ -386,6 +390,64 @@ anterior.
 
 ---
 
+---
+
+## Família 15 — A premissa que só vale enquanto houver UM tipo de cliente
+
+> **De onde veio:** a pergunta *"e se a clínica tivesse um site em PHP, com API, para o
+> agendamento cair direto no sistema?"*. Não se escreveu código nenhum — o que segue é a
+> leitura do que já existe. Nada disto está errado hoje; **tudo passa a estar** no dia em que
+> um segundo tipo de cliente existir. É a família mais barata de achar, porque a rede que a
+> pegou foi uma pergunta de arquitetura, que roda antes de haver o que consertar.
+
+Seis achados, todos conferidos no código:
+
+- **`SessaoUsuario.Atual` é singleton de PROCESSO, e sem autenticação libera tudo.**
+  `Efetivas => Autenticado ? Permissoes : PerfisAcesso.Todas`
+  (`SessaoUsuario.cs:90`). É decisão documentada e certa no balcão — *"tela vazia parece
+  defeito, e no app real o login é obrigatório"*. Num processo web é **um usuário para o
+  servidor inteiro**, com permissão total por padrão.
+- **A mensagem que ajuda no balcão VAZA em outra porta.** `PacienteService.cs:158` recusa CPF
+  repetido dizendo *"já está cadastrado para Maria Silva. Abra a ficha dela"* — e é essa frase
+  que transforma um erro em instrução (parcela 57). Devolvida a um desconhecido pela internet,
+  a mesma frase é um oráculo de CPF → nome. **É a Família 6 com roupa nova**: o texto fala com
+  quem o lê, e aqui o leitor mudou sem ninguém reescrever o texto.
+- **Os catálogos são cache estático de processo.** `CatalogoConvenios` guarda um dicionário
+  trocado por `RecarregarCacheAsync`. Com um processo, chamar no arranque basta. Com dois, a
+  clínica cadastra a operadora no desktop e o outro fica com o catálogo velho — sem erro, sem
+  log, sem teste vermelho.
+- **`GarantirSemChoqueAsync` é check-then-act, sem transação** (`AgendaService.cs:259`):
+  confere o choque e depois insere. Hoje o serializador é **humano** — há uma recepcionista
+  por vez. O próprio `DependencyInjection.cs:184-187` já avisa que não há transação explícita
+  em ponto nenhum do projeto, e que quem introduzir uma precisa passar pelo
+  `Database.CreateExecutionStrategy` por causa do retry.
+- **"Livre" quer dizer "ninguém marcou", não "a clínica trabalha".** Não existe escala do
+  profissional; a janela 07:00–20:00 é constante da camada **WPF**
+  (`AgendaViewModel.cs:219-220`) e a grade se ESTICA para caber o que houver no dia. Quem
+  completa a informação que falta é a pessoa que olha a tela.
+- **`encaixe: true` fura tudo, inclusive bloqueio de feriado** (`AgendaService.cs:263`). É
+  válvula deliberada para uma decisão humana — *"a clínica DECIDE atender por cima"*. Como
+  parâmetro de uma chamada programática, é só um furo.
+
+**Por que nenhuma rede pega:** não há o que pegar. Cada um destes é a decisão **certa** para o
+contexto em que nasceu — um processo, um humano autenticado, uma pessoa por vez. O contexto
+não está escrito na assinatura do método, e é ele que expira.
+
+**A regra:** antes de acrescentar um segundo tipo de cliente — processo web, integração, app
+novo —, a pergunta é *o que neste código só é verdade porque existe **um** usuário humano,
+autenticado, por processo?* A resposta não aparece em teste nenhum, porque o teste também roda
+num processo só, com um usuário só.
+
+**E um corolário sobre a decisão de arquitetura, não sobre o código.** O `docs/banco-na-vps.md`
+descartou *"API HTTPS no meio"* com razões corretas: 234 métodos no `IClinicaRepositorio`, 179
+`SalvarAsync` por change tracking do EF, `xmin` que não atravessa HTTP. Aquilo respondia
+*"trocar a camada de dados dos cinco apps de desktop"*; não responde *"cinco endpoints para um
+site"*. É a lição da parcela 51 fora do lugar onde foi escrita: **quando uma decisão exclui um
+caminho, o motivo tem prazo de validade — releia-o antes de citá-lo.** Decisão citada pela
+conclusão, e não pela razão, vira regra que ninguém sabe mais por que existe.
+
+---
+
 ## E uma da Família 10, achada ao escrever este documento
 
 O comentário de classe do `FilaViewModel` ainda afirma que Finalizar *"gera o atendimento com
@@ -434,3 +496,9 @@ As perguntas que teriam pego a maioria, e que valem para a próxima parcela:
     (Família 13)
 12. **Esta mudança tornou algum erro mais caro? Que guarda foi dimensionada para o custo
     antigo?** (Família 14)
+13. **O que aqui só é verdade porque há UM usuário humano, autenticado, por processo?**
+    (Família 15)
+
+A décima terceira é a única que se pode fazer **antes de existir código** — e é por isso que
+ela é a mais barata da lista. As outras doze precisam de um diff para ter onde morder; esta
+precisa só de uma mudança de contexto anunciada.
