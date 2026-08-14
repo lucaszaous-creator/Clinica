@@ -6,6 +6,8 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <DockPanel Margin="24">
@@ -72,8 +74,26 @@
             </Grid>
         </Border>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade.
+             Amarrada a `MensagemEhErro`, a caixa sumia com a mensagem de ÊXITO — que zera o
+             booleano —, e "Consulta de Maria renovada." nunca chegava ao balcão: a
+             recepcionista clicava em Renovar e a tela não respondia nada. É o defeito das
+             parcelas 62 e 64, que varreram a Recepção pelas JANELAS e o Gerente pelas VIEWS
+             e deixaram esta de fora. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
