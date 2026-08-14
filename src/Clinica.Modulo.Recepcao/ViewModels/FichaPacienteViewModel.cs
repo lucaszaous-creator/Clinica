@@ -540,6 +540,27 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var geracao = ++_geracaoCarga;
         var id = PacienteId;
 
+        // ⚠️ LIMPA TUDO ANTES DO PRIMEIRO await, e isso não é higiene: é o que impede a
+        // ficha de MISTURAR DOIS PACIENTES.
+        //
+        // A carga é uma sequência de leituras — cadastro, foto, prontuário,
+        // consentimentos, documentos, termos, CRM, elegibilidade, faltas, autorizações —,
+        // e cada uma preenche a sua coleção. Falhando no meio (banco remoto que cai, timeout
+        // do Neon), o `catch` escreve a mensagem de erro e sai: as coleções JÁ preenchidas
+        // ficam com o paciente NOVO e as que a sequência não alcançou ficam com o ANTERIOR.
+        //
+        // O resultado na tela é o nome de uma pessoa sobre os documentos, os termos e as
+        // autorizações de outra — com uma faixa de erro no topo que ninguém lê como "os
+        // dados abaixo são de duas pessoas". É a lição da parcela 66 (limpar antes do
+        // await, nunca depois) aplicada à tela onde ela custa mais caro.
+        Prontuario.Clear();
+        Consentimentos.Clear();
+        Alertas.Clear();
+        Documentos.Clear();
+        Termos.Clear();
+        Autorizacoes.Clear();
+        Contatos.Clear();
+
         try
         {
             Carregando = true;

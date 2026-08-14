@@ -145,7 +145,13 @@
                     <Style TargetType="Border" BasedOn="{StaticResource Card}">
                         <Setter Property="Visibility" Value="Collapsed" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding Tributos.Count}" Value="0">
+                            <!-- A VIGÊNCIA, não a existência de linha no catálogo: o
+                                 serviço cai no fallback da alíquota única quando não há
+                                 tributo VIGENTE hoje. Preso a `Tributos.Count`, o campo
+                                 sumia assim que a clínica cadastrasse o primeiro tributo —
+                                 e continuava sumido depois que todos venceram, que é
+                                 justamente quando ele volta a decidir o imposto. -->
+                            <DataTrigger Binding="{Binding SemTributoVigente}" Value="True">
                                 <Setter Property="Visibility" Value="Visible" />
                             </DataTrigger>
                         </Style.Triggers>

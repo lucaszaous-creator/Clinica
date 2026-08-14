@@ -233,20 +233,36 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
                 VariacaoEntradas = string.Empty;
             }
 
-            ContasVencidas = p.Contas.QuantidadeVencida.ToString(Brasil);
-            ContasVencidasDetalhe = p.Contas.TemVencido
-                ? $"{Moeda(p.Contas.TotalVencido)} em aberto"
-                : "nada vencido";
+            // ⚠️ KPI de bloco que FALHOU mostra "—", nunca zero com frase afirmativa.
+            //
+            // O serviço isola cada bloco e, quando um deles estoura, acrescenta o nome dele
+            // a `NaoVerificados` e devolve o registro ZERADO. A tela lia esse zero e
+            // escrevia "nada vencido" / "adquirentes em dia" / "nenhuma guia pendente" —
+            // afirmações que ninguém pode fazer sobre um número que não foi lido, e que a
+            // direção usa para decidir o que NÃO precisa olhar hoje.
+            bool Falhou(string bloco) => p.NaoVerificados.Contains(bloco);
 
-            DepositoAtrasado = p.Recebiveis.QuantidadeAtrasada.ToString(Brasil);
-            DepositoAtrasadoDetalhe = p.Recebiveis.TemAtraso
-                ? $"{Moeda(p.Recebiveis.LiquidoAtrasado)} líquidos não creditados"
-                : "adquirentes em dia";
+            ContasVencidas = Falhou("Contas a pagar") ? "—" : p.Contas.QuantidadeVencida.ToString(Brasil);
+            ContasVencidasDetalhe = Falhou("Contas a pagar")
+                ? "não foi possível ler"
+                : p.Contas.TemVencido
+                    ? $"{Moeda(p.Contas.TotalVencido)} em aberto"
+                    : "nada vencido";
 
-            PendenciasFaturamento = p.PendenciasVencidas.ToString(Brasil);
-            PendenciasDetalhe = p.PendenciasEmAberto > 0
-                ? $"de {p.PendenciasEmAberto} pendente(s) no total"
-                : "nenhuma guia pendente";
+            DepositoAtrasado = Falhou("Recebíveis de cartão") ? "—" : p.Recebiveis.QuantidadeAtrasada.ToString(Brasil);
+            DepositoAtrasadoDetalhe = Falhou("Recebíveis de cartão")
+                ? "não foi possível ler"
+                : p.Recebiveis.TemAtraso
+                    ? $"{Moeda(p.Recebiveis.LiquidoAtrasado)} líquidos não creditados"
+                    : "adquirentes em dia";
+
+            PendenciasFaturamento = Falhou("Pendências de faturamento")
+                ? "—" : p.PendenciasVencidas.ToString(Brasil);
+            PendenciasDetalhe = Falhou("Pendências de faturamento")
+                ? "não foi possível ler"
+                : p.PendenciasEmAberto > 0
+                    ? $"de {p.PendenciasEmAberto} pendente(s) no total"
+                    : "nenhuma guia pendente";
 
             AReceberPrevisto = Moeda(p.Recebiveis.LiquidoAVencer + p.Contas.AReceberAVencer);
             AReceberDetalhe = p.Recebiveis.ProximoDeposito is { } proximo
@@ -260,7 +276,20 @@ public sealed partial class PainelDirecaoViewModel : ObservableObject
             TemMetas = MetasDoMes.Count > 0;
 
             foreach (var a in p.Alertas) Alertas.Add(Montar(a));
-            SemAlerta = p.SemAlerta;
+
+            // ⚠️ "Nada exige ação hoje" só se sustenta quando TUDO foi lido.
+            //
+            // Bloco que falha não produz alerta — então, com o banco fora do ar, `SemAlerta`
+            // vinha VERDADEIRO e a faixa VERDE afirmava "nenhuma conta vencida, nenhum
+            // depósito atrasado, a gaveta conferida e nenhuma guia fora do prazo". O aviso
+            // de falha existia logo ao lado, mas quem lê um painel lê a cor primeiro, e
+            // verde é a que dispensa a leitura.
+            //
+            // É a regra do projeto — falha nunca exibida como sucesso — no lugar onde ela
+            // custa mais: a tela de ABERTURA da direção, cuja função é dizer o que exige
+            // ação. Sem a conjunção, o pior dia possível (nada lido) tinha a mesma cara do
+            // melhor (nada pendente).
+            SemAlerta = p.SemAlerta && !p.TemNaoVerificado;
 
             TemNaoVerificado = p.TemNaoVerificado;
             NaoVerificados = p.TemNaoVerificado
