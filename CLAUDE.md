@@ -3173,3 +3173,19 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A recusa, nesse caso, é deliberada: o CMS é válido mas está em BER, e embuti-lo produziria
   um arquivo que a NOSSA conferência aprova e o Adobe/ITI podem recusar. A frase diz isso e
   lembra que a via em papel continua valendo.
+- **"See the inner exception for details" é instrução para o PROGRAMADOR impressa na cara
+  do usuário** (parcela 67, 9ª rodada — a clínica assinou um documento com sucesso e levou,
+  no lugar da confirmação, *"An error occurred while saving the entity changes. See the
+  inner exception for details."*). `ClinicaRepositorio.SalvarAsync` traduz o que reconhece
+  (duplicidade, vínculo quebrado, sem conexão) e devolvia `null` para o resto — e `null`
+  faz a exceção subir **como o EF a escreveu**. A frase não diz o que houve, não diz o que
+  fazer, e esconde justamente a linha que resolve: a do banco, com a coluna, a restrição e
+  o valor.
+  Agora o caso não classificado leva `ex.GetBaseException().Message` junto ("O banco
+  respondeu: …"). Não é elegante e é muito melhor que uma tela que não informa nada — e a
+  causa já ia para o log desde sempre, o que significa que a informação existia e só não
+  chegava a quem precisava dela.
+  É a MESMA lição que a assinatura em nuvem custou seis rodadas para ensinar, agora noutra
+  camada: **mensagem de erro que carrega a evidência substitui a próxima rodada de
+  adivinhação.** Quando uma tradução de erro tem um caminho "não sei o que é isto", esse
+  caminho é o que vai aparecer na clínica — e é o que precisa dizer mais, não menos.

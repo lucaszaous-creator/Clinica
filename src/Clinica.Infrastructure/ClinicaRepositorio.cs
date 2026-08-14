@@ -2246,6 +2246,22 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             || ex.GetBaseException() is Npgsql.NpgsqlException { IsTransient: true })
             return MensagensDeErro.SemConexao;
 
-        return null;
+        // ⚠️ Sem classificação, o que chegava à tela era a frase do EF: "An error occurred
+        // while saving the entity changes. See the inner exception for details." Ela não diz
+        // NADA a quem está no balcão e esconde justamente a linha que resolve — a do
+        // Postgres, com a coluna, a restrição e o valor. Foi assim que ela apareceu na
+        // clínica em 14/08/2026, depois de uma assinatura que tinha dado certo.
+        //
+        // "Veja a inner exception" é uma instrução para o programador impressa na cara do
+        // usuário. Levar a causa junto é a mesma lição que a assinatura em nuvem custou seis
+        // rodadas para ensinar: mensagem de erro que carrega a evidência substitui a próxima
+        // rodada de adivinhação.
+        var causa = ex.GetBaseException().Message.Trim();
+
+        if (causa.Length == 0 || causa == ex.Message) return null;
+
+        if (causa.Length > 400) causa = causa[..400] + "…";
+
+        return $"Não foi possível gravar. O banco respondeu: {causa}";
     }
 }
