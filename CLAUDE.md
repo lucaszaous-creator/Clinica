@@ -3018,3 +3018,34 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   vira dupla negação. Todas afirmativas e incondicionais. E o **`Detalhe` sai IMPRESSO na via
   do paciente**: instrução para a equipe ali ("confira com o paciente quantas horas") produz
   um documento que fala do leitor na terceira pessoa.
+- **Valor NOVO de enum é a única coisa que o app velho não consegue ler do banco
+  compartilhado** (parcela 67, 3ª rodada — o cliente mandou a foto da tela de Prescrições
+  morta, com *"Cannot convert string value 'TermoProcedimento' from the database to any
+  value in the mapped 'TipoDocumentoClinico' enum"* no lugar da lista). Os cinco apps se
+  auto-atualizam por Velopack, **um canal por app**, e dividem UM banco: a janela em que o
+  Consultório já atualizou e a Recepção não é o DESENHO, não o acidente.
+  Coluna nova e tabela nova atravessam essa janela sem incidente — o EF só pede as colunas
+  que conhece. **Valor de enum, não**: o `HasConversion<string>()` chama `Enum.TryParse` e,
+  ao não achar o nome, LANÇA. E não falha a LINHA, falha a **CONSULTA** — a clínica perde a
+  tela inteira por causa de um registro, com uma frase em inglês que não diz a ninguém que
+  o que falta é atualizar o programa. São 76 `HasConversion<string>()` no contexto; cada um
+  é a mesma mina.
+  `ConversorEnumTolerante<TEnum>` tem **duas metades, e uma sem a outra é pior que nada**:
+  **ler é tolerante** (o nome desconhecido vira o sentinela, a linha aparece e a tela abre)
+  e **escrever é RECUSADO**. Sem a segunda, o app velho leria "não sei o que é isto" e no
+  primeiro Salvar gravaria o sentinela **por cima do tipo verdadeiro** — apagando em
+  silêncio o que a versão nova registrou. Registro clínico não se apaga (Lei 13.787/2018),
+  e apagar por conversão é a forma mais discreta de fazê-lo. A recusa mora no CONVERSOR
+  porque a escrita tem muitas portas (emitir, cancelar, salvar modelo) e uma que esquecesse
+  bastaria — a razão de sempre.
+  ⚠️ **Cair no `default` do enum seria pior do que estourar.** Um termo de procedimento
+  apareceria como "Receita": mentir sobre um registro de prontuário, em silêncio, é o
+  desfecho que este projeto recusa desde a parcela 3. O sentinela `Desconhecido` diz o que
+  há **e o que fazer** ("Tipo não reconhecido — atualize o sistema"), fica **fora de
+  `TipoDocumentoInfo.Todos`** (não é papel nenhum) e **não imprime** sem os bytes guardados
+  — a folha sairia com cabeçalho, número e assinatura e sem o miolo, que é a garantia
+  aparente de novo.
+  O conversor foi aplicado a `TipoDocumentoClinico` — o enum que quebrou, que CRESCE (sete
+  tipos até a 65, oito na 66) e que os cinco apps leem. Enum que ganhar valor novo e for
+  lido por outro app entra nele; enum estável não precisa, e sentinela espalhado por todos
+  teria a blast radius conhecida do `Enum.GetValues` dos catálogos.

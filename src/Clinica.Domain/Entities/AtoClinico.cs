@@ -197,7 +197,31 @@ public enum TipoDocumentoClinico
     /// cada emissão COPIA o modelo — corrigir uma palavra hoje não pode reescrever o que
     /// um paciente assinou no mês passado.
     /// </summary>
-    TermoProcedimento
+    TermoProcedimento,
+
+    /// <summary>
+    /// O tipo que ESTE build não conhece — um documento gravado por uma versão mais nova.
+    ///
+    /// ⚠️ <b>Não é um tipo de documento; é a ausência de um.</b> Ele nunca é escrito, nunca
+    /// aparece em <see cref="TipoDocumentoInfo.Todos"/> e nunca sai impresso: o
+    /// <c>ConversorEnumTolerante</c> o produz na LEITURA e RECUSA gravá-lo.
+    ///
+    /// Por que ele precisa existir
+    /// ---------------------------
+    /// Os cinco apps se auto-atualizam por Velopack, <b>um canal por app</b>, e dividem UM
+    /// banco. Isso não é hipótese: é o desenho. Então há sempre uma janela em que o
+    /// Consultório já atualizou, gravou um termo de procedimento, e a Recepção ainda não —
+    /// e o nome do valor novo chega a quem não o tem no enum.
+    ///
+    /// Sem este valor, quem lê é <c>Enum.TryParse</c> dentro do conversor do EF, que ESTOURA
+    /// e derruba a consulta inteira: a clínica perde a tela de Prescrições por causa de UMA
+    /// linha, e a mensagem que sobra ("Cannot convert string value…") não diz a ninguém que
+    /// o que falta é atualizar. Foi o que aconteceu em 14/08/2026.
+    ///
+    /// A alternativa — cair no primeiro valor do enum — seria pior: o termo apareceria como
+    /// "Receita", que é mentir sobre um registro de prontuário.
+    /// </summary>
+    Desconhecido
 }
 
 /// <summary>Rótulos e natureza de cada tipo de documento, para a tela e o PDF.</summary>
@@ -213,6 +237,11 @@ public static class TipoDocumentoInfo
         TipoDocumentoClinico.Consentimento => "Termo de consentimento",
         TipoDocumentoClinico.Anamnese => "Anamnese",
         TipoDocumentoClinico.TermoProcedimento => "Termo de procedimento",
+
+        // Diz o que fazer, não só o que houve: "Desconhecido" sozinho mandaria a clínica
+        // procurar defeito no documento, e o que falta é atualizar o programa.
+        TipoDocumentoClinico.Desconhecido => "Tipo não reconhecido — atualize o sistema",
+
         _ => tipo.ToString()
     };
 
@@ -240,6 +269,12 @@ public static class TipoDocumentoInfo
     public static bool ExigeItens(TipoDocumentoClinico tipo)
         => tipo is TipoDocumentoClinico.Receita or TipoDocumentoClinico.PedidoExame;
 
+    /// <summary>
+    /// Os tipos que a clínica EMITE. <see cref="TipoDocumentoClinico.Desconhecido"/> fica de
+    /// fora de propósito: ele não é papel nenhum, é o nome que este build não soube ler.
+    /// Escrita à mão em vez de <c>Enum.GetValues</c> justamente por isso — e é o que faz o
+    /// teste "os N documentos geram PDF" continuar cobrando cobertura de cada tipo REAL.
+    /// </summary>
     public static IReadOnlyList<TipoDocumentoClinico> Todos { get; } =
     [
         TipoDocumentoClinico.Receita,
