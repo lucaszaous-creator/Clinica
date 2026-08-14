@@ -233,6 +233,115 @@ public class SafeIDTests
         Assert.Contains("NÃO foi assinada", erro.Message);
     }
 
+    // ---- O "base64" do PSC, e as formas em que ele chega ----
+    //
+    // O cliente da clínica levou "O SafeID devolveu uma assinatura que não pôde ser
+    // decodificada" no primeiro documento assinado em nuvem. `Convert.FromBase64String` é
+    // estrito exatamente onde um serviço REST costuma ser frouxo — alfabeto, enchimento e
+    // armadura —, e as três falham com a MESMA exceção, sem dizer qual foi. Estes testes
+    // fixam as três formas como aceitas, e a quarta (lixo de verdade) como recusada COM a
+    // evidência: sem ela a próxima ocorrência recomeça do zero.
+
+    [Fact]
+    public async Task Assinatura_em_base64url_e_aceita()
+    {
+        // É a forma que o resto desta integração já usa — o PKCE desta mesma classe a produz.
+        var pkcs7 = new byte[] { 0xFB, 0xFF, 0xBF, 0x01, 0x02 };
+        var base64url = Convert.ToBase64String(pkcs7)
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        // O teste só vale se o valor de fato tiver os caracteres que o padrão recusa.
+        Assert.True(base64url.Contains('-') || base64url.Contains('_'));
+
+        var cliente = new ClienteSafeID(
+            new HttpClient(HandlerQueResponde(EnvelopeBruto(base64url))), Opcoes);
+
+        Assert.Equal(pkcs7, await cliente.AssinarHashAsync("t", new byte[32], "req-1", "Receita"));
+    }
+
+    [Fact]
+    public async Task Assinatura_sem_o_enchimento_do_fim_e_aceita()
+    {
+        // Dois bytes pedem "==" no fim. Sem eles o comprimento não fecha em múltiplo de 4 e
+        // o .NET recusa um valor que é perfeitamente decodificável.
+        var pkcs7 = new byte[] { 0x30, 0x82 };
+        var semEnchimento = Convert.ToBase64String(pkcs7).TrimEnd('=');
+
+        var cliente = new ClienteSafeID(
+            new HttpClient(HandlerQueResponde(EnvelopeBruto(semEnchimento))), Opcoes);
+
+        Assert.Equal(pkcs7, await cliente.AssinarHashAsync("t", new byte[32], "req-1", "Receita"));
+    }
+
+    [Fact]
+    public async Task Assinatura_com_armadura_PEM_e_aceita()
+    {
+        var pkcs7 = new byte[] { 0x30, 0x82, 0x04, 0x11 };
+        var armada = "-----BEGIN PKCS7-----\n"
+            + Convert.ToBase64String(pkcs7) + "\n-----END PKCS7-----";
+
+        var cliente = new ClienteSafeID(
+            new HttpClient(HandlerQueResponde(EnvelopeBruto(armada))), Opcoes);
+
+        Assert.Equal(pkcs7, await cliente.AssinarHashAsync("t", new byte[32], "req-1", "Receita"));
+    }
+
+    /// <summary>
+    /// O hexa tem de ser tentado ANTES do base64: o alfabeto dele cabe dentro do do base64,
+    /// então <c>FromBase64String</c> aceitaria este mesmo valor e devolveria lixo — que
+    /// entraria calado no <c>/Contents</c> do PDF. Este teste falha se alguém inverter a
+    /// ordem, porque aí voltariam bytes diferentes em vez de uma exceção.
+    /// </summary>
+    [Fact]
+    public async Task Assinatura_em_hexadecimal_e_aceita()
+    {
+        // Começa em 0x30 — o SEQUENCE que abre todo DER, e é isso que o desempata do base64.
+        var pkcs7 = new byte[] { 0x30, 0x82, 0x04, 0x11, 0xAB };
+
+        var cliente = new ClienteSafeID(
+            new HttpClient(HandlerQueResponde(EnvelopeBruto(Convert.ToHexString(pkcs7)))), Opcoes);
+
+        Assert.Equal(pkcs7, await cliente.AssinarHashAsync("t", new byte[32], "req-1", "Receita"));
+    }
+
+    /// <summary>
+    /// O que não é assinatura continua sendo recusado — e a mensagem NOMEIA o caractere que
+    /// ofendeu. A frase do .NET ("contains a non-base 64 character") não diz qual é, e foi
+    /// por isso que a primeira ocorrência na clínica não deu para diagnosticar pelo log.
+    /// </summary>
+    [Fact]
+    public async Task Assinatura_ilegivel_e_recusada_dizendo_o_que_veio_no_lugar()
+    {
+        var cliente = new ClienteSafeID(
+            new HttpClient(HandlerQueResponde(EnvelopeBruto("erro: certificado inválido!"))),
+            Opcoes);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => cliente.AssinarHashAsync("t", new byte[32], "req-1", "Receita"));
+
+        Assert.Contains("NÃO foi assinada", erro.Message);
+        Assert.Contains("erro: certificado", erro.Message);   // o começo do que veio
+        Assert.Contains("!", erro.Message);                   // e o caractere que ofendeu
+    }
+
+    /// <summary>
+    /// O PSC responde 200 com o motivo no corpo em alguns casos. "Não devolveu a assinatura"
+    /// sozinho manda a clínica procurar defeito no celular da médica.
+    /// </summary>
+    [Fact]
+    public async Task Resposta_sem_assinatura_leva_junto_o_que_o_PSC_disse()
+    {
+        var handler = HandlerQueResponde(
+            """{"status":"N","message":"Certificado revogado","signatures":[]}""");
+
+        var cliente = new ClienteSafeID(new HttpClient(handler), Opcoes);
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => cliente.AssinarHashAsync("t", new byte[32], "req-1", "Receita"));
+
+        Assert.Contains("Certificado revogado", erro.Message);
+    }
+
     [Fact]
     public async Task Erro_do_PSC_vira_mensagem_que_diz_o_que_aconteceu()
     {
@@ -402,6 +511,13 @@ public class SafeIDTests
             {"certificate_alias":"A3:1","signatures":[
               {"id":{{JsonSerializer.Serialize(id ?? "qualquer")}},
                "raw_signature":"{{Convert.ToBase64String(pkcs7)}}"}]}
+            """;
+
+    /// <summary>O mesmo envelope, com o <c>raw_signature</c> exatamente como o PSC o mandou.</summary>
+    private static string EnvelopeBruto(string rawSignature)
+        => $$"""
+            {"certificate_alias":"A3:1","signatures":[
+              {"id":"req-1","raw_signature":{{JsonSerializer.Serialize(rawSignature)}}}]}
             """;
 
     // ---- O passo a passo da autorização ----
