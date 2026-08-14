@@ -382,6 +382,26 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     /// <summary>
+    /// A aba PRONTUÁRIO desta ficha aparece — e ela é a metade que faltava da parcela 49.
+    ///
+    /// ⚠️ Até aqui a aba não tinha barreira NENHUMA, e a ficha é aberta com
+    /// <see cref="Permissao.VerFichaPaciente"/>. O perfil <c>Recepção</c> tem esse bit e
+    /// NÃO tem <c>VerProntuario</c> — exatamente o corte que a parcela 49 desenhou para
+    /// separar dado cadastral de dado de saúde (art. 5º, II). Bastava abrir a ficha de
+    /// qualquer paciente e clicar na aba ao lado para ler a evolução de todas as sessões,
+    /// a escala de dor e a contagem de anexos.
+    ///
+    /// É o cenário que o compromisso de conformidade nomeia por escrito: "bit que junte os
+    /// dois desfaz a parcela 49 e devolve a evolução inteira a quem só precisa marcar
+    /// horário". O bit estava certo; a TELA é que não o consultava.
+    ///
+    /// A aba some E os dados não são lidos (ver <c>CarregarAsync</c>): esconder a aba
+    /// deixando a leitura de pé continuaria trazendo prontuário para a memória de quem não
+    /// pode vê-lo, e a trilha de acesso registraria uma leitura que ninguém pediu.
+    /// </summary>
+    public bool PodeVerProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+
+    /// <summary>
     /// Metade VISÍVEL da permissão de escrever na FICHA: cadastro, consentimento,
     /// autorização do convênio e documento. Separada de <c>PodeEditarProntuario</c> na
     /// parcela 49 — digitar o telefone de alguém e escrever a evolução dele são atos de
@@ -547,8 +567,15 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             if (geracao != _geracaoCarga) return;
             Foto = foto ?? paciente.FotoMiniatura;
 
-            await CarregarProntuarioAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
+            // Sem `VerProntuario` a aba não existe (ver `PodeVerProntuario`), e a leitura
+            // também não acontece: trazer a evolução para a memória de quem não pode
+            // vê-la é o mesmo vazamento com uma etapa a mais, e faria a tela consultar
+            // dado de saúde sem que ninguém tivesse pedido.
+            if (PodeVerProntuario)
+            {
+                await CarregarProntuarioAsync(scope, id, geracao);
+                if (geracao != _geracaoCarga) return;
+            }
             await CarregarConsentimentosAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarDocumentosAsync(scope, id, geracao);

@@ -447,7 +447,14 @@
                     </DockPanel>
                 </TabItem>
 
-                <TabItem Header="Prontuário">
+                <!-- A aba SOME para quem não tem `VerProntuario` (parcela 49): a ficha
+                     abre com `VerFichaPaciente`, que o perfil Recepção tem, e a evolução,
+                     a escala de dor e os anexos são dado de SAÚDE (art. 5º, II). Some em
+                     vez de ficar apagada porque uma aba desabilitada chamada "Prontuário"
+                     já anuncia que existe prontuário daquele paciente. -->
+                <TabItem Header="Prontuário"
+                         Visibility="{Binding PodeVerProntuario,
+                                      Converter={StaticResource BoolParaVisibilidade}}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                         <StackPanel Margin="0,0,0,24">
                 <Border Style="{StaticResource Card}">
