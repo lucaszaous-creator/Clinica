@@ -3136,3 +3136,40 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   conforto: é o que substitui a próxima rodada de adivinhação.** Quando um caminho novo
   encosta em formato de terceiro, a evidência entra JUNTO com o código, não depois de ele
   falhar.
+- **Aceitar o formato do fornecedor não é o mesmo que EMITIR o formato da norma** (parcela
+  67, 7ª rodada — achado ao responder "temos 100% de certeza?", e a resposta honesta era
+  não). A rodada anterior fez o nosso `Conferir` aceitar o CMS em BER indefinido que o
+  SafeID devolve. Isso resolve metade: **PDF assinado exige DER** (ISO 32000-1 e
+  PAdES/ETSI EN 319 142). Embutir o BER produziria um arquivo que o NOSSO validador aprova
+  e que o Adobe e o validador do ITI podem recusar — e quem descobriria é o farmacêutico,
+  com a receita na mão. É a **garantia aparente virada do avesso**: em vez de o sistema
+  mentir para a clínica, ele diria a verdade para a clínica e produziria um arquivo que o
+  mundo lá fora não lê.
+  `AssinadorSafeID` passou a **normalizar para DER** (`SignedCms.Decode` + `Encode`) antes
+  de devolver os bytes ao PDFsharp. Medido antes de decidir: o reencode devolve **o DER
+  byte a byte idêntico** ao que o PSC teria produzido, e `CheckSignature` continua
+  passando — a assinatura cobre os atributos assinados, não a codificação de fora.
+  O `RecortarAsn1` continua aceitando BER de propósito: é o que mantém legível qualquer
+  folha assinada ANTES desta correção.
+  ⚠️ A pergunta que produziu isto vale mais que a correção: **"e se o nosso lado estiver
+  certo e o de fora não?"** Toda integração que aceita o formato de um terceiro tem essa
+  segunda metade, e ela não aparece em teste nenhum da casa — por definição, o teste da
+  casa usa o leitor da casa.
+- **BER aninhado, medido em vez de suposto** (parcela 67, 8ª rodada — a cliente perguntou
+  se havia 100% de certeza, e cada tentativa de assinatura é COBRADA pelo PSC, então a
+  resposta tinha de vir de experimento e não de leitura). Um HSM emite o CMS com
+  comprimento indefinido nos ENVELOPES de fora e DER no miolo assinado. Medido em
+  profundidade crescente: **1 a 4 passam inteiras** — o recorte acha o fim exato dentro do
+  enchimento de 32 KB, o `SignedCms` decodifica, `CheckSignature` confere e a normalização
+  devolve o DER **byte a byte idêntico**. A profundidade 4 já entra na lista de
+  certificados, além do que qualquer PSC produz.
+  Só o caso patológico (indefinido até o certificado embutido, que nenhum PSC reescreve)
+  derruba o **reencode** — e a leitura continua correta mesmo ali.
+  ⚠️ **O experimento achou um defeito meu na MENSAGEM, não no formato.** Decode e encode
+  estavam no mesmo `try`, então a falha do reencode sairia com a frase "não são um PKCS#7"
+  sobre bytes que SÃO um PKCS#7 válido e conferido. É a mesma família de erro que custou
+  seis rodadas a esta integração: **mensagem plausível e errada manda procurar o defeito no
+  lugar errado**, e é pior que mensagem nenhuma. Os dois passos ganharam `catch` separados.
+  A recusa, nesse caso, é deliberada: o CMS é válido mas está em BER, e embuti-lo produziria
+  um arquivo que a NOSSA conferência aprova e o Adobe/ITI podem recusar. A frase diz isso e
+  lembra que a via em papel continua valendo.
