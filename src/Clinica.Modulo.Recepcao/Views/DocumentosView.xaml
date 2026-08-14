@@ -171,6 +171,12 @@
             </Border>
 
             <Border Grid.Row="1" Style="{StaticResource Card}">
+                <!-- Grid por FORA (hospeda a sobreposição), DockPanel por dentro. O estado
+                     vazio explica o vazio de `Emitidas` — e vivia na RAIZ da tela, onde era
+                     desenhado por cima dos NOVE cartões de emitir. Ou seja: no caso mais
+                     comum de todos — paciente sem documento nenhum — ele cobria justamente
+                     os botões que existem para emitir o primeiro. -->
+                <Grid>
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBlock Text="O que já saiu" Style="{StaticResource H3}"
@@ -317,15 +323,16 @@
                         </ItemsControl>
                     </ScrollViewer>
                 </DockPanel>
+                <ctrl:EstadoDaTela Itens="{Binding Emitidas}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE8A5;"
+                                   TextoCarregando="Lendo os documentos…"
+                                   Titulo="Nenhum documento emitido"
+                                   Descricao="Documento cancelado aparece marcado, nunca sumindo." />
+                </Grid>
             </Border>
         </Grid>
     </DockPanel>
-    <ctrl:EstadoDaTela Itens="{Binding Emitidas}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE8A5;"
-                       TextoCarregando="Lendo os documentos…"
-                       Titulo="Nenhum documento emitido"
-                       Descricao="Documento cancelado aparece marcado, nunca sumindo." />
     </Grid>
 </UserControl>
