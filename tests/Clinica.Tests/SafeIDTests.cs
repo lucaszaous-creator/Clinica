@@ -1,6 +1,7 @@
 using System.Formats.Asn1;
 using System.Net;
 using System.Security.Cryptography;
+using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
@@ -441,7 +442,8 @@ public class SafeIDTests
     [Fact]
     public async Task Assinador_calcula_o_hash_do_conteudo_coberto()
     {
-        var pkcs7 = new byte[] { 7, 7, 7 };
+        // CMS de verdade: o assinador confere o que voltou antes de embutir no PDF.
+        var pkcs7 = Pkcs7DeTeste();
         var handler = HandlerQueResponde(Envelope(pkcs7, id: null));
         var cliente = new ClienteSafeID(new HttpClient(handler), Opcoes);
 
@@ -487,6 +489,53 @@ public class SafeIDTests
 
         Assert.Contains("NÃO foi assinada", erro.Message);
         Assert.Contains(AssinadorSafeID.TamanhoReservado.ToString(), erro.Message);
+    }
+
+    /// <summary>
+    /// A segunda rodada de diagnóstico às cegas, virada em teste.
+    ///
+    /// Decodificar o <c>raw_signature</c> prova que veio base64 — não prova que veio uma
+    /// ASSINATURA. Sem esta conferência, bytes que não são PKCS#7 iam calados para o
+    /// <c>/Contents</c> do PDF e o erro só aparecia na conferência, como "ASN1 corrupted
+    /// data": uma frase que não distingue "o PSC devolveu outra coisa" de "o arquivo foi
+    /// adulterado" nem de "nós lemos errado de volta".
+    /// </summary>
+    [Fact]
+    public async Task Resposta_que_decodifica_mas_nao_e_PKCS7_e_recusada_ANTES_de_virar_PDF()
+    {
+        // Base64 impecável de bytes que não são um CMS — o caso que passava batido.
+        var handler = HandlerQueResponde(Envelope("nao sou um pkcs7"u8.ToArray(), id: null));
+        var cliente = new ClienteSafeID(new HttpClient(handler), Opcoes);
+
+        var certificado = new CertificadoDeNuvem(
+            "A3:1", CertificadoIcpBrasil.Ler(
+                X509Certificate2.CreateFromPem(PemDeTeste("Dra. Ana Souza", "12345678909"))));
+
+        var assinador = new AssinadorSafeID(cliente, "t", certificado, "Receita");
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => assinador.GetSignatureAsync(new MemoryStream([1, 2, 3])));
+
+        Assert.Contains("não são um PKCS#7", erro.Message);
+        Assert.Contains("NÃO foi assinada", erro.Message);
+
+        // E diz com o que os bytes se parecem: um CMS abre em 30 82, e é o começo que
+        // nomeia a causa quando o PSC responde noutro formato.
+        Assert.Contains(Convert.ToHexString("nao sou "u8.ToArray()), erro.Message);
+    }
+
+    /// <summary>Um CMS destacado de verdade, como o PSC devolve com `signature_format: CMS`.</summary>
+    private static byte[] Pkcs7DeTeste()
+    {
+        using var rsa = RSA.Create(2048);
+        var pedido = new CertificateRequest(
+            "CN=Dra. Ana Souza", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var certificado = pedido.CreateSelfSigned(
+            DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(1));
+
+        var cms = new SignedCms(new ContentInfo("conteúdo assinado"u8.ToArray()), detached: true);
+        cms.ComputeSignature(new CmsSigner(certificado));
+        return cms.Encode();
     }
 
     [Fact]

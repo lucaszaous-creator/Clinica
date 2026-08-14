@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Security.Cryptography.Pkcs;
 using PdfSharp.Pdf.Signatures;
 
 namespace Clinica.Application.Assinatura.SafeID;
@@ -83,6 +84,51 @@ public sealed class AssinadorSafeID : IDigitalSigner
                 + $"espaço reservado ({TamanhoReservado}). A folha NÃO foi assinada — "
                 + "aumente TamanhoReservado.");
 
+        ExigirPkcs7(pkcs7);
+
         return pkcs7;
+    }
+
+    /// <summary>
+    /// O que voltou do PSC é mesmo um CMS destacado?
+    ///
+    /// Por que a pergunta precisa ser feita AQUI
+    /// -----------------------------------------
+    /// Estes bytes vão para o <c>/Contents</c> do PDF sem ninguém mais olhar para eles. Se
+    /// não forem um PKCS#7, o arquivo sai "assinado" e o erro só aparece na conferência,
+    /// como <b>"ASN1 corrupted data"</b> — uma frase que não distingue <i>"o PSC devolveu
+    /// outra coisa"</i> de <i>"o arquivo foi adulterado"</i> e de <i>"nós lemos errado de
+    /// volta"</i>. Foram duas rodadas de diagnóstico às cegas por causa disso.
+    ///
+    /// A conferência usa o MESMO <c>SignedCms</c> que <c>AssinaturaDigitalService.Conferir</c>
+    /// vai usar depois — é essa a razão de ela valer: o que passa aqui passa lá.
+    ///
+    /// Ela mora neste ponto, e não no <c>ClienteSafeID</c>, porque aquele é transporte: ele
+    /// entrega o que o PSC mandou. Aqui é onde a assinatura vira PDF, e é o único caminho
+    /// pelo qual uma assinatura em nuvem chega a um documento da clínica.
+    /// </summary>
+    private static void ExigirPkcs7(byte[] pkcs7)
+    {
+        try
+        {
+            var cms = new SignedCms();
+            cms.Decode(pkcs7);
+
+            if (cms.SignerInfos.Count == 0)
+                throw new InvalidOperationException(
+                    "O SafeID devolveu um PKCS#7 SEM assinante. A folha NÃO foi assinada.");
+        }
+        catch (CryptographicException ex)
+        {
+            // O começo em hexa vai na mensagem porque é o que nomeia a causa: um CMS abre em
+            // 30 82 (SEQUENCE), e o que vier diferente disto diz de imediato que o PSC
+            // respondeu noutro formato. Não há dado de paciente aqui — isto cobre um HASH.
+            var inicio = Convert.ToHexString(pkcs7.AsSpan(0, Math.Min(8, pkcs7.Length)));
+
+            throw new InvalidOperationException(
+                $"O SafeID devolveu {pkcs7.Length} byte(s) que não são um PKCS#7 "
+                + $"(começam em {inicio}). A folha NÃO foi assinada. Detalhe: {ex.Message}",
+                ex);
+        }
     }
 }

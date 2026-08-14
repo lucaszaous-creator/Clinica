@@ -318,15 +318,65 @@ public sealed class AssinaturaDigitalService
         var bruto = Encoding.Latin1.GetString(pdf, inicio, fim - inicio).Trim();
         var hexa = bruto.TrimStart('<').TrimEnd('>');
 
-        // O /Contents é dimensionado com folga e completado com zeros à direita; eles não
-        // fazem parte do PKCS#7 (que é DER e sabe onde termina), mas atrapalham o
-        // FromHexString se sobrarem em número ímpar.
-        hexa = hexa.TrimEnd('0');
-        if (hexa.Length % 2 == 1) hexa += "0";
+        // Um nibble solto no fim só pode ser lixo do enchimento: o PKCS#7 é byte-alinhado.
+        if (hexa.Length % 2 == 1) hexa = hexa[..^1];
         if (hexa.Length == 0) return null;
 
-        try { return Convert.FromHexString(hexa); }
+        byte[] comFolga;
+        try { comFolga = Convert.FromHexString(hexa); }
         catch (FormatException) { return null; }
+
+        return RecortarDer(comFolga);
+    }
+
+    /// <summary>
+    /// Recorta o PKCS#7 do que veio com folga: o <c>/Contents</c> é dimensionado para o pior
+    /// caso ANTES de assinar e completado com zeros à direita.
+    ///
+    /// ⚠️ Quem diz onde o DER termina é o CABEÇALHO DELE — tag e comprimento —, nunca o
+    /// enchimento. A primeira versão cortava com <c>TrimEnd('0')</c>, que tira CARACTERES
+    /// '0' e não BYTES zero: uma assinatura terminada em <c>0x00</c> perdia o último byte
+    /// (os dois caracteres sumiam, o comprimento continuava par e o remendo de nibble ímpar
+    /// não repunha nada), e o <c>SignedCms.Decode</c> respondia <b>"ASN1 corrupted data"</b>
+    /// — indistinguível de arquivo adulterado.
+    ///
+    /// O último byte de um CMS é o último byte da assinatura RSA, ou seja é sorteado: dava
+    /// <b>uma folha a cada 256</b>. Raro o bastante para nunca cair num teste, frequente o
+    /// bastante para acontecer na clínica — e nada a ver com o certificado ser em nuvem ou
+    /// de token, embora tenha sido no SafeID que apareceu (14/08/2026), porque é a primeira
+    /// vez que este caminho roda fora dos testes.
+    /// </summary>
+    /// <returns>Os bytes exatos do DER, ou null quando o cabeçalho não é legível.</returns>
+    public static byte[]? RecortarDer(byte[] comFolga)
+    {
+        if (comFolga is null || comFolga.Length < 2) return null;
+
+        var primeiro = comFolga[1];
+        int cabecalho, conteudo;
+
+        if (primeiro < 0x80)
+        {
+            // Forma curta: o próprio byte é o comprimento.
+            cabecalho = 2;
+            conteudo = primeiro;
+        }
+        else
+        {
+            // Forma longa: os 7 bits de baixo dizem QUANTOS bytes de comprimento vêm depois.
+            // 0x80 puro é comprimento indefinido — existe em BER, não em DER, e um PKCS#7
+            // assim não teria como ser recortado com segurança.
+            var bytesDeComprimento = primeiro & 0x7F;
+            if (bytesDeComprimento is 0 or > 4
+                || comFolga.Length < 2 + bytesDeComprimento) return null;
+
+            cabecalho = 2 + bytesDeComprimento;
+            conteudo = 0;
+            for (var i = 0; i < bytesDeComprimento; i++)
+                conteudo = (conteudo << 8) | comFolga[2 + i];
+        }
+
+        var total = cabecalho + conteudo;
+        return total <= 0 || total > comFolga.Length ? null : comFolga[..total];
     }
 
     /// <summary>

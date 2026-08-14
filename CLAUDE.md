@@ -3049,3 +3049,40 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   tipos até a 65, oito na 66) e que os cinco apps leem. Enum que ganhar valor novo e for
   lido por outro app entra nele; enum estável não precisa, e sentinela espalhado por todos
   teria a blast radius conhecida do `Enum.GetValues` dos catálogos.
+- **Quem diz onde o DER termina é o CABEÇALHO dele, nunca o enchimento** (parcela 67, 4ª
+  rodada — a clínica levou *"A assinatura foi produzida mas não conferiu: … (ASN1 corrupted
+  data)"* na primeira assinatura em nuvem que passou do decode). O `/Contents` do PDF é
+  dimensionado para o pior caso ANTES de assinar (32 KB) e completado com zeros à direita;
+  na volta, `LerConteudoAssinatura` cortava o enchimento com `TrimEnd('0')` — que tira
+  **caracteres '0', não bytes zero**. Uma assinatura terminada em `0x00` perdia o último
+  byte: os dois caracteres sumiam, o comprimento continuava PAR e o remendo de nibble ímpar
+  (`if (hexa.Length % 2 == 1) hexa += "0"`) não repunha nada.
+  ⚠️ **O comentário ao lado do defeito já dizia a solução** — "que é DER e sabe onde
+  termina" — e o código cortava por enchimento assim mesmo. Agora `RecortarDer` lê tag e
+  comprimento e fatia exatamente.
+  A aritmética é o que explica por que isto chegou à clínica: o último byte de um CMS é o
+  último byte da assinatura RSA, ou seja é **sorteado** — uma folha a cada 256. Raro o
+  bastante para nunca cair num teste (o `Assinatura_confere_no_arquivo_intacto` passava
+  255 vezes em 256, e ninguém viu a 256ª), frequente o bastante para acontecer em produção.
+  **Teste que depende de um byte aleatório não é teste, é sorteio** — o novo fixa o caso
+  com um DER construído à mão que termina em `0x00`.
+  E nada disso é do SafeID: pega token e nuvem igual. Apareceu ali porque a assinatura
+  ICP-Brasil **nunca tinha rodado fora dos testes** (a parcela 53 já dizia isso por
+  escrito), e a nuvem foi o primeiro caminho a chegar ao cliente.
+- **Decodificar prova que veio base64; não prova que veio uma ASSINATURA** (parcela 67, 4ª
+  rodada). A 3ª rodada tornou o `raw_signature` tolerante a base64url, enchimento e
+  armadura PEM — e o que sai dali continuava indo **calado** para o `/Contents` sem ninguém
+  perguntar se era um PKCS#7. Quando não era, o erro só aparecia na conferência, como "ASN1
+  corrupted data": uma frase que não distingue **três** causas diferentes — o PSC devolveu
+  outro formato, o arquivo foi adulterado, ou nós lemos errado de volta. Foram duas rodadas
+  de diagnóstico às cegas por isso.
+  `AssinadorSafeID.ExigirPkcs7` decodifica com o MESMO `SignedCms` que a conferência vai
+  usar depois (é isso que faz a checagem valer: o que passa aqui passa lá) e a recusa diz o
+  **começo dos bytes em hexa** — um CMS abre em `30 82`, e o que vier diferente nomeia a
+  causa de imediato. Ela mora no ASSINADOR e não no `ClienteSafeID` porque aquele é
+  transporte: entrega o que o PSC mandou. Aqui é onde a assinatura vira PDF, e é o único
+  caminho pelo qual uma assinatura em nuvem chega a um documento da clínica.
+  A lição de método, que vale além desta integração: **quando uma correção torna uma
+  entrada mais TOLERANTE, ela precisa vir junto da conferência do que a entrada deveria
+  ser.** Tolerância sem conferência só empurra a falha para mais longe da causa — e o
+  segundo erro é sempre mais caro de diagnosticar que o primeiro.

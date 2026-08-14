@@ -1,8 +1,10 @@
 using System.Formats.Asn1;
 using System.Security.Cryptography;
+using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Clinica.Application.Assinatura;
+using FluentAssertions;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -64,6 +66,78 @@ public class AssinaturaDigitalTests
         Assert.True(conferencia.Conferida);
         Assert.False(conferencia.Integra);
         Assert.Contains("ALTERADO", conferencia.Frase);
+    }
+
+    // ---- O recorte do PKCS#7 dentro do /Contents ----
+    //
+    // O espaço é reservado ANTES de assinar e completado com zeros à direita. A primeira
+    // versão cortava com TrimEnd('0') — caracteres '0', não bytes zero —, e por isso comia
+    // os zeros FINAIS da própria assinatura. Um CMS terminado em 0x00 voltava um byte mais
+    // curto e o SignedCms.Decode respondia "ASN1 corrupted data", indistinguível de arquivo
+    // adulterado. O último byte de um CMS é o último byte da assinatura RSA, ou seja é
+    // sorteado: dava uma folha a cada 256 — raro para cair em teste, frequente para
+    // acontecer na clínica (14/08/2026, na primeira assinatura em nuvem).
+
+    /// <summary>
+    /// O caso que quebrou. <c>30 03 02 01 00</c> é um DER legítimo (SEQUENCE { INTEGER 0 })
+    /// que termina em <c>0x00</c> — exatamente a forma que o corte por zeros destruía.
+    /// </summary>
+    [Fact]
+    public void O_recorte_preserva_os_zeros_do_FIM_da_assinatura()
+    {
+        byte[] der = [0x30, 0x03, 0x02, 0x01, 0x00];
+        var comFolga = der.Concat(new byte[500]).ToArray();
+
+        AssinaturaDigitalService.RecortarDer(comFolga).Should().Equal(der);
+    }
+
+    [Fact]
+    public void O_recorte_usa_o_comprimento_do_DER_e_nao_o_enchimento()
+    {
+        // Forma longa (0x82 = dois bytes de comprimento): 4 de conteúdo, e o conteúdo TEM
+        // zeros no meio e no fim. Cortar por enchimento devolveria três bytes a menos.
+        byte[] der = [0x30, 0x82, 0x00, 0x04, 0xAB, 0x00, 0xCD, 0x00];
+        var comFolga = der.Concat(new byte[2000]).ToArray();
+
+        AssinaturaDigitalService.RecortarDer(comFolga).Should().Equal(der);
+    }
+
+    [Theory]
+    [InlineData(new byte[] { 0x30 })]                    // curto demais para ter comprimento
+    [InlineData(new byte[] { 0x30, 0x80, 0x01 })]        // indefinido: existe em BER, não em DER
+    [InlineData(new byte[] { 0x30, 0x0A, 0x01 })]        // diz 10 bytes e só tem 1
+    public void Cabecalho_ilegivel_devolve_nulo_em_vez_de_bytes_pela_metade(byte[] entrada)
+    {
+        AssinaturaDigitalService.RecortarDer(entrada).Should().BeNull();
+    }
+
+    /// <summary>
+    /// A prova de que o recorte serve para o que ele existe: um CMS destacado de verdade,
+    /// com o enchimento do <c>/Contents</c> em volta, volta decodificável.
+    /// </summary>
+    [Fact]
+    public void Um_CMS_de_verdade_com_enchimento_volta_inteiro()
+    {
+        var conteudo = "os bytes cobertos pelo ByteRange"u8.ToArray();
+
+        using var rsa = RSA.Create(2048);
+        var pedido = new CertificateRequest(
+            "CN=Dra. Ana Souza", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        using var certificado = pedido.CreateSelfSigned(
+            DateTimeOffset.Now.AddDays(-1), DateTimeOffset.Now.AddYears(1));
+
+        var assinado = new SignedCms(new ContentInfo(conteudo), detached: true);
+        assinado.ComputeSignature(new CmsSigner(certificado));
+        var pkcs7 = assinado.Encode();
+
+        var recortado = AssinaturaDigitalService.RecortarDer(
+            pkcs7.Concat(new byte[32 * 1024 - pkcs7.Length]).ToArray());
+
+        recortado.Should().Equal(pkcs7);
+
+        var relido = new SignedCms(new ContentInfo(conteudo), detached: true);
+        relido.Decode(recortado!);
+        relido.CheckSignature(verifySignatureOnly: true);   // não lança = fechou
     }
 
     [Fact]
