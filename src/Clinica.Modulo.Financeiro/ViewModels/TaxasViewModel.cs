@@ -540,6 +540,11 @@ public sealed partial class TaxasViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarApuracaoAsync()
     {
+        // Saída de dado conta como ato, e ato pede a segunda barreira (parcela 64).
+        // O item da sidebar já exige `VerFinanceiro`, mas item de menu é UMA barreira —
+        // foi por confiar só nela que a tela de Acessos ficou sem guarda até a parcela 51.
+        SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "exportar a apuração de impostos");
+
         if (Apuracao.Count == 0)
         {
             _snackbar.Info("Não há apuração para exportar neste mês.");

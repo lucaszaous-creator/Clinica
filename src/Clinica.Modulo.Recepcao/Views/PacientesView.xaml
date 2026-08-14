@@ -883,9 +883,14 @@
                                    Text="Pedido de acesso e pedido de eliminação (LGPD, art. 18). O prontuário NÃO se apaga: a guarda é obrigação legal do profissional de saúde e a lei a preserva (art. 16, II) — anonimizar tira a identificação e mantém o histórico." />
 
                         <StackPanel Orientation="Horizontal">
+                            <!-- A metade VISÍVEL da permissão: o arquivo leva a evolução,
+                                 então o botão apaga para quem não tem `VerProntuario`.
+                                 Só a guarda no comando seria enfeite pela metade — a
+                                 pessoa clicaria e levaria a recusa depois. -->
                             <Button Content="Exportar meus dados"
                                     Style="{StaticResource BotaoSecundario}"
                                     MinWidth="170"
+                                    IsEnabled="{Binding PodeVerProntuario}"
                                     Command="{Binding ExportarDadosCommand}" />
                             <Button Content="Anonimizar cadastro" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPerigo}"

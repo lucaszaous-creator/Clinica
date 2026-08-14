@@ -1457,7 +1457,17 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarDadosAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "exportar os dados do titular");
+        // `VerProntuario`, e não `VerFichaPaciente`: o arquivo que sai daqui traz o TEXTO
+        // DA EVOLUÇÃO de todas as sessões (`TitularDadosService` monta o bloco "evolução"),
+        // e não só o cadastro. Com o bit da ficha, o perfil Recepção — que a parcela 49
+        // deixou de propósito sem acesso à evolução — exportava o prontuário inteiro para
+        // um .txt com um clique. Era a MESMA brecha da aba "Prontuário", pela segunda
+        // porta: checagem de acesso que só existe numa das portas é o defeito recorrente
+        // do projeto com o agravante de PARECER coberto.
+        //
+        // É também o que este projeto já tinha decidido por escrito — "o balcão exporta
+        // (VerProntuario), a direção elimina" —, e a tela é que não cumpria.
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "exportar os dados do titular");
 
         if (PacienteId == 0) return;
 
