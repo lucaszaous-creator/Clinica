@@ -522,8 +522,12 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
         {
             Salvando = true;
 
+            // `TentarLerQuantidade` e não `decimal.TryParse`: o cru lê na cultura da
+            // MÁQUINA, e em pt-BR o ponto é separador de milhar — "1.5" viraria mínimo 15.
+            // Aqui é a quantidade e não o valor, porque mínimo ZERO é legítimo ("não tenho
+            // mínimo para este item") e o leitor de dinheiro recusa zero.
             decimal minimo = 0m;
-            if (!string.IsNullOrWhiteSpace(Minimo) && !decimal.TryParse(Minimo, out minimo))
+            if (!string.IsNullOrWhiteSpace(Minimo) && !Valores.TentarLerQuantidade(Minimo, out minimo))
                 throw new InvalidOperationException("O mínimo tem de ser um número.");
 
             await _estoque.SalvarItemAsync(new ItemEstoque
@@ -602,13 +606,20 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
         {
             Salvando = true;
 
-            if (!decimal.TryParse(Quantidade, out var quantidade))
+            // Os dois pelo leitor do projeto (ver o comentário do mínimo, acima): o
+            // `decimal.TryParse` cru lê na cultura da MÁQUINA, e em pt-BR "0.5" de um
+            // frasco entra no estoque como 5 unidades e "12.50" como custo de R$ 1.250.
+            // `TentarLerQuantidade` aceita a FRAÇÃO, que é o caso normal do insumo, e
+            // devolve zero para o campo vazio — daí o vazio ser recusado aqui, onde
+            // movimento sem quantidade não é movimento.
+            if (string.IsNullOrWhiteSpace(Quantidade)
+                || !Valores.TentarLerQuantidade(Quantidade, out var quantidade))
                 throw new InvalidOperationException("Informe a quantidade (um número).");
 
             decimal? custo = null;
             if (EhEntrada && !string.IsNullOrWhiteSpace(CustoUnitario))
             {
-                if (!decimal.TryParse(CustoUnitario, out var lido))
+                if (!Valores.TentarLerValor(CustoUnitario, out var lido))
                     throw new InvalidOperationException("Não entendi o custo: use algo como 12,50.");
                 custo = lido;
             }

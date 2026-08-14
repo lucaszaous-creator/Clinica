@@ -182,9 +182,21 @@ public sealed class AgendaPdfService
                         .Text($"Contato da clínica: {telefone}")
                         .FontSize(10).FontColor(TextoSecundario);
 
-                if (!string.IsNullOrWhiteSpace(ag.Observacoes))
-                    col.Item().PaddingTop(10).Background(FundoCabecalho).Padding(10)
-                        .Text(ag.Observacoes!).FontSize(9.5f).FontColor(TextoPrimario);
+                // ⚠️ As OBSERVAÇÕES do agendamento NÃO saem aqui, e é o contrário do que
+                // este método fazia.
+                //
+                // O campo é uma caixa de texto livre rotulada só "Observações", onde o
+                // balcão escreve o recado INTERNO da casa — "paciente devendo 3 sessões",
+                // "não ligar no fixo, o marido não sabe do tratamento", a suspeita que o
+                // profissional pediu para anotar. Nada na tela diz que aquilo vai ser
+                // impresso, e o comprovante é papel avulso que o paciente leva na bolsa e
+                // deixa em cima da mesa.
+                //
+                // A regra estava escrita no próprio resumo deste método — "sem valor e sem
+                // diagnóstico: papel avulso não é lugar de dado clínico" — e a linha logo
+                // abaixo a contrariava. Se um dia a clínica quiser um recado PARA o
+                // paciente ("traga os exames"), ele precisa de um campo próprio, rotulado
+                // como impresso: aí quem escreve sabe para quem está escrevendo.
             });
     }
 

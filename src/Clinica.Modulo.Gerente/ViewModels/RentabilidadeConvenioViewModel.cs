@@ -1,3 +1,4 @@
+using Clinica.Domain.Entities;
 using Clinica.Domain;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
@@ -177,6 +178,11 @@ public sealed partial class RentabilidadeConvenioViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarAsync()
     {
+        // Saída de dado conta como ato, e ato pede a segunda barreira (parcela 64).
+        // O item da sidebar já exige o bit, mas item de menu é UMA barreira — foi por
+        // confiar só nela que a tela de Acessos ficou sem guarda até a parcela 51.
+        SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "exportar a rentabilidade por convênio");
+
         try
         {
             var linhas = Convenios

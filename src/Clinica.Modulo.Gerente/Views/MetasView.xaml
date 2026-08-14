@@ -149,12 +149,24 @@
 
                                         <StackPanel Grid.Column="6" Orientation="Horizontal"
                                                     VerticalAlignment="Center">
+                                            <!-- A metade VISÍVEL do bit `DefinirMetas`. O
+                                                 "Nova meta" do cabeçalho já a tinha; estes
+                                                 dois nasciam ACESOS para quem só tem
+                                                 `VerIndicadores` — e a parcela 64 separou
+                                                 os dois bits justamente para que ler o BI
+                                                 não desse o direito de apagar o alvo do
+                                                 mês. Botão aceso que recusa depois do
+                                                 clique é o defeito da parcela 41. -->
                                             <Button Content="Editar" Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                    IsEnabled="{Binding DataContext.PodeEditar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     Command="{Binding DataContext.EditarCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                             <Button Content="Excluir" Margin="8,0,0,0"
                                                     Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    IsEnabled="{Binding DataContext.PodeEditar,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     Command="{Binding DataContext.ExcluirCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />

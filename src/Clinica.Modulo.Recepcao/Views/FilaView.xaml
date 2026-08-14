@@ -157,11 +157,14 @@
                                 VerticalAlignment="Center" Margin="6,0,0,0"
                                 ToolTip="Termo do procedimento, voltar etapa, falta e cancelamento"
                                 Click="AoAbrirMenuDoCartao" />
+                        <!-- `PodePassar` é do CARTÃO, não da tela: o último passo
+                             ("Concluir") exige `EditarAgenda` puro, enquanto os três
+                             anteriores aceitam `MovimentarFila`. Preso ao flag da tela,
+                             o botão acendia para o profissional e recusava no clique. -->
                         <Button Content="{Binding ProximoPasso}"
                                 Style="{StaticResource BotaoPequeno}"
                                 HorizontalAlignment="Left" VerticalAlignment="Center"
-                                IsEnabled="{Binding DataContext.PodeEditarAgenda,
-                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                IsEnabled="{Binding PodePassar}"
                                 Visibility="{Binding TemProximoPasso,
                                              Converter={StaticResource BoolParaVisibilidade}}"
                                 Command="{Binding DataContext.AvancarCommand,

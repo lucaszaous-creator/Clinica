@@ -37,6 +37,13 @@
              visto pelos dois lados, e a proposta tem um item ali. -->
         <TabControl Background="Transparent" BorderThickness="0">
         <TabItem Header="A lançar">
+        <!-- Grid por FORA (hospeda a sobreposição do estado), DockPanel por dentro:
+             a sobreposição pertence à REGIÃO cujo vazio ela explica, nunca à página.
+             Ela vivia na raiz da tela, irmã do TabControl inteiro — então "Nenhuma guia
+             esperando receita" era desenhado por cima da aba GLOSADAS, que tem conteúdo
+             próprio e responde outra pergunta. É a regra das parcelas 58 e 64; a checagem
+             25 não a alcança porque aqui o pai já era um Grid. -->
+        <Grid>
         <DockPanel>
 
         <!-- Contexto permanente é LINHA de texto, não faixa colorida (a regra do
@@ -218,6 +225,14 @@
             </DockPanel>
         </Border>
         </DockPanel>
+        <ctrl:EstadoDaTela Itens="{Binding Linhas}"
+                           Carregando="{Binding Carregando}"
+                           NaoVerificado="{Binding NaoVerificado}"
+                           Glifo="&#xE8C7;"
+                           TextoCarregando="Buscando guias sem receita…"
+                           Titulo="{Binding TituloVazio}"
+                           Descricao="{Binding DescricaoVazio}" />
+        </Grid>
         </TabItem>
 
         <!-- ============ O caminho de volta (parcela 27) ============
@@ -336,12 +351,5 @@
         </TabItem>
         </TabControl>
       </DockPanel>
-        <ctrl:EstadoDaTela Itens="{Binding Linhas}"
-                           Carregando="{Binding Carregando}"
-                           NaoVerificado="{Binding NaoVerificado}"
-                           Glifo="&#xE8C7;"
-                           TextoCarregando="Buscando guias sem receita…"
-                           Titulo="{Binding TituloVazio}"
-                           Descricao="{Binding DescricaoVazio}" />
     </Grid>
 </UserControl>

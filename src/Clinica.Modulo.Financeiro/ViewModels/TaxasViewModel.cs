@@ -112,6 +112,21 @@ public sealed partial class TaxasViewModel : ObservableObject
     [ObservableProperty] private string _cargaHoje = "—";
 
     /// <summary>
+    /// NÃO há tributo VIGENTE hoje — e portanto quem decide o imposto ainda é a alíquota
+    /// única (o fallback da parcela 9).
+    ///
+    /// ⚠️ A tela escondia o campo da alíquota quando o CATÁLOGO tinha qualquer linha, e o
+    /// serviço cai no fallback quando não há linha VIGENTE. São condições diferentes, e a
+    /// diferença é o caso real: a clínica cadastra os tributos, eles vencem (ou a vigência
+    /// nova ainda não começou), e o campo que de fato está sendo aplicado fica invisível e
+    /// não editável — com a linha ao lado ainda dizendo que o imposto sai por ele.
+    ///
+    /// É a parcela 49 pelo avesso: lá um campo MORTO continuava visível; aqui um campo
+    /// VIVO desaparecia.
+    /// </summary>
+    [ObservableProperty] private bool _semTributoVigente = true;
+
+    /// <summary>
     /// Explica QUAL mecanismo está valendo. Enquanto não houver tributo cadastrado, a
     /// alíquota única da parcela 9 continua sendo aplicada — e a tela precisa dizer isso,
     /// senão o campo de baixo parece um resto de tela que não faz nada.
@@ -205,6 +220,11 @@ public sealed partial class TaxasViewModel : ObservableObject
 
             var carga = await tributos.AliquotaTotalAsync(hoje);
             CargaHoje = carga > 0m ? $"{carga:0.####}%" : "—";
+
+            // Quem decide se a alíquota única ainda vale é a VIGÊNCIA, não a existência de
+            // linha no catálogo — é a mesma pergunta que `TributoService` faz para escolher
+            // entre os tributos e o fallback.
+            SemTributoVigente = !Tributos.Any(x => x.ValendoAgora);
 
             // Qual mecanismo está valendo. Sem esta linha, quem cadastra o primeiro
             // tributo não entende por que o campo da alíquota única parou de ter efeito.
@@ -540,6 +560,11 @@ public sealed partial class TaxasViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarApuracaoAsync()
     {
+        // Saída de dado conta como ato, e ato pede a segunda barreira (parcela 64).
+        // O item da sidebar já exige `VerFinanceiro`, mas item de menu é UMA barreira —
+        // foi por confiar só nela que a tela de Acessos ficou sem guarda até a parcela 51.
+        SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "exportar a apuração de impostos");
+
         if (Apuracao.Count == 0)
         {
             _snackbar.Info("Não há apuração para exportar neste mês.");

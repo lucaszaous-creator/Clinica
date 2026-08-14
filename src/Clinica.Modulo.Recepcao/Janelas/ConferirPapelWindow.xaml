@@ -1,0 +1,70 @@
+<Window x:Class="Clinica.Recepcao.Janelas.ConferirPapelWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Conferir um papel" Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================
+         FERRAMENTA DE USO PONTUAL = BOTÃO + JANELA, nunca painel aberto.
+
+         Isto morava num cartão de 320 px fixo na lateral da Central de Documentos, ao
+         lado de outros dois — a faixa permanente que o `README.md` proíbe e que o cliente
+         reprovou nesta tela. A pergunta que decide está escrita lá: *isto é o que a
+         pessoa VÊ nesta tela, ou o que ela FAZ de vez em quando?* Conferir um papel é o
+         segundo caso: acontece quando alguém chega com uma via impressa na mão, e não
+         todo dia.
+         ============================================================ -->
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </Window.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="620">
+        <StackPanel Margin="24">
+            <TextBlock Text="Conferir um papel" Style="{StaticResource DialogoTitulo}" />
+
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,14"
+                       Text="Todo documento sai com um código no rodapé — é o que este sistema oferece no lugar do certificado ICP-Brasil. Digite o código do papel que está na sua frente." />
+
+            <TextBlock Text="Código do rodapé" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+            <TextBox Text="{Binding Codigo, UpdateSourceTrigger=PropertyChanged}"
+                     MaxLength="40" />
+
+            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                <Button Content="Conferir" Command="{Binding ConferirCommand}"
+                        MinWidth="120" IsDefault="True" />
+                <Button Content="Segunda via" Command="{Binding ReimprimirConferidoCommand}"
+                        Style="{StaticResource BotaoSecundario}" MinWidth="120" Margin="8,0,0,0"
+                        Visibility="{Binding TemConferido,
+                                     Converter={StaticResource BoolParaVisibilidade}}" />
+            </StackPanel>
+
+            <!-- A resposta. Cancelado e "não existe" são as duas que precisam saltar aos
+                 olhos: nas duas, o papel na mão não vale o que parece valer. -->
+            <Border Margin="0,16,0,0"
+                    Visibility="{Binding Conferido, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ConferidoCancelado}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                                <Setter Property="BorderThickness" Value="1" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Conferido}" TextWrapping="Wrap" />
+            </Border>
+
+            <Button Content="Fechar" IsCancel="True" Style="{StaticResource BotaoSecundario}"
+                    HorizontalAlignment="Right" MinWidth="110" Margin="0,20,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

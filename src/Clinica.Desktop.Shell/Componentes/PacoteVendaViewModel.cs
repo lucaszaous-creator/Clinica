@@ -1,6 +1,7 @@
 using Clinica.Domain.Entities;
 using System.Collections.ObjectModel;
 using Clinica.Application.Servicos;
+using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -105,7 +106,12 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
             decimal? valor = null;
             if (!string.IsNullOrWhiteSpace(ValorCobrado))
             {
-                if (!decimal.TryParse(ValorCobrado, out var lido))
+                // `Valores.TentarLerValor` e não `decimal.TryParse`: o cru lê na cultura da
+                // MÁQUINA, e numa máquina pt-BR o ponto é separador de MILHAR — "1200.00"
+                // seria vendido como R$ 120.000 sem um aviso. É a leitura de DINHEIRO que
+                // aceita zero, porque zero aqui é a cortesia que a clínica decidiu dar;
+                // campo em branco continua significando "use o preço da tabela".
+                if (!Valores.TentarLerValor(ValorCobrado, out var lido))
                     throw new InvalidOperationException("Não entendi o valor: use algo como 250,00.");
                 valor = lido;
             }

@@ -382,6 +382,26 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public bool PodeEditarProntuario => SessaoUsuario.Atual.Pode(Permissao.EditarProntuario);
 
     /// <summary>
+    /// A aba PRONTUÁRIO desta ficha aparece — e ela é a metade que faltava da parcela 49.
+    ///
+    /// ⚠️ Até aqui a aba não tinha barreira NENHUMA, e a ficha é aberta com
+    /// <see cref="Permissao.VerFichaPaciente"/>. O perfil <c>Recepção</c> tem esse bit e
+    /// NÃO tem <c>VerProntuario</c> — exatamente o corte que a parcela 49 desenhou para
+    /// separar dado cadastral de dado de saúde (art. 5º, II). Bastava abrir a ficha de
+    /// qualquer paciente e clicar na aba ao lado para ler a evolução de todas as sessões,
+    /// a escala de dor e a contagem de anexos.
+    ///
+    /// É o cenário que o compromisso de conformidade nomeia por escrito: "bit que junte os
+    /// dois desfaz a parcela 49 e devolve a evolução inteira a quem só precisa marcar
+    /// horário". O bit estava certo; a TELA é que não o consultava.
+    ///
+    /// A aba some E os dados não são lidos (ver <c>CarregarAsync</c>): esconder a aba
+    /// deixando a leitura de pé continuaria trazendo prontuário para a memória de quem não
+    /// pode vê-lo, e a trilha de acesso registraria uma leitura que ninguém pediu.
+    /// </summary>
+    public bool PodeVerProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+
+    /// <summary>
     /// Metade VISÍVEL da permissão de escrever na FICHA: cadastro, consentimento,
     /// autorização do convênio e documento. Separada de <c>PodeEditarProntuario</c> na
     /// parcela 49 — digitar o telefone de alguém e escrever a evolução dele são atos de
@@ -520,6 +540,27 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var geracao = ++_geracaoCarga;
         var id = PacienteId;
 
+        // ⚠️ LIMPA TUDO ANTES DO PRIMEIRO await, e isso não é higiene: é o que impede a
+        // ficha de MISTURAR DOIS PACIENTES.
+        //
+        // A carga é uma sequência de leituras — cadastro, foto, prontuário,
+        // consentimentos, documentos, termos, CRM, elegibilidade, faltas, autorizações —,
+        // e cada uma preenche a sua coleção. Falhando no meio (banco remoto que cai, timeout
+        // do Neon), o `catch` escreve a mensagem de erro e sai: as coleções JÁ preenchidas
+        // ficam com o paciente NOVO e as que a sequência não alcançou ficam com o ANTERIOR.
+        //
+        // O resultado na tela é o nome de uma pessoa sobre os documentos, os termos e as
+        // autorizações de outra — com uma faixa de erro no topo que ninguém lê como "os
+        // dados abaixo são de duas pessoas". É a lição da parcela 66 (limpar antes do
+        // await, nunca depois) aplicada à tela onde ela custa mais caro.
+        Prontuario.Clear();
+        Consentimentos.Clear();
+        Alertas.Clear();
+        Documentos.Clear();
+        Termos.Clear();
+        Autorizacoes.Clear();
+        Contatos.Clear();
+
         try
         {
             Carregando = true;
@@ -547,8 +588,15 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
             if (geracao != _geracaoCarga) return;
             Foto = foto ?? paciente.FotoMiniatura;
 
-            await CarregarProntuarioAsync(scope, id, geracao);
-            if (geracao != _geracaoCarga) return;
+            // Sem `VerProntuario` a aba não existe (ver `PodeVerProntuario`), e a leitura
+            // também não acontece: trazer a evolução para a memória de quem não pode
+            // vê-la é o mesmo vazamento com uma etapa a mais, e faria a tela consultar
+            // dado de saúde sem que ninguém tivesse pedido.
+            if (PodeVerProntuario)
+            {
+                await CarregarProntuarioAsync(scope, id, geracao);
+                if (geracao != _geracaoCarga) return;
+            }
             await CarregarConsentimentosAsync(scope, id, geracao);
             if (geracao != _geracaoCarga) return;
             await CarregarDocumentosAsync(scope, id, geracao);
@@ -1023,22 +1071,49 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         await AbrirEvolucaoAsync(linha.EvolucaoId);
     }
 
+    /// <summary>
+    /// Cancelar a sessão do prontuário — a MESMA regra da tela de Prontuário, e é por isso
+    /// que ela está escrita igual aqui.
+    ///
+    /// ⚠️ Esta era a versão FROUXA do mesmo ato. Ela chamava
+    /// <c>CancelarAsync(evolucaoId, SessaoUsuario.Atual.Operador)</c>, e a assinatura é
+    /// <c>(evolucaoId, motivo, operador)</c>: o login de quem estava no balcão entrava como
+    /// <b>MOTIVO</b>, e o operador ficava NULO. O estrago era inteiro na parte que a Lei
+    /// 13.787/2018 exige — a rastreabilidade da retificação:
+    ///
+    /// <list type="bullet">
+    /// <item><c>MotivoCancelamento</c> gravava "ana.silva"; quem abrisse o prontuário daqui
+    ///       a vinte anos leria o login no lugar da justificativa;</item>
+    /// <item><c>CanceladaPor</c> ficava nulo — ninguém assinava o cancelamento;</item>
+    /// <item>a auditoria gravava <c>Operador = "?"</c>, e ela existe desde a parcela 21
+    ///       justamente para responder "quem fez isso?";</item>
+    /// <item>a recusa de motivo em branco do serviço nunca disparava, porque o login nunca
+    ///       é branco — a exigência existia e não era cobrada de ninguém.</item>
+    /// </list>
+    ///
+    /// A confirmação também mentia: dizia "Apagar a sessão… os anexos vão junto", e desde a
+    /// parcela 52 nada é apagado. Prometer exclusão de registro clínico é o contrário do
+    /// que o sistema faz e do que a lei permite.
+    /// </summary>
     [RelayCommand]
     private async Task ExcluirEvolucaoAsync(LinhaEvolucao? linha)
     {
         if (linha is null) return;
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-        if (!_dialogo.ConfirmarPerigo("Excluir do prontuário",
-                $"Apagar a sessão de {linha.Data}? Os anexos dela vão junto, e o prontuário "
-                + "é documento clínico — a exclusão fica registrada na auditoria.")) return;
+
+        var motivo = _dialogo.PerguntarTexto(
+            "Cancelar sessão do prontuário",
+            $"Por que a sessão de {linha.Data} está sendo cancelada? Ela NÃO é apagada — "
+            + "sai do prontuário que se lê e fica guardada, com este motivo ao lado.");
+        if (string.IsNullOrWhiteSpace(motivo)) return;
 
         try
         {
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.CancelarAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info("Sessão excluída do prontuário.");
+            await prontuario.CancelarAsync(linha.EvolucaoId, motivo, SessaoUsuario.Atual.Operador);
+            _snackbar.Info("Sessão cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)
@@ -1403,7 +1478,17 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarDadosAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "exportar os dados do titular");
+        // `VerProntuario`, e não `VerFichaPaciente`: o arquivo que sai daqui traz o TEXTO
+        // DA EVOLUÇÃO de todas as sessões (`TitularDadosService` monta o bloco "evolução"),
+        // e não só o cadastro. Com o bit da ficha, o perfil Recepção — que a parcela 49
+        // deixou de propósito sem acesso à evolução — exportava o prontuário inteiro para
+        // um .txt com um clique. Era a MESMA brecha da aba "Prontuário", pela segunda
+        // porta: checagem de acesso que só existe numa das portas é o defeito recorrente
+        // do projeto com o agravante de PARECER coberto.
+        //
+        // É também o que este projeto já tinha decidido por escrito — "o balcão exporta
+        // (VerProntuario), a direção elimina" —, e a tela é que não cumpria.
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "exportar os dados do titular");
 
         if (PacienteId == 0) return;
 

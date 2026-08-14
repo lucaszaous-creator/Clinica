@@ -297,9 +297,22 @@
                                                                      Converter={StaticResource BoolParaVisibilidade}}">
                                                     <TextBlock Text="Vem hoje" />
                                                 </Border>
+                                                <!-- Por que não dá, escrito na linha: o
+                                                     paciente sem consentimento CONTINUA na
+                                                     lista (quem some da lista some da
+                                                     cabeça), e o que falta é a instrução —
+                                                     colher o consentimento no balcão. -->
+                                                <TextBlock Text="{Binding ImpedimentoParabens}"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,0,8,0" MaxWidth="260"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding ImpedimentoParabens}"
+                                                           Visibility="{Binding TemImpedimento,
+                                                                        Converter={StaticResource BoolParaVisibilidade}}" />
                                                 <Button Content="Parabenizar"
                                                         Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                        IsEnabled="{Binding TemTelefone}"
+                                                        IsEnabled="{Binding PodeParabenizar}"
                                                         Command="{Binding DataContext.ParabenizarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />

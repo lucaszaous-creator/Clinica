@@ -2548,6 +2548,113 @@ for _tipo, _prop, _esperado in (
             f"(esperado: {_esperado})."
         )
 
+
+# --------------------------------------------------------------- checagem 35
+# `BooleanToVisibilityConverter` SOBRE UM VALOR QUE NÃO É `bool`.
+#
+# O conversor do WPF devolve `Collapsed` para QUALQUER coisa que não seja `bool`. Ligar
+# uma string ou uma contagem nele não é erro de compilação nem de binding: o XAML é
+# bem-formado, a propriedade existe, o binding resolve, nada lança — **o elemento
+# simplesmente nunca aparece**, e as três redes locais ficam verdes.
+#
+# Duas ocorrências já custaram caro, e a segunda mostrou que corrigir a primeira não fechou
+# o assunto:
+#   - parcela 61, sobre STRING: a mensagem da folha de execução, a justificativa da rodela
+#     e o nome do executante ficaram invisíveis desde a parcela 42;
+#   - parcela 68, sobre INT (`SoNoSistema.Count`): o bloco "no sistema e NÃO no extrato" da
+#     conciliação bancária nunca apareceu — justamente a metade que ninguém pede, a que
+#     denuncia pagamento dado como recebido aqui e sem correspondência no banco.
+#
+# A checagem casa o SUFIXO do caminho do binding, que é o que dá para saber por texto:
+# `.Count`/`.Length` são int, e nome de propriedade que o repositório declara como `string`
+# é string. Quem responde por elas é `TextoParaVisibilidade` e `ContagemParaVisibilidade`.
+#
+# ⚠️ Ela NÃO tenta adivinhar o tipo de todo binding: sem resolver o DataContext isso daria
+# falso positivo em toda propriedade booleana com nome incomum — e checagem que grita é
+# checagem que alguém desliga. Ela responde só onde tem CERTEZA.
+CONV_BOOL = re.compile(
+    r'Visibility\s*=\s*"\{Binding\s+([A-Za-z0-9_.\[\]]+)[^"}]*?'
+    r'Converter\s*=\s*\{StaticResource\s+(\w*[Bb]oolPara\w*)\}',
+    re.S)
+
+def _declarada_como(nome: str, tipo: str) -> bool:
+    """A propriedade (ou o campo do [ObservableProperty]) existe com este tipo?"""
+    return re.search(
+        r"\b(?:public|private|protected|internal)\s+(?:required\s+)?"
+        + tipo + r"\??\s+_?" + re.escape(nome) + r"\b",
+        _FONTES_CS, re.I,
+    ) is not None
+
+
+def _tipo_certo_do_caminho(caminho: str) -> str | None:
+    """int/str quando dá para afirmar pelo texto; None quando não dá."""
+    ultimo = caminho.split(".")[-1]
+    if ultimo in ("Count", "Length"):
+        return "int"
+
+    ehTexto = _declarada_como(ultimo, "string")
+    # ⚠️ NOME AMBÍGUO responde "não sei" e CALA.
+    #
+    # Sem resolver o DataContext de cada tela não há como saber de qual classe é a
+    # propriedade, e o repositório tem homônimos de tipos diferentes: `ForaDaFila` é
+    # `string` no `FilaViewModel` (o texto do rodapé da raia) e `bool` no
+    # `MinhaSemanaViewModel` (o selo "Não aconteceu"). A primeira versão desta checagem
+    # acusou o segundo, que está CERTO — e checagem que acusa o uso legítimo é a que
+    # alguém desliga, e aí ela para de pegar o defeito de verdade.
+    if ehTexto and _declarada_como(ultimo, "bool"):
+        return None
+
+    return "str" if ehTexto else None
+
+_FONTES_CS = "\n".join(
+    p.read_text(encoding="utf-8", errors="replace")
+    for proj in PROJETOS
+    for p in (RAIZ / proj).rglob("*.cs")
+)
+
+_conv_35 = 0
+for _arq, _ in arvores_com_faturamento.items():
+    _texto = _arq.read_text(encoding="utf-8")
+    for _m in CONV_BOOL.finditer(_texto):
+        _conv_35 += 1
+        _caminho = _m.group(1)
+        _tipo = _tipo_certo_do_caminho(_caminho)
+        if _tipo is None:
+            continue
+        _certo = "ContagemParaVisibilidade" if _tipo == "int" else "TextoParaVisibilidade"
+        _oque = "uma CONTAGEM (int)" if _tipo == "int" else "um TEXTO (string)"
+        erros.append(
+            f"{rel(_arq)}:{_texto.count(chr(10), 0, _m.start()) + 1}: `Visibility` ligada a "
+            f"`{_caminho}`, que é {_oque}, pelo conversor de BOOL — ele devolve `Collapsed` "
+            f"para tudo o que não é `bool`, então este elemento NUNCA aparece. Nada falha: "
+            f"só a tela montada mostra. Use `{_certo}`."
+        )
+
+# Autoteste. Ele CHAMA a função da checagem, nunca uma cópia da lógica dela (a lição do
+# autoteste da 18), e cobre o caso REAL das duas parcelas mais o caso legítimo — sem o
+# segundo, a checagem poderia passar a acusar todo booleano e ninguém notaria.
+if _conv_35 == 0:
+    erros.append(
+        "verificar-suite: a checagem 35 não achou nenhuma `Visibility` com conversor de "
+        "bool — o padrão de declaração mudou e ela parou de olhar o que deveria."
+    )
+for _caminho, _esperado in (
+    ("SoNoSistema.Count", "int"),   # o defeito real da parcela 68
+    ("Itens.Count", "int"),
+    ("Mensagem", "str"),            # o defeito real da parcela 61
+    ("MensagemEhErro", None),       # o uso LEGÍTIMO: booleano, tem de calar
+    ("TemMensagem", None),
+    # ⚠️ O nome AMBÍGUO — `string` no `FilaViewModel`, `bool` no `MinhaSemanaViewModel`.
+    # A primeira versão da checagem acusou o uso legítimo dele; sem este caso fixado,
+    # a próxima mexida no `_declarada_como` reintroduz o falso positivo em silêncio.
+    ("ForaDaFila", None),
+):
+    if _tipo_certo_do_caminho(_caminho) != _esperado:
+        erros.append(
+            f"verificar-suite: a checagem 35 mudou de resposta para `{_caminho}` "
+            f"(esperado: {_esperado})."
+        )
+
 # Autoteste da checagem 18 e da SAÍDA CONSCIENTE (parcela 67).
 #
 # ⚠️ Ele CHAMA as funções da checagem (`_usa`, `_corpo_do_up`, `_dispensa_declarada`) em vez

@@ -34,6 +34,12 @@
 
             <!-- ============ Profissionais ============ -->
             <Border Grid.Column="0" Style="{StaticResource Card}">
+                <!-- Grid por FORA (hospeda a sobreposição), DockPanel por dentro. O estado
+                     vazio explica o vazio de `Profissionais` — e vivia na RAIZ da tela,
+                     onde era desenhado por cima de "Salas" e de "Agenda fechada", que têm
+                     conteúdo próprio. Numa clínica recém-instalada ele cobria também o
+                     botão "Novo profissional", que é a única saída daquela tela. -->
+                <Grid>
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Text="Profissionais" Style="{StaticResource H3}" Margin="0"
@@ -101,6 +107,14 @@
                         </ItemsControl>
                     </ScrollViewer>
                 </DockPanel>
+                <ctrl:EstadoDaTela Itens="{Binding Profissionais}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE77B;"
+                                   TextoCarregando="Lendo a equipe…"
+                                   Titulo="Nenhum profissional cadastrado"
+                                   Descricao="Quem já tem histórico não se exclui — desative em vez de apagar." />
+                </Grid>
             </Border>
 
             <!-- ============ Salas ============ -->
@@ -285,12 +299,5 @@
             </Border>
         </Grid>
     </DockPanel>
-    <ctrl:EstadoDaTela Itens="{Binding Profissionais}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE77B;"
-                       TextoCarregando="Lendo a equipe…"
-                       Titulo="Nenhum profissional cadastrado"
-                       Descricao="Quem já tem histórico não se exclui — desative em vez de apagar." />
     </Grid>
 </UserControl>

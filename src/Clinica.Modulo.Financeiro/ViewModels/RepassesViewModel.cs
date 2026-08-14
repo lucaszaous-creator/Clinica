@@ -223,6 +223,11 @@ public sealed partial class RepassesViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarAsync()
     {
+        // Saída de dado conta como ato, e ato pede a segunda barreira (parcela 64).
+        // O item da sidebar já exige `VerFinanceiro`, mas item de menu é UMA barreira —
+        // foi por confiar só nela que a tela de Acessos ficou sem guarda até a parcela 51.
+        SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "exportar os repasses");
+
         if (Calculados.Count == 0)
         {
             _snackbar.Info("Não há repasse para exportar neste mês.");
@@ -445,15 +450,20 @@ public sealed partial class RegraRepasseViewModel : ObservableObject
             decimal? percentual = null;
             decimal? porAtendimento = null;
 
+            // `Valores.TentarLerDecimal`, e não `decimal.TryParse`: é o leitor do projeto,
+            // que tenta pt-BR e depois a cultura invariante. O cru usa a cultura da
+            // MÁQUINA, e numa máquina pt-BR o ponto é separador de MILHAR — "40.5" é lido
+            // como 405 e "50.00" como 5.000, sem erro nenhum. A regra seria salva mandando
+            // repassar 405% da receita, e o número só apareceria no fechamento do mês.
             if (EhPercentual)
             {
-                if (!decimal.TryParse(Percentual, out var lido))
+                if (!Valores.TentarLerDecimal(Percentual, out var lido))
                     throw new InvalidOperationException("Informe o percentual (ex.: 40).");
                 percentual = lido;
             }
             else
             {
-                if (!decimal.TryParse(ValorPorAtendimento, out var lido))
+                if (!Valores.TentarLerDecimal(ValorPorAtendimento, out var lido))
                     throw new InvalidOperationException("Informe o valor por atendimento (ex.: 50,00).");
                 porAtendimento = lido;
             }

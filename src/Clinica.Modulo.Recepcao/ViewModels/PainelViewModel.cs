@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Windows.Threading;
 using Clinica.Application.Modelos;
+using Clinica.Application.Abstracoes;
 using Clinica.Application.Servicos;
+using Clinica.Domain.Entities;
 using Clinica.Desktop.Shell.Componentes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -42,7 +44,36 @@ public sealed class LinhaAniversariante
     /// <summary>Vem hoje: o parabéns é dado no balcão e não custa nem a ligação.</summary>
     public required bool VemHoje { get; init; }
 
+    /// <summary>
+    /// Consentimento de comunicação e marketing VIGENTE (LGPD).
+    ///
+    /// O "Feliz aniversário" é comunicação ATIVA da clínica — não é aviso sobre uma sessão
+    /// que o paciente marcou (transacional, parcela 5) nem cobrança de conta vencida
+    /// (transacional, parcela 23). É relacionamento, a mesma natureza do recall, e o
+    /// projeto decidiu na parcela 5 que recall só sai com este consentimento.
+    ///
+    /// A parcela 64 aplicou a regra à tela "Quem parou de vir" e escreveu a lição: ao
+    /// achar o MESMO ato em duas telas, compare as duas. Esta é a terceira, e era a que
+    /// não perguntava nada.
+    /// </summary>
+    public required bool TemConsentimento { get; init; }
+
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
+
+    /// <summary>Metade VISÍVEL da regra: só há WhatsApp a abrir com telefone E consentimento.</summary>
+    public bool PodeParabenizar => TemTelefone && TemConsentimento;
+
+    /// <summary>
+    /// Por que não dá, escrito na linha. O paciente continua na lista de propósito — quem
+    /// some da lista some da cabeça, e o que a recepção precisa é da instrução para
+    /// resolver: colher o consentimento no balcão da próxima vez que ele aparecer.
+    /// </summary>
+    public string ImpedimentoParabens =>
+        !TemTelefone ? "sem telefone no cadastro"
+        : !TemConsentimento ? "sem consentimento de comunicação (LGPD) — colha no balcão"
+        : string.Empty;
+
+    public bool TemImpedimento => ImpedimentoParabens.Length > 0;
 }
 
 /// <summary>
@@ -66,6 +97,14 @@ public sealed partial class PainelViewModel : ObservableObject
     private const int JanelaAniversarioDias = 6;
 
     private readonly RelacionamentoService _relacionamento;
+
+    /// <summary>
+    /// Lido direto para a conferência de consentimento dos aniversariantes — é a MESMA
+    /// consulta em lote que a campanha e a tela de sumidos usam. Uma segunda definição de
+    /// "quem pode receber mensagem" divergiria na primeira correção, e a que ninguém
+    /// lembraria de ajustar é sempre a segunda.
+    /// </summary>
+    private readonly IClinicaRepositorio _repo;
 
     private readonly PainelRecepcaoService _painel;
 
@@ -131,10 +170,12 @@ public sealed partial class PainelViewModel : ObservableObject
     private readonly DispatcherTimer _relogio;
 
     public PainelViewModel(
-        PainelRecepcaoService painel, RelacionamentoService relacionamento)
+        PainelRecepcaoService painel, RelacionamentoService relacionamento,
+        IClinicaRepositorio repo)
     {
         _painel = painel;
         _relacionamento = relacionamento;
+        _repo = repo;
 
         // Dois minutos, e não um: o painel são CONTAGENS do dia, que mudam mais devagar
         // do que a coluna de um cartão na fila, e cada batida custa três consultas ao
@@ -240,6 +281,16 @@ public sealed partial class PainelViewModel : ObservableObject
             AniversariantesNaoVerificados = false;
             var lista = await _relacionamento.AniversariantesAsync(dia, JanelaAniversarioDias);
 
+            // Quem pode receber a mensagem. EM LOTE e pelo MESMO método da campanha e da
+            // tela de sumidos — uma consulta por paciente transformaria o painel, que
+            // relê sozinho a cada dois minutos, em dezenas de idas a um banco remoto.
+            // Lista vazia não vai ao banco: não há por quem perguntar.
+            var comConsentimento = lista.Count == 0
+                ? []
+                : (await _repo.PacientesComConsentimentoVigenteAsync(
+                        FinalidadeConsentimento.ComunicacaoEMarketing,
+                        lista.Select(a => a.PacienteId).ToList())).ToHashSet();
+
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
@@ -251,6 +302,7 @@ public sealed partial class PainelViewModel : ObservableObject
                     Paciente = a.Nome,
                     Telefone = a.Telefone,
                     VemHoje = a.VemHoje,
+                    TemConsentimento = comConsentimento.Contains(a.PacienteId),
                     Detalhe = (a.Idade is { } idade ? $"{idade} anos · " : string.Empty)
                               + a.DiaEMes
                               + (a.VemHoje ? " · vem hoje" : string.Empty)
@@ -273,6 +325,17 @@ public sealed partial class PainelViewModel : ObservableObject
     private void Parabenizar(LinhaAniversariante? linha)
     {
         if (linha?.Telefone is not { } telefone) return;
+
+        // A guarda que IMPEDE, ao lado do botão que EXPLICA. Sem ela o `IsEnabled` seria
+        // enfeite — e aqui o que passaria direto não é um clique a mais, é mensagem de
+        // relacionamento saindo para quem disse que não queria receber.
+        if (!linha.TemConsentimento)
+        {
+            Mensagem = $"{linha.Paciente} não tem consentimento de comunicação vigente (LGPD). "
+                       + "Colha o consentimento no balcão da próxima vez que ele aparecer.";
+            MensagemEhErro = true;
+            return;
+        }
 
         var primeiro = linha.Paciente.Split(' ').FirstOrDefault() ?? linha.Paciente;
         var erro = Whatsapp.Abrir(

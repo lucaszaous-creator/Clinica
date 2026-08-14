@@ -222,18 +222,34 @@ public sealed partial class MetasViewModel : ObservableObject
 
     private async Task AbrirAsync(LinhaMeta? linha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.DefinirMetas, "definir metas");
-
-        var vm = new MetaEdicaoViewModel(_escopos, Ano, linha);
-        var janela = new Janelas.MetaWindow(vm)
+        // ⚠️ O `Exigir` DENTRO do try, como no `ExcluirAsync` ao lado.
+        //
+        // Fora dele, a recusa de permissão subia até o `DispatcherUnhandledException` — o
+        // usuário sem `DefinirMetas` clicava em "Editar" e levava a caixa de erro genérica
+        // do app em vez da frase que explica o que falta. A guarda existe para DIZER por
+        // que não dá (a lição da parcela 41); estourando, ela vira o susto que a tela
+        // deveria evitar.
+        try
         {
-            Owner = System.Windows.Application.Current?.MainWindow
-        };
+            SessaoUsuario.Atual.Exigir(Permissao.DefinirMetas, "definir metas");
 
-        if (janela.ShowDialog() != true) return;
+            var vm = new MetaEdicaoViewModel(_escopos, Ano, linha);
+            var janela = new Janelas.MetaWindow(vm)
+            {
+                Owner = System.Windows.Application.Current?.MainWindow
+            };
 
-        _snackbar.Sucesso("Meta definida — o painel da direção já compara com ela.");
-        await CarregarAsync();
+            if (janela.ShowDialog() != true) return;
+
+            _snackbar.Sucesso("Meta definida — o painel da direção já compara com ela.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar("Gerente — meta não pôde ser aberta", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
     }
 
     /// <summary>

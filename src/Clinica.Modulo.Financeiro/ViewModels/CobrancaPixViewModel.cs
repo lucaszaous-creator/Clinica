@@ -1,4 +1,5 @@
 using System.Globalization;
+using Clinica.Desktop.Controls;
 using System.Windows;
 using Clinica.Application.Servicos;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -63,8 +64,16 @@ public sealed partial class CobrancaPixViewModel : ObservableObject
 
         try
         {
-            if (!decimal.TryParse(Valor, NumberStyles.Currency,
-                    CultureInfo.GetCultureInfo("pt-BR"), out var valor) || valor <= 0m)
+            // `Valores.TentarLerDecimal` (que resolve por `LeituraNumero`), e NÃO um
+            // `TryParse` com a cultura pt-BR fixa.
+            //
+            // ⚠️ Cultura explícita aqui era PIOR do que cultura da máquina, e é por isso
+            // que a varredura da parcela 68 passou reto por este ponto na primeira
+            // rodada: o filtro dela descartava as linhas que já declaravam `CultureInfo`,
+            // supondo que declarar cultura fosse o conserto. Em pt-BR o ponto é separador
+            // de MILHAR — "50.00" era lido como 5.000 e o QR saía cobrando cinco mil reais
+            // de uma sessão de cinquenta, com o paciente lendo o valor no celular dele.
+            if (!Valores.TentarLerDecimal(Valor, out var valor) || valor <= 0m)
             {
                 Erro("Informe o valor da cobrança — Pix sem valor deixa o paciente digitar quanto quiser.");
                 return;

@@ -1,3 +1,4 @@
+using System.Windows.Data;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using Clinica.Application.Servicos;
@@ -175,10 +176,92 @@ public sealed partial class DocumentosViewModel : ObservableObject
         _dialogo = dialogo;
 
         Seletor = new SeletorPacienteViewModel(escopos);
-        Seletor.SelecaoMudou += _ => AtualizarDisponibilidade();
+        Seletor.SelecaoMudou += _ =>
+        {
+            AtualizarDisponibilidade();
+            AplicarPacienteEscolhido();
+        };
 
         MontarCatalogo();
+
+        // As folhas em SEÇÕES (DO ATENDIMENTO · DO DINHEIRO · DA GESTÃO), por
+        // `CollectionViewSource` sobre a MESMA coleção — o padrão que a parcela 37 fixou
+        // depois de descobrir que uma lista por bloco se limpa mutuamente no
+        // `SelectedItem`. Aqui não há seleção, mas a razão de fundo continua: uma coleção,
+        // uma verdade.
+        FolhasAgrupadas = new CollectionViewSource { Source = Folhas };
+        FolhasAgrupadas.GroupDescriptions.Add(new PropertyGroupDescription(nameof(LinhaFolha.Grupo)));
+
         _ = CarregarAsync();
+    }
+
+    /// <summary>
+    /// As folhas agrupadas por natureza, para a tela desenhar uma seção por grupo em vez
+    /// de dez cartões emoldurados soltos.
+    /// </summary>
+    public CollectionViewSource FolhasAgrupadas { get; }
+
+    /// <summary>
+    /// Há paciente escolhido. Sete das dez folhas são de alguém, e a tela inteira muda de
+    /// estado com isso: sem paciente, o cabeçalho vira a BUSCA; com paciente, vira a
+    /// identidade de quem vai receber o papel.
+    /// </summary>
+    [ObservableProperty] private bool _temPacienteEscolhido;
+
+    /// <summary>Nome de quem vai receber o papel — a âncora do cabeçalho.</summary>
+    [ObservableProperty] private string _pacienteNome = string.Empty;
+
+    /// <summary>Convênio e idade, na mesma linha do nome: quem confere o papel olha os dois.</summary>
+    [ObservableProperty] private string _pacienteContexto = string.Empty;
+
+    private void AplicarPacienteEscolhido()
+    {
+        var p = Seletor.Selecionado;
+        TemPacienteEscolhido = p is not null;
+
+        if (p is null)
+        {
+            PacienteNome = string.Empty;
+            PacienteContexto = string.Empty;
+            return;
+        }
+
+        PacienteNome = p.Nome;
+
+        var partes = new List<string>(3) { p.ConvenioNome };
+        if (p.DataNascimento is { } n)
+        {
+            var hoje = DateOnly.FromDateTime(DateTime.Today);
+            var idade = hoje.Year - n.Year;
+            if (n > hoje.AddYears(-idade)) idade--;
+            partes.Add($"{idade} anos");
+        }
+        if (!string.IsNullOrWhiteSpace(p.Telefone)) partes.Add(p.Telefone!);
+
+        PacienteContexto = string.Join(" · ", partes);
+    }
+
+    /// <summary>Trocar de paciente: devolve o cabeçalho à busca.</summary>
+    [RelayCommand]
+    private void TrocarPaciente()
+    {
+        Seletor.Limpar();
+        Seletor.Termo = string.Empty;
+    }
+
+    /// <summary>
+    /// Escolher pelo resultado da busca.
+    ///
+    /// Passa por <c>SelecionarGarantindoNaLista</c> e não por uma atribuição direta: o
+    /// seletor é dono da própria lista, e é ele quem garante que o escolhido continue nela
+    /// — sem isso, escolher alguém que a próxima busca não devolve deixaria a seleção
+    /// apontando para fora dos `Resultados` e o binding a limparia sozinho.
+    /// </summary>
+    [RelayCommand]
+    private void EscolherPaciente(Paciente? paciente)
+    {
+        if (paciente is null) return;
+        Seletor.SelecionarGarantindoNaLista(paciente);
     }
 
     partial void OnInicioChanged(DateTime value) => _ = CarregarAsync();
@@ -415,6 +498,25 @@ public sealed partial class DocumentosViewModel : ObservableObject
     ///
     /// Não é área pública: quem confere é a recepção, com o papel na frente.
     /// </summary>
+    [RelayCommand]
+    private void AbrirConferencia()
+    {
+        // Zera a conferência anterior: a janela abre para o papel que está na mão AGORA, e
+        // reaproveitar a resposta da última faria alguém ler o resultado de outro documento.
+        Codigo = null;
+        Conferido = null;
+        ConferidoCancelado = false;
+        _conferidoId = null;
+        _conferidoPacienteId = null;
+
+        new Janelas.ConferirPapelWindow(this)
+        {
+            Owner = System.Windows.Application.Current?.Windows
+                        .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
+                    ?? System.Windows.Application.Current?.MainWindow
+        }.ShowDialog();
+    }
+
     [RelayCommand]
     private async Task ConferirAsync()
     {

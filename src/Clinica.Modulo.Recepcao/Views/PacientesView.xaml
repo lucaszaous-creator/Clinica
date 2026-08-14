@@ -447,7 +447,14 @@
                     </DockPanel>
                 </TabItem>
 
-                <TabItem Header="Prontuário">
+                <!-- A aba SOME para quem não tem `VerProntuario` (parcela 49): a ficha
+                     abre com `VerFichaPaciente`, que o perfil Recepção tem, e a evolução,
+                     a escala de dor e os anexos são dado de SAÚDE (art. 5º, II). Some em
+                     vez de ficar apagada porque uma aba desabilitada chamada "Prontuário"
+                     já anuncia que existe prontuário daquele paciente. -->
+                <TabItem Header="Prontuário"
+                         Visibility="{Binding PodeVerProntuario,
+                                      Converter={StaticResource BoolParaVisibilidade}}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                         <StackPanel Margin="0,0,0,24">
                 <Border Style="{StaticResource Card}">
@@ -876,9 +883,14 @@
                                    Text="Pedido de acesso e pedido de eliminação (LGPD, art. 18). O prontuário NÃO se apaga: a guarda é obrigação legal do profissional de saúde e a lei a preserva (art. 16, II) — anonimizar tira a identificação e mantém o histórico." />
 
                         <StackPanel Orientation="Horizontal">
+                            <!-- A metade VISÍVEL da permissão: o arquivo leva a evolução,
+                                 então o botão apaga para quem não tem `VerProntuario`.
+                                 Só a guarda no comando seria enfeite pela metade — a
+                                 pessoa clicaria e levaria a recusa depois. -->
                             <Button Content="Exportar meus dados"
                                     Style="{StaticResource BotaoSecundario}"
                                     MinWidth="170"
+                                    IsEnabled="{Binding PodeVerProntuario}"
                                     Command="{Binding ExportarDadosCommand}" />
                             <Button Content="Anonimizar cadastro" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPerigo}"

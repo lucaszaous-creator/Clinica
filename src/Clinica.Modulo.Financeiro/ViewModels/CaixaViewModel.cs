@@ -455,6 +455,11 @@ public sealed partial class CaixaViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarAsync()
     {
+        // Saída de dado conta como ato, e ato pede a segunda barreira (parcela 64).
+        // O item da sidebar já exige `VerFinanceiro`, mas item de menu é UMA barreira —
+        // foi por confiar só nela que a tela de Acessos ficou sem guarda até a parcela 51.
+        SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "exportar o caixa");
+
         if (Linhas.Count == 0)
         {
             _snackbar.Info("Não há lançamento para exportar neste mês.");

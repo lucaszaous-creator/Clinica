@@ -4,124 +4,123 @@
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
+    <!-- ============================================================
+         CENTRAL DE DOCUMENTOS — refeita na parcela 68, a pedido do cliente.
+
+         O que estava errado, contra a REGRA DE LEIAUTE do `README.md`:
+
+         1. FAIXA LATERAL PERMANENTE de 320 px com TRÊS cartões empilhados (Paciente,
+            Período, Conferir um papel). Duas das três só servem de vez em quando, e a
+            terceira é o CONTEXTO da tela — nenhuma precisa ocupar um quinto da largura o
+            dia inteiro. ⚠️ Eu havia REFUTADO este achado na auditoria citando os 320 px
+            que o `docs/design-system/layout-navegacao.md` sanciona para "painel de apoio";
+            o cliente reprovou a tela montada, e quem vê a tela decide.
+
+         2. "O QUE JÁ SAIU" ESPREMIDO. Ele dividia a coluna com o catálogo de folhas, que
+            cresce com o conteúdo (dez cartões em duas fileiras). Sobrava uma faixa de três
+            linhas com rolagem própria — a "lista longa em caixa de altura fixa" que a
+            regra proíbe.
+
+         3. DEZ CARTÕES EMOLDURADOS lado a lado = colcha de retalhos, com a frase "Escolha
+            o paciente ao lado" repetida OITO vezes.
+
+         4. DUAS PERGUNTAS numa tela só ("o que eu emito?" e "o que já saiu?"). A terceira
+            pergunta da regra responde: mais de uma pergunta, mais de uma tela — aqui,
+            duas ABAS, que é a convenção da suíte quando o item de menu é um só.
+
+         O desenho novo: identidade do paciente UMA VEZ no topo (a âncora), a ferramenta
+         pontual em botão, e duas abas de largura inteira.
+         ============================================================ -->
+
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
-    <Grid>
     <DockPanel Margin="24">
 
-        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
-            <TextBlock Text="Documentos" Style="{StaticResource H1}" Margin="0,0,0,4" />
-            <TextBlock Style="{StaticResource TextoSuave}" Margin="0" TextWrapping="Wrap"
-                       Text="As nove folhas que a clínica emite, num lugar só. Todo documento é numerado por ano, sai com código de conferência e NÃO se apaga — cancela-se com motivo e emite-se outro. O conteúdo é gravado na emissão, então a segunda via sai idêntica à que o paciente levou." />
-        </StackPanel>
+        <!-- ===== Cabeçalho ===== -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock Text="Documentos" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="820"
+                           Text="As folhas que a clínica emite, num lugar só. Todo documento é numerado por ano, sai com código de conferência e NÃO se apaga — cancela-se com motivo e emite-se outro." />
+            </StackPanel>
 
-        <Border DockPanel.Dock="Top" Style="{StaticResource AlertaPerigo}" Margin="0,0,0,12"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+            <!-- Ferramenta de uso pontual: BOTÃO, não painel aberto. -->
+            <Button Content="Conferir um papel…" Command="{Binding AbrirConferenciaCommand}"
+                    Style="{StaticResource BotaoSecundario}"
+                    HorizontalAlignment="Right" VerticalAlignment="Top" MinWidth="170" />
+        </Grid>
+
+        <!-- Quem decide se APARECE é o texto; quem decide a cor é a gravidade. -->
+        <Border DockPanel.Dock="Top" Margin="0,0,0,12"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            <Setter Property="BorderThickness" Value="1" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <!-- ===== Coluna direita: paciente + período ===== -->
-        <ScrollViewer DockPanel.Dock="Right" Width="320" Margin="16,0,0,0"
-                      VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Paciente" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Sete das nove folhas são de alguém. Escolha aqui antes de emitir." />
+        <!-- ===== O PACIENTE, uma vez, de largura inteira =====
+             Sete das dez folhas são de alguém, e a identidade é ÂNCORA, não filtro: é ela
+             que responde "para quem é este papel" enquanto a pessoa escolhe a folha. Por
+             isso ela fica no topo do conteúdo, e não numa coluna ao lado.
 
-                        <TextBox Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                                 MaxLength="80" />
-                        <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
-                                   TextWrapping="Wrap" Margin="0,4,0,0"
-                                   FontSize="{StaticResource Fonte.Legenda}" />
-                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                                 SelectedItem="{Binding Seletor.Selecionado}"
-                                 ItemTemplate="{StaticResource ItemPacienteSeletor}"
-                                 MaxHeight="220" Margin="0,6,0,0"
-                                 BorderThickness="0" Background="Transparent" />
-                    </StackPanel>
-                </Border>
+             Dois estados na MESMA faixa: a busca enquanto ninguém foi escolhido, e a
+             identidade depois. Trocar de paciente devolve a busca. -->
+        <Border DockPanel.Dock="Top" Style="{StaticResource Card}" Margin="0,0,0,12">
+            <Grid>
+                <!-- ESTADO 1: escolher -->
+                <!-- Sem `Visibility` no atributo: valor LOCAL vence o Setter do Style, e a
+                     faixa ficaria presa no estado de busca. Quem decide é só o gatilho. -->
+                <StackPanel>
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding TemPacienteEscolhido}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
 
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Período" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Recorta a lista do que já saiu e é o período do fechamento." />
+                    <TextBlock Text="Para quem é o papel?" Style="{StaticResource H3}"
+                               Margin="0,0,0,4" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
+                               Text="Sete das dez folhas são de alguém. As outras três — recibo, orçamento e fechamento do período — não precisam de paciente." />
 
-                        <TextBlock Text="De" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                        <DatePicker SelectedDate="{Binding Inicio}" />
-                        <TextBlock Text="Até" Style="{StaticResource Rotulo}" Margin="0,8,0,4" />
-                        <DatePicker SelectedDate="{Binding Fim}" />
+                    <TextBox Style="{StaticResource CampoPesquisa}" MaxWidth="520"
+                             HorizontalAlignment="Left"
+                             ctrl:Ajudantes.Placeholder="Nome, CPF ou carteirinha…"
+                             Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                             MaxLength="80" />
 
-                        <Button Content="Atualizar" Command="{Binding CarregarCommand}"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="100"
-                                HorizontalAlignment="Left" Margin="0,12,0,0" />
-                    </StackPanel>
-                </Border>
+                    <TextBlock Text="{Binding Seletor.Erro}" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap" Margin="0,4,0,0"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Visibility="{Binding Seletor.Erro,
+                                            Converter={StaticResource TextoParaVisibilidade},
+                                            FallbackValue=Collapsed}" />
 
-                <!-- ===== Conferir o papel pelo código impresso (parcela 25) ===== -->
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Conferir um papel" Style="{StaticResource H3}" Margin="0,0,0,4" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,0,0,8"
-                                   Text="Todo documento sai com um código no rodapé — é o que este sistema oferece no lugar do certificado ICP-Brasil. Digite o código do papel que está na sua frente." />
-
-                        <TextBox Text="{Binding Codigo, UpdateSourceTrigger=PropertyChanged}"
-                                 MaxLength="40" />
-
-                        <Button Content="Conferir" Command="{Binding ConferirCommand}"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="100"
-                                HorizontalAlignment="Left" Margin="0,10,0,0" />
-
-                        <TextBlock Text="{Binding Conferido}" TextWrapping="Wrap" Margin="0,10,0,0">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Conferido}" Value="{x:Null}">
-                                            <Setter Property="Visibility" Value="Collapsed" />
-                                        </DataTrigger>
-                                        <!-- Cancelado e "não existe" são as duas respostas
-                                             que precisam saltar aos olhos: nas duas, o
-                                             papel na mão não vale o que parece valer. -->
-                                        <DataTrigger Binding="{Binding ConferidoCancelado}" Value="True">
-                                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-
-                        <Button Content="Segunda via" Command="{Binding ReimprimirConferidoCommand}"
-                                Style="{StaticResource BotaoSecundario}" MinWidth="100"
-                                HorizontalAlignment="Left" Margin="0,10,0,0"
-                                Visibility="{Binding TemConferido,
-                                             Converter={StaticResource BoolParaVisibilidade}}" />
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
-
-        <!-- ===== As nove folhas + o que já saiu ===== -->
-        <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <Border Grid.Row="0" Style="{StaticResource Card}" Margin="0,0,0,12">
-                <DockPanel>
-                    <TextBlock DockPanel.Dock="Top" Text="Emitir uma folha"
-                               Style="{StaticResource H3}" Margin="0,0,0,10" />
-
-                    <ItemsControl ItemsSource="{Binding Folhas}">
+                    <!-- Os resultados em FILEIRA, e não numa coluna estreita: a tela tem a
+                         largura inteira, e uma lista vertical de 220 px foi o que fez a
+                         faixa lateral existir. -->
+                    <ItemsControl ItemsSource="{Binding Seletor.Resultados}" Margin="0,10,0,0"
+                                  Visibility="{Binding Seletor.TemResultados,
+                                               Converter={StaticResource BoolParaVisibilidade}}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
@@ -129,203 +128,342 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Width="248" Margin="0,0,10,10" Padding="12"
-                                        CornerRadius="{StaticResource Raio.Medio}"
-                                        BorderThickness="1"
-                                        BorderBrush="{StaticResource Brush.Borda}"
-                                        Background="{StaticResource Brush.Superficie}">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Grupo}"
-                                                   Style="{StaticResource CardKpi.Rotulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                        <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
-                                                   FontSize="{StaticResource Fonte.Corpo}" TextWrapping="Wrap"
-                                                   Margin="0,2,0,4" />
-                                        <TextBlock Text="{Binding Descricao}"
-                                                   Style="{StaticResource TextoSuave}"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   TextWrapping="Wrap" MinHeight="52" />
+                                <!-- `Button` com Template próprio DECLARA o Foreground: o
+                                     estilo implícito de Button na suíte é o PRIMÁRIO, e
+                                     Foreground é herdado — sem esta linha o rótulo sai
+                                     branco sobre a superfície branca (parcela 47). -->
+                                <Button Command="{Binding DataContext.EscolherPacienteCommand,
+                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                        CommandParameter="{Binding}"
+                                        Foreground="{StaticResource Brush.Texto.Primario}"
+                                        Margin="0,0,8,8" Padding="10,8" Cursor="Hand">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="fundo"
+                                                    Background="{StaticResource Brush.Superficie}"
+                                                    BorderBrush="{StaticResource Brush.Borda}"
+                                                    BorderThickness="1"
+                                                    CornerRadius="{StaticResource Raio.Medio}"
+                                                    Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="fundo" Property="Background"
+                                                            Value="{StaticResource Brush.Superficie.Hover}" />
+                                                    <Setter TargetName="fundo" Property="BorderBrush"
+                                                            Value="{StaticResource Brush.Acento}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
 
-                                        <!-- Diz o que FALTA em vez de deixar o botão aceso
-                                             e só depois avisar: descobrir o requisito
-                                             errando é o que faz a pessoa desistir. -->
-                                        <TextBlock Text="{Binding Pendencia}"
-                                                   Style="{StaticResource TextoSuave}"
-                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                   TextWrapping="Wrap" Margin="0,6,0,0"
-                                                   FontStyle="Italic" />
-
-                                        <Button Content="{Binding AcaoRotulo}"
-                                                Command="{Binding DataContext.GerarCommand,
-                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                CommandParameter="{Binding}"
-                                                IsEnabled="{Binding PodeGerar}"
-                                                Style="{StaticResource BotaoPequeno}"
-                                                HorizontalAlignment="Left" MinWidth="120"
-                                                Margin="0,10,0,0" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <ctrl:Avatar Foto="{Binding FotoMiniatura}"
+                                                     Nome="{Binding Nome}" Tamanho="32"
+                                                     VerticalAlignment="Center" />
+                                        <StackPanel Margin="8,0,0,0" VerticalAlignment="Center"
+                                                    MaxWidth="220">
+                                            <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding ConvenioNome}"
+                                                       Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
                                     </StackPanel>
-                                </Border>
+                                </Button>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                </StackPanel>
+
+                <!-- ESTADO 2: escolhido — a identidade como âncora -->
+                <DockPanel Visibility="{Binding TemPacienteEscolhido,
+                                        Converter={StaticResource BoolParaVisibilidade}}">
+                    <Button DockPanel.Dock="Right" Content="Trocar paciente"
+                            Command="{Binding TrocarPacienteCommand}"
+                            Style="{StaticResource BotaoSecundario}"
+                            VerticalAlignment="Center" MinWidth="150" Margin="12,0,0,0" />
+
+                    <ctrl:Avatar DockPanel.Dock="Left" Foto="{Binding Seletor.Selecionado.FotoMiniatura}"
+                                 Nome="{Binding PacienteNome}" Tamanho="40"
+                                 VerticalAlignment="Center" Margin="0,0,12,0" />
+
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding PacienteNome}" Style="{StaticResource H3}"
+                                   Margin="0" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding PacienteContexto}"
+                                   Style="{StaticResource TextoSuave}"
+                                   FontSize="{StaticResource Fonte.Legenda}"
+                                   TextTrimming="CharacterEllipsis" Margin="0" />
+                    </StackPanel>
                 </DockPanel>
-            </Border>
+            </Grid>
+        </Border>
 
-            <Border Grid.Row="1" Style="{StaticResource Card}">
-                <DockPanel>
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
-                        <TextBlock Text="O que já saiu" Style="{StaticResource H3}"
-                                   VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
-                                   HorizontalAlignment="Right" VerticalAlignment="Center" />
-                    </Grid>
+        <!-- ===== Duas perguntas, duas abas ===== -->
+        <TabControl Background="Transparent" BorderThickness="0">
 
-                    <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}"
-                            Visibility="{Binding SemPapel, Converter={StaticResource BoolParaVisibilidade}}">
-                        <TextBlock TextWrapping="Wrap"
-                                   Text="Nenhum papel emitido no período escolhido." />
-                    </Border>
-
-                    <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="200" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Número" Style="{StaticResource Rotulo}" />
-                        <TextBlock Grid.Column="1" Text="Folha" Style="{StaticResource Rotulo}" />
-                        <TextBlock Grid.Column="2" Text="Para" Style="{StaticResource Rotulo}" />
-                        <TextBlock Grid.Column="3" Text="Data" Style="{StaticResource Rotulo}" />
-                    </Grid>
-
+            <!-- ======================= EMITIR ======================= -->
+            <TabItem Header="Emitir uma folha">
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Emitidas}">
+                        <!-- UMA superfície por REGIÃO, com as folhas em SEÇÕES separadas
+                             por rótulo — no lugar de dez molduras soltas. O que era o
+                             cabeçalho de cada cartão ("DO ATENDIMENTO") virou o cabeçalho
+                             do GRUPO, dito uma vez. -->
+                        <ItemsControl ItemsSource="{Binding FolhasAgrupadas.View}">
+                            <ItemsControl.GroupStyle>
+                                <GroupStyle>
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Name}"
+                                                       Style="{StaticResource CardKpi.Rotulo}"
+                                                       HorizontalAlignment="Left"
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,10,0,6" />
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </ItemsControl.GroupStyle>
+
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
+                                    <!-- LINHA, não cartão: nome à esquerda, o que ela é no
+                                         meio, a ação à direita. Lê-se em coluna, e o olho
+                                         acha a folha pelo nome sem varrer dez retângulos. -->
                                     <Border BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1" Padding="0,8">
+                                            BorderThickness="0,0,0,1" Padding="0,10">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="110" />
-                                                <ColumnDefinition Width="200" />
+                                                <ColumnDefinition Width="230" />
                                                 <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="100" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
-                                            <TextBlock Grid.Column="0" Text="{Binding Numero}"
+                                            <TextBlock Grid.Column="0" Text="{Binding Rotulo}"
+                                                       FontWeight="SemiBold" TextWrapping="Wrap"
                                                        VerticalAlignment="Center"
-                                                       FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="1" Text="{Binding Folha}"
-                                                       VerticalAlignment="Center" TextWrapping="Wrap"
-                                                       FontSize="{StaticResource Fonte.Tabela}" />
+                                                       Margin="0,0,12,0" />
 
-                                            <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Para}" TextWrapping="Wrap"
-                                                           FontSize="{StaticResource Fonte.Tabela}" />
-                                                <TextBlock Text="{Binding Detalhe}"
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center"
+                                                        Margin="0,0,12,0">
+                                                <TextBlock Text="{Binding Descricao}"
                                                            Style="{StaticResource TextoSuave}"
                                                            FontSize="{StaticResource Fonte.Legenda}"
-                                                           TextWrapping="Wrap" />
-                                                <!-- Cancelada aparece MARCADA, nunca sumindo:
-                                                     esconder faria a lista mentir sobre o que
-                                                     o paciente levou para casa. -->
-                                                <TextBlock Text="{Binding Situacao}"
-                                                           TextWrapping="Wrap"
-                                                           FontSize="{StaticResource Fonte.Legenda}">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Cancelado}" Value="True">
-                                                                    <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
-                                                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-
-                                                <!-- Só aparece em documento que tem link
-                                                     (parcela 53). Linha vazia em toda receita
-                                                     não publicada seria ruído numa lista que
-                                                     já tem quatro informações por item. -->
-                                                <TextBlock Text="{Binding Link}"
-                                                           TextWrapping="Wrap"
-                                                           FontSize="{StaticResource Fonte.Legenda}">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding Link}" Value="">
-                                                                    <Setter Property="Visibility" Value="Collapsed" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
+                                                           TextWrapping="Wrap" Margin="0" />
+                                                <!-- Diz o que FALTA em vez de deixar o botão
+                                                     aceso e só depois avisar. Some quando não
+                                                     falta nada: a frase "escolha o paciente"
+                                                     repetida em oito linhas era ruído. -->
+                                                <TextBlock Text="{Binding Pendencia}"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           FontStyle="Italic" TextWrapping="Wrap"
+                                                           Margin="0,3,0,0"
+                                                           Visibility="{Binding Pendencia,
+                                                                        Converter={StaticResource TextoParaVisibilidade},
+                                                                        FallbackValue=Collapsed}" />
                                             </StackPanel>
 
-                                            <TextBlock Grid.Column="3" Text="{Binding Data}"
-                                                       VerticalAlignment="Center"
-                                                       FontSize="{StaticResource Fonte.Tabela}" TextTrimming="CharacterEllipsis" />
-
-                                            <StackPanel Grid.Column="4" Orientation="Horizontal"
-                                                        VerticalAlignment="Center">
-                                                <Button Content="2ª via"
-                                                        Command="{Binding DataContext.ReimprimirCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}"
-                                                        Style="{StaticResource BotaoAcaoGrid}"
-                                                        MinWidth="70" Margin="0,0,6,0" />
-                                                <!-- Some quando não há o que renovar: botão
-                                                     apagado em toda linha da lista ensinaria
-                                                     a recepção a ignorá-lo. -->
-                                                <Button Content="Renovar link"
-                                                        Command="{Binding DataContext.RenovarLinkCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}"
-                                                        Style="{StaticResource BotaoAcaoGrid}"
-                                                        MinWidth="100" Margin="0,0,6,0"
-                                                        Visibility="{Binding PodeRenovarLink,
-                                                                     Converter={StaticResource BoolParaVisibilidade}}" />
-
-                                                <!-- O par que faltava do Renovar (parcela 63).
-                                                     Receita publicada por engano ficava no ar
-                                                     até o prazo vencer — 30 ou 180 dias de dado
-                                                     de saúde num endereço público. -->
-                                                <Button Content="Tirar do ar"
-                                                        Command="{Binding DataContext.TirarDoArCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}"
-                                                        ToolTip="O QR impresso para de abrir na hora. O documento continua guardado e o link pode voltar depois."
-                                                        Style="{StaticResource BotaoAcaoGridSecundario}"
-                                                        MinWidth="100" Margin="0,0,6,0"
-                                                        Visibility="{Binding PodeTirarDoAr,
-                                                                     Converter={StaticResource BoolParaVisibilidade}}" />
-                                                <Button Content="Cancelar"
-                                                        Command="{Binding DataContext.CancelarCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                        CommandParameter="{Binding}"
-                                                        IsEnabled="{Binding PodeCancelar}"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        MinWidth="80" />
-                                            </StackPanel>
+                                            <Button Grid.Column="2" Content="{Binding AcaoRotulo}"
+                                                    Command="{Binding DataContext.GerarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    IsEnabled="{Binding PodeGerar}"
+                                                    Style="{StaticResource BotaoSecundario}"
+                                                    VerticalAlignment="Center" MinWidth="150" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
-                </DockPanel>
-            </Border>
-        </Grid>
+                </Border>
+            </TabItem>
+
+            <!-- ==================== O QUE JÁ SAIU ==================== -->
+            <TabItem Header="O que já saiu">
+                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                    <!-- Grid por FORA (hospeda a sobreposição do estado), DockPanel por
+                         dentro: a sobreposição pertence à REGIÃO cujo vazio ela explica. -->
+                    <Grid>
+                        <DockPanel>
+
+                            <!-- O período MORA AQUI, que é onde ele age: ele recorta esta
+                                 lista e é o período do fechamento. Numa barra de uma linha,
+                                 não num cartão de 320 px na lateral. -->
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="De" Style="{StaticResource Rotulo}"
+                                               VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <DatePicker SelectedDate="{Binding Inicio}" Width="140"
+                                                VerticalAlignment="Center" />
+                                    <TextBlock Text="até" Style="{StaticResource Rotulo}"
+                                               VerticalAlignment="Center" Margin="10,0,6,0" />
+                                    <DatePicker SelectedDate="{Binding Fim}" Width="140"
+                                                VerticalAlignment="Center" />
+                                    <Button Content="Atualizar" Command="{Binding CarregarCommand}"
+                                            Style="{StaticResource BotaoSecundario}"
+                                            VerticalAlignment="Center" MinWidth="110"
+                                            Margin="12,0,0,0" />
+                                </StackPanel>
+
+                                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+                            </Grid>
+
+                            <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="110" />
+                                    <ColumnDefinition Width="1.2*" />
+                                    <ColumnDefinition Width="2*" />
+                                    <ColumnDefinition Width="100" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Número" Style="{StaticResource Rotulo}" />
+                                <TextBlock Grid.Column="1" Text="Folha" Style="{StaticResource Rotulo}" />
+                                <TextBlock Grid.Column="2" Text="Para" Style="{StaticResource Rotulo}" />
+                                <TextBlock Grid.Column="3" Text="Data" Style="{StaticResource Rotulo}" />
+                            </Grid>
+
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding Emitidas}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderBrush="{StaticResource Brush.Borda}"
+                                                    BorderThickness="0,0,0,1" Padding="0,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="110" />
+                                                        <ColumnDefinition Width="1.2*" />
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="100" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <TextBlock Grid.Column="0" Text="{Binding Numero}"
+                                                               VerticalAlignment="Center" Margin="0,0,8,0"
+                                                               FontSize="{StaticResource Fonte.Tabela}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding Folha}"
+                                                               VerticalAlignment="Center" Margin="0,0,8,0"
+                                                               TextWrapping="Wrap"
+                                                               FontSize="{StaticResource Fonte.Tabela}" />
+
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center"
+                                                                Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding Para}" TextWrapping="Wrap"
+                                                                   FontSize="{StaticResource Fonte.Tabela}" />
+                                                        <TextBlock Text="{Binding Detalhe}"
+                                                                   Style="{StaticResource TextoSuave}"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   TextWrapping="Wrap" />
+                                                        <!-- Cancelada aparece MARCADA, nunca sumindo:
+                                                             esconder faria a lista mentir sobre o que
+                                                             o paciente levou para casa. -->
+                                                        <TextBlock Text="{Binding Situacao}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontSize="{StaticResource Fonte.Legenda}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Cancelado}" Value="True">
+                                                                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+
+                                                        <!-- Só aparece em documento que tem link
+                                                             (parcela 53). Linha vazia em toda receita
+                                                             não publicada seria ruído. -->
+                                                        <TextBlock Text="{Binding Link}"
+                                                                   TextWrapping="Wrap"
+                                                                   FontSize="{StaticResource Fonte.Legenda}">
+                                                            <TextBlock.Style>
+                                                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                                                    <Style.Triggers>
+                                                                        <DataTrigger Binding="{Binding Link}" Value="">
+                                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                                        </DataTrigger>
+                                                                    </Style.Triggers>
+                                                                </Style>
+                                                            </TextBlock.Style>
+                                                        </TextBlock>
+                                                    </StackPanel>
+
+                                                    <TextBlock Grid.Column="3" Text="{Binding Data}"
+                                                               VerticalAlignment="Center"
+                                                               FontSize="{StaticResource Fonte.Tabela}"
+                                                               TextTrimming="CharacterEllipsis" />
+
+                                                    <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                                                VerticalAlignment="Center">
+                                                        <Button Content="2ª via"
+                                                                Command="{Binding DataContext.ReimprimirCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource BotaoAcaoGrid}"
+                                                                MinWidth="70" Margin="0,0,6,0" />
+                                                        <!-- Some quando não há o que renovar: botão
+                                                             apagado em toda linha ensinaria a
+                                                             recepção a ignorá-lo. -->
+                                                        <Button Content="Renovar link"
+                                                                Command="{Binding DataContext.RenovarLinkCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                Style="{StaticResource BotaoAcaoGrid}"
+                                                                MinWidth="100" Margin="0,0,6,0"
+                                                                Visibility="{Binding PodeRenovarLink,
+                                                                             Converter={StaticResource BoolParaVisibilidade}}" />
+
+                                                        <!-- O par que faltava do Renovar (parcela 63).
+                                                             Receita publicada por engano ficava no ar
+                                                             até o prazo vencer. -->
+                                                        <Button Content="Tirar do ar"
+                                                                Command="{Binding DataContext.TirarDoArCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip="O QR impresso para de abrir na hora. O documento continua guardado e o link pode voltar depois."
+                                                                Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                                MinWidth="100" Margin="0,0,6,0"
+                                                                Visibility="{Binding PodeTirarDoAr,
+                                                                             Converter={StaticResource BoolParaVisibilidade}}" />
+                                                        <!-- Destrutivo de LINHA é de contorno, não
+                                                             sólido: um vermelho cheio por linha faz a
+                                                             lista inteira parecer tela de erro
+                                                             (parcela 41). -->
+                                                        <Button Content="Cancelar"
+                                                                Command="{Binding DataContext.CancelarCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                CommandParameter="{Binding}"
+                                                                IsEnabled="{Binding PodeCancelar}"
+                                                                Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                                MinWidth="80" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+
+                        <ctrl:EstadoDaTela Itens="{Binding Emitidas}"
+                                           Carregando="{Binding Carregando}"
+                                           NaoVerificado="{Binding NaoVerificado}"
+                                           Glifo="&#xE8A5;"
+                                           TextoCarregando="Lendo os documentos…"
+                                           Titulo="Nenhum documento emitido"
+                                           Descricao="Nada saiu no período escolhido. Documento cancelado aparece marcado, nunca sumindo." />
+                    </Grid>
+                </Border>
+            </TabItem>
+        </TabControl>
     </DockPanel>
-    <ctrl:EstadoDaTela Itens="{Binding Emitidas}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE8A5;"
-                       TextoCarregando="Lendo os documentos…"
-                       Titulo="Nenhum documento emitido"
-                       Descricao="Documento cancelado aparece marcado, nunca sumindo." />
-    </Grid>
 </UserControl>

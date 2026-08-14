@@ -58,11 +58,29 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
+                <!-- A COR segue a gravidade, e não o fato de haver mensagem.
+                     Fixa em `Brush.Erro`, esta faixa pintava de vermelho a frase mais
+                     importante da tela — "Atendimento registrado — 2 guia(s) no
+                     faturamento" —, que é justamente a CONFIRMAÇÃO de que deu certo.
+                     Sucesso com a cara de falha produz o desfecho da parcela 65: em
+                     12/08/2026 a mesma paciente foi lançada três vezes em 71 segundos
+                     porque ninguém viu confirmação nenhuma, e hoje o clique repetido manda
+                     um jogo de guias DUPLICADO à operadora. -->
                 <TextBlock Grid.Column="0" Text="{Binding Mensagem}" TextWrapping="Wrap"
                            VerticalAlignment="Center" HorizontalAlignment="Left"
                            MaxWidth="560" Margin="0,0,16,0"
-                           Foreground="{StaticResource Brush.Erro}"
-                           Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}" />
+                           Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso.Forte}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal"
                             VerticalAlignment="Center" HorizontalAlignment="Right">

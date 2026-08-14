@@ -113,6 +113,25 @@ public sealed partial class CartaoFila : ObservableObject
     public bool TemProximoPasso => ProximoPasso.Length > 0;
 
     /// <summary>
+    /// O botão do próximo passo está habilitado para QUEM está logado.
+    ///
+    /// ⚠️ A permissão do último passo é OUTRA, e o botão não sabia disso. Mover a fila
+    /// (Chegou · Chamar · Entrou) é `EditarAgenda` OU `MovimentarFila` — a conta da
+    /// parcela 61, que deu ao perfil `Profissional` o direito de chamar o próprio
+    /// paciente sem lhe dar a agenda de terceiros. Mas "Concluir" NÃO é mover a fila: é
+    /// o fechamento da sessão, que são quatro fatos do mesmo ato (guia, pacote, insumo,
+    /// caixa) e três deles são do balcão — por isso `FinalizarAsync` exige `EditarAgenda`
+    /// puro, e a parcela 61 registrou essa decisão por escrito.
+    ///
+    /// O botão, porém, seguia o `PodeEditarAgenda` da tela, que é o OU. O profissional
+    /// via "Concluir" ACESO, clicava e levava a recusa — o botão aceso que não faz nada,
+    /// da parcela 41, com a permissão certa por baixo e a metade visível errada.
+    /// </summary>
+    public bool PodePassar => Etapa == EtapaFila.EmAtendimento
+        ? SessaoUsuario.Atual.Pode(Permissao.EditarAgenda)
+        : SessaoUsuario.Atual.PodeAlgum(Permissao.EditarAgenda | Permissao.MovimentarFila);
+
+    /// <summary>
     /// Quem LANÇOU o horário, e quando (parcela 58). Vai na dica do cartão: o quadro é
     /// denso de propósito, e uma linha a mais por cartão custaria a densidade que faz o
     /// dia caber na tela.
