@@ -84,9 +84,10 @@ Camadas clássicas, todas em `src/`:
   (gera os códigos ao lançar atendimento), `PendenciaService` (alimenta o dashboard: 2º códigos,
   consultas a renovar, glosas com prazo de recurso, carteirinhas), `LoteTissService`/`TissExportService`
   (lotes e XML TISS 4.01), `GlosaService`, `ParametrosService` (configuração global no banco, com snapshot).
-- **Clinica.Infrastructure** — EF Core + Npgsql (PostgreSQL/Neon), `ClinicaDbContext`,
+- **Clinica.Infrastructure** — EF Core + Npgsql (PostgreSQL), `ClinicaDbContext`,
   `ClinicaRepositorio` (única implementação do repositório), migrations. Migrations são aplicadas
-  **automaticamente na abertura do app** (`App.xaml.cs` → `MigrateAsync`).
+  **automaticamente na abertura do app** (`App.xaml.cs` → `MigrateAsync`). O banco roda numa
+  **VPS brasileira fechada por mTLS** desde ago/2026 (era Neon) — ver a regra da virada abaixo.
 - **Clinica.Desktop** — WPF/MVVM. `App.xaml.cs` é o bootstrap: auto-update Velopack → obtenção da
   connection string (env `ConnectionStrings__Clinica` → `ConexaoStore` criptografado via DPAPI em
   `%APPDATA%\ClinicaFaturamento` → tela `SetupWindow`) → host DI → migrations → `MainWindow`.
@@ -3070,9 +3071,39 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   fora do lugar onde foi escrita: **quando uma decisão exclui um caminho, o motivo tem prazo
   de validade — releia-o antes de citá-lo.** Decisão citada pela conclusão, e não pela razão,
   vira regra que ninguém sabe mais por que existe.
+- **O banco saiu da Neon para uma VPS fechada por mTLS** (ago/2026; desenho em
+  `docs/banco-na-vps.md`, roteiro da noite em `docs/virada.md`). O pedido tinha quatro
+  restrições SIMULTÂNEAS, e é a combinação delas que exclui as saídas óbvias: **custo fixo**
+  (Neon/Supabase são *usage based*), **conexão direta sem agente instalado** (VPN recusada —
+  *"app que pode parar de funcionar de uma hora para outra"*), **usuários remotos trocando de
+  IP e de MAC** (então não há lista de liberação) e **nada exposto** (a cliente audita). Sobra
+  `hostssl … clientcert=verify-ca`: **duas fechaduras** — o certificado de cliente E a senha
+  SCRAM —, e é isso que faz a senha vazada não abrir nada. De quebra, VPS brasileira **tira**
+  a pendência do art. 33 (transferência internacional) do `docs/conformidade-lgpd.md`.
+  A **API HTTPS no meio** foi descartada com número: 234 métodos no `IClinicaRepositorio` e
+  179 `SalvarAsync` que dependem do change tracking do EF — mas leia o corolário da Família 15
+  antes de citar esta decisão para outra pergunta.
+  O que o desenho da instalação resolve, e por que ele é assim: são ~20 máquinas de nomes
+  aleatórios, e o TI não preenche nada. `tools/vps/montar-kit.sh` é **um comando na VPS** e
+  emite a pilha de `.pfx` ANÔNIMOS mais um `.bat` com IP, porta e senhas já embutidas; o
+  `.bat` pega **o primeiro certificado livre**, move-o para `usados\` e escreve uma linha no
+  `registro.txt` — **a planilha de revogação é subproduto da instalação**, não uma tarefa ao
+  lado dela. ⚠️ **Nunca rode o `montar-kit.sh` de novo** depois de instalada a primeira
+  máquina: ele **rotaciona a senha do banco** e invalida todas as configuradas; kit perdido se
+  rebaixa da VPS, não se regera.
+  ⚠️ E a lição que custou dois dias: **instalar não é virar.** Programa aberto **não relê**
+  variável de ambiente, então a máquina configurada continuou gravando na Neon até o app ser
+  fechado e reaberto — e o critério do roteiro ("abriu com os dados") passava dos dois jeitos,
+  porque a Neon também tem os dados. A prova que reprova é comparar as DUAS bases e ver qual
+  cresce. O resto está na Família 16.
 - ⚠️ **A retrospectiva desta rodada, por FAMÍLIA de erro, está em `docs/licoes-dos-erros.md`.**
-  As entradas acima são cronológicas; lá o mesmo material está cortado por padrão — as quinze
-  famílias, o placar de quem achou cada defeito (as três redes: 9; o CI: 1; a revisão
-  adversarial: 8, com tudo verde; o cliente: 1) e as treze perguntas que teriam pego a maioria.
-  O denominador comum de quase todos: **nada falha** — o sistema faz uma coisa levemente
-  diferente da que diz fazer, e quem descobre é quem usa.
+  As entradas acima são cronológicas; lá o mesmo material está cortado por padrão — as vinte e
+  três famílias, o placar de quem achou cada defeito (as três redes: 9; o CI: 1; a revisão
+  adversarial: 8, com tudo verde; o cliente: 1) e as dezoito perguntas que teriam pego a
+  maioria. O denominador comum de quase todos: **nada falha** — o sistema faz uma coisa
+  levemente diferente da que diz fazer, e quem descobre é quem usa.
+  ⚠️ As famílias **16 a 23** não vêm de código: são a virada do banco, onde **não existe rede
+  nenhuma** — nem `compilar-sombra`, nem `verificar-suite`, nem os 1546 testes. E o desfecho
+  foi o mesmo do código todo verde. Ou seja: **o problema nunca foi confiar no verde; é
+  aceitar como resposta qualquer coisa que passaria dos dois jeitos.** A pergunta que unifica
+  o documento inteiro é **"o que eu veria se isto NÃO tivesse funcionado?"**
