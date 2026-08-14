@@ -204,9 +204,34 @@ public sealed class AssinaturaDeDocumentoClinicoService
         // é efeito colateral. Falhar aqui não desfaz nada — vira frase no resultado, e a
         // tela mostra. Sucesso silencioso faria a secretária entregar dizendo "é só
         // escanear" com o QR apontando para um endereço que não existe.
-        var publicacao = _publicacao is null
-            ? null
-            : await _publicacao.PublicarAsync(documento, assinado.Pdf, ct);
+        //
+        // ⚠️ O `catch` é a metade que faltava, e a ausência dela chegou à clínica em
+        // 14/08/2026: a publicação estourou (data com fuso, ver DatasSemFusoTests), a
+        // exceção subiu por cima de tudo isto, e a tela disse que o documento NÃO tinha sido
+        // assinado — quando ele tinha, e estava gravado. É o pior desfecho possível: quem lê
+        // "não foi assinado" emite de novo, e ficam DOIS documentos do mesmo ato, que é
+        // exatamente o que o comentário de `DocumentoEdicaoViewModel` avisa.
+        //
+        // O comentário acima já dizia "falhar aqui não desfaz nada"; ele descrevia uma
+        // intenção que o código não cumpria. Agora cumpre.
+        ResultadoPublicacao? publicacao = null;
+
+        if (_publicacao is not null)
+        {
+            try
+            {
+                publicacao = await _publicacao.PublicarAsync(documento, assinado.Pdf, ct);
+            }
+            catch (Exception ex)
+            {
+                Diagnostico.Registrar(
+                    $"Publicação do documento {documento.Numero} falhou depois de assinar", ex);
+
+                publicacao = ResultadoPublicacao.Falhou(
+                    "O documento foi assinado e gravado, mas NÃO foi publicado para o QR "
+                    + $"Code — o farmacêutico vai precisar do arquivo. Motivo: {ex.Message}");
+            }
+        }
 
         return new DocumentoAssinado(assinado.Pdf, nomeArquivo, documento, conferencia)
         {
