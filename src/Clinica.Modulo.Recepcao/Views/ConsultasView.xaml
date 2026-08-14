@@ -74,12 +74,11 @@
             </Grid>
         </Border>
 
-        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade.
-             Amarrada a `MensagemEhErro`, a caixa sumia com a mensagem de ÊXITO — que zera o
-             booleano —, e "Consulta de Maria renovada." nunca chegava ao balcão: a
-             recepcionista clicava em Renovar e a tela não respondia nada. É o defeito das
-             parcelas 62 e 64, que varreram a Recepção pelas JANELAS e o Gerente pelas VIEWS
-             e deixaram esta de fora. -->
+        <!-- UMA caixa: quem decide se aparece é o TEXTO, quem decide a cor é a gravidade.
+             Aqui havia DUAS — uma vermelha ligada a `MensagemEhErro` e outra azul ligada à
+             ausência dele. Elas funcionavam, e é justamente por isso que valia consolidar:
+             a mesma mensagem tinha dois desenhos possíveis mantidos em lugares diferentes,
+             e a correção de um não alcança o outro. É o padrão que a parcela 64 fixou. -->
         <Border DockPanel.Dock="Top" Margin="0,0,0,12"
                 Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
                              FallbackValue=Collapsed}">
@@ -97,22 +96,6 @@
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
-        <Border DockPanel.Dock="Top" Margin="0,0,0,12">
-            <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
-            <Border.Style>
-                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
-                    <Setter Property="Visibility" Value="Visible" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding Mensagem}" Value="{x:Null}">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-        </Border>
 
         <Border Style="{StaticResource Card}">
             <Grid>
