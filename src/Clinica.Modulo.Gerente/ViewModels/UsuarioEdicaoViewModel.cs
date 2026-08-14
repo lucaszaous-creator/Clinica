@@ -122,13 +122,39 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private string? _cpfProfissional;
 
-    /// <summary>Só há onde gravar o CPF quando há profissional vinculado.</summary>
-    public bool PodeEditarCpf => Profissional?.Id is not null;
+    /// <summary>
+    /// A leitura do CPF do profissional escolhido FALHOU.
+    ///
+    /// ⚠️ Sem este estado, a falha era invisível e o campo ficava com o CPF do profissional
+    /// ANTERIOR: o combo mudava para outra pessoa, a leitura estourava, o <c>catch</c>
+    /// registrava no log e a tela seguia mostrando o número de quem tinha sido escolhido
+    /// antes. Se o anterior estivesse EM BRANCO, o Salvar levava o branco para o novo
+    /// profissional e <b>apagava o CPF dele</b> — e sem CPF a assinatura qualificada é
+    /// recusada (parcela 42), então a médica descobriria ao tentar assinar uma receita.
+    ///
+    /// É a regra do projeto aplicada ao caso: falha nunca pode ser exibida como sucesso;
+    /// quando a checagem não rodou, a tela mostra um TERCEIRO estado.
+    /// </summary>
+    [ObservableProperty] private bool _cpfNaoVerificado;
+
+    /// <summary>
+    /// Só há onde gravar o CPF quando há profissional vinculado — e quando a leitura
+    /// atual valeu. Editar por cima de um valor que não foi lido é gravar às cegas.
+    /// </summary>
+    public bool PodeEditarCpf => Profissional?.Id is not null && !CpfNaoVerificado;
+
+    partial void OnCpfNaoVerificadoChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PodeEditarCpf));
+        OnPropertyChanged(nameof(CpfDica));
+    }
 
     /// <summary>Explica a ausência do campo em vez de deixá-lo aceso e sem efeito.</summary>
-    public string CpfDica => PodeEditarCpf
-        ? "Necessário para assinar com certificado digital: o sistema compara este CPF com o que está dentro do certificado. Em branco, esta pessoa não assina."
-        : "Vincule um profissional acima para poder cadastrar o CPF de assinatura.";
+    public string CpfDica => CpfNaoVerificado
+        ? "Não foi possível ler o CPF deste profissional agora. O campo fica fechado de propósito: gravar por cima de um valor que não foi lido apagaria o CPF de quem assina. Feche e abra a tela para tentar de novo."
+        : PodeEditarCpf
+            ? "Necessário para assinar com certificado digital: o sistema compara este CPF com o que está dentro do certificado. Em branco, esta pessoa não assina."
+            : "Vincule um profissional acima para poder cadastrar o CPF de assinatura.";
     [ObservableProperty] private bool _ativo = true;
     [ObservableProperty] private string _senha = string.Empty;
     [ObservableProperty] private bool _deveTrocarSenha = true;
@@ -192,11 +218,12 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
     {
         var geracao = ++_geracaoCpf;
 
-        if (Profissional?.Id is not { } id)
-        {
-            CpfProfissional = null;
-            return;
-        }
+        // Limpa ANTES do await, nunca depois: enquanto a leitura nova não volta, o campo
+        // não pode continuar mostrando o CPF de quem foi escolhido antes.
+        CpfProfissional = null;
+        CpfNaoVerificado = false;
+
+        if (Profissional?.Id is not { } id) return;
 
         try
         {
@@ -212,6 +239,12 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar("Gerente — CPF do profissional não pôde ser lido", ex);
+            if (geracao != _geracaoCpf) return;
+
+            // Falha não pode sair com a cara de "este profissional não tem CPF": as duas
+            // situações mostrariam o mesmo campo vazio, e o Salvar levaria o vazio para o
+            // banco — apagando o CPF de quem assina.
+            CpfNaoVerificado = true;
         }
     }
 
@@ -225,6 +258,11 @@ public sealed partial class UsuarioEdicaoViewModel : ObservableObject
     private async Task SalvarCpfDoProfissionalAsync(IServiceProvider servicos)
     {
         if (Profissional?.Id is not { } id) return;
+
+        // A leitura falhou: não se grava por cima do que não se conseguiu ler. O resto do
+        // usuário (nome, login, perfil, permissões) é salvo normalmente — travar o
+        // cadastro inteiro por causa do CPF seria pior do que deixá-lo como está.
+        if (CpfNaoVerificado) return;
 
         var equipe = servicos.GetRequiredService<EquipeService>();
         var profissional = await equipe.ObterProfissionalAsync(id);

@@ -317,21 +317,16 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
                 .GetRequiredService<ExportacaoProntuarioService>()
                 .ExportarAsync(pacienteId);
 
-            var destino = Path.Combine(
-                pasta, $"prontuario-{DateTime.Now:yyyy-MM-dd-HHmm}");
-            Directory.CreateDirectory(destino);
-
-            foreach (var arquivo in arquivos)
-                // BOM UTF-8, pela convenção do projeto: sem ele o Excel lê como ANSI e
-                // "Ocupação" vira "OcupaÃ§Ã£o".
-                await File.WriteAllTextAsync(
-                    Path.Combine(destino, arquivo.Nome), arquivo.Conteudo, new UTF8Encoding(true));
-
+            // A trilha vem ANTES do arquivo, e a ordem é a regra — não arrumação.
+            //
             // A exportação é um ACESSO ao prontuário, e dos maiores: leva tudo de uma vez.
-            // Não registrá-la deixaria justamente o maior acesso da base fora da trilha.
-            // E "tudo de uma vez" vale dobrado para a exportação da CLÍNICA: até aqui só
-            // o caso de UM paciente era registrado — o maior acesso possível saía sem
-            // uma linha na trilha.
+            // O ponto 7 do compromisso de conformidade diz que ação que possa acontecer sem
+            // a linha correspondente é ação sem trilha, e aqui o "ato" é gravar arquivo em
+            // disco — não cabe no mesmo SaveChanges. O que resta é a ORDEM: registrando
+            // primeiro, uma falha no registro impede a exportação; registrando depois, o
+            // pendrive sai da clínica com o prontuário de todo mundo e sem uma linha
+            // dizendo quem o levou. Trilha sem exportação é ruído; exportação sem trilha é
+            // o buraco que uma investigação procura.
             var acessos = scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>();
             if (pacienteId is { } um)
             {
@@ -345,6 +340,16 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
                 await acessos.RegistrarExportacaoDaClinicaAsync(
                     todos.Select(p => p.Id).ToList(), SessaoUsuario.Atual.Operador);
             }
+
+            var destino = Path.Combine(
+                pasta, $"prontuario-{DateTime.Now:yyyy-MM-dd-HHmm}");
+            Directory.CreateDirectory(destino);
+
+            foreach (var arquivo in arquivos)
+                // BOM UTF-8, pela convenção do projeto: sem ele o Excel lê como ANSI e
+                // "Ocupação" vira "OcupaÃ§Ã£o".
+                await File.WriteAllTextAsync(
+                    Path.Combine(destino, arquivo.Nome), arquivo.Conteudo, new UTF8Encoding(true));
 
             Mensagem = $"Exportação gravada em {destino} — {arquivos.Count} arquivo(s).";
             _snackbar.Sucesso("Prontuário exportado.");
