@@ -1,3 +1,4 @@
+using System.Formats.Asn1;
 using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
@@ -39,7 +40,8 @@ public class AssinaturaEmNuvemFimAFimTests
     /// Faz o papel do PSC: assina de verdade o conteúdo coberto e devolve um CMS destacado,
     /// como o SafeID faz com <c>signature_format: CMS</c>.
     /// </summary>
-    private sealed class PscDeMentira(X509Certificate2 certificado, int reservado)
+    private sealed class PscDeMentira(
+        X509Certificate2 certificado, int reservado, bool comprimentoIndefinido = false)
         : IDigitalSigner
     {
         public string CertificateName => "PSC de mentira";
@@ -54,7 +56,8 @@ public class AssinaturaEmNuvemFimAFimTests
 
             var cms = new SignedCms(new ContentInfo(cobertos), detached: true);
             cms.ComputeSignature(new CmsSigner(certificado));
-            return cms.Encode();
+
+            return comprimentoIndefinido ? EmBerIndefinido(cms.Encode()) : cms.Encode();
         }
     }
 
@@ -63,9 +66,12 @@ public class AssinaturaEmNuvemFimAFimTests
     /// em produção — o enchimento grande é o que exercita o recorte do DER.
     /// </summary>
     [Theory]
-    [InlineData(2048)]
-    [InlineData(AssinadorSafeID.TamanhoReservado)]
-    public async Task Documento_assinado_em_nuvem_CONFERE(int reservado)
+    [InlineData(2048, false)]
+    [InlineData(AssinadorSafeID.TamanhoReservado, false)]
+    // ⚠️ O formato REAL do SafeID: CMS em BER com comprimento INDEFINIDO (30 80 … 00 00).
+    // Foi ele que a clínica levou em 14/08/2026, e o recorte à mão o recusava.
+    [InlineData(AssinadorSafeID.TamanhoReservado, true)]
+    public async Task Documento_assinado_em_nuvem_CONFERE(int reservado, bool indefinido)
     {
         using var cert = CertificadoComChave();
         var servico = new AssinaturaDigitalService(exigirCadeiaConfiavel: false);
@@ -74,7 +80,7 @@ public class AssinaturaEmNuvemFimAFimTests
             PdfDeTeste(),
             CertificadoIcpBrasil.Ler(cert) with
             {
-                AssinadorRemoto = new PscDeMentira(cert, reservado)
+                AssinadorRemoto = new PscDeMentira(cert, reservado, indefinido)
             },
             Pedido());
 
@@ -130,6 +136,18 @@ public class AssinaturaEmNuvemFimAFimTests
     }
 
     // ---- Apoio ----
+
+    /// <summary>
+    /// Reescreve o SEQUENCE de fora na forma INDEFINIDA, que é como o PSC entrega. O miolo
+    /// não muda — muda o cabeçalho e o <c>00 00</c> que marca o fim.
+    /// </summary>
+    private static byte[] EmBerIndefinido(byte[] der)
+    {
+        AsnDecoder.ReadEncodedValue(
+            der, AsnEncodingRules.DER, out var inicio, out var tamanho, out _);
+
+        return [0x30, 0x80, .. der.AsSpan(inicio, tamanho).ToArray(), 0x00, 0x00];
+    }
 
     /// <summary>
     /// Laço à mão: <c>CopyTo</c> consulta <c>CanSeek</c>, e no RangedStream do PDFsharp essa
