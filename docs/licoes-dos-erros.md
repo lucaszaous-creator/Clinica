@@ -6,6 +6,10 @@
 > O `CLAUDE.md` guarda as lições em ordem cronológica, uma entrada por parcela. Este
 > documento é o corte transversal: **por FAMÍLIA**, porque a mesma família volta com roupa
 > diferente, e é olhando o conjunto que se percebe qual pergunta faltou.
+>
+> As famílias **1 a 10** saem das parcelas 66 e 67. As **11 a 14** vêm do adendo da parcela
+> **65** — o defeito que o cliente achou em produção no dia seguinte ao merge, e o único
+> desta lista que nenhuma rede, nenhum teste e nenhuma revisão pegou.
 
 ## O placar, e o que ele diz
 
@@ -256,6 +260,145 @@ estar escrito na interface.
 
 ---
 
+## Adendo — a parcela 65, e o defeito que o CLIENTE achou no dia seguinte
+
+> As dez famílias acima saem das parcelas 66 e 67. Esta seção é **anterior** a elas na
+> cronologia e **posterior** no aprendizado: o defeito da parcela 65 foi encontrado pelo
+> cliente, em produção, no dia seguinte ao merge — e as famílias que ele revela não
+> aparecem em nenhuma das dez.
+
+**O caso, em uma linha:** a parcela 60 unificou a esteira do atendimento e, ao unificá-la,
+pendurou a criação da **guia** na CONFIRMAÇÃO da janela de fechamento (pacote/insumo/caixa).
+Quem fechasse aquela janela ficava com o horário na agenda, o paciente marcado como presente
+e **nenhuma guia** — e, como o encaixe já tinha sido criado, a tela parecia ter funcionado.
+
+### O placar
+
+| Quem achou | O quê |
+|---|---|
+| As três redes locais | nada |
+| O CI (build dos cinco `.exe`) | nada |
+| A revisão do diff | nada |
+| **O cliente, em produção** | **o defeito inteiro** |
+
+**1512 testes verdes**, `compilar-sombra` verde, `verificar-suite` verde, CI verde. É o
+denominador comum deste documento na forma mais pura: *nada falhou*.
+
+### A evidência, que é o dado mais valioso da rodada
+
+```
+Id   DataHora           Paciente        Status     ChegadaEm         CriadoPor
+161  12/08/2026 16:10   ELLEN GLAUCE…   Agendado   16:10:31.418591   flavia@
+162  12/08/2026 16:10   ELLEN GLAUCE…   Agendado   16:10:37.338511   flavia@
+163  12/08/2026 16:11   ELLEN GLAUCE…   Agendado   16:11:42.203364   flavia@
+```
+
+A mesma paciente lançada **três vezes em 71 segundos**, os três com check-in carimbado e
+`AtendimentoId` nulo. Zero guias, três cartões na fila para uma sessão.
+
+---
+
+## Família 11 — Ao juntar dois fluxos, o fato IRREVERSÍVEL não pode depender do passo OPCIONAL
+
+A parcela 60 estava certa no diagnóstico (duas portas faziam coisas diferentes) e errada num
+detalhe que ninguém pesou: **em que momento cada um dos quatro fatos passa a existir.**
+
+Concluir a sessão são quatro fatos — a guia nasce, o pacote debita, o insumo sai, o dinheiro
+entra. O `ConcluirAsync` já tinha a hierarquia certa **entre** eles: só o atendimento derruba
+a operação, os outros três viram aviso. O que faltou foi estender essa hierarquia ao
+**momento**: os quatro passaram a nascer no mesmo clique, e esse clique era o do passo
+opcional.
+
+Invertida a ordem, o desenho se resolve sozinho: a guia nasce no registro e os outros três
+viram passo seguinte, que é exatamente o peso que eles já tinham.
+
+**A regra:** ao unificar fluxos, liste os fatos que o ato produz, marque qual deles é
+**irreversível** ou **externo** (a guia vai à operadora; o pacote e o caixa se resolvem por
+outra tela) e garanta que ele aconteça **primeiro** e sem depender de confirmação posterior.
+
+---
+
+## Família 12 — Teste que exercita só o caminho canônico não vê o caminho abandonado
+
+Os 1512 testes cobriam a esteira inteira, e **todos** chamavam `ConcluirAsync`. Nenhum
+exercitava o que a recepcionista fez: **fechar a janela**. O caminho abandonado não tinha
+teste porque não parece um caminho — parece desistência.
+
+> O caminho que ninguém questiona é o que os testes exercitam.
+
+Agravante da mesma família: **dois testes existentes fixavam o MECANISMO em vez da
+GARANTIA.** Eles afirmavam que a segunda tentativa *estourava* (`ThrowAsync`) — um detalhe de
+implementação. A correção certa (reaproveitar o atendimento em vez de recusar) os deixou
+vermelhos, e um teste vermelho por causa da correção é um convite a desfazer a correção. A
+garantia real — *uma sessão, uma guia, um débito* — vale nos dois desenhos, e é ela que o
+teste devia cobrar desde o começo.
+
+**As regras:**
+
+- Para todo fluxo com uma saída de desistência (fechar, cancelar, Esc), escreva o teste do
+  **estado em que o sistema fica** quando a pessoa desiste no meio.
+- Teste afirma a **garantia**, não o mecanismo. `ThrowAsync` é mecanismo; "não duplicou nada"
+  é garantia.
+
+---
+
+## Família 13 — Mensagem inline numa tela que a pessoa já dá por concluída não chega
+
+A frase existia, era clara e estava correta: *"O horário foi marcado e o paciente está na
+Fila, em 'Na recepção'. Conclua por lá para gerar a guia."* Inline, na tela do lançamento.
+
+**Ninguém tenta três vezes em 71 segundos se a mensagem chegou.** As três linhas do banco não
+são só a prova do defeito — são a **medida** de que o canal estava errado.
+
+O que a torna invisível é o momento: ela aparece depois de a pessoa ter concluído a tarefa na
+cabeça dela. A atenção já saiu da tela; o que resta é procurar o resultado (a guia) e não
+achar.
+
+**A regra** — e ela completa a do canal de feedback que o projeto já tinha (*inline para
+formulário, snackbar para confirmação passageira*): **quando a mensagem contradiz a conclusão
+que a pessoa já tirou, ela precisa de um canal que interrompa** (diálogo), ou o desenho
+precisa mudar para a mensagem não ser necessária. Aqui foi o segundo, que é sempre melhor: a
+guia passou a nascer sozinha, e a frase deixou de existir.
+
+Corolário de diagnóstico: **repetição rápida da mesma ação é um dado, não ruído.** Três
+tentativas em 71 segundos localizam o defeito com mais precisão do que qualquer log.
+
+---
+
+## Família 14 — Quando o custo de um erro muda, a guarda muda de lugar
+
+Antes desta parcela, o segundo clique no lançamento custava **um horário a limpar**. Depois,
+com a guia nascendo no clique, ele passou a custar **um jogo de guias duplicado indo para a
+operadora** — que só aparece semanas depois, no retorno.
+
+A mesma ação, o mesmo botão, um custo diferente. Por isso a correção não foi só inverter a
+ordem: veio junto a pergunta antes de criar o encaixe ("este paciente já tem atendimento
+hoje") e a **idempotência por agendamento** no serviço, para que dois cliques no Finalizar
+não virem duas guias.
+
+E ela é **pergunta, não recusa**: sessão de manhã e consulta à tarde é caso legítimo, e
+recusar travaria o balcão sem contorno — a mesma escolha que o formato do número da guia já
+tinha feito.
+
+**A regra:** toda vez que uma mudança torna um efeito mais caro ou mais difícil de desfazer,
+**releia as guardas que protegiam o efeito antigo.** Elas foram dimensionadas para o custo
+anterior.
+
+---
+
+## E uma da Família 10, achada ao escrever este documento
+
+O comentário de classe do `FilaViewModel` ainda afirma que Finalizar *"gera o atendimento com
+os códigos **e o retorno do 2º código**"*. A parcela 58 removeu essa criação — o retorno
+sugerido era o agendamento fantasma que punha na agenda dos médicos uma pessoa que não tinha
+hora marcada, e o comentário sobreviveu à remoção.
+
+É a Família 10 fora da tela: prosa que continua afirmando a regra antiga, com a autoridade de
+estar escrita ao lado do código. **Ao mudar uma regra, o `grep` pela regra antiga vale tanto
+quanto o teste** — e ele alcança comentário, que nenhuma rede lê.
+
+---
+
 ## O denominador comum
 
 Tirando os deslizes de código que as redes pegaram, **quase todos** os defeitos desta rodada
@@ -266,6 +409,13 @@ quem usa.
 É a mesma assinatura do defeito que dá nome ao produto — a guia obtida +24h depois que
 ninguém lembra. Ele não avisa; ele só não acontece.
 
+⚠️ E a parcela 65 fecha o argumento pelo pior lado: ali o sistema **deixou de fazer a única
+coisa que ele existe para fazer** — gerar a guia — e mesmo assim tudo ficou verde. Não é que
+as redes tenham falhado; é que **nenhuma delas pergunta se o produto cumpriu o propósito
+dele**. Elas conferem que o código compila, que a regra calcula certo e que a tela monta.
+Que a guia chegue ao faturamento quando alguém atende um paciente é uma afirmação sobre o
+FLUXO, e fluxo se testa de ponta a ponta ou não se testa.
+
 As perguntas que teriam pego a maioria, e que valem para a próxima parcela:
 
 1. **O que esta checagem não vê?** (Famílias 1, 8)
@@ -275,4 +425,12 @@ As perguntas que teriam pego a maioria, e que valem para a próxima parcela:
 5. **A escrita permite tudo o que a leitura devolve?** (Família 5)
 6. **Este texto sai impresso? Para quem ele fala?** (Família 6)
 7. **Se cair a rede no meio, o segundo clique conserta ou trava?** (Família 7)
-8. **Que texto de tela explicava a regra que eu acabei de mudar?** (Família 10)
+8. **Que texto de tela explicava a regra que eu acabei de mudar?** (Famílias 10, 65)
+9. **Quais fatos este ato produz, e qual deles é irreversível?** Ele acontece primeiro?
+   (Família 11)
+10. **O que sobra no sistema se a pessoa fechar esta janela no meio?** Existe teste disso?
+    (Família 12)
+11. **Esta mensagem chega depois de a pessoa já ter dado a tarefa por concluída?**
+    (Família 13)
+12. **Esta mudança tornou algum erro mais caro? Que guarda foi dimensionada para o custo
+    antigo?** (Família 14)
