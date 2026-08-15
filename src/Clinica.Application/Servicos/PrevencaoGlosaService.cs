@@ -89,14 +89,21 @@ public sealed class PrevencaoGlosaService
         var candidatasIds = candidatas.Select(c => c.Id).ToHashSet();
 
         // Denominador e numerador por padrão (o lote atual fica de fora da estatística).
+        //
+        // O padrão é por OPERADORA (código do catálogo), não pela família de regra: com a
+        // família, o histórico de glosa de todas as operadoras que a clínica cadastrou caía
+        // na mesma estatística — elas compartilham `Convenio.Personalizado` —, e o aviso
+        // saía com o nome de uma delas. Uma operadora que glosa muito contaminava a taxa de
+        // outra que não glosa nada, nos dois sentidos: alerta que não devia disparar, e
+        // alerta diluído que devia. É a mesma resolução do lote TISS (`ConvenioDaGuia`).
         var porPadrao = historicoBaixadas
             .Where(c => !candidatasIds.Contains(c.Id) && c.Atendimento?.Paciente is not null)
-            .GroupBy(c => (Convenio: c.Atendimento!.Paciente!.Convenio, c.Tipo))
+            .GroupBy(c => (Convenio: LoteTissService.ConvenioDaGuia(c), c.Tipo))
             .ToDictionary(g => g.Key, g => g.ToList());
 
         foreach (var padrao in candidatas
                      .Where(c => c.Atendimento?.Paciente is not null)
-                     .GroupBy(c => (Convenio: c.Atendimento!.Paciente!.Convenio, c.Tipo)))
+                     .GroupBy(c => (Convenio: LoteTissService.ConvenioDaGuia(c), c.Tipo)))
         {
             if (!porPadrao.TryGetValue(padrao.Key, out var historico))
                 continue;
@@ -118,11 +125,9 @@ public sealed class PrevencaoGlosaService
                 ? string.Empty
                 : $" Motivo mais comum: {motivoComum.Key} — {MotivosGlosa.Descricao(motivoComum.Key)}.";
 
-            alertas.Add($"Guias de {padrao.Key.Tipo} do convênio {NomeConvenio(padrao.Key.Convenio)} " +
+            alertas.Add($"Guias de {padrao.Key.Tipo} do convênio {CatalogoConvenios.Nome(padrao.Key.Convenio)} " +
                         $"foram glosadas em {taxa:P0} das vezes ({glosadas.Count} de {historico.Count})." +
                         motivoTxt + $" Este lote tem {padrao.Count()} guia(s) nesse padrão — confira antes de enviar.");
         }
     }
-
-    private static string NomeConvenio(Convenio convenio) => ConvenioInfo.NomeExibicao(convenio);
 }

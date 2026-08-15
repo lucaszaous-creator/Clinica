@@ -130,9 +130,16 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
         Refiltrar();
     }
 
-    /// <summary>O nome como a COLUNA já mostra (conversor <c>EnumDescricao</c> → <see cref="ConvenioInfo"/>) — o combo tem de casar com o que o olho lê na linha.</summary>
+    /// <summary>
+    /// O nome como a COLUNA já mostra — o combo tem de casar com o que o olho lê na linha.
+    ///
+    /// Pelo <c>ConvenioNome</c> do paciente (código do catálogo, família como caminho de
+    /// baixo), nunca pela família sozinha: com ela, todas as operadoras que a clínica
+    /// cadastrou viravam UMA opção no filtro, com o nome de uma delas — e filtrar por
+    /// "Porto Saúde" devolvia as guias da Sul América junto.
+    /// </summary>
     private static string NomeConvenio(CodigoFaturamento c)
-        => ConvenioInfo.NomeExibicao(c.Atendimento?.Paciente?.Convenio ?? default);
+        => c.Atendimento?.Paciente?.ConvenioNome ?? CatalogoConvenios.Nome(default(Convenio));
 
     /// <summary>
     /// Mesma comparação da consulta de guias (repositório): minúsculas + Contains. Este
@@ -269,7 +276,7 @@ public partial class FaturadosViewModel : ObservableObject, IAtalhosDeTela
             foreach (var c in Baixados)
                 sb.AppendLine(string.Join(';',
                     c.Atendimento?.Paciente?.Nome,
-                    ConvenioInfo.NomeExibicao(c.Atendimento?.Paciente?.Convenio ?? default),
+                    NomeConvenio(c),
                     c.Tipo,
                     c.Ordem,
                     c.NumeroGuiaReal,

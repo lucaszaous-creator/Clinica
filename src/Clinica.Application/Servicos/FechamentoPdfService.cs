@@ -122,7 +122,7 @@ public sealed class FechamentoPdfService
                         });
                         Cabecalho(t, "Convênio", "Gerados", "Baixados", "Pendentes", "Taxa");
                         foreach (var c in relatorio.PorConvenio)
-                            Linha(t, ConvenioInfo.NomeExibicao(c.Convenio), c.TotalCodigos.ToString(),
+                            Linha(t, c.ConvenioNome, c.TotalCodigos.ToString(),
                                 c.Baixados.ToString(), c.Pendentes.ToString(), $"{c.TaxaBaixa:0.#}%");
                     });
 
@@ -170,7 +170,7 @@ public sealed class FechamentoPdfService
                                 var atraso = hoje.DayNumber - c.DataPrevistaFaturamento.DayNumber;
                                 Linha(t,
                                     c.Atendimento?.Paciente?.Nome ?? "?",
-                                    ConvenioInfo.NomeExibicao(c.Atendimento?.Paciente?.Convenio ?? default),
+                                    c.Atendimento?.Paciente?.ConvenioNome ?? "?",
                                     c.Tipo.ToString(),
                                     c.DataPrevistaFaturamento.ToString("dd/MM/yyyy"),
                                     $"{atraso} d");

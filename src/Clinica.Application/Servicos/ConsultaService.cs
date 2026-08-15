@@ -51,7 +51,7 @@ public sealed class ConsultaService
         var validade = await ValidadeAsync(paciente.Convenio, paciente.ConvenioCodigo, ct);
         if (validade is null)
             throw new InvalidOperationException(
-                $"O convênio {ConvenioInfo.NomeExibicao(paciente.Convenio)} não usa consulta renovável.");
+                $"O convênio {paciente.ConvenioNome} não usa consulta renovável.");
 
         var anteriores = await _repo.ConsultasDoPacienteAsync(pacienteId, ct);
         foreach (var c in anteriores.Where(c => c.Status == StatusConsulta.Ativa))

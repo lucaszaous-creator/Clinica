@@ -196,8 +196,12 @@
                             <DataGrid x:Name="GridFamilias" ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
                                       MaxHeight="320" AutoGenerateColumns="False" HeadersVisibility="Column">
                                 <DataGrid.Columns>
+                                    <!-- Esta tabela é POR FAMÍLIA de regra mesmo (é o que o cabeçalho
+                                         diz), então aqui a família é a resposta certa. O que faltava era
+                                         o conversor: sem ele o WPF chama ToString() no enum e escreve
+                                         "UnimedIntercambio" na tela. -->
                                     <DataGridTextColumn Header="Família" IsReadOnly="True"
-                                                        Binding="{Binding Convenio}" Width="2*" />
+                                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
                                     <DataGridTextColumn Header="Validade da consulta (dias)"
                                                         Binding="{Binding ValidadeConsultaDias}" Width="*" />
                                     <DataGridTextColumn Header="Dias até o 2º código"

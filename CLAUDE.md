@@ -1948,6 +1948,80 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   excluir os dois-pontos. **Checagem nova sem autoteste do caso real e do caso legítimo é
   checagem que nasce cega ou barulhenta.**
 
+- **A LINHA "Personalizado" DO CATÁLOGO É RENOMEÁVEL, e isso vazava para TODA operadora**
+  (parcela 68 — a clínica mandou a foto: oito pacientes **Sul América** apareciam faturando
+  como **"Porto Saúde"** na consulta de guias, e a lista de pacientes ao lado, na mesma
+  janela, mostrava "SULAMERICA" para os mesmos oito).
+  A causa não é o catálogo: é `ConvenioCatalogoService.ListarAsync` **garantir uma linha por
+  família**, inclusive uma de código `"Personalizado"` — e essa linha é editável como
+  qualquer outra. A clínica renomeou-a para a primeira operadora que cadastrou (em vez de
+  clicar "Adicionar"), e a partir daí `CatalogoConvenios.Nome(Convenio.Personalizado)`
+  passou a devolver o nome DELA para toda operadora personalizada.
+  ⚠️ **Este é o defeito da parcela 50 na única variante que a correção dela não cobriu, e é
+  a pior.** Lá, resolver pela família escrevia **"Personalizado"** — feio, óbvio, e alguém
+  abre chamado. Aqui escreve **"Porto Saúde"**: o nome de uma operadora de verdade, na guia
+  de outra operadora, com toda a cara de estar certo. É a **garantia aparente** de novo, e
+  só foi descoberto porque o cliente comparou duas telas.
+  A blindagem é `Nome(Convenio familia)` **não passar mais pelo catálogo quando a família é
+  `Personalizado`** — ela devolve o rótulo neutro `"Convênio personalizado"`. Pior de ler e
+  muito melhor de confiar: não responder qual operadora é **é a verdade**, porque a família
+  não sabe. ⚠️ A assimetria com `Nome(codigo, familia)` é deliberada: **lá** o caminho de
+  baixo continua indo ao catálogo, porque sem código a linha da família é o melhor palpite
+  que existe — o paciente foi mesmo cadastrado nela, e blindar os dois lados apagaria o
+  nome de quem estava certo.
+  **O agrupamento por família era pior que o rótulo**, porque não é aparência, é número:
+  `RelatorioService.PorConvenio` e a estatística do `PrevencaoGlosaService` agrupavam pela
+  FAMÍLIA, então Sul América e Porto Saúde caíam numa linha só com o nome de uma delas. A
+  direção lia "Porto Saúde: 143 guias" e eram as duas somadas — o número que ela usa para
+  negociar tabela. Os dois passaram a agrupar por OPERADORA, que é o que o lote TISS já faz
+  desde a parcela 60 (`ConvenioDaGuia`) e pela mesma razão.
+  ⚠️ **O teste que existia para exatamente este assunto (`NomeDoConvenioTests`, parcela 50)
+  passava.** Ele monta um catálogo SEM linha de código "Personalizado" e afirma que a
+  resolução por família não devolve o nome da operadora **certa** — o que é verdade e deixa
+  passar o caso real, que é devolver o nome de uma operadora **errada**. A asserção tinha de
+  ser "não é o nome de operadora nenhuma". **Teste de "não é X" só vale quando X é o
+  conjunto inteiro dos valores errados; contra UM valor errado, ele passa e o defeito
+  também.**
+  A **checagem 35** cobra o binding, e o que a mantém utilizável é resolver o **TIPO** e
+  nunca o nome: `Convenio` é `string` já resolvida numa dúzia de records de ViewModel
+  (Conciliação, Gerente, Recepção), e acusá-los seria o ruído que faz alguém desligar a
+  ferramenta. Ela dispara quando o tipo declara `Convenio` como ENUM **e** oferece
+  `ConvenioNome` ao lado — quem oferece o nome resolvido está dizendo que sabe qual é a
+  operadora. Sem a segunda metade ela acusava a tabela "Regras por família" de
+  Configurações, que é por família mesmo. O tipo do item de lista sai do ViewModel **da
+  própria tela** (`FooView.xaml` ↔ `FooViewModel`), nunca da busca global da checagem 20:
+  `Itens` e `PorConvenio` existem em telas diferentes com tipos diferentes, e a busca global
+  respondia o tipo do vizinho — a resposta certa vinda do arquivo errado.
+
+- **Tabela empilhada em `StackPanel` sem rolagem: o fim da tela é CORTADO, sem barra e sem
+  como alcançar** (parcela 68, 2ª rodada — a cliente mandou a foto: em Relatórios, a seção
+  "Não conformidades (guias justificadas na rodada)" aparecia só com o TÍTULO, decepada na
+  borda de baixo da janela). A mecânica é de uma linha: a janela tem altura FINITA e o
+  `StackPanel` vertical dá a cada filho a altura que ele PEDE, ignorando o disponível —
+  três cards com tabela somam mais que a tela, e sem `ScrollViewer` o resto some.
+  ⚠️ **Não é a mesma coisa que a tela cujo conteúdo elástico é UM `DataGrid` numa linha
+  `*`** — aquele rola por dentro e a linha `*` absorve o resto. Cinco telas do faturamento
+  têm essa forma e estão certas. O que distingue as duas não é a linha `*`, é o
+  EMPILHAMENTO: no `StackPanel` nada absorve.
+  O remédio é o padrão do `DashboardView`, e são **três** peças, não uma: `ScrollViewer` na
+  raiz; **todas as linhas `Auto`** (dentro de um ScrollViewer a altura disponível é
+  infinita, então `*` não distribui nada — ele mede igual a `Auto` e só engana quem lê); e
+  **`MaxHeight` nas grades que crescem com o dado**, senão elas recebem altura infinita,
+  desenham todas as linhas, perdem a virtualização e empurram as de baixo para longe. Grade
+  de tamanho fixo (as 3 faixas de envelhecimento, os 6 meses) não leva teto — teto onde não
+  precisa é o corte de volta.
+  ⚠️ **A checagem 36 nasceu CEGA e o autoteste é que mostrou**: a primeira versão exigia
+  que a pilha estivesse dentro de uma linha `*`, porque era assim no caso real — e ficou
+  sem ver a variante PIOR, a mesma pilha com todas as linhas `Auto`, que corta igual. A
+  linha `*` era coincidência do exemplo, não a causa. **Quando causa e sintoma aparecem
+  juntos no primeiro caso, confira qual dos dois a checagem está olhando.** Autotestada nas
+  duas formas quebradas e nas três legítimas, e ela chama a MESMA função da varredura, pela
+  lição da parcela 67 (autoteste que reimplementa fica verde quando a checagem quebra).
+  Nenhuma rede pegava, e é a categoria mais cara: o XAML é bem-formado, o
+  `compilar-sombra` não lê o corpo, o compilador de marcação não reclama e nada lança. Só a
+  tela montada mostra — e só em quem tem a janela mais baixa que o conteúdo, que **nunca é
+  a máquina de quem escreveu**.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

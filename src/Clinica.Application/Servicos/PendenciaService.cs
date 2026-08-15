@@ -180,7 +180,10 @@ public sealed class PendenciaService
 
             var urgencia = vigente.EstaVencida(referencia) ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo;
 
-            resultado.Add(new PendenciaConsulta(p.Id, p.Nome, p.Convenio, vigente.DataVencimento, diasParaVencer, urgencia, p.Telefone));
+            resultado.Add(new PendenciaConsulta(p.Id, p.Nome, p.Convenio, vigente.DataVencimento, diasParaVencer, urgencia, p.Telefone)
+            {
+                ConvenioCodigo = p.ConvenioCodigo
+            });
         }
 
         return resultado.OrderBy(c => c.DiasParaVencer).ToList();
@@ -219,7 +222,10 @@ public sealed class PendenciaService
                     Urgencia: dias <= 3 ? NivelUrgencia.Vermelho
                             : dias <= 7 ? NivelUrgencia.Amarelo
                             : NivelUrgencia.Verde,
-                    PacienteTelefone: paciente?.Telefone);
+                    PacienteTelefone: paciente?.Telefone)
+                {
+                    ConvenioCodigo = paciente?.ConvenioCodigo
+                };
             })
             .OrderBy(p => p.DiasParaFimPrazo)
             .ToList();
@@ -250,7 +256,10 @@ public sealed class PendenciaService
                 x.Paciente.ValidadeCarteirinha!.Value,
                 x.Dias,
                 x.Dias < 0 ? NivelUrgencia.Vermelho : NivelUrgencia.Amarelo,
-                x.Paciente.Telefone))
+                x.Paciente.Telefone)
+            {
+                ConvenioCodigo = x.Paciente.ConvenioCodigo
+            })
             .OrderBy(p => p.DiasParaVencer)
             .ToList();
     }

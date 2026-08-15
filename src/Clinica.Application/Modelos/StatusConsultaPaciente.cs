@@ -1,4 +1,5 @@
 using Clinica.Domain;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Modelos;
 
@@ -22,6 +23,9 @@ public sealed record StatusConsultaPaciente(
     /// aparecer na tela como "Personalizado".
     /// </summary>
     public string? ConvenioCodigo { get; init; }
+
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioNome"/>
+    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
 
     /// <summary>
     /// Há consulta EMITIDA pedindo renovação (vencida ou a vencer dentro da janela).

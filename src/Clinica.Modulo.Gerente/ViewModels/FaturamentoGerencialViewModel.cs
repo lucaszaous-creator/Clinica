@@ -197,7 +197,7 @@ public sealed partial class FaturamentoGerencialViewModel : ObservableObject
             foreach (var c in relatorio.PorConvenio)
                 PorConvenio.Add(new LinhaConvenioGerencial
                 {
-                    Convenio = ConvenioInfo.NomeExibicao(c.Convenio),
+                    Convenio = c.ConvenioNome,
                     Total = c.TotalCodigos,
                     Baixados = c.Baixados,
                     Pendentes = c.Pendentes,

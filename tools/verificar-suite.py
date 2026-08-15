@@ -2592,6 +2592,281 @@ for _cenario, _texto, _esperadas_cobertas, _esperadas_descobertas in (
             f"{sorted(_esperadas_cobertas)} / {sorted(_esperadas_descobertas)}."
         )
 
+# --------------------------------------------------------------- checagem 35
+# BINDING NA FAMÍLIA DO CONVÊNIO — a tela pergunta a REGRA e escreve o nome de OUTRA
+# OPERADORA.
+#
+# O cliente achou em produção: oito pacientes Sul América apareciam faturando como
+# "Porto Saúde" na consulta de guias, enquanto a lista de pacientes ao lado — que amarra
+# `ConvenioNome` — mostrava "SULAMERICA" para os mesmos oito.
+#
+# `Convenio` é a FAMÍLIA DE REGRA, não a operadora: `Convenio.Personalizado` é a regra que
+# TODA operadora cadastrada pela clínica compartilha. Resolver o nome por ela tem duas
+# saídas, e as duas são erradas:
+#
+#   · sem conversor, o WPF chama `ToString()` → "UnimedIntercambio" (o defeito da parcela
+#     41, que a checagem 20 não pega aqui porque ela só olha `ComboBox`);
+#   · com o conversor, cai em `CatalogoConvenios.Nome(familia)` → o nome da linha embutida
+#     da família. E essa linha é RENOMEÁVEL: a clínica renomeou a "Personalizado" para a
+#     primeira operadora que cadastrou, e a partir daí toda personalizada passou a se
+#     chamar assim.
+#
+# ⚠️ O segundo é muito pior que o primeiro, e é por isso que esta checagem existe apesar de
+# a 20 já cobrir o vizinho: "UnimedIntercambio" na tela é obviamente um defeito e alguém
+# abre um chamado. O nome de uma operadora de verdade na guia de outra operadora tem toda a
+# cara de estar certo, e só é descoberto quando a clínica compara duas telas.
+#
+# A checagem resolve o TIPO, nunca o nome: `Convenio` é `string` já resolvida em uma dúzia
+# de records de ViewModel (Conciliação, Pendências do Gerente, Consultas da Recepção), e
+# reclamar deles seria o ruído que faz alguém desligar a ferramenta. Dois caminhos de
+# resolução, e o que não resolver CALA:
+#
+#   1. caminho com dono explícito — `Atendimento.Paciente.Convenio`: o penúltimo segmento
+#      nomeia o tipo, e se esse tipo declara `Convenio` como o ENUM, é defeito;
+#   2. caminho nu — `{Binding Convenio}` dentro de um `ItemsSource="{Binding Itens}"`: o
+#      tipo do item vem do `_TIPOS` da checagem 20 (nome da coleção → tipo do elemento).
+#
+# O remédio é sempre o mesmo: `ConvenioNome`, que resolve pelo CÓDIGO do catálogo com a
+# família como caminho de baixo. Ele existe em `Paciente` e nos records de pendência,
+# relatório e consulta.
+
+# `Convenio X` / `Convenio? X` como parâmetro posicional de record ou propriedade — mas
+# NUNCA `string Convenio`, que é o caso legítimo do record de ViewModel já resolvido.
+_DECL_CONVENIO_ENUM = re.compile(r"(?<![\w.])Convenio\??\s+(\w+)\s*(?:[,)\{;=]|$)", re.M)
+_BINDING_CAMINHO = re.compile(r"\{Binding\s+(?:Path\s*=\s*)?([A-Za-z_][\w.]*)")
+_ITEMS_SOURCE = re.compile(r"^\{Binding\s+(?:Path\s*=\s*)?([A-Za-z_][\w.]*)")
+
+
+def _tipos_com_convenio_enum(_cache={}) -> set[str]:
+    """
+    Tipos que declaram `Convenio` como ENUM **e** oferecem o `ConvenioNome` resolvido.
+
+    ⚠️ As duas metades são o que separa o defeito do uso legítimo, e sem a segunda a
+    checagem acusa a tela de Configurações: a tabela "Regras por família de convênio"
+    (`ParametroConvenio`) é POR FAMÍLIA mesmo — é o assunto dela, e ali não existe
+    operadora a resolver. Quem OFERECE `ConvenioNome` está dizendo que sabe qual é a
+    operadora; amarrar a família nesse tipo é escolher a resposta pior tendo a boa ao lado.
+    """
+    if _cache:
+        return _cache["r"]
+
+    achados: set[str] = set()
+    for cs in RAIZ.rglob("src/**/*.cs"):
+        if "/obj/" in str(cs) or "/bin/" in str(cs):
+            continue
+        txt = cs.read_text(encoding="utf-8", errors="ignore")
+        # Recorta cada declaração de tipo até a próxima, para não atribuir a um tipo o
+        # membro do vizinho declarado no mesmo arquivo (Pendencia.cs tem quatro).
+        marcas = [(m.start(), m.group(1))
+                  for m in re.finditer(r"\b(?:class|record|struct)\s+(\w+)", txt)]
+        for i, (ini, nome) in enumerate(marcas):
+            fim = marcas[i + 1][0] if i + 1 < len(marcas) else len(txt)
+            corpo = txt[ini:fim]
+            if "Convenio" in _DECL_CONVENIO_ENUM.findall(corpo) and "ConvenioNome" in corpo:
+                achados.add(nome)
+
+    _cache["r"] = achados
+    return achados
+
+
+_CONVENIO_ENUM = _tipos_com_convenio_enum()
+
+
+def _acusar_convenio(arq: Path, caminho: str, dono: str | None) -> None:
+    # O último SEGMENTO tem de ser exatamente `Convenio`. Um `endswith` sobre o caminho
+    # inteiro acusava `{Binding PorConvenio}` — o ItemsSource do relatório —, que é uma
+    # COLEÇÃO e não a família de ninguém. Falso positivo é o que faz alguém desligar a
+    # ferramenta, e aí ela deixa de pegar o defeito de verdade.
+    if caminho.split(".")[-1] != "Convenio":
+        return
+    if dono is None or dono not in _CONVENIO_ENUM:
+        return  # tipo desconhecido, ou `Convenio` string: sem resposta, e sem chute
+    erros.append(
+        f"{rel(arq)}: `{{Binding {caminho}}}` amarra a FAMÍLIA de regra do convênio "
+        f"(`{dono}.Convenio`), não a operadora — toda personalizada sai com o mesmo nome "
+        f"(oito pacientes Sul América apareceram como \"Porto Saúde\"). Use `ConvenioNome`."
+    )
+
+
+def _colecoes_do_dono(arq: Path, _cache={}) -> dict[str, set[str]]:
+    """
+    Coleções declaradas no ViewModel DESTA tela (`FooView.xaml` ↔ `FooViewModel.cs`).
+
+    O `_TIPOS` da checagem 20 é global — nome de propriedade → tipo do elemento, somado
+    sobre o repositório inteiro. Para lista de enum aquilo basta; aqui não: `Itens` e
+    `PorConvenio` existem em telas diferentes com tipos diferentes, e a busca global
+    respondia o tipo do VIZINHO. Foi assim que a primeira versão desta checagem acusou
+    três telas do Gerente que já mostram o nome resolvido — a resposta certa, vinda do
+    arquivo errado. Tela cujo ViewModel não é achado por nome fica sem resolução, e o
+    binding nu dela é PULADO: o certo aqui é não afirmar.
+    """
+    chave = str(arq)
+    if chave in _cache:
+        return _cache[chave]
+
+    tipos: dict[str, set[str]] = {}
+    dono = arq.parent.parent / "ViewModels" / (arq.stem + "Model.cs")
+    if arq.stem.endswith("View") and dono.exists():
+        for tipo, nome in COLECAO_TIPADA.findall(dono.read_text(encoding="utf-8", errors="ignore")):
+            tipos.setdefault(nome[0].upper() + nome[1:], set()).add(tipo)
+
+    _cache[chave] = tipos
+    return tipos
+
+
+for _arq, _raiz in arvores_com_faturamento.items():
+    for _el in _raiz.iter():
+        # 1. Tipo do item desta lista, para resolver os bindings nus lá dentro.
+        _item = None
+        if (_src := _el.get("ItemsSource")) and (_m := _ITEMS_SOURCE.match(_src.strip())):
+            _nome_col = _m.group(1).split(".")[-1]
+            _cands = _colecoes_do_dono(_arq).get(
+                _nome_col[0].upper() + _nome_col[1:], set()) & _CONVENIO_ENUM
+            _item = next(iter(_cands)) if len(_cands) == 1 else None
+
+        _alvos = [_el] if _item is None else list(_el.iter())
+        for _filho in _alvos:
+            for _valor in _filho.attrib.values():
+                for _cam in _BINDING_CAMINHO.findall(_valor):
+                    _partes = _cam.split(".")
+                    # Caminho com dono explícito resolve sozinho, em qualquer contexto;
+                    # o nu só resolve quando a lista deu o tipo do item.
+                    _dono = _partes[-2] if len(_partes) >= 2 else _item
+                    _acusar_convenio(_arq, _cam, _dono)
+
+# --- autoteste da 35: ela tem de disparar no caso REAL e calar nos legítimos ---
+for _cenario, _xaml, _deve_disparar in (
+    ("o defeito real (dono explícito)",
+     '<DataGridTextColumn Binding="{Binding Atendimento.Paciente.Convenio}" />', True),
+    ("o conserto",
+     '<DataGridTextColumn Binding="{Binding Atendimento.Paciente.ConvenioNome}" />', False),
+    # `Convenio` como string já resolvida no record do ViewModel: é o caso da Conciliação
+    # e das telas do Gerente. Reclamar delas seria o ruído que desliga a ferramenta.
+    ("string já resolvida no VM",
+     '<TextBlock Text="{Binding Convenio}" />', False),
+    ("tipo de fora / desconhecido",
+     '<TextBlock Text="{Binding Fulano.Convenio}" />', False),
+):
+    _antes = len(erros)
+    _el_teste = ET.fromstring(_xaml.replace("DataGridTextColumn", "T").replace("TextBlock", "T"))
+    for _valor in _el_teste.attrib.values():
+        for _cam in _BINDING_CAMINHO.findall(_valor):
+            _p = _cam.split(".")
+            _acusar_convenio(RAIZ / "autoteste.xaml", _cam, _p[-2] if len(_p) >= 2 else None)
+    _disparou = len(erros) > _antes
+    del erros[_antes:]
+    if _disparou != _deve_disparar:
+        erros.append(
+            f"verificar-suite: a checagem 35 mudou de resposta ({_cenario}) — "
+            f"disparou={_disparou}, esperado={_deve_disparar}."
+        )
+
+# --------------------------------------------------------------- checagem 36
+# TABELAS EMPILHADAS NUM StackPanel, SEM ROLAGEM — o fim da tela é CORTADO, e não há barra
+# nem como alcançá-lo.
+#
+# A cliente mandou a foto: na tela de Relatórios, a seção "Não conformidades (guias
+# justificadas na rodada)" aparecia só com o TÍTULO, decepada na borda de baixo da janela.
+#
+# A mecânica: a janela tem altura FINITA, e `StackPanel` vertical dá a cada filho a altura
+# que ele PEDE, ignorando o que há disponível. Três cards com tabela empilhados somam mais
+# que a tela, e sem `ScrollViewer` o que passa do fim é cortado em silêncio.
+#
+# ⚠️ A checagem NÃO olha a linha `*`, e isso foi corrigido depois de ela nascer errada: a
+# primeira versão exigia que o empilhamento estivesse dentro de uma linha `*`, e por isso
+# ficou CEGA para a variante pior — a mesma pilha com todas as linhas `Auto`, que corta
+# igual. A linha `*` era coincidência do caso real, não a causa. **Quando a causa e o
+# sintoma aparecem juntos no primeiro exemplo, confira qual dos dois a checagem está
+# olhando.**
+#
+# O que ela NÃO acusa, de propósito: a tela cujo conteúdo elástico é UM `DataGrid` numa
+# linha `*` (Consultar guias, Faturados, TISS, Glosas). Aquele rola por dentro e a linha
+# `*` absorve o resto — cinco telas do faturamento têm essa forma e continuam caladas.
+#
+# ⚠️ Nenhuma rede pegava, e é a categoria mais cara: o XAML é bem-formado, o
+# `compilar-sombra` não lê o corpo, o compilador de marcação não tem o que reclamar e nada
+# lança em runtime. Só a tela montada mostra — e só em quem tem a janela mais baixa que o
+# conteúdo, que nunca é a máquina de quem escreveu.
+#
+# O remédio é o padrão da casa (`DashboardView`): `ScrollViewer` na raiz com
+# `VerticalScrollBarVisibility="Auto"`, todas as linhas `Auto`, e `MaxHeight` nas grades
+# que crescem com o dado, para elas voltarem a rolar por dentro em vez de esticar sem fim.
+
+# Um cartão/seção: o que empilhado vira altura. `Border` é o `Card` do design system.
+_BLOCOS = {"Border", "GroupBox", "Expander", "DockPanel", "Grid", "StackPanel"}
+
+
+def _cresce_com_dado(el: ET.Element) -> bool:
+    """Tem uma lista lá dentro — ou seja, altura que depende de quantas linhas vierem."""
+    return any(_nome(d) in ("DataGrid", "ItemsControl", "ListBox", "ListView")
+               for d in el.iter())
+
+
+def _pilha_sem_rolagem(raiz: ET.Element) -> int:
+    """Tamanho da maior pilha de blocos-com-tabela sem rolagem em cima. 0 = tela sã."""
+    # Uma rolagem em QUALQUER lugar da tela já resolve — o que importa é o empilhamento
+    # ter para onde crescer, não onde exatamente está o ScrollViewer.
+    if any(_nome(e) == "ScrollViewer" for e in raiz.iter()):
+        return 0
+    # StackPanel VERTICAL (o padrão) que empilhe dois ou mais blocos com tabela dentro.
+    for sp in raiz.iter():
+        if _nome(sp) != "StackPanel" or sp.get("Orientation") == "Horizontal":
+            continue
+        pilha = [c for c in sp if _nome(c) in _BLOCOS and _cresce_com_dado(c)]
+        if len(pilha) >= 2:
+            return len(pilha)
+    return 0
+
+
+for _arq, _raiz in arvores_com_faturamento.items():
+    if (_n := _pilha_sem_rolagem(_raiz)) > 0:
+        erros.append(
+            f"{rel(_arq)}: {_n} blocos com tabela empilhados num StackPanel e a tela não "
+            f"tem ScrollViewer — a janela tem altura finita e o StackPanel dá a cada filho "
+            f"a altura que ele pede, então o que passa do fim é CORTADO sem barra e sem "
+            f"como alcançar (foi assim que a seção \"Não conformidades\" sumiu do "
+            f"Relatórios). Use ScrollViewer na raiz, linhas `Auto` e MaxHeight nas grades."
+        )
+
+# --- autoteste da 36: dispara nas duas formas reais e cala nas legítimas ---
+#
+# ⚠️ O autoteste CHAMA `_pilha_sem_rolagem`, a MESMA função que a varredura usa, em vez de
+# repetir a lógica dela linha a linha. Reimplementar aqui produziria um teste que fica
+# verde exatamente quando a checagem quebra, porque a cópia não quebra junto — a lição da
+# parcela 67.
+_ENV = f'<UserControl xmlns="{NS_XAML[1:-1]}">{{}}</UserControl>'
+_CARD = '<Border><DockPanel><DataGrid /></DockPanel></Border>'
+_LINHAS = '<Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="{}" /></Grid.RowDefinitions>'
+for _cenario, _corpo, _deve in (
+    # A forma real do Relatórios antes da correção: a pilha dentro de uma linha `*`.
+    ("o defeito real (linha `*`)",
+     f'<Grid>{_LINHAS.format("*")}<Grid Grid.Row="1">'
+     f'<StackPanel>{_CARD}{_CARD}{_CARD}</StackPanel></Grid></Grid>', True),
+    # A VARIANTE que a primeira versão da checagem não via, e que corta igual: a mesma
+    # pilha com todas as linhas `Auto`. É por causa dela que o gate de linha `*` saiu.
+    ("a mesma pilha com linhas `Auto`",
+     f'<Grid>{_LINHAS.format("Auto")}<Grid Grid.Row="1">'
+     f'<StackPanel>{_CARD}{_CARD}{_CARD}</StackPanel></Grid></Grid>', True),
+    # O conserto: a mesma pilha, com rolagem em cima.
+    ("com ScrollViewer",
+     f'<ScrollViewer><Grid>{_LINHAS.format("Auto")}<Grid Grid.Row="1">'
+     f'<StackPanel>{_CARD}{_CARD}{_CARD}</StackPanel></Grid></Grid></ScrollViewer>', False),
+    # A forma SEGURA das outras telas do faturamento: UMA grade na linha `*`, que rola por
+    # dentro. Acusá-las seria o ruído que faz alguém desligar a ferramenta.
+    ("uma grade só na linha `*`",
+     f'<Grid>{_LINHAS.format("*")}<Border Grid.Row="1"><DataGrid /></Border></Grid>', False),
+    # Pilha de blocos SEM lista: texto e botões não crescem com o dado.
+    ("pilha sem tabela",
+     f'<Grid>{_LINHAS.format("*")}<StackPanel Grid.Row="1"><Border><TextBlock /></Border>'
+     f'<Border><TextBlock /></Border></StackPanel></Grid>', False),
+):
+    _disparou = _pilha_sem_rolagem(ET.fromstring(_ENV.format(_corpo))) > 0
+    if _disparou != _deve:
+        erros.append(
+            f"verificar-suite: a checagem 36 mudou de resposta ({_cenario}) — "
+            f"disparou={_disparou}, esperado={_deve}."
+        )
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

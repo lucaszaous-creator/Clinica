@@ -1,6 +1,7 @@
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Regras;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -71,6 +72,49 @@ public class RelatorioServiceTests : IDisposable
 
         rel.PorConvenio.Should().Contain(c => c.Convenio == Convenio.UnimedIntercambio && c.TotalCodigos == 2);
         rel.PorConvenio.Should().Contain(c => c.Convenio == Convenio.Amil && c.TotalCodigos == 1);
+    }
+
+    /// <summary>
+    /// Duas OPERADORAS que compartilham a família <c>Personalizado</c> são duas linhas.
+    ///
+    /// Enquanto a quebra era pela família, elas caíam numa linha só — e o rótulo dela era o
+    /// nome de UMA delas. A direção lia "Porto Saúde: 3 guias" e eram Porto Saúde mais Sul
+    /// América somadas: o número que ela usa para negociar tabela com a operadora estava
+    /// errado, e com toda a cara de certo.
+    /// </summary>
+    [Fact]
+    public async Task PorConvenio_separa_duas_operadoras_da_MESMA_familia()
+    {
+        CatalogoConvenios.Atualizar(
+        [
+            new EntradaConvenio("Personalizado", "Porto Saude", Convenio.Personalizado, true),
+            new EntradaConvenio("CV1a2b3c4d", "SULAMERICA", Convenio.Personalizado, true),
+        ]);
+        try
+        {
+            var porto = new Paciente { Nome = "Carlos", Convenio = Convenio.Personalizado, ConvenioCodigo = "Personalizado" };
+            var sul = new Paciente { Nome = "Janine", Convenio = Convenio.Personalizado, ConvenioCodigo = "CV1a2b3c4d" };
+            _db.Pacientes.AddRange(porto, sul);
+            await _db.SaveChangesAsync();
+
+            var atendimentos = new AtendimentoService(_repo);
+            var relatorios = new RelatorioService(_repo);
+            var dia = new DateOnly(2026, 7, 10);
+
+            await atendimentos.LancarAsync(porto.Id, dia, ModalidadeAtendimento.AcupunturaSimples); // 1 código
+            await atendimentos.LancarAsync(sul.Id, dia, ModalidadeAtendimento.AcupunturaSimples);   // 1 código
+
+            var rel = await relatorios.GerarAsync(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 31), dia);
+
+            var personalizadas = rel.PorConvenio.Where(c => c.Convenio == Convenio.Personalizado).ToList();
+            personalizadas.Should().HaveCount(2, "cada operadora é uma linha, mesmo compartilhando a regra");
+            personalizadas.Should().OnlyContain(c => c.TotalCodigos == 1);
+            personalizadas.Select(c => c.ConvenioNome).Should().BeEquivalentTo(["Porto Saude", "SULAMERICA"]);
+        }
+        finally
+        {
+            CatalogoConvenios.Atualizar([]);
+        }
     }
 
     [Fact]

@@ -300,7 +300,7 @@
                 <DataGridTemplateColumn Header="Paciente" Width="2*"
                                         CellTemplate="{StaticResource CelulaPacienteContato}" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*">
+                                    Binding="{Binding ConvenioNome}" Width="1.2*">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource CelulaCopiavel}" />
                     </DataGridTextColumn.ElementStyle>
@@ -383,7 +383,7 @@
                 <DataGridTemplateColumn Header="Paciente" Width="1.6*"
                                         CellTemplate="{StaticResource CelulaPacienteContato}" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*">
+                                    Binding="{Binding ConvenioNome}" Width="1.2*">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource CelulaCopiavel}" />
                     </DataGridTextColumn.ElementStyle>
@@ -436,7 +436,7 @@
                 <DataGridTemplateColumn Header="Paciente" Width="1.6*"
                                         CellTemplate="{StaticResource CelulaPacienteContato}" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*">
+                                    Binding="{Binding ConvenioNome}" Width="1.2*">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource CelulaCopiavel}" />
                     </DataGridTextColumn.ElementStyle>
@@ -493,7 +493,7 @@
                 <DataGridTemplateColumn Header="Paciente" Width="1.6*"
                                         CellTemplate="{StaticResource CelulaPacienteContato}" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="1.2*">
+                                    Binding="{Binding ConvenioNome}" Width="1.2*">
                     <DataGridTextColumn.ElementStyle>
                         <Style TargetType="TextBlock" BasedOn="{StaticResource CelulaCopiavel}" />
                     </DataGridTextColumn.ElementStyle>

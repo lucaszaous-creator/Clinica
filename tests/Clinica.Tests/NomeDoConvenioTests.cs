@@ -85,3 +85,82 @@ public class NomeDoConvenioTests : IDisposable
         CatalogoConvenios.Nome("SulAmerica", Convenio.UnimedPadrao).Should().Be("Sul América");
     }
 }
+
+/// <summary>
+/// A LINHA "Personalizado" DO CATÁLOGO É RENOMEÁVEL, E ISSO VAZAVA PARA TODA OPERADORA.
+///
+/// O defeito que a clínica achou em produção: oito pacientes Sul América apareciam
+/// faturando como "Porto Saúde" na consulta de guias — e a lista de pacientes, ao lado,
+/// mostrava "SULAMERICA" para os mesmos oito.
+///
+/// A causa: <c>ConvenioCatalogoService.ListarAsync</c> garante uma linha por família,
+/// inclusive uma de código <c>"Personalizado"</c>, e essa linha é editável como qualquer
+/// outra. A clínica renomeou-a para a primeira operadora que cadastrou (em vez de usar
+/// "Adicionar"), e a partir daí <c>Nome(Convenio.Personalizado)</c> — a resolução por
+/// FAMÍLIA — passou a devolver "Porto Saúde" para toda operadora personalizada.
+///
+/// ⚠️ Por que <see cref="NomeDoConvenioTests"/> não pegou, apesar de ter sido escrito para
+/// exatamente este assunto: ele monta um catálogo SEM linha de código "Personalizado" e
+/// afirma que a resolução por família não devolve o nome da operadora CERTA. Passa — e
+/// deixa passar o caso real, que é devolver o nome de uma operadora ERRADA. A asserção
+/// tinha de ser "não é o nome de operadora nenhuma", e é a que está aqui.
+/// </summary>
+public class NomeDoConvenioPersonalizadoTests : IDisposable
+{
+    // O catálogo como a clínica o tem em produção: a linha embutida da família
+    // renomeada para uma operadora, e outra operadora cadastrada ao lado, com código próprio.
+    public NomeDoConvenioPersonalizadoTests() => CatalogoConvenios.Atualizar(
+    [
+        new EntradaConvenio("Personalizado", "Porto Saude", Convenio.Personalizado, true),
+        new EntradaConvenio("CV1a2b3c4d", "SULAMERICA", Convenio.Personalizado, true),
+    ]);
+
+    public void Dispose() => CatalogoConvenios.Atualizar([]);
+
+    [Fact]
+    public void Duas_operadoras_da_mesma_familia_nunca_compartilham_o_nome()
+    {
+        var sulAmerica = new Paciente { Nome = "Janine", Convenio = Convenio.Personalizado, ConvenioCodigo = "CV1a2b3c4d" };
+        var portoSaude = new Paciente { Nome = "Carlos", Convenio = Convenio.Personalizado, ConvenioCodigo = "Personalizado" };
+
+        sulAmerica.ConvenioNome.Should().Be("SULAMERICA");
+        portoSaude.ConvenioNome.Should().Be("Porto Saude");
+        sulAmerica.ConvenioNome.Should().NotBe(portoSaude.ConvenioNome);
+    }
+
+    [Fact]
+    public void A_familia_personalizada_nao_responde_o_nome_de_operadora_nenhuma()
+    {
+        // É esta a asserção que faltava. A família é a REGRA compartilhada — ela não sabe
+        // de que operadora se trata, e responder uma delas é responder a errada para todas
+        // as outras, com toda a cara de resposta certa.
+        var porFamilia = CatalogoConvenios.Nome(Convenio.Personalizado);
+
+        porFamilia.Should().Be(CatalogoConvenios.RotuloFamiliaPersonalizada);
+        porFamilia.Should().NotBe("Porto Saude");
+        porFamilia.Should().NotBe("SULAMERICA");
+    }
+
+    [Fact]
+    public void Renomear_a_linha_embutida_de_uma_familia_de_verdade_continua_valendo()
+    {
+        // A blindagem é SÓ da família genérica. Renomear a Unimed continua refletindo na
+        // tela: ali a família identifica uma operadora de verdade, e era para isso que a
+        // resolução por família existia.
+        CatalogoConvenios.Atualizar(
+        [
+            new EntradaConvenio("UnimedPadrao", "Unimed Costa do Sol (Padrão)", Convenio.UnimedPadrao, true),
+        ]);
+
+        CatalogoConvenios.Nome(Convenio.UnimedPadrao).Should().Be("Unimed Costa do Sol (Padrão)");
+    }
+
+    [Fact]
+    public void Paciente_da_linha_embutida_renomeada_continua_com_o_nome_dela()
+    {
+        // O caminho de baixo (código nulo + família) NÃO passa pelo rótulo neutro: o
+        // paciente foi mesmo cadastrado naquela linha, e ela é a melhor resposta que existe.
+        // Sem isso, corrigir o vazamento apagaria o nome de quem estava certo.
+        CatalogoConvenios.Nome(null, Convenio.Personalizado).Should().Be("Porto Saude");
+    }
+}
