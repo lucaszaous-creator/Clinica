@@ -141,6 +141,28 @@ Feature nova que não seja do faturamento continua indo para Recepção, Finance
 Gerente. O que cada módulo deve entregar, e em que ordem, está em `docs/features-por-modulo.md` e
 `docs/entrega-ao-cliente.md`.
 
+### ⛔ CONGELADO: SafeID e assinatura digital — decisão da direção, 14/08/2026
+
+**Não encoste em nada relativo ao SafeID e à assinatura digital sem autorização expressa.**
+O mapa completo — o que é núcleo, o que é fronteira, o que ficou de fora e o que fazer se
+algo parecer errado — está em **`docs/safeid-congelado.md`**. Leia ANTES de tocar em
+qualquer arquivo de `Assinatura/`, `SafeID/` ou `PublicacaoDocumentoService`.
+
+As três razões, em uma linha cada:
+
+1. **Cada tentativa de assinatura é COBRADA pelo PSC** — depurar aqui gasta dinheiro da
+   clínica, e não existe "testar de novo" de graça.
+2. **É a única parte do sistema com valor jurídico afirmado no rodapé** — erro aqui não
+   produz tela feia, produz documento que parece oficial e não é.
+3. **Verde não quer dizer funciona**: os testes usam certificado autoassinado em memória e
+   SQLite; eles não enxergam e-CPF real, cadeia ICP-Brasil, `timestamp with time zone` nem
+   o formato que a Safeweb de fato emite. Foram **sete rodadas** em produção até funcionar.
+
+Se algo parecer errado: **peça o log** (`Diagnostico` grava a inner exception inteira),
+**peça o commit do build**, **reproduza antes de corrigir** e **teste em homologação**.
+Não corrija por dedução — foi assim que três correções erradas chegaram à clínica.
+
+
 ### ⛔ COMPROMISSO DE CONFORMIDADE — leia antes de mexer em qualquer coisa clínica
 
 A cliente enviou, por escrito, os **dez pontos** que ela verificaria ao contratar um
