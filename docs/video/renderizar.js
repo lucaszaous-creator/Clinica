@@ -69,6 +69,33 @@ async function main() {
   // o próprio carregamento (o load nunca chega e a navegação estoura). Carrega
   // primeiro, com a peça pausada em t=0; só então congela.
   await page.goto(url, { waitUntil: 'load' });
+
+  // DECODIFICAR TUDO ANTES DE CONGELAR. Fonte e imagem são decodificadas em
+  // tarefas assíncronas, e essas tarefas ficam presas quando o tempo virtual
+  // está pausado: se algo ainda não foi decodificado, o primeiro quadro nunca
+  // é composto e a captura fica pendurada até estourar.
+  // Foi o que aconteceu ao pôr a logo na ABERTURA do vídeo de 90s — no
+  // vertical ela só aparece no fecho, então o problema não aparecia lá.
+  await page.evaluate(async () => {
+    const urls = new Set();
+    document.querySelectorAll('*').forEach(el => {
+      const bg = getComputedStyle(el).backgroundImage;
+      if (bg && bg !== 'none') {
+        for (const m of bg.matchAll(/url\(["']?(.*?)["']?\)/g)) urls.add(m[1]);
+      }
+    });
+    document.querySelectorAll('img[src]').forEach(i => urls.add(i.src));
+
+    await Promise.all([...urls].map(u => {
+      const img = new Image();
+      img.src = u;
+      // decode() rejeita em formato que o navegador não abre; aqui isso não
+      // pode derrubar o render — o quadro simplesmente sai sem aquela imagem.
+      return img.decode().catch(() => {});
+    }));
+    if (document.fonts && document.fonts.ready) await document.fonts.ready;
+  });
+
   await cdp.send('Emulation.setVirtualTimePolicy', { policy: 'pause' });
 
   // Zera e dá play já sob tempo congelado. `ultimo` recebe o relógio virtual
