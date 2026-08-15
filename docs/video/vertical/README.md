@@ -21,9 +21,11 @@ enquadramento (nunca grave assim).
 | 7 | 30,5–36,0 | "Cinco programas, um banco" |
 | 8 | 36,0–41,0 | Fecho — marca |
 
-Gravar: OBS → fonte **Navegador**, arquivo local, **1080×1920**, 30fps, URL
-terminando em `?c=1&play=1`. Comece a gravar e use "Atualizar cache da página
-atual" para disparar.
+Gerar o MP4 (não precisa gravar tela):
+
+```bash
+node docs/video/renderizar.js docs/video/vertical/vertical-41s.html 1080 1920 41 vertical.mp4
+```
 
 ## De onde veio
 
@@ -67,3 +69,11 @@ texto é texto de verdade, em vetor, e o mesmo motor da versão 16:9
 
 ⚠️ **As capturas de conferência deste ambiente usam fonte SUBSTITUTA** (não há
 Segoe UI aqui). No Windows o texto sai mais estreito que nos PNGs de teste.
+
+⚠️ **A logo BRANCA do repositório não serve.** `logo-branca.png` e
+`simbolo-branco.png` foram exportados com uma camada branca a 48% cobrindo a
+tela inteira — 80% dos pixels com alfa 122 —, o que desenha uma caixa clara em
+volta da marca sobre qualquer fundo escuro. As coloridas estão limpas. A branca
+usada nos vídeos é derivada da colorida, em `docs/video/marca/`. Os arquivos de
+`src/` não foram tocados: são usados pelos apps em produção, e vale conferir se
+esse retângulo não está aparecendo em alguma tela de fundo escuro.

@@ -9,6 +9,8 @@ clínica o que foi construído. Tom de **entrega**, não de venda.
 | `cenas-animadas.html` | As 7 cenas animadas em 1920×1080, para gravar |
 | `after-effects/montar-projeto.jsx` | Script que monta o projeto no After Effects |
 | `after-effects/verificar-montagem.js` | Roda o `.jsx` fora do AE, contra um mock da API |
+| `renderizar.js` | **Gera o MP4 direto do HTML** — sem gravar tela |
+| `marca/` | Logo branca corrigida (a do repositório tem defeito) |
 
 ---
 
@@ -17,7 +19,6 @@ clínica o que foi construído. Tom de **entrega**, não de venda.
 | Item | Para quê | Situação |
 |---|---|---|
 | Máquina Windows | Gravar e editar | já tem |
-| **OBS Studio** ([obsproject.com](https://obsproject.com)) | Gravar as cenas | grátis |
 | After Effects | Montagem, legendas, trilha | assinatura Adobe |
 | Locução | A voz do vídeo | você grava, ou geramos |
 | Trilha sonora **licenciada** | Música de fundo | ~US$15/mês (Artlist, Epidemic) |
@@ -43,61 +44,55 @@ A ordem importa, e a razão está no passo 1:
    locução apressada é a marca registrada de vídeo institucional ruim.
 2. Meça a duração real de cada trecho e ajuste os tempos em `roteiro.md`.
 3. Ajuste os mesmos tempos no `CENAS` de `cenas-animadas.html`.
-4. Grave as cenas (passo 3 abaixo).
+4. Gere os MP4 (passo 3 abaixo).
 5. Rode o `.jsx` no After Effects e monte.
 6. Ajuste, exporte.
 
 ---
 
-## 3. Como gravar as cenas
+## 3. Gerar o vídeo
 
-### Caminho recomendado — OBS Browser Source
+**Não é preciso gravar tela.** O MP4 sai daqui:
 
-Resolução exata independentemente do seu monitor. É o único caminho que
-garante 1920×1080 nativo mesmo num notebook de tela menor.
+```bash
+node docs/video/renderizar.js docs/video/cenas-animadas.html 1920 1080 90 entrega.mp4
+node docs/video/renderizar.js docs/video/vertical/vertical-41s.html 1080 1920 41 vertical.mp4
+```
 
-1. No OBS: **Fontes → + → Navegador**
-2. Marque **Arquivo local** e aponte para `cenas-animadas.html`
-3. **Largura 1920, Altura 1080**
-4. Em **URL personalizada / parâmetros**, garanta que a URL termine com
-   `?c=1&play=1`
-5. **Configurações → Vídeo:** Base e Saída em `1920×1080`, **30 fps**
-6. **Configurações → Saída → Gravação:** Qualidade `Indistinguível`,
-   formato `mkv`, codificador `x264`
-7. Comece a gravar, depois clique com o botão direito na fonte →
-   **Atualizar cache da página atual**. A página recarrega e toca sozinha.
-8. Espere ~95s e pare. Sobra no começo e no fim é o que você apara no AE.
-9. **Arquivo → Remuxar gravações** para virar `.mp4`
+Requer `puppeteer-core`, o Chromium do ambiente e `ffmpeg`. Saída em H.264,
+`yuv420p`, `+faststart` — abre em celular, WhatsApp e navegador.
 
-### Caminho alternativo — navegador em tela cheia
+### Por que tempo virtual, e as quatro armadilhas
 
-Só vale se o seu monitor for 1080p ou maior. Abra
-`cenas-animadas.html?c=1` no Chrome ou Edge, aperte **F11**, comece a gravar
-com Captura de Tela no OBS e aperte **espaço** — vem uma contagem de 3
-segundos antes de começar, para você sair do caminho.
+As animações são transições CSS, que correm no relógio de PAREDE. Capturar,
+esperar e capturar de novo produziria quadros com espaçamento irregular: vídeo
+trêmulo que nenhum ajuste de fps conserta. O renderizador congela o tempo do
+navegador e o avança em passos exatos de 1/fps.
 
-### Atalhos do arquivo de cenas
+Isso tem quatro armadilhas, todas encontradas na prática e todas com a mesma
+assinatura — a captura fica pendurada e a mensagem fala de *timeout*, nunca da
+causa:
 
-| Tecla | Faz |
-|---|---|
-| `espaço` | toca / pausa |
-| `R` | volta ao início |
-| `←` `→` | cena anterior / próxima |
-| `C` | liga o modo captura (esconde o painel e o cursor) |
+1. **Congelar antes de navegar trava o carregamento.** Carregue primeiro, com a
+   peça pausada; só então congele.
+2. **Sem mudança na tela não há quadro novo.** Nos trechos parados o compositor
+   não entrega nada. Daí o marcador de 1 px que alterna a cada frame — a API
+   própria para isto (`HeadlessExperimental.beginFrame`) foi removida do Chrome.
+3. **`Page.captureScreenshot` precisa de `fromSurface:false`.**
+4. **Imagem e fonte precisam ser decodificadas ANTES de congelar.** A
+   decodificação é assíncrona e fica presa com o tempo pausado. Este só aparece
+   quando há imagem no PRIMEIRO quadro — foi o que fez o 16:9 falhar assim que
+   a logo entrou na abertura, enquanto o vertical (logo só no fecho) passava.
 
-E pela URL:
+⚠️ **Não canalize a saída do render para `head`**: o pipe fecha, o processo
+morre no meio e o MP4 some sem mensagem nenhuma.
 
-| Parâmetro | Faz |
-|---|---|
-| `?t=30` | abre direto no segundo 30 |
-| `?play=1` | começa tocando |
-| `?c=1` | já entra em modo captura |
-| `?still=1` | **desliga o movimento** — tudo salta para o estado final |
+### A peça precisa expor `irPara(t)` e `tocar()`
 
-O `still=1` é para conferir enquadramento (texto estourando, cartão colado na
-borda). **Nunca grave com ele ligado**: o vídeo sai parado.
-
----
+É o contrato. O renderizador **recusa** a peça que não os exponha, em vez de
+seguir e produzir um vídeo torto — antes ele mexia direto na variável de
+relógio, que tem nome diferente em cada arquivo, e no arquivo errado a peça
+começava adiantada sem erro nenhum.
 
 ## 4. Montagem no After Effects
 
