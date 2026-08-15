@@ -1,0 +1,855 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cenas animadas — vídeo de entrega SemDor</title>
+<style>
+/* ============================================================================
+   CENAS ANIMADAS · vídeo de entrega, 90s, 1920×1080 @30fps
+   ----------------------------------------------------------------------------
+   Palco de 1920×1080 FIXO. O tema é travado no CLARO de propósito: sem
+   prefers-color-scheme e sem data-theme. Vídeo tem de sair igual em qualquer
+   máquina — se o palco seguisse o tema do sistema operacional, a mesma gravação
+   sairia navy numa máquina e branca noutra, e ninguém descobriria até montar.
+
+   Tokens espelhados de src/Clinica.Desktop/Styles/Tokens.xaml.
+   ========================================================================== */
+:root{
+  --bg:#F8FAFC; --surface:#FFFFFF; --surface-2:#F1F5F9; --surface-3:#F8FAFC;
+  --ink:#111827; --ink-2:#374151; --ink-soft:#6B7280;
+  --line:#E5E7EB; --line-2:#D1D5DB;
+  --accent:#123A9E; --accent-strong:#0A2E86; --accent-tint:#EEF3FC; --accent-tint-2:#D8E3F7;
+  --navy:#07329A; --mid:#5E87D9; --light:#B0D3F3;
+  --hero-a:#0A2E86; --hero-b:#071F5C;
+  --success:#16A34A; --success-strong:#15803D; --success-tint:#DCFCE7;
+  --warn:#EA580C; --warn-tint:#FFEDD5;
+  --err:#DC2626; --err-strong:#B91C1C; --err-tint:#FEE2E2;
+  --info:#0EA5E9; --info-tint:#E0F2FE;
+  --sem-green:#2E7D32; --sem-amber:#F9A825; --sem-red:#C62828;
+  --mono:Consolas,"SF Mono",Menlo,monospace;
+  --ui:"Segoe UI",Inter,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --shadow-float:0 26px 64px -26px rgba(7,31,92,.42);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#0b0f17}
+body{font-family:var(--ui);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+
+/* ---- palco -------------------------------------------------------------- */
+#viewport{position:fixed;inset:0;display:grid;place-items:center}
+#palco{
+  width:1920px;height:1080px;position:relative;overflow:hidden;
+  background:var(--bg);transform-origin:center center;
+}
+.cena{position:absolute;inset:0;opacity:0;visibility:hidden}
+.cena.ativa{opacity:1;visibility:visible}
+/* Corte SECO entre cenas de propósito: o crossfade fica para o After Effects,
+   onde ele é ajustável. Fade gravado no HTML não se desfaz na montagem. */
+
+/* ---- tipografia do vídeo ------------------------------------------------ */
+.vtitulo{font-size:76px;font-weight:800;letter-spacing:-.025em;line-height:1.05;color:#fff;margin:0}
+.vsub{font-size:30px;line-height:1.45;color:#BCC9E6;margin:22px 0 0;max-width:26ch}
+.veyebrow{font-size:19px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--light);margin:0 0 26px}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ---- cenas escuras (1, 7) ----------------------------------------------- */
+.escuro{background:radial-gradient(120% 110% at 78% -12%,var(--hero-a) 0%,var(--hero-b) 60%),var(--hero-b)}
+
+/* ---- animações base ----------------------------------------------------- */
+.an{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.3,1),transform .7s cubic-bezier(.2,.7,.3,1)}
+.an.in{opacity:1;transform:none}
+.an-esc{opacity:0;transform:scale(.86);transition:opacity .8s cubic-bezier(.2,.7,.3,1),transform .8s cubic-bezier(.2,.7,.3,1)}
+.an-esc.in{opacity:1;transform:none}
+.an-sobe{opacity:0;transform:translateY(90px) scale(.97);transition:opacity .85s cubic-bezier(.16,.9,.28,1),transform .85s cubic-bezier(.16,.9,.28,1)}
+.an-sobe.in{opacity:1;transform:none}
+
+/* ============================ CENA 1 · ABERTURA ========================== */
+#c1{display:grid;place-items:center;text-align:center}
+#c1 .marca{display:flex;align-items:center;gap:26px;justify-content:center;margin-bottom:44px}
+#c1 .marca .nome{font-size:38px;font-weight:750;color:#fff;letter-spacing:-.01em;text-align:left}
+#c1 .marca .nome small{display:block;font-size:17px;font-weight:600;color:var(--light);letter-spacing:.05em;margin-top:2px}
+
+/* ============================ CENA 2 · A DOR ============================= */
+#c2{display:grid;place-items:center;background:var(--bg)}
+#c2 .linha{display:flex;align-items:center;gap:0;position:relative}
+#c2 .bloco{width:372px;padding:42px 34px;border-radius:20px;background:var(--surface);border:1px solid var(--line);box-shadow:0 10px 34px -18px rgba(17,24,39,.28);text-align:center}
+#c2 .bloco .rot{font-size:18px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft)}
+#c2 .bloco .val{font-size:44px;font-weight:800;color:var(--ink);margin-top:14px;letter-spacing:-.02em}
+#c2 .seta{width:110px;height:3px;background:var(--line-2);position:relative;flex:0 0 auto}
+#c2 .seta::after{content:"";position:absolute;right:-2px;top:-6px;border-left:13px solid var(--line-2);border-top:7px solid transparent;border-bottom:7px solid transparent}
+#c2 .bloco.alvo{border-color:color-mix(in srgb,var(--sem-red) 50%,var(--line))}
+#c2 .bloco.esvai{opacity:.32;transition:opacity 2.4s linear}
+/* 68% = centro da SEGUNDA seta. O "+24h" é o intervalo até o 2º código nascer;
+   sobre o bloco do meio ele diria que a espera é do 1º, que é o oposto. */
+#c2 .selo24{position:absolute;left:68%;top:-104px;transform:translateX(-50%);font-size:64px;font-weight:800;color:var(--accent);letter-spacing:-.02em;white-space:nowrap}
+#c2 .selo24.pulsa{animation:pulso24 .9s cubic-bezier(.3,.8,.3,1)}
+@keyframes pulso24{0%{transform:translateX(-50%) scale(1)}40%{transform:translateX(-50%) scale(1.22)}100%{transform:translateX(-50%) scale(1)}}
+#c2 .selo24::after{content:"";position:absolute;left:50%;top:78px;width:2px;height:34px;background:var(--accent);opacity:.4}
+#c2 .atraso{margin-top:88px;text-align:center}
+#c2 .atraso .n{font-size:132px;font-weight:800;color:var(--sem-red);line-height:1;letter-spacing:-.03em}
+#c2 .atraso .l{font-size:25px;color:var(--ink-soft);margin-top:14px}
+#c2 .dias{position:absolute;right:-210px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:24px;color:var(--ink-soft);line-height:2}
+
+/* ======================= CENAS 3 e 4 · APP REAL ========================== */
+/* Markup e CSS espelhados de docs/apresentacao/apresentacao-semdor.html      */
+#c3,#c4{display:grid;place-items:center;background:var(--bg)}
+.frame{width:1680px;border:1px solid var(--line-2);border-radius:16px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow-float)}
+.winbar{height:48px;background:var(--surface-2);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;padding:0 20px}
+.winbar .wd{width:13px;height:13px;border-radius:50%;background:var(--line-2)}
+.winbar .wt{margin-left:12px;font-size:15px;color:var(--ink-soft);font-weight:600}
+.app{display:grid;grid-template-columns:272px 1fr}
+.side{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:8px 0 12px}
+.side .logo{display:flex;align-items:center;gap:11px;padding:18px 16px 10px}
+.side .brandtxt{font-weight:750;font-size:16.5px;color:var(--ink)}
+.side .brandtxt small{display:block;font-size:11.5px;font-weight:600;color:var(--ink-soft)}
+.side .grp{font-size:12.5px;font-weight:650;color:var(--ink-soft);padding:16px 22px 5px}
+.nav{position:relative;display:flex;align-items:center;gap:13px;height:44px;margin:2px 9px;padding:0 13px;border-radius:9px;color:var(--ink-2);font-size:15.5px}
+.nav .rot{white-space:nowrap}
+.nav .cnt{margin-left:auto;background:var(--err);color:#fff;font-size:12px;font-weight:700;min-width:21px;height:21px;border-radius:999px;display:grid;place-items:center;padding:0 6px}
+.nav.on{background:var(--accent-tint);color:var(--accent);font-weight:650}
+.nav.on::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:2px;background:var(--accent);transform:scaleY(0);transform-origin:center;transition:transform .5s cubic-bezier(.2,.8,.3,1)}
+.nav.on.acesa::before{transform:scaleY(1)}
+.side .foot{margin-top:auto;padding:12px 16px 4px}
+.side .foot .badge{display:flex;align-items:center;gap:8px;background:var(--err-tint);color:var(--err);border-radius:9px;padding:10px 12px;font-size:13.5px;font-weight:650;margin-bottom:9px}
+.side .foot .ver{font-size:12.5px;color:var(--ink-soft)}
+.content{display:flex;flex-direction:column;min-width:0}
+.cbar{height:60px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 20px}
+.cbar .search{flex:1;max-width:400px;display:flex;align-items:center;gap:9px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;color:var(--ink-soft);font-size:14px}
+.cbar .ico{margin-left:auto;display:flex;align-items:center;gap:7px;color:var(--ink-soft)}
+.cbar .ico .b{position:relative;width:36px;height:36px;border-radius:9px;display:grid;place-items:center}
+.cbar .ico .b .cnt{position:absolute;top:3px;right:3px;background:var(--err);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:999px;display:grid;place-items:center;padding:0 4px}
+.crumb{display:flex;align-items:center;gap:9px;padding:13px 28px;font-size:14px;color:var(--ink-soft);border-bottom:1px solid var(--line);background:var(--surface)}
+.crumb b{color:var(--ink-2);font-weight:650}
+.view{background:var(--bg);padding:24px 28px;min-height:610px}
+.vhead{display:flex;align-items:center;gap:13px;margin-bottom:16px}
+.vhead h4{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0;color:var(--ink)}
+.vhead .sp{flex:1}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:13px}
+.card .ct{font-size:16px;font-weight:750;color:var(--ink);padding:16px 18px 0}
+.alert{border-radius:9px;padding:14px 16px;display:flex;align-items:center;gap:12px;font-size:16px;font-weight:650;margin-bottom:16px}
+.alert.danger{background:var(--err);color:#fff}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:18px;min-height:98px}
+.kpi .l{font-size:15px;color:var(--ink-soft)}
+.kpi .v{font-size:34px;font-weight:800;letter-spacing:-.02em;margin-top:5px;color:var(--ink)}
+.kpi.accent{background:var(--accent);border-color:var(--accent)}
+.kpi.accent .l{color:var(--accent-tint-2)}.kpi.accent .v{color:#fff}
+.kpi .v.r{color:var(--err)}.kpi .v.w{color:var(--warn)}
+.filters{display:flex;align-items:center;gap:11px;margin-bottom:14px;flex-wrap:wrap}
+.filters .lb{font-size:15px;color:var(--ink-2)}
+.combo{display:inline-flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line-2);border-radius:9px;padding:8px 13px;font-size:15px;color:var(--ink)}
+.btn2{display:inline-flex;align-items:center;gap:7px;font-size:15px;font-weight:650;border-radius:9px;padding:8px 14px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2)}
+.btn2.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn2.sm{padding:6px 12px;font-size:13.5px}
+table.tbl{width:100%;border-collapse:collapse;font-size:15px}
+table.tbl th{text-align:left;font-size:12.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);background:var(--surface-2);padding:11px 15px;border-bottom:1px solid var(--line);white-space:nowrap}
+table.tbl td{padding:12px 15px;border-bottom:1px solid var(--line);color:var(--ink-2);white-space:nowrap}
+table.tbl tr:last-child td{border-bottom:0}
+table.tbl tbody tr{opacity:0;transform:translateX(-22px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.8,.3,1)}
+table.tbl tbody tr.in{opacity:1;transform:none}
+.who{font-weight:650;color:var(--ink)}
+.dot{width:15px;height:15px;border-radius:50%;display:inline-block;vertical-align:middle}
+.dot.r{background:var(--sem-red)}.dot.a{background:var(--sem-amber)}.dot.g{background:var(--sem-green)}
+.dot.pulsa{animation:pulsoDot 1.1s cubic-bezier(.3,.8,.3,1)}
+@keyframes pulsoDot{0%{transform:scale(1);box-shadow:0 0 0 0 currentColor}
+  35%{transform:scale(1.5)}
+  100%{transform:scale(1);box-shadow:0 0 0 18px transparent}}
+.dot.r.pulsa{color:rgba(198,40,40,.5)}
+.dot.a.pulsa{color:rgba(249,168,37,.5)}
+.dot.g.pulsa{color:rgba(46,125,50,.5)}
+.rowact{display:inline-flex;gap:7px}
+.ib{width:30px;height:30px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);display:inline-grid;place-items:center;color:var(--ink-2);font-size:12px;font-weight:700}
+
+/* ---- cena 4: modal bloqueante ------------------------------------------ */
+/* Altura TRAVADA. O fundo é clonado da cena 3 e traz a tela inteira (~880px);
+   sem o teto, a moldura empurra a legenda para fora do palco de 1080 — e o
+   texto que explica a cena é justamente o que se perde. */
+#c4 .palcoModal{position:relative;width:1680px;height:800px;display:grid;place-items:center}
+#c4 .fundoApp{filter:blur(0px) brightness(1);transition:filter 1s ease;transform:scale(.84);transform-origin:center}
+#c4 .fundoApp.recuado{filter:blur(7px) brightness(.55)}
+#c4 .modal{position:absolute;width:900px;background:var(--surface);border:1px solid var(--line-2);border-radius:14px;box-shadow:0 40px 90px -30px rgba(7,31,92,.6);overflow:hidden;
+  opacity:0;transform:translateY(50px) scale(.94);transition:opacity .5s ease,transform .62s cubic-bezier(.14,1.1,.35,1)}
+#c4 .modal.in{opacity:1;transform:none}
+#c4 .mh{padding:20px 24px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px}
+#c4 .mh .lk{width:42px;height:42px;border-radius:10px;background:var(--err-tint);color:var(--err);display:grid;place-items:center;flex:0 0 auto}
+#c4 .mh h5{margin:0;font-size:20px;font-weight:750;color:var(--ink)}
+#c4 .mh p{font-size:14.5px;color:var(--ink-soft);margin:3px 0 0}
+#c4 .mb{padding:8px 24px 20px}
+#c4 .gl{display:flex;align-items:center;gap:14px;padding:15px 0;border-bottom:1px solid var(--line)}
+#c4 .gl:last-child{border-bottom:0}
+#c4 .gl .nm{font-weight:650;color:var(--ink);font-size:16px;flex:1}
+#c4 .gl .mt{font-size:14px;color:var(--sem-red);font-weight:700;font-variant-numeric:tabular-nums}
+#c4 .legenda{position:absolute;bottom:-84px;left:50%;font-size:36px;font-weight:750;color:var(--ink);white-space:nowrap}
+/* A entrada de .an usa translateY; sem repetir o translateX(-50%) nos dois
+   estados, o texto salta para a direita ao terminar a animação. */
+#c4 .legenda.an{transform:translate(-50%,26px)}
+#c4 .legenda.an.in{transform:translate(-50%,0)}
+
+/* ============================ CENA 5 · SUÍTE ============================= */
+#c5{display:grid;place-items:center;background:var(--bg)}
+#c5 .diag{position:relative;width:1500px;height:760px}
+#c5 .apps{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}
+#c5 .appc{width:270px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:26px 20px;text-align:center;
+  box-shadow:0 8px 28px -16px rgba(17,24,39,.24);opacity:.34;transform:translateY(16px);
+  transition:opacity .5s ease,transform .5s cubic-bezier(.2,.8,.3,1),border-color .5s ease,box-shadow .5s ease}
+#c5 .appc.acesa{opacity:1;transform:none;border-color:var(--accent);box-shadow:0 16px 40px -18px rgba(18,58,158,.45)}
+#c5 .appc .ic{width:60px;height:60px;border-radius:15px;display:grid;place-items:center;background:var(--accent-tint);color:var(--accent);margin:0 auto 16px}
+#c5 .appc h5{margin:0;font-size:22px;font-weight:750;color:var(--ink);letter-spacing:-.01em}
+#c5 .appc p{margin:8px 0 0;font-size:15px;color:var(--ink-soft);line-height:1.4}
+#c5 svg.fios{position:absolute;left:0;top:186px;width:1500px;height:330px;pointer-events:none}
+#c5 svg.fios path{fill:none;stroke:var(--line-2);stroke-width:2.5;stroke-dasharray:var(--comp);stroke-dashoffset:var(--comp);transition:stroke-dashoffset .9s ease}
+#c5 svg.fios path.tracada{stroke-dashoffset:0}
+#c5 .banco{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);text-align:center;opacity:0;transition:opacity .6s ease}
+#c5 .banco.in{opacity:1}
+#c5 .banco .cil{width:206px;height:118px;margin:0 auto;border-radius:16px;background:linear-gradient(180deg,var(--accent),var(--accent-strong));
+  display:grid;place-items:center;color:#fff;box-shadow:0 20px 46px -20px rgba(18,58,158,.7)}
+#c5 .banco .cap{margin-top:14px;font-size:19px;font-weight:700;color:var(--ink)}
+#c5 .banco .cap small{display:block;font-size:15px;font-weight:600;color:var(--ink-soft);margin-top:3px}
+#c5 .pulso{fill:var(--accent);opacity:0}
+#c5.rodando .pulso{opacity:1;animation:viaja 2s linear infinite}
+@keyframes viaja{from{offset-distance:0%}to{offset-distance:100%}}
+#c5 .titulo{position:absolute;top:-92px;left:50%;transform:translateX(-50%);font-size:44px;font-weight:800;color:var(--ink);letter-spacing:-.02em;white-space:nowrap}
+
+/* ========================= CENA 6 · CONFORMIDADE ======================== */
+#c6{display:grid;place-items:center;background:var(--bg)}
+#c6 .grade{display:grid;grid-template-columns:repeat(3,430px);gap:34px}
+#c6 .cf{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:38px 32px;
+  box-shadow:0 12px 36px -20px rgba(17,24,39,.26);border-top:5px solid var(--accent)}
+#c6 .cf .ic{width:64px;height:64px;border-radius:16px;display:grid;place-items:center;background:var(--accent-tint);color:var(--accent);margin-bottom:24px}
+#c6 .cf h5{margin:0;font-size:27px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1.2}
+#c6 .cf p{margin:14px 0 0;font-size:17.5px;color:var(--ink-2);line-height:1.5}
+#c6 .cf .lei{margin-top:20px;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:700;
+  background:var(--accent-tint);color:var(--accent);border-radius:999px;padding:7px 15px}
+#c6 .titulo{position:absolute;top:130px;left:50%;transform:translateX(-50%);font-size:46px;font-weight:800;color:var(--ink);letter-spacing:-.02em;text-align:center}
+
+/* ============================= CENA 7 · FECHO =========================== */
+#c7{display:grid;place-items:center;text-align:center}
+/* Números e assinatura na MESMA célula: os dois ficam centrados no palco e a
+   troca é um cross-fade. Empilhados em fluxo, o bloco de números continua
+   ocupando altura depois de sumir e empurra a marca para baixo do centro. */
+#c7 .pilha{display:grid;place-items:center}
+#c7 .pilha > *{grid-area:1/1}
+#c7 .nums{display:flex;gap:120px;justify-content:center}
+#c7 .nm .n{font-size:104px;font-weight:800;color:#fff;line-height:1;letter-spacing:-.035em}
+#c7 .nm .l{font-size:20px;color:var(--light);margin-top:14px;max-width:15ch}
+#c7 .assin{display:flex;align-items:center;gap:26px;justify-content:center}
+#c7 .assin .nome{font-size:44px;font-weight:750;color:#fff;text-align:left;letter-spacing:-.01em}
+#c7 .assin .nome small{display:block;font-size:19px;font-weight:600;color:var(--light);letter-spacing:.05em;margin-top:4px}
+
+/* ---- painel de controle (NÃO entra na gravação) ------------------------- */
+#hud{position:fixed;left:0;right:0;bottom:0;background:rgba(8,12,20,.94);color:#cbd5e1;
+  font:13px/1.5 var(--mono);padding:10px 16px;display:flex;align-items:center;gap:18px;z-index:99}
+#hud b{color:#fff}
+#hud .barra{flex:1;height:6px;background:#1e293b;border-radius:99px;overflow:hidden}
+#hud .barra i{display:block;height:100%;width:0;background:#6E97E8}
+#hud kbd{background:#1e293b;border:1px solid #334155;border-radius:4px;padding:1px 6px;color:#e2e8f0}
+body.captura #hud{display:none}
+body.captura{cursor:none}
+#contagem{position:fixed;inset:0;display:none;place-items:center;background:#000;color:#fff;
+  font:800 260px/1 var(--ui);z-index:100}
+#contagem.on{display:grid}
+</style>
+</head>
+<body>
+
+<div id="viewport"><div id="palco">
+
+<!-- ═══════════════════════ CENA 1 · ABERTURA ═══════════════════════ -->
+<section class="cena escuro" id="c1">
+  <div>
+    <div class="marca an-esc" data-cue="marca">
+      <svg width="96" height="96" viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="9" fill="#fff" fill-opacity=".1"/>
+        <circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.5" opacity=".5"/>
+        <circle cx="16" cy="16" r="3.2" fill="#fff"/>
+        <path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <div class="nome">Clínica SemDor<small>SISTEMA DE FATURAMENTO E GESTÃO</small></div>
+    </div>
+    <h1 class="vtitulo an" data-cue="frase" style="max-width:20ch;margin:0 auto">A guia que fica<br>para amanhã</h1>
+  </div>
+</section>
+
+<!-- ═══════════════════════ CENA 2 · A DOR ═════════════════════════ -->
+<section class="cena" id="c2">
+  <div>
+    <div class="linha">
+      <div class="selo24 an" data-cue="selo">+24h</div>
+      <div class="bloco an" data-cue="b1"><div class="rot">Atendimento</div><div class="val tnum">14/07</div></div>
+      <div class="seta an" data-cue="s1"></div>
+      <div class="bloco an" data-cue="b2"><div class="rot">1º código</div><div class="val tnum">Baixado</div></div>
+      <div class="seta an" data-cue="s2"></div>
+      <div class="bloco alvo an" data-cue="b3" id="c2alvo"><div class="rot">2º código</div><div class="val tnum">Em aberto</div></div>
+      <div class="dias an" data-cue="dias" id="c2dias"></div>
+    </div>
+    <div class="atraso an" data-cue="atraso">
+      <div class="n tnum" id="c2n">0</div>
+      <div class="l">dias de atraso — e o prazo de recurso correndo</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ CENA 3 · O PAINEL ══════════════════════ -->
+<section class="cena" id="c3">
+  <div class="frame an-sobe" data-cue="janela">
+    <div class="winbar"><span class="wd"></span><span class="wd"></span><span class="wd"></span><span class="wt">Clínica SemDor — Faturamento</span></div>
+    <div class="app">
+      <aside class="side">
+        <div class="logo">
+          <svg width="30" height="30" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>
+          <span class="brandtxt">Clínica SemDor<small>Faturamento</small></span>
+        </div>
+        <div class="grp">Painel</div>
+        <div class="nav on" id="navPend"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg><span class="rot">Pendências</span><span class="cnt tnum">6</span></div>
+        <div class="nav"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg><span class="rot">NC</span></div>
+        <div class="grp">Atendimento</div>
+        <div class="nav"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg><span class="rot">Agenda</span></div>
+        <div class="nav"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 2v6a3 3 0 0 0 6 0V2"/><path d="M12 15v3a4 4 0 0 0 8 0"/><circle cx="20" cy="16" r="2"/></svg><span class="rot">Novo atendimento</span></div>
+        <div class="grp">Faturamento</div>
+        <div class="nav"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="rot">Faturados</span></div>
+        <div class="nav"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg><span class="rot">Glosas</span></div>
+        <div class="nav"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg><span class="rot">Guias TISS</span></div>
+        <div class="foot">
+          <div class="badge"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>Pendências: 6</div>
+          <div class="ver tnum">v1.3.2</div>
+        </div>
+      </aside>
+      <div class="content">
+        <div class="cbar">
+          <span class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Pesquisar seção ou paciente…</span>
+          <span class="ico">
+            <span class="b"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg><span class="cnt tnum">6</span></span>
+            <span class="b"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+          </span>
+        </div>
+        <div class="crumb"><b>Painel</b><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>Pendências</div>
+        <div class="view">
+          <div class="vhead">
+            <svg width="28" height="28" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="9" fill="var(--navy)"/><circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.7" opacity=".5"/><circle cx="16" cy="16" r="3.2" fill="#fff"/><path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <h4>Pendências de faturamento</h4><div class="sp"></div>
+            <span class="btn2">Atualizar</span>
+          </div>
+          <div class="alert danger an" data-cue="alerta"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>Existem 6 guias pendentes de baixa. Dê baixa assim que possível para não perder o faturamento.</div>
+          <div class="kpis">
+            <div class="kpi"><div class="l">Guias em aberto</div><div class="v tnum" data-conta="6">0</div></div>
+            <div class="kpi"><div class="l">Urgentes (vermelho)</div><div class="v r tnum" data-conta="3">0</div></div>
+            <div class="kpi"><div class="l">Consultas a renovar</div><div class="v w tnum" data-conta="2">0</div></div>
+            <div class="kpi accent"><div class="l">Pendências totais</div><div class="v tnum" data-conta="8">0</div></div>
+          </div>
+          <div class="filters">
+            <span class="lb">Convênio:</span><span class="combo">Todos</span>
+            <span class="lb">Urgência:</span><span class="combo">Todas</span>
+            <span style="flex:1"></span>
+            <span class="btn2">Baixa em lote</span>
+          </div>
+          <div class="card">
+            <div class="ct">Guias e códigos pendentes</div>
+            <div style="padding:14px 6px 6px">
+              <table class="tbl">
+                <thead><tr><th style="width:30px"></th><th>Paciente</th><th>Convênio</th><th>Código</th><th>Ordem</th><th>Prevista</th><th>Atraso</th><th>Como obter</th><th></th></tr></thead>
+                <tbody id="c3linhas">
+                  <tr><td><span class="dot r" data-sem="r"></span></td><td class="who">Maria da Silva</td><td>Unimed Intercâmbio</td><td>Eletroacupuntura</td><td>2º</td><td class="tnum">14/07</td><td class="tnum" style="color:var(--sem-red);font-weight:700">+3</td><td>Ligação</td><td class="rowact"><span class="btn2 sm primary">Dar baixa</span><span class="ib">NC</span></td></tr>
+                  <tr><td><span class="dot r" data-sem="r"></span></td><td class="who">Carlos Nunes</td><td>Amil</td><td>Acupuntura</td><td>1º</td><td class="tnum">14/07</td><td class="tnum" style="color:var(--sem-red);font-weight:700">+3</td><td>Portal</td><td class="rowact"><span class="btn2 sm primary">Dar baixa</span><span class="ib">NC</span></td></tr>
+                  <tr><td><span class="dot r" data-sem="r"></span></td><td class="who">Rita Campos</td><td>Petrobras</td><td>Consulta (rotação)</td><td>2º</td><td class="tnum">14/07</td><td class="tnum" style="color:var(--sem-red);font-weight:700">+3</td><td>Ligação</td><td class="rowact"><span class="btn2 sm primary">Dar baixa</span><span class="ib">NC</span></td></tr>
+                  <tr><td><span class="dot a" data-sem="a"></span></td><td class="who">João Pereira</td><td>Amil</td><td>Acupuntura</td><td>1º</td><td class="tnum">15/07</td><td class="tnum" style="color:var(--sem-amber);font-weight:700">hoje</td><td>Portal</td><td class="rowact"><span class="btn2 sm">Dar baixa</span><span class="ib">NC</span></td></tr>
+                  <tr><td><span class="dot a" data-sem="a"></span></td><td class="who">Beatriz Lima</td><td>Unimed Padrão</td><td>Acupuntura</td><td>1º</td><td class="tnum">15/07</td><td class="tnum" style="color:var(--sem-amber);font-weight:700">hoje</td><td>App (QR)</td><td class="rowact"><span class="btn2 sm">Dar baixa</span><span class="ib">NC</span></td></tr>
+                  <tr><td><span class="dot g" data-sem="g"></span></td><td class="who">Ana Souza</td><td>Petrobras</td><td>Consulta (rotação)</td><td>2º</td><td class="tnum">16/07</td><td class="tnum" style="color:var(--sem-green);font-weight:700">−1</td><td>Ligação</td><td class="rowact"><span class="btn2 sm">Dar baixa</span><span class="ib">NC</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ CENA 4 · A RODADA ══════════════════════ -->
+<section class="cena" id="c4">
+  <div class="palcoModal">
+    <!-- O conteúdo é CLONADO da cena 3 na abertura (ver clonarFundoDaRodada).
+         Duplicar o markup aqui daria duas telas de Pendências para manter, e a
+         cópia é sempre a que ninguém lembra de ajustar. -->
+    <div class="frame fundoApp" id="c4fundo"></div>
+    <div class="modal" id="c4modal">
+      <div class="mh">
+        <span class="lk"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+        <div><h5>Rodar pendências</h5><p>3 guias passaram do prazo de decisão. Resolva cada uma para continuar.</p></div>
+      </div>
+      <div class="mb">
+        <div class="gl"><span class="dot r"></span><span class="nm">Maria da Silva — 2º código · Eletroacupuntura</span><span class="mt">venceu há 3 dias</span><span class="btn2 sm primary">Dar baixa</span><span class="btn2 sm">Não conformidade</span></div>
+        <div class="gl"><span class="dot r"></span><span class="nm">Carlos Nunes — 1º código · Acupuntura</span><span class="mt">venceu há 3 dias</span><span class="btn2 sm primary">Dar baixa</span><span class="btn2 sm">Não conformidade</span></div>
+        <div class="gl"><span class="dot r"></span><span class="nm">Rita Campos — 2º código · Consulta</span><span class="mt">venceu há 3 dias</span><span class="btn2 sm primary">Dar baixa</span><span class="btn2 sm">Não conformidade</span></div>
+      </div>
+    </div>
+    <div class="legenda an" data-cue="legenda">O sistema para até alguém responder</div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ CENA 5 · A SUÍTE ═══════════════════════ -->
+<section class="cena" id="c5">
+  <div class="diag">
+    <div class="titulo an" data-cue="tit5">Cinco programas, um banco</div>
+    <div class="apps">
+      <div class="appc" data-app="0"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg></div><h5>Faturamento</h5><p>Guias, TISS, glosas</p></div>
+      <div class="appc" data-app="1"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 9h18"/></svg></div><h5>Recepção</h5><p>Agenda, fila, caixa</p></div>
+      <div class="appc" data-app="2"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M7.5 14h2.2l1.3-2.6 2 5 1.4-2.4h2.1"/></svg></div><h5>Consultório</h5><p>Prontuário, receitas</p></div>
+      <div class="appc" data-app="3"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></div><h5>Financeiro</h5><p>Conciliação, tributos</p></div>
+      <div class="appc" data-app="4"><div class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3-4 3 2 4-6"/></svg></div><h5>Direção</h5><p>BI, metas, auditoria</p></div>
+    </div>
+    <svg class="fios" viewBox="0 0 1500 330" preserveAspectRatio="none">
+      <path id="f0" d="M135,0 C135,150 750,150 750,330"/>
+      <path id="f1" d="M442,0 C442,140 750,160 750,330"/>
+      <path id="f2" d="M750,0 L750,330"/>
+      <path id="f3" d="M1058,0 C1058,140 750,160 750,330"/>
+      <path id="f4" d="M1365,0 C1365,150 750,150 750,330"/>
+      <circle class="pulso" r="7" style="offset-path:path('M135,0 C135,150 750,150 750,330')"/>
+      <circle class="pulso" r="7" style="offset-path:path('M442,0 C442,140 750,160 750,330');animation-delay:.35s"/>
+      <circle class="pulso" r="7" style="offset-path:path('M750,330 L750,0');animation-delay:.7s"/>
+      <circle class="pulso" r="7" style="offset-path:path('M1058,330 C1058,140 750,160 750,0');animation-delay:1.05s"/>
+      <circle class="pulso" r="7" style="offset-path:path('M1365,0 C1365,150 750,150 750,330');animation-delay:1.4s"/>
+    </svg>
+    <div class="banco" id="c5banco">
+      <div class="cil"><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></svg></div>
+      <div class="cap">Um banco de dados<small>o que um grava, o outro lê — na hora</small></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ CENA 6 · CONFORMIDADE ══════════════════════ -->
+<section class="cena" id="c6">
+  <div class="titulo an" data-cue="tit6">A lei está no código, não no manual</div>
+  <div class="grade" style="margin-top:120px">
+    <div class="cf an" data-cue="cf1">
+      <div class="ic"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+      <h5>O prontuário não se apaga</h5>
+      <p>Corrige-se, e a versão anterior fica guardada. Cancelar exige motivo escrito — e a linha permanece.</p>
+      <div class="lei">Lei 13.787/2018 · guarda de 20 anos</div>
+    </div>
+    <div class="cf an" data-cue="cf2">
+      <div class="ic"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <h5>Quem abriu, ficou registrado</h5>
+      <p>Toda leitura de prontuário grava quem, quando e por qual porta. Controle de acesso responde quem pode; a trilha responde quem fez.</p>
+      <div class="lei">LGPD · art. 5º, II</div>
+    </div>
+    <div class="cf an" data-cue="cf3">
+      <div class="ic"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg></div>
+      <h5>Assinatura ICP-Brasil</h5>
+      <p>Receita e atestado saem assinados com e-CPF, conferíveis pelo farmacêutico no validador de saúde do ITI.</p>
+      <div class="lei">Lei 14.063/2020 · PAdES-B</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ CENA 7 · FECHO ═════════════════════════ -->
+<section class="cena escuro" id="c7">
+  <div class="pilha">
+    <div class="nums">
+      <div class="nm an" data-cue="n1"><div class="n tnum" data-conta="5">0</div><div class="l">aplicativos,<br>um por perfil</div></div>
+      <div class="nm an" data-cue="n2"><div class="n tnum" data-conta="84">0</div><div class="l">serviços<br>de negócio</div></div>
+      <div class="nm an" data-cue="n3"><div class="n tnum" data-conta="1582" data-sep="1">0</div><div class="l">testes automatizados,<br>a cada mudança</div></div>
+    </div>
+    <div class="assin an" data-cue="assin">
+      <svg width="80" height="80" viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="9" fill="#fff" fill-opacity=".1"/>
+        <circle cx="16" cy="16" r="8" stroke="#fff" stroke-width="1.5" opacity=".5"/>
+        <circle cx="16" cy="16" r="3.2" fill="#fff"/>
+        <path d="M16 3.5v5M16 23.5v5M3.5 16h5M23.5 16h5" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <div class="nome">Clínica SemDor<small>CONSTRUÍDO TELA POR TELA, COM QUEM USA</small></div>
+    </div>
+  </div>
+</section>
+
+</div></div>
+
+<div id="contagem"></div>
+
+<div id="hud">
+  <b id="hudCena">—</b>
+  <span id="hudTempo" class="tnum">0.0 / 90.0s</span>
+  <span class="barra"><i id="hudBarra"></i></span>
+  <span><kbd>espaço</kbd> play <kbd>R</kbd> reinicia <kbd>←</kbd><kbd>→</kbd> cena <kbd>C</kbd> captura</span>
+</div>
+
+<script>
+/* ============================================================================
+   MOTOR DE LINHA DO TEMPO
+   ----------------------------------------------------------------------------
+   Um relógio em segundos e uma lista de "cues" por cena. Cada cue tem um
+   instante RELATIVO ao início da cena — assim mexer na duração de uma cena não
+   reescreve os tempos das outras, que é o que torna o ajuste fino viável
+   quando a locução chegar e nada bater de primeira.
+
+   Os tempos abaixo espelham docs/video/roteiro.md. Ao mudar um, mude o outro.
+   ========================================================================== */
+var CENAS = [
+  { id:'c1', dur:9, cues:[
+      {t:0.6, cue:'marca'},
+      {t:4.0, cue:'frase'}
+  ]},
+  { id:'c2', dur:11, cues:[
+      {t:0.3, cue:'b1'}, {t:0.7, cue:'s1'}, {t:1.1, cue:'b2'},
+      {t:1.5, cue:'s2'}, {t:1.9, cue:'b3'}, {t:2.4, cue:'dias'},
+      {t:3.4, fn:'c2selo'},
+      {t:4.2, cue:'atraso'},
+      {t:4.6, fn:'c2corre'}
+  ]},
+  { id:'c3', dur:16, cues:[
+      {t:0.2, cue:'janela'},
+      {t:1.8, fn:'c3sidebar'},
+      {t:3.0, cue:'alerta'},
+      {t:3.8, fn:'c3kpis'},
+      {t:5.6, fn:'c3linhas'},
+      {t:8.0,  fn:'c3pulsaVerde'},
+      {t:10.0, fn:'c3pulsaAmarelo'},
+      {t:12.0, fn:'c3pulsaVermelho'}
+  ]},
+  { id:'c4', dur:12, cues:[
+      {t:1.6, fn:'c4recua'},
+      {t:2.1, fn:'c4abre'},
+      {t:8.0, cue:'legenda'}
+  ]},
+  { id:'c5', dur:15, cues:[
+      {t:0.3, cue:'tit5'},
+      {t:1.2, fn:'c5app0'}, {t:2.0, fn:'c5app1'}, {t:2.8, fn:'c5app2'},
+      {t:3.6, fn:'c5app3'}, {t:4.4, fn:'c5app4'},
+      {t:6.0, fn:'c5fios'},
+      {t:7.2, fn:'c5banco'},
+      {t:8.4, fn:'c5pulsa'}
+  ]},
+  { id:'c6', dur:15, cues:[
+      {t:0.3, cue:'tit6'},
+      {t:3.0, cue:'cf1'},
+      {t:6.6, cue:'cf2'},
+      {t:10.2, cue:'cf3'}
+  ]},
+  { id:'c7', dur:12, cues:[
+      {t:0.4, cue:'n1'}, {t:0.5, fn:'c7conta1'},
+      {t:1.4, cue:'n2'}, {t:1.5, fn:'c7conta2'},
+      {t:2.4, cue:'n3'}, {t:2.5, fn:'c7conta3'},
+      {t:6.4, fn:'c7saiNums'},
+      {t:7.0, cue:'assin'}
+  ]}
+];
+
+/* --- posições absolutas ------------------------------------------------- */
+var t0 = 0;
+for (var i = 0; i < CENAS.length; i++) { CENAS[i].inicio = t0; t0 += CENAS[i].dur; }
+var DURACAO = t0;
+
+var palco   = document.getElementById('palco');
+var relogio = 0, tocando = false, ultimoFrame = 0, cenaAtual = -1;
+var disparados = {};
+
+/* --- escala do palco ---------------------------------------------------- */
+function ajustarEscala(){
+  var alturaUtil = document.body.classList.contains('captura')
+    ? window.innerHeight
+    : window.innerHeight - 40;                       /* o HUD come 40px */
+  var e = Math.min(window.innerWidth / 1920, alturaUtil / 1080);
+  palco.style.transform = 'scale(' + e + ')';
+}
+window.addEventListener('resize', ajustarEscala);
+
+/* --- helpers de animação ------------------------------------------------ */
+function porCue(cenaId, nome){
+  return document.querySelectorAll('#' + cenaId + ' [data-cue="' + nome + '"]');
+}
+function marcar(cenaId, nome){
+  var els = porCue(cenaId, nome);
+  for (var i = 0; i < els.length; i++) els[i].classList.add('in');
+}
+
+/* Contador. Passo por rAF em vez de setInterval: preso ao refresh, ele não
+   descasa do resto da cena quando a aba perde o foco por um instante. */
+var SEM_MOVIMENTO = false;   /* ligado por ?still=1 — ver atalho de URL abaixo */
+
+/* Ponto único do atraso escalonado. Toda entrada em cascata (dias correndo,
+   linhas da tabela, fios do diagrama) passa por aqui — assim o modo de
+   conferência salta para o fim numa linha só, em vez de cada ação lembrar de
+   fazer isso por conta própria. */
+function depois(fn, ms){ if (SEM_MOVIMENTO) fn(); else setTimeout(fn, ms); }
+
+function contarAte(el, alvo, ms, comSeparador){
+  /* O contador é JS, então desligar transição no CSS não o alcança: sem esta
+     saída, o modo de conferência captura o número a meio caminho e a pessoa
+     confere o enquadramento de "2" achando que é o "6" que vai ao ar. */
+  if (SEM_MOVIMENTO){
+    el.textContent = comSeparador ? alvo.toLocaleString('pt-BR') : String(alvo);
+    return;
+  }
+  var ini = performance.now();
+  function passo(agora){
+    var p = Math.min((agora - ini) / ms, 1);
+    var suave = 1 - Math.pow(1 - p, 3);
+    var v = Math.round(alvo * suave);
+    el.textContent = comSeparador ? v.toLocaleString('pt-BR') : String(v);
+    if (p < 1) requestAnimationFrame(passo);
+  }
+  requestAnimationFrame(passo);
+}
+function contarGrupo(sel, ms){
+  var els = document.querySelectorAll(sel);
+  for (var i = 0; i < els.length; i++){
+    contarAte(els[i], parseInt(els[i].getAttribute('data-conta'), 10), ms,
+              els[i].getAttribute('data-sep') === '1');
+  }
+}
+
+/* --- ações nomeadas ----------------------------------------------------- */
+var ACOES = {
+  /* cena 2 */
+  c2selo: function(){
+    var s = document.querySelector('#c2 [data-cue="selo"]');
+    s.classList.add('in'); s.classList.remove('pulsa');
+    void s.offsetWidth;                              /* força reflow p/ reiniciar */
+    s.classList.add('pulsa');
+  },
+  c2corre: function(){
+    var dias = ['14/07', '15/07', '16/07', '17/07'];
+    var cx = document.getElementById('c2dias');
+    var alvo = document.getElementById('c2alvo');
+    var n = document.getElementById('c2n');
+    alvo.classList.add('esvai');
+    var k = 0;
+    (function proximo(){
+      if (k >= dias.length) return;
+      cx.innerHTML += (k ? '<br>' : '') + dias[k];
+      n.textContent = k === 0 ? '0' : '+' + k;
+      k++;
+      depois(proximo, 700);
+    })();
+  },
+  /* cena 3 */
+  c3sidebar:      function(){ document.getElementById('navPend').classList.add('acesa'); },
+  c3kpis:         function(){ contarGrupo('#c3 [data-conta]', 900); },
+  c3linhas:       function(){
+    var trs = document.querySelectorAll('#c3linhas tr');
+    for (var i = 0; i < trs.length; i++){
+      (function(tr, atraso){ depois(function(){ tr.classList.add('in'); }, atraso); })(trs[i], i * 180);
+    }
+  },
+  c3pulsaVerde:    function(){ pulsarSemaforo('g'); },
+  c3pulsaAmarelo:  function(){ pulsarSemaforo('a'); },
+  c3pulsaVermelho: function(){ pulsarSemaforo('r'); },
+  /* cena 4 */
+  c4recua: function(){ document.getElementById('c4fundo').classList.add('recuado'); },
+  c4abre:  function(){ document.getElementById('c4modal').classList.add('in'); },
+  /* cena 5 */
+  c5app0: function(){ acenderApp(0); }, c5app1: function(){ acenderApp(1); },
+  c5app2: function(){ acenderApp(2); }, c5app3: function(){ acenderApp(3); },
+  c5app4: function(){ acenderApp(4); },
+  c5fios: function(){
+    var ps = document.querySelectorAll('#c5 svg.fios path');
+    for (var i = 0; i < ps.length; i++){
+      var c = ps[i].getTotalLength();
+      ps[i].style.setProperty('--comp', c);
+      (function(p, atraso){ depois(function(){ p.classList.add('tracada'); }, atraso); })(ps[i], i * 110);
+    }
+  },
+  c5banco: function(){ document.getElementById('c5banco').classList.add('in'); },
+  c5pulsa: function(){ document.getElementById('c5').classList.add('rodando'); },
+  /* cena 7 */
+  c7conta1: function(){ contarGrupo('#c7 [data-cue="n1"] [data-conta]', 1200); },
+  c7conta2: function(){ contarGrupo('#c7 [data-cue="n2"] [data-conta]', 1200); },
+  c7conta3: function(){ contarGrupo('#c7 [data-cue="n3"] [data-conta]', 1400); },
+  c7saiNums: function(){
+    var n = document.querySelector('#c7 .nums');
+    n.style.transition = 'opacity .7s ease, transform .7s ease';
+    n.style.opacity = '0'; n.style.transform = 'translateY(-30px)';
+  }
+};
+function pulsarSemaforo(cor){
+  var ds = document.querySelectorAll('#c3linhas .dot[data-sem="' + cor + '"]');
+  for (var i = 0; i < ds.length; i++){
+    ds[i].classList.remove('pulsa'); void ds[i].offsetWidth; ds[i].classList.add('pulsa');
+  }
+}
+function acenderApp(n){
+  var c = document.querySelector('#c5 .appc[data-app="' + n + '"]');
+  if (c) c.classList.add('acesa');
+}
+
+/* --- reset de cena ------------------------------------------------------ */
+function resetarCena(cena){
+  var raiz = document.getElementById(cena.id);
+  var ans = raiz.querySelectorAll('.an, .an-esc, .an-sobe');
+  for (var i = 0; i < ans.length; i++) ans[i].classList.remove('in');
+  for (var k in disparados) if (k.indexOf(cena.id + ':') === 0) delete disparados[k];
+
+  if (cena.id === 'c2'){
+    document.getElementById('c2dias').innerHTML = '';
+    document.getElementById('c2n').textContent = '0';
+    document.getElementById('c2alvo').classList.remove('esvai');
+    var s = document.querySelector('#c2 [data-cue="selo"]'); s.classList.remove('pulsa');
+  }
+  if (cena.id === 'c3'){
+    document.getElementById('navPend').classList.remove('acesa');
+    var trs = document.querySelectorAll('#c3linhas tr');
+    for (var j = 0; j < trs.length; j++) trs[j].classList.remove('in');
+    var ks = document.querySelectorAll('#c3 [data-conta]');
+    for (var m = 0; m < ks.length; m++) ks[m].textContent = '0';
+  }
+  if (cena.id === 'c4'){
+    document.getElementById('c4fundo').classList.remove('recuado');
+    document.getElementById('c4modal').classList.remove('in');
+  }
+  if (cena.id === 'c5'){
+    var cs = document.querySelectorAll('#c5 .appc');
+    for (var a = 0; a < cs.length; a++) cs[a].classList.remove('acesa');
+    var ps = document.querySelectorAll('#c5 svg.fios path');
+    for (var b = 0; b < ps.length; b++) ps[b].classList.remove('tracada');
+    document.getElementById('c5banco').classList.remove('in');
+    document.getElementById('c5').classList.remove('rodando');
+  }
+  if (cena.id === 'c7'){
+    var nn = document.querySelector('#c7 .nums');
+    nn.style.opacity = ''; nn.style.transform = ''; nn.style.transition = '';
+    var qs = document.querySelectorAll('#c7 [data-conta]');
+    for (var q = 0; q < qs.length; q++) qs[q].textContent = '0';
+  }
+}
+
+/* --- laço principal ----------------------------------------------------- */
+function indiceEm(t){
+  for (var i = CENAS.length - 1; i >= 0; i--) if (t >= CENAS[i].inicio) return i;
+  return 0;
+}
+function aplicar(t){
+  var idx = indiceEm(t);
+  if (idx !== cenaAtual){
+    for (var i = 0; i < CENAS.length; i++){
+      document.getElementById(CENAS[i].id).classList.toggle('ativa', i === idx);
+    }
+    resetarCena(CENAS[idx]);
+    cenaAtual = idx;
+  }
+  var cena = CENAS[idx];
+  var rel  = t - cena.inicio;
+  for (var c = 0; c < cena.cues.length; c++){
+    var q = cena.cues[c];
+    var chave = cena.id + ':' + c;
+    if (rel >= q.t && !disparados[chave]){
+      disparados[chave] = 1;
+      if (q.cue) marcar(cena.id, q.cue);
+      if (q.fn && ACOES[q.fn]) ACOES[q.fn]();
+    }
+  }
+  document.getElementById('hudCena').textContent = (idx + 1) + '/' + CENAS.length + ' · ' + cena.id;
+  document.getElementById('hudTempo').textContent = t.toFixed(1) + ' / ' + DURACAO.toFixed(1) + 's';
+  document.getElementById('hudBarra').style.width = (t / DURACAO * 100) + '%';
+}
+function laco(agora){
+  if (tocando){
+    var dt = (agora - ultimoFrame) / 1000;
+    ultimoFrame = agora;
+    relogio += dt;
+    if (relogio >= DURACAO){ relogio = DURACAO; tocando = false; }
+    aplicar(relogio);
+  }
+  requestAnimationFrame(laco);
+}
+function irPara(t){
+  relogio = Math.max(0, Math.min(t, DURACAO));
+  cenaAtual = -1; disparados = {};
+  for (var i = 0; i < CENAS.length; i++) resetarCena(CENAS[i]);
+  aplicar(relogio);
+}
+function tocar(){ ultimoFrame = performance.now(); tocando = true; }
+function pausar(){ tocando = false; }
+
+/* --- contagem regressiva antes de gravar -------------------------------- */
+function comContagem(depois){
+  var el = document.getElementById('contagem');
+  var n = 3;
+  el.classList.add('on'); el.textContent = n;
+  var iv = setInterval(function(){
+    n--;
+    if (n === 0){ clearInterval(iv); el.classList.remove('on'); depois(); }
+    else el.textContent = n;
+  }, 1000);
+}
+
+/* --- teclado ------------------------------------------------------------ */
+document.addEventListener('keydown', function(e){
+  if (e.code === 'Space'){
+    e.preventDefault();
+    if (tocando) pausar();
+    else if (document.body.classList.contains('captura') && relogio === 0) comContagem(tocar);
+    else tocar();
+  }
+  if (e.key === 'r' || e.key === 'R'){ pausar(); irPara(0); }
+  if (e.key === 'c' || e.key === 'C'){
+    document.body.classList.toggle('captura');
+    ajustarEscala();
+  }
+  if (e.key === 'ArrowRight'){
+    pausar();
+    var i = indiceEm(relogio);
+    irPara(i + 1 < CENAS.length ? CENAS[i + 1].inicio : DURACAO);
+  }
+  if (e.key === 'ArrowLeft'){
+    pausar();
+    var j = indiceEm(relogio);
+    /* Volta ao início da cena atual se já andou nela; senão, à anterior.
+       É como todo player se comporta, e evita ter de apertar duas vezes. */
+    var alvo = (relogio - CENAS[j].inicio > 0.6) ? CENAS[j].inicio
+             : (j > 0 ? CENAS[j - 1].inicio : 0);
+    irPara(alvo);
+  }
+});
+
+/* --- fundo da cena 4 ----------------------------------------------------
+   A rodada bloqueante acontece POR CIMA da tela de Pendências — é isso que a
+   cena precisa dizer. Clonar em vez de duplicar o markup garante que as duas
+   nunca divirjam, e o clone entra já no estado FINAL (linhas visíveis, KPIs
+   com o número cheio): ele nasce desfocado, e uma tabela vazia sob o desfoque
+   se lê como caixa cinza, que é o que havia aqui antes. */
+function clonarFundoDaRodada(){
+  var origem = document.querySelector('#c3 .frame');
+  var destino = document.getElementById('c4fundo');
+  if (!origem || !destino) return;
+  destino.innerHTML = origem.innerHTML;
+
+  /* Tira os IDs da cópia. Sem isto o documento fica com id duplicado, e
+     querySelectorAll('#c3linhas tr') — que o reset da cena 3 usa — casaria
+     TAMBÉM as linhas do clone, apagando o fundo da rodada a cada rebobinada. */
+  var comId = destino.querySelectorAll('[id]');
+  for (var z = 0; z < comId.length; z++) comId[z].removeAttribute('id');
+
+  var trs = destino.querySelectorAll('tbody tr');
+  for (var i = 0; i < trs.length; i++) trs[i].classList.add('in');
+  var nav = destino.querySelector('.nav.on');
+  if (nav) nav.classList.add('acesa');
+  var ks = destino.querySelectorAll('[data-conta]');
+  for (var j = 0; j < ks.length; j++) ks[j].textContent = ks[j].getAttribute('data-conta');
+  var ans = destino.querySelectorAll('.an, .an-esc, .an-sobe');
+  for (var k = 0; k < ans.length; k++) ans[k].classList.add('in');
+}
+clonarFundoDaRodada();
+
+/* --- atalho de URL ------------------------------------------------------
+   ?t=25     abre já no segundo 25 (revisar uma cena sem esperar)
+   ?play=1   começa tocando
+   ?c=1      já entra em modo captura
+   ?still=1  DESLIGA transições e animações: tudo salta para o estado final.
+             É o modo de conferir ENQUADRAMENTO — se um texto estoura, se um
+             cartão encosta na borda. Nunca grave com ele ligado: o vídeo sai
+             sem movimento nenhum. */
+(function(){
+  var p = new URLSearchParams(location.search);
+  if (p.get('still') === '1'){
+    SEM_MOVIMENTO = true;
+    var s = document.createElement('style');
+    s.textContent = '*,*::before,*::after{transition:none !important;animation:none !important}';
+    document.head.appendChild(s);
+  }
+  if (p.get('c') === '1') document.body.classList.add('captura');
+  ajustarEscala();
+  irPara(parseFloat(p.get('t')) || 0);
+  if (p.get('play') === '1') tocar();
+})();
+requestAnimationFrame(laco);
+</script>
+</body>
+</html>
