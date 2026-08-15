@@ -458,18 +458,20 @@ function laco(){
   }
   requestAnimationFrame(laco);
 }
+function tocar(){ ultimo = performance.now(); tocando = true; }
+function pausar(){ tocando = false; }
 function irPara(t){
   relogio = Math.max(0, Math.min(t, TOTAL)); atual = -1; feitos = {};
   for (var i = 0; i < BEATS.length; i++) limpar(BEATS[i]);
   aplicar(relogio);
 }
 addEventListener('keydown', function(e){
-  if (e.code === 'Space'){ e.preventDefault(); tocando = !tocando; ultimo = performance.now(); }
-  if (e.key === 'r' || e.key === 'R'){ tocando = false; irPara(0); }
+  if (e.code === 'Space'){ e.preventDefault(); if (tocando) pausar(); else tocar(); }
+  if (e.key === 'r' || e.key === 'R'){ pausar(); irPara(0); }
   if (e.key === 'c' || e.key === 'C'){ document.body.classList.toggle('captura'); escala(); }
-  if (e.key === 'ArrowRight'){ tocando = false; var i = indice(relogio);
+  if (e.key === 'ArrowRight'){ pausar(); var i = indice(relogio);
     irPara(i + 1 < BEATS.length ? BEATS[i + 1].ini : TOTAL); }
-  if (e.key === 'ArrowLeft'){ tocando = false; var j = indice(relogio);
+  if (e.key === 'ArrowLeft'){ pausar(); var j = indice(relogio);
     irPara((relogio - BEATS[j].ini > 0.6) ? BEATS[j].ini : (j > 0 ? BEATS[j - 1].ini : 0)); }
 });
 
@@ -486,7 +488,7 @@ addEventListener('keydown', function(e){
   if (p.get('c') === '1') document.body.classList.add('captura');
   escala();
   irPara(parseFloat(p.get('t')) || 0);
-  if (p.get('play') === '1'){ tocando = true; ultimo = performance.now(); }
+  if (p.get('play') === '1') tocar();
 })();
 requestAnimationFrame(laco);
 </script>

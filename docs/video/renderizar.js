@@ -85,9 +85,16 @@ async function main() {
   // (A API própria para isto, HeadlessExperimental.beginFrame, foi removida
   //  das versões novas do Chrome.)
   await page.evaluate(() => {
+    // irPara(0) + tocar() é o CONTRATO com as peças. Antes isto mexia direto
+    // na variável de relógio, e cada HTML chama a dele com um nome diferente
+    // (`ultimo` no vertical, `ultimoFrame` no 16:9): no arquivo errado a
+    // atribuição criava uma global solta e o vídeo começava adiantado, sem
+    // erro nenhum. Peça nova só precisa expor estas duas funções.
+    if (typeof irPara !== 'function' || typeof tocar !== 'function') {
+      throw new Error('a peça precisa expor irPara(t) e tocar()');
+    }
     irPara(0);
-    tocando = true;
-    ultimo = performance.now();
+    tocar();
 
     var m = document.createElement('div');
     m.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;' +
