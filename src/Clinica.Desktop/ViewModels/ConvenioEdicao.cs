@@ -48,7 +48,15 @@ public partial class ConvenioEdicao : ObservableObject
     /// Fora do painel da regra genérica pela MESMA razão do formato acima: vale para
     /// qualquer família, e dentro dele seria uma caixinha morta num convênio embutido.
     /// </summary>
-    [ObservableProperty] private bool _geraGuia = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResumoGuia))]
+    private bool _geraGuia = true;
+
+    /// <summary>
+    /// Coluna "Guias" da lista de convênios (parcela 69). Escrever só "Não" faria a
+    /// linha do particular parecer convênio mal configurado; o que ela é tem nome.
+    /// </summary>
+    public string ResumoGuia => GeraGuia ? "Gera guia" : "Particular (sem guia)";
 
     // Configuração da regra genérica (só tem efeito quando Familia == Personalizado)
     [ObservableProperty] private bool _fazEletro;

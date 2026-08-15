@@ -2022,6 +2022,37 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   tela montada mostra — e só em quem tem a janela mais baixa que o conteúdo, que **nunca é
   a máquina de quem escreveu**.
 
+- **Duas caixas editando o MESMO campo é o que faz uma tela "não se entender"** (parcela
+  69 — a cliente disse que a caixa de convênios das Configurações estava "horrível e não
+  muito fácil de entender"). A aba era uma pilha de SEIS `Card` (o proibido nº 2 da regra
+  de leiaute), espremida em `MaxWidth="860"` — e o pior não era o empilhamento: `Nome` e
+  `Fatura como (família)` eram editáveis **na grade E no painel de baixo**, dois campos
+  para o mesmo dado a 300 px um do outro. Quem lê conclui que são coisas diferentes e
+  procura a diferença que não existe.
+  O desenho é o que a regra manda: **lista de largura inteira → janela do item**. A lista
+  passou a RESPONDER a pergunta da tela — família, gera guia ou é particular, forma do nº
+  da guia e registro ANS numa linha só, o que antes exigia clicar convênio por convênio —,
+  e configurar, que se faz de vez em quando, mora atrás de um clique. A janela recebe o
+  **mesmo `ConvenioEdicao`** da lista (duas cópias dariam duas verdades) e por isso não tem
+  "Cancelar": quem grava continua sendo o "Salvar configurações" da tela de trás, e o
+  rodapé escreve isso em vez de deixar a pessoa supor.
+  Três coisas que a rodada separou e que valem além desta tela: (a) **a tabela "por
+  família" não é a lista de operadoras** — ela responde "quanto vale o número da regra que
+  várias compartilham", e ficava embaixo da outra parecendo mais do mesmo; virou janela
+  própria com o aviso de que o número vale para TODAS as operadoras daquela família;
+  (b) **os três prazos globais** (alerta de consulta, recurso de glosa, rodada de
+  pendências) não eram de convênio nenhum e moravam ali — foram para uma aba "Prazos",
+  que é a 3ª pergunta da regra de leiaute aplicada literalmente; (c) o rótulo dessa aba é
+  curto de propósito, porque o `TabPanel` padrão **encolhe** as abas e a janela mínima do
+  faturamento (960) menos a sidebar (240) põe seis abas no limite — aba cortada no meio da
+  palavra já foi reprovação do cliente na parcela 50.
+  ⚠️ E **a linguagem é metade do "não se entende"**: "candidata a 2º código" e "Categoria
+  (com app)" descrevem o modelo, não o trabalho. Viraram "A clínica atende com
+  eletroacupuntura neste convênio" e "Semáforo quando o paciente TEM app", cada campo com
+  a consequência escrita ao lado — o mesmo que a parcela 49 fez com as caixinhas de
+  permissão. Nada foi tirado: todo campo editável antes continua editável, um clique
+  adiante.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

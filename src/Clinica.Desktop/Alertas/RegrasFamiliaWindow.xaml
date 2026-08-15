@@ -1,0 +1,56 @@
+<Window x:Class="Clinica.Desktop.Alertas.RegrasFamiliaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Clinica.Desktop.ViewModels"
+        Title="Números das regras" Width="900" Height="520" MinWidth="620" MinHeight="320"
+        Icon="/Assets/Marca/icone.png"
+        WindowStartupLocation="CenterOwner" FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Fundo}">
+    <!-- Grade elástica numa linha "*": ela rola por DENTRO e a barra de baixo fica
+         ancorada — a forma legítima que a checagem 36 distingue da pilha sem rolagem. -->
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Números das regras de faturamento" Style="{StaticResource H2}" Margin="0"
+                       TextWrapping="Wrap" HorizontalAlignment="Left" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="760"
+                       Text="Cada linha é uma FAMÍLIA de regra, não uma operadora: o que você mudar aqui vale para todos os convênios que faturam por essa família. Quais códigos saem a cada atendimento continua sendo fixo no sistema — o que se ajusta são os números." />
+        </StackPanel>
+
+        <DataGrid Grid.Row="1" x:Name="GridFamilias" ItemsSource="{Binding Itens}"
+                  IsReadOnly="False" CanUserAddRows="False"
+                  AutoGenerateColumns="False" HeadersVisibility="Column">
+            <DataGrid.Columns>
+                <!-- Esta tabela é POR FAMÍLIA de regra mesmo (é o que o cabeçalho diz),
+                     então aqui a família é a resposta certa. O conversor é o que impede
+                     o WPF de chamar ToString() e escrever "UnimedIntercambio" na tela. -->
+                <DataGridTextColumn Header="Família da regra" IsReadOnly="True"
+                                    Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
+                <DataGridTextColumn Header="Validade da consulta (dias)"
+                                    Binding="{Binding ValidadeConsultaDias}" Width="*" />
+                <DataGridTextColumn Header="Dias até o 2º código"
+                                    Binding="{Binding DiasSegundoCodigo}" Width="*" />
+                <DataGridComboBoxColumn Header="Semáforo com app"
+                                        SelectedItemBinding="{Binding CategoriaComApp}"
+                                        ItemsSource="{x:Static vm:FontesEnum.Categorias}" Width="*" />
+                <DataGridComboBoxColumn Header="Semáforo sem app"
+                                        SelectedItemBinding="{Binding CategoriaSemApp}"
+                                        ItemsSource="{x:Static vm:FontesEnum.Categorias}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="2" Margin="0,16,0,0">
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="560"
+                       VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0"
+                       Text="As alterações valem quando você clicar em “Salvar configurações”, na tela de trás." />
+            <Button Content="Fechar" IsDefault="True" IsCancel="True" MinWidth="120"
+                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Click="Fechar_Click" />
+        </Grid>
+    </Grid>
+</Window>
