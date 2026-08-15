@@ -188,6 +188,11 @@ Ordenado por **impacto sentido ÷ custo**, não por dificuldade.
   tudo bem — mas precisa ser escolha, e não confusão com o portal: é o item da lista deles
   que mais aparece em comparação de concorrente, e é o único que reduz trabalho do balcão
   sem depender do balcão.
+  **A decisão continua sendo sua — o DESENHO já está feito**, e está em
+  `docs/site-agendamento-online.md`: escopo, o bloqueador que ninguém vê ao ler o código
+  (não existe grade de disponibilidade), as três armadilhas caras, a ordem de entrega e o
+  custo honesto. Ler antes de responder sim ou não custa dez minutos e evita decidir no
+  escuro.
 - ⚠️ **SmartDocs** (o paciente assina no celular). Resolve o **termo de consentimento sem
   papel**, que é um documento que a nossa cliente emite e arquiva à mão hoje. Não é
   telemedicina nem portal.
