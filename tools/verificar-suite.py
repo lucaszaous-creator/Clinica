@@ -2761,6 +2761,112 @@ for _cenario, _xaml, _deve_disparar in (
             f"disparou={_disparou}, esperado={_deve_disparar}."
         )
 
+# --------------------------------------------------------------- checagem 36
+# TABELAS EMPILHADAS NUM StackPanel, SEM ROLAGEM — o fim da tela é CORTADO, e não há barra
+# nem como alcançá-lo.
+#
+# A cliente mandou a foto: na tela de Relatórios, a seção "Não conformidades (guias
+# justificadas na rodada)" aparecia só com o TÍTULO, decepada na borda de baixo da janela.
+#
+# A mecânica: a janela tem altura FINITA, e `StackPanel` vertical dá a cada filho a altura
+# que ele PEDE, ignorando o que há disponível. Três cards com tabela empilhados somam mais
+# que a tela, e sem `ScrollViewer` o que passa do fim é cortado em silêncio.
+#
+# ⚠️ A checagem NÃO olha a linha `*`, e isso foi corrigido depois de ela nascer errada: a
+# primeira versão exigia que o empilhamento estivesse dentro de uma linha `*`, e por isso
+# ficou CEGA para a variante pior — a mesma pilha com todas as linhas `Auto`, que corta
+# igual. A linha `*` era coincidência do caso real, não a causa. **Quando a causa e o
+# sintoma aparecem juntos no primeiro exemplo, confira qual dos dois a checagem está
+# olhando.**
+#
+# O que ela NÃO acusa, de propósito: a tela cujo conteúdo elástico é UM `DataGrid` numa
+# linha `*` (Consultar guias, Faturados, TISS, Glosas). Aquele rola por dentro e a linha
+# `*` absorve o resto — cinco telas do faturamento têm essa forma e continuam caladas.
+#
+# ⚠️ Nenhuma rede pegava, e é a categoria mais cara: o XAML é bem-formado, o
+# `compilar-sombra` não lê o corpo, o compilador de marcação não tem o que reclamar e nada
+# lança em runtime. Só a tela montada mostra — e só em quem tem a janela mais baixa que o
+# conteúdo, que nunca é a máquina de quem escreveu.
+#
+# O remédio é o padrão da casa (`DashboardView`): `ScrollViewer` na raiz com
+# `VerticalScrollBarVisibility="Auto"`, todas as linhas `Auto`, e `MaxHeight` nas grades
+# que crescem com o dado, para elas voltarem a rolar por dentro em vez de esticar sem fim.
+
+# Um cartão/seção: o que empilhado vira altura. `Border` é o `Card` do design system.
+_BLOCOS = {"Border", "GroupBox", "Expander", "DockPanel", "Grid", "StackPanel"}
+
+
+def _cresce_com_dado(el: ET.Element) -> bool:
+    """Tem uma lista lá dentro — ou seja, altura que depende de quantas linhas vierem."""
+    return any(_nome(d) in ("DataGrid", "ItemsControl", "ListBox", "ListView")
+               for d in el.iter())
+
+
+def _pilha_sem_rolagem(raiz: ET.Element) -> int:
+    """Tamanho da maior pilha de blocos-com-tabela sem rolagem em cima. 0 = tela sã."""
+    # Uma rolagem em QUALQUER lugar da tela já resolve — o que importa é o empilhamento
+    # ter para onde crescer, não onde exatamente está o ScrollViewer.
+    if any(_nome(e) == "ScrollViewer" for e in raiz.iter()):
+        return 0
+    # StackPanel VERTICAL (o padrão) que empilhe dois ou mais blocos com tabela dentro.
+    for sp in raiz.iter():
+        if _nome(sp) != "StackPanel" or sp.get("Orientation") == "Horizontal":
+            continue
+        pilha = [c for c in sp if _nome(c) in _BLOCOS and _cresce_com_dado(c)]
+        if len(pilha) >= 2:
+            return len(pilha)
+    return 0
+
+
+for _arq, _raiz in arvores_com_faturamento.items():
+    if (_n := _pilha_sem_rolagem(_raiz)) > 0:
+        erros.append(
+            f"{rel(_arq)}: {_n} blocos com tabela empilhados num StackPanel e a tela não "
+            f"tem ScrollViewer — a janela tem altura finita e o StackPanel dá a cada filho "
+            f"a altura que ele pede, então o que passa do fim é CORTADO sem barra e sem "
+            f"como alcançar (foi assim que a seção \"Não conformidades\" sumiu do "
+            f"Relatórios). Use ScrollViewer na raiz, linhas `Auto` e MaxHeight nas grades."
+        )
+
+# --- autoteste da 36: dispara nas duas formas reais e cala nas legítimas ---
+#
+# ⚠️ O autoteste CHAMA `_pilha_sem_rolagem`, a MESMA função que a varredura usa, em vez de
+# repetir a lógica dela linha a linha. Reimplementar aqui produziria um teste que fica
+# verde exatamente quando a checagem quebra, porque a cópia não quebra junto — a lição da
+# parcela 67.
+_ENV = f'<UserControl xmlns="{NS_XAML[1:-1]}">{{}}</UserControl>'
+_CARD = '<Border><DockPanel><DataGrid /></DockPanel></Border>'
+_LINHAS = '<Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="{}" /></Grid.RowDefinitions>'
+for _cenario, _corpo, _deve in (
+    # A forma real do Relatórios antes da correção: a pilha dentro de uma linha `*`.
+    ("o defeito real (linha `*`)",
+     f'<Grid>{_LINHAS.format("*")}<Grid Grid.Row="1">'
+     f'<StackPanel>{_CARD}{_CARD}{_CARD}</StackPanel></Grid></Grid>', True),
+    # A VARIANTE que a primeira versão da checagem não via, e que corta igual: a mesma
+    # pilha com todas as linhas `Auto`. É por causa dela que o gate de linha `*` saiu.
+    ("a mesma pilha com linhas `Auto`",
+     f'<Grid>{_LINHAS.format("Auto")}<Grid Grid.Row="1">'
+     f'<StackPanel>{_CARD}{_CARD}{_CARD}</StackPanel></Grid></Grid>', True),
+    # O conserto: a mesma pilha, com rolagem em cima.
+    ("com ScrollViewer",
+     f'<ScrollViewer><Grid>{_LINHAS.format("Auto")}<Grid Grid.Row="1">'
+     f'<StackPanel>{_CARD}{_CARD}{_CARD}</StackPanel></Grid></Grid></ScrollViewer>', False),
+    # A forma SEGURA das outras telas do faturamento: UMA grade na linha `*`, que rola por
+    # dentro. Acusá-las seria o ruído que faz alguém desligar a ferramenta.
+    ("uma grade só na linha `*`",
+     f'<Grid>{_LINHAS.format("*")}<Border Grid.Row="1"><DataGrid /></Border></Grid>', False),
+    # Pilha de blocos SEM lista: texto e botões não crescem com o dado.
+    ("pilha sem tabela",
+     f'<Grid>{_LINHAS.format("*")}<StackPanel Grid.Row="1"><Border><TextBlock /></Border>'
+     f'<Border><TextBlock /></Border></StackPanel></Grid>', False),
+):
+    _disparou = _pilha_sem_rolagem(ET.fromstring(_ENV.format(_corpo))) > 0
+    if _disparou != _deve:
+        erros.append(
+            f"verificar-suite: a checagem 36 mudou de resposta ({_cenario}) — "
+            f"disparou={_disparou}, esperado={_deve}."
+        )
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")

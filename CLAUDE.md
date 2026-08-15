@@ -1993,6 +1993,35 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `Itens` e `PorConvenio` existem em telas diferentes com tipos diferentes, e a busca global
   respondia o tipo do vizinho — a resposta certa vinda do arquivo errado.
 
+- **Tabela empilhada em `StackPanel` sem rolagem: o fim da tela é CORTADO, sem barra e sem
+  como alcançar** (parcela 68, 2ª rodada — a cliente mandou a foto: em Relatórios, a seção
+  "Não conformidades (guias justificadas na rodada)" aparecia só com o TÍTULO, decepada na
+  borda de baixo da janela). A mecânica é de uma linha: a janela tem altura FINITA e o
+  `StackPanel` vertical dá a cada filho a altura que ele PEDE, ignorando o disponível —
+  três cards com tabela somam mais que a tela, e sem `ScrollViewer` o resto some.
+  ⚠️ **Não é a mesma coisa que a tela cujo conteúdo elástico é UM `DataGrid` numa linha
+  `*`** — aquele rola por dentro e a linha `*` absorve o resto. Cinco telas do faturamento
+  têm essa forma e estão certas. O que distingue as duas não é a linha `*`, é o
+  EMPILHAMENTO: no `StackPanel` nada absorve.
+  O remédio é o padrão do `DashboardView`, e são **três** peças, não uma: `ScrollViewer` na
+  raiz; **todas as linhas `Auto`** (dentro de um ScrollViewer a altura disponível é
+  infinita, então `*` não distribui nada — ele mede igual a `Auto` e só engana quem lê); e
+  **`MaxHeight` nas grades que crescem com o dado**, senão elas recebem altura infinita,
+  desenham todas as linhas, perdem a virtualização e empurram as de baixo para longe. Grade
+  de tamanho fixo (as 3 faixas de envelhecimento, os 6 meses) não leva teto — teto onde não
+  precisa é o corte de volta.
+  ⚠️ **A checagem 36 nasceu CEGA e o autoteste é que mostrou**: a primeira versão exigia
+  que a pilha estivesse dentro de uma linha `*`, porque era assim no caso real — e ficou
+  sem ver a variante PIOR, a mesma pilha com todas as linhas `Auto`, que corta igual. A
+  linha `*` era coincidência do exemplo, não a causa. **Quando causa e sintoma aparecem
+  juntos no primeiro caso, confira qual dos dois a checagem está olhando.** Autotestada nas
+  duas formas quebradas e nas três legítimas, e ela chama a MESMA função da varredura, pela
+  lição da parcela 67 (autoteste que reimplementa fica verde quando a checagem quebra).
+  Nenhuma rede pegava, e é a categoria mais cara: o XAML é bem-formado, o
+  `compilar-sombra` não lê o corpo, o compilador de marcação não reclama e nada lança. Só a
+  tela montada mostra — e só em quem tem a janela mais baixa que o conteúdo, que **nunca é
+  a máquina de quem escreveu**.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

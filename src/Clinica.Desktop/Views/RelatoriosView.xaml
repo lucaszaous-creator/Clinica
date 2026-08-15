@@ -2,13 +2,24 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls">
+    <!-- Rolagem vertical: em telas baixas (notebooks, e o monitor de 1366×768 do balcão)
+         nada fica cortado/inacessível.
+
+         Sem ela, a coluna da esquerda EMPILHA três cards dentro de uma linha `*` — e linha
+         `*` é o espaço que SOBRA, enquanto o StackPanel dá a cada filho a altura que ele
+         pede e ignora esse limite. O que passa do fim é cortado sem barra e sem como
+         alcançar: a cliente viu a seção "Não conformidades" com só o título visível.
+
+         ⚠️ É por isso que as linhas abaixo são todas `Auto`. Dentro de um ScrollViewer a
+         altura disponível é INFINITA, então `*` não distribui nada — ele mede igual a
+         `Auto` e só engana quem lê, sugerindo que a região de conteúdo tem um tamanho. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="24">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <TextBlock Grid.Row="0" Text="Relatórios de faturamento" Style="{StaticResource H1}" />
@@ -117,7 +128,7 @@
             </Border>
         </WrapPanel>
 
-        <Grid Grid.Row="4">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="1*" />
@@ -128,8 +139,13 @@
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Faturamento por convênio (período)"
                                Style="{StaticResource H2}" Margin="0,0,0,8" />
+                    <!-- Teto: dentro do ScrollViewer o DataGrid recebe altura INFINITA e
+                         desenha todas as linhas, sem virtualização e sem barra própria. Uma
+                         clínica com vinte operadoras faria esta tabela empurrar as de baixo
+                         para longe. Com teto ela volta a rolar por dentro. -->
                     <DataGrid ItemsSource="{Binding PorConvenio}" AutoGenerateColumns="False"
-                              IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                              IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                              MaxHeight="320">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Convênio"
                                                 Binding="{Binding ConvenioNome}" Width="2*" />
@@ -151,7 +167,8 @@
                                Style="{StaticResource H2}" Margin="0,0,0,8" />
                     <StackPanel>
                         <DataGrid ItemsSource="{Binding ConsultasEspecialidades}" AutoGenerateColumns="False"
-                                  IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                                  IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                                  MaxHeight="320">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Header="Especialidade" Binding="{Binding Especialidade}" Width="2*" />
                                 <DataGridTextColumn Header="Consultas" Binding="{Binding Quantidade}" Width="*" />
@@ -179,8 +196,12 @@
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Top" Text="Não conformidades (guias justificadas na rodada)"
                                Style="{StaticResource H2}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                    <!-- É a tabela que mais cresce das três (uma linha por guia justificada
+                         no período), e a que a cliente não alcançava. Teto maior que o das
+                         outras, e rola por dentro. -->
                     <DataGrid ItemsSource="{Binding NaoConformidades}" AutoGenerateColumns="False"
-                              IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
+                              IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column"
+                              MaxHeight="380">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="1.5*" />
                             <DataGridTextColumn Header="Convênio"
@@ -229,4 +250,5 @@
             </StackPanel>
         </Grid>
     </Grid>
+    </ScrollViewer>
 </UserControl>
