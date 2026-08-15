@@ -739,8 +739,15 @@ function aplicar(t){
   document.getElementById('hudTempo').textContent = t.toFixed(1) + ' / ' + DURACAO.toFixed(1) + 's';
   document.getElementById('hudBarra').style.width = (t / DURACAO * 100) + '%';
 }
-function laco(agora){
+/* O relógio sai de performance.now(), NÃO do timestamp que o rAF entrega.
+   Os dois normalmente coincidem — mas sob o tempo virtual do Chrome (usado
+   por docs/video/renderizar.js) performance.now() acompanha o tempo virtual e
+   o timestamp do rAF continua vindo do relógio REAL. Usando o do rAF, cada
+   quadro somaria o tempo que a captura levou e a peça correria várias vezes
+   mais rápido do que deve. */
+function laco(){
   if (tocando){
+    var agora = performance.now();
     var dt = (agora - ultimoFrame) / 1000;
     ultimoFrame = agora;
     relogio += dt;
