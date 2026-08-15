@@ -134,21 +134,31 @@
   // --- sólidos da marca ---------------------------------------------------
   // Ficam no projeto para virarem fundo, barra ou máscara sem ninguém ter de
   // reencontrar o hexadecimal no meio do Tokens.xaml.
+  // Sólido só se cria DENTRO de uma comp — não há API de projeto para isso.
+  // Daí a comp descartável: ela nasce, hospeda a criação e sai. Os sólidos são
+  // itens do projeto e sobrevivem à remoção dela.
   var compAux = proj.items.addComp("_paleta (auxiliar)", 200, 200, 1.0, 1, FPS);
-  compAux.parentFolder = pastaMarca;
   for (i = 0; i < MARCA.length; i++) {
     var s = compAux.layers.addSolid(doHex(MARCA[i][1]), MARCA[i][0], LARG, ALT, 1.0);
     s.source.parentFolder = pastaMarca;
   }
+  compAux.remove();
 
   // --- espaços de gravação, um por cena -----------------------------------
-  // Empilhados na ORDEM INVERSA para a cena 1 ficar no topo da timeline, que
-  // é como o editor espera ler o painel de camadas.
+  // ORDEM DIRETA, e ela é o que faz o cross-dissolve existir. addSolid insere
+  // no TOPO da pilha, então adicionar da cena 1 à 7 deixa a 7 em cima e a 1
+  // embaixo — cada cena que entra fica ACIMA da anterior e a cobre enquanto
+  // sobe de 0 a 100.
+  // Ao contrário: com a cena 1 no topo, a 2 subiria por baixo de uma camada
+  // opaca, invisível, e no fim do trecho a 1 sumiria de uma vez. Vira corte
+  // seco — e não dá erro nenhum, só sai errado no vídeo.
   var inicio = 0;
   var inicios = [];
   for (i = 0; i < CENAS.length; i++) { inicios.push(inicio); inicio += CENAS[i].dur; }
 
-  for (i = CENAS.length - 1; i >= 0; i--) {
+  var semMarcadores = false;
+
+  for (i = 0; i < CENAS.length; i++) {
     var ini = inicios[i];
     var fim = ini + CENAS[i].dur;
 
@@ -177,7 +187,15 @@
       op.setValueAtTime(total, 0);
     }
 
-    mestre.markers.setValueAtTime(ini, new MarkerValue(CENAS[i].nome));
+    // markerProperty, NÃO markers: só Layer tem .marker; a composição expõe
+    // markerProperty, e ela existe a partir do AE CC (12.0). Em versão mais
+    // velha o script segue sem marcador em vez de morrer — o projeto montado
+    // sem as marcas da régua ainda serve; nenhum projeto não serve.
+    if (mestre.markerProperty) {
+      mestre.markerProperty.setValueAtTime(ini, new MarkerValue(CENAS[i].nome));
+    } else {
+      semMarcadores = true;
+    }
   }
 
   // --- faixa de legendas ---------------------------------------------------
@@ -192,12 +210,15 @@
 
     var td = cam.property("Source Text").value;
     definirFonte(td, 38, false);
+    // applyFill/applyStroke vêm ANTES da cor: o AE recusa fillColor com o
+    // preenchimento desligado e strokeColor com o contorno desligado.
+    td.applyFill = true;
     td.fillColor = [1, 1, 1];
     td.justification = ParagraphJustification.CENTER_JUSTIFY;
     td.applyStroke = true;                    // contorno: a legenda cai tanto
     td.strokeColor = [0, 0, 0];               // sobre o navy quanto sobre o
     td.strokeWidth = 5;                       // branco da tela do app
-    td.strokeOverFill = false;
+    td.strokeOverFill = false;                // contorno POR FORA das letras
     cam.property("Source Text").setValue(td);
 
     cam.property("Transform").property("Position").setValue([LARG / 2, ALT - 96]);
@@ -233,7 +254,10 @@
   alert(
     "Projeto montado.\n\n" +
     "· Comp: SemDor — MASTER 90s (" + total + "s @ " + FPS + "fps)\n" +
-    "· " + CENAS.length + " espaços de gravação, com marcador em cada cena\n" +
+    "· " + CENAS.length + " espaços de gravação" +
+      (semMarcadores
+        ? ", SEM marcadores (esta versão do AE não expõe markerProperty)"
+        : ", com marcador em cada cena") + "\n" +
     "· " + LEGENDAS.length + " legendas já cronometradas\n" +
     "· " + MARCA.length + " sólidos da marca\n\n" +
     "Próximo passo: grave as cenas com cenas-animadas.html, importe os\n" +

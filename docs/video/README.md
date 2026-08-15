@@ -8,6 +8,7 @@ clínica o que foi construído. Tom de **entrega**, não de venda.
 | `roteiro.md` | Roteiro cronometrado, cena a cena, com a locução e as notas de direção |
 | `cenas-animadas.html` | As 7 cenas animadas em 1920×1080, para gravar |
 | `after-effects/montar-projeto.jsx` | Script que monta o projeto no After Effects |
+| `after-effects/verificar-montagem.js` | Roda o `.jsx` fora do AE, contra um mock da API |
 
 ---
 
@@ -113,6 +114,25 @@ borda). **Nunca grave com ele ligado**: o vídeo sai parado.
 O script deixa **0,4s de cross-dissolve** em cada emenda. O HTML corta seco de
 propósito: transição gravada no vídeo não se desfaz na montagem, e no AE ela é
 um parâmetro.
+
+### Se mexer no `.jsx`
+
+Rode antes de abrir o After Effects:
+
+```bash
+node docs/video/after-effects/verificar-montagem.js \
+     docs/video/after-effects/montar-projeto.jsx
+```
+
+Ele executa o script contra um mock da API do AE e confere o resultado —
+ordem das camadas, sobreposição das emendas, marcadores, legendas. É a única
+rede que existe fora do AE, e ela nasceu de dois defeitos reais: `mestre.markers`
+no lugar de `markerProperty` (que só aparecia como *"linha 180, undefined não é
+um objeto"*) e as vagas empilhadas ao contrário, que **não dava erro nenhum** e
+transformava todo cross-dissolve em corte seco.
+
+⚠️ **ExtendScript é ES3.** Sem `let`, sem `const`, sem arrow function, sem
+template literal. O AE recusa, e a mensagem não diz o que houve.
 
 ### Exportação
 
