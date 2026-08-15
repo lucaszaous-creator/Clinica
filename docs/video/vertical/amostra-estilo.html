@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Amostra de estilo — vertical 9:16</title>
+<style>
+/* ============================================================================
+   AMOSTRA DE ESTILO · 1080×1920 (9:16) · ~16s
+   ----------------------------------------------------------------------------
+   Prova de que a linguagem do vídeo de referência (motion design vetorial
+   plano, tipografia pesada com ênfase por cor, traço desenhado à mão, formas
+   orgânicas) se faz aqui, com a marca da SemDor — e com TEXTO DE VERDADE, que
+   é justamente o que geração por IA não entrega.
+
+   Não é o vídeo final: são quatro batidas para julgar o ESTILO.
+   ========================================================================== */
+:root{
+  /* Off-white QUENTE, como no reference — branco puro deixa o azul duro e a
+     peça com cara de slide. */
+  --papel:#F7F6F2;
+  --azul:#123A9E;          /* Brush.Acento — Tokens.xaml */
+  --azul-forte:#0A2E86;
+  --grafite:#2B2F38;
+  --cinza:#9AA1AE;
+  --verde:#2E7D32; --ambar:#F9A825; --vermelho:#C62828;
+  --ui:"Segoe UI",Inter,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#0b0f17}
+body{font-family:var(--ui);-webkit-font-smoothing:antialiased}
+
+#viewport{position:fixed;inset:0;display:grid;place-items:center}
+#palco{width:1080px;height:1920px;position:relative;overflow:hidden;
+  background:var(--papel);transform-origin:center}
+.beat{position:absolute;inset:0;opacity:0;visibility:hidden;
+  display:grid;place-items:center;align-content:center}
+.beat.on{opacity:1;visibility:visible}
+
+/* ---- tipografia cinética ------------------------------------------------ */
+.linha{font-size:120px;font-weight:800;letter-spacing:-.035em;line-height:1.02;
+  text-align:center;white-space:nowrap}
+.linha .cinza{color:var(--cinza)}
+.linha .azul{color:var(--azul)}
+.linha .grafite{color:var(--grafite)}
+/* Cada palavra entra separada, com leve rotação — é o que dá a "batida" do
+   reference. Entrada em bloco parece slide de PowerPoint. */
+.pal{display:inline-block;opacity:0;transform:translateY(46px) rotate(-4deg) scale(.9);
+  transition:opacity .42s cubic-bezier(.2,.8,.3,1),transform .52s cubic-bezier(.16,1.3,.4,1)}
+.pal.in{opacity:1;transform:none}
+
+/* ---- traço desenhado à mão ---------------------------------------------- */
+.swoosh{display:block;margin:6px auto 0;overflow:visible}
+.swoosh path{fill:none;stroke:var(--azul);stroke-width:9;stroke-linecap:round;
+  stroke-dasharray:var(--c);stroke-dashoffset:var(--c);
+  transition:stroke-dashoffset .5s cubic-bezier(.4,.9,.5,1)}
+.swoosh.in path{stroke-dashoffset:0}
+
+/* ---- forma orgânica ----------------------------------------------------- */
+/* border-radius animado em vez de morph de path: um <div> basta, e o
+   resultado é o mesmo blob respirando do reference. */
+/* Raios BEM assimétricos: com valores próximos de 50% o blob vira um círculo,
+   e círculo não se lê como forma orgânica — a irregularidade tem de existir
+   já no repouso, não só durante a animação. */
+.blob{width:420px;height:420px;background:var(--azul);
+  border-radius:68% 32% 41% 59% / 38% 62% 38% 62%;
+  animation:respira 7s ease-in-out infinite;
+  opacity:0;transform:scale(.4);
+  transition:opacity .5s ease,transform .7s cubic-bezier(.16,1.3,.4,1)}
+.blob.in{opacity:1;transform:scale(1)}
+@keyframes respira{
+  0%,100%{border-radius:68% 32% 41% 59% / 38% 62% 38% 62%}
+  33%{border-radius:34% 66% 62% 38% / 63% 34% 66% 37%}
+  66%{border-radius:57% 43% 30% 70% / 35% 68% 32% 65%}
+}
+
+/* ---- BATIDA 1 ----------------------------------------------------------- */
+#b1 .bloco{text-align:center}
+#b1 .blob{margin:96px auto 0;width:300px;height:300px}
+
+/* ---- BATIDA 2 · o +24h -------------------------------------------------- */
+#b2 .selo{font-size:230px;font-weight:800;color:var(--azul);letter-spacing:-.05em;
+  opacity:0;transform:scale(.5);
+  transition:opacity .4s ease,transform .6s cubic-bezier(.16,1.5,.4,1)}
+#b2 .selo.in{opacity:1;transform:none}
+#b2 .cartoes{display:flex;gap:34px;margin-top:74px;justify-content:center}
+/* 360px porque "Em aberto" a 52px não cabe em 300 e quebra em duas linhas —
+   e cartão irmão com altura diferente serrilha a fileira (a regra de altura
+   fixa em WrapPanel, parcela 47, vale igual aqui). */
+#b2 .ct{width:360px;padding:48px 26px;border-radius:34px;background:#fff;
+  box-shadow:0 22px 60px -30px rgba(18,58,158,.5);text-align:center;
+  opacity:0;transform:translateY(50px);
+  transition:opacity .45s ease,transform .55s cubic-bezier(.16,1.25,.4,1)}
+#b2 .ct.in{opacity:1;transform:none}
+#b2 .ct .r{font-size:26px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--cinza)}
+/* nowrap em vez de confiar na largura: a métrica muda com a fonte disponível
+   na máquina, e um cartão que cabe aqui quebra em duas linhas noutra — o que
+   serrilha a fileira inteira. */
+#b2 .ct .v{font-size:56px;font-weight:800;margin-top:14px;color:var(--grafite);letter-spacing:-.02em;white-space:nowrap}
+#b2 .ct.apagado{background:#EFEDE8;box-shadow:none}
+#b2 .ct.apagado .v{color:var(--cinza)}
+#b2 .rot{margin-top:72px;font-size:46px;font-weight:650;color:var(--grafite);text-align:center;
+  opacity:0;transform:translateY(28px);transition:opacity .5s ease,transform .5s ease}
+#b2 .rot.in{opacity:1;transform:none}
+
+/* ---- BATIDA 3 · semáforo ------------------------------------------------ */
+#b3 .fila{display:flex;flex-direction:column;gap:44px;align-items:flex-start;margin-top:70px}
+#b3 .item{display:flex;align-items:center;gap:34px;
+  opacity:0;transform:translateX(-60px);
+  transition:opacity .45s ease,transform .55s cubic-bezier(.16,1.25,.4,1)}
+#b3 .item.in{opacity:1;transform:none}
+#b3 .pt{width:84px;height:84px;border-radius:50%;flex:0 0 auto}
+#b3 .pt.v{background:var(--verde)}
+#b3 .pt.a{background:var(--ambar)}
+#b3 .pt.r{background:var(--vermelho)}
+#b3 .tx{font-size:62px;font-weight:750;color:var(--grafite);letter-spacing:-.02em}
+#b3 .tx small{display:block;font-size:36px;font-weight:600;color:var(--cinza);margin-top:4px}
+
+/* ---- BATIDA 4 · fecho --------------------------------------------------- */
+#b4{background:var(--azul)}
+#b4 .marca{display:flex;flex-direction:column;align-items:center;gap:38px;
+  opacity:0;transform:scale(.82);
+  transition:opacity .55s ease,transform .7s cubic-bezier(.16,1.3,.4,1)}
+#b4 .marca.in{opacity:1;transform:none}
+#b4 .nome{font-size:104px;font-weight:800;color:#fff;letter-spacing:-.035em}
+#b4 .sub{font-size:36px;font-weight:600;color:#B9CBF2;letter-spacing:.04em;text-align:center;
+  opacity:0;transform:translateY(24px);transition:opacity .5s ease,transform .5s ease}
+#b4 .sub.in{opacity:1;transform:none}
+
+/* ---- controle (fora da gravação) ---------------------------------------- */
+#hud{position:fixed;left:0;right:0;bottom:0;z-index:9;background:rgba(8,12,20,.94);
+  color:#cbd5e1;font:13px/1.5 Consolas,monospace;padding:9px 14px;display:flex;gap:16px;align-items:center}
+#hud kbd{background:#1e293b;border:1px solid #334155;border-radius:4px;padding:1px 6px}
+body.captura #hud{display:none}
+body.captura{cursor:none}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="palco">
+
+  <!-- ===================== BATIDA 1 ===================== -->
+  <section class="beat" id="b1">
+    <div class="bloco">
+      <div class="linha">
+        <span class="pal cinza" data-p>A</span>
+        <span class="pal cinza" data-p>guia</span>
+        <span class="pal cinza" data-p>que</span>
+        <span class="pal cinza" data-p>fica</span>
+      </div>
+      <div class="linha" style="margin-top:10px">
+        <span class="pal azul" data-p>para</span>
+        <span class="pal azul" data-p>amanhã</span>
+      </div>
+      <svg class="swoosh" width="470" height="34" viewBox="0 0 470 34">
+        <path d="M10 22 C 120 6, 300 6, 458 16" />
+      </svg>
+      <div class="blob"></div>
+    </div>
+  </section>
+
+  <!-- ===================== BATIDA 2 ===================== -->
+  <section class="beat" id="b2">
+    <div>
+      <div class="selo" style="text-align:center">+24h</div>
+      <div class="cartoes">
+        <div class="ct"><div class="r">1º código</div><div class="v">Baixado</div></div>
+        <div class="ct apagado"><div class="r">2º código</div><div class="v">Em aberto</div></div>
+      </div>
+      <div class="rot">o segundo só existe<br><b style="color:var(--azul)">no dia seguinte</b></div>
+    </div>
+  </section>
+
+  <!-- ===================== BATIDA 3 ===================== -->
+  <section class="beat" id="b3">
+    <div>
+      <div class="linha" style="font-size:100px">
+        <span class="pal grafite" data-p>Cada</span>
+        <span class="pal grafite" data-p>guia</span>
+        <span class="pal azul" data-p>tem</span>
+        <span class="pal azul" data-p>cor</span>
+      </div>
+      <div class="fila">
+        <div class="item"><span class="pt v"></span><span class="tx">No prazo<small>pode esperar</small></span></div>
+        <div class="item"><span class="pt a"></span><span class="tx">Vence hoje<small>resolve agora</small></span></div>
+        <div class="item"><span class="pt r"></span><span class="tx">Passou<small>o sistema trava</small></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BATIDA 4 ===================== -->
+  <section class="beat" id="b4">
+    <div style="display:grid;place-items:center;gap:44px">
+      <div class="marca">
+        <svg width="150" height="150" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="9" stroke="#fff" stroke-width="1.6" opacity=".55"/>
+          <circle cx="16" cy="16" r="3.4" fill="#fff"/>
+          <path d="M16 3v5.4M16 23.6V29M3 16h5.4M23.6 16H29" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <div class="nome">Clínica SemDor</div>
+      </div>
+      <div class="sub">nenhuma guia fica para trás</div>
+    </div>
+  </section>
+
+</div></div>
+
+<div id="hud">
+  <b id="hCena">—</b><span id="hT">0.0 / 16.0s</span>
+  <span><kbd>espaço</kbd> tocar <kbd>R</kbd> reinicia <kbd>C</kbd> captura</span>
+</div>
+
+<script>
+/* Mesmo motor da versão 16:9: relógio em segundos + cues por batida, com o
+   tempo RELATIVO ao início de cada uma. Ver docs/video/cenas-animadas.html. */
+var SEM_MOV = false;
+function depois(fn, ms){ if (SEM_MOV) fn(); else setTimeout(fn, ms); }
+
+var BEATS = [
+  { id:'b1', dur:4.2, cues:[
+      {t:0.15, fn:'b1palavras'},
+      {t:1.35, sel:'#b1 .swoosh', cls:'in'},
+      {t:1.70, sel:'#b1 .blob',   cls:'in'}
+  ]},
+  { id:'b2', dur:4.3, cues:[
+      {t:0.15, sel:'#b2 .selo', cls:'in'},
+      {t:0.85, fn:'b2cartoes'},
+      {t:2.10, sel:'#b2 .rot',  cls:'in'}
+  ]},
+  { id:'b3', dur:4.5, cues:[
+      {t:0.15, fn:'b3palavras'},
+      {t:1.05, fn:'b3itens'}
+  ]},
+  { id:'b4', dur:3.0, cues:[
+      {t:0.20, sel:'#b4 .marca', cls:'in'},
+      {t:0.95, sel:'#b4 .sub',   cls:'in'}
+  ]}
+];
+
+var t0 = 0;
+for (var i = 0; i < BEATS.length; i++){ BEATS[i].ini = t0; t0 += BEATS[i].dur; }
+var TOTAL = t0;
+
+var palco = document.getElementById('palco');
+var relogio = 0, tocando = false, ultimo = 0, atual = -1, feitos = {};
+
+function escala(){
+  var h = document.body.classList.contains('captura') ? innerHeight : innerHeight - 38;
+  palco.style.transform = 'scale(' + Math.min(innerWidth / 1080, h / 1920) + ')';
+}
+addEventListener('resize', escala);
+
+function cascata(sel, passo){
+  var els = document.querySelectorAll(sel);
+  for (var i = 0; i < els.length; i++){
+    (function(el, ms){ depois(function(){ el.classList.add('in'); }, ms); })(els[i], i * passo);
+  }
+}
+var ACOES = {
+  b1palavras: function(){ cascata('#b1 .pal', 105); },
+  b2cartoes:  function(){ cascata('#b2 .ct', 190); },
+  b3palavras: function(){ cascata('#b3 .pal', 100); },
+  b3itens:    function(){ cascata('#b3 .item', 260); }
+};
+
+function limpar(b){
+  var raiz = document.getElementById(b.id);
+  var els = raiz.querySelectorAll('.in');
+  for (var i = 0; i < els.length; i++) els[i].classList.remove('in');
+  for (var k in feitos) if (k.indexOf(b.id + ':') === 0) delete feitos[k];
+}
+function indice(t){
+  for (var i = BEATS.length - 1; i >= 0; i--) if (t >= BEATS[i].ini) return i;
+  return 0;
+}
+function aplicar(t){
+  var idx = indice(t);
+  if (idx !== atual){
+    for (var i = 0; i < BEATS.length; i++)
+      document.getElementById(BEATS[i].id).classList.toggle('on', i === idx);
+    limpar(BEATS[idx]); atual = idx;
+  }
+  var b = BEATS[idx], rel = t - b.ini;
+  for (var c = 0; c < b.cues.length; c++){
+    var q = b.cues[c], chave = b.id + ':' + c;
+    if (rel >= q.t && !feitos[chave]){
+      feitos[chave] = 1;
+      if (q.sel){ var e = document.querySelector(q.sel); if (e) e.classList.add(q.cls); }
+      if (q.fn && ACOES[q.fn]) ACOES[q.fn]();
+    }
+  }
+  document.getElementById('hCena').textContent = (idx + 1) + '/' + BEATS.length + ' · ' + b.id;
+  document.getElementById('hT').textContent = t.toFixed(1) + ' / ' + TOTAL.toFixed(1) + 's';
+}
+function laco(agora){
+  if (tocando){
+    relogio += (agora - ultimo) / 1000; ultimo = agora;
+    if (relogio >= TOTAL){ relogio = TOTAL; tocando = false; }
+    aplicar(relogio);
+  }
+  requestAnimationFrame(laco);
+}
+function irPara(t){
+  relogio = Math.max(0, Math.min(t, TOTAL)); atual = -1; feitos = {};
+  for (var i = 0; i < BEATS.length; i++) limpar(BEATS[i]);
+  aplicar(relogio);
+}
+addEventListener('keydown', function(e){
+  if (e.code === 'Space'){ e.preventDefault(); tocando = !tocando; ultimo = performance.now(); }
+  if (e.key === 'r' || e.key === 'R'){ tocando = false; irPara(0); }
+  if (e.key === 'c' || e.key === 'C'){ document.body.classList.toggle('captura'); escala(); }
+});
+
+/* ?t= segundo · ?play=1 · ?c=1 captura · ?still=1 sem movimento (conferir
+   enquadramento — nunca gravar assim). */
+(function(){
+  var p = new URLSearchParams(location.search);
+  if (p.get('still') === '1'){
+    SEM_MOV = true;
+    var s = document.createElement('style');
+    s.textContent = '*,*::before,*::after{transition:none !important;animation:none !important}';
+    document.head.appendChild(s);
+  }
+  if (p.get('c') === '1') document.body.classList.add('captura');
+  escala();
+  irPara(parseFloat(p.get('t')) || 0);
+  if (p.get('play') === '1'){ tocando = true; ultimo = performance.now(); }
+})();
+requestAnimationFrame(laco);
+</script>
+</body>
+</html>
