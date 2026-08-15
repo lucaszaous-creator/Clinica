@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Vertical 41s — Clínica SemDor</title>
+<style>
+/* ============================================================================
+   VERTICAL · 1080×1920 (9:16) · 41s · 8 batidas
+   ----------------------------------------------------------------------------
+   Peça curta para WhatsApp e Instagram, na linguagem do vídeo de referência
+   (motion design vetorial plano, tipografia pesada com ênfase por cor, traço
+   desenhado à mão, forma orgânica). Ela SOMA ao vídeo de 90s em 16:9; não o
+   substitui.
+
+   O texto é TEXTO — vetor, não pixel gerado. É o que geração de vídeo por IA
+   não entrega, e este estilo é dirigido por tipografia do primeiro ao último
+   quadro.
+
+   Tema travado no claro: vídeo tem de sair igual em qualquer máquina.
+   ========================================================================== */
+:root{
+  /* Off-white QUENTE, como no reference — branco puro endurece o azul e dá
+     cara de slide. */
+  --papel:#F7F6F2;
+  --azul:#123A9E;            /* Brush.Acento — Tokens.xaml */
+  --azul-forte:#0A2E86;
+  --azul-claro:#EEF3FC;
+  --grafite:#2B2F38;
+  --cinza:#9AA1AE;
+  --linha:#E5E7EB;
+  --verde:#2E7D32; --ambar:#F9A825; --vermelho:#C62828;
+  --ui:"Segoe UI",Inter,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  --mono:Consolas,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#0b0f17}
+body{font-family:var(--ui);-webkit-font-smoothing:antialiased}
+
+#viewport{position:fixed;inset:0;display:grid;place-items:center}
+#palco{width:1080px;height:1920px;position:relative;overflow:hidden;
+  background:var(--papel);transform-origin:center}
+.beat{position:absolute;inset:0;opacity:0;visibility:hidden;
+  display:grid;place-items:center;align-content:center;padding:0 70px}
+.beat.on{opacity:1;visibility:visible}
+
+/* ---- tipografia cinética ------------------------------------------------ */
+.linha{font-size:120px;font-weight:800;letter-spacing:-.035em;line-height:1.02;
+  text-align:center;white-space:nowrap}
+.linha.med{font-size:100px}
+.linha .cinza{color:var(--cinza)}
+.linha .azul{color:var(--azul)}
+.linha .grafite{color:var(--grafite)}
+/* Palavra a palavra, com leve rotação — é o que dá a batida do reference.
+   Entrada em bloco parece slide de PowerPoint. */
+.pal{display:inline-block;opacity:0;transform:translateY(46px) rotate(-4deg) scale(.9);
+  transition:opacity .42s cubic-bezier(.2,.8,.3,1),transform .52s cubic-bezier(.16,1.3,.4,1)}
+.pal.in{opacity:1;transform:none}
+
+/* ---- traço desenhado à mão ---------------------------------------------- */
+.swoosh{display:block;margin:6px auto 0;overflow:visible}
+.swoosh path{fill:none;stroke:var(--azul);stroke-width:9;stroke-linecap:round;
+  stroke-dasharray:600;stroke-dashoffset:600;
+  transition:stroke-dashoffset .5s cubic-bezier(.4,.9,.5,1)}
+.swoosh.in path{stroke-dashoffset:0}
+
+/* ---- forma orgânica ----------------------------------------------------- */
+/* Raios BEM assimétricos: perto de 50% o blob vira círculo, e círculo não se
+   lê como forma orgânica — a irregularidade tem de existir já no repouso. */
+.blob{width:300px;height:300px;background:var(--azul);
+  border-radius:68% 32% 41% 59% / 38% 62% 38% 62%;
+  animation:respira 7s ease-in-out infinite;
+  opacity:0;transform:scale(.4);
+  transition:opacity .5s ease,transform .7s cubic-bezier(.16,1.3,.4,1)}
+.blob.in{opacity:1;transform:scale(1)}
+@keyframes respira{
+  0%,100%{border-radius:68% 32% 41% 59% / 38% 62% 38% 62%}
+  33%{border-radius:34% 66% 62% 38% / 63% 34% 66% 37%}
+  66%{border-radius:57% 43% 30% 70% / 35% 68% 32% 65%}
+}
+
+/* entrada genérica */
+.sobe{opacity:0;transform:translateY(46px);
+  transition:opacity .45s ease,transform .55s cubic-bezier(.16,1.25,.4,1)}
+.sobe.in{opacity:1;transform:none}
+.pop{opacity:0;transform:scale(.6);
+  transition:opacity .4s ease,transform .6s cubic-bezier(.16,1.5,.4,1)}
+.pop.in{opacity:1;transform:none}
+
+/* ---- B1 · gancho -------------------------------------------------------- */
+#b1 .blob{margin:96px auto 0}
+
+/* ---- B2 · o +24h -------------------------------------------------------- */
+#b2 .selo{font-size:230px;font-weight:800;color:var(--azul);letter-spacing:-.05em;text-align:center}
+#b2 .cartoes{display:flex;gap:34px;margin-top:74px;justify-content:center}
+#b2 .ct{width:360px;padding:48px 26px;border-radius:34px;background:#fff;
+  box-shadow:0 22px 60px -30px rgba(18,58,158,.5);text-align:center}
+#b2 .ct .r{font-size:26px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--cinza)}
+/* nowrap: a métrica muda com a fonte instalada, e um cartão que cabe aqui
+   quebra em duas linhas noutra máquina — o que serrilha a fileira. */
+#b2 .ct .v{font-size:56px;font-weight:800;margin-top:14px;color:var(--grafite);
+  letter-spacing:-.02em;white-space:nowrap}
+#b2 .ct.apagado{background:#EFEDE8;box-shadow:none}
+#b2 .ct.apagado .v{color:var(--cinza)}
+#b2 .rot{margin-top:72px;font-size:46px;font-weight:650;color:var(--grafite);text-align:center}
+
+/* ---- B3 · os dias correndo ---------------------------------------------- */
+#b3 .dias{display:flex;gap:26px;justify-content:center;margin-bottom:80px}
+#b3 .d{font-family:var(--mono);font-size:52px;color:var(--cinza);
+  opacity:0;transform:translateY(30px);
+  transition:opacity .3s ease,transform .35s cubic-bezier(.2,.9,.3,1)}
+#b3 .d.in{opacity:1;transform:none}
+#b3 .d.hoje{color:var(--vermelho);font-weight:700}
+#b3 .n{font-size:280px;font-weight:800;color:var(--vermelho);line-height:1;
+  letter-spacing:-.05em;text-align:center}
+#b3 .l{margin-top:26px;font-size:46px;font-weight:650;color:var(--grafite);text-align:center}
+
+/* ---- B4 · semáforo ------------------------------------------------------ */
+#b4 .fila{display:flex;flex-direction:column;gap:44px;align-items:flex-start;margin-top:80px}
+#b4 .item{display:flex;align-items:center;gap:34px}
+#b4 .pt{width:84px;height:84px;border-radius:50%;flex:0 0 auto}
+#b4 .pt.v{background:var(--verde)}
+#b4 .pt.a{background:var(--ambar)}
+#b4 .pt.r{background:var(--vermelho)}
+#b4 .tx{font-size:62px;font-weight:750;color:var(--grafite);letter-spacing:-.02em}
+#b4 .tx small{display:block;font-size:36px;font-weight:600;color:var(--cinza);margin-top:4px}
+
+/* ---- B5 · a tela real --------------------------------------------------- */
+/* Recorte próprio para 9:16, e não a tela de 16:9 encolhida: reduzida para
+   caber em 1080 de largura, a fonte da tabela ficaria ilegível — e tela que
+   não se lê não prova que o produto existe, que é a única razão da batida. */
+#b5 .janela{width:940px;border-radius:28px;overflow:hidden;background:#fff;
+  border:1px solid var(--linha);box-shadow:0 50px 110px -40px rgba(7,31,92,.55);
+  transform:perspective(2200px) rotateX(9deg) translateY(70px) scale(.94);opacity:0;
+  transition:opacity .55s ease,transform .8s cubic-bezier(.16,1.1,.35,1)}
+#b5 .janela.in{opacity:1;transform:perspective(2200px) rotateX(4deg)}
+#b5 .barra{height:60px;background:#F1F5F9;border-bottom:1px solid var(--linha);
+  display:flex;align-items:center;gap:11px;padding:0 24px}
+#b5 .barra i{width:15px;height:15px;border-radius:50%;background:#D1D5DB;display:block}
+#b5 .barra span{margin-left:14px;font-size:24px;color:var(--cinza);font-weight:600}
+#b5 .miolo{padding:30px 32px 36px}
+#b5 .alerta{background:#DC2626;color:#fff;border-radius:14px;padding:20px 24px;
+  font-size:28px;font-weight:700}
+#b5 .kpis{display:flex;gap:18px;margin-top:24px}
+#b5 .k{flex:1;border:1px solid var(--linha);border-radius:18px;padding:20px}
+#b5 .k .kl{font-size:22px;color:var(--cinza)}
+#b5 .k .kv{font-size:52px;font-weight:800;color:var(--grafite);margin-top:4px}
+#b5 .k .kv.r{color:#DC2626}
+#b5 .k.ac{background:var(--azul);border-color:var(--azul)}
+#b5 .k.ac .kl{color:#D8E3F7}#b5 .k.ac .kv{color:#fff}
+#b5 .tab{margin-top:26px;border:1px solid var(--linha);border-radius:18px;overflow:hidden}
+#b5 .tr{display:flex;align-items:center;gap:22px;padding:22px 24px;border-bottom:1px solid var(--linha);
+  opacity:0;transform:translateX(-26px);
+  transition:opacity .35s ease,transform .4s cubic-bezier(.2,.9,.3,1)}
+#b5 .tr.in{opacity:1;transform:none}
+#b5 .tr:last-child{border-bottom:0}
+#b5 .tr .dot{width:22px;height:22px;border-radius:50%;flex:0 0 auto}
+#b5 .tr .nm{font-size:30px;font-weight:700;color:var(--grafite);flex:1;white-space:nowrap}
+#b5 .tr .at{font-size:28px;font-weight:800;font-family:var(--mono)}
+#b5 .cap{margin-top:56px;font-size:44px;font-weight:700;color:var(--grafite);text-align:center}
+
+/* ---- B6 · a trava ------------------------------------------------------- */
+#b6{background:var(--azul)}
+#b6 .cad{width:190px;height:190px;border-radius:46px;background:rgba(255,255,255,.14);
+  display:grid;place-items:center;margin:0 auto 60px}
+#b6 .g{font-size:130px;font-weight:800;color:#fff;letter-spacing:-.04em;text-align:center;line-height:1.05}
+#b6 .p{margin-top:34px;font-size:46px;font-weight:600;color:#B9CBF2;text-align:center;line-height:1.35}
+
+/* ---- B7 · cinco apps ---------------------------------------------------- */
+#b7 .pills{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;margin-top:70px;max-width:900px}
+#b7 .pill{padding:24px 40px;border-radius:999px;background:#fff;border:2px solid var(--azul);
+  font-size:44px;font-weight:750;color:var(--azul);
+  opacity:0;transform:scale(.7);
+  transition:opacity .35s ease,transform .45s cubic-bezier(.16,1.5,.4,1)}
+#b7 .pill.in{opacity:1;transform:none}
+#b7 .banco{margin-top:76px;display:flex;flex-direction:column;align-items:center;gap:20px}
+#b7 .cil{width:230px;height:130px;border-radius:26px;background:var(--azul);display:grid;place-items:center;
+  box-shadow:0 30px 70px -28px rgba(18,58,158,.75)}
+#b7 .bl{font-size:42px;font-weight:750;color:var(--grafite)}
+#b7 .bs{font-size:34px;font-weight:600;color:var(--cinza)}
+
+/* ---- B8 · fecho --------------------------------------------------------- */
+#b8{background:var(--azul)}
+#b8 .marca{display:flex;flex-direction:column;align-items:center;gap:38px}
+#b8 .nome{font-size:104px;font-weight:800;color:#fff;letter-spacing:-.035em}
+#b8 .sub{font-size:40px;font-weight:600;color:#B9CBF2;letter-spacing:.03em;text-align:center;margin-top:44px}
+
+/* ---- controle (fora da gravação) ---------------------------------------- */
+#hud{position:fixed;left:0;right:0;bottom:0;z-index:9;background:rgba(8,12,20,.94);
+  color:#cbd5e1;font:13px/1.5 Consolas,monospace;padding:9px 14px;display:flex;gap:16px;align-items:center}
+#hud kbd{background:#1e293b;border:1px solid #334155;border-radius:4px;padding:1px 6px}
+body.captura #hud{display:none}
+body.captura{cursor:none}
+</style>
+</head>
+<body>
+<div id="viewport"><div id="palco">
+
+  <!-- ========================= B1 · gancho ========================= -->
+  <section class="beat" id="b1">
+    <div style="text-align:center">
+      <div class="linha">
+        <span class="pal cinza">A</span> <span class="pal cinza">guia</span>
+        <span class="pal cinza">que</span> <span class="pal cinza">fica</span>
+      </div>
+      <div class="linha" style="margin-top:10px">
+        <span class="pal azul">para</span> <span class="pal azul">amanhã</span>
+      </div>
+      <svg class="swoosh" width="470" height="34" viewBox="0 0 470 34">
+        <path d="M10 22 C 120 6, 300 6, 458 16"/>
+      </svg>
+      <div class="blob"></div>
+    </div>
+  </section>
+
+  <!-- ========================= B2 · +24h =========================== -->
+  <section class="beat" id="b2">
+    <div>
+      <div class="selo pop">+24h</div>
+      <div class="cartoes">
+        <div class="ct sobe"><div class="r">1º código</div><div class="v">Baixado</div></div>
+        <div class="ct apagado sobe"><div class="r">2º código</div><div class="v">Em aberto</div></div>
+      </div>
+      <div class="rot sobe">o segundo só existe<br><b style="color:var(--azul)">no dia seguinte</b></div>
+    </div>
+  </section>
+
+  <!-- ==================== B3 · os dias correndo ==================== -->
+  <section class="beat" id="b3">
+    <div>
+      <div class="dias">
+        <span class="d">14/07</span><span class="d">15/07</span>
+        <span class="d">16/07</span><span class="d hoje">17/07</span>
+      </div>
+      <div class="n pop">+3</div>
+      <div class="l sobe">dias de atraso —<br>e o prazo de recurso correndo</div>
+    </div>
+  </section>
+
+  <!-- ======================= B4 · semáforo ========================= -->
+  <section class="beat" id="b4">
+    <div>
+      <div class="linha med">
+        <span class="pal grafite">Cada</span> <span class="pal grafite">guia</span>
+        <span class="pal azul">tem</span> <span class="pal azul">cor</span>
+      </div>
+      <div class="fila">
+        <div class="item sobe"><span class="pt v"></span><span class="tx">No prazo<small>pode esperar</small></span></div>
+        <div class="item sobe"><span class="pt a"></span><span class="tx">Vence hoje<small>resolve agora</small></span></div>
+        <div class="item sobe"><span class="pt r"></span><span class="tx">Passou<small>o sistema trava</small></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= B5 · a tela real ====================== -->
+  <section class="beat" id="b5">
+    <div style="width:100%">
+      <div class="janela">
+        <div class="barra"><i></i><i></i><i></i><span>Clínica SemDor — Faturamento</span></div>
+        <div class="miolo">
+          <div class="alerta">6 guias pendentes de baixa</div>
+          <div class="kpis">
+            <div class="k"><div class="kl">Em aberto</div><div class="kv">6</div></div>
+            <div class="k"><div class="kl">Urgentes</div><div class="kv r">3</div></div>
+            <div class="k ac"><div class="kl">Pendências</div><div class="kv">8</div></div>
+          </div>
+          <div class="tab">
+            <div class="tr"><span class="dot" style="background:var(--vermelho)"></span><span class="nm">Maria da Silva · 2º código</span><span class="at" style="color:var(--vermelho)">+3</span></div>
+            <div class="tr"><span class="dot" style="background:var(--vermelho)"></span><span class="nm">Carlos Nunes · 1º código</span><span class="at" style="color:var(--vermelho)">+3</span></div>
+            <div class="tr"><span class="dot" style="background:var(--ambar)"></span><span class="nm">João Pereira · 1º código</span><span class="at" style="color:var(--ambar)">hoje</span></div>
+            <div class="tr"><span class="dot" style="background:var(--verde)"></span><span class="nm">Ana Souza · 2º código</span><span class="at" style="color:var(--verde)">−1</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="cap sobe">é a <b style="color:var(--azul)">primeira tela</b> do dia</div>
+    </div>
+  </section>
+
+  <!-- ========================= B6 · a trava ======================== -->
+  <section class="beat" id="b6">
+    <div>
+      <div class="cad pop">
+        <svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <div class="g sobe">Passou do prazo?<br>o sistema <b style="color:#fff">para</b></div>
+      <div class="p sobe">cada guia exige uma decisão —<br>e nada some sem alguém responder</div>
+    </div>
+  </section>
+
+  <!-- ======================= B7 · cinco apps ======================= -->
+  <section class="beat" id="b7">
+    <div style="display:grid;place-items:center">
+      <div class="linha med" style="white-space:normal;text-align:center">
+        <span class="pal grafite">Cinco</span> <span class="pal grafite">programas,</span><br>
+        <span class="pal azul">um</span> <span class="pal azul">banco</span>
+      </div>
+      <div class="pills">
+        <span class="pill">Faturamento</span><span class="pill">Recepção</span>
+        <span class="pill">Consultório</span><span class="pill">Financeiro</span>
+        <span class="pill">Direção</span>
+      </div>
+      <div class="banco sobe">
+        <div class="cil">
+          <svg width="62" height="62" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/>
+          </svg>
+        </div>
+        <div class="bl">o que um grava, o outro lê</div>
+        <div class="bs">na hora, sem digitar duas vezes</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================== B8 · fecho ========================= -->
+  <section class="beat" id="b8">
+    <div style="display:grid;place-items:center">
+      <div class="marca pop">
+        <svg width="150" height="150" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="9" stroke="#fff" stroke-width="1.6" opacity=".55"/>
+          <circle cx="16" cy="16" r="3.4" fill="#fff"/>
+          <path d="M16 3v5.4M16 23.6V29M3 16h5.4M23.6 16H29" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <div class="nome">Clínica SemDor</div>
+      </div>
+      <div class="sub sobe">nenhuma guia fica para trás</div>
+    </div>
+  </section>
+
+</div></div>
+
+<div id="hud">
+  <b id="hCena">—</b><span id="hT">0.0 / 41.0s</span>
+  <span><kbd>espaço</kbd> tocar <kbd>R</kbd> reinicia <kbd>←</kbd><kbd>→</kbd> batida <kbd>C</kbd> captura</span>
+</div>
+
+<script>
+/* Mesmo motor da versão 16:9 (docs/video/cenas-animadas.html): relógio em
+   segundos e cues por batida, com o tempo RELATIVO ao início de cada uma —
+   assim mexer na duração de uma não reescreve os tempos das outras. */
+var SEM_MOV = false;
+function depois(fn, ms){ if (SEM_MOV) fn(); else setTimeout(fn, ms); }
+
+var BEATS = [
+  { id:'b1', dur:4.5, cues:[
+      {t:0.15, fn:'casc', arg:'#b1 .pal|105'},
+      {t:1.35, sel:'#b1 .swoosh'},
+      {t:1.70, sel:'#b1 .blob'}
+  ]},
+  { id:'b2', dur:4.5, cues:[
+      {t:0.15, sel:'#b2 .selo'},
+      {t:0.85, fn:'casc', arg:'#b2 .ct|190'},
+      {t:2.10, sel:'#b2 .rot'}
+  ]},
+  { id:'b3', dur:5.0, cues:[
+      {t:0.15, fn:'casc', arg:'#b3 .d|420'},
+      {t:2.10, sel:'#b3 .n'},
+      {t:2.70, sel:'#b3 .l'}
+  ]},
+  { id:'b4', dur:5.5, cues:[
+      {t:0.15, fn:'casc', arg:'#b4 .pal|100'},
+      {t:1.05, fn:'casc', arg:'#b4 .item|300'}
+  ]},
+  { id:'b5', dur:6.0, cues:[
+      {t:0.20, sel:'#b5 .janela'},
+      {t:1.10, fn:'casc', arg:'#b5 .tr|150'},
+      {t:3.20, sel:'#b5 .cap'}
+  ]},
+  { id:'b6', dur:5.0, cues:[
+      {t:0.20, sel:'#b6 .cad'},
+      {t:0.80, sel:'#b6 .g'},
+      {t:2.00, sel:'#b6 .p'}
+  ]},
+  { id:'b7', dur:5.5, cues:[
+      {t:0.15, fn:'casc', arg:'#b7 .pal|100'},
+      {t:1.10, fn:'casc', arg:'#b7 .pill|130'},
+      {t:2.60, sel:'#b7 .banco'}
+  ]},
+  { id:'b8', dur:5.0, cues:[
+      {t:0.25, sel:'#b8 .marca'},
+      {t:1.10, sel:'#b8 .sub'}
+  ]}
+];
+
+var t0 = 0;
+for (var i = 0; i < BEATS.length; i++){ BEATS[i].ini = t0; t0 += BEATS[i].dur; }
+var TOTAL = t0;
+
+var palco = document.getElementById('palco');
+var relogio = 0, tocando = false, ultimo = 0, atual = -1, feitos = {};
+
+function escala(){
+  var h = document.body.classList.contains('captura') ? innerHeight : innerHeight - 38;
+  palco.style.transform = 'scale(' + Math.min(innerWidth / 1080, h / 1920) + ')';
+}
+addEventListener('resize', escala);
+
+/* Ponto único da entrada em cascata: o modo de conferência (?still=1) salta
+   para o fim numa linha só, em vez de cada ação lembrar de fazer isso. */
+function cascata(sel, passo){
+  var els = document.querySelectorAll(sel);
+  for (var i = 0; i < els.length; i++){
+    (function(el, ms){ depois(function(){ el.classList.add('in'); }, ms); })(els[i], i * passo);
+  }
+}
+function acao(arg){
+  var p = arg.split('|');
+  cascata(p[0], parseInt(p[1], 10));
+}
+
+function limpar(b){
+  var els = document.getElementById(b.id).querySelectorAll('.in');
+  for (var i = 0; i < els.length; i++) els[i].classList.remove('in');
+  for (var k in feitos) if (k.indexOf(b.id + ':') === 0) delete feitos[k];
+}
+function indice(t){
+  for (var i = BEATS.length - 1; i >= 0; i--) if (t >= BEATS[i].ini) return i;
+  return 0;
+}
+function aplicar(t){
+  var idx = indice(t);
+  if (idx !== atual){
+    for (var i = 0; i < BEATS.length; i++)
+      document.getElementById(BEATS[i].id).classList.toggle('on', i === idx);
+    limpar(BEATS[idx]); atual = idx;
+  }
+  var b = BEATS[idx], rel = t - b.ini;
+  for (var c = 0; c < b.cues.length; c++){
+    var q = b.cues[c], chave = b.id + ':' + c;
+    if (rel >= q.t && !feitos[chave]){
+      feitos[chave] = 1;
+      if (q.sel){ var e = document.querySelector(q.sel); if (e) e.classList.add('in'); }
+      if (q.fn === 'casc') acao(q.arg);
+    }
+  }
+  document.getElementById('hCena').textContent = (idx + 1) + '/' + BEATS.length + ' · ' + b.id;
+  document.getElementById('hT').textContent = t.toFixed(1) + ' / ' + TOTAL.toFixed(1) + 's';
+}
+function laco(agora){
+  if (tocando){
+    relogio += (agora - ultimo) / 1000; ultimo = agora;
+    if (relogio >= TOTAL){ relogio = TOTAL; tocando = false; }
+    aplicar(relogio);
+  }
+  requestAnimationFrame(laco);
+}
+function irPara(t){
+  relogio = Math.max(0, Math.min(t, TOTAL)); atual = -1; feitos = {};
+  for (var i = 0; i < BEATS.length; i++) limpar(BEATS[i]);
+  aplicar(relogio);
+}
+addEventListener('keydown', function(e){
+  if (e.code === 'Space'){ e.preventDefault(); tocando = !tocando; ultimo = performance.now(); }
+  if (e.key === 'r' || e.key === 'R'){ tocando = false; irPara(0); }
+  if (e.key === 'c' || e.key === 'C'){ document.body.classList.toggle('captura'); escala(); }
+  if (e.key === 'ArrowRight'){ tocando = false; var i = indice(relogio);
+    irPara(i + 1 < BEATS.length ? BEATS[i + 1].ini : TOTAL); }
+  if (e.key === 'ArrowLeft'){ tocando = false; var j = indice(relogio);
+    irPara((relogio - BEATS[j].ini > 0.6) ? BEATS[j].ini : (j > 0 ? BEATS[j - 1].ini : 0)); }
+});
+
+/* ?t= segundo · ?play=1 · ?c=1 captura · ?still=1 sem movimento (conferir
+   enquadramento — nunca gravar assim). */
+(function(){
+  var p = new URLSearchParams(location.search);
+  if (p.get('still') === '1'){
+    SEM_MOV = true;
+    var s = document.createElement('style');
+    s.textContent = '*,*::before,*::after{transition:none !important;animation:none !important}';
+    document.head.appendChild(s);
+  }
+  if (p.get('c') === '1') document.body.classList.add('captura');
+  escala();
+  irPara(parseFloat(p.get('t')) || 0);
+  if (p.get('play') === '1'){ tocando = true; ultimo = performance.now(); }
+})();
+requestAnimationFrame(laco);
+</script>
+</body>
+</html>

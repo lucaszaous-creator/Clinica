@@ -1,10 +1,29 @@
-# Vertical 9:16 — amostra de estilo
+# Vertical 9:16 — 41s
 
-`amostra-estilo.html` — 1080×1920, ~16s, quatro batidas. **Não é o vídeo
-final**: existe para julgar a LINGUAGEM antes de escrever um roteiro inteiro.
+`vertical-41s.html` — 1080×1920, 41s, oito batidas. Peça curta para WhatsApp e
+Instagram. Ela **soma** ao vídeo de 90s em 16:9 (`../cenas-animadas.html`); não
+o substitui — aquele é a entrega formal, com as telas em tela cheia.
 
-Abra e aperte espaço. `C` liga o modo captura, `?still=1` congela tudo no
-estado final para conferir enquadramento.
+Abra e aperte espaço. `C` liga o modo captura, `←` `→` pulam batidas, `?t=25`
+abre num segundo, `?still=1` congela tudo no estado final para conferir
+enquadramento (nunca grave assim).
+
+## As oito batidas
+
+| # | s | Batida |
+|---|---|---|
+| 1 | 0,0–4,5 | "A guia que fica para amanhã" — o gancho |
+| 2 | 4,5–9,0 | "+24h" — 1º baixado, 2º em aberto |
+| 3 | 9,0–14,0 | Os dias correndo, "+3" |
+| 4 | 14,0–19,5 | "Cada guia tem cor" — o semáforo |
+| 5 | 19,5–25,5 | **A tela real**, dentro de mockup |
+| 6 | 25,5–30,5 | "Passou do prazo? o sistema para" |
+| 7 | 30,5–36,0 | "Cinco programas, um banco" |
+| 8 | 36,0–41,0 | Fecho — marca |
+
+Gravar: OBS → fonte **Navegador**, arquivo local, **1080×1920**, 30fps, URL
+terminando em `?c=1&play=1`. Comece a gravar e use "Atualizar cache da página
+atual" para disparar.
 
 ## De onde veio
 
@@ -40,6 +59,11 @@ texto é texto de verdade, em vetor, e o mesmo motor da versão 16:9
 - **Sem mascote de olhinhos.** O reference é de app de compras; aqui é o
   sistema que fatura uma clínica. A forma orgânica ficou, a carinha não —
   mas é decisão de tom, e se reverte em duas linhas.
+- **A batida 5 tem um recorte PRÓPRIO da tela, não a de 16:9 encolhida.**
+  Reduzida para caber em 1080 de largura, a fonte da tabela ficaria ilegível —
+  e tela que não se lê não prova que o produto existe, que é a única razão da
+  batida. Por isso ali há KPIs e quatro linhas, com corpo grande, em vez da
+  tela inteira.
 
 ⚠️ **As capturas de conferência deste ambiente usam fonte SUBSTITUTA** (não há
 Segoe UI aqui). No Windows o texto sai mais estreito que nos PNGs de teste.
