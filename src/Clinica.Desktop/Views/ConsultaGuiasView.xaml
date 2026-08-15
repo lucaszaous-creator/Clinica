@@ -121,7 +121,7 @@
                                     Width="Auto" />
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                    Binding="{Binding Atendimento.Paciente.ConvenioNome}" Width="*" />
                 <DataGridTextColumn Header="Modalidade"
                                     Binding="{Binding Atendimento.Modalidade, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Especialidade"

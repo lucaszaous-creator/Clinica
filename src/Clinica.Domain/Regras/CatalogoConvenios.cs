@@ -42,8 +42,33 @@ public static class CatalogoConvenios
         return Enum.TryParse<Convenio>(codigo, out var c) ? c : Convenio.UnimedPadrao;
     }
 
-    /// <summary>Nome de um convênio embutido (pela família), refletindo rename salvo no catálogo.</summary>
-    public static string Nome(Convenio familia) => Nome(familia.ToString());
+    /// <summary>
+    /// Rótulo neutro da família genérica. NÃO é operadora nenhuma: é a REGRA que todas as
+    /// operadoras cadastradas pela clínica compartilham.
+    /// </summary>
+    public const string RotuloFamiliaPersonalizada = "Convênio personalizado";
+
+    /// <summary>
+    /// Nome de um convênio embutido (pela família), refletindo rename salvo no catálogo.
+    ///
+    /// ⚠️ <see cref="Convenio.Personalizado"/> é a única família que NÃO identifica uma
+    /// operadora, e por isso é a única que não passa pelo catálogo aqui. O motivo saiu de
+    /// produção: <c>ListarAsync</c> garante uma linha por família, inclusive uma de código
+    /// <c>"Personalizado"</c> — e essa linha é RENOMEÁVEL como qualquer outra. A clínica
+    /// renomeou-a para o nome da primeira operadora que cadastrou (em vez de usar
+    /// "Adicionar"), e a partir daí <c>Nome(Personalizado)</c> passou a devolver o nome
+    /// DELA para toda operadora personalizada: oito pacientes Sul América apareceram
+    /// faturando como "Porto Saúde" na consulta de guias.
+    ///
+    /// O rótulo neutro é pior de ler e MUITO melhor de confiar: ele não responde qual
+    /// operadora é — o que é a verdade, porque a família não sabe —, em vez de responder a
+    /// operadora errada com toda a cara de certa. Quem tem o código na mão usa
+    /// <see cref="Nome(string?, Convenio)"/>, que é o caminho certo e é o que as telas fazem.
+    /// </summary>
+    public static string Nome(Convenio familia)
+        => familia == Convenio.Personalizado
+            ? RotuloFamiliaPersonalizada
+            : Nome(familia.ToString());
 
     /// <summary>
     /// Nome exibido a partir do par que TODA entidade carrega: o código (que identifica a
@@ -57,6 +82,12 @@ public static class CatalogoConvenios
     ///
     /// O código vence quando existe; a família é o caminho de baixo, para o embutido cujo
     /// código é o próprio nome do enum.
+    ///
+    /// ⚠️ Aqui o caminho de baixo passa por <see cref="Nome(string?)"/> e NÃO pelo rótulo
+    /// neutro de <see cref="Nome(Convenio)"/>, e a assimetria é deliberada: sem código, a
+    /// linha de catálogo da família é o melhor palpite disponível — o paciente foi mesmo
+    /// cadastrado nela. Lá em cima não há palpite a dar, porque a pergunta é sobre a
+    /// família e não sobre um paciente.
     /// </summary>
     public static string Nome(string? codigo, Convenio familia)
         => Nome(string.IsNullOrWhiteSpace(codigo) ? familia.ToString() : codigo);

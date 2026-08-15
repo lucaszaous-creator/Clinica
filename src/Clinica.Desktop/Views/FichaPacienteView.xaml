@@ -450,8 +450,13 @@
                                     <DataGridTextColumn Header="Emitida em" Binding="{Binding DataEmissao, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Válida até" Binding="{Binding DataVencimento, StringFormat=dd/MM/yyyy}" Width="Auto" />
                                     <DataGridTextColumn Header="Validade (dias)" Binding="{Binding ValidadeDias}" Width="Auto" />
-                                    <DataGridTextColumn Header="Convênio"
-                                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                    <!-- Não há coluna de Convênio aqui de propósito. `Consulta` guarda só a
+                                         FAMÍLIA de regra (não o código da operadora) e a consulta do paciente
+                                         é lida sem o paciente junto — então a coluna só sabia responder pela
+                                         família, e resolver por ela escreve o nome de OUTRA operadora em toda
+                                         personalizada. Era, ainda por cima, o mesmo valor repetido em todas as
+                                         linhas: o convênio do paciente já está no cabeçalho da ficha, resolvido
+                                         pelo código do catálogo. -->
                                     <DataGridTextColumn Header="Situação" Binding="{Binding Status}" Width="Auto" />
                                     <DataGridTextColumn Header="Observações" Binding="{Binding Observacoes}" Width="1.5*" />
                                 </DataGrid.Columns>

@@ -142,7 +142,7 @@ public partial class RelatoriosViewModel : ObservableObject, IAtalhosDeTela
         sb.AppendLine("Faturamento por convênio");
         sb.AppendLine("Convênio;Gerados;Baixados;Pendentes;Não conformidades;Taxa de baixa (%);Glosadas;Taxa de glosa (%);Tempo médio de baixa (dias)");
         foreach (var c in PorConvenio)
-            sb.AppendLine($"{ConvenioInfo.NomeExibicao(c.Convenio)};{c.TotalCodigos};{c.Baixados};{c.Pendentes};{c.NaoConformidades};{c.TaxaBaixa:0.#};{c.Glosadas};{c.TaxaGlosa:0.#};{c.TempoMedioBaixaDias:0.#}");
+            sb.AppendLine($"{c.ConvenioNome};{c.TotalCodigos};{c.Baixados};{c.Pendentes};{c.NaoConformidades};{c.TaxaBaixa:0.#};{c.Glosadas};{c.TaxaGlosa:0.#};{c.TempoMedioBaixaDias:0.#}");
         if (ConsultasEspecialidades.Count > 0)
         {
             sb.AppendLine();

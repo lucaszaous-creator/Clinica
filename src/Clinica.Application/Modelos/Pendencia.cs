@@ -1,4 +1,5 @@
 using Clinica.Domain;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Modelos;
 
@@ -42,6 +43,14 @@ public sealed record PendenciaCodigo(
     public string? ConvenioCodigo { get; init; }
 
     /// <summary>
+    /// Nome da operadora como a clínica a chama — é ESTE que vai para a tela. Existe para
+    /// a linha não ter escolha: o XAML amarrado a <c>Convenio</c> resolve pela família e
+    /// escreve o nome de outra operadora (foi o que pôs oito pacientes Sul América
+    /// faturando como "Porto Saúde" na consulta de guias).
+    /// </summary>
+    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
+
+    /// <summary>
     /// Modalidade do ATENDIMENTO que gerou a guia (parcela 61) — é o que responde "12
     /// pendências de quê?" no filtro do painel. Aditivo, <c>init</c> com padrão nulo,
     /// pela regra de sempre: este record é compartilhado com o faturamento em produção.
@@ -69,7 +78,14 @@ public sealed record PendenciaConsulta(
     int DiasParaVencer,
     NivelUrgencia Urgencia,
     /// <summary>Telefone do paciente (para abrir o WhatsApp direto da pendência). Nulo = sem contato no cadastro.</summary>
-    string? PacienteTelefone = null);
+    string? PacienteTelefone = null)
+{
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioCodigo"/>
+    public string? ConvenioCodigo { get; init; }
+
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioNome"/>
+    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
+}
 
 /// <summary>Uma glosa em aberto com prazo de recurso correndo (perder o prazo = perder a guia de vez).</summary>
 public sealed record PendenciaRecursoGlosa(
@@ -90,7 +106,14 @@ public sealed record PendenciaRecursoGlosa(
     /// modelos de pendência sem contato, e por isso a linha da glosa era a única em que a
     /// secretária tinha de abrir o cadastro para achar o número.
     /// </summary>
-    string? PacienteTelefone = null);
+    string? PacienteTelefone = null)
+{
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioCodigo"/>
+    public string? ConvenioCodigo { get; init; }
+
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioNome"/>
+    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
+}
 
 /// <summary>Carteirinha vencida ou a vencer (carteirinha vencida = guia recusada na origem).</summary>
 public sealed record PendenciaCarteirinha(
@@ -102,4 +125,11 @@ public sealed record PendenciaCarteirinha(
     int DiasParaVencer,
     NivelUrgencia Urgencia,
     /// <summary>Telefone do paciente (para abrir o WhatsApp direto da pendência). Nulo = sem contato no cadastro.</summary>
-    string? PacienteTelefone = null);
+    string? PacienteTelefone = null)
+{
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioCodigo"/>
+    public string? ConvenioCodigo { get; init; }
+
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioNome"/>
+    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
+}

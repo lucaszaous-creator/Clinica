@@ -22,15 +22,27 @@ public sealed class RelatorioService
 
         var resumo = Resumir(codigos);
 
+        // Agrupa por OPERADORA (código do catálogo), não pela família de regra. Com a
+        // família, todas as operadoras que a clínica cadastrou caíam na mesma linha —
+        // `Convenio.Personalizado` é a regra que elas compartilham — e o rótulo dessa
+        // linha era o nome de uma delas. É a mesma resolução do lote TISS: o código vence,
+        // a família é o caminho de baixo para o cadastro anterior ao catálogo.
         var porConvenio = codigos
-            .GroupBy(c => c.Atendimento?.Paciente?.Convenio ?? default)
+            .GroupBy(c => c.Atendimento?.Paciente is { } p
+                ? p.ConvenioCodigo ?? p.Convenio.ToString()
+                : default(Convenio).ToString())
             .Select(g =>
             {
                 var r = Resumir(g);
-                return new FaturamentoPorConvenio(g.Key, r.TotalCodigos, r.Baixados, r.Pendentes, r.TaxaBaixa,
-                    r.Glosadas, r.TaxaGlosa, r.TempoMedioBaixaDias, r.NaoConformidades);
+                var familia = g.Select(c => c.Atendimento?.Paciente?.Convenio).FirstOrDefault(f => f is not null)
+                              ?? CatalogoConvenios.Familia(g.Key);
+                return new FaturamentoPorConvenio(familia, r.TotalCodigos, r.Baixados, r.Pendentes, r.TaxaBaixa,
+                    r.Glosadas, r.TaxaGlosa, r.TempoMedioBaixaDias, r.NaoConformidades)
+                {
+                    ConvenioCodigo = g.Key
+                };
             })
-            .OrderBy(c => c.Convenio)
+            .OrderBy(c => c.ConvenioNome)
             .ToList();
 
         var envelhecimento = await EnvelhecimentoAsync(referencia, ct);

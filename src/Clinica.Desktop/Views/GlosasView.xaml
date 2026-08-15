@@ -117,7 +117,7 @@
                 </DataGridTemplateColumn>
                 <DataGridTextColumn Header="Paciente" Binding="{Binding Codigo.Atendimento.Paciente.Nome}" Width="*" />
                 <DataGridTextColumn Header="Convênio"
-                                    Binding="{Binding Codigo.Atendimento.Paciente.Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                    Binding="{Binding Codigo.Atendimento.Paciente.ConvenioNome}" Width="*" />
                 <DataGridTextColumn Header="Código"
                                     Binding="{Binding Codigo.Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                 <DataGridTextColumn Header="Nº guia" Binding="{Binding Codigo.NumeroGuiaReal}" Width="Auto" />

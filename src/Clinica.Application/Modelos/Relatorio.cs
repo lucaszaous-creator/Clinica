@@ -1,4 +1,5 @@
 using Clinica.Domain;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Modelos;
 
@@ -13,7 +14,16 @@ public sealed record ResumoFaturamento(
     double? TempoMedioBaixaDias = null, // média atendimento → baixa (nulo sem baixas)
     int NaoConformidades = 0);      // guias justificadas como não conformidade numa rodada
 
-/// <summary>Quebra do faturamento por convênio no período.</summary>
+/// <summary>
+/// Quebra do faturamento por convênio no período.
+///
+/// ⚠️ A quebra é por OPERADORA (<see cref="ConvenioCodigo"/>), nunca pela família de
+/// regra. Agrupar pela família fundia numa linha só todas as operadoras que a clínica
+/// cadastrou — elas compartilham <see cref="Convenio.Personalizado"/> —, e o rótulo dessa
+/// linha era o nome de UMA delas. A direção lia "Porto Saúde: 143 guias" e eram Porto
+/// Saúde mais Sul América somadas. É a mesma razão pela qual o lote TISS agrupa por
+/// operadora (parcela 60), aqui aplicada ao número que a direção usa para negociar.
+/// </summary>
 public sealed record FaturamentoPorConvenio(
     Convenio Convenio,
     int TotalCodigos,
@@ -23,7 +33,14 @@ public sealed record FaturamentoPorConvenio(
     int Glosadas = 0,
     double TaxaGlosa = 0,
     double? TempoMedioBaixaDias = null,
-    int NaoConformidades = 0);
+    int NaoConformidades = 0)
+{
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioCodigo"/>
+    public string? ConvenioCodigo { get; init; }
+
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioNome"/>
+    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
+}
 
 /// <summary>Quantas consultas de cada especialidade a clínica fez no período.</summary>
 public sealed record ConsultasPorEspecialidade(

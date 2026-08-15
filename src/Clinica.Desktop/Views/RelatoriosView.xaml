@@ -132,7 +132,7 @@
                               IsReadOnly="True" CanUserAddRows="False" HeadersVisibility="Column">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Convênio"
-                                                Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
+                                                Binding="{Binding ConvenioNome}" Width="2*" />
                             <DataGridTextColumn Header="Gerados" Binding="{Binding TotalCodigos}" Width="*" />
                             <DataGridTextColumn Header="Baixados" Binding="{Binding Baixados}" Width="*" />
                             <DataGridTextColumn Header="Pendentes" Binding="{Binding Pendentes}" Width="*" />
@@ -184,7 +184,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="1.5*" />
                             <DataGridTextColumn Header="Convênio"
-                                                Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                                Binding="{Binding ConvenioNome}" Width="*" />
                             <DataGridTextColumn Header="Tipo"
                                                 Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                             <DataGridTextColumn Header="Prevista" Binding="{Binding DataPrevista, StringFormat=dd/MM/yyyy}" Width="Auto" />

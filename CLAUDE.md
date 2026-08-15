@@ -1948,6 +1948,51 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   excluir os dois-pontos. **Checagem nova sem autoteste do caso real e do caso legítimo é
   checagem que nasce cega ou barulhenta.**
 
+- **A LINHA "Personalizado" DO CATÁLOGO É RENOMEÁVEL, e isso vazava para TODA operadora**
+  (parcela 68 — a clínica mandou a foto: oito pacientes **Sul América** apareciam faturando
+  como **"Porto Saúde"** na consulta de guias, e a lista de pacientes ao lado, na mesma
+  janela, mostrava "SULAMERICA" para os mesmos oito).
+  A causa não é o catálogo: é `ConvenioCatalogoService.ListarAsync` **garantir uma linha por
+  família**, inclusive uma de código `"Personalizado"` — e essa linha é editável como
+  qualquer outra. A clínica renomeou-a para a primeira operadora que cadastrou (em vez de
+  clicar "Adicionar"), e a partir daí `CatalogoConvenios.Nome(Convenio.Personalizado)`
+  passou a devolver o nome DELA para toda operadora personalizada.
+  ⚠️ **Este é o defeito da parcela 50 na única variante que a correção dela não cobriu, e é
+  a pior.** Lá, resolver pela família escrevia **"Personalizado"** — feio, óbvio, e alguém
+  abre chamado. Aqui escreve **"Porto Saúde"**: o nome de uma operadora de verdade, na guia
+  de outra operadora, com toda a cara de estar certo. É a **garantia aparente** de novo, e
+  só foi descoberto porque o cliente comparou duas telas.
+  A blindagem é `Nome(Convenio familia)` **não passar mais pelo catálogo quando a família é
+  `Personalizado`** — ela devolve o rótulo neutro `"Convênio personalizado"`. Pior de ler e
+  muito melhor de confiar: não responder qual operadora é **é a verdade**, porque a família
+  não sabe. ⚠️ A assimetria com `Nome(codigo, familia)` é deliberada: **lá** o caminho de
+  baixo continua indo ao catálogo, porque sem código a linha da família é o melhor palpite
+  que existe — o paciente foi mesmo cadastrado nela, e blindar os dois lados apagaria o
+  nome de quem estava certo.
+  **O agrupamento por família era pior que o rótulo**, porque não é aparência, é número:
+  `RelatorioService.PorConvenio` e a estatística do `PrevencaoGlosaService` agrupavam pela
+  FAMÍLIA, então Sul América e Porto Saúde caíam numa linha só com o nome de uma delas. A
+  direção lia "Porto Saúde: 143 guias" e eram as duas somadas — o número que ela usa para
+  negociar tabela. Os dois passaram a agrupar por OPERADORA, que é o que o lote TISS já faz
+  desde a parcela 60 (`ConvenioDaGuia`) e pela mesma razão.
+  ⚠️ **O teste que existia para exatamente este assunto (`NomeDoConvenioTests`, parcela 50)
+  passava.** Ele monta um catálogo SEM linha de código "Personalizado" e afirma que a
+  resolução por família não devolve o nome da operadora **certa** — o que é verdade e deixa
+  passar o caso real, que é devolver o nome de uma operadora **errada**. A asserção tinha de
+  ser "não é o nome de operadora nenhuma". **Teste de "não é X" só vale quando X é o
+  conjunto inteiro dos valores errados; contra UM valor errado, ele passa e o defeito
+  também.**
+  A **checagem 35** cobra o binding, e o que a mantém utilizável é resolver o **TIPO** e
+  nunca o nome: `Convenio` é `string` já resolvida numa dúzia de records de ViewModel
+  (Conciliação, Gerente, Recepção), e acusá-los seria o ruído que faz alguém desligar a
+  ferramenta. Ela dispara quando o tipo declara `Convenio` como ENUM **e** oferece
+  `ConvenioNome` ao lado — quem oferece o nome resolvido está dizendo que sabe qual é a
+  operadora. Sem a segunda metade ela acusava a tabela "Regras por família" de
+  Configurações, que é por família mesmo. O tipo do item de lista sai do ViewModel **da
+  própria tela** (`FooView.xaml` ↔ `FooViewModel`), nunca da busca global da checagem 20:
+  `Itens` e `PorConvenio` existem em telas diferentes com tipos diferentes, e a busca global
+  respondia o tipo do vizinho — a resposta certa vinda do arquivo errado.
+
 ### Convenções
 
 - Ao adicionar um **instrumento de avaliação**: nova classe em `Domain/Avaliacoes/`

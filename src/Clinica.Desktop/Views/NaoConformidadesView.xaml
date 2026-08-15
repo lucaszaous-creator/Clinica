@@ -69,7 +69,7 @@
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Paciente" Binding="{Binding PacienteNome}" Width="1.4*" />
                     <DataGridTextColumn Header="Convênio"
-                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="*" />
+                                        Binding="{Binding ConvenioNome}" Width="*" />
                     <DataGridTextColumn Header="Código"
                                         Binding="{Binding Tipo, Converter={StaticResource EnumDescricao}}" Width="*" />
                     <DataGridTextColumn Header="Ordem" Binding="{Binding Ordem}" Width="0.7*" />

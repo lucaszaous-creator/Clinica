@@ -1,4 +1,5 @@
 using Clinica.Domain;
+using Clinica.Domain.Regras;
 
 namespace Clinica.Application.Modelos;
 
@@ -44,4 +45,7 @@ public sealed record NaoConformidadeItem(
     /// "Personalizado".
     /// </summary>
     public string? ConvenioCodigo { get; init; }
+
+    /// <inheritdoc cref="PendenciaCodigo.ConvenioNome"/>
+    public string ConvenioNome => CatalogoConvenios.Nome(ConvenioCodigo, Convenio);
 }

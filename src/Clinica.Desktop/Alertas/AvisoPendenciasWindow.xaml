@@ -35,7 +35,7 @@
                                 <Ellipse Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,8,0"
                                          Fill="{Binding Urgencia, Converter={StaticResource UrgenciaParaCor}}" />
                                 <TextBlock VerticalAlignment="Center" FontSize="13" TextWrapping="Wrap">
-                                    <Run Text="{Binding PacienteNome, Mode=OneWay}" FontWeight="Bold" /><Run Text=" — " /><Run Text="{Binding Tipo, Mode=OneWay, Converter={StaticResource EnumDescricao}}" /><Run Text=" · " /><Run Text="{Binding Convenio, Mode=OneWay, Converter={StaticResource EnumDescricao}}" />
+                                    <Run Text="{Binding PacienteNome, Mode=OneWay}" FontWeight="Bold" /><Run Text=" — " /><Run Text="{Binding Tipo, Mode=OneWay, Converter={StaticResource EnumDescricao}}" /><Run Text=" · " /><Run Text="{Binding ConvenioNome, Mode=OneWay}" />
                                 </TextBlock>
                             </StackPanel>
                         </Border>
