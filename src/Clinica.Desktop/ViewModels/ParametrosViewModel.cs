@@ -33,13 +33,6 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
     /// <summary>Catálogo de especialidades de consulta (embutidas + adicionadas).</summary>
     public ObservableCollection<EspecialidadeEdicao> Especialidades { get; } = new();
 
-    /// <summary>Convênio selecionado no catálogo (para editar nome, família e configuração de faturamento).</summary>
-    [ObservableProperty] private ConvenioEdicao? _convenioSelecionado;
-    [ObservableProperty] private bool _temConvenioSelecionado;
-
-    partial void OnConvenioSelecionadoChanged(ConvenioEdicao? value)
-        => TemConvenioSelecionado = value is not null;
-
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _salvando;
@@ -173,14 +166,38 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             Ativo = true
         });
         Catalogo.Add(novo);
-        ConvenioSelecionado = novo; // já abre o painel de configuração
+        EditarConvenio(novo); // o convênio nasce só com um nome provisório: abre para preencher
     }
 
-    /// <summary>Exclui a variante selecionada (embutidos e convênios com pacientes são recusados pelo serviço).</summary>
+    /// <summary>
+    /// Abre a janela do convênio (parcela 69). A lista responde "o que está configurado";
+    /// configurar é o que se faz de vez em quando, e por isso mora atrás de um clique em
+    /// vez de ocupar meia tela de painel aberto.
+    /// </summary>
     [RelayCommand]
-    private async Task RemoverConvenio()
+    private void EditarConvenio(ConvenioEdicao? alvo)
     {
-        if (ConvenioSelecionado is not { PodeExcluir: true } alvo) return;
+        if (alvo is null) return;
+
+        new Alertas.ConvenioWindow(alvo)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        }.ShowDialog();
+    }
+
+    /// <summary>Abre os números das regras embutidas — tabela POR FAMÍLIA, com o MESMO ViewModel.</summary>
+    [RelayCommand]
+    private void AbrirRegrasFamilia()
+        => new Alertas.RegrasFamiliaWindow(this)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        }.ShowDialog();
+
+    /// <summary>Exclui a variante (embutidos e convênios com pacientes são recusados pelo serviço).</summary>
+    [RelayCommand]
+    private async Task RemoverConvenio(ConvenioEdicao? alvo)
+    {
+        if (alvo is not { PodeExcluir: true }) return;
 
         // A exclusão grava NA HORA, não espera o Salvar — precisa da mesma barreira dele.
         SessaoUsuario.Atual.Exigir(Permissao.ConfigurarFaturamento, "excluir convênio do catálogo");
@@ -197,7 +214,6 @@ public partial class ParametrosViewModel : ObservableObject, IAtalhosDeTela
             if (ok)
             {
                 Catalogo.Remove(alvo);
-                ConvenioSelecionado = null;
                 _snackbar.Sucesso(mensagem);
             }
             else

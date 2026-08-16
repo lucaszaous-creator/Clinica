@@ -13,270 +13,141 @@
         <TextBlock Grid.Row="0" Text="Configurações" Style="{StaticResource H1}" />
 
         <TabControl Grid.Row="1">
-            <!-- ===== Convênios ===== -->
+            <!-- ===== Convênios =====
+                 Uma REGIÃO só: a lista de largura inteira responde "como cada convênio
+                 fatura", e configurar um deles — que se faz de vez em quando — mora
+                 atrás de um clique. Até a parcela 69 esta aba era uma pilha de seis
+                 caixas: catálogo, painel do selecionado, tabela por família e três
+                 prazos globais que nem de convênio eram (foram para a aba ao lado). -->
             <TabItem Header="Convênios">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <StackPanel MaxWidth="860" HorizontalAlignment="Left">
-                    <TextBlock TextWrapping="Wrap" MaxWidth="820" Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,0,12"
-                               Text="Gerencie os convênios atendidos e ajuste os números das regras. 'Novo convênio' cria uma variante que reutiliza a REGRA de faturamento de uma família existente (ex.: um plano que fatura como a Unimed Padrão), com nome próprio. Selecione um convênio na lista para editá-lo — lembre de clicar em 'Salvar configurações' ao terminar." />
-
-                    <!-- Catálogo de convênios (nome, família, ativo) -->
-                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,0,12">
-                        <DockPanel>
-                            <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
-                                <TextBlock Text="Convênios atendidos" Style="{StaticResource H2}" Margin="0" />
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Grid>
+                            <TextBlock Text="Convênios atendidos" Style="{StaticResource H2}" Margin="0"
+                                       VerticalAlignment="Center" HorizontalAlignment="Left" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button Content="Números das regras…" Command="{Binding AbrirRegrasFamiliaCommand}"
+                                        Style="{StaticResource BotaoSecundario}" VerticalAlignment="Center" Margin="0,0,10,0"
+                                        ToolTip="Validade da consulta, dias até o 2º código e semáforo — por família de regra" />
                                 <Button Content="+ Novo convênio" Command="{Binding NovoConvenioCommand}"
-                                        Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Right" />
-                            </Grid>
-                            <DataGrid x:Name="GridCatalogo" ItemsSource="{Binding Catalogo}" SelectedItem="{Binding ConvenioSelecionado}"
-                                      IsReadOnly="False" CanUserAddRows="False" MaxHeight="320"
-                                      AutoGenerateColumns="False" HeadersVisibility="Column">
-                                <DataGrid.Columns>
-                                    <DataGridCheckBoxColumn Header="Ativo" Binding="{Binding Ativo, UpdateSourceTrigger=PropertyChanged}" Width="Auto" />
-                                    <DataGridTextColumn Header="Nome" Binding="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" Width="2*" />
-                                    <!-- Template em vez de ComboBoxColumn para travar a família dos embutidos (a regra deles vive no código) -->
-                                    <DataGridTemplateColumn Header="Fatura como (família)" Width="*">
-                                        <DataGridTemplateColumn.CellTemplate>
-                                            <DataTemplate>
-                                                <ComboBox ItemsSource="{x:Static vm:FontesEnum.Familias}"
-                                                          SelectedItem="{Binding Familia, UpdateSourceTrigger=PropertyChanged}"
-                                                          IsEnabled="{Binding FamiliaEditavel}" />
-                                            </DataTemplate>
-                                        </DataGridTemplateColumn.CellTemplate>
-                                    </DataGridTemplateColumn>
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </DockPanel>
-                    </Border>
-
-                    <!-- Configuração de faturamento do convênio selecionado (aplica-se aos 'Personalizado') -->
-                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,0,0,12"
-                            DataContext="{Binding ConvenioSelecionado}"
-                            Visibility="{Binding DataContext.TemConvenioSelecionado, RelativeSource={RelativeSource AncestorType=UserControl}, Converter={StaticResource BoolParaVisibilidade}}">
-                        <StackPanel>
-                            <Grid Margin="0,0,0,4">
-                                <TextBlock Style="{StaticResource H2}" Margin="0" VerticalAlignment="Center" TextWrapping="Wrap">
-                                    <Run Text="Faturamento de " /><Run Text="{Binding Nome, Mode=OneWay}" FontWeight="Bold" />
-                                </TextBlock>
-                                <Button Content="Excluir convênio" Style="{StaticResource BotaoPerigo}"
-                                        HorizontalAlignment="Right" VerticalAlignment="Center"
-                                        Command="{Binding DataContext.RemoverConvenioCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        Visibility="{Binding PodeExcluir, Converter={StaticResource BoolParaVisibilidade}}" />
-                            </Grid>
-                            <TextBlock Margin="0,0,0,10" TextWrapping="Wrap">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                        <Setter Property="Text" Value="Convênio que fatura pela regra fixa da família escolhida. Troque a família para 'Personalizado' se quiser configurar a regra manualmente." />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding EhEmbutido}" Value="True">
-                                                <Setter Property="Text" Value="Convênio embutido: a regra de faturamento é fixa no sistema. Você pode renomeá-lo ou desativá-lo, mas não trocar a família nem excluí-lo." />
-                                            </DataTrigger>
-                                            <!-- Depois do embutido de propósito: o 'Personalizado' embutido também mostra os ajustes -->
-                                            <DataTrigger Binding="{Binding EhPersonalizado}" Value="True">
-                                                <Setter Property="Text" Value="Convênio personalizado: os ajustes abaixo definem como o faturamento é gerado." />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-
-                            <Grid Margin="0,0,0,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="2*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                    <TextBlock Text="Nome do convênio" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                    <TextBlock Text="Fatura como (família)" Style="{StaticResource Rotulo}" />
-                                    <ComboBox ItemsSource="{x:Static vm:FontesEnum.Familias}" SelectedItem="{Binding Familia}"
-                                              IsEnabled="{Binding FamiliaEditavel}" />
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- Formato do número da guia (parcela 45). Fica FORA do painel
-                                 da regra genérica de propósito: vale para todo convênio, e
-                                 o pedido veio justamente sobre embutidos (Unimed só números;
-                                 Petrobras e Amil alfanumérico) e sobre a Sul América, que a
-                                 clínica cadastrou como personalizada. -->
-                            <StackPanel Margin="0,12,0,0">
-                                <TextBlock Text="Número da guia neste convênio" Style="{StaticResource Rotulo}" />
-                                <ComboBox ItemsSource="{x:Static vm:FontesEnum.FormatosNumeroGuia}"
-                                          SelectedItem="{Binding FormatoNumeroGuia}"
-                                          HorizontalAlignment="Left" Width="260">
-                                    <!-- Sem template, o WPF chama ToString() e a tela ofereceria
-                                         "SomenteNumeros" à secretária (checagem 20). -->
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-                                </ComboBox>
-                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           HorizontalAlignment="Left" MaxWidth="620" Margin="0,4,0,0"
-                                           Text="A baixa recusa o número que não seguir esta forma. Serve para o zero digitado como &quot;O&quot; não passar batido e só aparecer no retorno da operadora, semanas depois. &quot;Sem validação&quot; aceita o que for digitado." />
+                                        IsEnabled="{Binding PodeConfigurar}"
+                                        Style="{StaticResource BotaoSecundario}" VerticalAlignment="Center" />
                             </StackPanel>
+                        </Grid>
+                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="900"
+                                   Text="Cada linha é uma operadora. Abra uma delas para dar nome, escolher a regra de faturamento que ela segue, definir a forma do número da guia e cadastrar o particular. Lembre de clicar em “Salvar configurações” ao terminar." />
+                    </StackPanel>
 
-                            <!-- Registro ANS por operadora (parcela 60): é o destino do
-                                 lote TISS DESTA operadora. Em branco, o lote usa o
-                                 registro global de Clínica/prestador — que era o único
-                                 que existia quando o lote engolia todas de uma vez. -->
-                            <StackPanel Margin="0,12,0,0">
-                                <TextBlock Text="Registro ANS desta operadora (lote TISS)" Style="{StaticResource Rotulo}" />
-                                <TextBox Text="{Binding RegistroAnsOperadora, UpdateSourceTrigger=PropertyChanged}"
-                                         HorizontalAlignment="Left" Width="260" MaxLength="20" />
-                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           HorizontalAlignment="Left" MaxWidth="620" Margin="0,4,0,0"
-                                           Text="Sai no cabeçalho do lote TISS desta operadora. Em branco, o lote usa o registro global de Clínica/prestador." />
-                            </StackPanel>
+                    <DataGrid x:Name="GridCatalogo" ItemsSource="{Binding Catalogo}"
+                              IsReadOnly="True" CanUserAddRows="False"
+                              AutoGenerateColumns="False" HeadersVisibility="Column"
+                              MouseDoubleClick="Catalogo_DuploClique">
+                        <DataGrid.Columns>
+                            <!-- CheckBox em CellTemplate, e não DataGridCheckBoxColumn: aquele
+                                 exige um clique para entrar em edição e outro para marcar, e o
+                                 primeiro clique parece não ter feito nada. -->
+                            <DataGridTemplateColumn Header="Ativo" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding Ativo, UpdateSourceTrigger=PropertyChanged}"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  ToolTip="Desmarcado, o convênio some das listas de escolha — o histórico fica" />
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Convênio" Binding="{Binding Nome}" Width="2*" />
+                            <DataGridTextColumn Header="Fatura pela regra de"
+                                                Binding="{Binding Familia, Converter={StaticResource EnumDescricao}}" Width="1.6*" />
+                            <DataGridTextColumn Header="Guias" Binding="{Binding ResumoGuia}" Width="Auto" />
+                            <DataGridTextColumn Header="Nº da guia"
+                                                Binding="{Binding FormatoNumeroGuia, Converter={StaticResource EnumDescricao}}" Width="*" />
+                            <DataGridTextColumn Header="Registro ANS" Binding="{Binding RegistroAnsOperadora}" Width="Auto" />
+                            <DataGridTemplateColumn Header="" Width="Auto">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Button Content="Abrir" Style="{StaticResource BotaoAcaoGrid}"
+                                                    Command="{Binding DataContext.EditarConvenioCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}" Margin="0,0,6,0" />
+                                            <Button Content="Excluir" Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                    Command="{Binding DataContext.RemoverConvenioCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    IsEnabled="{Binding DataContext.PodeConfigurar, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    Visibility="{Binding PodeExcluir, Converter={StaticResource BoolParaVisibilidade}}" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
 
-                            <!-- PARTICULAR (parcela 60). Fica FORA do painel da regra
-                                 genérica pela mesma razão do formato do número: vale para
-                                 qualquer família, e dentro dele seria uma caixinha que não
-                                 faz nada num convênio embutido. -->
-                            <StackPanel Margin="0,14,0,0">
-                                <CheckBox Content="Este convênio GERA GUIA para faturar"
-                                          IsChecked="{Binding GeraGuia}" />
-                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           HorizontalAlignment="Left" MaxWidth="620" Margin="24,4,0,0"
-                                           Text="Desmarque para cadastrar o PARTICULAR — o paciente que vem sem convênio. O atendimento continua sendo registrado (modalidade, especialidade e data entram nos indicadores), mas nenhuma guia entra no painel de pendências nem na rodada de 10 dias. A cobrança é no caixa." />
-                            </StackPanel>
+            <!-- ===== Prazos =====
+                 Os três prazos globais moravam na aba Convênios e não são de convênio
+                 nenhum: são de quando o sistema avisa e quando ele cobra. Aba própria
+                 (a 3ª pergunta da regra de leiaute), uma superfície, separada por rótulo.
 
-                            <!-- Ajustes da regra genérica — só fazem sentido quando a família é Personalizado -->
-                            <StackPanel Visibility="{Binding EhPersonalizado, Converter={StaticResource BoolParaVisibilidade}}">
-                                <CheckBox Content="Realiza eletroacupuntura (candidata a 2º código)" IsChecked="{Binding FazEletro}" Margin="0,8,0,4" />
-                                <CheckBox Content="Gera 2º código (+dias) nas modalidades duplas" IsChecked="{Binding TemSegundoCodigo}" Margin="0,4" />
-                                <CheckBox Content="2º código só é possível se o paciente tiver app" IsChecked="{Binding SegundoCodigoDependeApp}" Margin="0,4" />
-                                <CheckBox Content="Fatura BSV" IsChecked="{Binding FaturaBsv}" Margin="0,4" />
-                                <CheckBox Content="Exige inverter as datas no sistema (BSV)" IsChecked="{Binding InverteDatasBsv}" Margin="0,4" />
+                 O rótulo é curto de propósito: o `TabPanel` padrão do WPF ENCOLHE as abas
+                 quando julga que a régua não cabe, e a janela mínima aqui é 960 menos os
+                 240 da sidebar. "Prazos e avisos" empurrava as seis para o limite, e aba
+                 cortada no meio da palavra foi reprovação do cliente na parcela 50. -->
+            <TabItem Header="Prazos">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="860" Margin="0,0,0,4"
+                               Text="Quando o sistema avisa e quando ele cobra. Vale para todas as máquinas." />
 
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                        <TextBlock Text="Como obter o 2º código" Style="{StaticResource Rotulo}" />
-                                        <ComboBox ItemsSource="{x:Static vm:FontesEnum.FormasObtencao}" SelectedItem="{Binding FormaSegundoCodigo}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="8,0,8,0">
-                                        <TextBlock Text="Dias até o 2º código" Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding DiasSegundoCodigo}" ctrl:Ajudantes.SomenteNumeros="True" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2" Margin="8,0,0,0">
-                                        <TextBlock Text="Validade da consulta (dias, vazio = sem)" Style="{StaticResource Rotulo}" />
-                                        <TextBox Text="{Binding ValidadeConsultaDias, TargetNullValue=''}" ctrl:Ajudantes.SomenteNumeros="True" />
-                                    </StackPanel>
-                                </Grid>
-                                <Grid Margin="0,8,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                        <TextBlock Text="Categoria (com app)" Style="{StaticResource Rotulo}" />
-                                        <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaComApp}" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                                        <TextBlock Text="Categoria (sem app)" Style="{StaticResource Rotulo}" />
-                                        <ComboBox ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaSemApp}" />
-                                    </StackPanel>
-                                </Grid>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
+                    <TextBlock Text="CONSULTAS A VENCER" Style="{StaticResource TituloSecao}" />
+                    <Border Style="{StaticResource Divisor}" Margin="0,0,0,8" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Avisar com" VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                        <TextBox Text="{Binding JanelaAlertaConsultaDias}"
+                                 ctrl:Ajudantes.SomenteNumeros="True"
+                                 MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
+                                 VerticalContentAlignment="Center" VerticalAlignment="Center" />
+                        <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="8,0,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="860" Margin="0,6,0,0"
+                               Text="As consultas dentro desta janela antes do vencimento passam a aparecer em alerta — na agenda, no painel e no novo atendimento." />
 
-                    <!-- Parâmetros numéricos por família -->
-                    <Border Style="{StaticResource Card}" VerticalAlignment="Top">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="Regras por família de convênio" Style="{StaticResource H2}" Margin="0,0,0,8" />
-                            <DataGrid x:Name="GridFamilias" ItemsSource="{Binding Itens}" IsReadOnly="False" CanUserAddRows="False"
-                                      MaxHeight="320" AutoGenerateColumns="False" HeadersVisibility="Column">
-                                <DataGrid.Columns>
-                                    <!-- Esta tabela é POR FAMÍLIA de regra mesmo (é o que o cabeçalho
-                                         diz), então aqui a família é a resposta certa. O que faltava era
-                                         o conversor: sem ele o WPF chama ToString() no enum e escreve
-                                         "UnimedIntercambio" na tela. -->
-                                    <DataGridTextColumn Header="Família" IsReadOnly="True"
-                                                        Binding="{Binding Convenio, Converter={StaticResource EnumDescricao}}" Width="2*" />
-                                    <DataGridTextColumn Header="Validade da consulta (dias)"
-                                                        Binding="{Binding ValidadeConsultaDias}" Width="*" />
-                                    <DataGridTextColumn Header="Dias até o 2º código"
-                                                        Binding="{Binding DiasSegundoCodigo}" Width="*" />
-                                    <DataGridComboBoxColumn Header="Categoria (com app)"
-                                                            SelectedItemBinding="{Binding CategoriaComApp}"
-                                                            ItemsSource="{x:Static vm:FontesEnum.Categorias}" Width="*" />
-                                    <DataGridComboBoxColumn Header="Categoria (sem app)"
-                                                            SelectedItemBinding="{Binding CategoriaSemApp}"
-                                                            ItemsSource="{x:Static vm:FontesEnum.Categorias}" Width="*" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </DockPanel>
-                    </Border>
+                    <TextBlock Text="RECURSO DE GLOSA" Style="{StaticResource TituloSecao}" />
+                    <Border Style="{StaticResource Divisor}" Margin="0,0,0,8" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Recorrer em até" VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                        <TextBox Text="{Binding PrazoRecursoGlosaDias}"
+                                 ctrl:Ajudantes.SomenteNumeros="True"
+                                 MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
+                                 VerticalContentAlignment="Center" VerticalAlignment="Center" />
+                        <TextBlock Text="dias após a glosa" VerticalAlignment="Center" Margin="8,0,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="860" Margin="0,6,0,0"
+                               Text="Ao registrar uma glosa, o sistema calcula a data-limite do recurso com este prazo e a acompanha no painel de pendências." />
 
-                    <!-- Alerta de consultas a vencer (configuração global, vale em todas as máquinas) -->
-                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,12,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Alerta de consultas a vencer" Style="{StaticResource H2}" Margin="0,0,0,4" />
-                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
-                                       Text="Configuração global (vale em todas as máquinas). As consultas dentro desta janela antes do vencimento passam a aparecer em alerta." />
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Avisar com" VerticalAlignment="Center" Margin="0,0,8,0"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                                <TextBox Text="{Binding JanelaAlertaConsultaDias}"
-                                         ctrl:Ajudantes.SomenteNumeros="True"
-                                         MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
-                                         VerticalContentAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Text="dias de antecedência" VerticalAlignment="Center" Margin="8,0,0,0"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,12,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Prazo de recurso de glosa" Style="{StaticResource H2}" Margin="0,0,0,4" />
-                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
-                                       Text="Configuração global. Ao registrar uma glosa, o sistema calcula a data-limite do recurso com este prazo e acompanha no painel de pendências." />
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Recorrer em até" VerticalAlignment="Center" Margin="0,0,8,0"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                                <TextBox Text="{Binding PrazoRecursoGlosaDias}"
-                                         ctrl:Ajudantes.SomenteNumeros="True"
-                                         MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
-                                         VerticalContentAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Text="dias após a glosa" VerticalAlignment="Center" Margin="8,0,0,0"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" VerticalAlignment="Top" Margin="0,12,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Rodar as pendências" Style="{StaticResource H2}" Margin="0,0,0,4" />
-                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,0,0,10"
-                                       Text="Prazo por guia: passado o prazo desde que a guia ficou pendente sem baixa, o sistema BLOQUEIA o uso e cobra uma decisão em cada guia vencida — dar baixa ou justificar como não conformidade (que sai do painel e vai para o relatório)." />
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="Exigir decisão após" VerticalAlignment="Center" Margin="0,0,8,0"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                                <TextBox Text="{Binding IntervaloRodadaPendenciasDias}"
-                                         ctrl:Ajudantes.SomenteNumeros="True"
-                                         MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
-                                         VerticalContentAlignment="Center" VerticalAlignment="Center" />
-                                <TextBlock Text="dias do atendimento" VerticalAlignment="Center" Margin="8,0,0,0"
-                                           Foreground="{StaticResource Brush.Texto.Primario}" />
-                            </StackPanel>
-                            <TextBlock Text="Além das guias, cobrar também na rodada:" Margin="0,12,0,6"
-                                       Foreground="{StaticResource Brush.Texto.Primario}" />
-                            <CheckBox Content="Consultas a renovar" IsChecked="{Binding RodadaAplicaConsultas}"
-                                      Foreground="{StaticResource Brush.Texto.Primario}" Margin="0,0,0,4" />
-                            <CheckBox Content="Carteirinhas a vencer" IsChecked="{Binding RodadaAplicaCarteirinhas}"
-                                      Foreground="{StaticResource Brush.Texto.Primario}" />
-                        </StackPanel>
-                    </Border>
+                    <TextBlock Text="RODAR AS PENDÊNCIAS" Style="{StaticResource TituloSecao}" />
+                    <Border Style="{StaticResource Divisor}" Margin="0,0,0,8" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Exigir decisão após" VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                        <TextBox Text="{Binding IntervaloRodadaPendenciasDias}"
+                                 ctrl:Ajudantes.SomenteNumeros="True"
+                                 MinWidth="64" MaxLength="4" Padding="10,6" TextAlignment="Center"
+                                 VerticalContentAlignment="Center" VerticalAlignment="Center" />
+                        <TextBlock Text="dias sem baixa" VerticalAlignment="Center" Margin="8,0,0,0" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Brush.Texto.Primario}" />
+                    </StackPanel>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="860" Margin="0,6,0,0"
+                               Text="Prazo por guia, contado de quando ela ficou pendente. Vencido o prazo, o sistema BLOQUEIA o uso e cobra uma decisão em cada guia vencida — dar baixa ou justificar como não conformidade (que sai do painel e vai para o relatório)." />
+                    <TextBlock Text="Além das guias, cobrar também na rodada:" Margin="0,12,0,6" TextWrapping="Wrap"
+                               Foreground="{StaticResource Brush.Texto.Primario}" />
+                    <CheckBox Content="Consultas a renovar" IsChecked="{Binding RodadaAplicaConsultas}"
+                              Style="{StaticResource Switch}" Margin="0,0,0,8" />
+                    <CheckBox Content="Carteirinhas a vencer" IsChecked="{Binding RodadaAplicaCarteirinhas}"
+                              Style="{StaticResource Switch}" />
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>

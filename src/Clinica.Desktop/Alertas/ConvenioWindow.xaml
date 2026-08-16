@@ -1,0 +1,228 @@
+<Window x:Class="Clinica.Desktop.Alertas.ConvenioWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:Clinica.Desktop.ViewModels"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+        Title="Convênio" Width="720" Height="660" MinWidth="560" MinHeight="420"
+        Icon="/Assets/Marca/icone.png"
+        WindowStartupLocation="CenterOwner" FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Fundo}">
+    <!-- O rodapé é declarado ANTES do miolo: no DockPanel, o miolo rolante come a
+         barra se ela vier depois, e é nela que está o botão de fechar. -->
+    <DockPanel Margin="24">
+
+        <Border DockPanel.Dock="Bottom" Margin="0,16,0,0">
+            <Grid>
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="420"
+                           VerticalAlignment="Center" HorizontalAlignment="Left" Margin="0"
+                           Text="As alterações valem quando você clicar em “Salvar configurações”, na tela de trás." />
+                <Button Content="Fechar" IsDefault="True" IsCancel="True" MinWidth="120"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Click="Fechar_Click" />
+            </Grid>
+        </Border>
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+            <TextBlock Style="{StaticResource H2}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left"
+                       Text="{Binding Nome, Mode=OneWay}" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620"
+                       Text="Convênio embutido: a regra de faturamento é fixa no sistema. Aqui você pode renomeá-lo, ligar ou desligar as guias e ajustar o número da guia."
+                       Visibility="{Binding EhEmbutido, Converter={StaticResource BoolParaVisibilidade}}" />
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620"
+                       Text="Convênio cadastrado pela clínica. Ele fatura pela regra da família escolhida abaixo."
+                       Visibility="{Binding EhEmbutido, Converter={StaticResource BoolInvertidoParaVisibilidade}}" />
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="0,0,12,0">
+            <StackPanel>
+
+                <!-- ===== 1. Identificação ===== -->
+                <TextBlock Text="IDENTIFICAÇÃO" Style="{StaticResource TituloSecao}" Margin="0,4,0,2" />
+                <Border Style="{StaticResource Divisor}" Margin="0,0,0,10" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <!-- Rótulo e campo em LINHAS do MESMO Grid, não em dois StackPanel
+                         irmãos: assim o rótulo que quebra em duas linhas sobe a linha
+                         inteira e os dois campos continuam começando na mesma altura
+                         (o "fora de esquadro" da parcela 57). -->
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Nome do convênio" Style="{StaticResource Rotulo}" Margin="0,0,8,0" />
+                    <TextBox Grid.Row="1" Grid.Column="0" Margin="0,0,8,0" MaxLength="80"
+                             Text="{Binding Nome, UpdateSourceTrigger=PropertyChanged}"
+                             ctrl:Ajudantes.Placeholder="Como a operadora se chama" />
+
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Segue a regra de faturamento de" Style="{StaticResource Rotulo}" Margin="8,0,0,0" />
+                    <ComboBox Grid.Row="1" Grid.Column="1" Margin="8,0,0,0"
+                              ItemsSource="{x:Static vm:FontesEnum.Familias}"
+                              SelectedItem="{Binding Familia}"
+                              IsEnabled="{Binding FamiliaEditavel}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}"
+                                           TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0,4,0,0"
+                           Text="A regra decide quantas guias saem por atendimento, quando o 2º código libera e a cor do semáforo. Escolha “Personalizado” para configurar tudo isso à mão, aqui embaixo." />
+
+                <CheckBox Content="Convênio ativo (aparece nos cadastros e nos lançamentos)"
+                          IsChecked="{Binding Ativo}" Style="{StaticResource Switch}" Margin="0,14,0,0" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0,4,0,0"
+                           Text="Desligar não apaga nada: o histórico continua, o convênio só some das listas de escolha." />
+
+                <!-- ===== 2. Guias ===== -->
+                <TextBlock Text="GUIAS DESTE CONVÊNIO" Style="{StaticResource TituloSecao}" />
+                <Border Style="{StaticResource Divisor}" Margin="0,0,0,10" />
+
+                <!-- PARTICULAR (parcela 60): vale para qualquer família, por isso fica
+                     fora do painel da regra personalizada. -->
+                <CheckBox Content="Gera guia para faturar no convênio"
+                          IsChecked="{Binding GeraGuia}" Style="{StaticResource Switch}" />
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0,4,0,0"
+                           Text="Desligue para cadastrar o PARTICULAR — o paciente que vem sem convênio. O atendimento continua sendo registrado e entra nos indicadores, mas nenhuma guia entra no painel de pendências nem na rodada de 10 dias. A cobrança é no caixa." />
+
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Como é o número da guia aqui" Style="{StaticResource Rotulo}" Margin="0,0,8,0" />
+                    <!-- Sem ItemTemplate, o WPF chama ToString() e a tela ofereceria
+                         "SomenteNumeros" à secretária (checagem 20). -->
+                    <ComboBox Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
+                              ItemsSource="{x:Static vm:FontesEnum.FormatosNumeroGuia}"
+                              SelectedItem="{Binding FormatoNumeroGuia}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}"
+                                           TextWrapping="Wrap" HorizontalAlignment="Left" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="Registro ANS desta operadora" Style="{StaticResource Rotulo}" Margin="8,0,0,0" />
+                    <TextBox Grid.Row="1" Grid.Column="1" Margin="8,0,0,0" MaxLength="20"
+                             Text="{Binding RegistroAnsOperadora, UpdateSourceTrigger=PropertyChanged}"
+                             ctrl:Ajudantes.Placeholder="Em branco = usa o da clínica" />
+                </Grid>
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0,4,0,0"
+                           Text="A baixa recusa o número que não seguir esta forma — é o que pega o zero digitado como “O”, que hoje só aparece no retorno da operadora, semanas depois. O registro ANS sai no cabeçalho do lote TISS desta operadora." />
+
+                <!-- ===== 3. Como o faturamento é gerado ===== -->
+                <TextBlock Text="COMO O FATURAMENTO É GERADO" Style="{StaticResource TituloSecao}" />
+                <Border Style="{StaticResource Divisor}" Margin="0,0,0,10" />
+
+                <!-- Família embutida: a regra vive no código; só os números são editáveis,
+                     e eles são POR FAMÍLIA (a janela "Números das regras"). -->
+                <StackPanel Visibility="{Binding EhPersonalizado, Converter={StaticResource BoolInvertidoParaVisibilidade}}">
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0"
+                               Text="Este convênio fatura pela regra fixa da família escolhida acima — quais códigos saem, quando o 2º libera e a cor do semáforo já estão no sistema e não se editam aqui." />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0,6,0,0"
+                               Text="Os números dessa regra (validade da consulta, dias até o 2º código e as cores) valem para TODOS os convênios da mesma família e ficam em “Números das regras”, na tela de trás." />
+                </StackPanel>
+
+                <!-- Personalizado: a regra é montada aqui. -->
+                <StackPanel Visibility="{Binding EhPersonalizado, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0,0,0,10"
+                               Text="Como este convênio é personalizado, os ajustes abaixo é que definem o que o sistema gera a cada atendimento." />
+
+                    <CheckBox Content="A clínica atende com eletroacupuntura neste convênio"
+                              IsChecked="{Binding FazEletro}" Style="{StaticResource Switch}" Margin="0,0,0,10" />
+                    <CheckBox Content="Gera um 2º código alguns dias depois do atendimento"
+                              IsChecked="{Binding TemSegundoCodigo}" Style="{StaticResource Switch}" Margin="0,0,0,10" />
+                    <CheckBox Content="O 2º código só é possível se o paciente tiver o app do convênio"
+                              IsChecked="{Binding SegundoCodigoDependeApp}" Style="{StaticResource Switch}" Margin="0,0,0,10" />
+                    <CheckBox Content="Fatura BSV"
+                              IsChecked="{Binding FaturaBsv}" Style="{StaticResource Switch}" Margin="0,0,0,10" />
+                    <CheckBox Content="No BSV, as datas precisam ser invertidas no sistema da operadora"
+                              IsChecked="{Binding InverteDatasBsv}" Style="{StaticResource Switch}" Margin="0,0,0,4" />
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Como o 2º código é obtido" Style="{StaticResource Rotulo}" Margin="0,0,8,0" />
+                        <ComboBox Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
+                                  ItemsSource="{x:Static vm:FontesEnum.FormasObtencao}" SelectedItem="{Binding FormaSegundoCodigo}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}"
+                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Dias até o 2º código" Style="{StaticResource Rotulo}" Margin="8,0,8,0" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Margin="8,0,8,0" MaxLength="3"
+                                 Text="{Binding DiasSegundoCodigo}" ctrl:Ajudantes.SomenteNumeros="True" />
+
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Validade da consulta, em dias" Style="{StaticResource Rotulo}" Margin="8,0,0,0" />
+                        <TextBox Grid.Row="1" Grid.Column="2" Margin="8,0,0,0" MaxLength="4"
+                                 Text="{Binding ValidadeConsultaDias, TargetNullValue=''}" ctrl:Ajudantes.SomenteNumeros="True"
+                                 ctrl:Ajudantes.Placeholder="Não renova" />
+                    </Grid>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0,4,0,0"
+                               Text="Deixe a validade da consulta em branco se este convênio não exige renovar a consulta de tempos em tempos." />
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Semáforo quando o paciente TEM app" Style="{StaticResource Rotulo}" Margin="0,0,8,0" />
+                        <ComboBox Grid.Row="1" Grid.Column="0" Margin="0,0,8,0"
+                                  ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaComApp}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}"
+                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="Semáforo quando NÃO tem app" Style="{StaticResource Rotulo}" Margin="8,0,0,0" />
+                        <ComboBox Grid.Row="1" Grid.Column="1" Margin="8,0,0,0"
+                                  ItemsSource="{x:Static vm:FontesEnum.Categorias}" SelectedItem="{Binding CategoriaSemApp}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescricao}}"
+                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </Grid>
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" MaxWidth="620" Margin="0,4,0,24"
+                               Text="É a cor com que a pendência do paciente aparece no painel: verde faz acupuntura + eletro e terá 2º código; amarela faz só acupuntura." />
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>
