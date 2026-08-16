@@ -60,7 +60,21 @@ public enum AssuntoDirecao
     /// própria fila; a direção é quem enxerga a clínica inteira — e folha do dia que
     /// termina sem checagem é administração sem o registro que responde por ela.
     /// </summary>
-    InfusaoAguardando
+    InfusaoAguardando,
+
+    /// <summary>
+    /// Folhas de infusão ENCERRADAS que ainda devem a 2ª assinatura — a da enfermagem que
+    /// executou.
+    ///
+    /// Alerta SEPARADO do de itens aguardando, e não somado a ele: um se resolve
+    /// administrando o que falta, o outro com o certificado de quem executou. Somá-los
+    /// daria um número que não diz o que fazer — a mesma razão que separa cota de pacote
+    /// e glosa vencida de glosa a vencer.
+    ///
+    /// E ele NÃO é do dia: a pendência não vence à meia-noite, e a folha esquecida há três
+    /// dias é justamente a que precisa de decisão.
+    /// </summary>
+    InfusaoSemAssinatura
 }
 
 /// <summary>Uma coisa que a direção precisa resolver, já escrita como se fala.</summary>
@@ -119,6 +133,13 @@ public sealed record PainelDirecao(
     /// <c>ChecagemPrescricaoService</c>, dono da leitura — o painel não recalcula.
     /// </summary>
     int FolhasInfusaoAguardando,
+
+    /// <summary>
+    /// Folhas encerradas de QUALQUER dia que ainda devem a assinatura eletrônica da
+    /// enfermagem. A sala passou a mostrá-las; sem esta contagem a direção continuaria
+    /// sem ver a soma, que é a razão de o alerta da infusão existir.
+    /// </summary>
+    int FolhasInfusaoSemAssinatura,
 
     int PendenciasVencidas,
     int PendenciasEmAberto,
@@ -538,6 +559,7 @@ public sealed class PainelDirecaoService
         // checagem é administração sem o registro que responde por ela — ou medicação que
         // não entrou e ninguém escreveu por quê.
         var folhasInfusaoAguardando = 0;
+        var folhasInfusaoSemAssinatura = 0;
         try
         {
             folhasInfusaoAguardando = await _checagens.PendentesDoDiaAsync(hoje, null, ct);
@@ -549,6 +571,19 @@ public sealed class PainelDirecaoService
                     "Folha assinada hoje e ainda sem a checagem completa da enfermagem. No "
                     + "fim do dia isso é administração sem registro — ou item não feito sem "
                     + "o motivo escrito.",
+                    GravidadeDirecao.Aviso));
+
+            folhasInfusaoSemAssinatura =
+                (await _checagens.AguardandoAssinaturaAsync(null, ct)).Count;
+
+            if (folhasInfusaoSemAssinatura > 0)
+                alertas.Add(new AlertaDirecao(
+                    AssuntoDirecao.InfusaoSemAssinatura,
+                    $"{folhasInfusaoSemAssinatura} folha(s) de infusão sem a assinatura da enfermagem",
+                    "A folha foi encerrada e a médica pediu a 2ª assinatura eletrônica, mas "
+                    + "quem executou ainda não assinou. Sem ela, quem responde pela execução "
+                    + "é só a caneta na via impressa — e se a folha não foi impressa, "
+                    + "ninguém responde.",
                     GravidadeDirecao.Aviso));
         }
         catch (Exception ex)
@@ -601,6 +636,7 @@ public sealed class PainelDirecaoService
             metas,
             sessoesSemEvolucao, sessoesSemEvolucaoComGuia,
             folhasInfusaoAguardando,
+            folhasInfusaoSemAssinatura,
             pendenciasVencidas, pendenciasAbertas,
             glosasVencidas, glosasAVencer,
             // Perigo primeiro. O painel é lido de cima para baixo, e a ordem é a única

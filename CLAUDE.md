@@ -3511,3 +3511,54 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ E a pendência **SAI da lista assim que ela assina**: pendência que não some é
   pendência que ensina a ignorar a lista. O regime do papel (campo desmarcado) nunca entra,
   senão toda folha encerrada da história viraria cobrança eterna.
+
+- **Varredura do módulo CLÍNICO: a barreira que falta é sempre na tela que mais custa**
+  (parcela 68, 5ª rodada). Três achados, e os três da família "duas barreiras":
+  (a) **A prescrição de infusão tinha só a metade VISÍVEL** — `SalvarRascunho` e `Assinar`
+  se protegiam por `IsEnabled`/`PodePrescrever` e não chamavam `Exigir` em lugar nenhum.
+  Atalho de teclado e corrida de carregamento passam direto, e o ato é gerar e selar uma
+  prescrição médica. É o mesmo defeito que a parcela 51 corrigiu no Acessos e a 54 no
+  cadastro de usuário: a tela onde ele mais custa é a última em que alguém olha.
+  (b) **Enviar documento clínico ao paciente não tinha guarda** — emitir, assinar e
+  cancelar tinham; enviar, não. É dado de saúde SAINDO, que é o que a parcela 60 passou a
+  cobrar no export. **Três comandos vizinhos guardados e um não: o errado é o um** (a
+  lição da parcela 64, aplicada de novo).
+  (c) **A direção não via a pendência que a sala passou a ver.**
+  `AssuntoDirecao.InfusaoAguardando` conta só folhas `Assinada` com item sem checagem, e a
+  folha ENCERRADA aguardando a 2ª assinatura fica de fora por construção — o alerta novo
+  (`InfusaoSemAssinatura`) contradizia, por omissão, o argumento que criou o bloco na
+  parcela 61: *a sala vê a própria fila, a direção é quem vê a soma*. Os dois alertas são
+  **separados**, nunca somados: um se resolve administrando o que falta, o outro com o
+  certificado de quem executou.
+  ⚠️ E a varredura teve um **falso positivo meu que vale registrar**: contar `Exigir(` por
+  arquivo acusou `MeuDiaViewModel` de ter 11 comandos e nenhuma guarda. Ele usa
+  `ExigirAlgum(` — o par de `PodeAlgum` que a parcela 61 criou —, e as quatro escritas
+  estão guardadas. **Varredura textual de barreira tem de conhecer TODAS as formas da
+  barreira**, senão ela acusa o arquivo que está certo e ninguém confia mais nela.
+
+- **O QR da folha e o "Ler QR Code" do validador são dois PROTOCOLOS — o mesmo texto,
+  lido por dois contratos** (parcela 68, 6ª rodada — a clínica mandou o print: o validador
+  LEU o QR e pediu "Insira o código"). O nosso QR carrega a URL do PDF publicado. A câmera
+  do celular trata isso como "abra no navegador" e o arquivo abre; o botão "Colar URL" do
+  validador trata como endereço de arquivo, baixa e valida. Já o botão **"Ler QR Code" do
+  próprio validador** trata o conteúdo como endereço da API de uma plataforma CADASTRADA:
+  ele chama a URL pedindo `application/validador-iti+json` com um `_secretCode`, e o guia
+  do desenvolvedor diz que esse fluxo **não aceita documento sem código/senha**. Um bucket
+  S3 não fala esse dialeto e não tem código: **nenhum código digitado ali funciona, por
+  desenho** — não é o QR, não é o tamanho, não é o link.
+  A evidência estava no print desde o início: **ele LEU o QR ("QR Code escaneado") e ainda
+  pediu código — logo nunca tentou baixar o arquivo.** Quando o cliente pergunta "por que
+  A funciona e B não com o MESMO dado", a resposta é B tratar o dado por outro CONTRATO.
+  ⚠️ E a lição de método custou três rodadas: a primeira hipótese (código de plataforma
+  cadastrada) estava CERTA — e eu a recuei por não ter fonte, troquei pela hipótese do
+  tamanho do QR (medível, e errada) e só fechei quando li o guia oficial. **Hipótese certa
+  sem fonte continua sendo hipótese; a resposta estava em procurar o CONTRATO do outro
+  lado (guia do desenvolvedor), não em medir o nosso.**
+  O que era nosso no defeito: a folha dizia "Escaneie para baixar · validar em …" sem
+  dizer COM O QUÊ escanear nem POR QUAL botão validar — a dois centímetros do NOSSO código
+  de conferência, numa tela que pede um código. O rodapé agora nomeia o caminho que
+  funciona (câmera → colar link ou enviar o arquivo) e desarma o errado ("o Ler QR Code de
+  lá pede um código que esta folha não tem"); o código de conferência diz que é interno; e
+  a folha de infusão parou de afirmar que o código "confere integridade" — ele LOCALIZA a
+  folha; quem prova integridade é a assinatura (a regra da parcela 3, que quase escapou por
+  uma palavra).

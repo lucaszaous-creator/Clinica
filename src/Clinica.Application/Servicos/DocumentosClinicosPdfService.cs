@@ -366,12 +366,20 @@ public sealed class DocumentosClinicosPdfService
                         // 14.063/2020 (que trata da assinatura). Eram escolha nossa, e
                         // ocupavam um terço da folha com instrução que o farmacêutico já
                         // recebe do próprio CRF.
-                        // Com link, o QR ENTREGA o arquivo e o ITI continua sendo quem
-                        // valida — a linha tem de dizer as duas coisas, senão o balcão
-                        // baixa o PDF e não sabe o que fazer com ele.
+                        // ⚠️ A linha diz COM O QUÊ escanear e POR QUAL BOTÃO validar —
+                        // porque o validador tem um botão "Ler QR Code" que NÃO é isto:
+                        // aquele fluxo é para plataformas cadastradas no ITI (ele chama a
+                        // URL pedindo application/validador-iti+json com _secretCode) e
+                        // PEDE UM CÓDIGO que esta folha não tem. A clínica descobriu no
+                        // balcão (16/08/2026), com a receita na mão: leu o QR lá dentro e
+                        // caiu numa caixa de código impossível de preencher — a dois
+                        // centímetros do NOSSO código de conferência, que não é dele.
                         c.Item().Text(urlDoArquivo is null
-                                ? $"Validar em {ValidadorOficial}"
-                                : $"Escaneie para baixar · validar em {ValidadorOficial}")
+                                ? $"Validar em {ValidadorOficial}, enviando o arquivo do documento"
+                                : $"Escaneie com a câmera do celular para baixar o arquivo. "
+                                  + $"Valide em {ValidadorOficial} colando o link ou enviando "
+                                  + "o arquivo — o \u201CLer QR Code\u201D de lá pede um código "
+                                  + "que esta folha não tem.")
                             .FontSize(8).FontColor(TextoSecundario);
                     });
                 });
@@ -384,7 +392,8 @@ public sealed class DocumentosClinicosPdfService
                 {
                     t.Span("Conferência  ").FontSize(8).FontColor(TextoSecundario);
                     t.Span(documento.CodigoVerificacao).SemiBold().FontSize(8.5f);
-                    t.Span("  ·  confira este código na ficha do paciente.")
+                    t.Span("  ·  código interno da clínica (confere-se na ficha do "
+                           + "paciente) — não é o código que o validador gov.br pede.")
                         .FontSize(8).FontColor(TextoSecundario);
                 });
                 row.ConstantItem(90).AlignRight().Text(t =>
