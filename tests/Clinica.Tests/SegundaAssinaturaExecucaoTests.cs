@@ -269,6 +269,58 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
     }
 
     /// <summary>
+    /// ⚠️ O TESTE QUE FALTAVA, e sem ele a feature NUNCA teria funcionado na clínica.
+    ///
+    /// Todos os outros testes desta classe compartilham UM <c>DbContext</c>: gravam o
+    /// <c>ArquivoAssinado</c> e releem a prescrição pelo mesmo contexto, e aí o
+    /// <i>relationship fixup</i> do EF preenche a navegação <c>Assinatura.Arquivo</c> a
+    /// partir do change tracker — mesmo sem <c>ThenInclude</c>.
+    ///
+    /// Em PRODUÇÃO cada operação abre o próprio escopo (<c>_escopos.CreateScope()</c>), o
+    /// tracker nasce vazio, e <c>ObterPrescricaoInternaAsync</c> não carrega
+    /// <c>Assinaturas.Arquivo</c>. Ler a navegação ali devolvia NULO <b>sempre</b>: a
+    /// enfermeira levaria a recusa na primeira tentativa — que nesta área é COBRADA pelo
+    /// PSC —, com 1608 testes verdes.
+    ///
+    /// Este teste reproduz o escopo separado, e é ele que fixa a regra: <b>bytes de
+    /// arquivo assinado se buscam por <c>ObterArquivoAssinadoAsync(arquivoId)</c>, nunca
+    /// pela navegação.</b>
+    /// </summary>
+    [Fact]
+    public async Task Assina_com_ESCOPO_SEPARADO_como_em_producao()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: true);
+
+        // Um contexto NOVO sobre a mesma conexão: é o que a tela faz a cada clique.
+        using var outroDb = new ClinicaDbContext(
+            new DbContextOptionsBuilder<ClinicaDbContext>().UseSqlite(_conn).Options);
+        var outroRepo = new ClinicaRepositorio(outroDb);
+        var conferencia = new PrescricaoService(outroRepo);
+
+        var orquestraNova = new AssinaturaDePrescricaoService(
+            outroRepo,
+            new PrescricaoInternaService(outroRepo, conferencia),
+            new PrescricaoInternaPdfService(outroRepo, conferencia),
+            _assinador,
+            new ParametrosService(outroRepo));
+
+        // A prova de que o cenário é mesmo o de produção: a navegação está VAZIA aqui.
+        var relida = (await outroRepo.ObterPrescricaoInternaAsync(prescricao.Id))!;
+        relida.AssinaturaDoPrescritor!.Arquivo.Should().BeNull(
+            "ObterPrescricaoInternaAsync não faz ThenInclude(a => a.Arquivo), e sem "
+            + "change tracker compartilhado a navegação não se preenche sozinha");
+
+        await orquestraNova.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId);
+
+        var folha = await orquestraNova.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
+        _assinador.ConferirTodas(folha.Pdf).Should().HaveCount(2)
+            .And.OnlyContain(c => c.Conferida && c.Integra);
+    }
+
+    /// <summary>
     /// O invariante que sustenta tudo: a revisão da enfermagem é ANEXADA, e os bytes que a
     /// médica selou continuam lá, byte a byte, como prefixo do arquivo novo.
     /// </summary>

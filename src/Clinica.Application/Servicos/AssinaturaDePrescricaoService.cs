@@ -142,11 +142,27 @@ public sealed class AssinaturaDePrescricaoService
 
         // Os bytes que a MÉDICA assinou — nunca uma folha regerada. É sobre eles que a
         // assinatura dela foi calculada, e é sobre eles que a da enfermagem se apoia.
-        var doPrescritor = prescricao.AssinaturaDoPrescritor?.Arquivo?.Conteudo
+        //
+        // ⚠️ Buscados pelo ArquivoId, NUNCA pela navegação `AssinaturaDoPrescritor.Arquivo`:
+        // `ObterPrescricaoInternaAsync` faz `.Include(p => p.Assinaturas)` e NÃO faz
+        // `.ThenInclude(a => a.Arquivo)`, e o projeto não usa lazy loading. Em produção,
+        // onde cada operação abre escopo próprio, a navegação chega NULA e a assinatura
+        // falhava sempre — enquanto os testes passavam, porque compartilham um DbContext e
+        // o relationship fixup do EF preenche a navegação pelo change tracker.
+        // É a forma mais discreta do "verde não quer dizer funciona" desta área: nada
+        // falha no build, nada falha no teste, e a clínica leva a recusa na primeira
+        // tentativa — que aqui é COBRADA pelo PSC.
+        var idDoArquivo = prescricao.AssinaturaDoPrescritor?.ArquivoId
             ?? throw new InvalidOperationException(
                 "A prescrição não tem o arquivo assinado pelo prescritor guardado, então "
                 + "não há sobre o que anexar a 2ª assinatura. A folha NÃO foi assinada — "
                 + "a via em papel continua valendo.");
+
+        var doPrescritor = (await _repo.ObterArquivoAssinadoAsync(idDoArquivo, ct))?.Conteudo
+            ?? throw new InvalidOperationException(
+                "O arquivo assinado pelo prescritor não foi encontrado no banco "
+                + $"(id {idDoArquivo}). A folha NÃO foi assinada — a via em papel continua "
+                + "valendo.");
 
         var assinado = await AnexarAsync(
             doPrescritor, certificado,

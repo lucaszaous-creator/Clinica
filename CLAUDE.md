@@ -3466,3 +3466,22 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `/Type` e o nome é OPCIONAL** — o QuestPDF escreve `/Type /Page` e o PDFsharp escreve
   `/Type/Page`. Casar o texto cru funcionava por sorte, e a falha teria sido "o PDF não tem
   páginas legíveis" num arquivo cheio delas.
+
+- **A navegação que só o TESTE preenche** (parcela 68, 3ª rodada — o bloqueador que uma
+  auditoria adversarial achou no código recém-enviado, com 1608 testes verdes).
+  `AssinarExecucaoAsync` lia os bytes da médica por `AssinaturaDoPrescritor?.Arquivo?
+  .Conteudo`. `ObterPrescricaoInternaAsync` faz `.Include(p => p.Assinaturas)` e **não** faz
+  `.ThenInclude(a => a.Arquivo)`, e o projeto não usa lazy loading — em produção, onde cada
+  operação abre escopo próprio, a navegação chega **nula** e a 2ª assinatura falhava
+  **sempre**, na primeira tentativa da enfermeira, que nesta área é COBRADA pelo PSC.
+  ⚠️ **Os testes não podiam pegar, e a razão é a que mais se repete neste projeto**: eles
+  compartilham UM `DbContext` entre gravar o `ArquivoAssinado` e reler a prescrição, e o
+  **relationship fixup** do EF preenche a navegação a partir do change tracker mesmo sem
+  `ThenInclude`. Ou seja, o teste montava um mundo que produção nunca vê. É o
+  `CircuitoCompletoTests` da parcela 33 outra vez: cada peça verde, o produto quebrado.
+  A regra que fica: **bytes de arquivo assinado se buscam por
+  `ObterArquivoAssinadoAsync(arquivoId)`, nunca pela navegação** — é o que todo leitor
+  legítimo já fazia, e a linha nova foi a única a confiar no grafo. E, mais geral: **teste
+  de serviço que lê navegação precisa de um `DbContext` NOVO**, senão ele prova o fixup do
+  EF em vez do `Include` do repositório. `Assina_com_ESCOPO_SEPARADO_como_em_producao` fixa
+  isso, e foi verificado que ele FALHA no código antigo.
