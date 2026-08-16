@@ -3535,3 +3535,30 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `ExigirAlgum(` — o par de `PodeAlgum` que a parcela 61 criou —, e as quatro escritas
   estão guardadas. **Varredura textual de barreira tem de conhecer TODAS as formas da
   barreira**, senão ela acusa o arquivo que está certo e ninguém confia mais nela.
+
+- **O QR da folha e o "Ler QR Code" do validador são dois PROTOCOLOS — o mesmo texto,
+  lido por dois contratos** (parcela 68, 6ª rodada — a clínica mandou o print: o validador
+  LEU o QR e pediu "Insira o código"). O nosso QR carrega a URL do PDF publicado. A câmera
+  do celular trata isso como "abra no navegador" e o arquivo abre; o botão "Colar URL" do
+  validador trata como endereço de arquivo, baixa e valida. Já o botão **"Ler QR Code" do
+  próprio validador** trata o conteúdo como endereço da API de uma plataforma CADASTRADA:
+  ele chama a URL pedindo `application/validador-iti+json` com um `_secretCode`, e o guia
+  do desenvolvedor diz que esse fluxo **não aceita documento sem código/senha**. Um bucket
+  S3 não fala esse dialeto e não tem código: **nenhum código digitado ali funciona, por
+  desenho** — não é o QR, não é o tamanho, não é o link.
+  A evidência estava no print desde o início: **ele LEU o QR ("QR Code escaneado") e ainda
+  pediu código — logo nunca tentou baixar o arquivo.** Quando o cliente pergunta "por que
+  A funciona e B não com o MESMO dado", a resposta é B tratar o dado por outro CONTRATO.
+  ⚠️ E a lição de método custou três rodadas: a primeira hipótese (código de plataforma
+  cadastrada) estava CERTA — e eu a recuei por não ter fonte, troquei pela hipótese do
+  tamanho do QR (medível, e errada) e só fechei quando li o guia oficial. **Hipótese certa
+  sem fonte continua sendo hipótese; a resposta estava em procurar o CONTRATO do outro
+  lado (guia do desenvolvedor), não em medir o nosso.**
+  O que era nosso no defeito: a folha dizia "Escaneie para baixar · validar em …" sem
+  dizer COM O QUÊ escanear nem POR QUAL botão validar — a dois centímetros do NOSSO código
+  de conferência, numa tela que pede um código. O rodapé agora nomeia o caminho que
+  funciona (câmera → colar link ou enviar o arquivo) e desarma o errado ("o Ler QR Code de
+  lá pede um código que esta folha não tem"); o código de conferência diz que é interno; e
+  a folha de infusão parou de afirmar que o código "confere integridade" — ele LOCALIZA a
+  folha; quem prova integridade é a assinatura (a regra da parcela 3, que quase escapou por
+  uma palavra).

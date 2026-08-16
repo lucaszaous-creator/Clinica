@@ -752,8 +752,12 @@ public sealed class PrescricaoInternaPdfService
                     // esses bytes ficam guardados para sempre, e a segunda via mentiria
                     // sobre a própria garantia que carrega.
                     c.Item().Text(paraAssinaturaEletronica && assinatura is null
+                            // O código LOCALIZA a folha no sistema; quem prova
+                            // integridade é a assinatura, conferida no arquivo. Dizer que
+                            // o código "confere integridade" era prometer garantia que ele
+                            // não dá — a regra mais antiga do projeto (parcela 3).
                             ? "Assinado eletronicamente — o carimbo acima identifica o "
-                              + "signatário; confira a integridade pelo código no sistema."
+                              + "signatário; o código abaixo localiza esta folha no sistema."
                             : FraseDoNivel(assinatura))
                         .FontSize(7.5f).FontColor(TextoSecundario);
                 });
