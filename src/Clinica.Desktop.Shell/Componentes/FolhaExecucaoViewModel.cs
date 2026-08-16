@@ -404,7 +404,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             }
 
             var certificado = EscolherCertificadoWindow.Perguntar(
-                $"Registro de execução {Numero} — {Paciente}", JanelaAtiva(), _escopos);
+                $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos);
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
 
@@ -419,8 +419,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             }
 
             await CarregarAsync();
-            Mensagem = "Registro de execução assinado. A reimpressão sai com os bytes "
-                     + "selados — é a segunda via válida.";
+            Mensagem = "Execução assinada. A prescrição passa a sair com AS DUAS "
+                     + "assinaturas — a de quem prescreveu e a de quem executou.";
             MensagemEhErro = false;
         }
         catch (Exception ex)

@@ -104,9 +104,18 @@ public sealed class AssinaturaDePrescricaoService
     /// Sem essa conferência, o e-CPF da médica assinaria a execução da técnica e o
     /// documento diria que quem executou foi quem não executou.
     ///
-    /// O arquivo é OUTRO, e é isso que respeita a restrição do PDF: a prescritora selou a
-    /// Prescrição; a enfermagem sela o Registro de execução — dois documentos encadeados
-    /// pelo número e pelo vínculo impresso, um por signatário.
+    /// ⚠️ <b>É a MESMA prescrição, e isso mudou na 2ª rodada (16/08/2026).</b> A primeira
+    /// versão fazia a enfermagem selar o Registro de execução — outro arquivo —, porque a
+    /// premissa da parcela 42 dizia que duas assinaturas no mesmo PDF não existiam. A
+    /// premissa foi medida e derrubada: o que não faz atualização incremental é o PDFsharp,
+    /// não o PDF. A clínica descreveu o fluxo real — *"a infusão vai pra enfermagem e ela
+    /// também assina a prescrição que já foi assinada pelo médico"* —, e é o que a
+    /// legalidade pede: <b>uma folha com as duas assinaturas</b>, não duas folhas com uma
+    /// cada.
+    ///
+    /// Por isso aqui não se gera PDF nenhum: parte-se dos BYTES que a médica assinou e
+    /// anexa-se uma revisão. Regerar a folha produziria um arquivo diferente do que ela
+    /// selou, e a assinatura dela abriria como inválida.
     /// </summary>
     /// <param name="usuarioId">
     /// Quem está assinando — obrigatório aqui, ao contrário do prescritor: lá o signatário
@@ -131,18 +140,26 @@ public sealed class AssinaturaDePrescricaoService
 
         TitularDoCertificado.Exigir(certificado, executante.Cpf, executante.Nome);
 
-        var pdf = await _pdfs.GerarRegistroExecucaoAsync(
-            prescricaoId, await PrestadorAsync(ct), paraAssinaturaEletronica: true, ct);
+        // Os bytes que a MÉDICA assinou — nunca uma folha regerada. É sobre eles que a
+        // assinatura dela foi calculada, e é sobre eles que a da enfermagem se apoia.
+        var doPrescritor = prescricao.AssinaturaDoPrescritor?.Arquivo?.Conteudo
+            ?? throw new InvalidOperationException(
+                "A prescrição não tem o arquivo assinado pelo prescritor guardado, então "
+                + "não há sobre o que anexar a 2ª assinatura. A folha NÃO foi assinada — "
+                + "a via em papel continua valendo.");
 
-        var assinado = await SelarAsync(
-            pdf, certificado,
-            motivo: $"Registro de execução {prescricao.Numero}",
+        var assinado = await AnexarAsync(
+            doPrescritor, certificado,
+            motivo: $"Execução da prescrição {prescricao.Numero}",
             nomeExibido: executante.Nome,
             registroConselho: executante.RegistroConselho,
             ct);
 
+        // Arquivo NOVO em vez de sobrescrever o da médica: o dela continua sendo o registro
+        // do que ela selou, e o novo o contém inteiro como PREFIXO — nada se perde, e a
+        // regra do prontuário que não se apaga vale para o arquivo também.
         var arquivo = await GuardarAsync(
-            assinado.Pdf, $"{prescricao.Numero.Replace('/', '-')} execucao.pdf", ct);
+            assinado.Pdf, $"{prescricao.Numero.Replace('/', '-')} assinada.pdf", ct);
 
         var assinatura = Montar(
             certificado, assinado, arquivo, usuarioId,
@@ -174,13 +191,17 @@ public sealed class AssinaturaDePrescricaoService
 
         var ehPrescricao = folhaPedida == FolhaPrescricao.Prescricao;
 
-        // Cada folha com a SUA assinatura: a da execução existe desde 14/08/2026, quando a
-        // folha nasce pedindo a 2ª assinatura. Com ela presente, a reimpressão cai no
-        // caminho dos bytes GUARDADOS logo abaixo — regenerar produziria uma segunda via
-        // com assinatura inválida, sem nenhum sinal.
+        // ⚠️ A PRESCRIÇÃO devolve a assinatura MAIS RECENTE dela: quando a enfermagem
+        // assinou, o arquivo com as DUAS é o que vale — e ele contém o da médica inteiro
+        // como prefixo, então nada se perde. Devolver o da prescritora aqui entregaria uma
+        // segunda via sem a assinatura de quem executou, que é justamente a metade que a
+        // clínica precisa provar.
+        //
+        // O Registro de execução continua montado NA HORA: ele muda a cada item checado, e
+        // congelá-lo mostraria um estado que já passou.
         var assinatura = ehPrescricao
-            ? prescricao.AssinaturaDoPrescritor
-            : prescricao.AssinaturaDaExecucao;
+            ? prescricao.AssinaturaDaExecucao ?? prescricao.AssinaturaDoPrescritor
+            : null;
 
         var sufixo = ehPrescricao ? string.Empty : " execucao";
         var nome = $"{prescricao.Numero.Replace('/', '-')}{sufixo}.pdf";
@@ -215,6 +236,28 @@ public sealed class AssinaturaDePrescricaoService
             RegistroConselho: registroConselho,
             Area: area,
             CarimbadoraDeTempo: await _parametros.ObterCarimbadoraDeTempoAsync(ct)));
+    }
+
+    /// <summary>
+    /// A 2ª assinatura sobre a MESMA folha: revisão incremental, com o carimbo ao LADO do
+    /// da médica em vez de por cima dele.
+    /// </summary>
+    private async Task<ResultadoAssinatura> AnexarAsync(
+        byte[] pdfAssinado, CertificadoAssinatura certificado, string motivo,
+        string nomeExibido, string? registroConselho, CancellationToken ct)
+    {
+        var area = PrescricaoInternaPdfService.AreaDaSegundaAssinatura(
+            ContarPaginas(pdfAssinado));
+
+        return await _assinador.AnexarAssinaturaAsync(
+            pdfAssinado, certificado,
+            new PedidoAssinatura(
+                Motivo: motivo,
+                NomeExibido: nomeExibido,
+                RegistroConselho: registroConselho,
+                Area: area,
+                CarimbadoraDeTempo: await _parametros.ObterCarimbadoraDeTempoAsync(ct)),
+            nomeCampo: "AssinaturaExecucao");
     }
 
     private async Task<ArquivoAssinado> GuardarAsync(

@@ -235,12 +235,17 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
     }
 
     /// <summary>
-    /// A regra da segunda via, agora na folha da execução: assinada, a reimpressão devolve
-    /// os BYTES GUARDADOS. Antes desta feature ela era sempre regenerada — regenerar um
-    /// arquivo assinado produziria uma segunda via com assinatura inválida, sem sinal.
+    /// A segunda via da PRESCRIÇÃO passa a sair com as DUAS assinaturas.
+    ///
+    /// ⚠️ É o teste que a 2ª rodada (16/08/2026) inverteu, e vale registrar por quê: até
+    /// aqui ele afirmava que a reimpressão da folha de EXECUÇÃO devolvia bytes selados,
+    /// porque a enfermagem assinava aquele arquivo. A clínica descreveu o fluxo real — ela
+    /// assina A MESMA prescrição —, e a premissa que impedia isso foi medida e derrubada.
+    /// Devolver aqui o arquivo da médica entregaria uma segunda via sem a assinatura de
+    /// quem executou, que é a metade que a clínica precisa provar.
     /// </summary>
     [Fact]
-    public async Task Segunda_via_da_execucao_assinada_devolve_os_bytes_selados()
+    public async Task Segunda_via_da_prescricao_sai_com_as_DUAS_assinaturas()
     {
         var cenario = await CenarioAsync();
         var prescricao = await EncerradaAsync(cenario, exigir: true);
@@ -249,12 +254,43 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
             prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
             cenario.UsuarioEnfermeiraId);
 
-        var primeira = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
-        var segunda = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
+        var folha = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
 
-        segunda.Pdf.Should().Equal(primeira.Pdf);
-        segunda.Assinatura!.Papel.Should().Be(PapelAssinatura.Executante);
-        segunda.Conferencia!.Integra.Should().BeTrue();
+        folha.Assinatura!.Papel.Should().Be(PapelAssinatura.Executante);
+        folha.Conferencia!.Integra.Should().BeTrue();
+
+        var conferencias = _assinador.ConferirTodas(folha.Pdf);
+        conferencias.Should().HaveCount(2, "a folha prova quem mandou e quem executou");
+        conferencias.Should().OnlyContain(c => c.Conferida && c.Integra);
+
+        // Estável: reimprimir devolve os mesmos bytes, nunca um arquivo regerado.
+        var denovo = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
+        denovo.Pdf.Should().Equal(folha.Pdf);
+    }
+
+    /// <summary>
+    /// O invariante que sustenta tudo: a revisão da enfermagem é ANEXADA, e os bytes que a
+    /// médica selou continuam lá, byte a byte, como prefixo do arquivo novo.
+    /// </summary>
+    [Fact]
+    public async Task A_assinatura_da_enfermagem_nao_toca_nos_bytes_da_medica()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: true);
+
+        var carregada = (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!;
+        var daMedica = (await _repo.ObterArquivoAssinadoAsync(
+            carregada.AssinaturaDoPrescritor!.ArquivoId!.Value))!.Conteudo;
+
+        await _orquestra.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId);
+
+        var comAsDuas = (await _orquestra.FolhaAsync(
+            prescricao.Id, FolhaPrescricao.Prescricao)).Pdf;
+
+        comAsDuas.AsSpan(0, daMedica.Length).SequenceEqual(daMedica)
+            .Should().BeTrue("a assinatura da médica cobre os bytes 0..N do arquivo dela");
     }
 
     /// <summary>

@@ -103,7 +103,7 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
     /// <summary>
     /// O campo de 2ª assinatura (decisão da direção, 14/08/2026): marcado, a enfermagem
-    /// também assina eletronicamente — o registro de execução, no encerramento, com o
+    /// também assina eletronicamente ESTA MESMA folha, no encerramento, com o
     /// certificado DELA. Desmarcado, vale o regime de sempre: caneta na via impressa.
     /// </summary>
     [ObservableProperty] private bool _exigirAssinaturaDaExecucao;

@@ -88,6 +88,20 @@ public sealed class PrescricaoInternaPdfService
             Largura: LarguraCarimbo,
             Altura: AlturaFaixaAssinatura - 4);
 
+    /// <summary>
+    /// Onde entra o carimbo da 2ª assinatura — a da enfermagem, na MESMA folha.
+    ///
+    /// Ao LADO do primeiro, não por cima: os dois carimbos existem para ser lidos juntos,
+    /// e é a leitura lado a lado que responde "quem mandou" e "quem executou". A folha tem
+    /// 595 pontos de largura e a margem come 42,5 de cada lado, então dois carimbos de 250
+    /// cabem com uma folga de 10 entre eles.
+    /// </summary>
+    public static AreaAssinatura AreaDaSegundaAssinatura(int totalPaginas)
+    {
+        var primeira = AreaDaAssinatura(totalPaginas);
+        return primeira with { X = primeira.X + LarguraCarimbo + 10 };
+    }
+
     // ==================== Folha 1 · a prescrição ====================
 
     public async Task<byte[]> GerarPrescricaoAsync(

@@ -549,20 +549,25 @@ public class ChecagemPrescricao
 /// <summary>
 /// A ASSINATURA ELETRÔNICA de uma das duas folhas — e o registro honesto de que nível ela tem.
 ///
-/// Uma assinatura por ARQUIVO, nunca duas no mesmo
-/// -----------------------------------------------
-/// Em PDF não se assina incrementalmente (o PDFsharp reescreve o arquivo ao salvar), então
-/// duas assinaturas no mesmo PDF não existem — a segunda quebraria a primeira. O desenho é
-/// <b>dois documentos encadeados, um por signatário</b>: a prescritora assina a PRESCRIÇÃO
-/// (<see cref="PapelAssinatura.Prescritor"/>) e, quando a folha nasce com
-/// <see cref="PrescricaoInterna.ExigeAssinaturaEletronicaDaExecucao"/> marcado, a enfermagem
-/// assina o REGISTRO DE EXECUÇÃO no encerramento (<see cref="PapelAssinatura.Executante"/>,
-/// decisão da direção em 14/08/2026 — antes disso a execução era assinada só à caneta, na
-/// via impressa, e nas folhas sem a marca continua sendo).
+/// DUAS assinaturas na MESMA folha
+/// -------------------------------
+/// A prescritora assina a PRESCRIÇÃO (<see cref="PapelAssinatura.Prescritor"/>) e, quando
+/// a folha nasce com <see cref="PrescricaoInterna.ExigeAssinaturaEletronicaDaExecucao"/>
+/// marcado, a enfermagem assina <b>a mesma prescrição</b> no encerramento
+/// (<see cref="PapelAssinatura.Executante"/>) — que é o fluxo que a clínica descreveu e o
+/// que a legalidade pede: uma folha com as duas, não duas folhas com uma cada.
+///
+/// ⚠️ <b>Isto mudou em 16/08/2026, e o motivo vale mais que a mudança.</b> Da parcela 42
+/// até aqui o desenho era "dois documentos encadeados, um por signatário", justificado por
+/// "em PDF não se assina incrementalmente". A primeira metade da premissa foi MEDIDA e
+/// confirmada — o PDFsharp reescreve o arquivo ao salvar —, e a conclusão estava errada: a
+/// limitação é da BIBLIOTECA, não do formato. O PDF prevê múltiplas assinaturas por
+/// atualização incremental, e é o que <c>RevisaoIncrementalPdf</c> faz. A premissa ficou
+/// seis parcelas de pé sem ninguém tentar o caminho que o formato já oferecia.
 ///
 /// A prescritora continua assinando um PDF com as colunas de checagem em branco, e isso
-/// continua correto: elas são pré-impressas do formulário. Ela atesta o que MANDOU fazer; o
-/// que FOI feito é o outro documento, assinado por quem fez.
+/// continua correto: elas são pré-impressas do formulário. Ela atesta o que MANDOU fazer;
+/// a enfermagem anexa a dela depois de executar, sem tocar num byte do que a médica selou.
 ///
 /// A prescritora assinar um PDF com as colunas EM BRANCO é correto, e vale entender por
 /// quê: elas são campos pré-impressos do formulário, como no talão de papel. Ela atesta o

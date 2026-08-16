@@ -3423,3 +3423,46 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   mesma frase logo abaixo. É a parcela 58 e a 64 pela terceira vez, e a regra não muda:
   **a sobreposição pertence à REGIÃO cujo vazio ela explica, e há UM estado vazio por
   pergunta.**
+
+- **A premissa que ficou seis parcelas de pé porque ninguém mediu a CONCLUSÃO dela**
+  (parcela 68, 2ª rodada — a cliente descreveu o fluxo real: *"o médico prescreve e assina,
+  a infusão vai pra enfermagem e ela também assina a prescrição que já foi assinada pelo
+  médico"*). Desde a parcela 42 o projeto afirmava, por escrito e em quatro lugares, que
+  **"duas assinaturas no mesmo PDF não existem, porque o PDFsharp reescreve o arquivo ao
+  salvar"** — e foi essa frase que desenhou a 1ª rodada desta parcela, em que a enfermagem
+  selava OUTRO documento (o registro de execução).
+  Medido antes de mexer: a primeira metade está **certa** — assinar por cima do assinado
+  devolve um arquivo cujo prefixo mudou, e a assinatura de quem assinou primeiro deixa de
+  fechar. A **conclusão** é que estava errada: a limitação é da BIBLIOTECA, não do formato.
+  O PDF prevê múltiplas assinaturas exatamente para este caso, por **atualização
+  incremental** — a revisão nova é anexada ao fim e os bytes já assinados não se tocam. A
+  assinatura da médica cobre 0..N; a da enfermeira cobre 0..M, com M > N; as duas fecham
+  porque nenhuma teve um byte alterado.
+  ⚠️ **A lição não é sobre PDF.** É que **quando uma limitação de ferramenta vira decisão
+  de desenho, é preciso escrever qual das duas metades foi medida** — a restrição ou a
+  conclusão que se tirou dela. Esta ficou seis parcelas sem ninguém tentar o caminho que o
+  formato já oferecia, e o desenho errado tinha chegado a ter teste verde e PR aberto.
+  As decisões do `RevisaoIncrementalPdf`: ele **não calcula assinatura nenhuma** — quem
+  produz o PKCS#7 continua sendo o mesmo `IDigitalSigner` do token e do SafeID, sem uma
+  linha de diferença, e é isso que permitiu mexer aqui sem encostar no motor congelado;
+  a aparência usa **Helvetica**, uma das 14 fontes-padrão do PDF, para não depender do que
+  a outra ferramenta embutiu; e a forma do arquivo de entrada é **conferida, não
+  adivinhada** — xref em fluxo, `/Annots` por referência indireta ou ausência de
+  `/AcroForm` **recusam com a frase escrita**, porque um meio-parser que "dá um jeito"
+  produziria o arquivo que a NOSSA conferência aprova e o Adobe recusa (a garantia
+  aparente virada do avesso, a lição da 7ª rodada da parcela 67).
+  **E o `Conferir` passou a valer pela PIOR das assinaturas.** Ele lia o primeiro
+  `/ByteRange` e parava ali: num documento de duas, responderia "íntegro" a um arquivo cuja
+  segunda não fecha — falha exibida como sucesso, no papel que prova quem mandou e quem
+  executou.
+  ⚠️ **O teste que decide não é o nosso.** Cada tentativa de assinatura no SafeID é
+  COBRADA, então a prova tinha de fechar de graça e **fora do nosso código**: o arquivo foi
+  validado no **pyhanko**, que devolveu `intact=True valid=True` nas duas, com a da médica
+  em `coverage=ENTIRE_REVISION mod=FORM_FILLING` e a da enfermeira em `ENTIRE_FILE
+  mod=NONE` — o retrato exato de um PDF corretamente assinado duas vezes. Os testes gravam
+  o arquivo quando `CLINICA_DUMP_PDF` aponta uma pasta, justamente para essa conferência
+  externa continuar barata.
+  ⚠️ E um defeito que só apareceu por rodar num PDF de outro produtor: **o espaço entre
+  `/Type` e o nome é OPCIONAL** — o QuestPDF escreve `/Type /Page` e o PDFsharp escreve
+  `/Type/Page`. Casar o texto cru funcionava por sorte, e a falha teria sido "o PDF não tem
+  páginas legíveis" num arquivo cheio delas.

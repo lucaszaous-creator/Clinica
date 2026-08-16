@@ -113,7 +113,7 @@
                             IsEnabled="{Binding PodeAssinarExecucao}"
                             Visibility="{Binding AguardaAssinaturaExecucao,
                                          Converter={StaticResource BoolParaVisibilidade}}"
-                            ToolTip="Sela o registro de execução com o SEU certificado (e-CPF ou SafeID). O CPF do certificado é conferido contra o seu cadastro."
+                            ToolTip="Assina a MESMA prescrição que o prescritor assinou, com o SEU certificado (e-CPF ou SafeID) — a assinatura dele não é tocada. O CPF do certificado é conferido contra o seu cadastro."
                             Command="{Binding AssinarExecucaoCommand}" />
                 </StackPanel>
             </Grid>
