@@ -113,6 +113,32 @@
                                                 </Border.Style>
                                                 <TextBlock Text="{Binding Progresso}" TextWrapping="Wrap" />
                                             </Border>
+
+                                            <!-- O selo que faltava: a folha encerrou e ainda
+                                                 deve a assinatura eletrônica da enfermagem.
+                                                 Sem ele, a técnica teria de abrir folha por
+                                                 folha para descobrir qual ficou pendente —
+                                                 a pendência existia no domínio e nenhuma
+                                                 lista a lia. -->
+                                            <Border HorizontalAlignment="Left" Margin="0,6,0,0"
+                                                    Style="{StaticResource Badge.Erro}"
+                                                    Visibility="{Binding AguardaAssinatura,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock TextWrapping="Wrap"
+                                                           Text="Falta a assinatura eletrônica da enfermagem" />
+                                            </Border>
+
+                                            <!-- Folha de OUTRO dia: ela só entra na fila de
+                                                 hoje quando deve assinatura, e sem a data se
+                                                 leria como sendo de hoje. -->
+                                            <TextBlock Style="{StaticResource TextoSuave}"
+                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                       Margin="0,4,0,0" TextWrapping="Wrap"
+                                                       Visibility="{Binding DeOutroDia,
+                                                                    Converter={StaticResource BoolParaVisibilidade}}">
+                                                <Run Text="Folha de" />
+                                                <Run Text="{Binding Dia, Mode=OneWay}" />
+                                            </TextBlock>
                                         </StackPanel>
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal"

@@ -3485,3 +3485,29 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   de serviço que lê navegação precisa de um `DbContext` NOVO**, senão ele prova o fixup do
   EF em vez do `Include` do repositório. `Assina_com_ESCOPO_SEPARADO_como_em_producao` fixa
   isso, e foi verificado que ele FALHA no código antigo.
+
+- **A folha só fica assinável no instante em que ela SOME da lista** (parcela 68, 4ª
+  rodada — as quatro pendências que a auditoria adversarial confirmou). A 2ª assinatura da
+  enfermagem só é possível depois de ENCERRAR a folha, e encerrar era exatamente o que a
+  tirava da fila da Sala de infusão. Somadas, as quatro faziam a pendência desaparecer:
+  1. a fila é travada em **`p.Data == hoje`** — folha de ontem não aparecia de jeito nenhum;
+  2. **"Mostrar encerradas" nasce DESMARCADO** — encerrada some da lista padrão no mesmo dia;
+  3. **não existia consulta, contador nem selo** de "aguardando a 2ª assinatura":
+     `AguardaAssinaturaDaExecucao` era lido só DENTRO da janela de uma folha já aberta, então
+     descobrir qual ficou pendente exigia abrir uma por uma;
+  4. no dia seguinte a única volta era **digitar o código impresso** — que só existe se
+     alguém imprimiu o papel.
+  É o **"alerta sem porta" na pior variante** (parcela 48): o que a pessoa precisa
+  reencontrar é justamente o que a lista esconde. E a mensagem ainda prometia que "o botão
+  Assinar execução fica nesta folha" sem dizer como voltar a ela — comentário/《promessa》
+  que o código não cumpre, a armadilha da parcela 67.
+  A correção é uma consulta **sem filtro de data** (`PrescricoesInternasAguardandoAssinatura
+  Async`: encerrada + exige assinatura + sem a do Executante), unida à fila de hoje e
+  publicada de uma vez em lista local — **entre o `Clear()` e o último `Add` não pode haver
+  await**, e aqui são DUAS leituras (a lição da parcela 62). O selo vermelho diz o que
+  falta, a data aparece quando a folha não é de hoje, e o contador da assinatura é
+  **separado** do de itens aguardando: um se resolve administrando, o outro com o
+  certificado — somá-los daria um número que não diz o que fazer.
+  ⚠️ E a pendência **SAI da lista assim que ela assina**: pendência que não some é
+  pendência que ensina a ignorar a lista. O regime do papel (campo desmarcado) nunca entra,
+  senão toda folha encerrada da história viraria cobrança eterna.

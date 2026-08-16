@@ -23,11 +23,31 @@ public sealed class LinhaSalaInfusao
     public required bool TemPendencia { get; init; }
     public required bool Encerrada { get; init; }
 
-    public static LinhaSalaInfusao De(PrescricaoInterna p) => new()
+    /// <summary>
+    /// A folha encerrou e ainda deve a assinatura eletrônica da enfermagem.
+    ///
+    /// É o campo que faltava: a pendência existia no domínio
+    /// (<c>PrescricaoInterna.AguardaAssinaturaDaExecucao</c>) e só era lida DENTRO da
+    /// janela de uma folha já aberta — nenhuma lista, nenhum selo, nenhum contador. Para
+    /// descobrir qual folha ficou sem assinar, a técnica teria de abrir uma por uma.
+    /// </summary>
+    public required bool AguardaAssinatura { get; init; }
+
+    /// <summary>
+    /// O dia da folha, escrito só quando NÃO é hoje. A fila mostra hoje; a folha de outro
+    /// dia só entra quando deve assinatura, e sem a data ela se leria como sendo de hoje.
+    /// </summary>
+    public required string Dia { get; init; }
+
+    public bool DeOutroDia => Dia.Length > 0;
+
+    public static LinhaSalaInfusao De(PrescricaoInterna p, DateOnly hoje) => new()
     {
         PrescricaoId = p.Id,
         Paciente = p.Paciente?.Nome ?? "—",
         Numero = p.Numero,
+        Dia = p.Data == hoje ? string.Empty : p.Data.ToString("dd/MM"),
+        AguardaAssinatura = p.AguardaAssinaturaDaExecucao,
         Hora = p.Hora.ToString("HH\\:mm"),
         Prescritor = p.Profissional?.Rotulo ?? "—",
         Progresso = p.Situacao == SituacaoPrescricao.Encerrada
@@ -146,17 +166,41 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
             var hoje = DateOnly.FromDateTime(DateTime.Today);
             var folhas = await servico.DoDiaAsync(hoje, incluirEncerradas: IncluirEncerradas);
 
+            // ⚠️ A folha que AGUARDA A 2ª ASSINATURA entra SEMPRE, de qualquer dia e
+            // independente da caixa "mostrar encerradas". Ela só fica assinável depois de
+            // encerrar — e encerrar era justamente o que a tirava daqui: sumia da lista
+            // padrão e, no dia seguinte, sumia de vez. A única volta era digitar o código
+            // impresso. Era o "alerta sem porta" na pior variante: o que a pessoa precisa
+            // reencontrar é exatamente o que a lista escondia.
+            var aguardando = await servico.AguardandoAssinaturaAsync();
+
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
 
+            // Montado em lista LOCAL e publicado de uma vez: entre o Clear() e o último
+            // Add não pode haver await (a lição da parcela 62), e aqui são duas leituras.
+            var linhas = new List<LinhaSalaInfusao>();
+            var vistas = new HashSet<int>();
+            foreach (var folha in folhas.Concat(aguardando))
+                if (vistas.Add(folha.Id))
+                    linhas.Add(LinhaSalaInfusao.De(folha, hoje));
+
             Folhas.Clear();
-            foreach (var folha in folhas)
-                Folhas.Add(LinhaSalaInfusao.De(folha));
+            foreach (var linha in linhas) Folhas.Add(linha);
 
             var pendentes = Folhas.Count(f => f.TemPendencia);
+            var semAssinar = Folhas.Count(f => f.AguardaAssinatura);
+
+            // O contador da assinatura é SEPARADO do de itens aguardando: um se resolve
+            // administrando, o outro com o certificado. Somá-los daria um número que não
+            // diz o que fazer.
+            var recado = semAssinar == 0
+                ? string.Empty
+                : $" · {semAssinar} aguardando a assinatura da enfermagem";
+
             Resumo = Folhas.Count == 0
                 ? "Nenhuma prescrição de infusão para hoje."
-                : $"{Folhas.Count} folha(s) hoje · {pendentes} com item aguardando.";
+                : $"{Folhas.Count} folha(s) · {pendentes} com item aguardando{recado}.";
         }
         catch (Exception ex)
         {

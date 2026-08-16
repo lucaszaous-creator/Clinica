@@ -321,6 +321,62 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
     }
 
     /// <summary>
+    /// ⚠️ A PORTA da folha que ficou sem assinar.
+    ///
+    /// A folha só fica assinável DEPOIS de encerrar — e encerrar era justamente o que a
+    /// tirava da fila da sala: encerradas nascem escondidas na lista, e a fila é travada
+    /// em <c>p.Data == hoje</c>, então no dia seguinte ela sumia de vez. A única volta era
+    /// digitar o código impresso, que só existe se alguém imprimiu o papel. Era o "alerta
+    /// sem porta" na pior variante: o que a técnica precisa reencontrar é exatamente o que
+    /// a lista escondia.
+    ///
+    /// A consulta nova não tem filtro de data de propósito: a pendência não vence à
+    /// meia-noite.
+    /// </summary>
+    [Fact]
+    public async Task Folha_sem_a_2a_assinatura_e_encontravel_em_qualquer_dia()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: true);
+
+        // Empurra a folha para ONTEM: é o caso que sumia de vez.
+        var linha = await _db.PrescricoesInternas.SingleAsync(p => p.Id == prescricao.Id);
+        linha.Data = DateOnly.FromDateTime(DateTime.Today).AddDays(-1);
+        await _db.SaveChangesAsync();
+
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+
+        // A fila de hoje NÃO a mostra — nem marcando "incluir encerradas".
+        (await _checagens.DoDiaAsync(hoje, incluirEncerradas: true))
+            .Should().NotContain(p => p.Id == prescricao.Id);
+
+        // A consulta da pendência mostra.
+        var aguardando = await _checagens.AguardandoAssinaturaAsync();
+        aguardando.Should().ContainSingle(p => p.Id == prescricao.Id);
+
+        // E ela SAI da lista assim que a enfermagem assina — pendência que não some é
+        // pendência que ensina a ignorar a lista.
+        await _orquestra.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId);
+
+        (await _checagens.AguardandoAssinaturaAsync()).Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// A folha que NÃO pede assinatura eletrônica (regime do papel) nunca entra na lista
+    /// de pendência — senão toda folha encerrada da história viraria uma cobrança eterna.
+    /// </summary>
+    [Fact]
+    public async Task Regime_do_papel_nao_entra_na_lista_de_pendencia()
+    {
+        var cenario = await CenarioAsync();
+        await EncerradaAsync(cenario, exigir: false);
+
+        (await _checagens.AguardandoAssinaturaAsync()).Should().BeEmpty();
+    }
+
+    /// <summary>
     /// O invariante que sustenta tudo: a revisão da enfermagem é ANEXADA, e os bytes que a
     /// médica selou continuam lá, byte a byte, como prefixo do arquivo novo.
     /// </summary>

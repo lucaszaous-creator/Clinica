@@ -532,6 +532,23 @@ public interface IClinicaRepositorio
         DateOnly data, int? profissionalId = null, bool incluirEncerradas = false,
         CancellationToken ct = default);
 
+    /// <summary>
+    /// As folhas ENCERRADAS que ainda devem a assinatura eletrônica da enfermagem —
+    /// <b>de qualquer dia</b>.
+    ///
+    /// Existe porque a folha só fica assinável DEPOIS de encerrar, e encerrar é
+    /// exatamente o que a tirava da fila da sala: ela sumia da lista padrão (encerradas
+    /// nascem escondidas) e, no dia seguinte, sumia de vez (a fila é travada em
+    /// <c>p.Data == hoje</c>). Quem recusasse assinar na hora só reencontrava a folha
+    /// digitando o código impresso no papel.
+    ///
+    /// Sem filtro de data de propósito: a pendência não vence à meia-noite, e uma lista
+    /// que a esconde no dia seguinte é o "alerta sem porta" na pior variante — o que a
+    /// pessoa precisa reencontrar é justamente o que a lista some.
+    /// </summary>
+    Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasAguardandoAssinaturaAsync(
+        int? profissionalId = null, CancellationToken ct = default);
+
     /// <summary>Item rastreado, com a prescrição e as checagens — o alvo de checar/retificar.</summary>
     Task<ItemPrescricaoInterna?> ObterItemPrescricaoInternaAsync(
         int itemId, CancellationToken ct = default);

@@ -91,6 +91,18 @@ public sealed class ChecagemPrescricaoService
         CancellationToken ct = default)
         => _repo.PrescricoesInternasDoDiaAsync(data, profissionalId, incluirEncerradas, ct);
 
+    /// <summary>
+    /// As folhas encerradas que ainda devem a assinatura eletrônica da enfermagem, de
+    /// QUALQUER dia — a fila que a sala não mostrava.
+    ///
+    /// A folha só fica assinável depois de encerrar, e encerrar era justamente o que a
+    /// tirava da lista: encerradas nascem escondidas e a fila é travada em hoje. Quem
+    /// recusasse assinar na hora só reencontrava a folha digitando o código do papel.
+    /// </summary>
+    public Task<IReadOnlyList<PrescricaoInterna>> AguardandoAssinaturaAsync(
+        int? profissionalId = null, CancellationToken ct = default)
+        => _repo.PrescricoesInternasAguardandoAssinaturaAsync(profissionalId, ct);
+
     /// <summary>Quantas folhas do dia ainda têm item esperando execução.</summary>
     public Task<int> PendentesDoDiaAsync(
         DateOnly data, int? profissionalId = null, CancellationToken ct = default)

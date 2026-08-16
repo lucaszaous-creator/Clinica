@@ -1185,6 +1185,30 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         return await q.OrderBy(p => p.Hora).ThenBy(p => p.Id).ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<PrescricaoInterna>> PrescricoesInternasAguardandoAssinaturaAsync(
+        int? profissionalId = null, CancellationToken ct = default)
+    {
+        // A pendência é decidida no BANCO e não em memória: carregar todas as encerradas
+        // da história para filtrar depois cresceria com o tempo, e esta consulta roda a
+        // cada carga da sala — inclusive na releitura periódica.
+        var q = _db.PrescricoesInternas.AsNoTracking()
+            .Include(p => p.Paciente)
+            .Include(p => p.Profissional)
+            .Include(p => p.Itens).ThenInclude(i => i.Checagens)
+            .Include(p => p.Assinaturas)
+            .Where(p => p.Situacao == SituacaoPrescricao.Encerrada
+                        && p.ExigeAssinaturaEletronicaDaExecucao
+                        && !p.Assinaturas.Any(a => a.Papel == PapelAssinatura.Executante));
+
+        if (profissionalId is int pid)
+            q = q.Where(p => p.ProfissionalId == pid);
+
+        // A mais ANTIGA primeiro: a folha esquecida há três dias é a que precisa de
+        // decisão, e a de hoje a técnica resolve sozinha ao encerrar.
+        return await q.OrderBy(p => p.Data).ThenBy(p => p.Hora).ThenBy(p => p.Id)
+            .ToListAsync(ct);
+    }
+
     public Task<ItemPrescricaoInterna?> ObterItemPrescricaoInternaAsync(
         int itemId, CancellationToken ct = default)
         => _db.ItensPrescricaoInterna
