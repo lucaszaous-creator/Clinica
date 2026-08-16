@@ -120,6 +120,37 @@ public class CircuitoClinicoTests : IDisposable
         depois.Alertas.Should().NotContain(a => a.Assunto == AssuntoDirecao.InfusaoAguardando);
     }
 
+    /// <summary>
+    /// O OUTRO elo da sala com a direção: a folha encerrada que ainda deve a 2ª assinatura.
+    ///
+    /// A Sala de infusão passou a mostrá-la; sem esta contagem a direção continuaria sem
+    /// ver a soma, que é a razão de o alerta da infusão existir ("a sala vê a própria fila,
+    /// a direção é quem vê a soma"). E os dois alertas são SEPARADOS de propósito: um se
+    /// resolve administrando o que falta, o outro com o certificado de quem executou.
+    /// </summary>
+    [Fact]
+    public async Task Folha_sem_a_2a_assinatura_chega_ao_painel_da_direcao()
+    {
+        var prescricao = await AssinadaAsync(exigirAssinaturaDaExecucao: true);
+        var painel = MontarPainel();
+
+        var folha = await CarregarAsync(prescricao.Id);
+        await _checagens.ChecarAsync(
+            folha.Itens[0].Id, SituacaoChecagem.Realizado, Agora(), Tecnica);
+        await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
+
+        var resumo = await painel.MontarAsync(Hoje);
+
+        resumo.NaoVerificados.Should().NotContain("Sala de infusão",
+            "bloco que falha calado zeraria o alerta com cara de dia tranquilo");
+        resumo.FolhasInfusaoSemAssinatura.Should().Be(1);
+        resumo.Alertas.Should().Contain(a => a.Assunto == AssuntoDirecao.InfusaoSemAssinatura);
+
+        // Encerrada e checada: o alerta de ITEM aguardando saiu, e o da ASSINATURA ficou.
+        // Somar os dois daria um número que não diz o que fazer.
+        resumo.FolhasInfusaoAguardando.Should().Be(0);
+    }
+
     // =====================================================================
     // Circuito 3 — a reação de hoje protege a prescrição de amanhã
     // =====================================================================
@@ -272,7 +303,9 @@ public class CircuitoClinicoTests : IDisposable
         return paciente.Id;
     }
 
-    private Task ComItensAsync(int prescricaoId, string descricao, string? dose)
+    private Task ComItensAsync(
+        int prescricaoId, string descricao, string? dose,
+        bool exigirAssinaturaDaExecucao = false)
         => _prescricoes.SalvarRascunhoAsync(prescricaoId, "Circuito", null,
         [
             new ItemPrescricaoInterna
@@ -282,10 +315,11 @@ public class CircuitoClinicoTests : IDisposable
                 Via = ViaAdministracao.Endovenosa,
                 TempoInfusao = "30 min"
             }
-        ]);
+        ], exigeAssinaturaEletronicaDaExecucao: exigirAssinaturaDaExecucao);
 
     private async Task<PrescricaoInterna> AssinadaAsync(
-        string descricaoItem = "Soro fisiológico 0,9%", string? dose = "500 mL")
+        string descricaoItem = "Soro fisiológico 0,9%", string? dose = "500 mL",
+        bool exigirAssinaturaDaExecucao = false)
     {
         var pacienteId = await PacienteAsync();
         var profissional = new Profissional { Nome = "Dra. Ana Souza", RegistroConselho = "CRM-SP 123456" };
@@ -293,7 +327,7 @@ public class CircuitoClinicoTests : IDisposable
         await _db.SaveChangesAsync();
 
         var prescricao = await _prescricoes.CriarAsync(pacienteId, profissional.Id);
-        await ComItensAsync(prescricao.Id, descricaoItem, dose);
+        await ComItensAsync(prescricao.Id, descricaoItem, dose, exigirAssinaturaDaExecucao);
         await _prescricoes.AssinarAsync(prescricao.Id, Assinatura());
         return prescricao;
     }

@@ -120,6 +120,21 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodePrescrever => SessaoUsuario.Atual.Pode(Permissao.Prescrever);
 
+    /// <summary>
+    /// A segunda barreira, e ela DIZ por que recusou em vez de voltar calada — guarda
+    /// silenciosa é botão que não faz nada (a lição da parcela 41). Devolve false quando
+    /// impede.
+    /// </summary>
+    private bool Exigir(Permissao permissao, string acao)
+    {
+        if (SessaoUsuario.Atual.Pode(permissao)) return true;
+
+        Mensagem = $"Você não tem permissão para {acao}. Peça à direção o acesso "
+                 + $"\"{PerfisAcesso.Rotular(permissao)}\".";
+        MensagemEhErro = true;
+        return false;
+    }
+
     /// <summary>Sem item não se assina — e o botão diz isso antes do clique.</summary>
     public bool PodeAssinar => PodePrescrever && !Ocupado && Itens.Count > 0;
 
@@ -251,6 +266,11 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     [RelayCommand]
     private async Task SalvarRascunhoAsync()
     {
+        // A barreira que IMPEDE. `PodePrescrever` é só a metade VISÍVEL, e as duas são
+        // obrigatórias: atalho de teclado e corrida de carregamento chegam aqui sem passar
+        // pelo `IsEnabled`. Numa tela que gera prescrição médica, só desabilitar é enfeite.
+        if (!Exigir(Permissao.Prescrever, "salvar a prescrição de infusão")) return;
+
         if (await GravarAsync() is null) return;
         Mensagem = "Rascunho salvo. Ele ainda NÃO aparece na sala de infusão — só a "
                  + "assinatura o põe lá.";
@@ -263,6 +283,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     [RelayCommand]
     private async Task AssinarAsync()
     {
+        if (!Exigir(Permissao.Prescrever, "assinar a prescrição de infusão")) return;
+
         // Guardas que DIZEM por que não dá. O botão já nasce apagado nos dois casos, mas
         // atalho de teclado e corrida de carregamento chegam aqui — e guarda que volta em
         // silêncio é botão que não faz nada.

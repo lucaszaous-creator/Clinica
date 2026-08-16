@@ -3511,3 +3511,27 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   ⚠️ E a pendência **SAI da lista assim que ela assina**: pendência que não some é
   pendência que ensina a ignorar a lista. O regime do papel (campo desmarcado) nunca entra,
   senão toda folha encerrada da história viraria cobrança eterna.
+
+- **Varredura do módulo CLÍNICO: a barreira que falta é sempre na tela que mais custa**
+  (parcela 68, 5ª rodada). Três achados, e os três da família "duas barreiras":
+  (a) **A prescrição de infusão tinha só a metade VISÍVEL** — `SalvarRascunho` e `Assinar`
+  se protegiam por `IsEnabled`/`PodePrescrever` e não chamavam `Exigir` em lugar nenhum.
+  Atalho de teclado e corrida de carregamento passam direto, e o ato é gerar e selar uma
+  prescrição médica. É o mesmo defeito que a parcela 51 corrigiu no Acessos e a 54 no
+  cadastro de usuário: a tela onde ele mais custa é a última em que alguém olha.
+  (b) **Enviar documento clínico ao paciente não tinha guarda** — emitir, assinar e
+  cancelar tinham; enviar, não. É dado de saúde SAINDO, que é o que a parcela 60 passou a
+  cobrar no export. **Três comandos vizinhos guardados e um não: o errado é o um** (a
+  lição da parcela 64, aplicada de novo).
+  (c) **A direção não via a pendência que a sala passou a ver.**
+  `AssuntoDirecao.InfusaoAguardando` conta só folhas `Assinada` com item sem checagem, e a
+  folha ENCERRADA aguardando a 2ª assinatura fica de fora por construção — o alerta novo
+  (`InfusaoSemAssinatura`) contradizia, por omissão, o argumento que criou o bloco na
+  parcela 61: *a sala vê a própria fila, a direção é quem vê a soma*. Os dois alertas são
+  **separados**, nunca somados: um se resolve administrando o que falta, o outro com o
+  certificado de quem executou.
+  ⚠️ E a varredura teve um **falso positivo meu que vale registrar**: contar `Exigir(` por
+  arquivo acusou `MeuDiaViewModel` de ter 11 comandos e nenhuma guarda. Ele usa
+  `ExigirAlgum(` — o par de `PodeAlgum` que a parcela 61 criou —, e as quatro escritas
+  estão guardadas. **Varredura textual de barreira tem de conhecer TODAS as formas da
+  barreira**, senão ela acusa o arquivo que está certo e ninguém confia mais nela.

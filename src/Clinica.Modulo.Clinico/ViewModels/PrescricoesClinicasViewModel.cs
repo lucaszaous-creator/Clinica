@@ -453,6 +453,11 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        // A barreira que faltava. Emitir, assinar e cancelar já a tinham; enviar não —
+        // e enviar é DADO DE SAÚDE SAINDO para fora, que é o que a parcela 60 passou a
+        // cobrar no export. Três comandos vizinhos guardados e um não: o errado é o um.
+        SessaoUsuario.Atual.Exigir(linha.AcessoParaMexer, "enviar documento clínico");
+
         if (!linha.PodeEnviar)
         {
             Mensagem = linha.Cancelado
