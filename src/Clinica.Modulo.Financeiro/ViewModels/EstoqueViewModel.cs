@@ -105,7 +105,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
     {
         new Janelas.ValidadesEstoqueWindow(this)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         }.ShowDialog();
     }
 
@@ -288,7 +288,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
         var vm = new ItemEstoqueEdicaoViewModel(_estoque, itemId);
         var janela = new Janelas.ItemEstoqueWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -306,7 +306,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
         var vm = new MovimentoEstoqueViewModel(_estoque, linha.Id, linha.Nome);
         var janela = new Janelas.MovimentoEstoqueWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

@@ -15,6 +15,9 @@ namespace Clinica.Clinico.ViewModels;
 public sealed class LinhaSemana
 {
     public required int AgendamentoId { get; init; }
+
+    /// <summary>Dia do horário — viaja para o posto porque o casamento sessão × evolução cai para paciente + data.</summary>
+    public required DateOnly Data { get; init; }
     public required int PacienteId { get; init; }
     public required string Paciente { get; init; }
     public required string Hora { get; init; }
@@ -26,6 +29,7 @@ public sealed class LinhaSemana
     public static LinhaSemana De(SessaoDoDia s) => new()
     {
         AgendamentoId = s.AgendamentoId,
+        Data = DateOnly.FromDateTime(s.DataHora),
         PacienteId = s.PacienteId,
         Paciente = s.PacienteNome,
         Hora = s.DataHora.ToString("HH:mm"),
@@ -219,7 +223,8 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
     {
         if (linha is null) return;
 
-        _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId);
+        _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,
+                      dataDoHorario: linha.Data);
         NavegacaoSuite.Ir(ModuloClinico.ChavePaciente);
     }
 }

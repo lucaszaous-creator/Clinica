@@ -401,7 +401,7 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
             {
                 DataContext = new VersoesEvolucaoViewModel(
                     _escopos, linha.EvolucaoId, $"{linha.Data} — {Paciente}"),
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             }.ShowDialog();
         }
         catch (Exception ex)
@@ -429,7 +429,7 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
 
             new AnexosSessaoWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             }.ShowDialog();
 
             // A contagem do clipe muda com o que aconteceu na janela.
@@ -472,7 +472,7 @@ public sealed partial class ProntuarioClinicoViewModel : ObservableObject
             var vm = new ProblemaEdicaoViewModel(_escopos, PacienteId, existente);
             var janela = new ProblemaWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
 
             if (janela.ShowDialog() != true) return;

@@ -58,11 +58,28 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
+                <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade
+                     (a regra da parcela 62). A cor fixa de erro pintava de vermelho a
+                     confirmação "Atendimento registrado — 2 guia(s) no faturamento": a
+                     cor dizia "falhou" enquanto o texto dizia "registrado". -->
                 <TextBlock Grid.Column="0" Text="{Binding Mensagem}" TextWrapping="Wrap"
                            VerticalAlignment="Center" HorizontalAlignment="Left"
                            MaxWidth="560" Margin="0,0,16,0"
-                           Foreground="{StaticResource Brush.Erro}"
-                           Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}" />
+                           Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MensagemEhAviso}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Aviso}" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal"
                             VerticalAlignment="Center" HorizontalAlignment="Right">

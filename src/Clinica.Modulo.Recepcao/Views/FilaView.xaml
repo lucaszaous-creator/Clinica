@@ -157,16 +157,32 @@
                                 VerticalAlignment="Center" Margin="6,0,0,0"
                                 ToolTip="Termo do procedimento, voltar etapa, falta e cancelamento"
                                 Click="AoAbrirMenuDoCartao" />
+                        <!-- O rótulo muda com a etapa, e o BIT muda junto: "Chegou",
+                             "Chamar" e "Entrou" são movimento de fila (EditarAgenda OU
+                             MovimentarFila); "Concluir" é do balcão e pede EditarAgenda
+                             estrito, a mesma conta do Exigir em FinalizarAsync. -->
                         <Button Content="{Binding ProximoPasso}"
-                                Style="{StaticResource BotaoPequeno}"
                                 HorizontalAlignment="Left" VerticalAlignment="Center"
-                                IsEnabled="{Binding DataContext.PodeEditarAgenda,
-                                            RelativeSource={RelativeSource AncestorType=UserControl}}"
                                 Visibility="{Binding TemProximoPasso,
                                              Converter={StaticResource BoolParaVisibilidade}}"
                                 Command="{Binding DataContext.AvancarCommand,
                                           RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}" />
+                                CommandParameter="{Binding}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource BotaoPequeno}">
+                                    <Setter Property="IsEnabled"
+                                            Value="{Binding DataContext.PodeEditarAgenda,
+                                                    RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding ProximoPassoEhConcluir}" Value="True">
+                                            <Setter Property="IsEnabled"
+                                                    Value="{Binding DataContext.PodeConcluirSessao,
+                                                            RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                     </DockPanel>
                 </StackPanel>
             </Border>

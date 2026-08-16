@@ -257,7 +257,7 @@ public sealed partial class ResultadoViewModel : ObservableObject
         var vm = new OrcamentoEdicaoViewModel(_escopos, Mes.Year, Mes.Month);
         var janela = new Janelas.OrcamentoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

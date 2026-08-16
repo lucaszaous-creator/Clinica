@@ -20,6 +20,20 @@ public sealed class LinhaDocumentoClinico
     public required int PacienteId { get; init; }
     public required string Numero { get; init; }
     public required string Tipo { get; init; }
+
+    /// <summary>
+    /// O tipo como ENUM, e o bit que ele exige. A linha carregava só o rótulo, e por isso
+    /// os comandos caíam num bit fixo — ver <see cref="AcessoParaMexer"/>.
+    /// </summary>
+    public required TipoDocumentoClinico TipoClinico { get; init; }
+
+    /// <summary>
+    /// A permissão que ESTE tipo de papel exige (receita pede Prescrever; declaração de
+    /// comparecimento, não). É a mesma resolução da ficha e da central — três telas
+    /// emitem os mesmos documentos, e um bit fixo aqui abria pelo app do médico o que as
+    /// outras duas fecham (a lição da parcela 59: a regra mora no CATÁLOGO).
+    /// </summary>
+    public required Permissao AcessoParaMexer { get; init; }
     public required string Data { get; init; }
     public required string Profissional { get; init; }
     public required string Codigo { get; init; }
@@ -65,6 +79,8 @@ public sealed class LinhaDocumentoClinico
         PacienteId = d.PacienteId,
         Numero = d.Numero,
         Tipo = TipoDocumentoInfo.Rotular(d.Tipo),
+        TipoClinico = d.Tipo,
+        AcessoParaMexer = CentralDocumentosService.AcessoParaEmitir(d.Tipo),
         Data = d.Data.ToString("dd/MM/yyyy"),
         Profissional = d.Profissional?.Rotulo ?? "—",
         Codigo = d.CodigoVerificacao,
@@ -281,12 +297,16 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            // O bit do TIPO que está sendo emitido — não um fixo. Receita pede
+            // `Prescrever`; declaração de comparecimento, não (parcela 59/60).
+            SessaoUsuario.Atual.Exigir(
+                CentralDocumentosService.AcessoParaEmitir(tipoDocumento),
+                "emitir documento clínico");
 
             var vm = new DocumentoEdicaoViewModel(_escopos, _pacienteId, tipoDocumento);
             var janela = new DocumentoWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
 
             var concluiu = janela.ShowDialog() == true;
@@ -370,7 +390,10 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "assinar documento clínico");
+            // O bit do TIPO, não um fixo: com `EditarProntuario` aqui, quem não pode
+            // prescrever assinava RECEITA pelo app do médico — enquanto a mesma receita,
+            // pela ficha ou pela central, exige `Prescrever` (parcela 59/60).
+            SessaoUsuario.Atual.Exigir(linha.AcessoParaMexer, "assinar documento clínico");
 
             var certificado = EscolherCertificadoWindow.Perguntar(
                 $"Assinar {linha.Tipo.ToLowerInvariant()} {linha.Numero}",
@@ -489,7 +512,8 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
 
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            // Cancelar é do mesmo peso de emitir, e cobra o mesmo bit do TIPO.
+            SessaoUsuario.Atual.Exigir(linha.AcessoParaMexer, "cancelar documento clínico");
 
             var motivo = _dialogo.PerguntarTexto(
                 "Cancelar documento",

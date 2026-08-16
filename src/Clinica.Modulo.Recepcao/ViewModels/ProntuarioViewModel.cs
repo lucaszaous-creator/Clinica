@@ -362,7 +362,7 @@ public sealed partial class ProntuarioViewModel : ObservableObject
             var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
             var janela = new Janelas.EvolucaoWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
 
             if (janela.ShowDialog() != true) return;

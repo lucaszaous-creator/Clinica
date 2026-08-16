@@ -758,7 +758,14 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task AbrirAutorizacaoAsync(int? autorizacaoId)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "registrar autorização");
+        // ⚠️ `EditarPaciente`, e não `EditarProntuario`: a autorização é a COTA de sessões
+        // do convênio — dado administrativo, do lado cadastral do corte da parcela 49.
+        // Com o bit do prontuário aqui, o perfil Recepção (que não o tem) via o botão
+        // ACESO — o XAML acende com PodeEditarCadastro — clicava e levava recusa, no
+        // fluxo que a parcela 48 construiu justamente para o balcão ("quem recebe a senha
+        // da operadora é quem atende o telefone"). A janela que ele abre sempre gravou com
+        // `EditarPaciente`: as duas barreiras discordavam entre si.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "registrar autorização");
 
         if (PacienteId == 0)
         {
@@ -772,7 +779,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
         var janela = new Janelas.AutorizacaoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() == true)
@@ -790,7 +797,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task ExcluirAutorizacaoAsync(SaldoAutorizacao? linha)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "excluir autorização");
+        SessaoUsuario.Atual.Exigir(Permissao.EditarPaciente, "excluir autorização");
 
         if (linha is null) return;
 
@@ -1004,7 +1011,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var vm = new PacienteEdicaoViewModel(_escopos, PacienteId);
         var janela = new Janelas.PacienteWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -1057,7 +1064,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
         var janela = new Janelas.EvolucaoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -1144,7 +1151,7 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
         var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true)
@@ -1403,7 +1410,12 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportarDadosAsync()
     {
-        SessaoUsuario.Atual.Exigir(Permissao.VerFichaPaciente, "exportar os dados do titular");
+        // ⚠️ `VerProntuario`, e não `VerFichaPaciente`: o que sai daqui é o prontuário
+        // INTEIRO em texto — evolução, avaliações, medidas. Com o bit da ficha, Financeiro
+        // e Faturista (que têm contato, não saúde) exportavam dado sensível para arquivo.
+        // É a decisão escrita na parcela 26 ("o balcão exporta com VerProntuario, a direção
+        // elimina") e a mesma regra do export CSV da parcela 60.
+        SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "exportar os dados do titular");
 
         if (PacienteId == 0) return;
 

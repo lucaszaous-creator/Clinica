@@ -9,6 +9,7 @@
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <DockPanel Margin="24">
@@ -34,7 +35,9 @@
                 <TextBlock Grid.Column="0" Text="{Binding LimiteTexto}" VerticalAlignment="Center"
                            TextWrapping="Wrap" Margin="0,0,12,0"
                            Foreground="{StaticResource Brush.Texto.Secundario}" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <!-- Centralizado de propósito: sem isto, a linha de limite que quebra em
+                     duas estica a linha da Grid e o WPF estica os BOTÕES junto. -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="Fechar" IsCancel="True"
                             Style="{StaticResource BotaoSecundario}" MinWidth="110" />
                     <Button Content="Anexar arquivo" Margin="8,0,0,0" MinWidth="150"
@@ -44,9 +47,21 @@
             </Grid>
         </Border>
 
+        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade. Amarrar a
+             visibilidade a MensagemEhErro escondia junto toda mensagem de ÊXITO (parcela 62). -->
         <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}"
-                Style="{StaticResource AlertaPerigo}">
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 

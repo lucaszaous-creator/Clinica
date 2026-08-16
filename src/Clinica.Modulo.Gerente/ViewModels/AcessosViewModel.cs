@@ -7,6 +7,7 @@ using Clinica.Gerente.Janelas;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Clinica.Desktop.Shell.Componentes;
 
 namespace Clinica.Gerente.ViewModels;
 
@@ -134,7 +135,7 @@ public sealed partial class AcessosViewModel : ObservableObject
         var janela = new UsuarioWindow(vm)
         {
             // Qualificado: dentro de Clinica.*, "Application" é o namespace Clinica.Application.
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() == true)

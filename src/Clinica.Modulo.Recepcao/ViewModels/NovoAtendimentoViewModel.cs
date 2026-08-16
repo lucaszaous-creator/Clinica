@@ -264,7 +264,35 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [NotifyPropertyChangedFor(nameof(TemMensagem))]
     private string? _mensagem;
 
+    /// <summary>
+    /// A GRAVIDADE da mensagem, separada do texto. A barra de ação pintava tudo de
+    /// vermelho de erro — inclusive a confirmação "Atendimento registrado — 2 guia(s) no
+    /// faturamento", que é o desfecho BOM: a cor dizia "falhou" enquanto o texto dizia
+    /// "registrado", e quem lê a cor primeiro lança o atendimento de novo. Três estados
+    /// porque o meio existe de verdade: a guia nasceu e o pacote/caixa não — isso não é
+    /// erro (só o atendimento derruba a operação, parcela 6) nem é sucesso limpo.
+    /// </summary>
+    [ObservableProperty] private bool _mensagemEhErro;
+
+    /// <summary>O desfecho parcial: o que a clínica não pode perder ACONTECEU, e sobrou pendência.</summary>
+    [ObservableProperty] private bool _mensagemEhAviso;
+
     public bool TemMensagem => !string.IsNullOrWhiteSpace(Mensagem);
+
+    /// <summary>Escreve a mensagem e a gravidade juntas — separá-las é como a cor ficou mentindo.</summary>
+    private void Avisar(string texto, bool erro = false, bool aviso = false)
+    {
+        Mensagem = texto;
+        MensagemEhErro = erro;
+        MensagemEhAviso = aviso;
+    }
+
+    private void LimparMensagem()
+    {
+        Mensagem = null;
+        MensagemEhErro = false;
+        MensagemEhAviso = false;
+    }
 
     /// <summary>Aviso de guias pendentes do paciente selecionado (para a secretária cobrar na hora). Nulo = sem pendências.</summary>
     [ObservableProperty]
@@ -972,23 +1000,23 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
         if (Seletor.Selecionado is not { } paciente)
         {
-            Mensagem = "Selecione o paciente.";
+            Avisar("Selecione o paciente.", erro: true);
             return;
         }
         if (ModalidadeSelecionada is null)
         {
-            Mensagem = "Selecione a modalidade.";
+            Avisar("Selecione a modalidade.", erro: true);
             return;
         }
         if (ModalidadeConsulta && EspecialidadeSelecionada is null)
         {
-            Mensagem = "Informe a especialidade da consulta.";
+            Avisar("Informe a especialidade da consulta.", erro: true);
             return;
         }
 
         if (!TimeOnly.TryParse(Hora, out var hora))
         {
-            Mensagem = "Informe a hora da sessão no formato HH:mm.";
+            Avisar("Informe a hora da sessão no formato HH:mm.", erro: true);
             return;
         }
 
@@ -1052,7 +1080,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         catch (Exception ex)
         {
             LogSuite.Registrar("Novo atendimento — encaixe não pôde ser marcado", ex);
-            Mensagem = $"Não foi possível marcar o horário: {ex.Message}";
+            Avisar($"Não foi possível marcar o horário: {ex.Message}", erro: true);
             Ocupado = false;
             return;
         }
@@ -1092,9 +1120,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         catch (Exception ex)
         {
             LogSuite.Registrar("Novo atendimento — atendimento não pôde ser registrado", ex);
-            Mensagem = $"O horário foi marcado, mas o atendimento NÃO foi registrado e "
-                       + $"nenhuma guia foi gerada: {ex.Message}. O paciente está na Fila — "
-                       + "conclua por lá.";
+            Avisar($"O horário foi marcado, mas o atendimento NÃO foi registrado e "
+                   + $"nenhuma guia foi gerada: {ex.Message}. O paciente está na Fila — "
+                   + "conclua por lá.", erro: true);
             return;
         }
         finally
@@ -1114,9 +1142,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         // ensina a fechar janela sem ler.
         if (!registro.TemDecisao)
         {
-            Mensagem = registro.GuiasGeradas == 0
+            Avisar(registro.GuiasGeradas == 0
                 ? "Atendimento registrado. Este convênio não gera guia (particular)."
-                : $"Atendimento registrado — {registro.GuiasGeradas} guia(s) no faturamento.";
+                : $"Atendimento registrado — {registro.GuiasGeradas} guia(s) no faturamento.");
             return;
         }
 
@@ -1125,9 +1153,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             var vm = new FechamentoSessaoViewModel(_scopeFactory, agendamentoId);
             var janela = new Janelas.FechamentoSessaoWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.Windows
-                            .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
-                        ?? System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
 
             if (janela.ShowDialog() != true || janela.Resultado is not { } resultado)
@@ -1135,8 +1161,9 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 // Fechou sem decidir. A guia está feita — o que ficou para trás é o pacote
                 // e o caixa, e a mensagem diz exatamente isso. Não é mais meio-lançamento:
                 // é lançamento completo com um passo opcional pendente.
-                Mensagem = "Atendimento registrado e guia gerada. O pacote/caixa NÃO foram "
-                           + "registrados — dá para resolver pela Fila ou pelo Financeiro.";
+                Avisar("Atendimento registrado e guia gerada. O pacote/caixa NÃO foram "
+                       + "registrados — dá para resolver pela Fila ou pelo Financeiro.",
+                       aviso: true);
                 return;
             }
 
@@ -1148,8 +1175,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         catch (Exception ex)
         {
             LogSuite.Registrar("Novo atendimento — fechamento não pôde ser concluído", ex);
-            Mensagem = $"Atendimento registrado e guia gerada, mas o pacote/caixa falhou: "
-                       + $"{ex.Message}. Resolva pela Fila ou pelo Financeiro.";
+            Avisar($"Atendimento registrado e guia gerada, mas o pacote/caixa falhou: "
+                   + $"{ex.Message}. Resolva pela Fila ou pelo Financeiro.", aviso: true);
         }
     }
 
@@ -1241,7 +1268,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         }
         catch (Exception ex)
         {
-            Mensagem = $"Não foi possível gerar a capa: {ex.Message}";
+            // Degradar é certo; degradar SEM RASTRO não é (a regra do log da casa). Era o
+            // único catch desta tela que não registrava, e a capa é o papel que vai para o
+            // convênio — sem a linha no log, "não foi possível" é o fim da investigação.
+            Application.Diagnostico.Registrar(
+                "Recepção — capa de faturamento não pôde ser gerada", ex);
+            Avisar($"Não foi possível gerar a capa: {ex.Message}", erro: true);
             return;
         }
 

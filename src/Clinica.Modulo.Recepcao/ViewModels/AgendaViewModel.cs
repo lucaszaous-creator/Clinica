@@ -414,6 +414,15 @@ public sealed partial class AgendaViewModel : ObservableObject
             var doDia = await agenda.DoDiaAsync(dia);
             var profissionais = await equipe.ProfissionaisAtivosAsync();
 
+            // As salas são lidas AQUI, com o resto — e não lá embaixo, no ramo que as usa.
+            // Depois do Clear das colunas, qualquer await deixa a grade vazia na tela pelo
+            // tempo do roundtrip, e a releitura de fundo (1 min, silenciosa) fazia isso
+            // debaixo do olho de quem marca horário. É a regra da parcela 62: entre o
+            // Clear() e o último Add não pode haver await.
+            var salas = AgruparPorSala
+                ? await equipe.SalasAtivasAsync()
+                : [];
+
             // Chegou tarde: outro clique já pediu uma carga mais nova.
             if (geracao != _geracaoCarga) return;
 
@@ -445,9 +454,6 @@ public sealed partial class AgendaViewModel : ObservableObject
             // ===== A grade por SALA (parcela 63) =====
             if (AgruparPorSala)
             {
-                var salas = await equipe.SalasAtivasAsync();
-                if (geracao != _geracaoCarga) return;
-
                 SoMinhaAgenda = false;
                 SemSalas = salas.Count == 0;
 

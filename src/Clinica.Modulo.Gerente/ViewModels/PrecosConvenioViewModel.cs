@@ -8,6 +8,7 @@ using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Clinica.Desktop.Shell.Componentes;
 
 namespace Clinica.Gerente.ViewModels;
 
@@ -226,7 +227,7 @@ public sealed partial class PrecosConvenioViewModel : ObservableObject
         var vm = new PrecoEdicaoViewModel(_escopos, precoId);
         var janela = new Janelas.PrecoConvenioWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

@@ -172,19 +172,29 @@ public partial class FilaView : UserControl
         // A PORTA do termo (parcela 66). Vem primeira quando há termo pendente: o alerta do
         // check-in diz que falta assinar, e alerta sem porta no mesmo app é pior que alerta
         // nenhum — ele ensina a pessoa a ignorá-lo (a lição da parcela 48).
+        // ⚠️ A visibilidade é ESTADO **e** PERMISSÃO. O bloco não segue um `IsEnabled` só
+        // porque os três atos pedem bits diferentes — colher o termo é
+        // `ColherAssinaturaPaciente` (a técnica de enfermagem o tem e não tem o da
+        // agenda), mover a fila é `EditarAgenda` OU `MovimentarFila`, e falta/cancelamento
+        // são do balcão, `EditarAgenda` estrito. Sem esta metade, o item aparecia aceso e
+        // a recusa só chegava depois do clique.
         Acrescentar("Colher o termo do procedimento…", vm.ColherTermoCommand,
-            cartao.TemTermoPendente);
+            cartao.TemTermoPendente && vm.PodeColherTermo);
 
         if (menu.Items.Count > 0) menu.Items.Add(new Separator());
 
-        Acrescentar("Voltar uma etapa", vm.VoltarEtapaCommand, cartao.PodeVoltar);
+        Acrescentar("Voltar uma etapa", vm.VoltarEtapaCommand,
+            cartao.PodeVoltar && vm.PodeEditarAgenda);
         Acrescentar("Entrou (pular a chamada)", vm.IniciarAtendimentoCommand,
-            cartao.PodeIniciar && cartao.Etapa != EtapaFila.Chamado);
+            cartao.PodeIniciar && cartao.Etapa != EtapaFila.Chamado && vm.PodeEditarAgenda);
 
-        if (menu.Items.Count > 0 && cartao.EmAberto) menu.Items.Add(new Separator());
+        if (menu.Items.Count > 0 && cartao.EmAberto && vm.PodeConcluirSessao)
+            menu.Items.Add(new Separator());
 
-        Acrescentar("Marcar falta", vm.MarcarFaltaCommand, cartao.EmAberto);
-        Acrescentar("Cancelar o horário", vm.CancelarCommand, cartao.EmAberto);
+        Acrescentar("Marcar falta", vm.MarcarFaltaCommand,
+            cartao.EmAberto && vm.PodeConcluirSessao);
+        Acrescentar("Cancelar o horário", vm.CancelarCommand,
+            cartao.EmAberto && vm.PodeConcluirSessao);
 
         if (menu.Items.Count == 0)
         {

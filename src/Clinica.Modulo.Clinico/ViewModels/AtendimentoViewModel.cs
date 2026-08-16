@@ -151,15 +151,24 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     private async Task ColherTermoAsync()
     {
         // A barreira que IMPEDE, e ela DIZ por que recusou (a lição da parcela 41).
+        //
+        // ⚠️ INLINE, não snackbar. A convenção do projeto reserva o snackbar para a
+        // confirmação passageira; recusa de permissão é o que exige CORREÇÃO — e ela some
+        // em 4s, então quem olhou o paciente no meio tempo perde o motivo. A frase leva a
+        // INSTRUÇÃO junto, como a mesma recusa já faz na Recepção: sem dizer o nome do
+        // acesso, a pessoa não tem o que pedir à direção.
         if (!SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente))
         {
-            _snackbar.Erro("Você não tem permissão para colher a assinatura do paciente.");
+            Mensagem = "Você não tem permissão para colher a assinatura do paciente. "
+                       + "Peça à direção o acesso \"Colher assinatura do paciente\".";
+            MensagemEhErro = true;
             return;
         }
 
         if (PacienteId == 0)
         {
-            _snackbar.Info("Escolha um paciente antes de colher o termo.");
+            Mensagem = "Escolha um paciente antes de colher o termo.";
+            MensagemEhErro = true;
             return;
         }
 
@@ -221,9 +230,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
         var janela = new ModelosEvolucaoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.Windows
-                        .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
-                    ?? System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true || janela.Escolhido is not { } m) return;
@@ -350,8 +357,17 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             // de novo tem de CONTINUAR o registro, nunca criar um segundo para a mesma
             // sessão — dois registros do mesmo atendimento é o defeito que faz a clínica
             // desconfiar do prontuário inteiro.
+            // MESMA definição que o cartão do Meu dia usa para dizer "já escrita"
+            // (ConsultorioService.EvolucaoDoHorario), inclusive o caminho de baixo por
+            // paciente + data. Sem ele, a evolução escrita pela RECEPÇÃO — que não conhece
+            // o agendamento — não seria encontrada aqui: o cartão diria "Ver registro", o
+            // formulário abriria EM BRANCO e o Salvar criaria uma SEGUNDA evolução do
+            // mesmo atendimento, que é o defeito que faz a clínica desconfiar do
+            // prontuário inteiro.
             var doHorario = _foco.AgendamentoId is { } agendamentoId
-                ? sessoes.FirstOrDefault(e => e.AgendamentoId == agendamentoId)
+                ? ConsultorioService.EvolucaoDoHorario(
+                    sessoes, agendamentoId, PacienteId,
+                    _foco.DataDoHorario ?? DateOnly.FromDateTime(DateTime.Today))
                 : null;
 
             if (doHorario is not null) Preencher(doHorario);
@@ -360,7 +376,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             foreach (var e in sessoes.Where(e => e.Id != EvolucaoId).Take(SessoesAnterioresVisiveis))
                 Anteriores.Add(LinhaSessaoAnterior.De(e));
 
-            await CarregarAlertasAsync(scope.ServiceProvider);
+            await CarregarAlertasAsync(scope.ServiceProvider, geracao);
             if (geracao != _geracaoCarga) return;
 
             // O mapa vem depois de resolvida a evolução do horário: ele precisa saber
@@ -401,10 +417,16 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// porque a leitura administrativa quebrou — quem está na sala é o paciente, e a
     /// sessão acontece de qualquer forma.
     /// </summary>
-    private async Task CarregarAlertasAsync(IServiceProvider servicos)
+    private async Task CarregarAlertasAsync(IServiceProvider servicos, int geracao)
     {
-        Alertas.Clear();
-        AlertasClinicos.Clear();
+        // As listas são montadas LOCALMENTE e só publicadas no fim, sob a guarda de
+        // geração. Entre o `Clear()` e o último `Add` não pode haver await (a lição da
+        // parcela 62): com três leituras no meio, trocar de paciente enquanto a primeira
+        // está no ar intercalava a alergia de um com a carteirinha do outro — e a lista
+        // de alergia é a que menos pode falar do paciente errado.
+        var clinicos = new List<LinhaAlertaClinico>();
+        var administrativos = new List<LinhaAlertaClinico>();
+        SituacaoTermo? pendente = null;
 
         // O prontuário falha SEPARADO do administrativo: uma consulta quebrada não pode
         // apagar a outra lista, e "sem alergia registrada" nunca pode ser o que a tela diz
@@ -414,7 +436,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             var problemas = servicos.GetRequiredService<ProblemaPacienteService>();
 
             foreach (var p in await problemas.AlertasAsync(PacienteId))
-                AlertasClinicos.Add(new LinhaAlertaClinico
+                clinicos.Add(new LinhaAlertaClinico
                 {
                     Texto = p.Natureza == NaturezaProblema.Alergia
                         ? $"ALERGIA — {p.Rotulo}"
@@ -434,7 +456,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — lista de problemas do paciente não pôde ser lida", ex);
 
-            AlertasClinicos.Add(new LinhaAlertaClinico
+            clinicos.Add(new LinhaAlertaClinico
             {
                 Texto = "Não foi possível ler a lista de problemas deste paciente — ela "
                         + "está vazia por falha de leitura, não porque não haja alergia "
@@ -454,7 +476,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             // com frequência, e pintar as duas da cor da pior faria a segunda parecer
             // impedimento — que é justamente o que a parcela 27 decidiu que ela não é.
             foreach (var a in resposta.Alertas)
-                Alertas.Add(new LinhaAlertaClinico
+                administrativos.Add(new LinhaAlertaClinico
                 {
                     Texto = a.Descricao,
                     Grave = a.Urgencia == NivelUrgencia.Vermelho
@@ -471,9 +493,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             var situacoes = await termos.SituacaoDoDiaAsync(
                 PacienteId, DateOnly.FromDateTime(Data));
 
-            TermoPendente = situacoes.FirstOrDefault(s => s.Pendente);
-            OnPropertyChanged(nameof(TemTermoPendente));
-            OnPropertyChanged(nameof(PodeColherTermo));
+            pendente = situacoes.FirstOrDefault(s => s.Pendente);
         }
         catch (Exception ex)
         {
@@ -482,7 +502,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
 
             // Terceiro estado: a lista vazia por falha não pode se parecer com "nada a
             // avisar". A frase entra na própria lista, que é onde o profissional olha.
-            Alertas.Add(new LinhaAlertaClinico
+            administrativos.Add(new LinhaAlertaClinico
             {
                 Texto = "Não foi possível conferir carteirinha, cota e pendências deste "
                         + "paciente — a lista está vazia por falha de leitura, não porque "
@@ -490,6 +510,20 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                 Grave = false
             });
         }
+
+        // Chegou tarde: o posto já está em outro paciente. Publicar aqui seria mostrar a
+        // alergia de quem saiu ao lado do nome de quem entrou.
+        if (geracao != _geracaoCarga) return;
+
+        AlertasClinicos.Clear();
+        foreach (var a in clinicos) AlertasClinicos.Add(a);
+
+        Alertas.Clear();
+        foreach (var a in administrativos) Alertas.Add(a);
+
+        TermoPendente = pendente;
+        OnPropertyChanged(nameof(TemTermoPendente));
+        OnPropertyChanged(nameof(PodeColherTermo));
     }
 
     private void Preencher(Evolucao e)
@@ -631,7 +665,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         {
             new MapaCorporalWindow(Mapa, $"Mapa corporal — {Paciente}")
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             }.ShowDialog();
 
             // O resumo do rodapé muda com o que foi marcado lá dentro.
@@ -674,7 +708,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
             var janela = new DocumentoWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
 
             if (janela.ShowDialog() != true) return;

@@ -1,4 +1,5 @@
 using System.Windows;
+using Clinica.Desktop.Shell.Componentes;
 
 namespace Clinica.Desktop.Controls;
 
@@ -43,7 +44,7 @@ public sealed class DialogoService : IDialogoService
         var janela = new PromptWindow(titulo, pergunta, textoInicial)
         {
             // Qualificado: dentro de Clinica.*, "Application" é o namespace Clinica.Application.
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
         return janela.ShowDialog() == true ? janela.Resposta : null;
     }

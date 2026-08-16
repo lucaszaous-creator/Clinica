@@ -324,7 +324,7 @@ public sealed partial class RepassesViewModel : ObservableObject
     {
         new Janelas.RegrasRepasseWindow(this)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         }.ShowDialog();
     }
 
@@ -336,7 +336,7 @@ public sealed partial class RepassesViewModel : ObservableObject
         var vm = new RegraRepasseViewModel(_repasses, _equipe);
         var janela = new Janelas.RegraRepasseWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

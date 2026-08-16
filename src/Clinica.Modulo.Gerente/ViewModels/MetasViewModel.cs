@@ -6,6 +6,7 @@ using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Clinica.Desktop.Shell.Componentes;
 
 namespace Clinica.Gerente.ViewModels;
 
@@ -227,7 +228,7 @@ public sealed partial class MetasViewModel : ObservableObject
         var vm = new MetaEdicaoViewModel(_escopos, Ano, linha);
         var janela = new Janelas.MetaWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

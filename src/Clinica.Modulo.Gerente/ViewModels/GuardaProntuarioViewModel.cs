@@ -294,7 +294,11 @@ public sealed partial class GuardaProntuarioViewModel : ObservableObject
     {
         try
         {
-            SessaoUsuario.Atual.Exigir(Permissao.VerAuditoria, "exportar o prontuário");
+            // O que sai daqui é PRONTUÁRIO — de um paciente ou da clínica inteira. O bit
+            // é o do dado (`VerProntuario`), como no export da ficha e no CSV clínico da
+            // parcela 60: `VerAuditoria` era um terceiro bit para a mesma família de ato,
+            // e ler a trilha não é a mesma coisa que levar a evolução de todo mundo.
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "exportar o prontuário");
 
             // Guarda que DIZ por que não dá (a lição da parcela 41): botão que volta calado
             // faz a pessoa concluir que o sistema quebrou.

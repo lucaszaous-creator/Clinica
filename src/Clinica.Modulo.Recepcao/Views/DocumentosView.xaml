@@ -129,21 +129,29 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Width="248" Margin="0,0,10,10" Padding="12"
+                                <!-- Cartão em WrapPanel usa Height, não MinHeight (parcela 47):
+                                     com altura pedida por cada filho, um rótulo que quebra em
+                                     duas linhas deixa a fileira com a base serrilhada. E altura
+                                     fixa anda junto de teto no texto (parcela 50), senão ela
+                                     decepa o que não coube. -->
+                                <Border Width="248" Height="222" Margin="0,0,10,10" Padding="12"
                                         CornerRadius="{StaticResource Raio.Medio}"
                                         BorderThickness="1"
                                         BorderBrush="{StaticResource Brush.Borda}"
                                         Background="{StaticResource Brush.Superficie}">
                                     <StackPanel>
                                         <TextBlock Text="{Binding Grupo}"
-                                                   Style="{StaticResource CardKpi.Rotulo}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                   Style="{StaticResource CardKpi.Rotulo}" TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                   MaxHeight="20" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
                                                    FontSize="{StaticResource Fonte.Corpo}" TextWrapping="Wrap"
-                                                   Margin="0,2,0,4" />
+                                                   Margin="0,2,0,4"
+                                                   MaxHeight="40" TextTrimming="CharacterEllipsis" />
                                         <TextBlock Text="{Binding Descricao}"
                                                    Style="{StaticResource TextoSuave}"
                                                    FontSize="{StaticResource Fonte.Legenda}"
-                                                   TextWrapping="Wrap" MinHeight="52" />
+                                                   TextWrapping="Wrap" Height="52"
+                                                   TextTrimming="CharacterEllipsis" />
 
                                         <!-- Diz o que FALTA em vez de deixar o botão aceso
                                              e só depois avisar: descobrir o requisito
@@ -152,6 +160,7 @@
                                                    Style="{StaticResource TextoSuave}"
                                                    FontSize="{StaticResource Fonte.Legenda}"
                                                    TextWrapping="Wrap" Margin="0,6,0,0"
+                                                   MaxHeight="34" TextTrimming="CharacterEllipsis"
                                                    FontStyle="Italic" />
 
                                         <Button Content="{Binding AcaoRotulo}"
@@ -171,6 +180,10 @@
             </Border>
 
             <Border Grid.Row="1" Style="{StaticResource Card}">
+                <!-- O Grid hospeda a SOBREPOSIÇÃO: o estado vazio explica o vazio DESTA
+                     região, não o da página (a lição das parcelas 58 e 64). E é UM estado
+                     vazio por pergunta — a faixa que repetia a mesma frase saiu. -->
+                <Grid>
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBlock Text="O que já saiu" Style="{StaticResource H3}"
@@ -178,12 +191,6 @@
                         <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
                                    HorizontalAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
-
-                    <Border DockPanel.Dock="Top" Style="{StaticResource AlertaInfo}"
-                            Visibility="{Binding SemPapel, Converter={StaticResource BoolParaVisibilidade}}">
-                        <TextBlock TextWrapping="Wrap"
-                                   Text="Nenhum papel emitido no período escolhido." />
-                    </Border>
 
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
                         <Grid.ColumnDefinitions>
@@ -317,15 +324,16 @@
                         </ItemsControl>
                     </ScrollViewer>
                 </DockPanel>
+                <ctrl:EstadoDaTela Itens="{Binding Emitidas}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE8A5;"
+                                   TextoCarregando="Lendo os documentos…"
+                                   Titulo="Nenhum documento emitido"
+                                   Descricao="Documento cancelado aparece marcado, nunca sumindo." />
+                </Grid>
             </Border>
         </Grid>
     </DockPanel>
-    <ctrl:EstadoDaTela Itens="{Binding Emitidas}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE8A5;"
-                       TextoCarregando="Lendo os documentos…"
-                       Titulo="Nenhum documento emitido"
-                       Descricao="Documento cancelado aparece marcado, nunca sumindo." />
     </Grid>
 </UserControl>

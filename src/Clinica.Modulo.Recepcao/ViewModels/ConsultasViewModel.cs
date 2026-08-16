@@ -321,8 +321,6 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
             using var scope = _escopos.CreateScope();
             var service = scope.ServiceProvider.GetRequiredService<ConsultaService>();
             await service.RenovarAsync(item.PacienteId, DateOnly.FromDateTime(DateTime.Today));
-
-            Info($"Consulta de {item.PacienteNome} renovada.");
         }
         catch (Exception ex)
         {
@@ -331,7 +329,13 @@ public partial class ConsultasViewModel : ObservableObject, ICarregarAoAbrir
             return;
         }
 
+        // ⚠️ A CONFIRMAÇÃO VEM DEPOIS DO RECARREGAR, e é essa ordem que a faz existir:
+        // `RecarregarAsync` começa zerando `Mensagem`, então escrevê-la antes a apagava
+        // milissegundos depois. A lista piscava e nada ficava na tela — e como renovar
+        // gera consulta no faturamento, a dúvida "será que foi?" leva ao segundo clique.
+        // Só o SUCESSO sumia: o erro sobrevive porque o catch volta antes do recarregar.
         await RecarregarAsync();
+        Info($"Consulta de {item.PacienteNome} renovada.");
     }
 
     private void Erro(string mensagem)

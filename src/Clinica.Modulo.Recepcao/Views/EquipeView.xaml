@@ -34,6 +34,9 @@
 
             <!-- ============ Profissionais ============ -->
             <Border Grid.Column="0" Style="{StaticResource Card}">
+                <!-- O Grid hospeda a SOBREPOSIÇÃO: o estado vazio explica o vazio DESTA coluna,
+                     não o da página (a lição das parcelas 58 e 64). -->
+                <Grid>
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
                         <TextBlock Text="Profissionais" Style="{StaticResource H3}" Margin="0"
@@ -41,19 +44,6 @@
                         <Button Content="Novo profissional" HorizontalAlignment="Right"
                                 Command="{Binding NovoProfissionalCommand}" IsEnabled="{Binding PodeGerenciarEquipe}" />
                     </Grid>
-
-                    <TextBlock Text="Nenhum profissional cadastrado." Margin="0,16">
-                        <TextBlock.Style>
-                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Profissionais.Count}" Value="0">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </TextBlock.Style>
-                    </TextBlock>
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding Profissionais}">
@@ -101,6 +91,14 @@
                         </ItemsControl>
                     </ScrollViewer>
                 </DockPanel>
+                <ctrl:EstadoDaTela Itens="{Binding Profissionais}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE77B;"
+                                   TextoCarregando="Lendo a equipe…"
+                                   Titulo="Nenhum profissional cadastrado"
+                                   Descricao="Quem já tem histórico não se exclui — desative em vez de apagar." />
+                </Grid>
             </Border>
 
             <!-- ============ Salas ============ -->
@@ -285,12 +283,5 @@
             </Border>
         </Grid>
     </DockPanel>
-    <ctrl:EstadoDaTela Itens="{Binding Profissionais}"
-                       Carregando="{Binding Carregando}"
-                       NaoVerificado="{Binding NaoVerificado}"
-                       Glifo="&#xE77B;"
-                       TextoCarregando="Lendo a equipe…"
-                       Titulo="Nenhum profissional cadastrado"
-                       Descricao="Quem já tem histórico não se exclui — desative em vez de apagar." />
     </Grid>
 </UserControl>

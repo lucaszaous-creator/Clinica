@@ -260,7 +260,7 @@ public sealed partial class ContasViewModel : ObservableObject
         var vm = new ContaEdicaoViewModel(_escopos);
         var janela = new Janelas.ContaWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -346,7 +346,7 @@ public sealed partial class ContasViewModel : ObservableObject
     {
         new Janelas.ContasFixasWindow(this)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         }.ShowDialog();
     }
 
@@ -367,7 +367,7 @@ public sealed partial class ContasViewModel : ObservableObject
         var vm = new RecorrenteEdicaoViewModel(_escopos, recorrenteId);
         var janela = new Janelas.RecorrenteWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

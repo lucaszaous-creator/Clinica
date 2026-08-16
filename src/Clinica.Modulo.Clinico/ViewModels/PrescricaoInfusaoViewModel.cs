@@ -242,7 +242,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
 
             var janela = new PrescricaoInternaWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
             janela.ShowDialog();
 
@@ -294,7 +294,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
 
             var janela = new PrescricaoInternaWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
             janela.ShowDialog();
 
@@ -321,7 +321,7 @@ public sealed partial class PrescricaoInfusaoViewModel : ObservableObject
         var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, linha.PrescricaoId);
         var janela = new FolhaExecucaoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
         janela.ShowDialog();
 

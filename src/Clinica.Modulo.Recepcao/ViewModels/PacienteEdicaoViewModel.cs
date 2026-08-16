@@ -150,7 +150,7 @@ public sealed partial class PacienteEdicaoViewModel : ObservableObject
     {
         var janela = new CapturaFotoWindow(Nome)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         // Diálogo cancelado sai calado: é o caso normal, e a pessoa sabe que desistiu.

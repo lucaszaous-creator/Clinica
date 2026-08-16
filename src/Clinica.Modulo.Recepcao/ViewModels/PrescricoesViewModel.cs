@@ -209,7 +209,7 @@ public sealed partial class PrescricoesViewModel : ObservableObject
             var vm = new DocumentoEdicaoViewModel(_escopos, PacienteId);
             var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
 
             var concluiu = janela.ShowDialog() == true;

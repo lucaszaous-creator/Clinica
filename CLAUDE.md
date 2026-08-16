@@ -3371,3 +3371,55 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   que se checou — o mesmo trabalho, selado. E o botão "Assinar execução" só EXISTE na
   folha encerrada que aguarda a assinatura: botão apagado permanente para o caso que não
   existe seria a caixinha morta da parcela 49.
+
+- **Auditoria Recepção → Consultório: nenhum dos achados QUEBRAVA nada** (parcela 68). O
+  fluxo entre os dois módulos foi varrido inteiro — lógica, erros e leiaute — e o que a
+  varredura devolveu tem a assinatura de sempre: build verde, 1601 testes verdes, três
+  redes locais verdes, e quem descobre é a recepcionista ou o médico com o paciente na
+  frente. As famílias, e o que cada uma ensina:
+  **O vínculo da evolução com o horário se perdia nas DUAS pontas, e o resultado era o
+  mesmo — duas evoluções do mesmo atendimento.** Na ESCRITA: a janela de evolução da
+  Recepção nunca carregou `AgendamentoId`/`AtendimentoId`, e o `ProntuarioService` os
+  copiava **sem condição** — editar pelo balcão uma sessão escrita no consultório
+  DESLIGAVA a evolução do horário, e o consultório voltava a cobrar o registro. Na
+  LEITURA: o cartão do Meu dia casa por `AgendamentoId` **e cai para paciente + data**,
+  e a tela de Atendimento só olhava o `AgendamentoId` — o cartão dizia "Ver registro", o
+  formulário abria EM BRANCO e o Salvar criava a segunda.
+  As correções são as duas metades da mesma regra: **nulo quer dizer "o chamador não
+  sabe", nunca "desligue"** (o serviço passou a preservar o vínculo com `?? destino.…`,
+  onde vale para toda porta), e o casamento sessão × evolução virou **uma definição só**
+  (`ConsultorioService.EvolucaoDoHorario`, pública e estática). Para a segunda, o dia do
+  horário teve de viajar até o posto (`PacienteEmFoco.DataDoHorario`): presumir hoje daria
+  a resposta errada justamente onde a pergunta importa — a dívida de prontuário e a Minha
+  semana abrem horário de OUTROS dias.
+  ⚠️ **A lição de método**: as duas telas foram escritas com meses de distância, e a que
+  ficou para trás é sempre a que ninguém releria. **Quando duas telas respondem à mesma
+  pergunta sobre o mesmo dado, o teste que falta é o que compara as DUAS** — é a mesma
+  lição da parcela 64 (recall com regra num lado e sem regra no outro), aplicada a uma
+  leitura em vez de a uma permissão.
+  **O menu "⋯" da fila prometia por escrito o que não fazia.** O XAML diz "o bloco não
+  segue `PodeEditarAgenda`; quem decide item a item é o próprio menu" — e o construtor do
+  menu montava os itens **só pelo estado do cartão**, sem um `Pode` sequer. Os três atos
+  pedem bits diferentes (`ColherAssinaturaPaciente`, `EditarAgenda | MovimentarFila`,
+  `EditarAgenda` estrito), então o item aparecia aceso e a recusa só chegava depois do
+  clique. **Comentário que descreve uma barreira é lugar para conferir se ela existe** —
+  a mesma leitura que achou o `catch` ausente da publicação na parcela 67.
+  **A cor mentia sobre o desfecho.** A barra do Novo atendimento pintava a mensagem de
+  vermelho FIXO, e é o mesmo campo que recebe "Atendimento registrado — 2 guia(s) no
+  faturamento": a cor dizia "falhou" enquanto o texto dizia "registrado", e quem lê a cor
+  primeiro lança de novo — o gesto que produziu os três encaixes em 71 segundos da parcela
+  65. Três estados, porque o meio existe de verdade: a guia nasceu e o pacote/caixa não
+  **não é erro** (só o atendimento derruba a operação, parcela 6) **nem é sucesso limpo**.
+  E a confirmação "Consulta de X renovada" era escrita ANTES do `RecarregarAsync`, que
+  começa zerando a mensagem: **só o sucesso sumia**, porque o erro volta antes de recarregar.
+  **A regra do dono da janela existia como método privado SEM CHAMADOR, enquanto 49
+  lugares repetiam `MainWindow` à mão.** A parcela 58 documentou que o dono é a janela
+  ATIVA — com um modal aberto, a próxima nasce ATRÁS dele e quem clicou conclui que o
+  botão não fez nada — e a regra ficou numa ViewModel só, sem uso. Virou `JanelaDona.Atual()`
+  no shell. **Método sem chamador ao lado de vizinhos que repetem a linha à mão é sinal de
+  regra que foi escrita e não foi aplicada** — não de código morto a remover.
+  **E o `EstadoDaTela` na RAIZ da página, de novo.** Em Equipe ele cobria as três colunas;
+  em Documentos, os cartões e o filtro — nas duas com um estado vazio inline repetindo a
+  mesma frase logo abaixo. É a parcela 58 e a 64 pela terceira vez, e a regra não muda:
+  **a sobreposição pertence à REGIÃO cujo vazio ela explica, e há UM estado vazio por
+  pergunta.**

@@ -80,6 +80,8 @@ public partial class CapturaFotoWindow : Window
         catch (Exception ex)
         {
             cameras = Array.Empty<DispositivoCamera>();
+            Clinica.Application.Diagnostico.Registrar(
+                "Foto — câmeras do computador não puderam ser listadas", ex);
             Erro($"Não foi possível acessar as câmeras deste computador: {ex.Message}");
         }
 
@@ -162,6 +164,8 @@ public partial class CapturaFotoWindow : Window
         }
         catch (Exception ex)
         {
+            Clinica.Application.Diagnostico.Registrar(
+                "Foto — arquivo escolhido não pôde ser lido", ex);
             Erro($"Não foi possível ler o arquivo: {ex.Message}");
         }
     }
@@ -183,6 +187,8 @@ public partial class CapturaFotoWindow : Window
         }
         catch (Exception ex)
         {
+            Clinica.Application.Diagnostico.Registrar(
+                "Foto — imagem não pôde ser preparada", ex);
             Erro($"Não foi possível preparar a foto: {ex.Message}");
         }
     }

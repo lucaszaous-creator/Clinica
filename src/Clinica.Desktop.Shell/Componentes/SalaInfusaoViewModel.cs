@@ -274,7 +274,7 @@ public sealed partial class SalaInfusaoViewModel : ObservableObject, IDisposable
         var vm = new FolhaExecucaoViewModel(_escopos, _dialogo, prescricaoId);
         var janela = new FolhaExecucaoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
         janela.ShowDialog();
 

@@ -68,9 +68,7 @@ public sealed partial class EvolucaoEdicaoViewModel : ObservableObject
 
         var janela = new ModelosEvolucaoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.Windows
-                        .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
-                    ?? System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true || janela.Escolhido is not { } m) return;

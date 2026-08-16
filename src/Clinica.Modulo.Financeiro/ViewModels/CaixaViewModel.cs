@@ -307,7 +307,7 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_financeiro, _taxas))
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -339,7 +339,7 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         new Janelas.CobrancaPixWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         }.ShowDialog();
     }
 

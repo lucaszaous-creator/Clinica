@@ -121,7 +121,6 @@ public sealed partial class DocumentosViewModel : ObservableObject
     [ObservableProperty] private DateTime _fim = DateTime.Today;
 
     [ObservableProperty] private string _resumo = string.Empty;
-    [ObservableProperty] private bool _semPapel;
     [ObservableProperty] private bool _carregando;
 
     /// <summary>
@@ -317,7 +316,6 @@ public sealed partial class DocumentosViewModel : ObservableObject
             Emitidas.Clear();
             foreach (var e in emitidas) Emitidas.Add(Montar(e));
 
-            SemPapel = resumo.Vazio;
             Resumo = resumo.Vazio
                 ? "Nenhum papel emitido no período."
                 : resumo.Canceladas > 0
@@ -548,7 +546,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         var vm = new DocumentoEdicaoViewModel(_escopos, paciente.Id, tipo);
         var janela = new Clinica.Desktop.Shell.Componentes.DocumentoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         // Mesmo fechando sem concluir, um documento pode ter sido emitido e só a impressão
@@ -602,7 +600,7 @@ public sealed partial class DocumentosViewModel : ObservableObject
         var vm = new OrcamentoViewModel(_escopos, paciente.Id, paciente.Nome);
         var janela = new Janelas.OrcamentoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         var concluiu = janela.ShowDialog() == true;

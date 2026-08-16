@@ -163,6 +163,12 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
 
         try
         {
+            // Duas barreiras, e a segunda faltava inteira: baixar um laudo é DADO DE SAÚDE
+            // saindo para arquivo — a tela irmã da Recepção já exigia o bit e registrava a
+            // trilha no mesmo ato (parcela 60). Sem isso, a exportação clínica do app do
+            // médico não deixava linha nenhuma para uma investigação encontrar.
+            SessaoUsuario.Atual.Exigir(Permissao.VerProntuario, "exportar anexo do prontuário");
+
             var dialogo = new Microsoft.Win32.SaveFileDialog
             {
                 Title = "Salvar anexo",
@@ -181,6 +187,13 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
             }
 
             await File.WriteAllBytesAsync(dialogo.FileName, bytes);
+
+            // A trilha registra o que SAIU, com origem própria — é o que separa "abriu o
+            // prontuário" de "levou o arquivo embora".
+            await scope.ServiceProvider.GetRequiredService<AcessoProntuarioService>()
+                .RegistrarAsync(_pacienteId, SessaoUsuario.Atual.Operador,
+                    OrigemAcessoProntuario.ExportacaoClinica);
+
             Mensagem = $"Anexo salvo em {dialogo.FileName}.";
             MensagemEhErro = false;
         }

@@ -108,7 +108,8 @@
                                        VerticalAlignment="Center" />
                             <Button Content="Adicionar linha" Command="{Binding AdicionarItemCommand}"
                                     Style="{StaticResource BotaoSecundario}"
-                                    HorizontalAlignment="Right" MinWidth="130" />
+                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                    MinWidth="130" />
                         </Grid>
 
                         <Grid Margin="0,0,0,4">

@@ -45,6 +45,12 @@ public partial class MeuDiaView : UserControl
     /// </summary>
     private void AoPressionarCartao(object sender, MouseButtonEventArgs e)
     {
+        // O arrasto é porta de escrita como os botões: quem não pode movimentar a fila não
+        // começa a arrastar. Os comandos de etapa já recusariam, mas deixar o cartão
+        // "pegável" é a barreira invisível da parcela 41 em forma de gesto — e o quadro do
+        // balcão já fazia esta conferência (FilaView.AoPressionarCartao).
+        if (DataContext is MeuDiaViewModel vm && !vm.PodeMovimentarFila) return;
+
         _inicioArraste = e.GetPosition(null);
         _candidato = (sender as FrameworkElement)?.DataContext as LinhaSessao;
     }
