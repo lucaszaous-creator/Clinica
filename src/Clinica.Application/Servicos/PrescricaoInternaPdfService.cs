@@ -151,18 +151,26 @@ public sealed class PrescricaoInternaPdfService
     // ==================== Folha 2 · o registro de execução ====================
 
     public async Task<byte[]> GerarRegistroExecucaoAsync(
-        int prescricaoId, DadosPrestador? prestador = null, CancellationToken ct = default)
+        int prescricaoId, DadosPrestador? prestador = null,
+        bool paraAssinaturaEletronica = false, CancellationToken ct = default)
     {
         var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
             ?? throw new InvalidOperationException($"Prescrição {prescricaoId} não encontrada.");
 
         var alergias = await AlergiasParaAFolhaAsync(prescricao, ct);
-        return GerarRegistroExecucao(prescricao, alergias, prestador);
+        return GerarRegistroExecucao(prescricao, alergias, prestador, paraAssinaturaEletronica);
     }
 
+    /// <param name="paraAssinaturaEletronica">
+    /// A folha vai receber a assinatura eletrônica da ENFERMAGEM logo depois de gerada
+    /// (2ª assinatura, 14/08/2026). Suprime a linha de assinatura à mão — o carimbo
+    /// digital ocupa a faixa — e o rodapé deixa de mandar assinar no papel: os bytes
+    /// gerados aqui são GUARDADOS para sempre, e uma segunda via selada dizendo "vale a
+    /// assinatura manuscrita" mentiria sobre a própria garantia que carrega.
+    /// </param>
     public byte[] GerarRegistroExecucao(
         PrescricaoInterna prescricao, IReadOnlyList<string> alergias,
-        DadosPrestador? prestador = null)
+        DadosPrestador? prestador = null, bool paraAssinaturaEletronica = false)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -189,12 +197,15 @@ public sealed class PrescricaoInternaPdfService
                     Retificacoes(col, itens);
                 });
 
-                // Assinatura NULA de propósito: o registro eletrônico não é assinado, e o
-                // rodapé imprime a linha para a enfermeira assinar à mão.
-                Rodape(page, prescricao, assinatura: null,
+                // No regime de sempre a assinatura é NULA e o rodapé imprime a linha para
+                // a enfermeira assinar à mão. Na folha com a 2ª assinatura, quem manda no
+                // rodapé é a assinatura da EXECUÇÃO (na reimpressão nunca se chega aqui —
+                // os bytes selados são devolvidos guardados — mas o vínculo fica certo).
+                Rodape(page, prescricao, prescricao.AssinaturaDaExecucao,
                     nomeLinha: NomeDoExecutante(prescricao) ?? "Enfermagem responsável",
                     registroLinha: ConselhoDoExecutante(prescricao),
-                    papel: "Enfermagem");
+                    papel: "Enfermagem",
+                    paraAssinaturaEletronica: paraAssinaturaEletronica);
             });
         }).GeneratePdf();
     }
@@ -678,7 +689,8 @@ public sealed class PrescricaoInternaPdfService
     /// </summary>
     private static void Rodape(
         PageDescriptor page, PrescricaoInterna prescricao, AssinaturaDocumento? assinatura,
-        string nomeLinha, string? registroLinha, string papel)
+        string nomeLinha, string? registroLinha, string papel,
+        bool paraAssinaturaEletronica = false)
     {
         page.Footer().Height(AlturaRodape).Column(col =>
         {
@@ -686,9 +698,12 @@ public sealed class PrescricaoInternaPdfService
             {
                 // Metade esquerda: reservada para o carimbo da assinatura digital. Quando
                 // não há assinatura eletrônica ela não fica em branco — diz o que fazer.
+                // (`paraAssinaturaEletronica` também a deixa livre: o carimbo digital vai
+                // ser desenhado ali segundos depois, e a linha de caneta por baixo dele
+                // convidaria a assinar à mão uma folha que se assina no sistema.)
                 row.ConstantItem(LarguraCarimbo).Column(c =>
                 {
-                    if (assinatura is not null) return;
+                    if (assinatura is not null || paraAssinaturaEletronica) return;
 
                     c.Item().PaddingTop(30).LineHorizontal(1).LineColor(TextoSecundario);
                     c.Item().PaddingTop(3).Text("Assinatura e carimbo")
@@ -719,7 +734,14 @@ public sealed class PrescricaoInternaPdfService
                             .FontSize(8).FontColor(TextoSecundario);
                     });
 
-                    c.Item().Text(FraseDoNivel(assinatura)).FontSize(7.5f).FontColor(TextoSecundario);
+                    // A folha que vai ser selada não pode sair dizendo "vale a manuscrita":
+                    // esses bytes ficam guardados para sempre, e a segunda via mentiria
+                    // sobre a própria garantia que carrega.
+                    c.Item().Text(paraAssinaturaEletronica && assinatura is null
+                            ? "Assinado eletronicamente — o carimbo acima identifica o "
+                              + "signatário; confira a integridade pelo código no sistema."
+                            : FraseDoNivel(assinatura))
+                        .FontSize(7.5f).FontColor(TextoSecundario);
                 });
 
                 row.ConstantItem(90).AlignRight().AlignBottom().Text(t =>

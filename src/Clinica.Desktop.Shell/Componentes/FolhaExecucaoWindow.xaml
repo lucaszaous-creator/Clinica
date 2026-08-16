@@ -72,9 +72,18 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Style="{StaticResource TextoSuave}"
-                           VerticalAlignment="Center" Margin="0,0,16,0" TextWrapping="Wrap"
-                           Text="Encerrar fecha a folha: ela sai da sala e não pode mais ser checada. A assinatura da execução é a sua, à caneta, na via impressa." />
+                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               Text="Encerrar fecha a folha: ela sai da sala e não pode mais ser checada." />
+
+                    <!-- A linha da 2ª assinatura: some quando a folha é do regime do papel,
+                         e é o TEXTO que decide se aparece (a lição da parcela 62). -->
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               Margin="0,4,0,0" FontWeight="SemiBold"
+                               Text="{Binding SituacaoAssinaturaExecucao}"
+                               Visibility="{Binding SituacaoAssinaturaExecucao,
+                                            Converter={StaticResource TextoParaVisibilidade}}" />
+                </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal">
                     <Button Content="Imprimir folha" MinWidth="130"
@@ -95,6 +104,17 @@
                             VerticalAlignment="Center"
                             IsEnabled="{Binding PodeEncerrar}"
                             Command="{Binding EncerrarCommand}" />
+
+                    <!-- A 2ª assinatura (14/08/2026). Só aparece na folha encerrada que a
+                         pede e ainda não a tem: botão apagado permanente para o caso que
+                         não existe seria a caixinha morta da parcela 49. -->
+                    <Button Content="Assinar execução" Margin="8,0,0,0" MinWidth="160"
+                            VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeAssinarExecucao}"
+                            Visibility="{Binding AguardaAssinaturaExecucao,
+                                         Converter={StaticResource BoolParaVisibilidade}}"
+                            ToolTip="Sela o registro de execução com o SEU certificado (e-CPF ou SafeID). O CPF do certificado é conferido contra o seu cadastro."
+                            Command="{Binding AssinarExecucaoCommand}" />
                 </StackPanel>
             </Grid>
         </Border>

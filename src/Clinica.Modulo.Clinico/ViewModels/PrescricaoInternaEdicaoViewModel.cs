@@ -100,6 +100,13 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     [ObservableProperty] private string _numero = "(será numerada ao salvar)";
     [ObservableProperty] private string? _indicacao;
     [ObservableProperty] private string? _observacoes;
+
+    /// <summary>
+    /// O campo de 2ª assinatura (decisão da direção, 14/08/2026): marcado, a enfermagem
+    /// também assina eletronicamente — o registro de execução, no encerramento, com o
+    /// certificado DELA. Desmarcado, vale o regime de sempre: caneta na via impressa.
+    /// </summary>
+    [ObservableProperty] private bool _exigirAssinaturaDaExecucao;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _ocupado;
@@ -187,6 +194,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
             _prescricaoId = prescricao.Id;
             Numero = prescricao.Numero;
+
+            ExigirAssinaturaDaExecucao = prescricao.ExigeAssinaturaEletronicaDaExecucao;
 
             if (prescricao.Itens.Count > 0)
             {
@@ -379,7 +388,8 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
 
             var salva = await servico.SalvarRascunhoAsync(
                 _prescricaoId, Indicacao, Observacoes, itens,
-                SessaoUsuario.Atual.Operador);
+                SessaoUsuario.Atual.Operador,
+                exigeAssinaturaEletronicaDaExecucao: ExigirAssinaturaDaExecucao);
 
             Mensagem = null;
             MensagemEhErro = false;

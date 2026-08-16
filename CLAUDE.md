@@ -3347,3 +3347,27 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A lição de leitura: **quando um comentário descreve um comportamento de degradação,
   confira se existe o `catch` que o realiza.** Intenção escrita não é intenção executada, e
   o comentário faz o revisor seguinte parar de procurar.
+- **A 2ª assinatura: a enfermagem sela o REGISTRO DE EXECUÇÃO, nunca a mesma folha**
+  (parcela 68 — a direção reverteu, para quem pedir, a decisão de ago/2026 de que a
+  execução se assina só à caneta). O pedido era "um campo de 2ª assinatura onde, quando
+  marcado, a enfermeira também possa assinar digitalmente" — e o desenho inteiro sai de
+  duas restrições que já estavam escritas: em PDF **não se assina incrementalmente**
+  (dois documentos encadeados, um por signatário — o caminho que o comentário da
+  `AssinaturaDocumento` já apontava), e o **motor congelado não se toca** (o
+  `AssinaturaDigitalService` e o SafeID são reusados tal e qual; o que nasceu foi
+  orquestração por cima: `AssinarExecucaoAsync` no orquestrador e no serviço de domínio).
+  As decisões: **o campo é por FOLHA, de quem prescreve** (`ExigeAssinaturaEletronicaDa
+  Execucao` — regra global travaria a sala inteira no dia em que o certificado de uma
+  técnica vencesse); **a assinatura é no ENCERRAMENTO**, porque o registro de execução
+  muda a cada item checado e assinar antes selaria um arquivo que ainda ia mudar — a
+  razão de a prescritora não assinar rascunho, aplicada ao outro papel; **o CPF do
+  certificado confere contra QUEM ESTÁ ASSINANDO** (a enfermeira logada, via
+  `UsuarioSistema → Profissional`), nunca contra o prescritor — sem isso o e-CPF da
+  médica assinaria a execução da técnica; e **assinada, a segunda via da execução passa a
+  devolver os bytes GUARDADOS** (até aqui ela era sempre montada na hora, e continua
+  sendo nas folhas do regime do papel — que não mudou em nada para quem não marcou o
+  campo, e há teste fixando as duas coisas).
+  O bit da ação é `ChecarPrescricao`, não um novo: assinar a execução é responder pelo
+  que se checou — o mesmo trabalho, selado. E o botão "Assinar execução" só EXISTE na
+  folha encerrada que aguarda a assinatura: botão apagado permanente para o caso que não
+  existe seria a caixinha morta da parcela 49.

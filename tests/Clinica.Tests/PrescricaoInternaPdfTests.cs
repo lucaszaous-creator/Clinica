@@ -107,11 +107,12 @@ public class PrescricaoInternaPdfTests : IDisposable
     }
 
     /// <summary>
-    /// O registro de execução NÃO é assinado eletronicamente — quem assina a execução é a
-    /// enfermeira, na via impressa. O que o sistema guarda é o registro do que foi feito.
+    /// O REGIME PADRÃO: sem o campo de 2ª assinatura marcado, o registro de execução não é
+    /// assinado eletronicamente — quem assina a execução é a enfermeira, na via impressa.
     ///
-    /// Este teste é o guarda da decisão: se um dia voltar um segundo certificado aqui, ele
-    /// cai.
+    /// Desde 14/08/2026 existe o outro regime (a folha que NASCE pedindo a assinatura
+    /// eletrônica da enfermagem — ver <c>SegundaAssinaturaExecucaoTests</c>). Este teste
+    /// guarda o padrão: a feature nova não pode mudar o caminho de quem não a pediu.
     /// </summary>
     [Fact]
     public async Task Registro_de_execucao_sai_sem_assinatura_eletronica()

@@ -49,10 +49,22 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <Button Grid.Column="0" Content="Acrescentar item" MinWidth="150"
-                        VerticalAlignment="Center"
-                        Style="{StaticResource BotaoSecundario}"
-                        Command="{Binding AcrescentarItemCommand}" />
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Content="Acrescentar item" MinWidth="150"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            Command="{Binding AcrescentarItemCommand}" />
+
+                    <!-- O campo de 2ª assinatura (14/08/2026): marcado, a enfermagem também
+                         assina eletronicamente o registro de execução, no encerramento.
+                         Fica na barra da assinatura porque a decisão é de quem prescreve,
+                         tomada no mesmo gesto de assinar. -->
+                    <CheckBox Margin="16,0,0,0" VerticalAlignment="Center"
+                              IsChecked="{Binding ExigirAssinaturaDaExecucao}"
+                              IsEnabled="{Binding PodePrescrever}"
+                              Content="Colher assinatura eletrônica da enfermagem no encerramento"
+                              ToolTip="Marcado, a folha pede a 2ª assinatura: a enfermeira assina o registro de execução digitalmente, com o certificado dela, quando encerrar. Desmarcado, ela assina à caneta na via impressa, como sempre." />
+                </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
                     <Button Content="Fechar" IsCancel="True" MinWidth="100"

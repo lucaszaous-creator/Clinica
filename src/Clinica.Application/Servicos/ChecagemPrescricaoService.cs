@@ -257,7 +257,10 @@ public sealed class ChecagemPrescricaoService
             PacienteId = prescricao.PacienteId,
             Detalhe = $"{prescricao.Numero} · {prescricao.Realizados} realizados, "
                     + $"{prescricao.NaoRealizados} não realizados · encerrada por "
-                    + $"{executante.Nome} (assinatura da enfermagem na via impressa)"
+                    + $"{executante.Nome} "
+                    + (prescricao.ExigeAssinaturaEletronicaDaExecucao
+                        ? "(aguardando a assinatura eletrônica da enfermagem)"
+                        : "(assinatura da enfermagem na via impressa)")
         }, ct);
 
         await _repo.SalvarAsync(ct);
