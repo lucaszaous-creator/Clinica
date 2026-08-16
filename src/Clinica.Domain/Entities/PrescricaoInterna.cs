@@ -84,12 +84,12 @@ public enum PapelAssinatura
     Prescritor,
 
     /// <summary>
-    /// A enfermagem que executou. Voltou a ser gravado em 14/08/2026, por decisão da
-    /// direção: quando a folha nasce com
+    /// A enfermagem que executou. Quando a folha nasce com
     /// <see cref="PrescricaoInterna.ExigeAssinaturaEletronicaDaExecucao"/> marcado, a
-    /// enfermeira assina o REGISTRO DE EXECUÇÃO eletronicamente no encerramento — o
-    /// certificado é DELA, e o arquivo é o outro (a restrição do PDF continua respeitada:
-    /// são dois documentos, um por signatário).
+    /// enfermeira assina <b>a MESMA prescrição</b> no encerramento, com o certificado
+    /// DELA — por revisão incremental, sem tocar num byte do que o prescritor selou
+    /// (<c>RevisaoIncrementalPdf</c>, 16/08/2026). Até essa data o desenho era outro
+    /// arquivo, por uma premissa sobre PDF que foi medida e derrubada.
     /// </summary>
     Executante
 }
