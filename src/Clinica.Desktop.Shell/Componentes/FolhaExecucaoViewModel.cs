@@ -134,6 +134,15 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// <summary>Já houve checagem — o registro de execução tem o que mostrar.</summary>
     [ObservableProperty] private bool _temRegistroExecucao;
 
+    /// <summary>A folha nasceu pedindo a 2ª assinatura (a eletrônica da enfermagem).</summary>
+    [ObservableProperty] private bool _exigeAssinaturaEletronica;
+
+    /// <summary>Encerrada, pedindo a 2ª assinatura, e ela ainda não foi colhida.</summary>
+    [ObservableProperty] private bool _aguardaAssinaturaExecucao;
+
+    /// <summary>Estado da 2ª assinatura, por extenso — vazio esconde a linha.</summary>
+    [ObservableProperty] private string? _situacaoAssinaturaExecucao;
+
     /// <summary>Hora sugerida para a próxima checagem. Sugestão — o campo é de quem executou.</summary>
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH\\:mm");
 
@@ -152,6 +161,17 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// para a enfermagem com a dica dizendo por quê.
     /// </summary>
     public bool PodeSuspender => SessaoUsuario.Atual.Pode(Permissao.Prescrever) && EmExecucao;
+
+    /// <summary>
+    /// Assinar a execução é ato de quem EXECUTA — o mesmo bit da checagem, porque é o
+    /// mesmo trabalho selado: quem checou responde pelo que checou. A metade que impede é
+    /// o <c>Exigir</c> no comando; a titularidade (CPF do certificado × enfermeira logada)
+    /// é do serviço.
+    /// </summary>
+    public bool PodeAssinarExecucao => PodeChecar && AguardaAssinaturaExecucao;
+
+    partial void OnAguardaAssinaturaExecucaoChanged(bool value)
+        => OnPropertyChanged(nameof(PodeAssinarExecucao));
 
     public FolhaExecucaoViewModel(
         IServiceScopeFactory escopos, IDialogoService dialogo, int prescricaoId)
@@ -209,6 +229,15 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             EmExecucao = prescricao.PodeChecar;
             ExecucaoCompleta = prescricao.ExecucaoCompleta;
             TemRegistroExecucao = prescricao.Realizados + prescricao.NaoRealizados > 0;
+
+            ExigeAssinaturaEletronica = prescricao.ExigeAssinaturaEletronicaDaExecucao;
+            AguardaAssinaturaExecucao = prescricao.AguardaAssinaturaDaExecucao;
+            SituacaoAssinaturaExecucao = prescricao.AssinaturaDaExecucao is { } daExecucao
+                ? $"Execução assinada eletronicamente por {daExecucao.NomeAssinante} "
+                  + $"em {daExecucao.AssinadoEm:dd/MM/yyyy HH\\:mm}."
+                : prescricao.AguardaAssinaturaDaExecucao
+                    ? "Esta folha pede a assinatura eletrônica da enfermagem — falta colhê-la."
+                    : null;
 
             Itens.Clear();
             foreach (var item in prescricao.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id))
@@ -305,17 +334,40 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             if (!_dialogo.Confirmar(
                     "Encerrar execução",
                     $"Encerrar a execução da prescrição {Numero}? Depois disso a folha não "
-                    + "pode mais ser checada.\n\nLembre de assinar a via impressa — é ela "
-                    + "que responde pela execução."))
+                    + "pode mais ser checada.\n\n"
+                    + (ExigeAssinaturaEletronica
+                        ? "Esta folha pede a assinatura ELETRÔNICA da enfermagem — ela é "
+                          + "colhida logo depois de encerrar."
+                        : "Lembre de assinar a via impressa — é ela que responde pela "
+                          + "execução.")))
                 return;
 
-            using var scope = _escopos.CreateScope();
-            var servico = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
-
-            await servico.EncerrarAsync(_prescricaoId, Executante());
+            using (var scope = _escopos.CreateScope())
+            {
+                var servico = scope.ServiceProvider.GetRequiredService<ChecagemPrescricaoService>();
+                await servico.EncerrarAsync(_prescricaoId, Executante());
+            }
 
             await CarregarAsync();
-            Mensagem = "Execução encerrada. Confira e assine a via impressa.";
+
+            // A folha que pede a 2ª assinatura oferece a colheita NA HORA: a enfermeira
+            // está aqui, com a folha na frente — mandá-la procurar o botão depois é como
+            // a pendência vira esquecimento. Recusar agora não perde nada: o botão
+            // "Assinar execução" continua na folha encerrada.
+            if (AguardaAssinaturaExecucao
+                && _dialogo.Confirmar(
+                    "Assinar a execução",
+                    "Esta folha pede a assinatura eletrônica da enfermagem. Assinar agora, "
+                    + "com o seu certificado?"))
+            {
+                await AssinarExecucaoAsync();
+                return;
+            }
+
+            Mensagem = ExigeAssinaturaEletronica
+                ? "Execução encerrada. Falta a assinatura eletrônica da enfermagem — o "
+                  + "botão \"Assinar execução\" fica nesta folha."
+                : "Execução encerrada. Confira e assine a via impressa.";
             MensagemEhErro = false;
         }
         catch (Exception ex)
@@ -326,6 +378,65 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             MensagemEhErro = true;
         }
     }
+
+    /// <summary>
+    /// A 2ª ASSINATURA (decisão da direção, 14/08/2026): a enfermagem sela o registro de
+    /// execução com o certificado DELA — o e-CPF ou o SafeID de quem está logado, nunca o
+    /// do prescritor. Quem confere a titularidade é o serviço; quem valida o estado da
+    /// folha (encerrada, campo marcado, ainda sem assinatura) é o domínio. Aqui só se
+    /// escolhe o certificado e se diz o que aconteceu.
+    /// </summary>
+    [RelayCommand]
+    private async Task AssinarExecucaoAsync()
+    {
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.ChecarPrescricao, "checar prescrição");
+
+            if (!SessaoUsuario.Atual.Autenticado)
+            {
+                // Sem login não há CPF contra o qual conferir o certificado — e a regra
+                // inteira da 2ª assinatura é provar QUEM assinou.
+                Mensagem = "Entre com o seu usuário para assinar a execução: a assinatura "
+                         + "é conferida contra o CPF de quem está logado.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            var certificado = EscolherCertificadoWindow.Perguntar(
+                $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos);
+
+            if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
+
+            using (var scope = _escopos.CreateScope())
+            {
+                var assinaturas = scope.ServiceProvider
+                    .GetRequiredService<AssinaturaDePrescricaoService>();
+
+                await assinaturas.AssinarExecucaoAsync(
+                    _prescricaoId, certificado,
+                    SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);
+            }
+
+            await CarregarAsync();
+            Mensagem = "Execução assinada. A prescrição passa a sair com AS DUAS "
+                     + "assinaturas — a de quem prescreveu e a de quem executou.";
+            MensagemEhErro = false;
+        }
+        catch (Exception ex)
+        {
+            Application.Diagnostico.Registrar(
+                "Sala de infusão — execução não pôde ser assinada", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>A janela ATIVA é a dona do modal — a lição da lista de espera (parcela 58).</summary>
+    private static System.Windows.Window? JanelaAtiva()
+        => System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>()
+               .FirstOrDefault(w => w.IsActive)
+           ?? System.Windows.Application.Current?.MainWindow;
 
     /// <summary>
     /// Imprime a folha de PRESCRIÇÃO — a via que a enfermagem confere e assina à caneta.

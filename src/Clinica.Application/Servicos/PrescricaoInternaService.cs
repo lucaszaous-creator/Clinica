@@ -132,7 +132,8 @@ public sealed class PrescricaoInternaService
     public async Task<PrescricaoInterna> SalvarRascunhoAsync(
         int prescricaoId, string? indicacao, string? observacoes,
         IReadOnlyList<ItemPrescricaoInterna> itens,
-        string? operador = null, CancellationToken ct = default)
+        string? operador = null,
+        bool? exigeAssinaturaEletronicaDaExecucao = null, CancellationToken ct = default)
     {
         var prescricao = await Exigir(prescricaoId, ct);
 
@@ -143,6 +144,11 @@ public sealed class PrescricaoInternaService
 
         prescricao.Indicacao = Limpar(indicacao);
         prescricao.Observacoes = Limpar(observacoes);
+
+        // Nulo = quem chamou não mexe no campo. É o que impede um chamador antigo de
+        // DESMARCAR a 2ª assinatura por não conhecer o parâmetro novo.
+        if (exigeAssinaturaEletronicaDaExecucao is { } exige)
+            prescricao.ExigeAssinaturaEletronicaDaExecucao = exige;
         prescricao.AtualizadoEm = DateTime.Now;
         prescricao.AtualizadoPor = operador;
 
@@ -251,6 +257,65 @@ public sealed class PrescricaoInternaService
 
         await _repo.SalvarAsync(ct);
         return new ResultadoAssinaturaPrescricao(prescricao, conferencia);
+    }
+
+    /// <summary>
+    /// Grava a 2ª assinatura — a da ENFERMAGEM, sobre o registro de execução (decisão da
+    /// direção, 14/08/2026).
+    ///
+    /// As três recusas, e por que cada uma:
+    /// - <b>folha não encerrada</b>: o registro de execução muda a cada checagem, e assinar
+    ///   antes selaria um arquivo que ainda ia mudar — a razão de a prescritora não assinar
+    ///   rascunho, aplicada ao outro papel;
+    /// - <b>campo não marcado</b>: a 2ª assinatura é escolha de quem prescreve, folha a
+    ///   folha. Assinar sem o pedido abriria uma segunda regra de quem pode assinar o quê;
+    /// - <b>já assinada</b>: dois cliques não podem virar duas assinaturas — e a segunda
+    ///   selaria bytes diferentes dos que a primeira já provou.
+    ///
+    /// Quem confere o CERTIFICADO (CPF da enfermeira × e-CPF) é o orquestrador
+    /// (<c>AssinaturaDePrescricaoService</c>), como no papel do prescritor: aqui moram as
+    /// regras de ESTADO da folha.
+    /// </summary>
+    public async Task<PrescricaoInterna> AssinarExecucaoAsync(
+        int prescricaoId, AssinaturaDocumento assinatura,
+        string? operador = null, CancellationToken ct = default)
+    {
+        var prescricao = await Exigir(prescricaoId, ct);
+
+        if (prescricao.Situacao != SituacaoPrescricao.Encerrada)
+            throw new InvalidOperationException(
+                $"A execução da prescrição {prescricao.Numero} ainda não foi encerrada. A "
+                + "assinatura da enfermagem sela o registro INTEIRO — antes do encerramento "
+                + "ele ainda muda a cada item checado.");
+
+        if (!prescricao.ExigeAssinaturaEletronicaDaExecucao)
+            throw new InvalidOperationException(
+                $"A prescrição {prescricao.Numero} não pede assinatura eletrônica da "
+                + "execução: nesta folha a enfermagem assina à caneta, na via impressa.");
+
+        if (prescricao.AssinaturaDaExecucao is not null)
+            throw new InvalidOperationException(
+                $"O registro de execução da prescrição {prescricao.Numero} já foi assinado "
+                + $"por {prescricao.AssinaturaDaExecucao.NomeAssinante}.");
+
+        assinatura.PrescricaoInternaId = prescricao.Id;
+        assinatura.Papel = PapelAssinatura.Executante;
+        prescricao.Assinaturas.Add(assinatura);
+
+        prescricao.AtualizadoEm = DateTime.Now;
+        prescricao.AtualizadoPor = operador;
+
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = operador ?? "?",
+            Acao = "PrescricaoExecucaoAssinada",
+            PacienteId = prescricao.PacienteId,
+            Detalhe = $"{prescricao.Numero} · registro de execução · "
+                    + $"{assinatura.RotuloDoNivel} · hash {assinatura.HashCurto}"
+        }, ct);
+
+        await _repo.SalvarAsync(ct);
+        return prescricao;
     }
 
     /// <summary>

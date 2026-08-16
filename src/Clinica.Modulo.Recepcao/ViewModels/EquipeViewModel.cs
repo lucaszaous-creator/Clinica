@@ -6,6 +6,7 @@ using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Clinica.Desktop.Shell.Componentes;
 
 namespace Clinica.Recepcao.ViewModels;
 
@@ -265,7 +266,7 @@ public sealed partial class EquipeViewModel : ObservableObject
         var vm = new BloqueioEdicaoViewModel(_escopos);
         var janela = new Janelas.BloqueioWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -393,7 +394,7 @@ public sealed partial class EquipeViewModel : ObservableObject
         var vm = new ProfissionalEdicaoViewModel(_escopos, id);
         var janela = new Janelas.ProfissionalWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -407,7 +408,7 @@ public sealed partial class EquipeViewModel : ObservableObject
         var vm = new SalaEdicaoViewModel(_escopos, id);
         var janela = new Janelas.SalaWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

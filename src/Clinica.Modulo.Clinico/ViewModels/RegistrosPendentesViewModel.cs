@@ -101,16 +101,24 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
         _ = CarregarAsync();
     }
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 60): a tela recarrega por clique e ao
+    /// voltar de uma evolução escrita, e num banco remoto a leitura VELHA pode responder
+    /// por último — repovoando a fila com o que já foi resolvido.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
             NaoVerificado = false;
             Mensagem = null;
             MensagemEhErro = false;
-            Pendentes.Clear();
 
             var profissionalId = SessaoUsuario.Atual.ProfissionalId;
             SemVinculo = profissionalId is null;
@@ -121,7 +129,9 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
             var consultorio = scope.ServiceProvider.GetRequiredService<ConsultorioService>();
 
             var pendentes = await consultorio.RegistrosPendentesAsync(hoje, profissionalId);
+            if (geracao != _geracaoCarga) return;
 
+            Pendentes.Clear();
             _todas.Clear();
             foreach (var p in pendentes) _todas.Add(LinhaRegistroPendente.De(p, hoje));
 
@@ -149,9 +159,12 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             // A base também esvazia: refiltrar sobre resto de carga antiga repovoaria a
             // tela por baixo do "não verificado".
+            Pendentes.Clear();
             _todas.Clear();
             Clinica.Application.Diagnostico.Registrar(
                 "Consultório — sessões sem evolução não puderam ser carregadas", ex);
@@ -160,7 +173,7 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 
@@ -206,7 +219,8 @@ public sealed partial class RegistrosPendentesViewModel : ObservableObject
     {
         if (linha is null) return;
 
-        _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId);
+        _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,
+                      dataDoHorario: linha.Data);
         NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento);
     }
 }

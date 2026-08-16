@@ -21,6 +21,9 @@ namespace Clinica.Clinico.ViewModels;
 public sealed class LinhaSessao
 {
     public required int AgendamentoId { get; init; }
+
+    /// <summary>Dia do horário — viaja para o posto porque o casamento sessão × evolução cai para paciente + data.</summary>
+    public required DateOnly Data { get; init; }
     public required int PacienteId { get; init; }
     public required string Paciente { get; init; }
     public required string Hora { get; init; }
@@ -70,6 +73,7 @@ public sealed class LinhaSessao
     public static LinhaSessao De(SessaoDoDia s) => new()
     {
         AgendamentoId = s.AgendamentoId,
+        Data = DateOnly.FromDateTime(s.DataHora),
         PacienteId = s.PacienteId,
         Paciente = s.PacienteNome,
         Hora = s.DataHora.ToString("HH:mm"),
@@ -119,6 +123,9 @@ public sealed class LinhaSessao
 public sealed class LinhaRegistroPendente
 {
     public required int AgendamentoId { get; init; }
+
+    /// <summary>Dia do horário — viaja para o posto porque o casamento sessão × evolução cai para paciente + data.</summary>
+    public required DateOnly Data { get; init; }
     public required int PacienteId { get; init; }
     public required string Paciente { get; init; }
     public required string Quando { get; init; }
@@ -134,6 +141,7 @@ public sealed class LinhaRegistroPendente
         return new LinhaRegistroPendente
         {
             AgendamentoId = r.AgendamentoId,
+            Data = DateOnly.FromDateTime(r.DataHora),
             PacienteId = r.PacienteId,
             Paciente = r.PacienteNome,
             Profissional = r.Profissional ?? string.Empty,
@@ -347,8 +355,6 @@ public sealed partial class MeuDiaViewModel : ObservableObject
                 Mensagem = null;
                 MensagemEhErro = false;
             }
-            foreach (var c in Colunas) c.Clear();
-
             var profissionalId = ProfissionalDaSessao;
             SemVinculo = profissionalId is null;
 
@@ -364,6 +370,19 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             if (geracao != _geracaoCarga) return;
 
             Profissional = doDia.ProfissionalNome;
+
+            // ⚠️ O Clear vem DEPOIS do await, junto dos Adds — nunca antes.
+            //
+            // Limpar as colunas na entrada esvaziava o quadro durante todo o roundtrip ao
+            // banco remoto, e a releitura de fundo (1 min, sem "Carregando") fazia isso
+            // debaixo do olho de quem atende. Pior: quando a leitura falhava, o catch
+            // encontrava as colunas JÁ vazias — e o comentário logo acima promete o
+            // contrário ("a tela segue com o quadro do minuto anterior"). Comentário que
+            // descreve degradação sem o código que a realiza é o defeito da parcela 67.
+            //
+            // É a regra da parcela 62 aplicada aqui: entre o Clear() e o último Add não
+            // pode haver await. O FilaViewModel, o quadro irmão do balcão, já fazia assim.
+            foreach (var c in Colunas) c.Clear();
 
             foreach (var s in doDia.Sessoes) Coluna(s.Etapa).Add(LinhaSessao.De(s));
 
@@ -653,7 +672,8 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     {
         if (linha is null) return;
 
-        _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId, linha.AtendimentoId);
+        _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,
+                      linha.AtendimentoId, linha.Data);
         NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento);
     }
 

@@ -246,7 +246,7 @@ public sealed partial class TaxasViewModel : ObservableObject
         var vm = new TaxaEdicaoViewModel(_escopos, taxaId);
         var janela = new Janelas.TaxaWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -311,7 +311,7 @@ public sealed partial class TaxasViewModel : ObservableObject
         var vm = new TributoEdicaoViewModel(_escopos, tributoId);
         var janela = new Janelas.TributoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

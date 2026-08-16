@@ -44,19 +44,29 @@ public sealed class PacienteEmFoco
     public int? AtendimentoId { get; private set; }
 
     /// <summary>
+    /// Dia do horário de origem. Anda JUNTO do <see cref="AgendamentoId"/> porque o
+    /// caminho de baixo de "esta sessão já foi escrita?" casa por paciente + data — e o
+    /// posto abre horário de outros dias (a dívida de prontuário e a Minha semana), então
+    /// presumir hoje daria a resposta errada justamente onde a pergunta importa.
+    /// </summary>
+    public DateOnly? DataDoHorario { get; private set; }
+
+    /// <summary>
     /// Escolhe o paciente do posto.
     ///
     /// Sem <paramref name="agendamentoId"/> o horário de origem é ESQUECIDO, e é por isso
-    /// que os dois últimos parâmetros são opcionais em vez de haver uma sobrecarga curta:
+    /// que os últimos parâmetros são opcionais em vez de haver uma sobrecarga curta:
     /// quem escolhe pela busca (e não chamando da agenda) precisa que o vínculo do
     /// paciente anterior caia, senão a evolução de um nasceria amarrada à sessão do outro.
     /// </summary>
-    public void Definir(int pacienteId, string nome, int? agendamentoId = null, int? atendimentoId = null)
+    public void Definir(int pacienteId, string nome, int? agendamentoId = null,
+                        int? atendimentoId = null, DateOnly? dataDoHorario = null)
     {
         PacienteId = pacienteId;
         Nome = nome;
         AgendamentoId = agendamentoId;
         AtendimentoId = atendimentoId;
+        DataDoHorario = dataDoHorario;
     }
 
     public void Limpar()
@@ -65,5 +75,6 @@ public sealed class PacienteEmFoco
         Nome = string.Empty;
         AgendamentoId = null;
         AtendimentoId = null;
+        DataDoHorario = null;
     }
 }

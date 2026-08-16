@@ -98,16 +98,23 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
 
     partial void OnSomenteSumidosChanged(bool value) => Filtrar();
 
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 60): dois cliques no Atualizar largam
+    /// duas leituras no ar, e num banco remoto a VELHA pode responder por último.
+    /// </summary>
+    private int _geracaoCarga;
+
     [RelayCommand]
     public async Task CarregarAsync()
     {
+        var geracao = ++_geracaoCarga;
+
         try
         {
             Carregando = true;
             NaoVerificado = false;
             Mensagem = null;
             MensagemEhErro = false;
-            _todos.Clear();
 
             var profissionalId = SessaoUsuario.Atual.ProfissionalId;
             SemVinculo = profissionalId is null;
@@ -118,12 +125,19 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
             var consultorio = scope.ServiceProvider.GetRequiredService<ConsultorioService>();
 
             var pacientes = await consultorio.MeusPacientesAsync(profissionalId);
+            if (geracao != _geracaoCarga) return;
+
+            // Clear e Adds JUNTOS, depois do await: entre um e outro a carteira ficaria
+            // vazia na tela, e duas cargas intercaladas a deixariam duplicada (parcela 62).
+            _todos.Clear();
             foreach (var p in pacientes) _todos.Add(LinhaPacienteClinico.De(p, hoje));
 
             Filtrar();
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoCarga) return;
+
             NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Consultório — carteira de pacientes não pôde ser lida", ex);
             Mensagem = ex.Message;
@@ -131,7 +145,9 @@ public sealed partial class MeusPacientesViewModel : ObservableObject
         }
         finally
         {
-            Carregando = false;
+            // Só a carga VIGENTE apaga o "Carregando": a superada desligaria o indicador
+            // enquanto a nova ainda está no ar.
+            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

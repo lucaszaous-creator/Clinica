@@ -5,6 +5,7 @@ using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Clinica.Desktop.Shell.Componentes;
 
 namespace Clinica.Financeiro.ViewModels;
 
@@ -113,7 +114,7 @@ public sealed partial class PlanoContasViewModel : ObservableObject
         var vm = new CategoriaEdicaoViewModel(_financeiro, ordemSugerida: Categorias.Count);
         var janela = new Janelas.CategoriaWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

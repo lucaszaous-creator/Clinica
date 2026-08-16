@@ -113,6 +113,12 @@ public sealed partial class CartaoFila : ObservableObject
     public bool TemProximoPasso => ProximoPasso.Length > 0;
 
     /// <summary>
+    /// O próximo passo deste cartão é CONCLUIR — o único que pede <c>EditarAgenda</c>
+    /// estrito. Os outros três (chegou, chamar, entrou) são movimento de fila.
+    /// </summary>
+    public bool ProximoPassoEhConcluir => Etapa == EtapaFila.EmAtendimento;
+
+    /// <summary>
     /// Quem LANÇOU o horário, e quando (parcela 58). Vai na dica do cartão: o quadro é
     /// denso de propósito, e uma linha a mais por cartão custaria a densidade que faz o
     /// dia caber na tela.
@@ -232,6 +238,28 @@ public sealed partial class FilaViewModel : ObservableObject
     /// </summary>
     public bool PodeEditarAgenda => SessaoUsuario.Atual.PodeAlgum(
         Permissao.EditarAgenda | Permissao.MovimentarFila);
+
+    /// <summary>
+    /// Os atos que são só do BALCÃO — concluir a sessão, marcar falta, cancelar —, e por
+    /// isso pedem <c>EditarAgenda</c> ESTRITO, sem o <c>MovimentarFila</c>.
+    ///
+    /// ⚠️ A metade visível precisa ser esta, e não <see cref="PodeEditarAgenda"/>: o botão
+    /// do próximo passo vira <b>"Concluir"</b> na última etapa, e concluir são quatro fatos
+    /// do mesmo ato (guia, pacote, insumo, caixa) — três deles do balcão, que é a decisão
+    /// da parcela 61. Com a metade larga aqui, o perfil <c>Profissional</c> via "Concluir"
+    /// ACESO, clicava e levava a recusa do <c>Exigir</c>: metade visível mais larga que a
+    /// guarda é a outra face do "botão que não faz nada" — ela promete o que não entrega.
+    /// </summary>
+    public bool PodeConcluirSessao => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    /// <summary>
+    /// Colher o termo é ato de outro bit — a técnica de enfermagem o tem e não tem o da
+    /// agenda —, e por isso ele é perguntado à parte no menu "⋯". É a metade visível que
+    /// faltava: enquanto o menu montava os itens só pelo ESTADO do cartão, o XAML já
+    /// prometia que "quem decide item a item é o próprio menu", e as guardas recusavam
+    /// depois do clique.
+    /// </summary>
+    public bool PodeColherTermo => SessaoUsuario.Atual.Pode(Permissao.ColherAssinaturaPaciente);
 
     /// <summary>
     /// A leitura FALHOU — o terceiro estado (parcela 62). Sem ele, a fila do balcão
@@ -721,7 +749,7 @@ public sealed partial class FilaViewModel : ObservableObject
             var vm = new FechamentoSessaoViewModel(_escopos, c.AgendamentoId);
             var janela = new Janelas.FechamentoSessaoWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
 
             // Modal: o await fica com a janela, e o recarregar da fila vem do
@@ -805,15 +833,6 @@ public sealed partial class FilaViewModel : ObservableObject
             // numerado, e o selo do cartão precisa refletir isso.
             await CarregarAsync();
         }, "coleta do termo");
-
-    /// <summary>
-    /// A janela ATIVA, não a principal: com um modal já aberto, a próxima nasceria ATRÁS
-    /// dele e quem clicou concluiria que o botão não fez nada (a lição da parcela 58).
-    /// </summary>
-    private static System.Windows.Window? Dono()
-        => System.Windows.Application.Current?.Windows.OfType<System.Windows.Window>()
-               .FirstOrDefault(w => w.IsActive)
-           ?? System.Windows.Application.Current?.MainWindow;
 
     /// <summary>Volta o cartão uma coluna — clicar errado no kanban é rotina.</summary>
     [RelayCommand]

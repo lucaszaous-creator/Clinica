@@ -128,7 +128,7 @@ public sealed partial class PacientesViewModel : ObservableObject
         var vm = new PacienteEdicaoViewModel(_escopos);
         var janela = new Janelas.PacienteWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;

@@ -68,9 +68,7 @@ public sealed partial class ProblemaEdicaoViewModel : ObservableObject
     {
         var janela = new BuscaCidWindow(new BuscaCidViewModel(Cid))
         {
-            Owner = System.Windows.Application.Current?.Windows
-                        .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive)
-                    ?? System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() == true && janela.Escolhido is { } codigo) Cid = codigo;

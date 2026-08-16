@@ -3347,3 +3347,167 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A lição de leitura: **quando um comentário descreve um comportamento de degradação,
   confira se existe o `catch` que o realiza.** Intenção escrita não é intenção executada, e
   o comentário faz o revisor seguinte parar de procurar.
+- **A 2ª assinatura: a enfermagem sela o REGISTRO DE EXECUÇÃO, nunca a mesma folha**
+  (parcela 68 — a direção reverteu, para quem pedir, a decisão de ago/2026 de que a
+  execução se assina só à caneta). O pedido era "um campo de 2ª assinatura onde, quando
+  marcado, a enfermeira também possa assinar digitalmente" — e o desenho inteiro sai de
+  duas restrições que já estavam escritas: em PDF **não se assina incrementalmente**
+  (dois documentos encadeados, um por signatário — o caminho que o comentário da
+  `AssinaturaDocumento` já apontava), e o **motor congelado não se toca** (o
+  `AssinaturaDigitalService` e o SafeID são reusados tal e qual; o que nasceu foi
+  orquestração por cima: `AssinarExecucaoAsync` no orquestrador e no serviço de domínio).
+  As decisões: **o campo é por FOLHA, de quem prescreve** (`ExigeAssinaturaEletronicaDa
+  Execucao` — regra global travaria a sala inteira no dia em que o certificado de uma
+  técnica vencesse); **a assinatura é no ENCERRAMENTO**, porque o registro de execução
+  muda a cada item checado e assinar antes selaria um arquivo que ainda ia mudar — a
+  razão de a prescritora não assinar rascunho, aplicada ao outro papel; **o CPF do
+  certificado confere contra QUEM ESTÁ ASSINANDO** (a enfermeira logada, via
+  `UsuarioSistema → Profissional`), nunca contra o prescritor — sem isso o e-CPF da
+  médica assinaria a execução da técnica; e **assinada, a segunda via da execução passa a
+  devolver os bytes GUARDADOS** (até aqui ela era sempre montada na hora, e continua
+  sendo nas folhas do regime do papel — que não mudou em nada para quem não marcou o
+  campo, e há teste fixando as duas coisas).
+  O bit da ação é `ChecarPrescricao`, não um novo: assinar a execução é responder pelo
+  que se checou — o mesmo trabalho, selado. E o botão "Assinar execução" só EXISTE na
+  folha encerrada que aguarda a assinatura: botão apagado permanente para o caso que não
+  existe seria a caixinha morta da parcela 49.
+
+- **Auditoria Recepção → Consultório: nenhum dos achados QUEBRAVA nada** (parcela 68). O
+  fluxo entre os dois módulos foi varrido inteiro — lógica, erros e leiaute — e o que a
+  varredura devolveu tem a assinatura de sempre: build verde, 1601 testes verdes, três
+  redes locais verdes, e quem descobre é a recepcionista ou o médico com o paciente na
+  frente. As famílias, e o que cada uma ensina:
+  **O vínculo da evolução com o horário se perdia nas DUAS pontas, e o resultado era o
+  mesmo — duas evoluções do mesmo atendimento.** Na ESCRITA: a janela de evolução da
+  Recepção nunca carregou `AgendamentoId`/`AtendimentoId`, e o `ProntuarioService` os
+  copiava **sem condição** — editar pelo balcão uma sessão escrita no consultório
+  DESLIGAVA a evolução do horário, e o consultório voltava a cobrar o registro. Na
+  LEITURA: o cartão do Meu dia casa por `AgendamentoId` **e cai para paciente + data**,
+  e a tela de Atendimento só olhava o `AgendamentoId` — o cartão dizia "Ver registro", o
+  formulário abria EM BRANCO e o Salvar criava a segunda.
+  As correções são as duas metades da mesma regra: **nulo quer dizer "o chamador não
+  sabe", nunca "desligue"** (o serviço passou a preservar o vínculo com `?? destino.…`,
+  onde vale para toda porta), e o casamento sessão × evolução virou **uma definição só**
+  (`ConsultorioService.EvolucaoDoHorario`, pública e estática). Para a segunda, o dia do
+  horário teve de viajar até o posto (`PacienteEmFoco.DataDoHorario`): presumir hoje daria
+  a resposta errada justamente onde a pergunta importa — a dívida de prontuário e a Minha
+  semana abrem horário de OUTROS dias.
+  ⚠️ **A lição de método**: as duas telas foram escritas com meses de distância, e a que
+  ficou para trás é sempre a que ninguém releria. **Quando duas telas respondem à mesma
+  pergunta sobre o mesmo dado, o teste que falta é o que compara as DUAS** — é a mesma
+  lição da parcela 64 (recall com regra num lado e sem regra no outro), aplicada a uma
+  leitura em vez de a uma permissão.
+  **O menu "⋯" da fila prometia por escrito o que não fazia.** O XAML diz "o bloco não
+  segue `PodeEditarAgenda`; quem decide item a item é o próprio menu" — e o construtor do
+  menu montava os itens **só pelo estado do cartão**, sem um `Pode` sequer. Os três atos
+  pedem bits diferentes (`ColherAssinaturaPaciente`, `EditarAgenda | MovimentarFila`,
+  `EditarAgenda` estrito), então o item aparecia aceso e a recusa só chegava depois do
+  clique. **Comentário que descreve uma barreira é lugar para conferir se ela existe** —
+  a mesma leitura que achou o `catch` ausente da publicação na parcela 67.
+  **A cor mentia sobre o desfecho.** A barra do Novo atendimento pintava a mensagem de
+  vermelho FIXO, e é o mesmo campo que recebe "Atendimento registrado — 2 guia(s) no
+  faturamento": a cor dizia "falhou" enquanto o texto dizia "registrado", e quem lê a cor
+  primeiro lança de novo — o gesto que produziu os três encaixes em 71 segundos da parcela
+  65. Três estados, porque o meio existe de verdade: a guia nasceu e o pacote/caixa não
+  **não é erro** (só o atendimento derruba a operação, parcela 6) **nem é sucesso limpo**.
+  E a confirmação "Consulta de X renovada" era escrita ANTES do `RecarregarAsync`, que
+  começa zerando a mensagem: **só o sucesso sumia**, porque o erro volta antes de recarregar.
+  **A regra do dono da janela existia como método privado SEM CHAMADOR, enquanto 49
+  lugares repetiam `MainWindow` à mão.** A parcela 58 documentou que o dono é a janela
+  ATIVA — com um modal aberto, a próxima nasce ATRÁS dele e quem clicou conclui que o
+  botão não fez nada — e a regra ficou numa ViewModel só, sem uso. Virou `JanelaDona.Atual()`
+  no shell. **Método sem chamador ao lado de vizinhos que repetem a linha à mão é sinal de
+  regra que foi escrita e não foi aplicada** — não de código morto a remover.
+  **E o `EstadoDaTela` na RAIZ da página, de novo.** Em Equipe ele cobria as três colunas;
+  em Documentos, os cartões e o filtro — nas duas com um estado vazio inline repetindo a
+  mesma frase logo abaixo. É a parcela 58 e a 64 pela terceira vez, e a regra não muda:
+  **a sobreposição pertence à REGIÃO cujo vazio ela explica, e há UM estado vazio por
+  pergunta.**
+
+- **A premissa que ficou seis parcelas de pé porque ninguém mediu a CONCLUSÃO dela**
+  (parcela 68, 2ª rodada — a cliente descreveu o fluxo real: *"o médico prescreve e assina,
+  a infusão vai pra enfermagem e ela também assina a prescrição que já foi assinada pelo
+  médico"*). Desde a parcela 42 o projeto afirmava, por escrito e em quatro lugares, que
+  **"duas assinaturas no mesmo PDF não existem, porque o PDFsharp reescreve o arquivo ao
+  salvar"** — e foi essa frase que desenhou a 1ª rodada desta parcela, em que a enfermagem
+  selava OUTRO documento (o registro de execução).
+  Medido antes de mexer: a primeira metade está **certa** — assinar por cima do assinado
+  devolve um arquivo cujo prefixo mudou, e a assinatura de quem assinou primeiro deixa de
+  fechar. A **conclusão** é que estava errada: a limitação é da BIBLIOTECA, não do formato.
+  O PDF prevê múltiplas assinaturas exatamente para este caso, por **atualização
+  incremental** — a revisão nova é anexada ao fim e os bytes já assinados não se tocam. A
+  assinatura da médica cobre 0..N; a da enfermeira cobre 0..M, com M > N; as duas fecham
+  porque nenhuma teve um byte alterado.
+  ⚠️ **A lição não é sobre PDF.** É que **quando uma limitação de ferramenta vira decisão
+  de desenho, é preciso escrever qual das duas metades foi medida** — a restrição ou a
+  conclusão que se tirou dela. Esta ficou seis parcelas sem ninguém tentar o caminho que o
+  formato já oferecia, e o desenho errado tinha chegado a ter teste verde e PR aberto.
+  As decisões do `RevisaoIncrementalPdf`: ele **não calcula assinatura nenhuma** — quem
+  produz o PKCS#7 continua sendo o mesmo `IDigitalSigner` do token e do SafeID, sem uma
+  linha de diferença, e é isso que permitiu mexer aqui sem encostar no motor congelado;
+  a aparência usa **Helvetica**, uma das 14 fontes-padrão do PDF, para não depender do que
+  a outra ferramenta embutiu; e a forma do arquivo de entrada é **conferida, não
+  adivinhada** — xref em fluxo, `/Annots` por referência indireta ou ausência de
+  `/AcroForm` **recusam com a frase escrita**, porque um meio-parser que "dá um jeito"
+  produziria o arquivo que a NOSSA conferência aprova e o Adobe recusa (a garantia
+  aparente virada do avesso, a lição da 7ª rodada da parcela 67).
+  **E o `Conferir` passou a valer pela PIOR das assinaturas.** Ele lia o primeiro
+  `/ByteRange` e parava ali: num documento de duas, responderia "íntegro" a um arquivo cuja
+  segunda não fecha — falha exibida como sucesso, no papel que prova quem mandou e quem
+  executou.
+  ⚠️ **O teste que decide não é o nosso.** Cada tentativa de assinatura no SafeID é
+  COBRADA, então a prova tinha de fechar de graça e **fora do nosso código**: o arquivo foi
+  validado no **pyhanko**, que devolveu `intact=True valid=True` nas duas, com a da médica
+  em `coverage=ENTIRE_REVISION mod=FORM_FILLING` e a da enfermeira em `ENTIRE_FILE
+  mod=NONE` — o retrato exato de um PDF corretamente assinado duas vezes. Os testes gravam
+  o arquivo quando `CLINICA_DUMP_PDF` aponta uma pasta, justamente para essa conferência
+  externa continuar barata.
+  ⚠️ E um defeito que só apareceu por rodar num PDF de outro produtor: **o espaço entre
+  `/Type` e o nome é OPCIONAL** — o QuestPDF escreve `/Type /Page` e o PDFsharp escreve
+  `/Type/Page`. Casar o texto cru funcionava por sorte, e a falha teria sido "o PDF não tem
+  páginas legíveis" num arquivo cheio delas.
+
+- **A navegação que só o TESTE preenche** (parcela 68, 3ª rodada — o bloqueador que uma
+  auditoria adversarial achou no código recém-enviado, com 1608 testes verdes).
+  `AssinarExecucaoAsync` lia os bytes da médica por `AssinaturaDoPrescritor?.Arquivo?
+  .Conteudo`. `ObterPrescricaoInternaAsync` faz `.Include(p => p.Assinaturas)` e **não** faz
+  `.ThenInclude(a => a.Arquivo)`, e o projeto não usa lazy loading — em produção, onde cada
+  operação abre escopo próprio, a navegação chega **nula** e a 2ª assinatura falhava
+  **sempre**, na primeira tentativa da enfermeira, que nesta área é COBRADA pelo PSC.
+  ⚠️ **Os testes não podiam pegar, e a razão é a que mais se repete neste projeto**: eles
+  compartilham UM `DbContext` entre gravar o `ArquivoAssinado` e reler a prescrição, e o
+  **relationship fixup** do EF preenche a navegação a partir do change tracker mesmo sem
+  `ThenInclude`. Ou seja, o teste montava um mundo que produção nunca vê. É o
+  `CircuitoCompletoTests` da parcela 33 outra vez: cada peça verde, o produto quebrado.
+  A regra que fica: **bytes de arquivo assinado se buscam por
+  `ObterArquivoAssinadoAsync(arquivoId)`, nunca pela navegação** — é o que todo leitor
+  legítimo já fazia, e a linha nova foi a única a confiar no grafo. E, mais geral: **teste
+  de serviço que lê navegação precisa de um `DbContext` NOVO**, senão ele prova o fixup do
+  EF em vez do `Include` do repositório. `Assina_com_ESCOPO_SEPARADO_como_em_producao` fixa
+  isso, e foi verificado que ele FALHA no código antigo.
+
+- **A folha só fica assinável no instante em que ela SOME da lista** (parcela 68, 4ª
+  rodada — as quatro pendências que a auditoria adversarial confirmou). A 2ª assinatura da
+  enfermagem só é possível depois de ENCERRAR a folha, e encerrar era exatamente o que a
+  tirava da fila da Sala de infusão. Somadas, as quatro faziam a pendência desaparecer:
+  1. a fila é travada em **`p.Data == hoje`** — folha de ontem não aparecia de jeito nenhum;
+  2. **"Mostrar encerradas" nasce DESMARCADO** — encerrada some da lista padrão no mesmo dia;
+  3. **não existia consulta, contador nem selo** de "aguardando a 2ª assinatura":
+     `AguardaAssinaturaDaExecucao` era lido só DENTRO da janela de uma folha já aberta, então
+     descobrir qual ficou pendente exigia abrir uma por uma;
+  4. no dia seguinte a única volta era **digitar o código impresso** — que só existe se
+     alguém imprimiu o papel.
+  É o **"alerta sem porta" na pior variante** (parcela 48): o que a pessoa precisa
+  reencontrar é justamente o que a lista esconde. E a mensagem ainda prometia que "o botão
+  Assinar execução fica nesta folha" sem dizer como voltar a ela — comentário/《promessa》
+  que o código não cumpre, a armadilha da parcela 67.
+  A correção é uma consulta **sem filtro de data** (`PrescricoesInternasAguardandoAssinatura
+  Async`: encerrada + exige assinatura + sem a do Executante), unida à fila de hoje e
+  publicada de uma vez em lista local — **entre o `Clear()` e o último `Add` não pode haver
+  await**, e aqui são DUAS leituras (a lição da parcela 62). O selo vermelho diz o que
+  falta, a data aparece quando a folha não é de hoje, e o contador da assinatura é
+  **separado** do de itens aguardando: um se resolve administrando, o outro com o
+  certificado — somá-los daria um número que não diz o que fazer.
+  ⚠️ E a pendência **SAI da lista assim que ela assina**: pendência que não some é
+  pendência que ensina a ignorar a lista. O regime do papel (campo desmarcado) nunca entra,
+  senão toda folha encerrada da história viraria cobrança eterna.

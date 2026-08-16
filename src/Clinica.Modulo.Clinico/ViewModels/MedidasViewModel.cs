@@ -371,7 +371,7 @@ public sealed partial class MedidasViewModel : ObservableObject
 
             var janela = new RegistrarMedidaWindow(vm)
             {
-                Owner = System.Windows.Application.Current?.MainWindow
+                Owner = JanelaDona.Atual()
             };
 
             if (janela.ShowDialog() != true) return;

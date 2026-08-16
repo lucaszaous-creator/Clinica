@@ -86,12 +86,23 @@ public sealed record ConferenciaAssinatura(
 /// certificado expirar). Isso é PAdES-LT e depende de infraestrutura que a clínica não
 /// tem hoje; anunciá-lo sem implementá-lo seria a mesma mentira do carimbo escaneado.
 ///
-/// Uma armadilha do PDFsharp que virou decisão de projeto
-/// ------------------------------------------------------
-/// Ele NÃO faz atualização incremental: salvar reescreve o arquivo. Ou seja, <b>duas
-/// assinaturas no mesmo PDF não existem</b> — a segunda quebraria a primeira. Isso forçou
-/// (bem) o desenho de dois documentos encadeados, um por signatário. Ver o comentário de
-/// <c>AssinaturaDocumento</c>.
+/// Duas assinaturas no mesmo PDF: a premissa que estava certa pela metade
+/// -----------------------------------------------------------------------
+/// Este comentário dizia, da parcela 42 até a 68, que "duas assinaturas no mesmo PDF não
+/// existem, porque o PDFsharp reescreve o arquivo ao salvar". A primeira metade foi
+/// MEDIDA e confirmada: assinar por cima do já assinado devolve um arquivo cujo prefixo
+/// mudou, e a assinatura de quem assinou primeiro deixa de fechar.
+///
+/// A CONCLUSÃO é que estava errada. A limitação é da biblioteca, não do formato — o PDF
+/// prevê múltiplas assinaturas exatamente para este caso, por <b>atualização
+/// incremental</b>: a revisão nova é anexada ao fim e os bytes já assinados não se tocam.
+/// É o que <see cref="AnexarAssinaturaAsync"/> faz, e é o fluxo que a clínica descreveu —
+/// o médico prescreve e assina, a folha vai para a sala, a enfermagem assina A MESMA
+/// prescrição.
+///
+/// ⚠️ A lição vale além daqui: <b>quando uma limitação de ferramenta vira decisão de
+/// desenho, escreva qual das duas você mediu.</b> Esta ficou seis parcelas de pé sem
+/// ninguém tentar o caminho que o formato já oferecia.
 /// </summary>
 public sealed class AssinaturaDigitalService
 {
@@ -190,21 +201,92 @@ public sealed class AssinaturaDigitalService
     }
 
     /// <summary>
+    /// Acrescenta uma SEGUNDA assinatura a um PDF que já tem a primeira, por atualização
+    /// incremental — os bytes já assinados não se tocam.
+    ///
+    /// É o fluxo da clínica: o médico prescreve e assina, a folha vai para a sala, a
+    /// enfermagem executa e assina A MESMA prescrição. Por legalidade e por fluxo de
+    /// trabalho, o documento precisa das duas.
+    ///
+    /// Note o que NÃO muda em relação a <see cref="AssinarAsync"/>: as críticas do
+    /// certificado são as mesmas, e quem faz a conta da assinatura é o mesmo
+    /// <see cref="IDigitalSigner"/> — token ou SafeID, sem uma linha de diferença. O que
+    /// muda é só COMO os bytes entram no arquivo.
+    /// </summary>
+    public async Task<ResultadoAssinatura> AnexarAssinaturaAsync(
+        byte[] pdfAssinado, CertificadoAssinatura certificado, PedidoAssinatura pedido,
+        string nomeCampo, IDigitalSigner? assinadorEmNuvem = null)
+    {
+        ArgumentNullException.ThrowIfNull(pdfAssinado);
+        ArgumentNullException.ThrowIfNull(certificado);
+        ArgumentNullException.ThrowIfNull(pedido);
+
+        var remoto = assinadorEmNuvem ?? certificado.AssinadorRemoto;
+
+        Criticar(certificado, exigirChaveLocal: remoto is null);
+        GarantirFonte();
+
+        var assinador = remoto ?? new PdfSharpDefaultSigner(
+            certificado.Certificado, PdfMessageDigestType.SHA256, pedido.CarimbadoraDeTempo);
+
+        var anexado = await RevisaoIncrementalPdf.AnexarAssinaturaAsync(
+            pdfAssinado, pedido, certificado, assinador, nomeCampo);
+
+        var carimbo = pedido.CarimbadoraDeTempo is null ? null : CarimboDeTempo(anexado);
+
+        return new ResultadoAssinatura(
+            anexado,
+            Hash(anexado),
+            carimbo,
+            carimbo is null ? null : pedido.CarimbadoraDeTempo?.ToString());
+    }
+
+    /// <summary>
     /// Refaz a conta da assinatura sobre os bytes do arquivo e diz se ele continua o
     /// mesmo. É o que a tela de conferência e o rodapé da reimpressão usam.
     /// </summary>
     public ConferenciaAssinatura Conferir(byte[] pdfAssinado)
     {
-        if (pdfAssinado is null || pdfAssinado.Length == 0)
-            return ConferenciaAssinatura.NaoConferida("arquivo vazio");
+        var todas = ConferirTodas(pdfAssinado);
 
+        // ⚠️ O documento vale pela PIOR das assinaturas, não pela primeira. Desde que a
+        // prescrição passou a levar a assinatura da médica E a da enfermagem (revisão
+        // incremental), olhar só a primeira responderia "íntegro" a um arquivo cuja segunda
+        // assinatura não fecha — falha exibida como sucesso, no documento que a clínica usa
+        // para provar quem mandou e quem executou.
+        return todas.FirstOrDefault(c => c.Conferida && !c.Integra)
+               ?? todas.FirstOrDefault(c => !c.Conferida)
+               ?? todas.FirstOrDefault()
+               ?? ConferenciaAssinatura.NaoConferida("o arquivo não tem assinatura");
+    }
+
+    /// <summary>
+    /// Uma conferência POR ASSINATURA, na ordem em que elas aparecem no arquivo — a
+    /// primeira é a de quem assinou primeiro.
+    ///
+    /// Existe porque a folha de infusão passou a ter duas: a prescritora sela a revisão
+    /// dela, e a enfermagem anexa a sua sem tocar num byte do que já estava assinado. As
+    /// duas precisam ser mostradas, porque elas respondem perguntas diferentes — "quem
+    /// mandou" e "quem executou".
+    /// </summary>
+    public IReadOnlyList<ConferenciaAssinatura> ConferirTodas(byte[] pdfAssinado)
+    {
+        if (pdfAssinado is null || pdfAssinado.Length == 0)
+            return [ConferenciaAssinatura.NaoConferida("arquivo vazio")];
+
+        var faixas = LerByteRanges(pdfAssinado);
+        if (faixas.Count == 0)
+            return [ConferenciaAssinatura.NaoConferida("o arquivo não tem assinatura")];
+
+        return [.. faixas.Select(f => ConferirUma(pdfAssinado, f))];
+    }
+
+    private ConferenciaAssinatura ConferirUma(
+        byte[] pdfAssinado, (int, int, int, int) faixa)
+    {
         try
         {
-            var faixa = LerByteRange(pdfAssinado);
-            if (faixa is null)
-                return ConferenciaAssinatura.NaoConferida("o arquivo não tem assinatura");
-
-            var (inicio1, tamanho1, inicio2, tamanho2) = faixa.Value;
+            var (inicio1, tamanho1, inicio2, tamanho2) = faixa;
 
             // O buraco ENTRE os dois trechos é o /Contents <...> com o PKCS#7 em hexa. É
             // por ficar fora do ByteRange que a assinatura consegue estar dentro do
@@ -296,20 +378,26 @@ public sealed class AssinaturaDigitalService
         RegexOptions.Compiled);
 
     private static (int, int, int, int)? LerByteRange(byte[] pdf)
+        => LerByteRanges(pdf) is [var primeira, ..] ? primeira : null;
+
+    /// <summary>
+    /// TODOS os <c>/ByteRange</c> do arquivo — um por assinatura —, na ordem em que
+    /// aparecem. Num PDF com revisão incremental a ordem do arquivo é a ordem cronológica:
+    /// a revisão nova é anexada ao fim.
+    /// </summary>
+    private static List<(int, int, int, int)> LerByteRanges(byte[] pdf)
     {
         // Latin1 porque a leitura é sobre BYTES: qualquer decodificação que junte ou
         // descarte bytes (UTF-8 faz as duas coisas com sequência inválida) desalinharia
         // os índices que o /ByteRange declara, e a conferência passaria a acusar
         // adulteração em arquivo íntegro.
         var texto = Encoding.Latin1.GetString(pdf);
-        var achado = PadraoByteRange.Match(texto);
-        if (!achado.Success) return null;
 
-        return (
-            int.Parse(achado.Groups[1].Value),
-            int.Parse(achado.Groups[2].Value),
-            int.Parse(achado.Groups[3].Value),
-            int.Parse(achado.Groups[4].Value));
+        return [.. PadraoByteRange.Matches(texto).Select(m => (
+            int.Parse(m.Groups[1].Value),
+            int.Parse(m.Groups[2].Value),
+            int.Parse(m.Groups[3].Value),
+            int.Parse(m.Groups[4].Value)))];
     }
 
     /// <summary>

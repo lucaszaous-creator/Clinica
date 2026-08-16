@@ -83,7 +83,14 @@ public enum PapelAssinatura
 {
     Prescritor,
 
-    /// <summary>Não é gravado. Ver o comentário do enum.</summary>
+    /// <summary>
+    /// A enfermagem que executou. Quando a folha nasce com
+    /// <see cref="PrescricaoInterna.ExigeAssinaturaEletronicaDaExecucao"/> marcado, a
+    /// enfermeira assina <b>a MESMA prescrição</b> no encerramento, com o certificado
+    /// DELA — por revisão incremental, sem tocar num byte do que o prescritor selou
+    /// (<c>RevisaoIncrementalPdf</c>, 16/08/2026). Até essa data o desenho era outro
+    /// arquivo, por uma premissa sobre PDF que foi medida e derrubada.
+    /// </summary>
     Executante
 }
 
@@ -220,6 +227,22 @@ public class PrescricaoInterna
     /// <summary>Orientações gerais que valem para a folha inteira (jejum, acesso, monitorização).</summary>
     public string? Observacoes { get; set; }
 
+    /// <summary>
+    /// O "campo de 2ª assinatura" (decisão da direção, 14/08/2026): marcado, a enfermagem
+    /// também assina eletronicamente — o REGISTRO DE EXECUÇÃO, no encerramento, com o
+    /// certificado DELA.
+    ///
+    /// Por que é uma escolha por folha, e não regra da clínica: nem toda técnica tem
+    /// e-CPF/SafeID, e uma exigência global travaria o encerramento da sala inteira no dia
+    /// em que o certificado de alguém vencesse. Quem prescreve decide, folha a folha — e
+    /// desmarcado, vale o regime de sempre: a enfermeira assina à caneta, na via impressa.
+    ///
+    /// Por que a assinatura é no ENCERRAMENTO, e nunca antes: o registro de execução MUDA
+    /// a cada item checado. Assinar antes selaria um arquivo que ainda ia mudar — a mesma
+    /// razão pela qual a prescritora não assina rascunho.
+    /// </summary>
+    public bool ExigeAssinaturaEletronicaDaExecucao { get; set; }
+
     public DateTime? AssinadaEm { get; set; }
 
     public DateTime? EncerradaEm { get; set; }
@@ -283,11 +306,29 @@ public class PrescricaoInterna
     public bool ExecucaoCompleta => Itens.Count > 0 && Pendentes == 0;
 
     /// <summary>
-    /// A assinatura eletrônica da folha — sempre a de quem prescreveu, e só ela. A da
-    /// enfermagem é manuscrita, na via impressa (ver <see cref="PapelAssinatura"/>).
+    /// A assinatura eletrônica da PRESCRIÇÃO — sempre a de quem prescreveu. A da enfermagem,
+    /// quando existe, é OUTRO documento (<see cref="AssinaturaDaExecucao"/>).
     /// </summary>
     public AssinaturaDocumento? AssinaturaDoPrescritor
         => Assinaturas.FirstOrDefault(a => a.Papel == PapelAssinatura.Prescritor);
+
+    /// <summary>
+    /// A assinatura eletrônica do REGISTRO DE EXECUÇÃO — a da enfermagem, colhida no
+    /// encerramento quando <see cref="ExigeAssinaturaEletronicaDaExecucao"/> está marcado.
+    /// Nula nas folhas do regime de sempre (assinatura à caneta na via impressa).
+    /// </summary>
+    public AssinaturaDocumento? AssinaturaDaExecucao
+        => Assinaturas.FirstOrDefault(a => a.Papel == PapelAssinatura.Executante);
+
+    /// <summary>
+    /// A 2ª assinatura está pedida e ainda não foi colhida. Só existe depois de ENCERRADA:
+    /// o registro de execução muda a cada checagem, e assinar antes selaria um arquivo que
+    /// ainda ia mudar.
+    /// </summary>
+    public bool AguardaAssinaturaDaExecucao
+        => ExigeAssinaturaEletronicaDaExecucao
+           && Situacao == SituacaoPrescricao.Encerrada
+           && AssinaturaDaExecucao is null;
 }
 
 /// <summary>
@@ -506,19 +547,27 @@ public class ChecagemPrescricao
 }
 
 /// <summary>
-/// A ASSINATURA ELETRÔNICA da prescrição — e o registro honesto de que nível ela tem.
+/// A ASSINATURA ELETRÔNICA de uma das duas folhas — e o registro honesto de que nível ela tem.
 ///
-/// Só existe UMA por folha, e é a de quem prescreve
-/// ------------------------------------------------
-/// A execução não é assinada aqui. A clínica decidiu que a enfermeira confere e assina
-/// <b>na via impressa</b>, depois que a folha sai da impressora — por isso a Prescrição sai
-/// com as colunas de checagem em branco e uma linha de assinatura para ela.
+/// DUAS assinaturas na MESMA folha
+/// -------------------------------
+/// A prescritora assina a PRESCRIÇÃO (<see cref="PapelAssinatura.Prescritor"/>) e, quando
+/// a folha nasce com <see cref="PrescricaoInterna.ExigeAssinaturaEletronicaDaExecucao"/>
+/// marcado, a enfermagem assina <b>a mesma prescrição</b> no encerramento
+/// (<see cref="PapelAssinatura.Executante"/>) — que é o fluxo que a clínica descreveu e o
+/// que a legalidade pede: uma folha com as duas, não duas folhas com uma cada.
 ///
-/// Isso dispensou um segundo certificado ICP-Brasil (um por técnica) para produzir, com
-/// muita cerimônia, a mesma garantia que a caneta dela já dava. E resolveu de graça o
-/// problema que a primeira versão tinha: em PDF não se assina incrementalmente, então duas
-/// assinaturas na mesma folha exigiriam ou dois documentos encadeados, ou a prescritora
-/// assinando um arquivo que ainda ia mudar.
+/// ⚠️ <b>Isto mudou em 16/08/2026, e o motivo vale mais que a mudança.</b> Da parcela 42
+/// até aqui o desenho era "dois documentos encadeados, um por signatário", justificado por
+/// "em PDF não se assina incrementalmente". A primeira metade da premissa foi MEDIDA e
+/// confirmada — o PDFsharp reescreve o arquivo ao salvar —, e a conclusão estava errada: a
+/// limitação é da BIBLIOTECA, não do formato. O PDF prevê múltiplas assinaturas por
+/// atualização incremental, e é o que <c>RevisaoIncrementalPdf</c> faz. A premissa ficou
+/// seis parcelas de pé sem ninguém tentar o caminho que o formato já oferecia.
+///
+/// A prescritora continua assinando um PDF com as colunas de checagem em branco, e isso
+/// continua correto: elas são pré-impressas do formulário. Ela atesta o que MANDOU fazer;
+/// a enfermagem anexa a dela depois de executar, sem tocar num byte do que a médica selou.
 ///
 /// A prescritora assinar um PDF com as colunas EM BRANCO é correto, e vale entender por
 /// quê: elas são campos pré-impressos do formulário, como no talão de papel. Ela atesta o

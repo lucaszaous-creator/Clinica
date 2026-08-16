@@ -217,20 +217,32 @@ public sealed class ConsultorioService
     }
 
     /// <summary>
-    /// A sessão do dia com a evolução casada.
+    /// A evolução JÁ ESCRITA de um horário, ou nulo.
     ///
     /// O casamento é pelo <c>AgendamentoId</c> da evolução — que é o vínculo real — e cai
     /// para paciente + data quando ele é nulo. O caminho de baixo existe porque a evolução
     /// escrita direto no prontuário (fora da fila) não conhece o agendamento, e sem ele o
     /// consultório cobraria para sempre um registro que já foi escrito.
+    ///
+    /// É <b>público e estático de propósito</b>: quem pergunta "esta sessão já foi
+    /// escrita?" são dois — o cartão do Meu dia e a tela de Atendimento, que decide entre
+    /// CONTINUAR o registro e começar um novo. Duas definições divergem na primeira
+    /// correção, e aqui a que ficasse para trás produziria uma SEGUNDA evolução do mesmo
+    /// atendimento, sem erro nenhum na tela.
     /// </summary>
+    public static Evolucao? EvolucaoDoHorario(
+        IReadOnlyList<Evolucao> evolucoes, int agendamentoId, int pacienteId, DateOnly data)
+        => evolucoes.FirstOrDefault(e => e.AgendamentoId == agendamentoId)
+           ?? evolucoes.FirstOrDefault(e =>
+                e.AgendamentoId is null
+                && e.PacienteId == pacienteId
+                && e.Data == data);
+
+    /// <summary>A sessão do dia com a evolução casada.</summary>
     private static SessaoDoDia Montar(Agendamento a, IReadOnlyList<Evolucao> evolucoes)
     {
-        var evolucao = evolucoes.FirstOrDefault(e => e.AgendamentoId == a.Id)
-                       ?? evolucoes.FirstOrDefault(e =>
-                            e.AgendamentoId is null
-                            && e.PacienteId == a.PacienteId
-                            && e.Data == DateOnly.FromDateTime(a.DataHora));
+        var evolucao = EvolucaoDoHorario(
+            evolucoes, a.Id, a.PacienteId, DateOnly.FromDateTime(a.DataHora));
 
         return new SessaoDoDia(
             a.Id,

@@ -93,8 +93,15 @@ public sealed class ProntuarioService
         }
 
         destino.ProfissionalId = dados.ProfissionalId;
-        destino.AtendimentoId = dados.AtendimentoId;
-        destino.AgendamentoId = dados.AgendamentoId;
+
+        // O VÍNCULO COM O HORÁRIO NÃO SE APAGA POR OMISSÃO. Nulo aqui quer dizer "o
+        // chamador não sabe", nunca "desligue" — e há tela que edita a evolução sem
+        // carregar estes dois campos. Apagá-los é caro e silencioso: o Consultório casa
+        // sessão × evolução pelo AgendamentoId, então a sessão volta a aparecer como
+        // "falta escrever" e o profissional escreve uma SEGUNDA evolução do mesmo
+        // atendimento. Desligar de fato exigiria uma tela que peça isso — não existe.
+        destino.AtendimentoId = dados.AtendimentoId ?? destino.AtendimentoId;
+        destino.AgendamentoId = dados.AgendamentoId ?? destino.AgendamentoId;
         destino.Data = dados.Data;
         destino.EvaAntes = dados.EvaAntes;
         destino.EvaDepois = dados.EvaDepois;

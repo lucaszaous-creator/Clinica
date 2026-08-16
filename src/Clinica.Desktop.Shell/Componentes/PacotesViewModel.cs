@@ -262,7 +262,7 @@ public sealed partial class PacotesViewModel : ObservableObject
     {
         new CatalogoPacotesWindow(this)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         }.ShowDialog();
     }
 
@@ -279,7 +279,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         var vm = new PacoteCatalogoEdicaoViewModel(_pacotes);
         var janela = new PacoteCatalogoWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -321,7 +321,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         var vm = new PacoteVendaViewModel(_pacotes, _escopos);
         var janela = new PacoteVendaWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         if (janela.ShowDialog() != true) return;
@@ -373,7 +373,7 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         var janela = new ConsumosPacoteWindow(vm)
         {
-            Owner = System.Windows.Application.Current?.MainWindow
+            Owner = JanelaDona.Atual()
         };
 
         janela.ShowDialog();
