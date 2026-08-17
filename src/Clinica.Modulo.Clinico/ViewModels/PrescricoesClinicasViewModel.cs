@@ -90,8 +90,32 @@ public sealed class LinhaDocumentoClinico
             ? $"Cancelado em {d.CanceladoEm:dd/MM/yyyy}"
             : d.AssinadoEletronicamente
                 ? $"Assinado digitalmente em {d.AssinadoEm:dd/MM/yyyy}"
-                : "Válido"
+                : "Válido",
+        Link = string.IsNullOrWhiteSpace(d.TokenPublicacao) ? string.Empty
+            : d.LinkNoAr(DateOnly.FromDateTime(DateTime.Today))
+                ? $"link no ar até {d.PublicadoAte:dd/MM/yyyy}"
+                : "link vencido — dá para renovar",
+        PodeRenovarLink = !string.IsNullOrWhiteSpace(d.TokenPublicacao) && !d.Cancelado
+                          && !d.LinkNoAr(DateOnly.FromDateTime(DateTime.Today)),
+        PodeTirarDoAr = d.LinkNoAr(DateOnly.FromDateTime(DateTime.Today))
     };
+
+    /// <summary>
+    /// Estado do LINK público (parcela 53), agora também no app de quem prescreve.
+    ///
+    /// Até aqui renovar e tirar do ar só existiam na central de DOCUMENTOS da Recepção —
+    /// e a pergunta "o link da receita venceu, como ponho de volta?" nasce no consultório,
+    /// com o paciente ligando para quem prescreveu. Renovar REUSA o mesmo token, então o
+    /// QR já impresso volta a funcionar; o registro assinado fica guardado 20 anos
+    /// independente do link.
+    /// </summary>
+    public required string Link { get; init; }
+
+    /// <summary>Já teve link, não está cancelado e o link venceu — dá para republicar.</summary>
+    public required bool PodeRenovarLink { get; init; }
+
+    /// <summary>O link está no ar — dá para tirá-lo (vale até para cancelado cuja remoção falhou).</summary>
+    public required bool PodeTirarDoAr { get; init; }
 }
 
 /// <summary>
@@ -510,6 +534,104 @@ public sealed partial class PrescricoesClinicasViewModel : ObservableObject
     /// Cancela com motivo. A linha continua na lista marcada como cancelada: a via em
     /// papel não desaparece por ser apagada do sistema.
     /// </summary>
+    /// <summary>
+    /// Põe o link vencido DE VOLTA no ar, reusando o MESMO token — o QR já impresso pelo
+    /// paciente volta a funcionar. É a resposta a "passaram os 60 dias, e agora?": o
+    /// arquivo sai do ar sozinho no prazo, o registro fica 20 anos, e recolocá-lo é um
+    /// clique de quem pode emitir aquela folha.
+    /// </summary>
+    [RelayCommand]
+    private async Task RenovarLinkAsync(LinhaDocumentoClinico? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                linha.AcessoParaMexer, $"republicar o link de {linha.Tipo.ToLowerInvariant()}");
+
+            if (linha.Cancelado)
+            {
+                Mensagem = $"{linha.Numero} está cancelado e não volta ao ar.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            using var scope = _escopos.CreateScope();
+            var publicacao = scope.ServiceProvider.GetRequiredService<PublicacaoDocumentoService>();
+            var resultado = await publicacao.RenovarAsync(linha.DocumentoId);
+
+            await CarregarAsync();
+
+            Mensagem = resultado.Publicou
+                ? $"{linha.Numero} de volta no ar até {resultado.Ate:dd/MM/yyyy} — o QR já "
+                  + "impresso volta a funcionar."
+                : resultado.Erro ?? "Não foi possível republicar.";
+            MensagemEhErro = !resultado.Publicou;
+        }
+        catch (Exception ex)
+        {
+            Application.Diagnostico.Registrar(
+                "Consultório — link do documento não pôde ser renovado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>O par do renovar: tira do ar AGORA um link publicado — receita publicada por engano não espera o prazo.</summary>
+    [RelayCommand]
+    private async Task TirarDoArAsync(LinhaDocumentoClinico? linha)
+    {
+        if (linha is null) return;
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(
+                linha.AcessoParaMexer, $"tirar do ar o link de {linha.Tipo.ToLowerInvariant()}");
+
+            if (!linha.PodeTirarDoAr)
+            {
+                Mensagem = $"{linha.Numero} não tem link no ar para tirar.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            if (!_dialogo.Confirmar("Tirar o link do ar",
+                    $"O QR impresso de {linha.Numero} para de abrir na hora. O documento "
+                    + "continua guardado e o link pode voltar depois, pelo Renovar. Tirar?"))
+                return;
+
+            using var scope = _escopos.CreateScope();
+            var documentos = scope.ServiceProvider.GetRequiredService<DocumentoClinicoService>();
+
+            if (await documentos.ObterAsync(linha.DocumentoId) is not { } documento)
+            {
+                Mensagem = $"{linha.Numero} não foi encontrado.";
+                MensagemEhErro = true;
+                return;
+            }
+
+            var saiu = await scope.ServiceProvider
+                .GetRequiredService<PublicacaoDocumentoService>()
+                .DespublicarAsync(documento, SessaoUsuario.Atual.Operador);
+
+            await CarregarAsync();
+
+            Mensagem = saiu
+                ? $"{linha.Numero} fora do ar."
+                : $"O provedor não confirmou a remoção de {linha.Numero} — o arquivo pode "
+                  + "continuar acessível. Tente de novo em instantes.";
+            MensagemEhErro = !saiu;
+        }
+        catch (Exception ex)
+        {
+            Application.Diagnostico.Registrar(
+                "Consultório — link do documento não pôde ser tirado do ar", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     [RelayCommand]
     private async Task CancelarAsync(LinhaDocumentoClinico? linha)
     {

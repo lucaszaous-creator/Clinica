@@ -23,8 +23,13 @@
                 <Grid>
                     <Border x:Name="veu" Background="#000000" Opacity="0"
                             CornerRadius="{StaticResource Raio.Medio}" />
+                    <!-- O alinhamento vem do CONTROLE, nunca cravado aqui: com "Center"
+                         fixo, o Stretch que o BotaoCartao declara era ignorado — nome
+                         curto centralizava e nome comprido preenchia, e a coluna da
+                         Minha semana saía com os cartões cada um num prumo. -->
                     <ContentPresenter x:Name="conteudo" Margin="{TemplateBinding Padding}"
-                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                       RecognizesAccessKey="True" />
                     <Ellipse x:Name="spinner" Width="14" Height="14" Visibility="Collapsed"
                              Stroke="{TemplateBinding Foreground}" StrokeThickness="2"
@@ -86,6 +91,10 @@
 
     <!-- Primário (implícito) -->
     <Style TargetType="Button">
+        <!-- O centro que o template deixou de cravar: sem estes dois, o padrão de
+             Control (Left/Top) valeria para todo botão comum da suíte. -->
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Background" Value="{StaticResource Brush.Acento}" />
         <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Invertido}" />
         <Setter Property="FontSize" Value="{StaticResource Fonte.Corpo}" />
