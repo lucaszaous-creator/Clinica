@@ -3562,3 +3562,28 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   a folha de infusão parou de afirmar que o código "confere integridade" — ele LOCALIZA a
   folha; quem prova integridade é a assinatura (a regra da parcela 3, que quase escapou por
   uma palavra).
+
+- **O "Ler QR Code" do validador gov.br é um CONTRATO aberto — e entrar nele não exige
+  cadastro** (parcela 68, 7ª rodada — a cliente colou o Guia de Orientações aos
+  Desenvolvedores do VALIDAR, que a rede deste ambiente bloqueava). O que o guia fecha:
+  depois de ler o QR, o validador chama a URL com
+  `?_format=application/validador-iti+json&_secretCode=<código>` e espera um JSON com a
+  URL do PDF (`{"version":"1.0.0","prescription":{"signatureFiles":[{"url":"…"}]}}`);
+  401 para código errado, 404 para inexistente. O `_secretCode` é definido como **"0 a 64
+  caracteres"** — vazio é contrato válido. Qualquer URL que responda isso entra no fluxo;
+  não há credenciamento.
+  O desenho que isso destrava: um **Worker no MESMO domínio do QR** (o CNAME da parcela
+  53, que existe exatamente para pôr coisas na frente do balde sem trocar a URL selada nos
+  PDFs) entrega o PDF a navegador e o JSON ao validador, conferindo o `_secretCode` contra
+  o **código de conferência impresso na folha** — que a publicação passou a gravar como
+  METADADO do objeto (`codigo`), para a borda responder sem banco. Como a URL não muda,
+  **as receitas já assinadas e impressas entram no fluxo também**. O Worker pronto está em
+  `tools/worker-validar-iti.js`; o roteiro, em `docs/validar-pelo-qr-code.md`; o rodapé só
+  muda DEPOIS de o Worker existir — mudar antes imprimiria promessa que o endereço não
+  cumpre.
+  ⚠️ **E o Capítulo VI do guia toca no nosso arquivo de duas assinaturas**: o VALIDAR
+  recomenda a 1ª assinatura declarar `DocMDP` (P=2 permite formulário e novas assinaturas)
+  e avisa que, sem isso, PDF com atualização incremental "poderá" sair como "Assinatura
+  Indeterminada". Afeta só a prescrição de infusão (interna, art. 13 — não vai à
+  farmácia); declarar DocMDP mexe em como o PDFsharp escreve a 1ª assinatura, que é área
+  congelada. Registrado como decisão futura, não tomada de raspão.

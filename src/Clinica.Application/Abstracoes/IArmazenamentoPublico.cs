@@ -27,8 +27,17 @@ public interface IArmazenamentoPublico
     /// Publica (ou substitui) o objeto no caminho indicado. O caminho vem do domínio —
     /// ver <see cref="Clinica.Domain.PublicacaoDocumento.CaminhoDoObjeto"/>.
     /// </summary>
+    /// <param name="metadados">
+    /// Pares gravados JUNTO do objeto no provedor (metadados S3), invisíveis a quem baixa
+    /// o arquivo. Hoje carregam o código de conferência do documento, que é o que permite
+    /// a uma camada de borda (Worker no domínio da clínica) responder o contrato de QR
+    /// Code do validador do ITI — `_secretCode` conferido contra o código impresso na
+    /// folha — sem banco nenhum na borda. Chaves e valores em ASCII: metadado S3 não
+    /// aceita acento.
+    /// </param>
     Task PublicarAsync(
-        string caminho, byte[] conteudo, string tipoConteudo, CancellationToken ct = default);
+        string caminho, byte[] conteudo, string tipoConteudo,
+        IReadOnlyDictionary<string, string>? metadados = null, CancellationToken ct = default);
 
     /// <summary>
     /// Tira o objeto do ar. Usado quando o prazo vence e quando o documento é CANCELADO —
