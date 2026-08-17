@@ -49,14 +49,15 @@ public sealed class ArmazenamentoS3 : IArmazenamentoPublico
         + "domínio para desligar a publicação.";
 
     public async Task PublicarAsync(
-        string caminho, byte[] conteudo, string tipoConteudo, CancellationToken ct = default)
+        string caminho, byte[] conteudo, string tipoConteudo,
+        IReadOnlyDictionary<string, string>? metadados = null, CancellationToken ct = default)
     {
         var (cliente, opcoes) = await ClienteAsync(ct);
         using var _ = cliente;
 
         using var fluxo = new MemoryStream(conteudo, writable: false);
 
-        await cliente.PutObjectAsync(
+        var requisicao =
             new PutObjectRequest
             {
                 BucketName = opcoes.Bucket,
@@ -86,8 +87,16 @@ public sealed class ArmazenamentoS3 : IArmazenamentoPublico
                 // compatibilidade por uma otimização que não se aplica seria contrariar a
                 // razão de existir desta classe.
                 UseChunkEncoding = false,
-            },
-            ct);
+            };
+
+        // Metadados viajam como cabeçalhos x-amz-meta-*: o provedor os guarda com o
+        // objeto e um Worker na borda os lê sem ir a banco nenhum. Quem baixa o PDF não
+        // os vê.
+        if (metadados is not null)
+            foreach (var (chave, valor) in metadados)
+                requisicao.Metadata.Add(chave, valor);
+
+        await cliente.PutObjectAsync(requisicao, ct);
     }
 
     /// <summary>

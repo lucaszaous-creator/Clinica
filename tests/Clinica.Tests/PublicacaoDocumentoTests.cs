@@ -29,11 +29,16 @@ public sealed class ArmazenamentoFake : IArmazenamentoPublico
     /// </summary>
     public bool RecusaRemover { get; set; }
 
+    /// <summary>Metadados gravados por objeto — o código de conferência que o Worker do validador lê.</summary>
+    public Dictionary<string, IReadOnlyDictionary<string, string>?> Metadados { get; } = new();
+
     public Task PublicarAsync(
-        string caminho, byte[] conteudo, string tipoConteudo, CancellationToken ct = default)
+        string caminho, byte[] conteudo, string tipoConteudo,
+        IReadOnlyDictionary<string, string>? metadados = null, CancellationToken ct = default)
     {
         if (Quebrado) throw new InvalidOperationException("armazenamento fora do ar");
         Objetos[caminho] = conteudo;
+        Metadados[caminho] = metadados;
         return Task.CompletedTask;
     }
 
@@ -189,6 +194,14 @@ public class PublicacaoDocumentoTests : IDisposable
         _armazenamento.Objetos.Should()
             .ContainKey(PublicacaoDocumento.CaminhoDoObjeto(doc.TokenPublicacao!));
         doc.LinkNoAr(Hoje).Should().BeTrue();
+
+        // O código de conferência sobe como METADADO do objeto: é o que permite ao Worker
+        // do domínio responder o contrato de QR Code do validador do ITI (o `_secretCode`
+        // vira o código impresso na folha) sem banco nenhum na borda. Sem o metadado, o
+        // fluxo do QR no validador fica impossível de implementar depois — os objetos já
+        // publicados não teriam o código.
+        _armazenamento.Metadados[PublicacaoDocumento.CaminhoDoObjeto(doc.TokenPublicacao!)]
+            .Should().ContainKey("codigo").WhoseValue.Should().Be(doc.CodigoVerificacao);
 
         (await _db.Auditoria.AsNoTracking().Select(e => e.Acao).ToListAsync())
             .Should().Contain("DocumentoPublicado");

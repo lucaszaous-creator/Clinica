@@ -125,8 +125,16 @@ public sealed class PublicacaoDocumentoService
 
         try
         {
+            // O código de conferência sobe como METADADO do objeto (invisível a quem
+            // baixa). É o que permite um Worker no domínio da clínica responder o
+            // contrato de QR Code do validador do ITI — o `_secretCode` que a tela pede
+            // passa a ser o código impresso na folha — sem expor nada e sem banco na
+            // borda. Enquanto o Worker não existir, o metadado só fica lá, inerte.
+            // Roteiro completo em docs/validar-pelo-qr-code.md.
             await _armazenamento.PublicarAsync(
-                PublicacaoDocumento.CaminhoDoObjeto(token), pdfAssinado, "application/pdf", ct);
+                PublicacaoDocumento.CaminhoDoObjeto(token), pdfAssinado, "application/pdf",
+                new Dictionary<string, string> { ["codigo"] = documento.CodigoVerificacao },
+                ct);
         }
         catch (Exception ex)
         {
@@ -188,7 +196,7 @@ public sealed class PublicacaoDocumentoService
 
         try
         {
-            await _armazenamento.PublicarAsync(CaminhoDeTeste, conteudo, "text/plain", ct);
+            await _armazenamento.PublicarAsync(CaminhoDeTeste, conteudo, "text/plain", ct: ct);
         }
         catch (Exception ex)
         {
@@ -246,7 +254,7 @@ public sealed class PublicacaoDocumentoService
 
         try
         {
-            await _armazenamento.PublicarAsync(caminho, PdfDeExemplo(), "application/pdf", ct);
+            await _armazenamento.PublicarAsync(caminho, PdfDeExemplo(), "application/pdf", ct: ct);
         }
         catch (Exception ex)
         {
