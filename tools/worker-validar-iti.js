@@ -49,7 +49,14 @@ export default {
       return new Response(null, { headers: cors() });
 
     // ---- O contrato do validador ----
-    if (url.searchParams.get("_format") === FORMATO_VALIDADOR) {
+    //
+    // ⚠️ O "+" de "validador-iti+json" vira ESPAÇO quando a query é decodificada — é o
+    // padrão de URL (application/x-www-form-urlencoded), não um defeito do Cloudflare.
+    // Sem a volta do replace, o formato chegaria como "application/validador-iti json",
+    // nunca casaria, e o Worker devolveria o PDF onde o validador espera o JSON — o
+    // fluxo inteiro falharia em silêncio, com tudo configurado certo.
+    const formato = (url.searchParams.get("_format") ?? "").replace(" ", "+");
+    if (formato === FORMATO_VALIDADOR) {
       const objeto = await env.BUCKET.head(chave);
       if (!objeto) return new Response(null, { status: 404, headers: cors() });
 
