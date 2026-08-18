@@ -317,6 +317,22 @@ public interface IClinicaRepositorio
         int pacienteId, bool incluirCanceladas, CancellationToken ct = default);
 
     /// <summary>
+    /// O par de EVA (primeira e última medida completa) de VÁRIOS pacientes, numa consulta.
+    ///
+    /// A carteira do consultório precisa de dois números por paciente e nada mais. Lê-los
+    /// com <see cref="EvolucoesDoPacienteAsync(int, CancellationToken)"/> num laço custava
+    /// uma ida ao banco REMOTO por paciente — até duzentas para desenhar uma tela — e cada
+    /// uma arrastava o prontuário inteiro daquela pessoa (texto da evolução, conduta,
+    /// orientações) para calcular dois inteiros.
+    ///
+    /// Só o par COMPLETO entra, como no resto do projeto: uma medida solta não diz se o
+    /// tratamento funcionou e puxaria a leitura por falta de dado. Sessão cancelada fica
+    /// de fora (parcela 52).
+    /// </summary>
+    Task<IReadOnlyDictionary<int, (int Inicial, int Ultima)>> ParesDeEvaDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
+
+    /// <summary>
     /// As versões anteriores de uma sessão, da mais antiga para a mais nova.
     ///
     /// É a leitura que torna a retificação RASTREÁVEL (Lei 13.787/2018, art. 3º).

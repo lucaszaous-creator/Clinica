@@ -138,12 +138,55 @@ public sealed class AgendaService
         ag.Encaixe = novoEncaixe;
         ag.DataHora = dataHora;
         ag.ModalidadePrevista = modalidade;
-        ag.ModalidadeCodigo = modalidadeCodigo ?? modalidade.ToString();
-        ag.EspecialidadeConsulta = ehConsulta ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null;
-        ag.EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null;
+
+        // ⚠️ NULO quer dizer "o chamador não sabe", nunca "desligue" (a regra da parcela
+        // 68, aplicada aqui porque foi aqui que ela custou caro).
+        //
+        // `RemarcarEmLoteAsync` — o "Empurrar" que desloca as sessões de umas férias —
+        // chama sem os códigos, porque ele só muda a DATA. Enquanto a atribuição era
+        // incondicional, cada sessão empurrada perdia a VARIANTE da modalidade
+        // ("Acupuntura (domiciliar)" virava "Acupuntura") e a ESPECIALIDADE da consulta.
+        // Nada falhava: o empurrão dizia "30 sessão(ões) empurradas", e o estrago só
+        // aparecia semanas depois, uma paciente por vez, na guia que nascia errada.
+        //
+        // Quem MUDA a modalidade é quem informa o código dela; nesse caso a especialidade
+        // que vem junto é a autoridade, inclusive para limpar. Sem código informado, o
+        // horário fica com o que já tinha.
+        if (modalidadeCodigo is not null)
+        {
+            ag.ModalidadeCodigo = modalidadeCodigo;
+            ag.EspecialidadeConsulta = ehConsulta
+                ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null;
+            ag.EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null;
+        }
+        else if (!ehConsulta)
+        {
+            // A modalidade guardada não é consulta: a especialidade não tem onde morar.
+            ag.EspecialidadeConsulta = null;
+            ag.EspecialidadeConsultaCodigo = null;
+        }
         ag.Observacoes = observacoes;
         // Remarcar um horário cancelado/faltado o traz de volta para a agenda.
         ag.Status = StatusAgendamento.Agendado;
+
+        // ⚠️ E os CARIMBOS DA FILA vão embora com o horário antigo.
+        //
+        // A etapa do kanban é DERIVADA deles (`Agendamento.Etapa`), não uma coluna: um
+        // horário remarcado que guardasse a chegada de terça nasceria, na quinta, já na
+        // raia "Na recepção" — ou em "Em atendimento", se o paciente tinha entrado na sala
+        // antes de a sessão ser interrompida. O balcão via alguém esperando desde antes de
+        // a clínica abrir (a espera é contada da chegada até agora), e o quadro do médico
+        // mostrava na sala um paciente que ainda estava em casa.
+        //
+        // Só quando a DATA muda: remarcar mexendo apenas em sala, duração ou observação é
+        // ajuste do horário de hoje, e apagar o check-in de quem já está sentado no balcão
+        // seria destruir o fato pelo caminho errado.
+        if (horarioAnterior.Date != dataHora.Date)
+        {
+            ag.ChegadaEm = null;
+            ag.ChamadoEm = null;
+            ag.InicioAtendimentoEm = null;
+        }
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {

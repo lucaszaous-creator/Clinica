@@ -67,6 +67,18 @@ public sealed class CartaoAgenda
     /// <summary>Saiu do fluxo do dia: o horário está livre de novo, mas a linha fica.</summary>
     public required bool ForaDoDia { get; init; }
 
+    /// <summary>
+    /// A METADE VISÍVEL da permissão, dentro da janela do horário.
+    ///
+    /// As sete ações são executadas pela <c>AgendaViewModel</c>, que tem a guarda — mas a
+    /// janela mostrava os seis botões ACESOS para quem só LÊ a agenda (a técnica de
+    /// enfermagem, o financeiro, o faturista: os quatro perfis têm `VerAgenda`), e a
+    /// recusa chegava depois do clique. É o defeito da parcela 41 numa janela que o
+    /// vizinho já fazia certo: o vão livre e os botões da barra da agenda sempre tiveram
+    /// `IsEnabled` — só esta janela não tinha.
+    /// </summary>
+    public bool PodeEditarAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
 
     public bool TemObservacoes => !string.IsNullOrWhiteSpace(Observacoes);
@@ -411,7 +423,12 @@ public sealed partial class AgendaViewModel : ObservableObject
             var espera = scope.ServiceProvider.GetRequiredService<ListaEsperaService>();
 
             var dia = DateOnly.FromDateTime(Dia);
-            var doDia = await agenda.DoDiaAsync(dia);
+
+            // A leitura do DIA não serve à grade de semana — lá quem lê é
+            // `MontarSemanaAsync`, e o dia escolhido já está dentro do período dela.
+            // Buscá-lo assim mesmo era uma ida inteira ao banco remoto (com três joins)
+            // cujo resultado ninguém abria, a cada clique nas setas de semana.
+            IReadOnlyList<Agendamento> doDia = ModoSemana ? [] : await agenda.DoDiaAsync(dia);
             var profissionais = await equipe.ProfissionaisAtivosAsync();
 
             // As salas são lidas AQUI, com o resto — e não lá embaixo, no ramo que as usa.
@@ -585,14 +602,30 @@ public sealed partial class AgendaViewModel : ObservableObject
         var segunda = Dia.Date.AddDays(-(((int)Dia.DayOfWeek + 6) % 7));
         var ocupando = 0;
 
+        // ⚠️ UMA consulta, não sete. `AgendaService.NoPeriodoAsync` existe para isto desde
+        // sempre — o app CONGELADO de faturamento já a usava na visão de semana dele — e
+        // era a agenda do balcão, a que se usa o dia inteiro, que chamava `DoDiaAsync` em
+        // laço. Sete idas em fila indiana a um banco REMOTO deixavam a tela em "Montando a
+        // agenda…" a cada clique nas setas, com o paciente esperando no balcão. O
+        // agrupamento é feito aqui, em memória, sobre o período inteiro — é o mesmo
+        // desenho que `ConsultorioService.DaSemanaAsync` já adotara, com o motivo escrito
+        // ao lado.
+        var daSemana = await agenda.NoPeriodoAsync(
+            DateOnly.FromDateTime(segunda), DateOnly.FromDateTime(segunda.AddDays(6)));
+
+        // Chegou tarde: outra carga mais nova já foi pedida — parar a montagem impede a
+        // semana velha de terminar por cima da nova.
+        if (geracao != _geracaoCarga) return;
+
+        var porDia = daSemana
+            .GroupBy(a => a.DataHora.Date)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Agendamento>)[.. g]);
+
         for (var i = 0; i < 7; i++)
         {
             var quando = segunda.AddDays(i);
-            var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(quando));
-
-            // Chegou tarde: outra carga mais nova já foi pedida — parar a montagem
-            // impede a semana velha de terminar por cima da nova.
-            if (geracao != _geracaoCarga) return;
+            IReadOnlyList<Agendamento> doDia =
+                porDia.TryGetValue(quando.Date, out var achados) ? achados : [];
 
             var recorte = soMeu
                 ? doDia.Where(a => a.ProfissionalId == meu).ToList()

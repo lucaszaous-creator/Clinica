@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -63,7 +64,7 @@ public class EstadoDaTela : Control
     /// <summary>A coleção que a lista mostra. O componente decide sozinho se ela está vazia.</summary>
     public static readonly DependencyProperty ItensProperty =
         DependencyProperty.Register(nameof(Itens), typeof(IEnumerable), typeof(EstadoDaTela),
-            new PropertyMetadata(null, AoMudar));
+            new PropertyMetadata(null, AoTrocarItens));
 
     public IEnumerable? Itens
     {
@@ -226,6 +227,40 @@ public class EstadoDaTela : Control
 
     private static void AoMudar(DependencyObject d, DependencyPropertyChangedEventArgs e)
         => ((EstadoDaTela)d).Recalcular();
+
+    /// <summary>
+    /// ⚠️ A COLEÇÃO muda sem que a PROPRIEDADE mude, e é aí que o componente mentia.
+    ///
+    /// As telas amarram `Itens` a uma `ObservableCollection` que NUNCA é reatribuída — elas
+    /// fazem `Clear()` e `Add()` na mesma instância. Isso dispara `CollectionChanged`, e não
+    /// o callback da DependencyProperty: <c>Recalcular</c> rodava uma vez, no instante do
+    /// binding, com a lista ainda vazia — e a resposta ficava congelada ali para sempre.
+    ///
+    /// Quase toda tela escapou por acidente: elas também amarram `Carregando`, que vira
+    /// true e depois false a cada leitura, e é ESSE callback que reavaliava a lista. As que
+    /// amarraram só `Itens` ficaram com "não há nada aqui" escrito por cima do conteúdo
+    /// cheio — a lista de espera da agenda, as autorizações do convênio na ficha e a busca
+    /// de CID. Nada falhava: o XAML é válido, o binding é válido, e as três redes locais
+    /// ficam verdes.
+    ///
+    /// Depender de uma propriedade IRMÃ mudar é contrato que ninguém consegue lembrar. A
+    /// assinatura resolve no componente, que é por onde toda tela passa.
+    /// </summary>
+    private static void AoTrocarItens(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var alvo = (EstadoDaTela)d;
+
+        if (e.OldValue is INotifyCollectionChanged antiga)
+            antiga.CollectionChanged -= alvo.AoMexerNaColecao;
+
+        if (e.NewValue is INotifyCollectionChanged nova)
+            nova.CollectionChanged += alvo.AoMexerNaColecao;
+
+        alvo.Recalcular();
+    }
+
+    private void AoMexerNaColecao(object? remetente, NotifyCollectionChangedEventArgs e)
+        => Recalcular();
 
     private void Recalcular()
     {

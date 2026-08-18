@@ -238,6 +238,20 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Especialidades ativas do catálogo (para a consulta avulsa).</summary>
     public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = new();
 
+    /// <summary>
+    /// Quem vai atender. A lista dos profissionais ATIVOS, como no formulário de
+    /// agendamento — é a mesma pergunta.
+    ///
+    /// ⚠️ Ela não existia, e a falta não quebrava nada: o avulso criava o encaixe SEM
+    /// profissional, a guia nascia certa e a tela dizia "Atendimento registrado". O
+    /// estrago era em volta, e todo em silêncio — horário sem dono some do "Meu dia" do
+    /// médico (o quadro filtra por <c>ProfissionalId</c>), some da "Minha semana" dele, e
+    /// fica de fora do REPASSE, que lê quem atendeu do AGENDAMENTO porque
+    /// <c>Atendimento</c> não guarda profissional. O médico atendia alguém que o app dele
+    /// nunca mostrou, e não era pago por aquela sessão.
+    /// </summary>
+    public ObservableCollection<Profissional> Profissionais { get; } = new();
+
     /// <summary>Opções de qual código sai primeiro (hoje) numa modalidade dupla. Vazio nas simples.</summary>
     public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
 
@@ -254,6 +268,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH:mm");
     [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
     [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
+
+    /// <summary>
+    /// Quem atendeu. Fica NULO quando a clínica não cadastrou ninguém — e aí o
+    /// comportamento é o de antes desta correção, que é o melhor disponível: guia
+    /// gerada, sessão registrada, e a tela dizendo que ninguém foi apontado.
+    /// </summary>
+    [ObservableProperty] private Profissional? _profissional;
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty]
@@ -441,9 +462,50 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     public async Task CarregarAsync()
     {
         CarregarCatalogos();
+        await CarregarProfissionaisAsync();
         await Seletor.BuscarAsync(imediato: true);
         await CarregarDoDiaAsync();
     }
+
+    /// <summary>
+    /// Os profissionais ativos, para o seletor de quem atendeu.
+    ///
+    /// Falhar aqui NÃO derruba a tela: o balcão continua lançando o atendimento (a guia
+    /// é o que a clínica não pode perder) e o seletor fica vazio, dizendo por quê. O que
+    /// não pode é passar calado — sem a linha no log, a clínica acreditaria que não há
+    /// ninguém cadastrado.
+    /// </summary>
+    private async Task CarregarProfissionaisAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();
+            var ativos = await equipe.ProfissionaisAtivosAsync();
+
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await.
+            Profissionais.Clear();
+            foreach (var p in ativos) Profissionais.Add(p);
+
+            // Um profissional só: não há o que escolher, e obrigar o clique num combo de
+            // uma opção é cerimônia. Mais de um, a escolha é de quem está no balcão.
+            if (Profissionais.Count == 1) Profissional = Profissionais[0];
+
+            OnPropertyChanged(nameof(SemProfissionaisCadastrados));
+            OnPropertyChanged(nameof(TemProfissionaisCadastrados));
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — profissionais não puderam ser lidos", ex);
+        }
+    }
+
+    /// <summary>Não há ninguém ativo cadastrado — a tela DIZ, em vez de mostrar combo vazio.</summary>
+    public bool SemProfissionaisCadastrados => Profissionais.Count == 0;
+
+    /// <summary>O par de cima. São duas propriedades porque a suíte não tem conversor de
+    /// bool invertido, e criar um para um uso só seria mais peça para manter.</summary>
+    public bool TemProfissionaisCadastrados => Profissionais.Count > 0;
 
     /// <summary>
     /// Os atendimentos do dia — a conferência de quem lançou o quê.
@@ -1070,7 +1132,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
                 encaixe: true,
                 operador: operador,
-                primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
+                primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
+                // Quem atendeu. É o que faz o paciente aparecer no "Meu dia" do médico e
+                // a sessão entrar no repasse dele — os dois leem o AGENDAMENTO.
+                profissionalId: Profissional?.Id);
 
             agendamentoId = agendamento.Id;
 

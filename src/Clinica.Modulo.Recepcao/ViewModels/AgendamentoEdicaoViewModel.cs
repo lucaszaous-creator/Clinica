@@ -379,7 +379,10 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
                     profissionalId: Profissional?.Id, salaId: Sala?.Id,
                     duracaoMinutos: DuracaoInformada(), encaixe: Encaixe,
                     modalidadeCodigo: ModalidadeSelecionada.Codigo,
-                    operador: SessaoUsuario.Atual.Operador);
+                    operador: SessaoUsuario.Atual.Operador,
+                    // A mesma que o formulário EXIGE logo acima ("Consulta precisa de
+                    // especialidade") — e que este caminho descartava em silêncio.
+                    especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null);
             }
             else if (EmSerie && PodeMarcarEmSerie)
             {

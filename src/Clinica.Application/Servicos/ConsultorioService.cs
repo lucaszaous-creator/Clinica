@@ -194,26 +194,24 @@ public sealed class ConsultorioService
 
         if (!comDor) return pacientes;
 
-        var comLeitura = new List<PacienteDoProfissional>(pacientes.Count);
-        foreach (var p in pacientes)
-        {
-            var evolucoes = await _repo.EvolucoesDoPacienteAsync(p.PacienteId, ct);
+        // ⚠️ UMA consulta, não uma por paciente.
+        //
+        // Isto era um laço com `EvolucoesDoPacienteAsync` dentro: até duzentas idas em
+        // fila indiana a um banco REMOTO para desenhar uma tela — e cada uma arrastava o
+        // prontuário INTEIRO daquela pessoa (texto da evolução, conduta, orientações) para
+        // calcular dois inteiros. "Meus pacientes" é uma das duas portas do Consultório, e
+        // ela ficava dezenas de segundos em "Montando a sua carteira…", repetindo a espera
+        // a cada volta para a tela.
+        //
+        // É o mesmo desenho de `DaSemanaAsync` logo acima, e pelo mesmo motivo escrito lá.
+        var pares = await _repo.ParesDeEvaDosPacientesAsync(
+            [.. pacientes.Select(p => p.PacienteId)], ct);
 
-            // Só o par EVA completo entra, como no resto do projeto: uma medida solta não
-            // diz se o tratamento funcionou, e puxaria a leitura por falta de dado.
-            var medidas = evolucoes
-                .Where(e => e.TemParEva)
-                .OrderBy(e => e.Data).ThenBy(e => e.Id)
-                .ToList();
-
-            comLeitura.Add(p with
-            {
-                DorInicial = medidas.Count == 0 ? null : medidas[0].EvaAntes,
-                UltimaDor = medidas.Count == 0 ? null : medidas[^1].EvaDepois
-            });
-        }
-
-        return comLeitura;
+        return pacientes
+            .Select(p => pares.TryGetValue(p.PacienteId, out var par)
+                ? p with { DorInicial = par.Inicial, UltimaDor = par.Ultima }
+                : p)
+            .ToList();
     }
 
     /// <summary>

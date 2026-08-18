@@ -371,7 +371,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                 : null;
 
             if (doHorario is not null) Preencher(doHorario);
-            else Limpar();
+            else Limpar(_foco.DataDoHorario);
 
             foreach (var e in sessoes.Where(e => e.Id != EvolucaoId).Take(SessoesAnterioresVisiveis))
                 Anteriores.Add(LinhaSessaoAnterior.De(e));
@@ -538,10 +538,30 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         Orientacoes = e.Orientacoes;
     }
 
-    private void Limpar()
+    /// <summary>
+    /// Zera o formulário para uma sessão que ainda não tem evolução escrita.
+    ///
+    /// ⚠️ A DATA é a do HORÁRIO, não a de hoje — e é aqui que morava o defeito que
+    /// quebrava o laço central do Consultório. O módulo existe para responder "o que eu
+    /// atendi e ainda não escrevi"; escrever a evolução da sessão de terça gravava-a com a
+    /// data de HOJE, e daí saíam dois estragos:
+    ///
+    /// 1. **O prontuário passa a dizer que a sessão foi hoje.** É registro clínico com a
+    ///    data errada — a Lei 13.787/2018 pede o contrário disso, e o erro é
+    ///    irrecuperável depois, porque nada guarda qual era a data verdadeira.
+    /// 2. **A dívida nunca saía da lista.** `RegistrosPendentesAsync` lê as evoluções da
+    ///    janela que termina ONTEM (a sessão de hoje não é cobrada, o paciente ainda está
+    ///    na sala) — então a evolução datada de hoje ficava FORA do conjunto consultado, o
+    ///    casamento não a encontrava, e a linha continuava lá. O médico salvava, lia
+    ///    "Sessão registrada no prontuário", via a pendência de pé e escrevia de novo.
+    ///
+    /// Nulo — o caminho de quem entrou pela busca, sem horário em foco — continua sendo
+    /// hoje, que é o melhor palpite disponível.
+    /// </summary>
+    private void Limpar(DateOnly? dataDoHorario = null)
     {
         EvolucaoId = 0;
-        Data = DateTime.Today;
+        Data = dataDoHorario?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
         EvaAntes = null;
         EvaDepois = null;
         QueixaPrincipal = null;

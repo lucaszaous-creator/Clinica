@@ -43,6 +43,20 @@ public sealed class LinhaSessao
 
     public required EtapaFila Etapa { get; init; }
 
+    /// <summary>
+    /// Cancelado ou falta. O cartão CONTINUA na coluna "aguardando" — quem lê às 14h
+    /// precisa saber que o horário das 15h vagou, e linha ausente se confunde com horário
+    /// que nunca existiu (a regra da folha do dia).
+    ///
+    /// ⚠️ Mas ele precisa ficar MARCADO, e não ficava. A situação era calculada
+    /// (<c>Situacao</c>, via <c>Rotular</c>) e o XAML do quadro nunca a leu — dado
+    /// calculado sem leitor, na variante em que o estrago é ler ERRADO em vez de não ler:
+    /// o médico contava cinco pessoas por vir e duas tinham desmarcado. A tela irmã do
+    /// mesmo módulo, "Minha semana", já marcava com "Não aconteceu"; eram duas respostas
+    /// para a mesma pergunta sobre o mesmo horário.
+    /// </summary>
+    public required bool ForaDaFila { get; init; }
+
     /// <summary>O que o botão de registro diz — "Escrever" e "Abrir" não são a mesma ação.</summary>
     public string RotuloRegistro => EvolucaoEscrita ? "Ver registro" : "Atender";
 
@@ -80,6 +94,7 @@ public sealed class LinhaSessao
         Modalidade = s.Modalidade,
         Local = s.Sala ?? "—",
         Situacao = Rotular(s.Status, s.Etapa),
+        ForaDaFila = s.Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou,
         EvolucaoEscrita = s.EvolucaoEscrita,
         RegistroPendente = s.RegistroPendente,
         Encaixe = s.Encaixe,
@@ -346,12 +361,17 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         try
         {
             Carregando = !silencioso;
-            NaoVerificado = false;
             // A recarga de fundo não apaga o recado da última ação: "Ana foi chamada —
             // a recepção já está vendo o aviso" sumindo sozinho um minuto depois faria
             // quem clicou duvidar de que o clique valeu.
+            //
+            // E não apaga o "não verificado" pendente: a batida silenciosa que também
+            // falha deixaria a tela limpa, afirmando um dia conferido que ninguém
+            // conferiu. Quem levanta e quem baixa esse estado é a carga que a PESSOA
+            // pediu — as três telas irmãs do balcão já fazem assim.
             if (!silencioso)
             {
+                NaoVerificado = false;
                 Mensagem = null;
                 MensagemEhErro = false;
             }
@@ -410,16 +430,26 @@ public sealed partial class MeuDiaViewModel : ObservableObject
         {
             if (geracao != _geracaoCarga) return;
 
-            NaoVerificado = true;
             Clinica.Application.Diagnostico.Registrar("Consultório — o dia não pôde ser carregado", ex);
 
-            // Recarga de fundo que falha não interrompe quem está atendendo com um aviso
-            // vermelho: já foi para o log, e a tela segue com o quadro do minuto anterior.
-            if (!silencioso)
-            {
-                Mensagem = ex.Message;
-                MensagemEhErro = true;
-            }
+            // Recarga de fundo que falha não interrompe quem está atendendo: já foi para o
+            // log, e a tela segue com o quadro do minuto anterior.
+            //
+            // ⚠️ `NaoVerificado` entra JUNTO da mensagem, e não antes dela. Ele acende a
+            // sobreposição do `EstadoDaTela` — que, numa recarga silenciosa, aparecia por
+            // cima de um quadro CHEIO (as colunas só são limpas depois do await, desde a
+            // parcela 68) dizendo que a tela estava vazia por falha de leitura. O
+            // comentário aqui prometia o contrário havia parcelas: comentário que descreve
+            // degradação sem o código que a realiza é o defeito da parcela 67.
+            //
+            // As três telas irmãs do balcão — Agenda, Fila e Painel — já saíam do catch
+            // sem tocar em nada quando a carga era silenciosa. Esta era a que ninguém
+            // releu.
+            if (silencioso) return;
+
+            NaoVerificado = true;
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
         }
         finally
         {
@@ -487,7 +517,13 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             Mensagem = $"{paciente} foi chamado — a recepção já está vendo o aviso.";
             MensagemEhErro = false;
-            await CarregarAsync();
+            // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
+            // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
+            // recepção já está vendo o aviso") era apagado no mesmo instante, antes de
+            // qualquer olho o alcançar. O comentário da própria carga já dizia que a
+            // recarga de fundo não apaga o recado da última ação; o que faltava era
+            // ESTA chamada usá-la.
+            await CarregarAsync(silencioso: true);
         }
         catch (Exception ex)
         {
@@ -515,7 +551,13 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             Mensagem = $"Chamada de {linha.Paciente} desfeita.";
             MensagemEhErro = false;
-            await CarregarAsync();
+            // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
+            // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
+            // recepção já está vendo o aviso") era apagado no mesmo instante, antes de
+            // qualquer olho o alcançar. O comentário da própria carga já dizia que a
+            // recarga de fundo não apaga o recado da última ação; o que faltava era
+            // ESTA chamada usá-la.
+            await CarregarAsync(silencioso: true);
         }
         catch (Exception ex)
         {
@@ -549,7 +591,13 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             Mensagem = $"{linha.Paciente} em atendimento.";
             MensagemEhErro = false;
-            await CarregarAsync();
+            // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
+            // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
+            // recepção já está vendo o aviso") era apagado no mesmo instante, antes de
+            // qualquer olho o alcançar. O comentário da própria carga já dizia que a
+            // recarga de fundo não apaga o recado da última ação; o que faltava era
+            // ESTA chamada usá-la.
+            await CarregarAsync(silencioso: true);
         }
         catch (Exception ex)
         {
@@ -585,7 +633,13 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             Mensagem = $"{linha.Paciente} devolvido à coluna anterior.";
             MensagemEhErro = false;
-            await CarregarAsync();
+            // ⚠️ SILENCIOSA. A carga que a PESSOA pede começa zerando `Mensagem` — e o
+            // recado que acabou de ser escrito duas linhas acima ("Fulano foi chamado — a
+            // recepção já está vendo o aviso") era apagado no mesmo instante, antes de
+            // qualquer olho o alcançar. O comentário da própria carga já dizia que a
+            // recarga de fundo não apaga o recado da última ação; o que faltava era
+            // ESTA chamada usá-la.
+            await CarregarAsync(silencioso: true);
         }
         catch (Exception ex)
         {

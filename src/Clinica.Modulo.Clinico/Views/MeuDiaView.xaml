@@ -111,6 +111,14 @@
                                              Converter={StaticResource BoolParaVisibilidade}}">
                             <TextBlock Text="Sem evolução" />
                         </Border>
+                        <!-- Cancelado / falta: fica na coluna, MARCADO. Sem o selo, a raia
+                             "aguardando" contava como gente por vir quem já desmarcou — o
+                             mesmo selo que a "Minha semana" já usava ao lado. -->
+                        <Border Style="{StaticResource Badge}" Margin="0,0,6,4"
+                                Visibility="{Binding ForaDaFila,
+                                             Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap" />
+                        </Border>
                     </WrapPanel>
 
                     <!-- UMA ação principal por cartão. As secundárias só aparecem na raia

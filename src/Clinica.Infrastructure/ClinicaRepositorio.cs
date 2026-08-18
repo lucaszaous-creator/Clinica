@@ -796,6 +796,29 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         int pacienteId, CancellationToken ct = default)
         => await EvolucoesDoPacienteAsync(pacienteId, false, ct);
 
+    public async Task<IReadOnlyDictionary<int, (int Inicial, int Ultima)>> ParesDeEvaDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return new Dictionary<int, (int, int)>();
+
+        // Só as colunas que a carteira usa. `TemParEva` é propriedade calculada da
+        // entidade e não traduz para SQL — a condição vai escrita aqui, e é a MESMA:
+        // as duas pontas presentes.
+        var medidas = await _db.Evolucoes.AsNoTracking()
+            .Where(e => pacienteIds.Contains(e.PacienteId))
+            .Where(e => e.CanceladaEm == null)
+            .Where(e => e.EvaAntes != null && e.EvaDepois != null)
+            .OrderBy(e => e.Data).ThenBy(e => e.Id)
+            .Select(e => new { e.PacienteId, e.EvaAntes, e.EvaDepois })
+            .ToListAsync(ct);
+
+        return medidas
+            .GroupBy(m => m.PacienteId)
+            .ToDictionary(
+                g => g.Key,
+                g => (Inicial: g.First().EvaAntes!.Value, Ultima: g.Last().EvaDepois!.Value));
+    }
+
     public async Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
         int pacienteId, bool incluirCanceladas, CancellationToken ct = default)
         => await _db.Evolucoes.AsNoTracking()

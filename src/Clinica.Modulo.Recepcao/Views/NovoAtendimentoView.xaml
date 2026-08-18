@@ -458,6 +458,25 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- QUEM ATENDEU. Não é campo de conferência: é o que liga a sessão
+                         ao médico. Sem ele o horário nasce órfão, e horário órfão some do
+                         "Meu dia" e da "Minha semana" do consultório (os dois filtram por
+                         profissional) e fica de fora do repasse — que lê quem atendeu do
+                         AGENDAMENTO, porque o atendimento não guarda profissional. -->
+                    <TextBlock Text="Quem atendeu" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+                    <ComboBox ItemsSource="{Binding Profissionais}"
+                              SelectedItem="{Binding Profissional}"
+                              DisplayMemberPath="Rotulo"
+                              ctrl:Ajudantes.Placeholder="Escolha o profissional" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               Text="É o que faz esta sessão aparecer no app de quem atende e entrar no repasse dele."
+                               Visibility="{Binding TemProfissionaisCadastrados,
+                                            Converter={StaticResource BoolParaVisibilidade}}" />
+                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                               Text="Nenhum profissional ativo cadastrado — a sessão será lançada sem dono, e não aparecerá no app de quem atende. Cadastre em Profissionais e salas."
+                               Visibility="{Binding SemProfissionaisCadastrados,
+                                            Converter={StaticResource BoolParaVisibilidade}}" />
+
                     <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
                     <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"
                              MinHeight="52" MaxHeight="96" VerticalScrollBarVisibility="Auto"

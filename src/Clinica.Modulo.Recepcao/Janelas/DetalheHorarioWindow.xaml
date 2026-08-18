@@ -80,10 +80,21 @@
             <TextBlock Text="O que fazer com este horário" Style="{StaticResource Rotulo}"
                        Margin="0,0,0,6" />
 
+            <!-- ⚠️ `IsEnabled` é POR BOTÃO, não no bloco: a metade que EXPLICA.
+                 A guarda que impede vive na AgendaViewModel, dona das sete ações — e sem
+                 esta metade quem só LÊ a agenda (enfermagem, financeiro, faturista: os
+                 quatro perfis têm `VerAgenda`) via os seis acesos e levava a recusa depois
+                 do clique. O vizinho já fazia certo desde sempre: o vão livre da grade e
+                 os botões da barra têm `IsEnabled`.
+                 Ele NÃO vai no bloco inteiro porque dois destes não escrevem na agenda —
+                 "Confirmar pelo WhatsApp" e "Comprovante" são leitura, e apagá-los tiraria
+                 de quem só lê uma coisa que ele podia fazer ontem. -->
             <UniformGrid Columns="2" Margin="0,0,0,4"
                          Visibility="{Binding EmAberto,
                                       Converter={StaticResource BoolParaVisibilidade}}">
-                <Button Content="Remarcar" Margin="0,0,4,8" Click="AoRemarcar" />
+                <Button Content="Remarcar" Margin="0,0,4,8"
+                        IsEnabled="{Binding PodeEditarAgenda}"
+                        Click="AoRemarcar" />
                 <Button Content="Confirmar pelo WhatsApp" Margin="4,0,0,8"
                         Style="{StaticResource BotaoSecundario}"
                         IsEnabled="{Binding TemTelefone}"
@@ -95,21 +106,44 @@
                         Click="AoComprovante" />
                 <Button Content="Quem chamar?" Margin="4,0,0,8"
                         Style="{StaticResource BotaoSecundario}"
+                        IsEnabled="{Binding PodeEditarAgenda}"
                         ToolTip="Aponta a lista de espera para este horário"
                         Click="AoQuemChamar" />
                 <Button Content="Marcar falta" Margin="0,0,4,8"
                         Style="{StaticResource BotaoSecundarioPerigo}"
+                        IsEnabled="{Binding PodeEditarAgenda}"
                         Click="AoMarcarFalta" />
                 <Button Content="Cancelar horário" Margin="4,0,0,8"
                         Style="{StaticResource BotaoSecundarioPerigo}"
+                        IsEnabled="{Binding PodeEditarAgenda}"
                         Click="AoCancelar" />
             </UniformGrid>
+
+            <!-- FECHADO por falta ou cancelamento — e com VOLTA.
+                 Marcar falta no lugar de cancelar (dois botões vermelhos lado a lado) some
+                 com o cartão do quadro do dia na hora, e até aqui não havia por onde
+                 desfazer: o bloco de ações inteiro estava sob `EmAberto`, e a única porta
+                 para reabrir ficava no app de FATURAMENTO — outro programa, de outra
+                 pessoa. Remarcar já traz o horário de volta para a agenda (é o que
+                 `AgendaService.RemarcarAsync` faz com `Status = Agendado`); o que faltava
+                 era a porta. -->
+            <StackPanel Visibility="{Binding ForaDoDia,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                           Margin="0,0,0,8"
+                           Text="Este horário está fechado. Reabrir devolve o paciente à agenda — escolha a data e a hora, que podem ser as mesmas." />
+                <Button Content="Reabrir este horário" HorizontalAlignment="Left"
+                        Margin="0,0,0,8"
+                        IsEnabled="{Binding PodeEditarAgenda}"
+                        Click="AoRemarcar" />
+            </StackPanel>
 
             <!-- Só em sessão marcada em série: o "desistiu no meio do pacote". Aparece
                  mesmo neste horário já fechado — o que ele cancela são as sessões ainda
                  MARCADAS da série, e a que já foi atendida é fato e não é tocada. -->
             <Button Content="Cancelar o resto da série" HorizontalAlignment="Left"
                     Style="{StaticResource BotaoSecundarioPerigo}" Margin="0,0,0,8"
+                    IsEnabled="{Binding PodeEditarAgenda}"
                     Visibility="{Binding EhSerie,
                                  Converter={StaticResource BoolParaVisibilidade}}"
                     Click="AoCancelarSerie" />

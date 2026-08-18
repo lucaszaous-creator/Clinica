@@ -250,7 +250,15 @@ public sealed partial class FilaViewModel : ObservableObject
     /// ACESO, clicava e levava a recusa do <c>Exigir</c>: metade visível mais larga que a
     /// guarda é a outra face do "botão que não faz nada" — ela promete o que não entrega.
     /// </summary>
-    public bool PodeConcluirSessao => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    /// <remarks>
+    /// `Pode` com bits combinados é um <b>E</b>: concluir pede as duas coisas — mexer na
+    /// fila do balcão E lançar o atendimento. A segunda entrou quando a guarda passou a
+    /// exigir <c>LancarAtendimento</c>: guarda mais estreita que a metade visível é o
+    /// botão que promete e recusa depois do clique, que é o defeito da parcela 41 pelo
+    /// avesso.
+    /// </remarks>
+    public bool PodeConcluirSessao => SessaoUsuario.Atual.Pode(
+        Permissao.EditarAgenda | Permissao.LancarAtendimento);
 
     /// <summary>
     /// Colher o termo é ato de outro bit — a técnica de enfermagem o tem e não tem o da
@@ -720,6 +728,20 @@ public sealed partial class FilaViewModel : ObservableObject
         => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
+            // ⚠️ E o bit do ATO, não só o da fila. Concluir aqui é o que CRIA o atendimento
+            // e, com ele, as guias — desde que a parcela 65 mudou o momento em que a guia
+            // nasce. `LancarAtendimento` existe justamente para a direção poder tirar isso
+            // de alguém, e a caixinha dele em Acessos diz, com estas palavras, "criar o
+            // atendimento — e, com ele, as guias". Enquanto só `EditarAgenda` guardou esta
+            // porta, desmarcar aquela caixinha fechava a tela de Novo atendimento e não
+            // fechava NADA: a mesma pessoa continuava gerando guia pelo Concluir da Fila,
+            // que é a porta que a clínica usa o dia inteiro.
+            //
+            // Nenhum perfil padrão perde nada: só `Recepcao` tem `EditarAgenda` junto de
+            // `LancarAtendimento`, e o Gerente tem todas. O que muda é o bit passar a valer.
+            SessaoUsuario.Atual.Exigir(
+                Permissao.LancarAtendimento, "lançar o atendimento e gerar as guias");
 
             RegistroAtendimento registro;
             using (var scope = _escopos.CreateScope())
