@@ -141,6 +141,45 @@ chave desligada, tudo se comporta como hoje **mais** a transação única do §3
 seja, a duplicidade morre no dia 1, e a mudança de fluxo de trabalho acontece quando a
 clínica decidir (e treinar a secretária).
 
+### 3.6 O lançamento avulso — a porta PRINCIPAL de hoje, e o caso mais simples do desenho
+
+⚠️ Enquanto a clínica usa o Amplimed como agenda, quase tudo entra pelo **Novo
+atendimento** — a agenda é o caso geral do desenho, mas o avulso é o caso REAL do dia a
+dia, e a arquitetura o trata de frente. Ele é a esteira inteira **colapsada num gesto**:
+o horário entra no sistema já realizado (a secretária lança depois do trâmite, com a
+sessão feita ou acontecendo).
+
+Hoje, o clique dela dispara uma CORRENTE de três serviços e cinco `SaveChanges`:
+
+```
+AgendarAsync (encaixe)            → SaveChanges
+RegistrarChegadaAsync (check-in)  → SaveChanges
+ConfirmarPresencaAsync
+  └ LancarAsync (guias)           → SaveChanges
+  └ número do atendimento         → SaveChanges
+  └ carimbo do agendamento        → SaveChanges
+```
+
+Cada vão entre eles é um meio-estado possível. O incidente de 12/08 (três encaixes com
+chegada carimbada e `AtendimentoId` nulo) morava num desses vãos; a guia duplicada mora
+no último — e a guarda de reaproveitamento (`ag.AtendimentoId is { }`) só funciona se o
+carimbo chegou ao banco, que é exatamente o que falha.
+
+No desenho novo, o MESMO clique monta **um grafo** — `Agendamento` (encaixe na hora
+real, chegada carimbada) + `Atendimento` (com `RealizadoEm` carimbado: a sessão
+aconteceu) + códigos + trilha — e grava em **um `SaveChanges`**. Os efeitos de PRESENÇA
+(§3.2 — NC reaberta, consulta renovada) disparam JUNTO, porque no avulso o paciente
+veio: a divisão criação × presença é por *"a sessão está sendo registrada como
+realizada?"*, **não pela porta**. Ou existe tudo, ou não existe nada e o erro aparece na
+tela — não sobra meio-estado para o segundo clique transformar em duplicata.
+
+Para a secretária, **nada muda de aparência**: a mesma tela, os três passos numerados, a
+prévia ("2 guias · a 2ª libera 09/08"), a conferência LANÇADOS HOJE. A janela de
+fechamento (pacote/insumo/caixa) continua sendo o passo SEGUINTE e opcional (parcela
+65), e cancelá-la não desfaz nada do que importa. E o avulso é **igual dos dois lados da
+chave** (§3.5): a chave governa a guia de horário FUTURO; o avulso é sempre presente —
+por isso a Fase 1 já entrega, para o fluxo atual da clínica, o comportamento final.
+
 ## 4. O que NÃO muda — e por quê já estava pronto
 
 1. **O painel de pendências e a rodada bloqueante**: `CodigoFaturamento.EstaPendente`
@@ -207,9 +246,11 @@ está registrada". Todo leitor que quis dizer **aconteceu** precisa de âncora n
 
 ## 8. Ordem de entrega
 
-1. **Fase 1 — a transação (vale nos dois regimes, ganha imediato):** fallback do §3.3 —
-   criação + carimbo num grafo/`SaveChanges` único, com trilha. Mata a duplicidade hoje,
-   sem mudar fluxo de trabalho nenhum.
+1. **Fase 1 — a transação (vale nos dois regimes, ganha imediato):** o Novo atendimento
+   (§3.6) e o Concluir da Fila viram operações ATÔMICAS — encaixe + chegada +
+   atendimento + guias + carimbo num grafo/`SaveChanges` único, com trilha. É a porta
+   que a clínica usa HOJE, o dia inteiro, enquanto a agenda ainda mora no Amplimed:
+   mata a duplicidade e o encaixe fantasma sem mudar um clique do fluxo de trabalho.
 2. **Fase 2 — o regime novo atrás da chave:** §3.1, §3.2, §3.4, §3.5, migration do §5.
 3. **Fase 3 — os leitores reancorados** (§5), um a um, cada qual com teste.
 4. **Fase 4 — o resto da nota 9 da Recepção** (fila da parcela 69): espera média que
