@@ -4,6 +4,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
@@ -17,7 +18,7 @@ namespace Clinica.Financeiro.ViewModels;
 /// </summary>
 public sealed partial class ProducaoViewModel : ObservableObject
 {
-    private readonly RelatorioService _relatorios;
+    private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
 
     public ObservableCollection<ResumoMensal> Meses { get; } = [];
@@ -48,9 +49,14 @@ public sealed partial class ProducaoViewModel : ObservableObject
     [ObservableProperty]
     private string _taxaBaixaFormatada = "—";
 
-    public ProducaoViewModel(RelatorioService relatorios, ISnackbarService snackbar)
+    /// <summary>
+    /// ⚠️ Nada de serviço SCOPED no construtor — o shell resolve esta tela do provedor
+    /// RAIZ, e Scoped pedido à raiz vive pela vida inteira do app, com o `DbContext`
+    /// junto (parcela 69). Escopo por operação. Ver a checagem 37 do verificar-suite.
+    /// </summary>
+    public ProducaoViewModel(IServiceScopeFactory escopos, ISnackbarService snackbar)
     {
-        _relatorios = relatorios;
+        _escopos = escopos;
         _snackbar = snackbar;
         _ = CarregarAsync();
     }
@@ -74,7 +80,9 @@ public sealed partial class ProducaoViewModel : ObservableObject
             Carregando = true;
             NaoVerificado = false;
             var hoje = DateOnly.FromDateTime(DateTime.Today);
-            var meses = await _relatorios.ComparativoMensalAsync(hoje, JanelaMeses);
+            using var escopo = _escopos.CreateScope();
+            var meses = await escopo.ServiceProvider.GetRequiredService<RelatorioService>()
+                .ComparativoMensalAsync(hoje, JanelaMeses);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

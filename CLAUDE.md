@@ -3732,11 +3732,28 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   construtor.** `AgendaViewModel` e `MeuDiaViewModel` já faziam assim — e é exatamente por
   isso que a grade e o quadro do médico atualizavam e a fila não. **Quando uma tela
   atualiza e a irmã não, a diferença não está na tela: está em como ela pede os serviços.**
-  ⚠️ E são **NOVE** ViewModels, não dois: os outros sete estão no Financeiro e no Gerente
-  (Caixa, Conciliação, Estoque, Pacotes, Plano de contas, Produção, Repasses) e ficaram
-  como dívida MEDIDA na checagem 37 — aviso enquanto estiverem na lista, erro para
-  qualquer tela nova. O Caixa é o que dói mais: um recebimento lançado na outra máquina não
-  aparece, e o fechamento do dia confere contra um número velho.
+  ⚠️ E eram **NOVE** ViewModels, não dois — os outros sete no Financeiro e no Gerente
+  (Caixa, Conciliação, Estoque, Pacotes, Plano de contas, Produção, Repasses). **Todos os
+  nove foram corrigidos**, e a lista de dívida da checagem 37 está VAZIA: o conjunto
+  continua no código como caminho de volta, para tela nova nascer cobrada sem ninguém
+  precisar afrouxar nada.
+  O Caixa era o que doía mais: um recebimento lançado na outra máquina não aparecia, e o
+  fechamento do dia conferia a gaveta contra um número velho.
+  Duas coisas que a correção dos sete ensinou, e que a próxima vai reencontrar:
+  **(a) o serviço não vai sozinho — o sub-VM vai junto.** Cada tela grande abre uma janela
+  de edição (`CategoriaEdicaoViewModel`, `ItemEstoqueEdicaoViewModel`,
+  `MovimentoEstoqueViewModel`, `RegraRepasseViewModel`, `PacoteCatalogoEdicaoViewModel`,
+  `PacoteVendaViewModel`, `ConsumosPacoteViewModel`, `LancamentoEdicaoViewModel`,
+  `CobrancaPixViewModel`) e passava o serviço já resolvido adiante. Corrigir só a tela de
+  fora deixaria a janela com o contexto da abertura do app — e é NELA que se grava.
+  **(b) antes de trocar, pergunte se alguma ENTIDADE atravessa o escopo.** Carregar num
+  escopo e salvar noutro deixa a entidade destacada, e o EF a trataria como nova. Aqui não
+  havia nenhum caso — todas as escritas passam ID ou objeto NOVO (`SalvarItemAsync(new
+  ItemEstoque { Id = … })`), e `GuiaSemLancamento` é record, não entidade —, mas isso foi
+  CONFERIDO caso a caso, não presumido. É a pergunta que decide se o refactor é mecânico
+  ou se precisa de desenho.
+  De quebra, três `Clear()` com `await` no meio apareceram no caminho (parcela 62) e foram
+  corrigidos junto: `RegraRepasseViewModel`, `PacotesViewModel` e `PacoteVendaViewModel`.
 
   ⚠️ **A CONSULTA CHAMADA DA LISTA DE ESPERA NASCIA SEM ESPECIALIDADE.** O formulário do
   balcão EXIGE a especialidade ("Consulta precisa de especialidade") — e
@@ -3846,5 +3863,5 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
       da tela de equipe diz "Ativo (aparece na agenda)", prometendo o contrário do que
       acontece. É diferente do item 1: aqui o `ProfissionalId` existe — quem sumiu foi a
       coluna.
-  12. **Os sete ViewModels restantes com serviço Scoped no construtor** (checagem 37) —
-      mesma mecânica do segundo bloqueador, no Financeiro e no Gerente.
+  (O item que estava aqui — os sete ViewModels restantes com serviço Scoped no construtor —
+  saiu da fila: foram corrigidos na mesma parcela, e a checagem 37 fecha o assunto.)

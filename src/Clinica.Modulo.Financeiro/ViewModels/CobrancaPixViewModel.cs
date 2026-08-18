@@ -3,6 +3,7 @@ using System.Windows;
 using Clinica.Application.Servicos;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 namespace Clinica.Financeiro.ViewModels;
 
 /// <summary>
@@ -17,8 +18,7 @@ namespace Clinica.Financeiro.ViewModels;
 /// </summary>
 public sealed partial class CobrancaPixViewModel : ObservableObject
 {
-    private readonly ParametrosService _parametros;
-    private readonly PixService _pix;
+    private readonly IServiceScopeFactory _escopos;
 
     [ObservableProperty] private string _valor = string.Empty;
     [ObservableProperty] private string _referencia = string.Empty;
@@ -28,11 +28,10 @@ public sealed partial class CobrancaPixViewModel : ObservableObject
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
-    public CobrancaPixViewModel(ParametrosService parametros, PixService pix,
+    public CobrancaPixViewModel(IServiceScopeFactory escopos,
         decimal? valorSugerido = null, string? referenciaSugerida = null)
     {
-        _parametros = parametros;
-        _pix = pix;
+        _escopos = escopos;
 
         // O valor vem preenchido quando a cobrança nasce de um lançamento: redigitar o
         // que o sistema já sabe é onde entra o erro de um dígito.
@@ -70,7 +69,9 @@ public sealed partial class CobrancaPixViewModel : ObservableObject
                 return;
             }
 
-            var prestador = await _parametros.ObterPrestadorAsync();
+            using var escopo = _escopos.CreateScope();
+            var prestador = await escopo.ServiceProvider
+                .GetRequiredService<ParametrosService>().ObterPrestadorAsync();
 
             if (string.IsNullOrWhiteSpace(prestador.ChavePix))
             {
@@ -79,7 +80,7 @@ public sealed partial class CobrancaPixViewModel : ObservableObject
                 return;
             }
 
-            var cobranca = _pix.Gerar(
+            var cobranca = escopo.ServiceProvider.GetRequiredService<PixService>().Gerar(
                 prestador.ChavePix,
                 prestador.NomeFantasia ?? prestador.RazaoSocial ?? "Clinica",
                 prestador.Cidade ?? string.Empty,

@@ -4,6 +4,7 @@ using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
@@ -20,8 +21,7 @@ public sealed record OpcaoCategoria(int? Id, string Nome);
 /// </summary>
 public sealed partial class LancamentoEdicaoViewModel : ObservableObject
 {
-    private readonly FinanceiroService _financeiro;
-    private readonly TaxaService _taxas;
+    private readonly IServiceScopeFactory _escopos;
 
     /// <summary>
     /// Disparado uma única vez, depois de o lançamento ser gravado. A janela fecha por
@@ -75,10 +75,9 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     public bool EhCartao => FormaPagamento is Clinica.Domain.Entities.FormaPagamento.CartaoDebito
         or Clinica.Domain.Entities.FormaPagamento.CartaoCredito;
 
-    public LancamentoEdicaoViewModel(FinanceiroService financeiro, TaxaService taxas)
+    public LancamentoEdicaoViewModel(IServiceScopeFactory escopos)
     {
-        _financeiro = financeiro;
-        _taxas = taxas;
+        _escopos = escopos;
         _ = CarregarCategoriasAsync();
     }
 
@@ -137,7 +136,8 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
 
         try
         {
-            var d = await _taxas.CalcularAsync(
+            using var escopo = _escopos.CreateScope();
+            var d = await escopo.ServiceProvider.GetRequiredService<TaxaService>().CalcularAsync(
                 bruto, DateOnly.FromDateTime(Data), FormaPagamento,
                 Adquirente, Bandeira, LerParcelas(), ReterImposto);
 
@@ -170,7 +170,9 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
     {
         try
         {
-            var todas = await _financeiro.CategoriasAsync(Tipo);
+            using var escopo = _escopos.CreateScope();
+            var todas = await escopo.ServiceProvider
+                .GetRequiredService<FinanceiroService>().CategoriasAsync(Tipo);
             var escolhida = Categoria?.Id;
 
             Categorias.Clear();
@@ -210,7 +212,8 @@ public sealed partial class LancamentoEdicaoViewModel : ObservableObject
         try
         {
             Ocupado = true;
-            await _financeiro.LancarAsync(
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<FinanceiroService>().LancarAsync(
                 data: DateOnly.FromDateTime(Data),
                 tipo: Tipo,
                 descricao: Descricao!,

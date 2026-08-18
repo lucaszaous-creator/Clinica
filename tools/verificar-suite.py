@@ -2893,12 +2893,11 @@ for _cenario, _corpo, _deve in (
 # ⚠️ `PENDENTES` é a dívida MEDIDA, não uma licença: quem está na lista vira AVISO, quem
 # não está vira ERRO. Tela nova nasce cobrada, e a lista só encolhe.
 
-_PENDENTES_ESCOPO = {
-    # Financeiro e Gerente — mesma mecânica, fora do alcance da parcela 69 (que foi a
-    # auditoria da AGENDA). Cada um destes tem o `DbContext` da abertura do app.
-    "CaixaViewModel", "ConciliacaoViewModel", "EstoqueViewModel", "PacotesViewModel",
-    "PlanoContasViewModel", "ProducaoViewModel", "RepassesViewModel",
-}
+# ZERADA na parcela 69: os nove que a varredura achou foram corrigidos, os dois da Agenda
+# primeiro e os sete do Financeiro/Gerente em seguida. O conjunto continua aqui porque é o
+# caminho de volta — tela nova que apareça já nasce como ERRO, e nada precisa ser afrouxado
+# para acomodá-la.
+_PENDENTES_ESCOPO: set[str] = set()
 
 
 def _servicos_scoped() -> set[str]:
@@ -2922,15 +2921,30 @@ def _vms_do_shell() -> set[str]:
     return nomes
 
 
+def _scoped_do_texto(vm: str, texto: str, scoped: set[str]) -> list[str]:
+    """Os serviços Scoped que o construtor declarado NESTE texto recebe.
+
+    Separada de `_scoped_no_construtor` para o autoteste poder alimentá-la com um caso
+    sintético — a varredura e o teste chamam a MESMA função, que é a regra da parcela 67
+    (autoteste que reimplementa fica verde exatamente quando a checagem quebra).
+    """
+    limpo = _sem_comentarios(texto)
+    m = re.search(r"public\s+" + re.escape(vm) + r"\s*\(([^)]*)\)", limpo, re.S)
+    if not m:
+        return []
+    tipos = re.findall(r"([A-Z]\w+)\s+\w+\s*(?:,|$)", m.group(1))
+    return sorted({t for t in tipos if t in scoped})
+
+
 def _scoped_no_construtor(vm: str, scoped: set[str]) -> list[str]:
     """Os serviços Scoped que o construtor deste ViewModel recebe."""
     for arq in RAIZ.glob(f"src/**/{vm}.cs"):
-        texto = _sem_comentarios(arq.read_text(encoding="utf-8"))
-        m = re.search(r"public\s+" + re.escape(vm) + r"\s*\(([^)]*)\)", texto, re.S)
-        if not m:
-            continue
-        tipos = re.findall(r"([A-Z]\w+)\s+\w+\s*(?:,|$)", m.group(1))
-        return sorted({t for t in tipos if t in scoped})
+        achados = _scoped_do_texto(vm, arq.read_text(encoding="utf-8"), scoped)
+        if achados:
+            return achados
+        # Achou o arquivo e o construtor está limpo: não procure homônimo noutro projeto.
+        if re.search(r"public\s+" + re.escape(vm) + r"\s*\(", arq.read_text(encoding="utf-8")):
+            return []
     return []
 
 
@@ -2952,18 +2966,34 @@ for _vm in sorted(_vms_do_shell()):
     else:
         erros.append(_frase)
 
-# --- autoteste da 37: ela CHAMA a mesma função da varredura (a lição da parcela 67) ---
-for _vm_teste, _deve in (
-    # Os dois que a parcela 69 corrigiu: têm de estar limpos.
-    ("FilaViewModel", False),
-    ("PainelViewModel", False),
-    # Um da dívida conhecida: tem de continuar sendo detectado (senão a checagem cegou).
-    ("CaixaViewModel", True),
+# --- autoteste da 37 ---
+#
+# ⚠️ Ele alimenta `_scoped_do_texto` — a MESMA função da varredura — com casos SINTÉTICOS,
+# e não com um arquivo real defeituoso. A primeira versão apontava para o `CaixaViewModel`
+# porque ele era a dívida do dia; quando a dívida foi paga, o autoteste quebrou sem haver
+# defeito nenhum. Teste de checagem que depende de o defeito continuar existindo morre no
+# dia em que a checagem funciona.
+_ALVO = "FooViewModel"
+for _cenario, _corpo, _deve in (
+    # O caso real: serviço Scoped pedido por construtor.
+    ("scoped no construtor",
+     "public FooViewModel(AgendaService a, ISnackbarService s) { }", True),
+    # O conserto: só a fábrica de escopo.
+    ("só a fábrica",
+     "public FooViewModel(IServiceScopeFactory e, ISnackbarService s) { }", False),
+    # Um Scoped citado só no CORPO (dentro de um escopo) não é o defeito — e acusá-lo
+    # seria o ruído que faz alguém desligar a ferramenta.
+    ("scoped só no corpo",
+     "public FooViewModel(IServiceScopeFactory e) { }\n"
+     "void X() { var a = p.GetRequiredService<AgendaService>(); }", False),
+    # Comentário que MENCIONA o serviço não pode disparar (a lição da checagem 31).
+    ("mencionado em comentário",
+     "// não receba AgendaService aqui\npublic FooViewModel(IServiceScopeFactory e) { }", False),
 ):
-    _detectou = bool(_scoped_no_construtor(_vm_teste, _scoped_conhecidos))
+    _detectou = bool(_scoped_do_texto(_ALVO, _corpo, _scoped_conhecidos))
     if _detectou != _deve:
         erros.append(
-            f"verificar-suite: a checagem 37 mudou de resposta em {_vm_teste} — "
+            f"verificar-suite: a checagem 37 mudou de resposta ({_cenario}) — "
             f"detectou={_detectou}, esperado={_deve}."
         )
 

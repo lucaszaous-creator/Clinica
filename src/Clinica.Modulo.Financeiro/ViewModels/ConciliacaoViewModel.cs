@@ -8,6 +8,7 @@ using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
@@ -108,10 +109,7 @@ public sealed partial class LinhaReceitaGlosada : ObservableObject
 /// </summary>
 public sealed partial class ConciliacaoViewModel : ObservableObject
 {
-    private readonly FinanceiroService _financeiro;
-    private readonly TaxaService _taxas;
-    private readonly PrecoConvenioService _precos;
-    private readonly ReceitaGlosadaService _glosadas;
+    private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
@@ -227,14 +225,15 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
     [ObservableProperty]
     private bool _glosadasNaoVerificadas;
 
+    /// <summary>
+    /// ⚠️ Nada de serviço SCOPED no construtor — o shell resolve esta tela do provedor
+    /// RAIZ, e Scoped pedido à raiz vive pela vida inteira do app, com o `DbContext`
+    /// junto (parcela 69). Escopo por operação. Ver a checagem 37 do verificar-suite.
+    /// </summary>
     public ConciliacaoViewModel(
-        FinanceiroService financeiro, TaxaService taxas, PrecoConvenioService precos,
-        ReceitaGlosadaService glosadas, ISnackbarService snackbar, IDialogoService dialogo)
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
-        _financeiro = financeiro;
-        _taxas = taxas;
-        _precos = precos;
-        _glosadas = glosadas;
+        _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
         _ = CarregarAsync();
@@ -355,7 +354,11 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             var inicio = new DateOnly(Mes.Year, Mes.Month, 1);
             var fim = inicio.AddMonths(1).AddDays(-1);
 
-            var guias = await _financeiro.GuiasSemLancamentoAsync(inicio, fim);
+            using var escopo = _escopos.CreateScope();
+            var financeiro = escopo.ServiceProvider.GetRequiredService<FinanceiroService>();
+            var precos = escopo.ServiceProvider.GetRequiredService<PrecoConvenioService>();
+
+            var guias = await financeiro.GuiasSemLancamentoAsync(inicio, fim);
             var novas = new List<LinhaConciliacao>();
             foreach (var g in guias)
             {
@@ -364,7 +367,7 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
                 // demonstrativo, porque a operadora pode ter pago menos (glosa parcial) ou
                 // um valor negociado fora da tabela. Sem tabela, o campo fica vazio para
                 // ser digitado — como sempre foi; o sistema não inventa valor de mercado.
-                var proposto = await _precos.ProporAsync(g);
+                var proposto = await precos.ProporAsync(g);
 
                 novas.Add(new LinhaConciliacao
                 {
@@ -436,7 +439,9 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
         try
         {
             GlosadasNaoVerificadas = false;
-            var receitas = await _glosadas.PendentesAsync(inicio, fim);
+            using var escopo = _escopos.CreateScope();
+            var receitas = await escopo.ServiceProvider
+                .GetRequiredService<ReceitaGlosadaService>().PendentesAsync(inicio, fim);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -526,7 +531,9 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
 
         try
         {
-            await _glosadas.CancelarReceitaAsync(
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<ReceitaGlosadaService>()
+                .CancelarReceitaAsync(
                 linha.Receita.CodigoId, motivo, SessaoUsuario.Atual.Operador);
 
             // A guia volta ao mês do ATENDIMENTO, não ao carregado: a aba "A lançar"
@@ -580,11 +587,14 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             // A RETENÇÃO na fonte da operadora (parcela 18). O valor do lançamento
             // continua sendo o BRUTO da guia; o retido é dedução ao lado, e o líquido é
             // calculado — mesma regra da maquininha.
-            var deducoes = await _taxas.CalcularAsync(
+            using var escopo = _escopos.CreateScope();
+            var deducoes = await escopo.ServiceProvider
+                .GetRequiredService<TaxaService>().CalcularAsync(
                 valor, linha.Guia.DataBaixa, FormaPagamento.Convenio,
                 reterImposto: true, convenioCodigo: linha.Guia.ConvenioCodigo);
 
-            await _financeiro.LancarReceitaDaGuiaAsync(linha.Guia, valor, deducoes: deducoes);
+            await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                .LancarReceitaDaGuiaAsync(linha.Guia, valor, deducoes: deducoes);
 
             _snackbar.Sucesso(deducoes.ValorImposto is { } retido and > 0m
                 ? $"Receita de {valor:C} lançada para {linha.Paciente} — {retido:C} retidos na fonte."
@@ -611,7 +621,8 @@ public sealed partial class ConciliacaoViewModel : ObservableObject
             linha.Retencao = null;
             if (!Valores.TentarLerDecimal(linha.Valor, out var valor) || valor <= 0) return;
 
-            var d = await _taxas.CalcularAsync(
+            using var escopo = _escopos.CreateScope();
+            var d = await escopo.ServiceProvider.GetRequiredService<TaxaService>().CalcularAsync(
                 valor, linha.Guia.DataBaixa, FormaPagamento.Convenio,
                 reterImposto: true, convenioCodigo: linha.Guia.ConvenioCodigo);
 

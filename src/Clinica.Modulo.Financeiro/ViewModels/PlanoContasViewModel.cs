@@ -5,6 +5,7 @@ using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 using Clinica.Desktop.Shell.Componentes;
 
 namespace Clinica.Financeiro.ViewModels;
@@ -31,7 +32,7 @@ public sealed class LinhaCategoria
 /// </summary>
 public sealed partial class PlanoContasViewModel : ObservableObject
 {
-    private readonly FinanceiroService _financeiro;
+    private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
 
     public ObservableCollection<LinhaCategoria> Categorias { get; } = [];
@@ -54,9 +55,14 @@ public sealed partial class PlanoContasViewModel : ObservableObject
     /// </summary>
     public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
-    public PlanoContasViewModel(FinanceiroService financeiro, ISnackbarService snackbar)
+    /// <summary>
+    /// ⚠️ Nada de serviço SCOPED no construtor — o shell resolve esta tela do provedor
+    /// RAIZ, e Scoped pedido à raiz vive pela vida inteira do app, com o `DbContext`
+    /// junto (parcela 69). Escopo por operação. Ver a checagem 37 do verificar-suite.
+    /// </summary>
+    public PlanoContasViewModel(IServiceScopeFactory escopos, ISnackbarService snackbar)
     {
-        _financeiro = financeiro;
+        _escopos = escopos;
         _snackbar = snackbar;
         _ = CarregarAsync();
     }
@@ -71,7 +77,9 @@ public sealed partial class PlanoContasViewModel : ObservableObject
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
-            var categorias = await _financeiro.CategoriasAsync();
+            using var escopo = _escopos.CreateScope();
+            var categorias = await escopo.ServiceProvider
+                .GetRequiredService<FinanceiroService>().CategoriasAsync();
 
             Categorias.Clear();
             foreach (var c in categorias)
@@ -111,7 +119,7 @@ public sealed partial class PlanoContasViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no plano de contas");
 
-        var vm = new CategoriaEdicaoViewModel(_financeiro, ordemSugerida: Categorias.Count);
+        var vm = new CategoriaEdicaoViewModel(_escopos, ordemSugerida: Categorias.Count);
         var janela = new Janelas.CategoriaWindow(vm)
         {
             Owner = JanelaDona.Atual()
@@ -132,8 +140,10 @@ public sealed partial class PlanoContasViewModel : ObservableObject
 
         try
         {
-            await _financeiro.AtualizarCategoriaAsync(
-                linha.Id, linha.Nome, !linha.Ativa, ordem: Categorias.IndexOf(linha));
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                    .AtualizarCategoriaAsync(
+                        linha.Id, linha.Nome, !linha.Ativa, ordem: Categorias.IndexOf(linha));
 
             _snackbar.Info(linha.Ativa ? "Categoria desativada." : "Categoria reativada.");
             await CarregarAsync();
@@ -161,7 +171,7 @@ public sealed partial class PlanoContasViewModel : ObservableObject
 /// </summary>
 public sealed partial class CategoriaEdicaoViewModel : ObservableObject
 {
-    private readonly FinanceiroService _financeiro;
+    private readonly IServiceScopeFactory _escopos;
     private readonly int _ordemSugerida;
 
     public IReadOnlyList<TipoLancamento> Tipos { get; } = Enum.GetValues<TipoLancamento>();
@@ -176,9 +186,9 @@ public sealed partial class CategoriaEdicaoViewModel : ObservableObject
 
     public event Action? Concluido;
 
-    public CategoriaEdicaoViewModel(FinanceiroService financeiro, int ordemSugerida)
+    public CategoriaEdicaoViewModel(IServiceScopeFactory escopos, int ordemSugerida)
     {
-        _financeiro = financeiro;
+        _escopos = escopos;
         _ordemSugerida = ordemSugerida;
     }
 
@@ -192,8 +202,10 @@ public sealed partial class CategoriaEdicaoViewModel : ObservableObject
         {
             Salvando = true;
 
-            await _financeiro.CriarCategoriaAsync(
-                Codigo ?? string.Empty, Nome ?? string.Empty, Tipo, ordem: _ordemSugerida);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                    .CriarCategoriaAsync(
+                        Codigo ?? string.Empty, Nome ?? string.Empty, Tipo, ordem: _ordemSugerida);
 
             Concluido?.Invoke();
         }

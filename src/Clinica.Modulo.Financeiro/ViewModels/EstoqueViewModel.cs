@@ -6,6 +6,7 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
@@ -48,7 +49,7 @@ public sealed class LinhaCustoSessao
 /// </summary>
 public sealed partial class EstoqueViewModel : ObservableObject
 {
-    private readonly EstoqueService _estoque;
+    private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
@@ -84,9 +85,15 @@ public sealed partial class EstoqueViewModel : ObservableObject
     /// </summary>
     public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
-    public EstoqueViewModel(EstoqueService estoque, ISnackbarService snackbar, IDialogoService dialogo)
+    /// <summary>
+    /// ⚠️ Nada de serviço SCOPED no construtor — o shell resolve esta tela do provedor
+    /// RAIZ, e Scoped pedido à raiz vive pela vida inteira do app, com o `DbContext`
+    /// junto (parcela 69). Escopo por operação. Ver a checagem 37 do verificar-suite.
+    /// </summary>
+    public EstoqueViewModel(
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
-        _estoque = estoque;
+        _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
         _ = CarregarAsync();
@@ -128,7 +135,10 @@ public sealed partial class EstoqueViewModel : ObservableObject
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
-            var saldos = await _estoque.SaldosAsync();
+            using var escopo = _escopos.CreateScope();
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+
+            var saldos = await estoque.SaldosAsync();
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -147,7 +157,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
                 });
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
-            var validades = await _estoque.ValidadesAsync(hoje);
+            var validades = await estoque.ValidadesAsync(hoje);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -223,8 +233,11 @@ public sealed partial class EstoqueViewModel : ObservableObject
                 return;
             }
 
-            var sessoes = await _estoque.CustosDeSessaoAsync(de, ate);
-            var resumo = await _estoque.ResumoCustoSessoesAsync(de, ate);
+            using var escopo = _escopos.CreateScope();
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+
+            var sessoes = await estoque.CustosDeSessaoAsync(de, ate);
+            var resumo = await estoque.ResumoCustoSessoesAsync(de, ate);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCustos) return;
@@ -285,7 +298,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
 
-        var vm = new ItemEstoqueEdicaoViewModel(_estoque, itemId);
+        var vm = new ItemEstoqueEdicaoViewModel(_escopos, itemId);
         var janela = new Janelas.ItemEstoqueWindow(vm)
         {
             Owner = JanelaDona.Atual()
@@ -303,7 +316,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer no estoque");
 
-        var vm = new MovimentoEstoqueViewModel(_estoque, linha.Id, linha.Nome);
+        var vm = new MovimentoEstoqueViewModel(_escopos, linha.Id, linha.Nome);
         var janela = new Janelas.MovimentoEstoqueWindow(vm)
         {
             Owner = JanelaDona.Atual()
@@ -354,7 +367,9 @@ public sealed partial class EstoqueViewModel : ObservableObject
 
         try
         {
-            var movimento = await _estoque.AjustarInventarioAsync(
+            using var escopo = _escopos.CreateScope();
+            var movimento = await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
+                .AjustarInventarioAsync(
                 linha.Id, quantidade, motivo, SessaoUsuario.Atual.Operador);
 
             if (movimento is null)
@@ -393,7 +408,9 @@ public sealed partial class EstoqueViewModel : ObservableObject
     {
         try
         {
-            var faltando = await _estoque.AbaixoDoMinimoAsync();
+            using var escopo = _escopos.CreateScope();
+            var faltando = await escopo.ServiceProvider
+                .GetRequiredService<EstoqueService>().AbaixoDoMinimoAsync();
 
             if (faltando.Count == 0)
             {
@@ -440,7 +457,9 @@ public sealed partial class EstoqueViewModel : ObservableObject
 
         try
         {
-            await _estoque.ExcluirItemAsync(linha.Id);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
+                    .ExcluirItemAsync(linha.Id);
             _snackbar.Info("Item excluído.");
             await CarregarAsync();
         }
@@ -468,7 +487,7 @@ public sealed partial class EstoqueViewModel : ObservableObject
 /// </summary>
 public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
 {
-    private readonly EstoqueService _estoque;
+    private readonly IServiceScopeFactory _escopos;
     private readonly int? _itemId;
 
     public string Titulo => _itemId is null ? "Item novo" : "Editar item";
@@ -484,9 +503,9 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
 
     public event Action? Concluido;
 
-    public ItemEstoqueEdicaoViewModel(EstoqueService estoque, int? itemId = null)
+    public ItemEstoqueEdicaoViewModel(IServiceScopeFactory escopos, int? itemId = null)
     {
-        _estoque = estoque;
+        _escopos = escopos;
         _itemId = itemId;
         if (itemId is not null) _ = CarregarAsync();
     }
@@ -495,7 +514,10 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
     {
         try
         {
-            if (await _estoque.ObterItemAsync(_itemId!.Value) is not { } item) return;
+            using var escopo = _escopos.CreateScope();
+            var estoque = escopo.ServiceProvider.GetRequiredService<EstoqueService>();
+
+            if (await estoque.ObterItemAsync(_itemId!.Value) is not { } item) return;
 
             Nome = item.Nome;
             Unidade = item.Unidade;
@@ -526,7 +548,9 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(Minimo) && !decimal.TryParse(Minimo, out minimo))
                 throw new InvalidOperationException("O mínimo tem de ser um número.");
 
-            await _estoque.SalvarItemAsync(new ItemEstoque
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
+                .SalvarItemAsync(new ItemEstoque
             {
                 Id = _itemId ?? 0,
                 Nome = Nome ?? string.Empty,
@@ -559,7 +583,7 @@ public sealed partial class ItemEstoqueEdicaoViewModel : ObservableObject
 /// <summary>Entrada, baixa ou perda de um item — o formulário curto da janela.</summary>
 public sealed partial class MovimentoEstoqueViewModel : ObservableObject
 {
-    private readonly EstoqueService _estoque;
+    private readonly IServiceScopeFactory _escopos;
     private readonly int _itemId;
 
     public string Item { get; }
@@ -583,9 +607,9 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
 
     public event Action? Concluido;
 
-    public MovimentoEstoqueViewModel(EstoqueService estoque, int itemId, string item)
+    public MovimentoEstoqueViewModel(IServiceScopeFactory escopos, int itemId, string item)
     {
-        _estoque = estoque;
+        _escopos = escopos;
         _itemId = itemId;
         Item = item;
     }
@@ -617,7 +641,9 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
                 throw new InvalidOperationException(
                     "Perda sem motivo escrito vira estoque que não bate — diga o que houve.");
 
-            await _estoque.MovimentarAsync(new MovimentoEstoque
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<EstoqueService>()
+                .MovimentarAsync(new MovimentoEstoque
             {
                 ItemEstoqueId = _itemId,
                 Tipo = Tipo,

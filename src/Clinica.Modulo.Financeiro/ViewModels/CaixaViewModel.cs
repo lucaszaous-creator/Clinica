@@ -6,6 +6,7 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
@@ -44,12 +45,7 @@ public sealed class LinhaCaixa
 /// </summary>
 public sealed partial class CaixaViewModel : ObservableObject
 {
-    private readonly FinanceiroService _financeiro;
-    private readonly TaxaService _taxas;
-    private readonly DocumentoFinanceiroService _documentos;
-    private readonly DocumentosFinanceirosPdfService _pdfs;
-    private readonly ParametrosService _parametros;
-    private readonly PixService _pix;
+    private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
@@ -155,18 +151,17 @@ public sealed partial class CaixaViewModel : ObservableObject
     [ObservableProperty]
     private bool _truncado;
 
+    /// <summary>
+    /// ⚠️ Nada de serviço SCOPED no construtor — o shell resolve esta tela do provedor
+    /// RAIZ, e Scoped pedido à raiz vive pela vida inteira do app, com o `DbContext`
+    /// junto (parcela 69). Aqui doía mais que na média: um recebimento lançado na outra
+    /// máquina não aparecia, e o fechamento do dia conferia a gaveta contra um número
+    /// velho. Escopo por operação. Ver a checagem 37 do verificar-suite.
+    /// </summary>
     public CaixaViewModel(
-        FinanceiroService financeiro, TaxaService taxas,
-        DocumentoFinanceiroService documentos,
-        DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
-        PixService pix, ISnackbarService snackbar, IDialogoService dialogo)
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
-        _financeiro = financeiro;
-        _taxas = taxas;
-        _documentos = documentos;
-        _pdfs = pdfs;
-        _parametros = parametros;
-        _pix = pix;
+        _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
         _ = CarregarAsync();
@@ -208,7 +203,10 @@ public sealed partial class CaixaViewModel : ObservableObject
             // INTEIRO (vêm da projeção, não desta lista), então limitar a exibição não
             // falseia o saldo.
             int? limite = FiltroAtivo ? null : LimiteLinhas;
-            var lancamentos = await _financeiro.DoPeriodoAsync(inicio, fim, limite);
+            using var escopo = _escopos.CreateScope();
+            var financeiro = escopo.ServiceProvider.GetRequiredService<FinanceiroService>();
+
+            var lancamentos = await financeiro.DoPeriodoAsync(inicio, fim, limite);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -236,7 +234,7 @@ public sealed partial class CaixaViewModel : ObservableObject
 
             Refiltrar();
 
-            var resumo = await _financeiro.ResumoAsync(inicio, fim);
+            var resumo = await financeiro.ResumoAsync(inicio, fim);
             if (geracao != _geracaoCarga) return;
 
             Entradas = $"{resumo.EntradasRealizadas:C}";
@@ -305,7 +303,7 @@ public sealed partial class CaixaViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "lançar no caixa");
 
-        var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_financeiro, _taxas))
+        var janela = new Janelas.LancamentoWindow(new LancamentoEdicaoViewModel(_escopos))
         {
             Owner = JanelaDona.Atual()
         };
@@ -332,10 +330,7 @@ public sealed partial class CaixaViewModel : ObservableObject
     [RelayCommand]
     private void CobrarPix(LinhaCaixa? linha)
     {
-        var vm = new CobrancaPixViewModel(
-            _parametros, _pix,
-            linha?.Valor,
-            linha?.Descricao);
+        var vm = new CobrancaPixViewModel(_escopos, linha?.Valor, linha?.Descricao);
 
         new Janelas.CobrancaPixWindow(vm)
         {
@@ -353,7 +348,9 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         try
         {
-            await _financeiro.RealizarAsync(linha.Id, operador: SessaoUsuario.Atual.Operador);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                    .RealizarAsync(linha.Id, operador: SessaoUsuario.Atual.Operador);
             _snackbar.Sucesso("Lançamento realizado.");
             await CarregarAsync();
         }
@@ -382,7 +379,9 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         try
         {
-            await _financeiro.CancelarAsync(linha.Id, motivo, operador: SessaoUsuario.Atual.Operador);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<FinanceiroService>()
+                    .CancelarAsync(linha.Id, motivo, operador: SessaoUsuario.Atual.Operador);
             _snackbar.Sucesso("Lançamento cancelado.");
             await CarregarAsync();
         }
@@ -419,11 +418,18 @@ public sealed partial class CaixaViewModel : ObservableObject
 
         try
         {
-            var documento = await _documentos.EmitirReciboDoLancamentoAsync(
+            // Um escopo cobre a emissão e o PDF: o segundo passo lê pelo ID do primeiro.
+            using var escopo = _escopos.CreateScope();
+            var documento = await escopo.ServiceProvider
+                .GetRequiredService<DocumentoFinanceiroService>()
+                .EmitirReciboDoLancamentoAsync(
                 linha.Id, string.IsNullOrWhiteSpace(destinatario) ? null : destinatario,
                 SessaoUsuario.Atual.Operador);
 
-            var pdf = await _pdfs.GerarAsync(documento.Id, await _parametros.ObterPrestadorAsync());
+            var pdf = await escopo.ServiceProvider
+                .GetRequiredService<DocumentosFinanceirosPdfService>()
+                .GerarAsync(documento.Id, await escopo.ServiceProvider
+                    .GetRequiredService<ParametrosService>().ObterPrestadorAsync());
 
             // O recibo JÁ está emitido: falha daqui para a frente é de impressão.
             var erro = await ImpressaoPdf.SalvarEAbrirAsync(
