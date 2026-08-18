@@ -265,6 +265,14 @@
                                TextWrapping="Wrap"
                                Foreground="{StaticResource Brush.Texto.Primario}"
                                ToolTip="Usuário conectado — é este nome que vai para a trilha de auditoria" />
+                    <!-- A metade voluntária da troca de senha (parcela 69): o reset pela
+                         direção sempre existiu; quem desconfiava que alguém viu a própria
+                         senha não tinha por onde trocá-la sozinho. -->
+                    <Button Content="Minha senha" Command="{Binding TrocarMinhaSenhaCommand}"
+                            Style="{StaticResource BotaoSecundario}"
+                            Margin="0,6,0,0" Padding="10,4" FontSize="11"
+                            HorizontalAlignment="Left"
+                            ToolTip="Trocar a sua senha — pede a senha atual" />
                     <Button Content="Trocar usuário" Command="{Binding TrocarUsuarioCommand}"
                             Style="{StaticResource BotaoSecundario}"
                             Margin="0,6,0,0" Padding="10,4" FontSize="11"

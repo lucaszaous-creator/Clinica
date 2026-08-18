@@ -1182,9 +1182,53 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
+        // ⚠️ A PRÉVIA vem antes da pergunta. O diálogo dizia "cancelar TODAS as sessões
+        // ainda marcadas?" sem dizer QUANTAS nem QUAIS — a contagem só aparecia no
+        // snackbar, DEPOIS do estrago, e a leitura que responde isso (`DaSerieAsync`,
+        // "sessões de uma série, na ordem em que acontecem") existia sem um único
+        // chamador. Ação destrutiva em lote confirmada às cegas, com a prévia pronta e
+        // sem porta — a mesma família do defeito recorrente do projeto.
+        IReadOnlyList<Domain.Entities.Agendamento> emAberto;
+        try
+        {
+            using var escopo = _escopos.CreateScope();
+            var agenda = escopo.ServiceProvider.GetRequiredService<AgendaService>();
+            emAberto = (await agenda.DaSerieAsync(serieId))
+                .Where(a => a.Status == Domain.Entities.StatusAgendamento.Agendado)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            // Sem a prévia não se pergunta: confirmar "todas" sem saber quantas é
+            // exatamente o que esta correção existe para acabar — e se a leitura falhou,
+            // o cancelamento em seguida falharia igual.
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — série não pôde ser lida para a prévia do cancelamento", ex);
+            Mensagem = $"Não foi possível ler a série para confirmar: {ex.Message}";
+            MensagemEhErro = true;
+            return;
+        }
+
+        if (emAberto.Count == 0)
+        {
+            // Guarda que FALA (parcela 41): série sem sessão em aberto não tem o que
+            // cancelar, e sair calado seria botão que não faz nada.
+            _dialogo.Aviso("Nada a cancelar",
+                $"A série de {cartao.Paciente} não tem sessão em aberto — "
+                + "as que existiram já foram atendidas, canceladas ou viraram falta.");
+            return;
+        }
+
+        // As datas por extenso, até dez; acima disso a lista diz quantas ficaram de fora
+        // em vez de virar um diálogo de rolagem.
+        var datas = emAberto.Take(10).Select(a => a.DataHora.ToString("dd/MM/yyyy HH:mm"));
+        var lista = string.Join("\n", datas)
+            + (emAberto.Count > 10 ? $"\n… e mais {emAberto.Count - 10}." : string.Empty);
+
         if (!_dialogo.ConfirmarPerigo("Cancelar a série",
-                $"Cancelar TODAS as sessões ainda marcadas da série de {cartao.Paciente}? "
-                + "As que já foram atendidas continuam no histórico.")) return;
+                $"Cancelar as {emAberto.Count} sessão(ões) ainda marcadas de {cartao.Paciente}?\n\n"
+                + lista
+                + "\n\nAs que já foram atendidas continuam no histórico.")) return;
 
         await ExecutarAsync(async scope =>
         {

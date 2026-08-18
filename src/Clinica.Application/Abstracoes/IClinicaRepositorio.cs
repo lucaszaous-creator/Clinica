@@ -1,4 +1,5 @@
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Abstracoes;
@@ -73,6 +74,23 @@ public interface IClinicaRepositorio
     /// (o banco é remoto). Null = sem corte, para quem precisa varrer todo mundo.
     /// </summary>
     Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Origem e "indicado por" de TODA a base, projetados — três colunas, nunca a linha
+    /// inteira: o relatório de origem não precisa da miniatura da foto nem do endereço, e
+    /// arrastar a carteira completa para contar oito grupos seria o custo que a parcela 69
+    /// tirou do "Meus pacientes".
+    /// </summary>
+    Task<IReadOnlyList<(int PacienteId, OrigemPaciente? Origem, string? IndicadoPor)>> OrigensDosPacientesAsync(
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// A data do PRIMEIRO atendimento de cada paciente que já tem algum — o fato que o
+    /// relatório de origem usa como "estreia", porque <see cref="Paciente"/> não guarda
+    /// data de cadastro. Agregado no SQL: uma linha por paciente, nunca a lista inteira.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, DateOnly>> PrimeiroAtendimentoPorPacienteAsync(
+        CancellationToken ct = default);
 
     /// <summary>
     /// Pacientes que fazem aniversario no dia (ou na janela de dias a partir dele).

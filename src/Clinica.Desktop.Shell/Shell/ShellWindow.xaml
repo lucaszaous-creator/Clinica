@@ -278,10 +278,19 @@
                              sozinho, e o custo de errar aqui é alguém não achar a saída. É
                              o mesmo rótulo do faturamento — dois nomes para o mesmo ato
                              fariam parecer que fazem coisas diferentes. -->
+                        <!-- A metade voluntária da troca de senha (parcela 69): o reset
+                             pela direção sempre existiu; quem desconfiava que alguém viu a
+                             própria senha não tinha por onde trocá-la sozinho. -->
+                        <Button Content="Minha senha"
+                                Command="{Binding TrocarMinhaSenhaCommand}"
+                                Style="{StaticResource BotaoSecundario}"
+                                VerticalAlignment="Center" Margin="12,0,0,0"
+                                Padding="10,4" FontSize="{StaticResource Fonte.Legenda}"
+                                ToolTip="Trocar a sua senha — pede a senha atual" />
                         <Button Content="Trocar usuário"
                                 Command="{Binding TrocarUsuarioCommand}"
                                 Style="{StaticResource BotaoSecundario}"
-                                VerticalAlignment="Center" Margin="12,0,0,0"
+                                VerticalAlignment="Center" Margin="8,0,0,0"
                                 Padding="10,4" FontSize="{StaticResource Fonte.Legenda}"
                                 ToolTip="Fecha e reabre o sistema na tela de entrada" />
                     </StackPanel>

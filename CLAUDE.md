@@ -3865,3 +3865,69 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
       coluna.
   (O item que estava aqui — os sete ViewModels restantes com serviço Scoped no construtor —
   saiu da fila: foram corrigidos na mesma parcela, e a checagem 37 fecha o assunto.)
+
+- **A VARREDURA DA RECEPÇÃO DEPOIS DA AGENDA — três achados, nenhum bloqueador, e todos
+  da mesma família** (parcela 69, continuação). Com a Agenda fechada, a pergunta virou
+  "o que mais no balcão promete e não cumpre?". A varredura foi por eixo (mensagem de
+  êxito invisível, EstadoDaTela na raiz, método órfão, propriedade sem leitor, texto de
+  tela que promete mecanismo), e o resultado tem as duas metades: o que achou e o que
+  CONFERIU E ESTAVA CERTO — sem a segunda, a próxima varredura refaz esta.
+
+  ⚠️ **A ORIGEM DO PACIENTE ERA PERGUNTADA A TODO CADASTRO E NINGUÉM SOMAVA.** O balcão
+  pergunta "como conheceu a clínica?" desde que o campo existe, e a resposta era lida em
+  UM lugar: a própria ficha, uma pessoa por vez ("Indicação de Maria"). Nenhum serviço,
+  relatório ou tela agregava — a direção não tinha como responder "quantos vieram por
+  indicação neste ano?", que é a única razão de a pergunta ser feita. O detalhe que dói:
+  o comentário do rótulo em `RotulosEnum` já dizia *"é um dos poucos campos que a direção
+  lê agrupado num relatório"* — **o rótulo foi preparado para um relatório que nunca
+  existiu**. Virou `OrigemPacientesService` + a tela "De onde vêm os pacientes" no grupo
+  Marketing/Recall do Gerente. As decisões:
+  (a) **"Estreou no período" = o PRIMEIRO atendimento caiu no período** — `Paciente` não
+  tem data de cadastro, e a estreia é o fato mais honesto disponível: cadastro sem
+  atendimento é intenção, atendimento é a clínica trabalhando. Quem já vinha e continuou
+  vindo não estreou. A tela ESCREVE a definição: número cuja definição só existe no
+  código é um número que cada leitor interpreta de um jeito.
+  (b) **"Não perguntado" é linha de primeira classe, ordenada junto das outras** — quando
+  ela encabeça a tabela, o achado do relatório é o balcão ter parado de perguntar, e o
+  selo "colher no cadastro" transforma o número em tarefa. Escondê-la no rodapé faria a
+  direção decidir anúncio sobre uma amostra que ninguém está colhendo.
+  (c) **Quem indica agrupa por nome NORMALIZADO** (trim + maiúsculas fora): "maria silva"
+  e "Maria Silva " são a mesma pessoa digitada por duas recepcionistas, e separá-las
+  esconderia justamente a maior indicadora da clínica.
+  A lição que generaliza: **quando um campo é PERGUNTADO no balcão, procure quem RESPONDE
+  com ele.** Campo que só a ficha individual lê é pergunta feita de graça — e rótulo
+  preparado "para o relatório" é promessa que se confere como as outras.
+
+  ⚠️ **"CANCELAR O RESTO DA SÉRIE" CONFIRMAVA ÀS CEGAS — com a prévia pronta e sem
+  chamador.** O diálogo dizia "cancelar TODAS as sessões ainda marcadas?" sem dizer
+  QUANTAS nem QUAIS; a contagem só aparecia no snackbar, DEPOIS do estrago. E
+  `AgendaService.DaSerieAsync` — "sessões de uma série, na ordem em que acontecem" —
+  existia sem um único chamador em produção: a leitura que responde a pergunta do diálogo
+  estava pronta desde que a série nasceu. Agora a prévia vem antes (quantas e as datas,
+  até dez), série sem sessão em aberto ganha aviso em vez de silêncio, e falha na leitura
+  IMPEDE a pergunta — confirmar "todas" sem saber quantas é exatamente o que a correção
+  existe para acabar. **Ação destrutiva em LOTE diz o tamanho do lote ANTES do clique**;
+  "todas" não é número.
+
+  ⚠️ **NÃO EXISTIA TROCAR A PRÓPRIA SENHA.** `AcessoService.TrocarSenhaAsync` — o método
+  que CONFERE a senha atual antes de aceitar a nova — estava órfão. O único caminho de
+  troca era o forçado (a direção emite provisória com "deve trocar", o login cobra a
+  definitiva): quem desconfiasse que alguém viu a sua senha precisava pedir à direção,
+  que escolhia a nova e a ENTREGAVA — **trocando um segredo comprometido por um que já
+  nasce compartilhado**. Entrou `TrocaSenhaWindow` ao lado do "Trocar usuário" — nos DOIS
+  apps, porque é o débito permanente da Fase 4 (a lição da parcela 60: a mesma ação nos
+  dois lados, e a cópia que faltar é onde a capacidade some). Sem permissão a exigir: a
+  prova de posse é a senha atual, e é o serviço que a confere — validar na tela seria a
+  segunda definição da mesma regra. A lição: **fluxo de segurança com só a metade
+  administrativa não está completo** — o reset pela direção existia desde a parcela 5, e
+  a metade voluntária ficou 60+ parcelas sem porta porque o fluxo forçado dava a
+  impressão de assunto coberto.
+
+  **CONFERIDO E LIMPO — para a próxima varredura não refazer**: os 13 candidatos a
+  "mensagem de êxito invisível" eram falsos positivos (todos só escrevem ERRO no campo; a
+  parcela 62 já tinha limpado); nenhum `EstadoDaTela` na raiz de página; a tela de
+  Retorno confere `TemConsentimento` pela MESMA leitura da campanha e escreve o motivo na
+  linha; a ficha→CRM lê `ContatoCampanha` de verdade, com contador de geração; o circuito
+  autorização→aviso de cota fecha. E `TracoAsync` era código morto (terceira definição de
+  uma leitura que dois serviços já fazem direto no repositório) — método órfão continua
+  sendo SINTOMA: dos 15 órfãos reais, três eram feature faltando e o resto era duplicata.

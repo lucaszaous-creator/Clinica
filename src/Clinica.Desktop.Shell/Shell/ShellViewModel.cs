@@ -522,4 +522,33 @@ public sealed partial class ShellViewModel : ObservableObject
 
         System.Windows.Application.Current.Shutdown();
     }
+
+    /// <summary>
+    /// Trocar a PRÓPRIA senha — a metade voluntária que faltava (parcela 69). O serviço
+    /// confere a senha atual, então não há permissão a exigir: a prova de posse é ela.
+    /// Fica ao lado do "Trocar usuário" porque as duas são a mesma conversa — quem está
+    /// conectado, e como ele se protege.
+    /// </summary>
+    [RelayCommand]
+    private void TrocarMinhaSenha()
+    {
+        // Guarda que FALA (parcela 41): sem sessão autenticada não há senha de quem
+        // trocar — só acontece em build de teste, e sair calado leria como botão morto.
+        if (SessaoUsuario.Atual.UsuarioId == 0)
+        {
+            _servicos.GetService<Clinica.Desktop.Controls.ISnackbarService>()?.Erro(
+                "Não há usuário conectado — a troca de senha é de quem fez login.");
+            return;
+        }
+
+        var janela = new Componentes.TrocaSenhaWindow(
+            _servicos.GetRequiredService<IServiceScopeFactory>())
+        {
+            Owner = Componentes.JanelaDona.Atual()
+        };
+
+        if (janela.ShowDialog() == true)
+            _servicos.GetService<Clinica.Desktop.Controls.ISnackbarService>()?.Sucesso(
+                "Senha trocada.");
+    }
 }

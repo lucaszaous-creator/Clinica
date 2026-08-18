@@ -295,6 +295,27 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<(int PacienteId, OrigemPaciente? Origem, string? IndicadoPor)>> OrigensDosPacientesAsync(
+        CancellationToken ct = default)
+    {
+        var linhas = await _db.Pacientes.AsNoTracking()
+            .Select(p => new { p.Id, p.Origem, p.IndicadoPor })
+            .ToListAsync(ct);
+
+        return linhas.Select(l => (l.Id, l.Origem, l.IndicadoPor)).ToList();
+    }
+
+    public async Task<IReadOnlyDictionary<int, DateOnly>> PrimeiroAtendimentoPorPacienteAsync(
+        CancellationToken ct = default)
+    {
+        var pares = await _db.Atendimentos.AsNoTracking()
+            .GroupBy(a => a.PacienteId)
+            .Select(g => new { g.Key, Primeira = g.Min(a => a.Data) })
+            .ToListAsync(ct);
+
+        return pares.ToDictionary(p => p.Key, p => p.Primeira);
+    }
+
     public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default)
     {
         var query = _db.Pacientes.AsQueryable();

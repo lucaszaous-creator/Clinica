@@ -1,0 +1,162 @@
+<UserControl x:Class="Clinica.Gerente.Views.OrigensView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             Background="{StaticResource Brush.Fundo}">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+    </UserControl.Resources>
+
+    <DockPanel Margin="24">
+
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+            <StackPanel>
+                <TextBlock Text="De onde vêm os pacientes" Style="{StaticResource H1}" Margin="0,0,0,4" />
+                <!-- A DEFINIÇÃO vai escrita: "estreou" é o PRIMEIRO atendimento no período
+                     (o cadastro não guarda data), e um número cuja definição só existe no
+                     código é um número que cada leitor interpreta de um jeito. -->
+                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                           Text="A resposta de “como conheceu a clínica?”, somada. Estreia = primeiro atendimento no período escolhido; quem foi cadastrado e nunca veio conta na base, não nas estreias." />
+                <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           TextWrapping="Wrap" Margin="0,6,0,0" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                <TextBlock Text="Estreias em" VerticalAlignment="Center"
+                           Foreground="{StaticResource Brush.Texto.Secundario}" Margin="0,0,8,0" />
+                <ComboBox ItemsSource="{Binding Periodos}" SelectedItem="{Binding Periodo}"
+                          Width="170" />
+                <Button Content="Atualizar" Command="{Binding CarregarCommand}" Margin="8,0,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- ===== Quem mais indica =====
+             Docada EMBAIXO, com teto: a tabela de origens é o assunto da tela e fica com o
+             resto da altura; o ranking é a leitura complementar. -->
+        <Border DockPanel.Dock="Bottom" Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12" Margin="0,12,0,0"
+                MaxHeight="220">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="QUEM MAIS INDICA (10 maiores)"
+                           Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Indicadores}"
+                                      Grid.IsSharedSizeScope="True">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="IndQtd" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Nome}"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,0,12,0" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Quantos}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <!-- Um estado vazio POR PERGUNTA (parcela 37): este responde só pelo
+                         ranking, dentro da região dele. -->
+                    <TextBlock Text="Nenhuma indicação com o nome de quem indicou — o campo fica na ficha do paciente, quando a origem é “Indicação”."
+                               TextWrapping="Wrap">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Indicadores.Count}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <!-- ===== A tabela de origens ===== -->
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12">
+            <Grid Grid.IsSharedSizeScope="True">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="OriBase" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="OriFracao" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="OriEstreia" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="ORIGEM" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="1" Text="NA BASE" Style="{StaticResource Rotulo}"
+                                   Margin="24,0,0,0" />
+                        <TextBlock Grid.Column="2" Text="% DA BASE" Style="{StaticResource Rotulo}"
+                                   Margin="24,0,0,0" />
+                        <TextBlock Grid.Column="3" Text="ESTREARAM NO PERÍODO" Style="{StaticResource Rotulo}"
+                                   Margin="24,0,0,0" />
+                    </Grid>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Linhas}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="OriBase" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="OriFracao" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="OriEstreia" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <!-- "Não perguntado" liderando a tabela é o achado
+                                                 do relatório — o selo transforma o número em
+                                                 tarefa (cobrar a pergunta no cadastro). -->
+                                            <Border Style="{StaticResource Badge.Aviso}" Margin="8,0,0,0"
+                                                    VerticalAlignment="Center"
+                                                    Visibility="{Binding EhSemResposta,
+                                                                 Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="colher no cadastro" />
+                                            </Border>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding NaBase}"
+                                                   Margin="24,0,0,0" TextAlignment="Right"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Fracao}"
+                                                   Margin="24,0,0,0" TextAlignment="Right"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Grid.Column="3" Text="{Binding Estreias}"
+                                                   Margin="24,0,0,0" TextAlignment="Right"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+
+                <!-- Sobreposição da REGIÃO da tabela, último filho do Grid dela. A lista
+                     nunca fica vazia (toda origem aparece, mesmo zerada), então os estados
+                     que valem aqui são o carregando e o "não verificado". -->
+                <ctrl:EstadoDaTela Itens="{Binding Linhas}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE8AF;"
+                                   TextoCarregando="Somando a base…"
+                                   Titulo="Nenhum paciente cadastrado"
+                                   Descricao="As origens aparecem aqui conforme o balcão cadastra." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</UserControl>

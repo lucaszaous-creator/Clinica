@@ -1,0 +1,38 @@
+<Window x:Class="Clinica.Desktop.Acesso.TrocaSenhaWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Trocar a minha senha" Width="440" SizeToContent="Height"
+        Icon="/Assets/Marca/icone.png"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- Rola como os demais diálogos: a escala do Windows a 150-175% multiplica tudo,
+         e o rodapé com os botões não pode sair da área visível do monitor do balcão. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="620">
+    <StackPanel Margin="24">
+        <TextBlock Text="Trocar a minha senha" Style="{StaticResource DialogoTitulo}" />
+        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0,0,0,12"
+                   Text="Pede a senha atual de propósito: sem ela, qualquer pessoa que encontrasse a sessão aberta no balcão trocaria a senha de quem levantou por um minuto." />
+
+        <TextBlock Text="Senha atual" Style="{StaticResource Rotulo}" />
+        <PasswordBox x:Name="TxtAtual" />
+
+        <TextBlock Text="Nova senha" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+        <PasswordBox x:Name="TxtNova" />
+
+        <TextBlock Text="Repita a nova senha" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
+        <PasswordBox x:Name="TxtRepetida" />
+
+        <TextBlock x:Name="TxtErro" Margin="0,10,0,0" TextWrapping="Wrap"
+                   Visibility="Collapsed"
+                   Foreground="{StaticResource Brush.Erro}" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancelar" Style="{StaticResource BotaoSecundario}"
+                    IsCancel="True" MinWidth="110" Margin="0,0,8,0" />
+            <Button x:Name="BtnTrocar" Content="Trocar a senha" IsDefault="True" MinWidth="140"
+                    Click="Confirmar" />
+        </StackPanel>
+    </StackPanel>
+    </ScrollViewer>
+</Window>
