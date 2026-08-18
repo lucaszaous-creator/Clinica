@@ -180,6 +180,39 @@ fechamento (pacote/insumo/caixa) continua sendo o passo SEGUINTE e opcional (par
 chave** (§3.5): a chave governa a guia de horário FUTURO; o avulso é sempre presente —
 por isso a Fase 1 já entrega, para o fluxo atual da clínica, o comportamento final.
 
+### 3.7 A tela do Novo atendimento: dois botões e o aviso da CAPA (pedido da direção)
+
+O Novo atendimento ganha um segundo botão ao lado do lançar, e o par diz QUANDO:
+**"Lançar agora — o paciente veio"** e **"Agendar para outro dia…"**.
+
+⚠️ O segundo botão é uma **PONTE, não um segundo formulário**: agendar exige data, hora,
+profissional, sala, choque e bloqueio — tudo isso já mora no formulário da agenda, com
+as validações dele. O botão abre ESSE formulário já preenchido (paciente, modalidade,
+especialidade, 1º código). Campos próprios de data/hora no Novo atendimento criariam
+duas definições de "marcar horário" — o defeito recorrente do projeto, desfeito pela
+parcela 60.
+
+E o aviso de duplicidade vira o aviso da **CAPA**, em dois momentos (parcela 51 — a
+tela critica a cada escolha, não só no confirmar):
+
+1. **Ao escolher o paciente**: a região de avisos mostra "já tem atendimento HOJE" com a
+   capa (número, modalidade, quem lançou, hora) e **o status de cada guia** — baixada,
+   aberta, N.A. É o que mata o gesto de 12/08: a secretária vê que a guia já existe e já
+   está com a faturista ANTES de pensar em lançar de novo.
+2. **No clique de Lançar**: a pergunta da parcela 65 deixa de ser sim/não cego e mostra a
+   mesma capa. Continua **pergunta, nunca recusa** — sessão de manhã + consulta à tarde é
+   caso legítimo.
+
+⚠️ A leitura da capa mora num **ponto único**
+(`AtendimentoService.CapaDoDiaAsync(pacienteId, dia)` — capa, modalidade, autor, guias
+com status), consumido pelas três portas: Novo atendimento, formulário da agenda (aviso
+quando a data escolhida já tem sessão do paciente) e Fila. Escrita na tela, a segunda
+porta esqueceria — alerta que existe numa porta só é o defeito de novo.
+
+As travas contra duplicidade são CAMADAS, e nenhuma sozinha basta: atomicidade (§3.6 —
+mata a acidental), aviso da capa (mata a "por não ver"), pergunta informada (mata a "por
+descuido" sem travar o legítimo), choque de horário da agenda (mata a do agendar).
+
 ## 4. O que NÃO muda — e por quê já estava pronto
 
 1. **O painel de pendências e a rodada bloqueante**: `CodigoFaturamento.EstaPendente`
