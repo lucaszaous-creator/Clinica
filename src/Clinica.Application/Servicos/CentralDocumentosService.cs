@@ -313,7 +313,7 @@ public sealed class CentralDocumentosService
         // contrário da declaração de comparecimento, que só prova presença.
         new("termo-procedimento", "Termo de procedimento",
             "Consentimento do procedimento e as declarações do paciente (jejum, medicações). "
-            + "Assinado por ele no tablet, e a assinatura entra no PDF antes do selo do profissional.",
+            + "Assinado por ele na tela do balcão, e a assinatura entra no PDF antes do selo do profissional.",
             NaturezaFolha.Clinico, ExigenciaFolha.TermoParaAssinar)
         {
             TipoClinico = TipoDocumentoClinico.TermoProcedimento,

@@ -74,7 +74,6 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
         {
             Carregando = true;
             NaoVerificado = false;
-            Anexos.Clear();
 
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
@@ -90,8 +89,12 @@ public sealed partial class AnexosSessaoViewModel : ObservableObject
                         OrigemAcessoProntuario.Documento);
             }
 
-            foreach (var a in await prontuario.AnexosAsync(_evolucaoId))
-                Anexos.Add(a);
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await
+            // (parcela 62) — a lista ficava vazia na tela durante o roundtrip ao banco.
+            var lidos = await prontuario.AnexosAsync(_evolucaoId);
+
+            Anexos.Clear();
+            foreach (var a in lidos) Anexos.Add(a);
         }
         catch (Exception ex)
         {

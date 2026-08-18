@@ -24,7 +24,6 @@ public sealed class LinhaPrescricaoInterna
     public required string Execucao { get; init; }
     public required string Codigo { get; init; }
     public required bool Cancelada { get; init; }
-    public required bool TemAssinatura { get; init; }
 
     /// <summary>Já houve execução registrada — a folha de registro tem o que mostrar.</summary>
     public required bool TemRegistroExecucao { get; init; }
@@ -57,7 +56,6 @@ public sealed class LinhaPrescricaoInterna
             Execucao = execucao,
             Codigo = p.CodigoVerificacao,
             Cancelada = p.Cancelada,
-            TemAssinatura = p.AssinaturaDoPrescritor is not null,
             TemRegistroExecucao = p.Realizados + p.NaoRealizados > 0,
             // O estado da linha COMPÕE com a permissão (parcela 61): sem o bit, o botão
             // ficava aceso e o clique estourava no Exigir — botão aceso que só explode é

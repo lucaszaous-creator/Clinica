@@ -4010,3 +4010,49 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `PerderAsync`/`CustoDoAtendimentoAsync` pareciam duplicatas e são WRAPPERS de uma
   definição só (delegam a `MovimentarAsync`/`Precificar`) — **wrapper fino não é segunda
   definição; a pergunta é onde mora a REGRA, não quantas assinaturas existem.**
+
+- **A VARREDURA DO GERENTE E DO CONSULTÓRIO — nenhum grave, e o melhor achado estava no
+  vizinho** (parcela 69, fim da rodada). Os dois módulos mais auditados do projeto
+  (Gerente: 54/64; Consultório: 61/68 e a auditoria da Agenda) saíram os mais limpos —
+  as varreduras anteriores pagaram. Os quatro achados, e o que cada um ensina:
+
+  ⚠️ **DUAS DEFINIÇÕES DO TOTAL DO BADGE — e o teste fixava a que ninguém executa.**
+  `PendenciaService.TotalPendenciasAsync` dizia, no próprio comentário, ser "o total para
+  o badge do topo" — e estava ÓRFÃO: o badge real era uma segunda conta, escrita à mão no
+  `DashboardViewModel`, com um comentário jurando usar "o mesmo critério" e CITANDO o
+  método que não chamava. As duas contas eram iguais hoje; a primeira mudança em qualquer
+  uma divergiria em silêncio — e `PendenciasFaturamentoTests` fixava o lado morto. O
+  critério virou UMA função (`TotalParaBadge`, estática) que os dois lados chamam, e o
+  teste passou a exercitar o que a tela usa. A lição: **comentário que cita um método como
+  "o critério" é promessa que se confere com grep — se o método está órfão, o comentário
+  é a segunda definição se anunciando.**
+
+  ⚠️ **A TELA MANDAVA COMPRAR TABLET — e a decisão documentada é MONITOR.** A parcela 66
+  gastou uma seção inteira em "por que MONITOR e não tablet" (tablet é outro computador;
+  monitor touch é só mais uma tela do Windows), a especificação de compra está em
+  `docs/termo-assinado-pelo-paciente.md` §3.8 — e TRÊS textos de tela diziam "tablet":
+  a configuração do termo no Gerente, a instrução que o PACIENTE lê na janela de
+  assinatura e a descrição da folha na central de documentos. Texto de tela que contradiz
+  a decisão de arquitetura induz a clínica a comprar o hardware errado — e o texto novo da
+  janela de assinatura lembra o modo de UMA tela ("ou com o mouse"), que é o modo real de
+  quem ainda não comprou o touch. **Quando uma decisão renomeia o mundo (tablet→monitor),
+  os textos de tela entram no mesmo grep da decisão.**
+
+  **Menores**: `MinhaSemana` e `AnexosSessao` limpavam a coleção antes do await (o item
+  que a fila da parcela 69 já listava — pago); `TemAssinatura` na linha da lista de
+  infusão, calculada e nunca lida (a `Situacao` textual já diz "assinada"), removida.
+
+  **CONFERIDO E LIMPO — para a próxima varredura não refazer**: menu × `CriarTela` fecha
+  nos DOIS (as cinco chaves "sem caso" do Consultório caem no `or` múltiplo do
+  workspace — padrão que o scan de regex simples não vê); nenhum `EstadoDaTela` raso ou
+  sem gatilho; TODAS as mensagens de êxito dos dois módulos aparecem (o Gerente foi limpo
+  na 64, e as janelas novas do Consultório já nasceram no padrão certo — a primeira
+  geração de telas que nasceu imune ao defeito); `PoliticaBackupService` roda na abertura
+  do Gerente; o `AlertaDeItem` do PHQ-9 chega à tela de Avaliações; a fila de pendências
+  do Gerente critica o número da guia linha a linha com a `RegraNumeroGuia` (parcela 51
+  cumprida); "quem não consentiu aparece CONTADO" cumprida nas Campanhas. **Falsos
+  positivos com lição**: `EhVerde`/`Urgencia`/`FormatoGuia` pareciam órfãos e alimentam
+  DataTriggers e o fluxo de baixa (o verde é o DEFAULT do estilo — propriedade que define
+  o caso-padrão não aparece em trigger nenhum); `Enunciado` alimenta `Rotulo`;
+  `Correcoes` alimenta `Retificada`/`CorrecoesTexto` — **scan de leitor precisa seguir
+  UMA derivação interna antes de acusar.**

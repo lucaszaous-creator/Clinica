@@ -119,7 +119,6 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
             NaoVerificado = false;
             Mensagem = null;
             MensagemEhErro = false;
-            Dias.Clear();
 
             var profissionalId = SessaoUsuario.Atual.ProfissionalId;
             SemVinculo = profissionalId is null;
@@ -138,6 +137,9 @@ public sealed partial class MinhaSemanaViewModel : ObservableObject
 
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await
+            // (parcela 62) — a lista ficava vazia na tela durante o roundtrip ao banco.
+            Dias.Clear();
             foreach (var dia in semana.Dias)
             {
                 Dias.Add(new ColunaDia

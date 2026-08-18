@@ -149,7 +149,7 @@
                                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                            HorizontalAlignment="Left" MaxWidth="820"
                                            FontSize="{StaticResource Fonte.Legenda}"
-                                           Text="O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina no tablet antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão." />
+                                           Text="O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina na tela dele (o segundo monitor do balcão) antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão." />
                             </StackPanel>
                         </DockPanel>
 
