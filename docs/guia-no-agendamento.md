@@ -1,0 +1,218 @@
+# A guia nasce quando o horário entra no sistema
+
+**Decisão da direção (ago/2026):** *"O confirmar presença não pode gerar guia. A guia
+precisa nascer no momento em que a secretária coloca o atendimento no sistema — seja
+avulso, seja pela agenda."* A clínica confia na carteira dela e não cobra no-show; o que
+ela não aceita é **guia duplicada** nem **sessão sem guia**.
+
+Este documento é a arquitetura. Nada aqui está implementado ainda; a ordem de entrega
+está no §8.
+
+---
+
+## 1. Por que a duplicidade existe hoje (o mecanismo exato)
+
+`AgendaService.ConfirmarPresencaAsync` faz DUAS gravações separadas:
+
+1. `AtendimentoService.LancarAsync` grava o `Atendimento` + os `CodigoFaturamento`
+   (primeiro `SaveChanges`);
+2. o carimbo `ag.Status = Realizado; ag.AtendimentoId = …` vai num **segundo**
+   `SaveChanges`.
+
+Se o segundo falha — conflito de `xmin` entre as duas máquinas do balcão, queda de
+conexão —, **as guias existem e o agendamento não sabe**: o cartão continua com
+"Concluir" aceso, e o segundo clique gera outro jogo de guias. É o incidente de
+12/08/2026 uma camada abaixo; a idempotência da parcela 65 não alcança porque a chave
+dela é justamente o `AtendimentoId` que não chegou a ser gravado.
+
+Remendar com transação resolveria o sintoma. A decisão da direção resolve a **causa**:
+se a guia nasce quando o horário entra no sistema, **deixa de existir um segundo momento
+de criação** — e o que não tem segundo momento não duplica.
+
+## 2. O princípio
+
+> O fato que gera a guia deixa de ser "o paciente veio" e passa a ser
+> **"a secretária pôs o atendimento no sistema"**.
+
+Consequências que a direção aceitou de antemão:
+
+- a guia existe **antes** da sessão — e isso é o objetivo, não um efeito colateral: a
+  secretária pode efetivar no portal do convênio com antecedência;
+- sessão cancelada/falta fica com guia gerada e **não faturada** — a clínica não cobra
+  no-show, então essa guia é suspensa automaticamente (§4.3), nunca esquecida no painel.
+
+## 3. O desenho
+
+### 3.1 A guia nasce no `AgendarAsync`, num grafo só
+
+Toda porta de marcação já converge para `AgendaService.AgendarAsync` (normal, série,
+encaixe, lista de espera, avulso — que desde a parcela 60 é um encaixe). Ali, com o
+regime ligado (§3.5):
+
+```
+Agendamento + Atendimento + CodigoFaturamento[] + EventoAuditoria
+   → UM SaveChanges (o grafo inteiro numa transação do EF)
+```
+
+O `Agendamento.Atendimento` é setado por **navegação**, então o EF insere tudo e amarra
+as FKs numa transação só. Não existe estado intermediário observável: ou o horário nasce
+com as guias e sabe disso, ou nada nasce. O `Numero` do atendimento
+(`{ano}-{id:D6}`) precisa do Id e vai num segundo `SaveChanges` **cosmético**: se ele
+falhar, nada duplica — a existência do `AtendimentoId` é o que impede recriação, e o
+número é reparável.
+
+### 3.2 `LancarAsync` se divide em CRIAÇÃO e PRESENÇA
+
+O `LancarAsync` de hoje faz quatro coisas. Duas são da **criação** e duas são da
+**presença**, e a divisão é o coração da mudança:
+
+| Efeito | Momento certo | Por quê |
+|---|---|---|
+| Gerar `Atendimento` + códigos pelas regras | **Marcação** | É o pedido da direção |
+| Atualizar `paciente.Categoria` | **Marcação** | Deriva das regras, viaja junto |
+| Reabrir NCs do paciente ("cobre a guia AGORA") | **Presença** | O aviso só é verdade com o paciente na frente — dispará-lo numa marcação por telefone, semanas antes, cobraria a secretária por alguém que não está lá |
+| Renovar a consulta do convênio | **Presença** | A consulta renova quando ACONTECE, não quando é marcada |
+
+`AtendimentoService` ganha a separação explícita: `CriarAsync(…)` (a metade de cima, sem
+`SaveChanges` próprio — quem salva é o chamador, para o grafo ir junto) e
+`RegistrarPresencaAsync(atendimentoId, …)` (a metade de baixo). `LancarAsync` continua
+existindo como a composição das duas — é o caminho do regime antigo e do fallback, e
+some quando o último app antigo morrer.
+
+### 3.3 `ConfirmarPresencaAsync` só carimba — e o fallback mata a duplicidade no regime antigo também
+
+```
+ConfirmarPresencaAsync(agendamentoId):
+  se ag.AtendimentoId != null:            // regime novo
+      ag.Status = Realizado
+      atendimento.RealizadoEm = agora     // §5
+      efeitos de PRESENÇA (NC + consulta) + EventoAuditoria
+      → UM SaveChanges
+  senão:                                  // regime antigo / janela de atualização
+      criar Atendimento + códigos NO MESMO GRAFO do carimbo
+      → UM SaveChanges (a correção da transação vale para o legado)
+```
+
+O fallback fica **para sempre**: são dois apps num banco só, e a janela em que um
+atualizou e o outro não é o desenho (parcela 67). E ele também é a correção do item 1 da
+fila — mesmo com o regime desligado, a criação e o carimbo passam a ser um único
+`SaveChanges`.
+
+De quebra, o ato que gera as guias ganha a linha de trilha que faltava (item 5 da fila):
+`EventoAuditoria` no mesmo `SaveChanges` do carimbo.
+
+### 3.4 O destino da guia segue o status do horário
+
+Um método único (`AtendimentoService.RefletirStatusDoHorarioAsync`), chamado por
+`CancelarAsync`/`MarcarFaltaAsync`/`RemarcarAsync` — as portas já são pontos únicos:
+
+- **Cancelar / falta** → códigos `Aberto` do atendimento viram **`NaoAplicavel`**, com
+  `RegistrarObservacaoPendencia("Sessão cancelada em dd/MM — falta/cancelamento")`.
+  ⚠️ **Não é NC de propósito**: `LancarAsync`/presença REABRE as NCs do paciente quando
+  ele volta — a guia da sessão que não aconteceu ressuscitaria como pendência fantasma
+  na próxima marcação. `NaoAplicavel` já sai de `EstaPendente`, do painel e da rodada, e
+  **não é valor novo de enum** (a mina da parcela 67 fica desarmada: o app antigo lê).
+  Código já **Baixado** não se toca — a secretária efetivou antes e a sessão caiu; a
+  tela avisa ("há guia já baixada deste horário — confira no portal") e a decisão é
+  humana, como toda baixa.
+- **Reabrir o horário** (remarcar uma falta/cancelamento) → códigos `NaoAplicavel` cujo
+  convênio **gera guia** voltam a `Aberto` (o particular continua `NaoAplicavel`, que é
+  o estado natural dele).
+- **Remarcar a DATA** → `atendimento.Data` acompanha e as `DataPrevistaFaturamento` dos
+  códigos `Abertos` **deslocam pelo delta de dias** (as regras derivam a prevista da
+  data por deslocamentos fixos — +24h etc. —, então o delta preserva o desenho de todas,
+  inclusive a inversão do BSV). Baixados não se tocam.
+- **Mudar modalidade / especialidade / 1º código** → os códigos são **REGERADOS** pelas
+  regras — somente quando TODOS estão `Aberto` e fora de lote; havendo baixa ou lote, a
+  edição é **recusada com a explicação** (cancele e remarque, ou estorne primeiro). A
+  regeneração substitui as linhas no mesmo `SaveChanges`, com `EventoAuditoria`
+  escrevendo o que saiu e o que entrou.
+
+### 3.5 A chave de ativação — por causa da janela de atualização
+
+O risco real da virada: horário **marcado pelo app novo** (com guia) e presença
+**confirmada pelo app velho** (cujo binário ainda cria no carimbo) = guia duplicada — e
+o app de faturamento pode ficar dias aberto sem atualizar.
+
+Por isso o regime novo nasce atrás de **`ParametrosService` → chave
+"GuiaNoAgendamento", DESLIGADA por padrão**, com a caixinha em Configurações → Operação
+dizendo com todas as letras: *"ligue depois de atualizar todas as máquinas"*. Com a
+chave desligada, tudo se comporta como hoje **mais** a transação única do §3.3 — ou
+seja, a duplicidade morre no dia 1, e a mudança de fluxo de trabalho acontece quando a
+clínica decidir (e treinar a secretária).
+
+## 4. O que NÃO muda — e por quê já estava pronto
+
+1. **O painel de pendências e a rodada bloqueante**: `CodigoFaturamento.EstaPendente`
+   **já** exige `DataPrevistaFaturamento <= hoje`. Guia de sessão futura não é pendência
+   por construção — ela aparece na **Consulta de guias** (onde a secretária a efetiva
+   cedo, que é o objetivo) e só entra no painel quando a data chega.
+2. **As quatro portas da baixa** e a `RegraNumeroGuia`: intocadas. Baixa antecipada
+   passa de acidente a feature.
+3. **Os quatro fatos do Finalizar** (pacote, insumo, caixa): continuam no Concluir da
+   Fila. Só a GUIA muda de momento.
+4. **`Avulso_e_agendado_produzem_os_mesmos_fatos`**: continua verde — as duas portas
+   continuam sendo a mesma esteira, só que a guia nasce um passo antes nas duas.
+
+## 5. O que muda de SIGNIFICADO: `Atendimento`
+
+Hoje, `Atendimento` significa "a sessão aconteceu". No regime novo significa "a sessão
+está registrada". Todo leitor que quis dizer **aconteceu** precisa de âncora nova:
+
+- **Migration aditiva**: `Atendimento.RealizadoEm (timestamp without time zone, null)` +
+  backfill `UPDATE … SET RealizadoEm = LancadoEm` (toda linha existente é sessão que
+  aconteceu — a lição do `defaultValue` da parcela 60 aplicada a dado).
+- `ConfirmarPresencaAsync` carimba `RealizadoEm`; cancelar/falta o anula.
+- **Inventário de leitores a reancorar** (grep por `Atendimentos` no repositório, cada
+  um conferido como a parcela 69 fez com os leitores de agendamento):
+  produtividade/BI, `RentabilidadeConvenioService` (período do atendimento),
+  `OrigemPacientesService` ("estreou" = primeiro atendimento **realizado**),
+  `RetencaoPacienteService` ("cancelado não é visita"), custo por sessão,
+  `ConsultorioService` (pendência de evolução é de sessão realizada — já filtra por
+  `StatusAgendamento.Realizado`, confere), elegibilidade/cota.
+  O que **não** se reancora: `CodigosDoPacienteNoMesAsync` no contexto das regras —
+  marcar 10 sessões do mês deve enxergar as anteriores ao gerar a próxima, e isso é
+  desejado.
+
+## 6. Riscos, e como cada um morre
+
+| Risco | Resposta |
+|---|---|
+| Guia duplicada por falha entre criação e carimbo | Deixa de existir segundo momento de criação (§3.1); no legado, grafo único (§3.3) |
+| App velho confirmando horário do app novo | Chave de ativação (§3.5) |
+| Guia de sessão futura alarmando o faturista | `EstaPendente` já filtra por data (§4.1) |
+| Sessão cancelada virando pendência eterna | Suspensão automática em `NaoAplicavel` com motivo (§3.4) |
+| NC fantasma reaberta pela próxima marcação | Cancelamento NÃO usa NC (§3.4) |
+| Valor novo de enum quebrando o app velho | Nenhum valor novo — `NaoAplicavel` já existe (§3.4) |
+| Indicadores contando sessão que não houve | `RealizadoEm` + inventário de leitores (§5) |
+| Guia baixada de sessão que caiu | Não se toca; aviso na tela; decisão humana (§3.4) |
+
+## 7. Plano de testes
+
+- **Atomicidade sem Postgres**: decorator de `IClinicaRepositorio` que CONTA os
+  `SalvarAsync` — `Marcar_gera_horario_atendimento_e_guias_em_UM_SaveChanges` e
+  `Fallback_legado_cria_no_carimbo_em_UM_SaveChanges`. É a forma testável da transação;
+  o teste contra Postgres real (xmin) continua na meta do CI, mas sai do caminho
+  crítico: conflito agora significa "releia — o `AtendimentoId` já está lá".
+- `Confirmar_presenca_de_horario_com_guia_so_carimba_e_nao_cria_nada`.
+- `Cancelar_suspende_as_guias_abertas` / `Reabrir_devolve` / `Falta_idem` /
+  `Particular_continua_NaoAplicavel_ao_reabrir`.
+- `Remarcar_data_desloca_as_previstas_dos_abertos_e_nao_toca_baixado`.
+- `Mudar_modalidade_regenera_quando_intocada_e_recusa_quando_baixada_ou_em_lote`.
+- `NC_do_paciente_reabre_na_PRESENCA_e_nao_na_marcacao`.
+- `Consulta_renova_na_PRESENCA_e_nao_na_marcacao`.
+- `Guia_de_sessao_futura_nao_e_pendencia_nem_entra_na_rodada`.
+- `Indicador_X_nao_conta_sessao_nao_realizada` (um por leitor reancorado do §5).
+- `Avulso_e_agendado_produzem_os_mesmos_fatos` — continua, nos DOIS regimes da chave.
+
+## 8. Ordem de entrega
+
+1. **Fase 1 — a transação (vale nos dois regimes, ganha imediato):** fallback do §3.3 —
+   criação + carimbo num grafo/`SaveChanges` único, com trilha. Mata a duplicidade hoje,
+   sem mudar fluxo de trabalho nenhum.
+2. **Fase 2 — o regime novo atrás da chave:** §3.1, §3.2, §3.4, §3.5, migration do §5.
+3. **Fase 3 — os leitores reancorados** (§5), um a um, cada qual com teste.
+4. **Fase 4 — o resto da nota 9 da Recepção** (fila da parcela 69): espera média que
+   conta falta, bloqueio que não vê a sessão que invade (a consulta de origem corta por
+   `DataHora` — o `ColideCom` de baixo nunca vê a sessão das 11h30), profissional
+   desativado sumindo da grade, reconferência de elegibilidade ao trocar a data.
