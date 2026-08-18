@@ -3703,6 +3703,41 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   uma vez — e olhe no app que ninguém edita.** Código congelado não é código errado; muitas
   vezes é onde a decisão certa foi tomada primeiro e ficou.
 
+  ⚠️ **O SEGUNDO BLOQUEADOR, e é o mais grave dos dois: A FILA E O PAINEL DO BALCÃO NUNCA
+  VIAM O QUE A OUTRA MÁQUINA GRAVOU.** Serviço registrado como `AddScoped` — e o
+  `DbContext` junto — pedido ao provedor **RAIZ** vive no ESCOPO RAIZ, isto é, pela vida
+  inteira do aplicativo. E o shell resolve toda tela da raiz: `SuiteApp` passa
+  `host.Services` ao `ShellViewModel`, que o entrega a `IModuloApp.CriarTela`. O
+  `FilaViewModel` e o `PainelViewModel` recebiam `AgendaService`,
+  `PainelRecepcaoService`, `TermoProcedimentoService` e `RelacionamentoService` **por
+  construtor** — logo, o mesmo `DbContext` da abertura do app até o fim do expediente.
+  A consulta da agenda é RASTREADA, e o EF **não sobrescreve valores de entidade já
+  rastreada**: reler o dia no mesmo contexto devolve o `ChamadoEm` que ele já tinha — nulo.
+  Ou seja: **o médico clica em "Chamar próximo" e o balcão não vê**. Justamente a
+  sincronização que a parcela 38 existe para garantir, e que este arquivo descreve como "os
+  dois leem a mesma linha, e é isso que faz os dois quadros nunca divergirem". A releitura
+  de um minuto — construída na parcela 62 para fazer o recado CHEGAR — relia pelo contexto
+  que já tinha a resposta velha. Falta marcada na outra máquina, remarcação e as cinco
+  contagens do painel ficavam congeladas no número da abertura, a manhã inteira. **Só o que
+  era clicado NESTA máquina aparecia — o que faz o quadro parecer perfeito para quem está
+  usando.**
+  Agravante: `DbContext` não aceita duas operações ao mesmo tempo. A batida do relógio
+  caindo em cima de um clique vira *"A second operation was started on this context
+  instance"* — erro em inglês, no balcão, com o paciente na frente.
+  ⚠️ **`ValidateScopes` não pega**: `Host.CreateDefaultBuilder()` só o liga no ambiente
+  **Development**; em produção a resolução passa calada. Por isso a rede virou a
+  **checagem 37**, que casa o construtor de todo ViewModel resolvido em `CriarTela` contra
+  os tipos registrados como `AddScoped`/`AddDbContext`.
+  A regra: **tela de vida longa abre ESCOPO por operação, e não recebe serviço Scoped no
+  construtor.** `AgendaViewModel` e `MeuDiaViewModel` já faziam assim — e é exatamente por
+  isso que a grade e o quadro do médico atualizavam e a fila não. **Quando uma tela
+  atualiza e a irmã não, a diferença não está na tela: está em como ela pede os serviços.**
+  ⚠️ E são **NOVE** ViewModels, não dois: os outros sete estão no Financeiro e no Gerente
+  (Caixa, Conciliação, Estoque, Pacotes, Plano de contas, Produção, Repasses) e ficaram
+  como dívida MEDIDA na checagem 37 — aviso enquanto estiverem na lista, erro para
+  qualquer tela nova. O Caixa é o que dói mais: um recebimento lançado na outra máquina não
+  aparece, e o fechamento do dia confere contra um número velho.
+
   ⚠️ **A CONSULTA CHAMADA DA LISTA DE ESPERA NASCIA SEM ESPECIALIDADE.** O formulário do
   balcão EXIGE a especialidade ("Consulta precisa de especialidade") — e
   `ListaEsperaService.ChamarAsync` **não tinha o parâmetro**. A recepcionista escolhia
@@ -3803,3 +3838,13 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
      com as DUAS pelo caminho de baixo (paciente + data) e dá as duas por escritas.
   10. **"Atender" e a dívida de prontuário navegam sem conferir `VerProntuario`** —
       `NavegacaoSuite.Ir` devolve false em silêncio, e o botão não faz nada.
+  11. **Horário de profissional (ou sala) DESATIVADO some da grade** — a coluna só é montada
+      para os ATIVOS, e o horário com dono inativo não cai em "Sem profissional": não existe
+      coluna para ele. O resumo continua contando sobre a lista inteira, então o cabeçalho
+      diz "12 horário(s)" e a grade desenha 11; o vão fica clicável e a recepção marca outra
+      pessoa por cima, enquanto o paciente segue na Fila e na folha impressa do dia. A caixa
+      da tela de equipe diz "Ativo (aparece na agenda)", prometendo o contrário do que
+      acontece. É diferente do item 1: aqui o `ProfissionalId` existe — quem sumiu foi a
+      coluna.
+  12. **Os sete ViewModels restantes com serviço Scoped no construtor** (checagem 37) —
+      mesma mecânica do segundo bloqueador, no Financeiro e no Gerente.

@@ -5,6 +5,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Shell.Componentes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Recepcao.ViewModels;
 
@@ -65,9 +66,8 @@ public sealed partial class PainelViewModel : ObservableObject
     /// </summary>
     private const int JanelaAniversarioDias = 6;
 
-    private readonly RelacionamentoService _relacionamento;
 
-    private readonly PainelRecepcaoService _painel;
+    private readonly IServiceScopeFactory _escopos;
 
     public ObservableCollection<LinhaOcupacao> Ocupacao { get; } = [];
     public ObservableCollection<LinhaPendenciaRecepcao> Pendencias { get; } = [];
@@ -130,11 +130,20 @@ public sealed partial class PainelViewModel : ObservableObject
     /// </summary>
     private readonly DispatcherTimer _relogio;
 
-    public PainelViewModel(
-        PainelRecepcaoService painel, RelacionamentoService relacionamento)
+    /// <summary>
+    /// ⚠️ NADA de serviço SCOPED no construtor — a mesma regra da Fila, e pela mesma razão.
+    ///
+    /// O shell resolve esta tela do provedor RAIZ, e serviço Scoped pedido à raiz vive no
+    /// escopo raiz: pela vida inteira do aplicativo, com o <c>DbContext</c> junto. As
+    /// contagens do painel (Aguardando · Na recepção · Em atendimento · Faltas · espera
+    /// média) ficavam congeladas no número da ABERTURA do app, a manhã inteira, porque a
+    /// releitura de dois minutos relia pelo mesmo contexto — que devolve o que ele já
+    /// rastreava. Só o que era clicado NESTA máquina aparecia, o que faz o painel parecer
+    /// perfeito justamente para quem está olhando.
+    /// </summary>
+    public PainelViewModel(IServiceScopeFactory escopos)
     {
-        _painel = painel;
-        _relacionamento = relacionamento;
+        _escopos = escopos;
 
         // Dois minutos, e não um: o painel são CONTAGENS do dia, que mudam mais devagar
         // do que a coluna de um cartão na fila, e cada batida custa três consultas ao
@@ -165,7 +174,11 @@ public sealed partial class PainelViewModel : ObservableObject
                 MensagemEhErro = false;
             }
 
-            var resumo = await _painel.ResumoAsync(dia);
+            // Um ESCOPO por carga: é o que faz o painel ver o que a outra máquina gravou.
+            using var escopo = _escopos.CreateScope();
+            var painel = escopo.ServiceProvider.GetRequiredService<PainelRecepcaoService>();
+
+            var resumo = await painel.ResumoAsync(dia);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -238,7 +251,10 @@ public sealed partial class PainelViewModel : ObservableObject
         try
         {
             AniversariantesNaoVerificados = false;
-            var lista = await _relacionamento.AniversariantesAsync(dia, JanelaAniversarioDias);
+            using var escopoAniversario = _escopos.CreateScope();
+            var lista = await escopoAniversario.ServiceProvider
+                .GetRequiredService<RelacionamentoService>()
+                .AniversariantesAsync(dia, JanelaAniversarioDias);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -316,7 +332,10 @@ public sealed partial class PainelViewModel : ObservableObject
     {
         try
         {
-            var pendencias = await _painel.PendenciasDoDiaAsync(dia);
+            using var escopoPendencias = _escopos.CreateScope();
+            var pendencias = await escopoPendencias.ServiceProvider
+                .GetRequiredService<PainelRecepcaoService>()
+                .PendenciasDoDiaAsync(dia);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;

@@ -2867,6 +2867,106 @@ for _cenario, _corpo, _deve in (
             f"disparou={_disparou}, esperado={_deve}."
         )
 
+# ======================================================================
+# CHECAGEM 37 — ViewModel do shell que recebe serviço SCOPED no construtor
+# ======================================================================
+#
+# O shell resolve toda tela do provedor RAIZ: `SuiteApp` passa `host.Services` ao
+# `ShellViewModel`, que o entrega a `IModuloApp.CriarTela`, que chama
+# `GetRequiredService<FooViewModel>()`. Serviço registrado como `AddScoped` (ou o
+# `DbContext`, que é Scoped por padrão) pedido à RAIZ vive no escopo raiz — isto é, pela
+# vida inteira do aplicativo.
+#
+# Nada falha. O que acontece é pior:
+#
+#   1. A tela DEIXA DE VER a outra máquina. A consulta é rastreada e o EF não sobrescreve
+#      valores de entidade já rastreada — reler devolve o que o contexto já tinha. Foi
+#      assim que a fila do balcão parou de receber a chamada carimbada no consultório, e
+#      que as contagens do painel ficavam congeladas no número da abertura do app.
+#   2. `DbContext` não aceita duas operações ao mesmo tempo. A batida do relógio caindo em
+#      cima de um clique vira "A second operation was started on this context instance" —
+#      erro em inglês, no balcão, com o paciente na frente.
+#
+# O `ValidateScopes` do host pegaria isto na abertura, mas ele só vem ligado no ambiente
+# de Development: em produção a resolução passa calada. Por isso a rede é aqui.
+#
+# ⚠️ `PENDENTES` é a dívida MEDIDA, não uma licença: quem está na lista vira AVISO, quem
+# não está vira ERRO. Tela nova nasce cobrada, e a lista só encolhe.
+
+_PENDENTES_ESCOPO = {
+    # Financeiro e Gerente — mesma mecânica, fora do alcance da parcela 69 (que foi a
+    # auditoria da AGENDA). Cada um destes tem o `DbContext` da abertura do app.
+    "CaixaViewModel", "ConciliacaoViewModel", "EstoqueViewModel", "PacotesViewModel",
+    "PlanoContasViewModel", "ProducaoViewModel", "RepassesViewModel",
+}
+
+
+def _servicos_scoped() -> set[str]:
+    """Os tipos registrados como Scoped (o DbContext entra: é Scoped por padrão)."""
+    nomes: set[str] = {"IClinicaRepositorio"}
+    for arq in RAIZ.glob("src/**/DependencyInjection.cs"):
+        texto = _sem_comentarios(arq.read_text(encoding="utf-8"))
+        nomes |= set(re.findall(r"AddScoped<(?:[\w\.]+,\s*)?(\w+)>", texto))
+        nomes |= set(re.findall(r"AddDbContext<(\w+)>", texto))
+    return nomes
+
+
+def _vms_do_shell() -> set[str]:
+    """ViewModels que o shell resolve em `CriarTela` — os de vida longa."""
+    nomes: set[str] = set()
+    for arq in RAIZ.glob("src/**/Modulo/*.cs"):
+        texto = _sem_comentarios(arq.read_text(encoding="utf-8"))
+        if "CriarTela" not in texto:
+            continue
+        nomes |= set(re.findall(r"GetRequiredService<(\w*ViewModel)>", texto))
+    return nomes
+
+
+def _scoped_no_construtor(vm: str, scoped: set[str]) -> list[str]:
+    """Os serviços Scoped que o construtor deste ViewModel recebe."""
+    for arq in RAIZ.glob(f"src/**/{vm}.cs"):
+        texto = _sem_comentarios(arq.read_text(encoding="utf-8"))
+        m = re.search(r"public\s+" + re.escape(vm) + r"\s*\(([^)]*)\)", texto, re.S)
+        if not m:
+            continue
+        tipos = re.findall(r"([A-Z]\w+)\s+\w+\s*(?:,|$)", m.group(1))
+        return sorted({t for t in tipos if t in scoped})
+    return []
+
+
+_scoped_conhecidos = _servicos_scoped()
+for _vm in sorted(_vms_do_shell()):
+    _achados = _scoped_no_construtor(_vm, _scoped_conhecidos)
+    if not _achados:
+        continue
+
+    _frase = (
+        f"{_vm} recebe serviço SCOPED no construtor ({', '.join(_achados)}) e o shell o "
+        f"resolve do provedor RAIZ — o DbContext passa a viver pela vida inteira do app, "
+        f"a tela para de ver o que a outra máquina gravou e a releitura de fundo pode "
+        f"colidir com um clique. Receba `IServiceScopeFactory` e abra `CreateScope()` por "
+        f"operação, como AgendaViewModel e MeuDiaViewModel já fazem."
+    )
+    if _vm in _PENDENTES_ESCOPO:
+        avisos.append(f"dívida conhecida — {_frase}")
+    else:
+        erros.append(_frase)
+
+# --- autoteste da 37: ela CHAMA a mesma função da varredura (a lição da parcela 67) ---
+for _vm_teste, _deve in (
+    # Os dois que a parcela 69 corrigiu: têm de estar limpos.
+    ("FilaViewModel", False),
+    ("PainelViewModel", False),
+    # Um da dívida conhecida: tem de continuar sendo detectado (senão a checagem cegou).
+    ("CaixaViewModel", True),
+):
+    _detectou = bool(_scoped_no_construtor(_vm_teste, _scoped_conhecidos))
+    if _detectou != _deve:
+        erros.append(
+            f"verificar-suite: a checagem 37 mudou de resposta em {_vm_teste} — "
+            f"detectou={_detectou}, esperado={_deve}."
+        )
+
 # ---------------------------------------------------------------------- saída
 for a in avisos:
     print(f"aviso: {a}")
