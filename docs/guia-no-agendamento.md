@@ -180,17 +180,52 @@ fechamento (pacote/insumo/caixa) continua sendo o passo SEGUINTE e opcional (par
 chave** (§3.5): a chave governa a guia de horário FUTURO; o avulso é sempre presente —
 por isso a Fase 1 já entrega, para o fluxo atual da clínica, o comportamento final.
 
-### 3.7 A tela do Novo atendimento: dois botões e o aviso da CAPA (pedido da direção)
+### 3.7 UMA porta de entrada: o Novo atendimento marca E lança; a agenda MOSTRA (decisão da direção)
 
-O Novo atendimento ganha um segundo botão ao lado do lançar, e o par diz QUANDO:
-**"Lançar agora — o paciente veio"** e **"Agendar para outro dia…"**.
+A direção fechou a unificação pelo outro lado do que a primeira versão desta seção
+propunha — e melhor: em vez de dois formulários com uma ponte, **UM formulário com a
+pergunta "QUANDO?"**. O Novo atendimento passa a ser o único lugar onde um atendimento
+NOVO entra no sistema, nos dois modos; a agenda passa a ser **visualização e gestão do
+que já existe**.
 
-⚠️ O segundo botão é uma **PONTE, não um segundo formulário**: agendar exige data, hora,
-profissional, sala, choque e bloqueio — tudo isso já mora no formulário da agenda, com
-as validações dele. O botão abre ESSE formulário já preenchido (paciente, modalidade,
-especialidade, 1º código). Campos próprios de data/hora no Novo atendimento criariam
-duas definições de "marcar horário" — o defeito recorrente do projeto, desfeito pela
-parcela 60.
+```
+[2] QUANDO
+ (•) O paciente está aqui — lançar agora            ← o avulso de hoje (§3.6)
+ ( ) Marcar dia e horário                           ← o agendamento
+      Dia [22/08]  Hora [14:30]  Duração [30 min]
+      Profissional [— sem profissional definido —▾]   Sala [Sala 2 ▾]
+      ⚠ Sem profissional, a sessão não aparece no quadro do médico
+        e fica fora do repasse — defina quando souber quem atende.
+      ⚠ 14:30 já tem sessão da Dra. Paula (choque) — será um encaixe.
+      ⚠ Agenda fechada neste período: Férias da Dra. Paula.
+      [ ] Repetir semanalmente — [10] sessões (série)
+```
+
+Modalidade, especialidade, consulta, BSV (termo), elegibilidade e a prévia das guias já
+moram na tela — valem para os DOIS modos. No modo "marcar", o Salvar grava o grafo do
+§3.1 (horário + atendimento + guias, chave ligada) e **pergunta se quer imprimir o
+comprovante de agendamento** (`AgendaPdfService.ComprovanteAsync`, parcela 29 — já
+existe; falta só a pergunta).
+
+O que muda de lugar, e o que NÃO muda:
+
+- **O vão livre da agenda continua clicável** — mas passa a abrir o Novo atendimento
+  pré-preenchido (dia, hora, profissional da coluna), em vez do formulário antigo. A
+  agenda "que mostra" não pode perder o gesto de apontar o horário com o dedo.
+- **A SÉRIE vem junto** para o modo "marcar" (`AgendarSerieAsync`, com o resultado
+  pulado-e-dito de sempre) — deixá-la para trás faria "marcar" morar em dois lugares de
+  novo.
+- **Editar o horário EXISTENTE continua na janela do horário da agenda** (remarcar,
+  cancelar, falta, comprovante, reabrir). Marcar NOVO e mexer no EXISTENTE são atos
+  diferentes; uma definição por ATO. O formulário antigo da agenda se aposenta só da
+  metade "novo".
+- **Choque e bloqueio criticam ANTES do clique com a MESMA regra que recusa no serviço**
+  (`AgendaService` ganha a leitura de crítica reutilizável) — a regra do número da guia,
+  aplicada ao horário.
+- ⚠️ **"Profissional aleatório" NÃO é sorteio.** Deixar sem profissional é permitido e
+  avisado (o aviso acima); o sistema **nunca escolhe sozinho** — profissional define
+  repasse (dinheiro) e o quadro de quem atende, e um sorteio pagaria a pessoa errada. O
+  horário órfão cai na coluna "Sem profissional" da agenda, onde é adotado depois.
 
 E o aviso de duplicidade vira o aviso da **CAPA**, em dois momentos (parcela 51 — a
 tela critica a cada escolha, não só no confirmar):
