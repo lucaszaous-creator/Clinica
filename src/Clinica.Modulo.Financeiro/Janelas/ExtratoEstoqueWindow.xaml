@@ -1,0 +1,110 @@
+<Window x:Class="Clinica.Financeiro.Janelas.ExtratoEstoqueWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+        Title="Extrato do item" Width="820" Height="560"
+        MinWidth="680" MinHeight="420"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <DockPanel Margin="24">
+
+        <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock Text="{Binding Titulo}" Style="{StaticResource DialogoTitulo}"
+                       TextTrimming="CharacterEllipsis" />
+            <!-- A definição vai escrita: é a resposta a "que movimentos produziram este
+                 saldo?", e a última linha TEM de bater com o saldo da lista de trás —
+                 as duas somas usam a mesma conta (MovimentoEstoque.Delta). -->
+            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="0"
+                       Text="Todos os movimentos, do mais recente para o mais antigo, com o saldo depois de cada um. O motivo escrito da perda e a direção do acerto de inventário aparecem na coluna de detalhe." />
+            <TextBlock Text="{Binding Resumo}" Style="{StaticResource TextoSuave}"
+                       FontSize="{StaticResource Fonte.Legenda}"
+                       TextWrapping="Wrap" Margin="0,6,0,0" />
+        </StackPanel>
+
+        <Button DockPanel.Dock="Bottom" Content="Fechar" IsCancel="True"
+                Style="{StaticResource BotaoSecundario}" HorizontalAlignment="Right"
+                MinWidth="110" Margin="0,14,0,0" />
+
+        <Border Background="{StaticResource Brush.Superficie}"
+                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                CornerRadius="{StaticResource Raio.Grande}" Padding="16,12">
+            <Grid Grid.IsSharedSizeScope="True">
+                <DockPanel>
+                    <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtData" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtTipo" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtMov" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtSaldo" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtQuem" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="DATA" Style="{StaticResource Rotulo}" Margin="0" />
+                        <TextBlock Grid.Column="1" Text="TIPO" Style="{StaticResource Rotulo}" Margin="16,0,0,0" />
+                        <TextBlock Grid.Column="2" Text="MOVIMENTO" Style="{StaticResource Rotulo}" Margin="16,0,0,0" />
+                        <TextBlock Grid.Column="3" Text="SALDO APÓS" Style="{StaticResource Rotulo}" Margin="16,0,0,0" />
+                        <TextBlock Grid.Column="4" Text="DETALHE (motivo · lote · validade)" Style="{StaticResource Rotulo}" Margin="16,0,0,0" />
+                        <TextBlock Grid.Column="5" Text="QUEM" Style="{StaticResource Rotulo}" Margin="16,0,0,0" />
+                    </Grid>
+
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Movimentos}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,3">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtData" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtTipo" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtMov" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtSaldo" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" SharedSizeGroup="ExtQuem" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Text="{Binding Data}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Margin="16,0,0,0"
+                                                   Text="{Binding Tipo}" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Style.Triggers>
+                                                        <!-- A perda em destaque: é a linha que carrega a
+                                                             justificativa que a clínica exige. -->
+                                                        <DataTrigger Binding="{Binding EhPerda}" Value="True">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Erro}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Grid.Column="2" Margin="16,0,0,0" TextAlignment="Right"
+                                                   Text="{Binding Movimento}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="3" Margin="16,0,0,0" TextAlignment="Right"
+                                                   FontWeight="SemiBold"
+                                                   Text="{Binding SaldoApos}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="4" Margin="16,0,0,0"
+                                                   Text="{Binding Detalhe}" TextWrapping="Wrap"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                        <TextBlock Grid.Column="5" Margin="16,0,0,0"
+                                                   Text="{Binding Quem}" TextTrimming="CharacterEllipsis"
+                                                   Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+
+                <ctrl:EstadoDaTela Itens="{Binding Movimentos}"
+                                   Carregando="{Binding Carregando}"
+                                   NaoVerificado="{Binding NaoVerificado}"
+                                   Glifo="&#xE9D5;"
+                                   TextoCarregando="Lendo os movimentos…"
+                                   Titulo="Nenhum movimento registrado"
+                                   Descricao="O saldo deste item ainda não teve entrada nem saída." />
+            </Grid>
+        </Border>
+    </DockPanel>
+</Window>

@@ -400,9 +400,12 @@ public sealed partial class OrcamentoEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var financeiro = scope.ServiceProvider.GetRequiredService<FinanceiroService>();
 
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await
+            // (parcela 62) — a coleção ficava vazia na tela durante o roundtrip ao banco.
+            var lidas = await financeiro.CategoriasAsync(TipoLancamento.Saida);
+
             Categorias.Clear();
-            foreach (var c in await financeiro.CategoriasAsync(TipoLancamento.Saida))
-                Categorias.Add(new OpcaoCategoria(c.Id, c.Nome));
+            foreach (var c in lidas) Categorias.Add(new OpcaoCategoria(c.Id, c.Nome));
 
             Categoria = Categorias.FirstOrDefault();
         }

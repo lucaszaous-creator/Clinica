@@ -115,9 +115,25 @@ public class MovimentoEstoque
 
     public string? CriadoPor { get; set; }
 
-    /// <summary>+1 para entrada, −1 para o que sai. É o que soma o saldo.</summary>
-    public int Sinal => Tipo == TipoMovimentoEstoque.Entrada ? 1 : -1;
+    /// <summary>
+    /// Quanto este movimento SOMA ao saldo — com o sinal certo, inclusive no AJUSTE.
+    ///
+    /// ⚠️ Substitui o par `Sinal`/`QuantidadeComSinal`, que dizia "−1 para tudo que não é
+    /// entrada" e erraria o ajuste de inventário PARA CIMA (parcela 30) — a contagem que
+    /// acha a mais é entrada de saldo. O par nunca teve um chamador, e é só por isso que
+    /// o erro nunca doeu: quem somava saldo era o repositório, com a regra escrita à mão
+    /// lá dentro. Agora a regra mora AQUI, num lugar só, e o repositório e o extrato do
+    /// item a chamam — duas somas de saldo divergem exatamente no ajuste, que é o
+    /// movimento raro que ninguém testa de cabeça.
+    /// </summary>
+    public decimal Delta => DeltaDe(Tipo, AjusteParaCima, Quantidade);
 
-    /// <summary>Quantidade com sinal, pronta para somar.</summary>
-    public decimal QuantidadeComSinal => Quantidade * Sinal;
+    /// <summary>A mesma conta, para quem só tem as colunas projetadas (o repositório).</summary>
+    public static decimal DeltaDe(TipoMovimentoEstoque tipo, bool? ajusteParaCima, decimal quantidade)
+        => tipo switch
+        {
+            TipoMovimentoEstoque.Entrada => quantidade,
+            TipoMovimentoEstoque.Ajuste => ajusteParaCima == true ? quantidade : -quantidade,
+            _ => -quantidade
+        };
 }

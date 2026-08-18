@@ -1396,8 +1396,7 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => new { x.ItemEstoqueId, x.Data });
             e.HasIndex(x => x.AtendimentoId);
 
-            e.Ignore(x => x.Sinal);
-            e.Ignore(x => x.QuantidadeComSinal);
+            e.Ignore(x => x.Delta);
         });
 
         b.Entity<DocumentoFinanceiro>(e =>

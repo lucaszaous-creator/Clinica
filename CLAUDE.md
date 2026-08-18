@@ -3931,3 +3931,82 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   autorização→aviso de cota fecha. E `TracoAsync` era código morto (terceira definição de
   uma leitura que dois serviços já fazem direto no repositório) — método órfão continua
   sendo SINTOMA: dos 15 órfãos reais, três eram feature faltando e o resto era duplicata.
+
+- **A VARREDURA DO FINANCEIRO — mais limpo que a Recepção estava, e o achado grave era o
+  mais antigo de todos** (parcela 69, continuação). Os mesmos eixos da varredura do
+  balcão, aplicados ao módulo do dinheiro. O que achou, o que ensina, e o que estava
+  CERTO — na ordem de sempre.
+
+  ⚠️ **O ESTOQUE NÃO TINHA EXTRATO — e o motivo escrito da perda não tinha leitor.** "O
+  saldo é a SOMA dos movimentos" é regra desde a parcela 4, a perda EXIGE motivo escrito
+  (única recusa do serviço) e o acerto de inventário grava direção, observação e
+  `CriadoPor` (parcela 30) — e `MovimentosAsync`, o extrato de um item, ficou órfão desde
+  que nasceu: tudo gravado, nada lido. A clínica exigia justificativa da funcionária e a
+  guardava num lugar que nem a direção alcançava — a trilha da parcela 21 de novo, na
+  versão do estoque. E no dia em que o saldo não bate, a única pergunta útil ("QUAIS
+  movimentos produziram este número?") não tinha tela. Virou o botão "Extrato" na linha
+  do item: todos os movimentos com o saldo APÓS cada um, o motivo da perda em destaque,
+  a direção do acerto escrita e quem fez.
+  Três decisões que vieram junto, e as duas primeiras são maiores que a tela:
+  (a) **A recusa da perda sem motivo subiu para `MovimentarAsync`** — ela morava SÓ no
+  wrapper `PerderAsync`, que nenhuma tela chama; a janela genérica entra pelo método
+  genérico, e a única barreira era a validação da TELA. É o defeito recorrente vestido de
+  validação (a regra do número da guia): quem valida na tela cobre uma porta. O teste
+  novo FALHA no código antigo.
+  (b) **O sinal do movimento desceu para o DOMÍNIO** (`MovimentoEstoque.Delta`/`DeltaDe`),
+  porque agora há DOIS somadores — o saldo do repositório e o extrato — e duas cópias da
+  conta divergiriam exatamente no AJUSTE, o movimento raro que ninguém testa de cabeça.
+  De quebra, isso removeu o par `Sinal`/`QuantidadeComSinal`: dizia "−1 para tudo que não
+  é entrada", erraria o ajuste PARA CIMA, e nunca doeu por nunca ter tido um chamador —
+  **propriedade de domínio errada sem chamador é uma mina, não um detalhe: o primeiro uso
+  a detona.** `O_saldo_oficial_e_a_soma_dos_Deltas_sao_o_mesmo_numero` fixa que o extrato
+  não pode desmentir a tela que ele existe para explicar.
+  (c) O extrato acumula NA ORDEM CRONOLÓGICA e exibe do mais recente — a última linha TEM
+  de bater com o saldo da lista de trás.
+
+  ⚠️ **A FAIXA DA ALÍQUOTA ÚNICA SUMIA PELA CONDIÇÃO ERRADA — e a frase ao lado mentia
+  junto.** O serviço cai no fallback quando não há tributo VIGENTE NO DIA
+  (`ApurarAsync`); a tela escondia a faixa quando havia tributo CADASTRADO
+  (`Tributos.Count` no DataTrigger). Na janela entre as duas condições — tributos
+  cadastrados com vigência futura, ou todos expirados — a alíquota única continuava
+  valendo no cálculo com o campo dela INVISÍVEL, e a frase `OrigemDaCarga` dizia "Nenhum
+  tributo cadastrado" com a lista cheia. O detalhe que dói: o MESMO ViewModel calculava a
+  frase com a condição certa (`ValendoAgora`) e a visibilidade com a errada, a dez linhas
+  de distância. **Campo invisível que faz efeito é pior que o campo morto que a parcela
+  49 tirou desta mesma tela** — e a lição é: quando a tela mostra/esconde algo POR CAUSA
+  de uma regra de serviço, a condição da visibilidade é A MESMA do serviço, nunca uma
+  aproximação ("cadastrado" não é "vigente").
+
+  ⚠️ **O CSV DA INADIMPLÊNCIA SAÍA COM NOME + DÍVIDA DO PACIENTE SEM A SEGUNDA BARREIRA.**
+  O `Receber` da mesma tela tinha o `Exigir`; o `Exportar` não — a mesma lacuna que a
+  parcela 64 fechou nos exports do Gerente, sobrevivendo no módulo vizinho. **Quando um
+  defeito de padrão é corrigido num módulo, os exports dos OUTROS módulos entram na mesma
+  varredura** (é a lição da 64 sobre alcance, cobrada de novo). O FluxoCaixa ganhou o
+  mesmo tratamento (agregados, sem dado pessoal — mas a regra "CSV é saída de dado" não
+  tem exceção por conteúdo).
+
+  ⚠️ **"CÓDIGO COPIADO" DO PIX NUNCA APARECIA.** A janela nasceu DEPOIS das limpezas das
+  parcelas 62/64 e repetiu o padrão que elas mataram: o sucesso da cópia escrevia
+  `MensagemEhErro = false` e a única superfície de mensagem era
+  `Visibility="{Binding MensagemEhErro}"`. Quem copiava não via confirmação — e clicava
+  de novo, ou copiava à mão sem precisar. Correção pelo padrão canônico (quem decide se
+  aparece é o TEXTO; quem decide a cor é a GRAVIDADE). A lição é sobre recorrência:
+  **padrão corrigido em N telas volta na tela N+1 se só as telas foram corrigidas** — o
+  par `AlertaPerigo`+`MensagemEhErro` continua sendo o que a mão escreve primeiro.
+
+  **Menores da mesma rodada**: cinco `Clear()` com await no meio (Contas 2×, Resultado,
+  Taxas 2×) — cargas de abertura, janela pequena, corrigidos pelo padrão da 62; e
+  `Resolvida` no ExtratoBanco, calculada e nunca lida, removida.
+
+  **CONFERIDO E LIMPO — para a próxima varredura não refazer**: menu × `CriarTela` fecha
+  (os 3 "sem caso" são grupos com abas, resolvidos pelo shell); nenhum `EstadoDaTela` na
+  raiz nem sem gatilho; dos 21 arquivos com o padrão de `Border` de mensagem, só o Pix
+  escrevia êxito; "Sem categoria aparece, nunca some" cumprida (Fluxo e Resultado); a
+  reabertura do caixa fica marcada COM o motivo lido na tela; `DesfazerConfirmacaoAsync`
+  tem porta; "Só no banco" e "Só no sistema" ambos no extrato OFX. **E dois falsos
+  positivos meus que valem regra de varredura**: `ValorRotulo` parecia órfão porque o
+  leitor é um template COMPARTILHADO no shell (`ItemBarraRotulada`) — scan de leitor que
+  só olha o XAML do módulo não enxerga template compartilhado; e `EntrarAsync`/
+  `PerderAsync`/`CustoDoAtendimentoAsync` pareciam duplicatas e são WRAPPERS de uma
+  definição só (delegam a `MovimentarAsync`/`Precificar`) — **wrapper fino não é segunda
+  definição; a pergunta é onde mora a REGRA, não quantas assinaturas existem.**

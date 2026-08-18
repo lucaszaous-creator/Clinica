@@ -3,6 +3,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -338,6 +339,27 @@ public sealed partial class EstoqueViewModel : ObservableObject
     /// "tenho 37", e pedir "então ajusta 4 para baixo" é exigir a conta que o sistema
     /// sabe fazer e a pessoa erra.
     /// </summary>
+    /// <summary>
+    /// O EXTRATO do item (parcela 69): a resposta a "que movimentos produziram este
+    /// saldo?". "O saldo é a soma dos movimentos" era regra desde a parcela 4, a perda
+    /// exigia motivo escrito e o acerto de inventário gravava direção e observação — e
+    /// NENHUMA tela lia os movimentos: `MovimentosAsync` ficou órfão desde que nasceu.
+    /// A clínica exigia justificativa da funcionária e a guardava num lugar que nem a
+    /// direção alcançava. É a trilha da parcela 21 de novo — gravada por tudo, lida por
+    /// nada —, na versão do estoque.
+    /// </summary>
+    [RelayCommand]
+    private void Extrato(LinhaEstoque? linha)
+    {
+        if (linha is null) return;
+
+        var vm = new ExtratoEstoqueViewModel(_escopos, linha.Id, linha.Nome);
+        new Janelas.ExtratoEstoqueWindow(vm)
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        }.ShowDialog();
+    }
+
     [RelayCommand]
     private async Task InventariarAsync(LinhaEstoque? linha)
     {
@@ -667,5 +689,132 @@ public sealed partial class MovimentoEstoqueViewModel : ObservableObject
         {
             Salvando = false;
         }
+    }
+}
+
+
+/// <summary>Uma linha do extrato do item, já formatada.</summary>
+public sealed class LinhaExtratoEstoque
+{
+    public required string Data { get; init; }
+    public required string Tipo { get; init; }
+
+    /// <summary>"+10" ou "−2,5" — o delta com o sinal CERTO, inclusive no ajuste.</summary>
+    public required string Movimento { get; init; }
+
+    /// <summary>O saldo DEPOIS deste movimento — é o que faz o extrato se ler como extrato.</summary>
+    public required string SaldoApos { get; init; }
+
+    /// <summary>Motivo da perda, lote/validade da entrada, "sessão" quando veio de atendimento.</summary>
+    public required string Detalhe { get; init; }
+
+    /// <summary>Quem fez. "—" nas linhas anteriores ao registro de operador.</summary>
+    public required string Quem { get; init; }
+
+    public required bool EhPerda { get; init; }
+}
+
+/// <summary>
+/// O extrato de um item de estoque — todos os movimentos, com o saldo corrente ao lado.
+///
+/// O saldo acumulado usa a MESMA conta do saldo da tela de trás
+/// (<see cref="MovimentoEstoque.Delta"/>): a última linha do extrato TEM de bater com o
+/// número que a lista mostra, senão a tela que existe para explicar o saldo o desmentiria.
+/// </summary>
+public sealed partial class ExtratoEstoqueViewModel : ObservableObject
+{
+    private readonly IServiceScopeFactory _escopos;
+    private readonly int _itemId;
+
+    public string Titulo { get; }
+
+    public ObservableCollection<LinhaExtratoEstoque> Movimentos { get; } = [];
+
+    [ObservableProperty] private bool _carregando;
+    [ObservableProperty] private bool _naoVerificado;
+    [ObservableProperty] private string _resumo = "—";
+
+    public ExtratoEstoqueViewModel(IServiceScopeFactory escopos, int itemId, string item)
+    {
+        _escopos = escopos;
+        _itemId = itemId;
+        Titulo = item;
+        _ = CarregarAsync();
+    }
+
+    [RelayCommand]
+    private async Task CarregarAsync()
+    {
+        try
+        {
+            Carregando = true;
+            NaoVerificado = false;
+
+            using var escopo = _escopos.CreateScope();
+            var lista = await escopo.ServiceProvider
+                .GetRequiredService<EstoqueService>().MovimentosAsync(_itemId);
+
+            // O repositório devolve do mais RECENTE para o mais antigo (é como se lê um
+            // extrato); o acumulado se calcula na ordem cronológica e volta.
+            var cronologica = lista.Reverse().ToList();
+            var saldo = 0m;
+            var saldos = new List<decimal>(cronologica.Count);
+            foreach (var m in cronologica)
+            {
+                saldo += m.Delta;
+                saldos.Add(saldo);
+            }
+
+            var linhas = new List<LinhaExtratoEstoque>(cronologica.Count);
+            for (var i = cronologica.Count - 1; i >= 0; i--)
+            {
+                var m = cronologica[i];
+                linhas.Add(new LinhaExtratoEstoque
+                {
+                    Data = m.Data.ToString("dd/MM/yyyy"),
+                    Tipo = RotulosEnum.De(m.Tipo),
+                    Movimento = m.Delta >= 0 ? $"+{m.Delta:0.##}" : $"−{-m.Delta:0.##}",
+                    SaldoApos = saldos[i].ToString("0.##"),
+                    Detalhe = Detalhar(m),
+                    Quem = string.IsNullOrWhiteSpace(m.CriadoPor) ? "—" : m.CriadoPor,
+                    EhPerda = m.Tipo == TipoMovimentoEstoque.Perda
+                });
+            }
+
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await.
+            Movimentos.Clear();
+            foreach (var l in linhas) Movimentos.Add(l);
+
+            Resumo = lista.Count == 0
+                ? "Nenhum movimento registrado."
+                : $"{lista.Count} movimento(s) · saldo atual {saldo:0.##}";
+        }
+        catch (Exception ex)
+        {
+            NaoVerificado = true;
+            Clinica.Application.Diagnostico.Registrar(
+                "Financeiro — extrato do item de estoque não pôde ser lido", ex);
+        }
+        finally
+        {
+            Carregando = false;
+        }
+    }
+
+    /// <summary>
+    /// O que a linha precisa dizer além do número: o MOTIVO da perda (a justificativa que
+    /// a clínica exige e até aqui ninguém lia), o lote/validade da entrada e o vínculo com
+    /// a sessão que consumiu.
+    /// </summary>
+    private static string Detalhar(MovimentoEstoque m)
+    {
+        var partes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(m.Observacao)) partes.Add(m.Observacao);
+        if (!string.IsNullOrWhiteSpace(m.Lote)) partes.Add($"lote {m.Lote}");
+        if (m.Validade is { } v) partes.Add($"validade {v:dd/MM/yyyy}");
+        if (m.AtendimentoId is not null) partes.Add("consumo de sessão");
+        if (m.Tipo == TipoMovimentoEstoque.Ajuste)
+            partes.Add(m.AjusteParaCima == true ? "contagem achou a mais" : "contagem achou a menos");
+        return partes.Count == 0 ? "—" : string.Join(" · ", partes);
     }
 }

@@ -1831,18 +1831,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .GroupBy(m => m.ItemEstoqueId)
             .ToDictionary(
                 g => g.Key,
-                // O AJUSTE de inventário (parcela 30) soma ou subtrai conforme a direção
-                // gravada: a contagem física tanto acha a mais quanto a menos, e a
-                // quantidade continua positiva em todos os tipos para o saldo nunca
-                // depender de um Math.Abs esquecido em algum canto.
-                g => g.Sum(m => m.Tipo switch
-                {
-                    TipoMovimentoEstoque.Entrada => m.Quantidade,
-                    TipoMovimentoEstoque.Ajuste => m.AjusteParaCima == true
-                        ? m.Quantidade
-                        : -m.Quantidade,
-                    _ => -m.Quantidade
-                }));
+                // A regra do sinal (inclusive a direção do AJUSTE, parcela 30) mora no
+                // DOMÍNIO — `MovimentoEstoque.DeltaDe` — porque agora há DOIS somadores:
+                // este saldo e o extrato do item. Duas cópias da mesma conta divergiriam
+                // exatamente no ajuste, que é o movimento raro que ninguém testa de cabeça.
+                g => g.Sum(m => MovimentoEstoque.DeltaDe(m.Tipo, m.AjusteParaCima, m.Quantidade)));
     }
 
     // ---- Recibo e orçamento ----

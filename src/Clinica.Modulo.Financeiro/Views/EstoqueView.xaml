@@ -101,6 +101,15 @@
 
                                             <StackPanel Grid.Column="1" Orientation="Horizontal"
                                                         VerticalAlignment="Center">
+                                                <!-- O saldo é a SOMA dos movimentos — e este
+                                                     botão é onde a soma se confere: motivo da
+                                                     perda, direção do acerto e quem fez, que
+                                                     eram gravados e nenhuma tela lia. -->
+                                                <Button Content="Extrato" Style="{StaticResource BotaoPequeno}"
+                                                        ToolTip="Todos os movimentos deste item, com o saldo depois de cada um"
+                                                        Command="{Binding DataContext.ExtratoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
                                                 <Button Content="Movimentar…" Style="{StaticResource BotaoPequeno}"
                                                         Command="{Binding DataContext.MovimentarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"

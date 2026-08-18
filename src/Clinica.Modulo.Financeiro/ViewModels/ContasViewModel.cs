@@ -535,9 +535,12 @@ public sealed partial class ContaEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var financeiro = scope.ServiceProvider.GetRequiredService<FinanceiroService>();
 
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await
+            // (parcela 62) — a coleção ficava vazia na tela durante o roundtrip ao banco.
+            var ativas = (await financeiro.CategoriasAsync()).Where(c => c.Ativa).ToList();
+
             Categorias.Clear();
-            foreach (var c in await financeiro.CategoriasAsync())
-                if (c.Ativa) Categorias.Add(c);
+            foreach (var c in ativas) Categorias.Add(c);
         }
         catch (Exception ex)
         {
@@ -670,9 +673,12 @@ public sealed partial class RecorrenteEdicaoViewModel : ObservableObject
             using var scope = _escopos.CreateScope();
             var financeiro = scope.ServiceProvider.GetRequiredService<FinanceiroService>();
 
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await
+            // (parcela 62) — a coleção ficava vazia na tela durante o roundtrip ao banco.
+            var ativas = (await financeiro.CategoriasAsync()).Where(c => c.Ativa).ToList();
+
             Categorias.Clear();
-            foreach (var c in await financeiro.CategoriasAsync())
-                if (c.Ativa) Categorias.Add(c);
+            foreach (var c in ativas) Categorias.Add(c);
 
             if (_recorrenteId == 0) return;
 

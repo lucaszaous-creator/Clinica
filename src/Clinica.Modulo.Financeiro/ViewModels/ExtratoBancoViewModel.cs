@@ -23,9 +23,6 @@ public sealed partial class LinhaExtratoBanco : ObservableObject
     /// <summary>"Casada", "Escolha qual", "Só no banco", "Já conferida".</summary>
     public required string Situacao { get; init; }
 
-    /// <summary>Casada ou já conferida — nada a fazer nesta linha.</summary>
-    public required bool Resolvida { get; init; }
-
     /// <summary>Já conciliada antes: dá para DESFAZER, não para conciliar de novo.</summary>
     public required bool JaConciliada { get; init; }
 
@@ -195,8 +192,6 @@ public sealed partial class ExtratoBancoViewModel : ObservableObject
             Descricao = l.Extrato.Descricao,
             Entrada = l.Extrato.Entrada,
             JaConciliada = l.Situacao == SituacaoConciliacao.JaConciliada,
-            Resolvida = l.Situacao is SituacaoConciliacao.Casada
-                                   or SituacaoConciliacao.JaConciliada,
             Situacao = l.Situacao switch
             {
                 SituacaoConciliacao.Casada => "Casada — confirme",

@@ -1,12 +1,14 @@
 <Window x:Class="Clinica.Financeiro.Janelas.CobrancaPixWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
         Title="Cobrar por Pix" Width="560" SizeToContent="Height"
         WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
         Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </Window.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="640">
@@ -62,8 +64,25 @@
             </StackPanel>
         </StackPanel>
 
-        <Border Style="{StaticResource AlertaPerigo}" Margin="0,14,0,0"
-                Visibility="{Binding MensagemEhErro, Converter={StaticResource BoolParaVisibilidade}}">
+        <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade (parcelas
+             62/64). Amarrada a MensagemEhErro, esta caixa escondia o "Código copiado" — a
+             única confirmação de que o Pix foi para a área de transferência, e quem não a
+             vê clica de novo ou copia à mão sem precisar. -->
+        <Border Margin="0,14,0,0"
+                Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                             FallbackValue=Collapsed}">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                            <Setter Property="Background"
+                                    Value="{StaticResource Brush.Erro.Suave}" />
+                            <Setter Property="BorderBrush"
+                                    Value="{StaticResource Brush.Erro}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
         </Border>
 
