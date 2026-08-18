@@ -66,6 +66,20 @@
                         <Run Text="{Binding Local, Mode=OneWay}" />
                     </TextBlock>
 
+                    <!-- O recado que a recepção escreveu no horário ("trazer o laudo",
+                         "avisar que chega atrasada"). O campo existia desde a parcela 1 e
+                         nunca chegava a quem atende. Só aparece quando há — linha vazia
+                         permanente desalinha os cartões da raia. -->
+                    <TextBlock Text="{Binding Observacoes}" Margin="0,2,0,0"
+                               TextWrapping="Wrap" FontStyle="Italic"
+                               FontSize="{StaticResource Fonte.Legenda}"
+                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                               HorizontalAlignment="Left"
+                               ToolTip="Recado escrito pela recepção neste horário"
+                               Visibility="{Binding Observacoes,
+                                            Converter={StaticResource TextoParaVisibilidade},
+                                            FallbackValue=Collapsed}" />
+
                     <!-- Espera e chamada: os dois números que decidem o próximo passo.
                          Só aparecem quando existem — rótulo vazio ocupando linha faz
                          cartões da mesma raia terem alturas diferentes sem motivo. -->
@@ -165,8 +179,15 @@
                                 Command="{Binding DataContext.VoltarEtapaCommand,
                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 CommandParameter="{Binding}" />
+                        <!-- A tela de destino exige VerProntuario: sem o bit, a navegação
+                             falharia em silêncio — o IsEnabled é a metade que explica, a
+                             guarda no comando é a que impede (parcela 41). -->
                         <Button Content="{Binding RotuloRegistro}" Margin="0,0,0,4"
                                 Style="{StaticResource BotaoAcaoGrid}"
+                                IsEnabled="{Binding DataContext.PodeVerProntuario,
+                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                ToolTipService.ShowOnDisabled="True"
+                                ToolTip="Abrir o atendimento mostra o prontuário — exige a permissão Ver prontuário"
                                 Command="{Binding DataContext.AtenderCommand,
                                           RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                 CommandParameter="{Binding}" />
@@ -204,7 +225,19 @@
                            FontSize="{StaticResource Fonte.Legenda}"
                            Visibility="{Binding SemVinculo,
                                         Converter={StaticResource BoolParaVisibilidade}}"
-                           Text="Seu acesso não está vinculado a um profissional cadastrado — peça à direção para ligar o seu usuário ao seu cadastro em Profissionais e salas." />
+                           Text="Seu acesso não está vinculado a um profissional cadastrado — peça à direção para ligar o seu usuário ao seu cadastro em Profissionais e salas. Neste modo o &quot;Chamar próximo&quot; fica desligado: o primeiro da fila pode ser paciente de outro profissional — chame pelo cartão dele no quadro." />
+
+                <!-- Férias, feriado, folga: o dia fechado aparecia como dia VAZIO, que se
+                     lê como "ninguém marcou". Linha de texto, não faixa — contexto
+                     permanente é texto (parcela 38). -->
+                <TextBlock Text="{Binding AgendaFechada}" Margin="0,6,0,0"
+                           TextWrapping="Wrap" FontWeight="SemiBold"
+                           FontSize="{StaticResource Fonte.Legenda}"
+                           Foreground="{StaticResource Brush.Aviso}"
+                           HorizontalAlignment="Left"
+                           Visibility="{Binding AgendaFechada,
+                                        Converter={StaticResource TextoParaVisibilidade},
+                                        FallbackValue=Collapsed}" />
             </StackPanel>
 
             <StackPanel Grid.Column="1" HorizontalAlignment="Right">
@@ -232,7 +265,9 @@
                     <Button Content="{Binding RotuloPendentes}"
                             Command="{Binding AbrirPendentesCommand}"
                             Margin="0,0,8,0" Padding="14,8"
-                            ToolTip="Sessões atendidas nos últimos dias que continuam sem evolução escrita">
+                            IsEnabled="{Binding PodeVerProntuario}"
+                            ToolTipService.ShowOnDisabled="True"
+                            ToolTip="Sessões atendidas nos últimos dias que continuam sem evolução escrita — a lista é prontuário e exige a permissão Ver prontuário">
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource BotaoSecundario}">
                                 <Style.Triggers>
@@ -251,6 +286,8 @@
                     <Button MinWidth="200" Padding="16,8"
                             Command="{Binding ChamarProximoCommand}"
                             IsEnabled="{Binding PodeChamarProximo}"
+                            ToolTipService.ShowOnDisabled="True"
+                            ToolTip="Chama o primeiro que já fez check-in no balcão. Fica desligado quando não há ninguém aguardando — e no modo sem vínculo, em que o primeiro da fila pode ser paciente de outro profissional."
                             Visibility="{Binding EhHoje,
                                          Converter={StaticResource BoolParaVisibilidade}}">
                         <Button.Style>

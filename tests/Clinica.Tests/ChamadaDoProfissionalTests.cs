@@ -48,9 +48,9 @@ public class ChamadaDoProfissionalTests : IDisposable
     public async Task Chamar_MoveOCartaoParaAColunaChamado()
     {
         var ag = await AgendarAsync();
-        await _agenda.RegistrarChegadaAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
 
-        await _agenda.ChamarAsync(ag.Id);
+        await _agenda.ChamarAsync(ag.Id, "teste");
 
         var depois = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
         depois.ChamadoEm.Should().NotBeNull();
@@ -66,7 +66,7 @@ public class ChamadaDoProfissionalTests : IDisposable
     {
         var ag = await AgendarAsync();
 
-        var acao = () => _agenda.ChamarAsync(ag.Id);
+        var acao = () => _agenda.ChamarAsync(ag.Id, "teste");
 
         await acao.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*check-in*");
@@ -80,11 +80,11 @@ public class ChamadaDoProfissionalTests : IDisposable
     public async Task Chamar_DuasVezes_NaoReiniciaOCronometro()
     {
         var ag = await AgendarAsync();
-        await _agenda.RegistrarChegadaAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
 
         var primeira = DateTime.Today.AddHours(14).AddMinutes(5);
-        await _agenda.ChamarAsync(ag.Id, primeira);
-        await _agenda.ChamarAsync(ag.Id, primeira.AddMinutes(7));
+        await _agenda.ChamarAsync(ag.Id, "teste", primeira);
+        await _agenda.ChamarAsync(ag.Id, "teste", primeira.AddMinutes(7));
 
         var depois = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
         depois.ChamadoEm.Should().Be(primeira);
@@ -95,10 +95,10 @@ public class ChamadaDoProfissionalTests : IDisposable
     public async Task DesfazerChamada_DevolveOCartaoParaARecepcao()
     {
         var ag = await AgendarAsync();
-        await _agenda.RegistrarChegadaAsync(ag.Id);
-        await _agenda.ChamarAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
+        await _agenda.ChamarAsync(ag.Id, "teste");
 
-        await _agenda.DesfazerChamadaAsync(ag.Id);
+        await _agenda.DesfazerChamadaAsync(ag.Id, "teste");
 
         var depois = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
         depois.ChamadoEm.Should().BeNull();
@@ -110,10 +110,10 @@ public class ChamadaDoProfissionalTests : IDisposable
     public async Task DesfazerChamada_ComOAtendimentoJaIniciado_Recusa()
     {
         var ag = await AgendarAsync();
-        await _agenda.RegistrarChegadaAsync(ag.Id);
-        await _agenda.IniciarAtendimentoAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste");
 
-        var acao = () => _agenda.DesfazerChamadaAsync(ag.Id);
+        var acao = () => _agenda.DesfazerChamadaAsync(ag.Id, "teste");
 
         await acao.Should().ThrowAsync<InvalidOperationException>();
     }
@@ -129,7 +129,7 @@ public class ChamadaDoProfissionalTests : IDisposable
         var ag = await AgendarAsync();
         var agora = DateTime.Today.AddHours(14).AddMinutes(3);
 
-        await _agenda.IniciarAtendimentoAsync(ag.Id, agora);
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", agora);
 
         var depois = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
         depois.ChegadaEm.Should().Be(agora);
@@ -146,9 +146,9 @@ public class ChamadaDoProfissionalTests : IDisposable
         var chegada = DateTime.Today.AddHours(13).AddMinutes(50);
         var chamada = DateTime.Today.AddHours(14);
 
-        await _agenda.RegistrarChegadaAsync(ag.Id, chegada);
-        await _agenda.ChamarAsync(ag.Id, chamada);
-        await _agenda.IniciarAtendimentoAsync(ag.Id, chamada.AddMinutes(2));
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", chegada);
+        await _agenda.ChamarAsync(ag.Id, "teste", chamada);
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", chamada.AddMinutes(2));
 
         var depois = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
         depois.ChamadoEm.Should().Be(chamada);
@@ -164,13 +164,13 @@ public class ChamadaDoProfissionalTests : IDisposable
         var ag = await AgendarAsync();
         var chamada = DateTime.Today.AddHours(14);
 
-        await _agenda.RegistrarChegadaAsync(ag.Id, chamada.AddMinutes(-10));
-        await _agenda.ChamarAsync(ag.Id, chamada);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", chamada.AddMinutes(-10));
+        await _agenda.ChamarAsync(ag.Id, "teste", chamada);
 
         var chamado = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
         chamado.ChamadoHaMinutos(chamada.AddMinutes(6)).Should().Be(6);
 
-        await _agenda.IniciarAtendimentoAsync(ag.Id, chamada.AddMinutes(6));
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", chamada.AddMinutes(6));
 
         var dentro = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
         dentro.ChamadoHaMinutos(chamada.AddMinutes(40)).Should().BeNull();
@@ -187,8 +187,8 @@ public class ChamadaDoProfissionalTests : IDisposable
         var ag = await AgendarAsync();
         var chegada = DateTime.Today.AddHours(14);
 
-        await _agenda.RegistrarChegadaAsync(ag.Id, chegada);
-        await _agenda.ChamarAsync(ag.Id, chegada.AddMinutes(12));
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", chegada);
+        await _agenda.ChamarAsync(ag.Id, "teste", chegada.AddMinutes(12));
 
         var depois = await _db.Agendamentos.SingleAsync(a => a.Id == ag.Id);
         depois.EsperaMinutos(chegada.AddMinutes(30)).Should().Be(12);
@@ -202,14 +202,14 @@ public class ChamadaDoProfissionalTests : IDisposable
     public async Task VoltarEtapa_DesceUmaColunaPorVez()
     {
         var ag = await AgendarAsync();
-        await _agenda.RegistrarChegadaAsync(ag.Id);
-        await _agenda.IniciarAtendimentoAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste");
 
-        (await _agenda.VoltarEtapaAsync(ag.Id)).Etapa.Should().Be(EtapaFila.Chamado);
-        (await _agenda.VoltarEtapaAsync(ag.Id)).Etapa.Should().Be(EtapaFila.Chegou);
-        (await _agenda.VoltarEtapaAsync(ag.Id)).Etapa.Should().Be(EtapaFila.Aguardando);
+        (await _agenda.VoltarEtapaAsync(ag.Id, "teste")).Etapa.Should().Be(EtapaFila.Chamado);
+        (await _agenda.VoltarEtapaAsync(ag.Id, "teste")).Etapa.Should().Be(EtapaFila.Chegou);
+        (await _agenda.VoltarEtapaAsync(ag.Id, "teste")).Etapa.Should().Be(EtapaFila.Aguardando);
 
-        var acao = () => _agenda.VoltarEtapaAsync(ag.Id);
+        var acao = () => _agenda.VoltarEtapaAsync(ag.Id, "teste");
         await acao.Should().ThrowAsync<InvalidOperationException>();
     }
 
@@ -221,16 +221,65 @@ public class ChamadaDoProfissionalTests : IDisposable
     public async Task ConsultorioChama_ERecepcaoVeNaListaDoDia()
     {
         var ag = await AgendarAsync();
-        await _agenda.RegistrarChegadaAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
 
         // Lado do consultório.
-        await _agenda.ChamarAsync(ag.Id);
+        await _agenda.ChamarAsync(ag.Id, "teste");
 
         // Lado do balcão: a MESMA consulta que a fila usa.
         var doDia = await _agenda.DoDiaAsync(DateOnly.FromDateTime(DateTime.Today));
 
         doDia.Should().ContainSingle()
             .Which.Etapa.Should().Be(EtapaFila.Chamado);
+    }
+
+    /// <summary>
+    /// A AUTORIA da fila (parcela 69): a parcela 61 criou a permissão do ato e o ato
+    /// continuava sem trilha — "quem carimbou isto?" não tinha resposta. Cada movimento
+    /// grava EventoAuditoria com o operador; o idempotente que não mudou nada NÃO grava
+    /// (trilha com duplicata a cada clique é trilha que ninguém lê).
+    /// </summary>
+    [Fact]
+    public async Task Movimentos_da_fila_deixam_trilha_com_o_operador()
+    {
+        var ag = await AgendarAsync();
+
+        await _agenda.RegistrarChegadaAsync(ag.Id, "ana");
+        await _agenda.ChamarAsync(ag.Id, "dra. paula");
+        await _agenda.ChamarAsync(ag.Id, "dra. paula"); // idempotente — não duplica
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "dra. paula");
+
+        var trilha = await _db.Auditoria
+            .Where(e => e.Acao.StartsWith("Fila"))
+            .OrderBy(e => e.Id)
+            .ToListAsync();
+
+        trilha.Select(e => e.Acao).Should().Equal("FilaChegada", "FilaChamada", "FilaEntrada");
+        trilha[0].Operador.Should().Be("ana");
+        trilha[1].Operador.Should().Be("dra. paula");
+        trilha.Should().OnlyContain(e => e.PacienteId == ag.PacienteId);
+    }
+
+    /// <summary>
+    /// Voltar etapa APAGA um carimbo de hora — e o valor apagado tem de ir ESCRITO na
+    /// trilha, porque depois do apagamento ele não existe em mais lugar nenhum.
+    /// </summary>
+    [Fact]
+    public async Task Voltar_etapa_escreve_na_trilha_o_carimbo_que_apagou()
+    {
+        var ag = await AgendarAsync();
+        var entrada = DateTime.Today.AddHours(14).AddMinutes(3);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "ana");
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "ana", entrada);
+
+        await _agenda.VoltarEtapaAsync(ag.Id, "ana");
+
+        var linha = await _db.Auditoria
+            .Where(e => e.Acao == "FilaEtapaVoltada")
+            .SingleAsync();
+        linha.Detalhe.Should().Contain("entrada na sala")
+            .And.Contain(entrada.ToString("dd/MM/yyyy HH:mm"),
+                "o carimbo apagado só sobrevive se a trilha o escrever");
     }
 
     public void Dispose()

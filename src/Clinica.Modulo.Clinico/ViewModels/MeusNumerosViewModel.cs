@@ -264,5 +264,18 @@ public sealed partial class MeusNumerosViewModel : ObservableObject
 
     /// <summary>Leva à lista do que ainda dá para resolver.</summary>
     [RelayCommand]
-    private void AbrirPendentes() => NavegacaoSuite.Ir(ModuloClinico.ChaveRegistrosPendentes);
+    private void AbrirPendentes()
+    {
+        // O destino exige VerProntuario, e sem o bit ele nem existe na navegação —
+        // NavegacaoSuite.Ir voltaria false EM SILÊNCIO e o botão não faria nada (parcela 41).
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
+        {
+            Mensagem = "A lista de sessões sem evolução é prontuário, e o seu acesso não "
+                       + "tem essa permissão. A direção libera em Acessos.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        NavegacaoSuite.Ir(ModuloClinico.ChaveRegistrosPendentes);
+    }
 }

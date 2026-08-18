@@ -473,9 +473,18 @@ public sealed class AgendaService
     /// <summary>
     /// Check-in no balcão: o paciente chegou. É daqui que sai o tempo de espera — sem
     /// carimbo de chegada a fila não tem como dizer há quanto tempo alguém aguarda.
+    ///
+    /// ⚠️ Os cinco movimentos da fila recebem o OPERADOR e gravam trilha (parcela 69):
+    /// a parcela 61 criou a permissão do ato e o ato continuava sem autoria — mover a
+    /// fila escreve carimbo de hora que alimenta espera, repasse e o fechamento da
+    /// sessão, e "quem carimbou isto?" não tinha resposta. O operador vem da TELA
+    /// (<c>SessaoUsuario.Atual.Operador</c>), pela razão de sempre: no balcão duas
+    /// pessoas dividem a máquina, e o serviço não sabe quem está logado. Movimento
+    /// idempotente que não mudou nada (segundo clique no Chamar) NÃO grava linha —
+    /// trilha com duplicata a cada clique é trilha que ninguém consegue ler.
     /// </summary>
     public async Task<Agendamento> RegistrarChegadaAsync(
-        int agendamentoId, DateTime? quando = null, CancellationToken ct = default)
+        int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -483,7 +492,10 @@ public sealed class AgendaService
             throw new InvalidOperationException(
                 "Só um horário em aberto aceita check-in. Reabra o agendamento antes.");
 
+        var mudou = ag.ChegadaEm is null;
         ag.ChegadaEm ??= quando ?? DateTime.Now;
+        if (mudou) await AuditarFilaAsync(ag, operador, "FilaChegada",
+            $"Check-in às {ag.ChegadaEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
@@ -501,7 +513,7 @@ public sealed class AgendaService
     /// perderia a única informação que a torna confiável, que é a de quem está no prédio.
     /// </summary>
     public async Task<Agendamento> ChamarAsync(
-        int agendamentoId, DateTime? quando = null, CancellationToken ct = default)
+        int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -519,7 +531,10 @@ public sealed class AgendaService
         // Idempotente: chamar de novo não reinicia o cronômetro da chamada. Quem quer
         // insistir com alguém que não veio precisa ver há QUANTO tempo chamou — e um
         // segundo clique zerando esse número esconderia justamente o caso.
+        var mudou = ag.ChamadoEm is null;
         ag.ChamadoEm ??= quando ?? DateTime.Now;
+        if (mudou) await AuditarFilaAsync(ag, operador, "FilaChamada",
+            $"Chamado às {ag.ChamadoEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
@@ -532,7 +547,7 @@ public sealed class AgendaService
     /// o outro é o do balcão desfazendo um clique errado, e serve à fila inteira.
     /// </summary>
     public async Task<Agendamento> DesfazerChamadaAsync(
-        int agendamentoId, CancellationToken ct = default)
+        int agendamentoId, string operador, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -543,14 +558,20 @@ public sealed class AgendaService
             throw new InvalidOperationException(
                 "O atendimento já começou; use voltar etapa.");
 
+        // Desfazer APAGA um carimbo — é justamente o movimento que precisa de rastro:
+        // o valor apagado vai escrito na trilha, senão ele deixa de existir em qualquer
+        // lugar.
+        var apagado = ag.ChamadoEm;
         ag.ChamadoEm = null;
+        await AuditarFilaAsync(ag, operador, "FilaChamadaDesfeita",
+            $"Apagado o carimbo de chamada ({apagado:dd/MM/yyyy HH:mm}) — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
 
     /// <summary>O paciente ENTROU na sala: começo da sessão.</summary>
     public async Task<Agendamento> IniciarAtendimentoAsync(
-        int agendamentoId, DateTime? quando = null, CancellationToken ct = default)
+        int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -563,9 +584,12 @@ public sealed class AgendaService
         // nula: sem chegada, o kanban não saberia distinguir quem esperou de quem não
         // esperou. Pelo mesmo motivo a chamada é carimbada junto — o paciente entrou,
         // logo foi chamado, e uma linha do tempo com entrada sem chamada não existe.
+        var mudou = ag.InicioAtendimentoEm is null;
         ag.ChegadaEm ??= agora;
         ag.ChamadoEm ??= agora;
         ag.InicioAtendimentoEm ??= agora;
+        if (mudou) await AuditarFilaAsync(ag, operador, "FilaEntrada",
+            $"Entrou na sala às {ag.InicioAtendimentoEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
@@ -575,7 +599,8 @@ public sealed class AgendaService
     /// porque clicar errado no kanban é rotina — e a alternativa (cancelar e remarcar)
     /// falsearia o histórico.
     /// </summary>
-    public async Task<Agendamento> VoltarEtapaAsync(int agendamentoId, CancellationToken ct = default)
+    public async Task<Agendamento> VoltarEtapaAsync(
+        int agendamentoId, string operador, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -583,14 +608,46 @@ public sealed class AgendaService
             throw new InvalidOperationException(
                 "Este horário já foi encerrado; não dá para voltar a etapa por aqui.");
 
-        if (ag.InicioAtendimentoEm is not null) ag.InicioAtendimentoEm = null;
-        else if (ag.ChamadoEm is not null) ag.ChamadoEm = null;
-        else if (ag.ChegadaEm is not null) ag.ChegadaEm = null;
+        // Voltar etapa APAGA um carimbo de hora. O carimbo apagado vai ESCRITO na
+        // trilha, com o valor: depois do apagamento ele não existe em mais lugar
+        // nenhum, e "quem desfez e o que dizia" é a pergunta de qualquer conferência.
+        string apagado;
+        if (ag.InicioAtendimentoEm is not null)
+        {
+            apagado = $"entrada na sala ({ag.InicioAtendimentoEm:dd/MM/yyyy HH:mm})";
+            ag.InicioAtendimentoEm = null;
+        }
+        else if (ag.ChamadoEm is not null)
+        {
+            apagado = $"chamada ({ag.ChamadoEm:dd/MM/yyyy HH:mm})";
+            ag.ChamadoEm = null;
+        }
+        else if (ag.ChegadaEm is not null)
+        {
+            apagado = $"check-in ({ag.ChegadaEm:dd/MM/yyyy HH:mm})";
+            ag.ChegadaEm = null;
+        }
         else throw new InvalidOperationException("O paciente ainda nem fez check-in.");
 
+        await AuditarFilaAsync(ag, operador, "FilaEtapaVoltada",
+            $"Apagado o carimbo de {apagado} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
+
+    /// <summary>
+    /// A linha de trilha dos movimentos da fila — no MESMO SaveChanges do carimbo, como
+    /// toda auditoria do projeto: ação que possa acontecer sem a linha é ação sem trilha.
+    /// </summary>
+    private Task AuditarFilaAsync(
+        Agendamento ag, string operador, string acao, string detalhe, CancellationToken ct)
+        => _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = acao,
+            Detalhe = detalhe,
+            PacienteId = ag.PacienteId
+        }, ct);
 
     private async Task<Agendamento> ObterParaFilaAsync(int agendamentoId, CancellationToken ct)
         => await _repo.ObterAgendamentoAsync(agendamentoId, ct)

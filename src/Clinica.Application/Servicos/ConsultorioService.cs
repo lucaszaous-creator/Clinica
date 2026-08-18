@@ -52,17 +52,22 @@ public sealed class ConsultorioService
     public async Task<DiaDoProfissional> DoDiaAsync(
         DateOnly dia, int? profissionalId, CancellationToken ct = default)
     {
-        var agendamentos = await _repo.AgendamentosNoPeriodoAsync(
+        var todos = await _repo.AgendamentosNoPeriodoAsync(
             dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct);
 
-        if (profissionalId is { } id)
-            agendamentos = agendamentos.Where(a => a.ProfissionalId == id).ToList();
+        // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
+        // antes do filtro de profissional — ver <see cref="EvolucaoDoHorario"/>.
+        var porPacienteDia = PorPacienteDia(todos);
+
+        var agendamentos = profissionalId is { } id
+            ? todos.Where(a => a.ProfissionalId == id).ToList()
+            : todos;
 
         var evolucoes = await _repo.EvolucoesNoPeriodoAsync(dia, dia, ct, profissionalId);
 
         var sessoes = agendamentos
             .OrderBy(a => a.DataHora)
-            .Select(a => Montar(a, evolucoes))
+            .Select(a => Montar(a, evolucoes, porPacienteDia))
             .ToList();
 
         var nome = profissionalId is null
@@ -91,11 +96,16 @@ public sealed class ConsultorioService
         var inicio = InicioDaSemana(referencia);
         var fim = inicio.AddDays(6);
 
-        var agendamentos = await _repo.AgendamentosNoPeriodoAsync(
+        var todos = await _repo.AgendamentosNoPeriodoAsync(
             inicio.ToDateTime(TimeOnly.MinValue), fim.ToDateTime(TimeOnly.MaxValue), ct);
 
-        if (profissionalId is { } id)
-            agendamentos = agendamentos.Where(a => a.ProfissionalId == id).ToList();
+        // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
+        // antes do filtro de profissional — ver <see cref="EvolucaoDoHorario"/>.
+        var porPacienteDia = PorPacienteDia(todos);
+
+        var agendamentos = profissionalId is { } id
+            ? todos.Where(a => a.ProfissionalId == id).ToList()
+            : todos;
 
         var evolucoes = await _repo.EvolucoesNoPeriodoAsync(inicio, fim, ct, profissionalId);
 
@@ -113,7 +123,8 @@ public sealed class ConsultorioService
             .Select(dia => new DiaDoProfissional(
                 dia, profissionalId, nome,
                 porDia.TryGetValue(dia, out var doDia)
-                    ? doDia.OrderBy(a => a.DataHora).Select(a => Montar(a, evolucoes)).ToList()
+                    ? doDia.OrderBy(a => a.DataHora)
+                        .Select(a => Montar(a, evolucoes, porPacienteDia)).ToList()
                     : []))
             .ToList();
 
@@ -146,17 +157,22 @@ public sealed class ConsultorioService
         var ontem = hoje.AddDays(-1);
         if (ontem < inicio) return [];
 
-        var agendamentos = await _repo.AgendamentosNoPeriodoAsync(
+        var todos = await _repo.AgendamentosNoPeriodoAsync(
             inicio.ToDateTime(TimeOnly.MinValue), ontem.ToDateTime(TimeOnly.MaxValue), ct);
 
-        if (profissionalId is { } id)
-            agendamentos = agendamentos.Where(a => a.ProfissionalId == id).ToList();
+        // A disputa pela evolução avulsa é sobre TODAS as sessões do paciente no dia,
+        // antes do filtro de profissional — ver <see cref="EvolucaoDoHorario"/>.
+        var porPacienteDia = PorPacienteDia(todos);
+
+        var agendamentos = profissionalId is { } id
+            ? todos.Where(a => a.ProfissionalId == id).ToList()
+            : todos;
 
         var evolucoes = await _repo.EvolucoesNoPeriodoAsync(inicio, ontem, ct, profissionalId);
 
         return agendamentos
             .Where(a => a.Status == StatusAgendamento.Realizado)
-            .Select(a => (Agendamento: a, Sessao: Montar(a, evolucoes)))
+            .Select(a => (Agendamento: a, Sessao: Montar(a, evolucoes, porPacienteDia)))
             .Where(x => x.Sessao.RegistroPendente)
             .OrderBy(x => x.Agendamento.DataHora)
             .Select(x => new RegistroPendente(
@@ -222,6 +238,21 @@ public sealed class ConsultorioService
     /// escrita direto no prontuário (fora da fila) não conhece o agendamento, e sem ele o
     /// consultório cobraria para sempre um registro que já foi escrito.
     ///
+    /// ⚠️ A avulsa casa com <b>NO MÁXIMO UMA</b> sessão do dia. Com duas sessões do mesmo
+    /// paciente no mesmo dia (manhã e tarde), uma única evolução sem vínculo dava as DUAS
+    /// por escritas — a segunda sumia da cobrança, e abrir qualquer uma delas na tela de
+    /// Atendimento CONTINUAVA o mesmo texto, fundindo duas sessões num registro só. A
+    /// distribuição é cronológica: avulsas na ordem em que foram escritas (Id), sessões na
+    /// ordem em que aconteceram — a primeira sem evolução própria fica com a primeira
+    /// avulsa. É uma escolha determinística sobre um dado que não diz de quem é; a que
+    /// erra, erra para o lado de COBRAR, nunca de calar. Cancelado e falta não disputam:
+    /// sessão que não aconteceu não tem o que escrever.
+    ///
+    /// Daí o parâmetro <paramref name="sessoesDoPacienteNoDia"/>: os agendamentos do
+    /// paciente NAQUELE dia (de todos os profissionais — a segunda sessão do dia costuma
+    /// ser de outra especialidade). Sem conhecer as irmãs não há como saber a vez de cada
+    /// uma na fila da avulsa.
+    ///
     /// É <b>público e estático de propósito</b>: quem pergunta "esta sessão já foi
     /// escrita?" são dois — o cartão do Meu dia e a tela de Atendimento, que decide entre
     /// CONTINUAR o registro e começar um novo. Duas definições divergem na primeira
@@ -229,18 +260,71 @@ public sealed class ConsultorioService
     /// atendimento, sem erro nenhum na tela.
     /// </summary>
     public static Evolucao? EvolucaoDoHorario(
-        IReadOnlyList<Evolucao> evolucoes, int agendamentoId, int pacienteId, DateOnly data)
-        => evolucoes.FirstOrDefault(e => e.AgendamentoId == agendamentoId)
-           ?? evolucoes.FirstOrDefault(e =>
-                e.AgendamentoId is null
-                && e.PacienteId == pacienteId
-                && e.Data == data);
+        IReadOnlyList<Evolucao> evolucoes, int agendamentoId, int pacienteId, DateOnly data,
+        IReadOnlyList<Agendamento> sessoesDoPacienteNoDia)
+    {
+        var porVinculo = evolucoes.FirstOrDefault(e => e.AgendamentoId == agendamentoId);
+        if (porVinculo is not null) return porVinculo;
+
+        var avulsas = evolucoes
+            .Where(e => e.AgendamentoId is null && e.PacienteId == pacienteId && e.Data == data)
+            .OrderBy(e => e.Id)
+            .ToList();
+        if (avulsas.Count == 0) return null;
+
+        // Quem disputa a avulsa: sessão do MESMO paciente e dia, que aconteceu (ou ainda
+        // vai acontecer) e não tem evolução vinculada própria. Vinculada de outro
+        // profissional pode estar fora da lista filtrada — nesse caso a sessão dele entra
+        // na disputa sem precisar, e o erro cai para o lado de cobrar.
+        var concorrentes = sessoesDoPacienteNoDia
+            .Where(s => s.PacienteId == pacienteId
+                        && DateOnly.FromDateTime(s.DataHora) == data
+                        && s.Status is not (StatusAgendamento.Cancelado or StatusAgendamento.Faltou)
+                        && evolucoes.All(e => e.AgendamentoId != s.Id))
+            .OrderBy(s => s.DataHora).ThenBy(s => s.Id)
+            .ToList();
+
+        var vez = concorrentes.FindIndex(s => s.Id == agendamentoId);
+        if (vez < 0) return null;
+        return vez < avulsas.Count ? avulsas[vez] : null;
+    }
+
+    /// <summary>
+    /// Os agendamentos do paciente num dia — o universo que disputa a evolução avulsa
+    /// (<see cref="EvolucaoDoHorario"/>). É a leitura da tela de Atendimento, que conhece
+    /// o horário chamado e não as irmãs dele; sem elas, a avulsa de uma sessão continuaria
+    /// abrindo dentro da outra.
+    /// </summary>
+    public async Task<IReadOnlyList<Agendamento>> SessoesDoPacienteNoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default)
+        => (await _repo.AgendamentosNoPeriodoAsync(
+                dia.ToDateTime(TimeOnly.MinValue), dia.ToDateTime(TimeOnly.MaxValue), ct))
+            .Where(a => a.PacienteId == pacienteId)
+            .OrderBy(a => a.DataHora)
+            .ToList();
+
+    /// <summary>
+    /// As sessões de cada paciente por dia — o universo que disputa as evoluções avulsas.
+    /// Montado do período INTEIRO, antes do filtro de profissional: a segunda sessão do
+    /// dia costuma ser de outro profissional, e ela precisa contar na fila da avulsa.
+    /// </summary>
+    private static Dictionary<(int PacienteId, DateOnly Dia), List<Agendamento>> PorPacienteDia(
+        IReadOnlyList<Agendamento> agendamentos)
+        => agendamentos
+            .GroupBy(a => (a.PacienteId, DateOnly.FromDateTime(a.DataHora)))
+            .ToDictionary(g => g.Key, g => g.ToList());
 
     /// <summary>A sessão do dia com a evolução casada.</summary>
-    private static SessaoDoDia Montar(Agendamento a, IReadOnlyList<Evolucao> evolucoes)
+    private static SessaoDoDia Montar(
+        Agendamento a, IReadOnlyList<Evolucao> evolucoes,
+        Dictionary<(int PacienteId, DateOnly Dia), List<Agendamento>> porPacienteDia)
     {
-        var evolucao = EvolucaoDoHorario(
-            evolucoes, a.Id, a.PacienteId, DateOnly.FromDateTime(a.DataHora));
+        var dia = DateOnly.FromDateTime(a.DataHora);
+        var irmas = porPacienteDia.TryGetValue((a.PacienteId, dia), out var lista)
+            ? (IReadOnlyList<Agendamento>)lista
+            : [a];
+
+        var evolucao = EvolucaoDoHorario(evolucoes, a.Id, a.PacienteId, dia, irmas);
 
         return new SessaoDoDia(
             a.Id,
@@ -256,7 +340,9 @@ public sealed class ConsultorioService
             evolucao?.Id)
         {
             EsperaMinutos = a.EsperaMinutos(DateTime.Now),
-            ChamadoHaMinutos = a.ChamadoHaMinutos(DateTime.Now)
+            ChamadoHaMinutos = a.ChamadoHaMinutos(DateTime.Now),
+            Observacoes = string.IsNullOrWhiteSpace(a.Observacoes) ? null : a.Observacoes.Trim(),
+            DuracaoMinutos = a.DuracaoEfetiva
         };
     }
 }

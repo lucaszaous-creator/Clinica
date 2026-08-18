@@ -228,8 +228,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// fora delas — nunca 00:00–23:59, que daria 48 faixas vazias para rolar antes do
     /// primeiro paciente.
     /// </summary>
-    private static readonly TimeOnly AberturaPadrao = new(7, 0);
-    private static readonly TimeOnly FechamentoPadrao = new(20, 0);
+    private static readonly TimeOnly AberturaPadrao = Agendamento.AberturaPadraoGrade;
+    private static readonly TimeOnly FechamentoPadrao = Agendamento.FechamentoPadraoGrade;
 
     /// <summary>
     /// Piso de largura da grade: a régua mais uma coluna de 190 px por profissional.

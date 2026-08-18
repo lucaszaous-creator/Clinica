@@ -364,12 +364,13 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Apaga uma aplicação. Existe pelo mesmo motivo da exclusão de evolução — o
-    /// questionário aplicado no paciente errado tem de sair do prontuário de quem não o
-    /// respondeu — e, como ela, deixa rastro na auditoria.
+    /// CANCELA uma aplicação (o questionário aplicado no paciente errado sai da curva de
+    /// quem não o respondeu — e fica guardado, com o motivo). O nome antigo do comando
+    /// era "Excluir", e o botão vermelho dizia o que o registro clínico não faz:
+    /// prontuário não se apaga (parcela 52). O ato sempre foi cancelar; o rótulo mentia.
     /// </summary>
     [RelayCommand]
-    private async Task ExcluirAsync(LinhaAvaliacao? linha)
+    private async Task CancelarAplicacaoAsync(LinhaAvaliacao? linha)
     {
         if (linha is null) return;
 
@@ -394,7 +395,7 @@ public sealed partial class AvaliacoesViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar("Consultório — avaliação não pôde ser excluída", ex);
+            Clinica.Application.Diagnostico.Registrar("Consultório — avaliação não pôde ser cancelada", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

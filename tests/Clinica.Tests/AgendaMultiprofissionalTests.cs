@@ -277,10 +277,10 @@ public class AgendaMultiprofissionalTests : IDisposable
 
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Aguardando);
 
-        await _agenda.RegistrarChegadaAsync(ag.Id, Manha);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Chegou);
 
-        await _agenda.IniciarAtendimentoAsync(ag.Id, Manha.AddMinutes(12));
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha.AddMinutes(12));
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.EmAtendimento);
 
         await _agenda.ConfirmarPresencaAsync(ag.Id);
@@ -293,8 +293,8 @@ public class AgendaMultiprofissionalTests : IDisposable
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
             ModalidadeAtendimento.AcupunturaSimples, null);
 
-        await _agenda.RegistrarChegadaAsync(ag.Id, Manha);
-        await _agenda.IniciarAtendimentoAsync(ag.Id, Manha.AddMinutes(18));
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha.AddMinutes(18));
 
         var lido = await _agenda.ObterAsync(ag.Id);
         // Depois de chamado a espera CONGELA: não continua correndo com o relógio.
@@ -317,7 +317,7 @@ public class AgendaMultiprofissionalTests : IDisposable
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
             ModalidadeAtendimento.AcupunturaSimples, null);
 
-        await _agenda.IniciarAtendimentoAsync(ag.Id, Manha);
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha);
 
         var lido = await _agenda.ObterAsync(ag.Id);
         lido!.ChegadaEm.Should().NotBeNull();
@@ -329,22 +329,22 @@ public class AgendaMultiprofissionalTests : IDisposable
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
             ModalidadeAtendimento.AcupunturaSimples, null);
-        await _agenda.RegistrarChegadaAsync(ag.Id, Manha);
-        await _agenda.IniciarAtendimentoAsync(ag.Id, Manha.AddMinutes(5));
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste", Manha);
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha.AddMinutes(5));
 
         // A parcela 38 pôs "Chamado" entre "Chegou" e "Em atendimento": quem entrou na
         // sala foi chamado antes, e voltar uma etapa devolve o cartão para a chamada —
         // não direto para a sala de espera.
-        await _agenda.VoltarEtapaAsync(ag.Id);
+        await _agenda.VoltarEtapaAsync(ag.Id, "teste");
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Chamado);
 
-        await _agenda.VoltarEtapaAsync(ag.Id);
+        await _agenda.VoltarEtapaAsync(ag.Id, "teste");
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Chegou);
 
-        await _agenda.VoltarEtapaAsync(ag.Id);
+        await _agenda.VoltarEtapaAsync(ag.Id, "teste");
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Aguardando);
 
-        var acao = () => _agenda.VoltarEtapaAsync(ag.Id);
+        var acao = () => _agenda.VoltarEtapaAsync(ag.Id, "teste");
         await acao.Should().ThrowAsync<InvalidOperationException>();
     }
 
@@ -353,10 +353,10 @@ public class AgendaMultiprofissionalTests : IDisposable
     {
         var ag = await _agenda.AgendarAsync(await CriarPacienteAsync(), Manha,
             ModalidadeAtendimento.AcupunturaSimples, null);
-        await _agenda.IniciarAtendimentoAsync(ag.Id, Manha);
+        await _agenda.IniciarAtendimentoAsync(ag.Id, "teste", Manha);
         await _agenda.ConfirmarPresencaAsync(ag.Id);
 
-        var acao = () => _agenda.VoltarEtapaAsync(ag.Id);
+        var acao = () => _agenda.VoltarEtapaAsync(ag.Id, "teste");
 
         await acao.Should().ThrowAsync<InvalidOperationException>(
             "o atendimento e os códigos já existem — o caminho é estornar");

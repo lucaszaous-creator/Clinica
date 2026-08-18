@@ -1140,7 +1140,7 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             agendamentoId = agendamento.Id;
 
             // O paciente está no balcão — o check-in é o fato, não uma etapa a cumprir.
-            await agenda.RegistrarChegadaAsync(agendamentoId);
+            await agenda.RegistrarChegadaAsync(agendamentoId, SessaoUsuario.Atual.Operador);
         }
         catch (Exception ex)
         {

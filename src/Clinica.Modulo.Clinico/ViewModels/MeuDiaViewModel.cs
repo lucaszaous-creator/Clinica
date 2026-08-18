@@ -57,29 +57,44 @@ public sealed class LinhaSessao
     /// </summary>
     public required bool ForaDaFila { get; init; }
 
+    /// <summary>
+    /// O recado que a recepção escreveu no horário. Vazio quando não há. O campo existia
+    /// desde a parcela 1 e nunca chegava a quem atende — o médico trabalhava com uma foto
+    /// parcial do que o balcão sabia.
+    /// </summary>
+    public required string Observacoes { get; init; }
+
     /// <summary>O que o botão de registro diz — "Escrever" e "Abrir" não são a mesma ação.</summary>
     public string RotuloRegistro => EvolucaoEscrita ? "Ver registro" : "Atender";
+
+    /// <summary>
+    /// A fila corre HOJE. Num dia passado ou futuro os botões de movimento somem: chamar
+    /// alguém de ontem carimbaria a chamada num horário morto e a tela diria "a recepção
+    /// já está vendo o aviso" sobre uma fila que só relê o dia corrente — afirmação falsa
+    /// com cara de confirmação.
+    /// </summary>
+    public bool EhHoje => Data == DateOnly.FromDateTime(DateTime.Today);
 
     /// <summary>
     /// Só se chama quem já CHEGOU: chamar quem não fez check-in faria a recepção anunciar
     /// um nome para uma sala de espera onde a pessoa não está.
     /// </summary>
-    public bool PodeChamar => Etapa == EtapaFila.Chegou;
+    public bool PodeChamar => Etapa == EtapaFila.Chegou && EhHoje;
 
     /// <summary>Já foi chamado — o consultório pode desistir, e o balcão para de anunciar.</summary>
-    public bool PodeDesfazerChamada => Etapa == EtapaFila.Chamado;
+    public bool PodeDesfazerChamada => Etapa == EtapaFila.Chamado && EhHoje;
 
     /// <summary>
     /// O paciente pode ENTRAR: já fez check-in (chamado ou não — quem entra sem ter sido
     /// chamado teve a chamada carimbada junto, ver <c>AgendaService.IniciarAtendimentoAsync</c>).
     /// </summary>
-    public bool PodeEntrar => Etapa is EtapaFila.Chegou or EtapaFila.Chamado;
+    public bool PodeEntrar => (Etapa is EtapaFila.Chegou or EtapaFila.Chamado) && EhHoje;
 
     /// <summary>
     /// Desfazer o "entrou" clicado por engano. Só da coluna EM ATENDIMENTO: a chamada tem
     /// o próprio desfazer, e o check-in é ato do balcão — não se desfaz daqui.
     /// </summary>
-    public bool PodeVoltarEtapa => Etapa == EtapaFila.EmAtendimento;
+    public bool PodeVoltarEtapa => Etapa == EtapaFila.EmAtendimento && EhHoje;
 
     /// <summary>A chamada está pendente há tempo demais — vale insistir com o balcão.</summary>
     public bool ChamadaDemorada { get; init; }
@@ -100,6 +115,7 @@ public sealed class LinhaSessao
         Encaixe = s.Encaixe,
         AtendimentoId = s.AtendimentoId,
         Etapa = s.Etapa,
+        Observacoes = s.Observacoes ?? string.Empty,
         Espera = s.EsperaMinutos is { } m ? $"espera {m} min" : string.Empty,
         ChamadoHa = s.ChamadoHaMinutos is { } c
             ? (c == 0 ? "chamado agora" : $"chamado há {c} min")
@@ -241,6 +257,13 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     [ObservableProperty] private bool _semVinculo;
 
     /// <summary>
+    /// "Agenda fechada neste dia: Férias" — o bloqueio que alcança este profissional no
+    /// dia aberto. Nulo = agenda aberta. Férias e feriado eram invisíveis no Consultório:
+    /// o dia fechado aparecia como dia vazio, que se lê como "ninguém marcou".
+    /// </summary>
+    [ObservableProperty] private string? _agendaFechada;
+
+    /// <summary>
     /// Quem seria chamado se o profissional clicasse agora: o primeiro da recepção, pelo
     /// horário. Vazio quando não há ninguém no balcão — e aí o botão fica desabilitado,
     /// em vez de chamar o ar.
@@ -253,11 +276,28 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     public bool TemProximo => _proximoAgendamentoId != 0;
 
     /// <summary>
-    /// O botão grande do dia: precisa de alguém no balcão E da permissão de mover a
-    /// fila. Composto no VM porque o botão só liga UMA propriedade — as duas condições
-    /// em MultiBinding no XAML seriam a versão frágil disto.
+    /// O botão grande do dia: precisa de alguém no balcão, da permissão de mover a fila
+    /// E de um profissional vinculado. Composto no VM porque o botão só liga UMA
+    /// propriedade — as duas condições em MultiBinding no XAML seriam a versão frágil
+    /// disto.
+    ///
+    /// ⚠️ SEM VÍNCULO ele fica desligado, e é decisão: nesse modo a tela mostra a clínica
+    /// inteira, e "o primeiro da recepção" pode ser paciente de OUTRO profissional — o
+    /// clique cego anunciaria um nome para a sala do colega. Chamar por um CARTÃO
+    /// específico continua liberado: ali a escolha é de quem olhou o nome antes de clicar.
     /// </summary>
-    public bool PodeChamarProximo => TemProximo && PodeMovimentarFila;
+    public bool PodeChamarProximo => TemProximo && PodeMovimentarFila && !SemVinculo;
+
+    partial void OnSemVinculoChanged(bool value)
+        => OnPropertyChanged(nameof(PodeChamarProximo));
+
+    /// <summary>
+    /// Metade visível da permissão de abrir prontuário: "Atender" e a dívida de sessões
+    /// sem evolução levam a telas que exigem <c>VerProntuario</c>, e
+    /// <c>NavegacaoSuite.Ir</c> devolve false EM SILÊNCIO quando o destino não existe
+    /// para quem está logado — o botão aceso que não faz nada é o defeito da parcela 41.
+    /// </summary>
+    public bool PodeVerProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
 
     /// <summary>O quadro está vazio nas CINCO colunas — dia sem movimento nenhum.</summary>
     public bool QuadroVazio => Aguardando.Count == 0 && NaRecepcao.Count == 0
@@ -422,9 +462,40 @@ public sealed partial class MeuDiaViewModel : ObservableObject
             // em que ele foi conferir o que aconteceu na semana retrasada.
             //
             // Aqui só se conta. A LISTA mora na tela dela.
-            var pendentes = (await consultorio.RegistrosPendentesAsync(hoje, profissionalId)).Count;
-            if (geracao != _geracaoCarga) return;
-            PendentesCount = pendentes;
+            //
+            // ⚠️ E a batida do relógio NÃO reconta: são os agendamentos e as evoluções de
+            // 30 dias relidos a cada minuto para atualizar um número que só muda quando
+            // alguém escreve uma evolução — e quem escreve está NESTA máquina, que
+            // recarrega ao voltar para a tela. A recarga silenciosa relê só o quadro de
+            // hoje, que é o que a outra máquina muda por baixo.
+            if (!silencioso)
+            {
+                var pendentes = (await consultorio.RegistrosPendentesAsync(hoje, profissionalId)).Count;
+                if (geracao != _geracaoCarga) return;
+                PendentesCount = pendentes;
+
+                // Férias e feriado eram invisíveis aqui: o dia fechado aparecia como dia
+                // vazio, que se lê como "ninguém marcou". Falhar não derruba o quadro —
+                // segue sem o aviso, como antes — mas vai para o log.
+                try
+                {
+                    var bloqueio = (await scope.ServiceProvider
+                            .GetRequiredService<BloqueioAgendaService>()
+                            .NoPeriodoAsync(Dia.Date, Dia.Date.AddDays(1)))
+                        .FirstOrDefault(b => b.AlcancaRecurso(profissionalId, null));
+                    if (geracao != _geracaoCarga) return;
+                    AgendaFechada = bloqueio is null
+                        ? null
+                        : $"Agenda fechada neste dia: {bloqueio.Motivo}";
+                }
+                catch (Exception ex)
+                {
+                    if (geracao != _geracaoCarga) return;
+                    AgendaFechada = null;
+                    Clinica.Application.Diagnostico.Registrar(
+                        "Consultório — bloqueios do dia não puderam ser lidos", ex);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -500,9 +571,24 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     /// <summary>Chama o primeiro da recepção, sem procurar o cartão no quadro.</summary>
     [RelayCommand]
     private Task ChamarProximoAsync()
-        => _proximoAgendamentoId == 0
-            ? Task.CompletedTask
-            : ChamarPorIdAsync(_proximoAgendamentoId, ProximoNome);
+    {
+        if (_proximoAgendamentoId == 0) return Task.CompletedTask;
+
+        // A segunda barreira do modo sem vínculo (a primeira é o IsEnabled): atalho e
+        // corrida de carregamento passam pelo comando, e a guarda diz por quê em vez de
+        // voltar calada.
+        if (SemVinculo)
+        {
+            Mensagem = "Sem profissional vinculado ao seu login, o primeiro da fila pode "
+                       + "ser paciente de outro profissional. Chame pelo cartão dele no "
+                       + "quadro — ou peça à direção para ligar o seu usuário ao seu "
+                       + "cadastro.";
+            MensagemEhErro = true;
+            return Task.CompletedTask;
+        }
+
+        return ChamarPorIdAsync(_proximoAgendamentoId, ProximoNome);
+    }
 
     private async Task ChamarPorIdAsync(int agendamentoId, string paciente)
     {
@@ -513,7 +599,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.ChamarAsync(agendamentoId);
+            await agenda.ChamarAsync(agendamentoId, SessaoUsuario.Atual.Operador);
 
             Mensagem = $"{paciente} foi chamado — a recepção já está vendo o aviso.";
             MensagemEhErro = false;
@@ -547,7 +633,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.DesfazerChamadaAsync(linha.AgendamentoId);
+            await agenda.DesfazerChamadaAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             Mensagem = $"Chamada de {linha.Paciente} desfeita.";
             MensagemEhErro = false;
@@ -587,7 +673,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.IniciarAtendimentoAsync(linha.AgendamentoId);
+            await agenda.IniciarAtendimentoAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             Mensagem = $"{linha.Paciente} em atendimento.";
             MensagemEhErro = false;
@@ -629,7 +715,7 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.VoltarEtapaAsync(linha.AgendamentoId);
+            await agenda.VoltarEtapaAsync(linha.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             Mensagem = $"{linha.Paciente} devolvido à coluna anterior.";
             MensagemEhErro = false;
@@ -662,6 +748,15 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     public async Task MoverParaAsync(LinhaSessao? linha, EtapaFila alvo)
     {
         if (linha is null || linha.Etapa == alvo) return;
+
+        // A fila corre só HOJE — os botões do cartão já somem noutro dia, e o arrasto
+        // precisa da mesma recusa dita, não calada (parcela 41).
+        if (!linha.EhHoje)
+        {
+            Mensagem = "A fila corre só no dia de hoje — este quadro é de outro dia.";
+            MensagemEhErro = true;
+            return;
+        }
 
         var legal = (linha.Etapa, alvo) switch
         {
@@ -726,6 +821,17 @@ public sealed partial class MeuDiaViewModel : ObservableObject
     {
         if (linha is null) return;
 
+        // A tela de destino exige VerProntuario, e sem o bit ela nem existe na navegação
+        // — NavegacaoSuite.Ir voltaria false EM SILÊNCIO e o botão não faria nada. A
+        // guarda diz por quê (parcela 41); a metade visível é o IsEnabled do botão.
+        if (!PodeVerProntuario)
+        {
+            Mensagem = "Abrir o atendimento mostra o prontuário, e o seu acesso não tem "
+                       + "essa permissão. A direção libera em Acessos.";
+            MensagemEhErro = true;
+            return;
+        }
+
         _foco.Definir(linha.PacienteId, linha.Paciente, linha.AgendamentoId,
                       linha.AtendimentoId, linha.Data);
         NavegacaoSuite.Ir(ModuloClinico.ChaveAtendimento);
@@ -733,7 +839,19 @@ public sealed partial class MeuDiaViewModel : ObservableObject
 
     /// <summary>Abre a tela das sessões sem evolução — a dívida de prontuário.</summary>
     [RelayCommand]
-    private void AbrirPendentes() => NavegacaoSuite.Ir(ModuloClinico.ChaveRegistrosPendentes);
+    private void AbrirPendentes()
+    {
+        // Mesmo caso do Atender: o destino exige VerProntuario, e Ir falha calado sem ele.
+        if (!PodeVerProntuario)
+        {
+            Mensagem = "A lista de sessões sem evolução é prontuário, e o seu acesso não "
+                       + "tem essa permissão. A direção libera em Acessos.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        NavegacaoSuite.Ir(ModuloClinico.ChaveRegistrosPendentes);
+    }
 
     // O atalho "Dor" saiu do cartão do quadro e o comando foi removido junto — comando sem
     // chamador em produção é o defeito que o projeto documenta desde a parcela 25, e

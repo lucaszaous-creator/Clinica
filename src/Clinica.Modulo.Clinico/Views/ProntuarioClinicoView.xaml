@@ -89,47 +89,62 @@
                                         </Style>
                                     </Border.Style>
 
+                                    <!-- LINHA DENSA, não cartão alto (parcela 69): cada
+                                         problema tinha cinco linhas de texto e QUATRO
+                                         botões empilhados (~140 px por linha) — três
+                                         problemas empurravam o histórico, que é o assunto
+                                         da aba, para fora da vista. O que se LÊ fica na
+                                         linha; observações e período moram na dica; os
+                                         botões viraram fileira de linha de tabela.
+                                         Nenhuma ação foi tirada. -->
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
-                                        <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                            <TextBlock Text="{Binding Rotulo}" TextWrapping="Wrap"
+                                        <StackPanel Grid.Column="0" Margin="0,0,12,0"
+                                                    VerticalAlignment="Center">
+                                            <StackPanel.ToolTip>
+                                                <StackPanel MaxWidth="420">
+                                                    <TextBlock Text="{Binding Rotulo}" FontWeight="SemiBold"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Periodo}" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0" />
+                                                    <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0" />
+                                                    <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
+                                                               Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </StackPanel.ToolTip>
+                                            <TextBlock Text="{Binding Rotulo}"
+                                                       TextTrimming="CharacterEllipsis"
                                                        FontWeight="SemiBold"
                                                        Foreground="{StaticResource Brush.Texto.Primario}" />
-                                            <TextBlock Text="{Binding Natureza}" TextWrapping="Wrap"
-                                                       Margin="0,2,0,0"
+                                            <TextBlock TextTrimming="CharacterEllipsis" Margin="0,2,0,0"
                                                        FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                            <TextBlock Text="{Binding Periodo}" TextWrapping="Wrap"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                            <TextBlock Text="{Binding Observacoes}" TextWrapping="Wrap"
-                                                       Margin="0,4,0,0"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" />
-                                            <TextBlock Text="{Binding Situacao}" TextWrapping="Wrap"
-                                                       Margin="0,4,0,0"
-                                                       FontSize="{StaticResource Fonte.Legenda}"
-                                                       Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                       Foreground="{StaticResource Brush.Texto.Secundario}">
+                                                <Run Text="{Binding Natureza, Mode=OneWay}" />
+                                                <Run Text=" · " />
+                                                <Run Text="{Binding Situacao, Mode=OneWay}" />
+                                            </TextBlock>
                                         </StackPanel>
 
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Top">
-                                            <Button Content="Editar" Margin="0,0,0,4"
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <Button Content="Editar" Margin="0,0,4,0"
                                                     Style="{StaticResource BotaoAcaoGrid}"
                                                     Command="{Binding DataContext.EditarProblemaCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                            <Button Content="Resolvido" Margin="0,0,0,4"
+                                            <Button Content="Resolvido" Margin="0,0,4,0"
                                                     Style="{StaticResource BotaoAcaoGridSecundario}"
                                                     Visibility="{Binding Ativo,
                                                                  Converter={StaticResource BoolParaVisibilidade}}"
                                                     Command="{Binding DataContext.ResolverProblemaCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                            <Button Content="Reabrir" Margin="0,0,0,4"
+                                            <Button Content="Reabrir" Margin="0,0,4,0"
                                                     Command="{Binding DataContext.ReabrirProblemaCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}">

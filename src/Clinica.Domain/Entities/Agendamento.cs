@@ -165,6 +165,18 @@ public class Agendamento
     /// <summary>Duração padrão da clínica quando ninguém informou nada.</summary>
     public const int DuracaoPadraoMinutos = 30;
 
+    /// <summary>
+    /// Janela padrão das GRADES de agenda (balcão e consultório): elas abrem nestas horas
+    /// e se ESTICAM para caber o que houver fora delas — nunca 00:00–23:59, que daria 48
+    /// faixas vazias para rolar antes do primeiro paciente. Mora aqui porque são DUAS
+    /// grades lendo a mesma agenda: cada uma com a própria janela, uma sessão às 6h30
+    /// apareceria numa e sumiria da outra.
+    /// </summary>
+    public static readonly TimeOnly AberturaPadraoGrade = new(7, 0);
+
+    /// <summary>Ver <see cref="AberturaPadraoGrade"/>.</summary>
+    public static readonly TimeOnly FechamentoPadraoGrade = new(20, 0);
+
     /// <summary>Duração efetiva: a do agendamento, a do profissional ou a da clínica.</summary>
     public int DuracaoEfetiva
         => DuracaoMinutos ?? Profissional?.DuracaoPadraoMinutos ?? DuracaoPadraoMinutos;

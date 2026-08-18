@@ -656,7 +656,7 @@ public sealed partial class FilaViewModel : ObservableObject
 
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
-                    .RegistrarChegadaAsync(c.AgendamentoId);
+                    .RegistrarChegadaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             // O check-in é o ÚLTIMO momento barato: o paciente está no balcão, e
             // carteirinha vencida ou cota estourada ainda dá para resolver com um
@@ -723,7 +723,7 @@ public sealed partial class FilaViewModel : ObservableObject
 
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
-                    .ChamarAsync(c.AgendamentoId);
+                    .ChamarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"{c.Paciente} chamado — anuncie para a sala {c.Sala}.");
         }, "chamada do paciente");
 
@@ -737,7 +737,7 @@ public sealed partial class FilaViewModel : ObservableObject
 
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
-                    .IniciarAtendimentoAsync(c.AgendamentoId);
+                    .IniciarAtendimentoAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Sucesso($"{c.Paciente} em atendimento.");
         }, "início do atendimento");
 
@@ -901,7 +901,7 @@ public sealed partial class FilaViewModel : ObservableObject
 
             using (var e = _escopos.CreateScope())
                 await e.ServiceProvider.GetRequiredService<AgendaService>()
-                    .VoltarEtapaAsync(c.AgendamentoId);
+                    .VoltarEtapaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Cartão devolvido para a coluna anterior.");
         }, "volta de etapa");
 

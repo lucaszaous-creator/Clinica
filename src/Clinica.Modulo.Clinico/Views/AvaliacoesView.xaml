@@ -152,10 +152,11 @@
                                                 </Border>
                                             </StackPanel>
 
-                                            <Button Grid.Column="3" Content="Excluir"
+                                            <Button Grid.Column="3" Content="Cancelar…"
                                                     VerticalAlignment="Center"
+                                                    ToolTip="Cancela com motivo — a aplicação sai da curva e fica guardada no prontuário (nada se apaga)"
                                                     Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                    Command="{Binding DataContext.ExcluirCommand,
+                                                    Command="{Binding DataContext.CancelarAplicacaoCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                         </Grid>

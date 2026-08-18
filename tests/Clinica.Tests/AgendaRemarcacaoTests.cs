@@ -123,8 +123,8 @@ public class AgendaRemarcacaoTests : IDisposable
         var ag = await _agenda.AgendarAsync(
             pacienteId, new DateTime(2026, 7, 20, 9, 0, 0), ModalidadeAtendimento.AcupunturaSimples, null);
 
-        await _agenda.RegistrarChegadaAsync(ag.Id);
-        await _agenda.ChamarAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
+        await _agenda.ChamarAsync(ag.Id, "teste");
         (await _agenda.ObterAsync(ag.Id))!.Etapa.Should().Be(EtapaFila.Chamado);
 
         await _agenda.RemarcarAsync(ag.Id, new DateTime(2026, 7, 23, 9, 0, 0), null);
@@ -149,7 +149,7 @@ public class AgendaRemarcacaoTests : IDisposable
         var ag = await _agenda.AgendarAsync(
             pacienteId, new DateTime(2026, 7, 20, 9, 0, 0), ModalidadeAtendimento.AcupunturaSimples, null);
 
-        await _agenda.RegistrarChegadaAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
 
         await _agenda.RemarcarAsync(ag.Id, new DateTime(2026, 7, 20, 10, 30, 0), null);
 

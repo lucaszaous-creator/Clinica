@@ -288,7 +288,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         {
             Paciente = _foco.Nome;
             SemPaciente = false;
-            Origem = DescreverOrigem(_foco.AgendamentoId);
+            Origem = DescreverOrigem(_foco.AgendamentoId, _foco.DataDoHorario);
             _ = CarregarAsync();
         }
     }
@@ -297,11 +297,22 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// De onde a sessão veio — e é diferença que muda o registro, não decoração: chamada
     /// da agenda, a evolução nasce ligada ao horário e sai da lista de pendências do
     /// consultório; escolhida na busca, não.
+    ///
+    /// ⚠️ O cabeçalho dizia "da agenda de HOJE" para QUALQUER horário — e a dívida de
+    /// prontuário e a Minha semana abrem horários de outros dias. Quem escrevia a
+    /// evolução atrasada de terça lia "hoje" no topo, e a frase mentia sobre a data a
+    /// que o registro ia ficar ligado.
     /// </summary>
-    private static string DescreverOrigem(int? agendamentoId)
-        => agendamentoId is null
-            ? "Escolhido na busca — a evolução não fica ligada a nenhum horário."
+    private static string DescreverOrigem(int? agendamentoId, DateOnly? dataDoHorario)
+    {
+        if (agendamentoId is null)
+            return "Escolhido na busca — a evolução não fica ligada a nenhum horário.";
+
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        return dataDoHorario is { } data && data != hoje
+            ? $"Chamado da agenda de {data:dd/MM/yyyy} — a evolução nasce ligada a esse horário."
             : "Chamado da agenda de hoje — a evolução nasce ligada a este horário.";
+    }
 
     private int PacienteId => _foco.PacienteId ?? 0;
 
@@ -364,11 +375,22 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             // formulário abriria EM BRANCO e o Salvar criaria uma SEGUNDA evolução do
             // mesmo atendimento, que é o defeito que faz a clínica desconfiar do
             // prontuário inteiro.
-            var doHorario = _foco.AgendamentoId is { } agendamentoId
-                ? ConsultorioService.EvolucaoDoHorario(
-                    sessoes, agendamentoId, PacienteId,
-                    _foco.DataDoHorario ?? DateOnly.FromDateTime(DateTime.Today))
-                : null;
+            Evolucao? doHorario = null;
+            if (_foco.AgendamentoId is { } agendamentoId)
+            {
+                var diaDoHorario = _foco.DataDoHorario ?? DateOnly.FromDateTime(DateTime.Today);
+
+                // As sessões IRMÃS do dia entram na conta: com duas sessões do mesmo
+                // paciente no mesmo dia, a avulsa pertence a UMA delas — sem a lista,
+                // abrir a segunda continuaria o texto da primeira.
+                var doDia = await scope.ServiceProvider
+                    .GetRequiredService<ConsultorioService>()
+                    .SessoesDoPacienteNoDiaAsync(PacienteId, diaDoHorario);
+                if (geracao != _geracaoCarga) return;
+
+                doHorario = ConsultorioService.EvolucaoDoHorario(
+                    sessoes, agendamentoId, PacienteId, diaDoHorario, doDia);
+            }
 
             if (doHorario is not null) Preencher(doHorario);
             else Limpar(_foco.DataDoHorario);

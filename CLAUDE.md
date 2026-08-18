@@ -3843,19 +3843,13 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
      período fechado: `MarcadosDentroAsync` filtra por `DataHora` dentro do intervalo, e não
      por sobreposição — a mesma conta que `ColideCom` já sabe fazer.
   5. **`ConfirmarPresencaAsync` não deixa linha na trilha** — o ato que gera as guias é o
-     único da agenda sem `EventoAuditoria`; remarcar, cancelar e faltar têm.
-  6. **A fila não tem autoria**: os cinco métodos de movimento não recebem `operador` nem
-     gravam auditoria, e `VoltarEtapaAsync` APAGA carimbo de hora. A parcela 61 criou uma
-     permissão para o ato; falta a trilha dele.
-  7. **Trocar a DATA no formulário não reconfere elegibilidade** (carteirinha, cota,
+     único da agenda sem `EventoAuditoria`; remarcar, cancelar e faltar têm. (Os cinco
+     movimentos da FILA ganharam trilha na rodada do Consultório; este ficou de fora de
+     propósito, porque mexer nele encosta no caminho que gera as guias — é o item 1 desta
+     fila, e vai junto da transação.)
+  6. **Trocar a DATA no formulário não reconfere elegibilidade** (carteirinha, cota,
      consulta a renovar) — a conferência roda ao escolher o paciente e não ao mudar o dia.
-  8. **Observações que a recepção escreve no horário não chegam ao Consultório**:
-     `SessaoDoDia` tem onze campos e nenhum é `Observacoes`.
-  9. **Duas sessões do mesmo paciente no mesmo dia**: uma evolução sem `AgendamentoId` casa
-     com as DUAS pelo caminho de baixo (paciente + data) e dá as duas por escritas.
-  10. **"Atender" e a dívida de prontuário navegam sem conferir `VerProntuario`** —
-      `NavegacaoSuite.Ir` devolve false em silêncio, e o botão não faz nada.
-  11. **Horário de profissional (ou sala) DESATIVADO some da grade** — a coluna só é montada
+  7. **Horário de profissional (ou sala) DESATIVADO some da grade** — a coluna só é montada
       para os ATIVOS, e o horário com dono inativo não cai em "Sem profissional": não existe
       coluna para ele. O resumo continua contando sobre a lista inteira, então o cabeçalho
       diz "12 horário(s)" e a grade desenha 11; o vão fica clicável e a recepção marca outra
@@ -3864,7 +3858,10 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
       acontece. É diferente do item 1: aqui o `ProfissionalId` existe — quem sumiu foi a
       coluna.
   (O item que estava aqui — os sete ViewModels restantes com serviço Scoped no construtor —
-  saiu da fila: foram corrigidos na mesma parcela, e a checagem 37 fecha o assunto.)
+  saiu da fila: foram corrigidos na mesma parcela, e a checagem 37 fecha o assunto. Quatro
+  outros saíram na rodada "todas as notas em 8" do Consultório, mais abaixo: a autoria da
+  fila, as observações que não chegavam, a evolução avulsa cobrindo duas sessões e o
+  Atender sem conferir `VerProntuario`.)
 
 - **A VARREDURA DA RECEPÇÃO DEPOIS DA AGENDA — três achados, nenhum bloqueador, e todos
   da mesma família** (parcela 69, continuação). Com a Agenda fechada, a pergunta virou
@@ -4056,3 +4053,79 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   o caso-padrão não aparece em trigger nenhum); `Enunciado` alimenta `Rotulo`;
   `Correcoes` alimenta `Retificada`/`CorrecoesTexto` — **scan de leitor precisa seguir
   UMA derivação interna antes de acusar.**
+
+- **A RODADA "TODAS AS NOTAS EM 8" DO CONSULTÓRIO** (parcela 69, encerramento — o
+  diagnóstico pessimista deu notas de 4 a 8 por dimensão, e a direção mandou: *"Faça
+  todas as notas baterem 8!"*). Tudo o que segurava cada nota foi pago de uma vez; as
+  lições, na ordem do que ensinam:
+
+  ⚠️ **A EVOLUÇÃO AVULSA CASA COM NO MÁXIMO UMA SESSÃO DO DIA.** Com duas sessões do
+  mesmo paciente no mesmo dia (manhã e tarde — quase sempre especialidades diferentes),
+  uma evolução sem `AgendamentoId` dava as DUAS por escritas: a segunda sumia da
+  cobrança, e abrir qualquer uma na tela de Atendimento CONTINUAVA o mesmo texto,
+  fundindo duas sessões num registro só. `EvolucaoDoHorario` agora recebe as sessões
+  IRMÃS do dia (de TODOS os profissionais, antes do filtro — sem conhecê-las não há como
+  saber a vez de cada uma na fila da avulsa) e distribui cronologicamente: avulsas na
+  ordem em que foram escritas, sessões na ordem em que aconteceram; cancelada não
+  disputa; quem tem evolução própria não disputa. É escolha determinística sobre um dado
+  que não diz de quem é — e **a que erra, erra para o lado de COBRAR, nunca de calar**.
+  A tela de Atendimento busca as irmãs (`SessoesDoPacienteNoDiaAsync`) porque ela conhece
+  o horário chamado e não as vizinhas dele.
+
+  ⚠️ **A FILA GANHOU AUTORIA — e o movimento que APAGA escreve o que apagou.** Os cinco
+  movimentos (chegada, chamada, desfazer, entrada, voltar) recebem `operador`
+  OBRIGATÓRIO (parâmetro com default deixaria todo chamador antigo compilando sem
+  autoria — o compilador é quem acha os call sites) e gravam `EventoAuditoria` no mesmo
+  `SaveChanges`. Duas regras que não são detalhe: **movimento idempotente que não mudou
+  nada não grava linha** (trilha com duplicata a cada clique é trilha que ninguém lê), e
+  **`VoltarEtapaAsync`/`DesfazerChamadaAsync` escrevem NA TRILHA o carimbo que apagaram,
+  com o valor** — depois do apagamento ele não existe em mais lugar nenhum, e "quem
+  desfez e o que dizia" é a pergunta de qualquer conferência.
+
+  ⚠️ **A MINHA SEMANA VIROU A GRADE DO BALCÃO — e o montador mora na APPLICATION.** A
+  pilha de cartões por dia era o desenho que a parcela 58 condenou com a frase que
+  decide ("numa grade, o vazio TEM tamanho"), sobrevivendo na tela irmã da mesma
+  pergunta. As regras da grade são AS MESMAS do balcão de propósito (janela padrão
+  esticada, continuação, cancelado marcado sem cobrir, bloqueio escrito na célula) —
+  duas grades da mesma agenda com regras diferentes divergiriam sobre o mesmo horário; a
+  janela padrão (7h–20h) subiu para o DOMÍNIO (`Agendamento.AberturaPadraoGrade`) pela
+  mesma razão. E `GradeSemana.Montar` é função PURA (recebe o relógio) na Application,
+  porque a camada de tela do WPF não compila nos testes: **tudo o que decide um desenho
+  precisa morar onde o `dotnet test` alcança** — a grade nasceu com sete testes, coisa
+  que nenhuma tela do projeto teve. A diferença deliberada: a célula livre NÃO tem
+  clique de marcar — quem marca é o balcão; aqui o vão é informação.
+
+  ⚠️ **"CHAMAR PRÓXIMO" NO MODO SEM VÍNCULO CHAMAVA O PACIENTE DE OUTRO PROFISSIONAL.**
+  Sem `Profissional` ligado ao login a tela mostra a clínica inteira — e "o primeiro da
+  recepção" podia ser de qualquer colega: o clique cego anunciava um nome para a sala
+  errada. O botão fica DESLIGADO nesse modo, com a explicação na tela e a segunda
+  barreira no comando; **chamar pelo CARTÃO continua liberado**, porque ali a escolha é
+  de quem leu o nome antes de clicar. E **a fila corre só HOJE**: os botões de movimento
+  somem num dia passado/futuro e o arrasto recusa DIZENDO — chamar alguém de ontem
+  carimbaria hora num horário morto e a tela afirmaria "a recepção já está vendo o
+  aviso" sobre uma fila que só relê o dia corrente (afirmação falsa com cara de
+  confirmação).
+
+  **O resto da rodada, em uma linha cada**: as OBSERVAÇÕES do horário chegaram ao cartão
+  do Meu dia (`SessaoDoDia.Observacoes` — onze campos e nenhum era o recado do balcão);
+  férias/feriado apareceram (célula da semana + linha "Agenda fechada neste dia" no Meu
+  dia — dia fechado aparecia como dia VAZIO, que se lê como "ninguém marcou"); a batida
+  de 1 min parou de reler 30 dias de pendências (a recarga silenciosa relê só o quadro —
+  quem escreve evolução está NESTA máquina); "Atender", a dívida e o "Ver a lista" dos
+  Meus números ganharam as duas barreiras de `VerProntuario` (`NavegacaoSuite.Ir`
+  devolve false em silêncio para quem não tem o bit do destino); o botão "Excluir" de
+  medidas/avaliações virou "Cancelar…" (**o ato sempre foi cancelar com motivo — o
+  RÓTULO é que mentia sobre o que o registro clínico não faz**); a frase da tendência da
+  dor parou de sair duplicada (quando ela preocupa, só o alerta a diz — um estado por
+  pergunta); a lista de problemas virou LINHA DENSA (cada problema tinha cinco linhas e
+  QUATRO botões empilhados ≈ 140 px — três problemas empurravam o histórico, que é o
+  assunto da aba, para fora da vista; detalhe foi para a dica, ação virou fileira, nada
+  foi tirado); o "N sem evolução" da semana diz "NESTA semana" (o badge do Meu dia conta
+  a fila de trabalho de 30 dias — dois números com a mesma frase se leem como o mesmo
+  número errado); e o cabeçalho do Atendimento diz a DATA do horário quando não é hoje
+  (a dívida e a semana abrem dias passados, e "da agenda de hoje" mentia sobre a data a
+  que o registro ia ficar ligado).
+
+  **O que ficou de fora, e é decisão**: a trilha do `ConfirmarPresencaAsync` (item 5 da
+  fila) — mexer nele encosta no caminho que gera as guias, e vai junto da transação única
+  com teste em Postgres de verdade, que este ambiente não reproduz.
