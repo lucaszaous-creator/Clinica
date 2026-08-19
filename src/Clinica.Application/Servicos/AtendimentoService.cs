@@ -9,6 +9,14 @@ namespace Clinica.Application.Servicos;
 public sealed record ResultadoLancamento(Atendimento Atendimento, IReadOnlyList<string> Avisos);
 
 /// <summary>
+/// Um atendimento MONTADO e ainda não gravado — a metade da CRIAÇÃO (parcela 70).
+/// Quem grava é o chamador, e isso é o desenho: <c>AgendaService</c> pendura este
+/// atendimento no agendamento pela navegação e o EF grava o grafo inteiro (horário +
+/// atendimento + códigos + carimbo) numa transação só.
+/// </summary>
+public sealed record AtendimentoMontado(Atendimento Atendimento, List<string> Avisos);
+
+/// <summary>
 /// O que a regra do convênio VAI gerar, sem ter gerado ainda (parcela 47).
 ///
 /// Os códigos aqui são objetos transitórios: nasceram do mesmo motor de regras que o
@@ -60,7 +68,15 @@ public sealed class AtendimentoService
         _consultas = consultas;
     }
 
-    public async Task<ResultadoLancamento> LancarAsync(
+    /// <summary>
+    /// A metade da CRIAÇÃO (parcela 70): monta o atendimento com os códigos pelas regras
+    /// do convênio — e <b>NÃO grava</b>. Quem salva é o chamador, porque foi o vão entre
+    /// "guias gravadas" e "carimbo gravado" que produziu guia duplicada: o
+    /// <c>ConfirmarPresencaAsync</c> pendura este atendimento no agendamento pela
+    /// navegação e o EF grava o grafo inteiro num único SaveChanges.
+    /// Atualiza <c>paciente.Categoria</c> (o paciente vem rastreado e viaja no mesmo commit).
+    /// </summary>
+    public async Task<AtendimentoMontado> MontarAsync(
         int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
         CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
         Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
@@ -122,6 +138,121 @@ public sealed class AtendimentoService
         // Mantém a categoria mais recente na ficha do paciente.
         paciente.Categoria = resultado.Categoria;
 
+        return new AtendimentoMontado(atendimento, resultado.Avisos);
+    }
+
+    /// <summary>
+    /// A metade da PRESENÇA que entra no MESMO SaveChanges do carimbo: reabre as não
+    /// conformidades do paciente ("o paciente voltou — cobre a guia agora"). Só MUTA e
+    /// enfileira auditoria; não salva. É metade separada da criação de propósito: com a
+    /// guia nascendo na marcação (parcela 70), disparar isto num horário marcado por
+    /// telefone semanas antes cobraria a secretária por alguém que não está lá.
+    /// </summary>
+    public async Task<List<string>> PrepararPresencaAsync(
+        Atendimento atendimento, CancellationToken ct = default)
+    {
+        var avisos = new List<string>();
+
+        // Paciente voltou: as não conformidades dele voltam a ser pendência (o motivo de
+        // estarem paradas — "aguardando o paciente" — deixou de valer).
+        var naoConformidades = await _repo.CodigosEmNaoConformidadeDoPacienteAsync(
+            atendimento.PacienteId, ct);
+        foreach (var nc in naoConformidades)
+        {
+            nc.ReabrirNaoConformidade();
+            await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+            {
+                Operador = "sistema",
+                Acao = "NaoConformidadeReaberta",
+                // A data, e não o número: no grafo atômico o número só existe DEPOIS do
+                // commit (ele precisa do Id).
+                Detalhe = $"Reaberta automaticamente: paciente retornou (sessão de {atendimento.Data:dd/MM/yyyy})",
+                CodigoId = nc.Id,
+                PacienteId = atendimento.PacienteId
+            }, ct);
+        }
+        if (naoConformidades.Count > 0)
+            avisos.Add(
+                $"Atenção: {naoConformidades.Count} não conformidade(s) deste paciente foi(ram) reaberta(s) — " +
+                "o paciente voltou, cobre a(s) guia(s) agora.");
+
+        return avisos;
+    }
+
+    /// <summary>
+    /// A metade da PRESENÇA que roda DEPOIS do commit: renova a consulta do convênio
+    /// (Unimed 22 dias, Amil/Petrobras 30). Fica fora do SaveChanges atômico de
+    /// propósito — o ciclo de renovação tem gravação própria (<c>ConsultaService</c>), e
+    /// uma falha aqui não pode desfazer nem PARECER desfazer um atendimento já gravado:
+    /// vira aviso com rastro, nunca exceção por cima de uma guia que existe.
+    /// </summary>
+    public async Task<List<string>> ConcluirPresencaAsync(
+        Atendimento atendimento, CancellationToken ct = default)
+    {
+        var avisos = new List<string>();
+        if (atendimento.Modalidade != ModalidadeAtendimento.Consulta || _consultas is null)
+            return avisos;
+
+        try
+        {
+            var paciente = await _repo.ObterPacienteAsync(atendimento.PacienteId, ct);
+            if (paciente is null) return avisos;
+
+            var validade = paciente.Convenio == Convenio.Personalizado
+                ? CatalogoConvenios.ValidadeConsultaDias(paciente.ConvenioCodigo)
+                : _parametros is null
+                    ? ConvenioInfo.ValidadeConsultaDias(paciente.Convenio)
+                    : (await _parametros.ObterAsync(ct)).ValidadeConsultaDias(paciente.Convenio);
+            if (validade is null) return avisos;
+
+            var rotulo = atendimento.EspecialidadeConsultaCodigo is { } espCod
+                ? $"Consulta de {CatalogoEspecialidades.Nome(espCod)}"
+                : "Consulta";
+            var referencia = string.IsNullOrEmpty(atendimento.Numero)
+                ? $"sessão de {atendimento.Data:dd/MM/yyyy}"
+                : $"atendimento {atendimento.Numero}";
+            var consulta = await _consultas.RenovarAsync(
+                atendimento.PacienteId, atendimento.Data, $"{rotulo} — {referencia}.", ct);
+            avisos.Add(
+                $"Renovação registrada: a consulta vale {consulta.ValidadeDias} dias e vence em {consulta.DataVencimento:dd/MM/yyyy}.");
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar("Renovação da consulta na confirmação de presença falhou", ex);
+            avisos.Add("A renovação da consulta NÃO pôde ser registrada — registre pela aba Consultas.");
+        }
+
+        return avisos;
+    }
+
+    /// <summary>
+    /// Lança um atendimento de ponta a ponta — a composição das duas metades (criação +
+    /// presença), com as gravações na ordem antiga.
+    ///
+    /// ⚠️ Chamador de PRODUÇÃO nenhum desde a parcela 70: a esteira real é
+    /// <c>AgendaService.ConfirmarPresencaAsync</c>, que grava o grafo com o agendamento
+    /// num commit atômico. Os testes usam este atalho para montar cenário, e ele é
+    /// wrapper fino de propósito — a regra mora em <see cref="MontarAsync"/>,
+    /// <see cref="PrepararPresencaAsync"/> e <see cref="ConcluirPresencaAsync"/>;
+    /// wrapper que divergisse delas não teria de onde divergir.
+    ///
+    /// (O `registrarNaAgenda` que existia aqui morreu na parcela 60: o avulso virou um
+    /// encaixe de verdade, na hora real, e o fantasma das 9h fixo saiu da ocupação.)
+    /// </summary>
+    public async Task<ResultadoLancamento> LancarAsync(
+        int pacienteId, DateOnly data, ModalidadeAtendimento modalidade, string? observacoes = null,
+        CancellationToken ct = default, TipoCodigo? primeiroCodigo = null,
+        Especialidade? especialidadeConsulta = null, string? modalidadeCodigo = null,
+        string? especialidadeConsultaCodigo = null, string? operador = null)
+    {
+        var montado = await MontarAsync(
+            pacienteId, data, modalidade, observacoes, ct, primeiroCodigo,
+            especialidadeConsulta, modalidadeCodigo, especialidadeConsultaCodigo, operador);
+        var atendimento = montado.Atendimento;
+        var avisos = montado.Avisos;
+
+        avisos.AddRange(await PrepararPresencaAsync(atendimento, ct));
+
         await _repo.AdicionarAtendimentoAsync(atendimento, ct);
         await _repo.SalvarAsync(ct);
 
@@ -129,69 +260,9 @@ public sealed class AtendimentoService
         atendimento.Numero = $"{data.Year}-{atendimento.Id:D6}";
         await _repo.SalvarAsync(ct);
 
-        // Paciente voltou: as não conformidades dele voltam a ser pendência (o motivo de estarem
-        // paradas — "aguardando o paciente" — deixou de valer). Avisa a secretária para cobrar agora.
-        var naoConformidades = await _repo.CodigosEmNaoConformidadeDoPacienteAsync(pacienteId, ct);
-        if (naoConformidades.Count > 0)
-        {
-            foreach (var nc in naoConformidades)
-            {
-                nc.ReabrirNaoConformidade();
-                await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
-                {
-                    Operador = "sistema",
-                    Acao = "NaoConformidadeReaberta",
-                    Detalhe = $"Reaberta automaticamente: paciente retornou (atendimento {atendimento.Numero})",
-                    CodigoId = nc.Id,
-                    PacienteId = pacienteId
-                }, ct);
-            }
-            await _repo.SalvarAsync(ct);
-            resultado.Avisos.Add(
-                $"Atenção: {naoConformidades.Count} não conformidade(s) deste paciente foi(ram) reaberta(s) — " +
-                "o paciente voltou, cobre a(s) guia(s) agora.");
-        }
+        avisos.AddRange(await ConcluirPresencaAsync(atendimento, ct));
 
-        // Consulta avulsa também reinicia o ciclo de renovação do plano (Unimed 22 dias,
-        // Amil/Petrobras 30): registra a renovação no controle de Consultas, que vigia o vencimento.
-        if (modalidade == ModalidadeAtendimento.Consulta && _consultas is not null)
-        {
-            var validade = paciente.Convenio == Convenio.Personalizado
-                ? CatalogoConvenios.ValidadeConsultaDias(paciente.ConvenioCodigo)
-                : _parametros is null
-                    ? ConvenioInfo.ValidadeConsultaDias(paciente.Convenio)
-                    : (await _parametros.ObterAsync(ct)).ValidadeConsultaDias(paciente.Convenio);
-
-            if (validade is not null)
-            {
-                var rotulo = atendimento.EspecialidadeConsultaCodigo is { } espCod
-                    ? $"Consulta de {CatalogoEspecialidades.Nome(espCod)}"
-                    : "Consulta";
-                var consulta = await _consultas.RenovarAsync(
-                    pacienteId, data, $"{rotulo} — atendimento {atendimento.Numero}.", ct);
-                resultado.Avisos.Add(
-                    $"Renovação registrada: a consulta vale {consulta.ValidadeDias} dias e vence em {consulta.DataVencimento:dd/MM/yyyy}.");
-            }
-        }
-
-        // ⚠️ AQUI havia o `registrarNaAgenda` (parcela 60, removido).
-        //
-        // O lançamento avulso criava um `Agendamento` sintético às **9h fixo**, sem
-        // profissional e sem sala, porque `Atendimento` só guarda `DateOnly Data` — não há
-        // hora para copiar. Ele aparecia na grade da agenda num horário em que ninguém foi
-        // atendido, na coluna "Sem profissional", e CONTAVA na ocupação do dia.
-        //
-        // O conserto não foi apagar o registro: foi inverter a ordem. O avulso passou a
-        // marcar um ENCAIXE de verdade, na hora real, e a Fila o conclui — então o
-        // horário existe, é honesto, e este serviço voltou a ter um trabalho só: gerar o
-        // atendimento e as guias.
-        //
-        // O efeito colateral é a amarra que a direção pediu: `LancarAsync` ficou com UM
-        // ÚNICO chamador em todo o sistema (`AgendaService.ConfirmarPresencaAsync`), e o
-        // pacote, o insumo e o caixa deixaram de depender de qual porta a recepcionista
-        // usou. Ponto único deixou de ser documentação e virou estrutura.
-
-        return new ResultadoLancamento(atendimento, resultado.Avisos);
+        return new ResultadoLancamento(atendimento, avisos);
     }
 
     /// <summary>

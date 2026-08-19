@@ -684,19 +684,147 @@ public sealed class AgendaService
         if (ag.Status == StatusAgendamento.Realizado)
             throw new InvalidOperationException("Este agendamento já teve a presença confirmada.");
 
-        var resultado = await _atendimentos.LancarAsync(
-            ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista, ag.Observacoes, ct,
-            especialidadeConsulta: ag.EspecialidadeConsulta,
-            modalidadeCodigo: ag.ModalidadeCodigo,
-            especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo,
-            primeiroCodigo: ag.PrimeiroCodigo,
-            operador: operador);
+        return await ConfirmarNucleoAsync(ag, operador, ct);
+    }
+
+    /// <summary>
+    /// O núcleo ATÔMICO da confirmação (parcela 70). Antes, a criação era uma corrente de
+    /// gravações separadas — guias primeiro, número, carimbo por último — e cada vão era
+    /// um meio-estado possível: se o carimbo falhasse (conflito de `xmin` entre as duas
+    /// máquinas do balcão, queda de conexão), as guias existiam, o agendamento não sabia,
+    /// e o segundo clique gerava OUTRO jogo de guias. Foi o incidente de 12/08/2026 uma
+    /// camada abaixo.
+    ///
+    /// Agora o atendimento é MONTADO sem gravar e pendurado no agendamento pela
+    /// NAVEGAÇÃO: o EF grava horário + atendimento + códigos + carimbo + NCs reabertas +
+    /// trilha numa transação só. Não existe segundo momento de criação — e o que não tem
+    /// segundo momento não duplica. Conflito de concorrência agora significa "releia: o
+    /// `AtendimentoId` já está lá".
+    /// </summary>
+    private async Task<ResultadoLancamento> ConfirmarNucleoAsync(
+        Agendamento ag, string? operador, CancellationToken ct)
+    {
+        List<string> avisos;
+        Atendimento atendimento;
+
+        if (ag.AtendimentoId is { } idExistente)
+        {
+            // Regime "guia no agendamento": o atendimento nasceu na MARCAÇÃO — aqui só
+            // se confirma a presença e disparam os efeitos dela.
+            atendimento = await _repo.ObterAtendimentoAsync(idExistente, ct)
+                ?? throw new InvalidOperationException(
+                    $"O agendamento {ag.Id} aponta para o atendimento {idExistente}, que não existe mais.");
+            avisos = [];
+        }
+        else
+        {
+            var montado = await _atendimentos.MontarAsync(
+                ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista,
+                ag.Observacoes, ct,
+                especialidadeConsulta: ag.EspecialidadeConsulta,
+                modalidadeCodigo: ag.ModalidadeCodigo,
+                especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo,
+                primeiroCodigo: ag.PrimeiroCodigo,
+                operador: operador);
+            atendimento = montado.Atendimento;
+            avisos = montado.Avisos;
+
+            // A navegação é o que faz o EF inserir e amarrar tudo numa transação só.
+            ag.Atendimento = atendimento;
+        }
 
         ag.Status = StatusAgendamento.Realizado;
-        ag.AtendimentoId = resultado.Atendimento.Id;
 
+        // Efeitos de PRESENÇA que entram no mesmo commit (NCs reabertas)…
+        avisos.AddRange(await _atendimentos.PrepararPresencaAsync(atendimento, ct));
+
+        // …e a trilha do ato que gera as guias (item 5 da fila da parcela 69), idem.
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "PresencaConfirmada",
+            Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — {atendimento.Codigos.Count} código(s) de faturamento",
+            PacienteId = ag.PacienteId
+        }, ct);
+
+        // ⚠️ O COMMIT ATÔMICO.
         await _repo.SalvarAsync(ct);
-        return resultado;
+
+        // O número precisa do Id e vai num segundo save COSMÉTICO. Falhar aqui não pode
+        // virar exceção: o commit de cima JÁ aconteceu, e a tela diria "não foi lançado"
+        // sobre uma guia que existe — o gesto que produziu os três encaixes de 12/08.
+        // Nada duplica (o AtendimentoId no agendamento impede a recriação); vira aviso.
+        if (string.IsNullOrEmpty(atendimento.Numero))
+        {
+            try
+            {
+                atendimento.Numero = $"{atendimento.Data.Year}-{atendimento.Id:D6}";
+                await _repo.SalvarAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                Diagnostico.Registrar("Número do atendimento não pôde ser gravado", ex);
+                avisos.Add("O número/protocolo do atendimento não pôde ser gravado agora — "
+                           + "a guia está salva e o faturamento a enxerga normalmente.");
+            }
+        }
+
+        // Renovação da consulta: gravação própria, falha vira aviso (nunca desfaz).
+        avisos.AddRange(await _atendimentos.ConcluirPresencaAsync(atendimento, ct));
+
+        return new ResultadoLancamento(atendimento, avisos);
+    }
+
+    /// <summary>
+    /// O LANÇAMENTO AVULSO num gesto atômico (parcela 70) — a porta que a clínica usa o
+    /// dia inteiro enquanto a agenda mora no Amplimed. Substitui a corrente de três
+    /// chamadas (Agendar → RegistrarChegada → ConfirmarPresenca, cinco SaveChanges) cujos
+    /// vãos produziram os três encaixes de 12/08 e a guia duplicada: o encaixe nasce na
+    /// hora real com o check-in carimbado, o atendimento e as guias — o grafo INTEIRO num
+    /// único SaveChanges do núcleo.
+    /// </summary>
+    public async Task<(Agendamento Agendamento, ResultadoLancamento Lancamento)> LancarAvulsoAsync(
+        int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? observacoes,
+        CancellationToken ct = default, string? modalidadeCodigo = null,
+        string? especialidadeConsultaCodigo = null, TipoCodigo? primeiroCodigo = null,
+        int? profissionalId = null, string? operador = null)
+    {
+        if (modalidadeCodigo is not null)
+            modalidade = CatalogoModalidades.Base(modalidadeCodigo);
+
+        // Encaixe: aceita por cima de horário ocupado — o paciente já está aqui.
+        await GarantirSemChoqueAsync(
+            dataHora, null, profissionalId, null, pacienteId, null, encaixe: true, ct);
+
+        var agora = DateTime.Now;
+        var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
+        var ag = new Agendamento
+        {
+            PacienteId = pacienteId,
+            DataHora = dataHora,
+            ModalidadePrevista = modalidade,
+            ModalidadeCodigo = modalidadeCodigo ?? modalidade.ToString(),
+            EspecialidadeConsulta = ehConsulta
+                ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null,
+            EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null,
+            Observacoes = observacoes,
+            Origem = OrigemAgendamento.Manual,
+            Status = StatusAgendamento.Agendado,
+            ProfissionalId = profissionalId,
+            Encaixe = true,
+            PrimeiroCodigo = primeiroCodigo,
+            CriadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),
+            CriadoEm = agora,
+            // O paciente está no balcão: o check-in é o fato, não uma etapa a cumprir.
+            ChegadaEm = agora
+        };
+
+        await _repo.AdicionarAgendamentoAsync(ag, ct);
+        await AuditarFilaAsync(ag, operador ?? "?", "FilaChegada",
+            $"Check-in às {agora:HH:mm} — encaixe avulso de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
+
+        var lancamento = await ConfirmarNucleoAsync(ag, operador, ct);
+        return (ag, lancamento);
     }
 
     public async Task CancelarAsync(int agendamentoId, string? operador = null, CancellationToken ct = default)

@@ -1105,77 +1105,41 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             Avisos.Clear();
             Mensagem = null;
 
-            // ===== PASSO 1: o horário existe de verdade (parcela 60) =====
+            // ===== O GESTO ATÔMICO (parcela 70) =====
             //
-            // O avulso NÃO chama mais `AtendimentoService.LancarAsync` direto. Ele marca um
-            // ENCAIXE na hora real e deixa a esteira da Fila concluir — que é a mesma
-            // esteira, com o mesmo serviço e a mesma janela.
+            // Antes, este clique disparava uma CORRENTE de três serviços e cinco
+            // SaveChanges (Agendar → RegistrarChegada → ConfirmarPresenca → número →
+            // carimbo), e cada vão era um meio-estado possível: o incidente de 12/08 (três
+            // encaixes com chegada e sem atendimento) morava num deles, e a guia duplicada
+            // no último.
             //
-            // Antes, "lançar e acabou" gerava a guia e pulava três dos quatro fatos: o
-            // pacote não debitava (a clínica atendia de graça quem tinha comprado dez
-            // sessões), o dinheiro não entrava no caixa, e o horário virava um fantasma às
-            // 9h fixo, sem profissional, contando na ocupação do dia.
-            //
-            // `encaixe: true` porque é isso que ele é: alguém que chegou sem hora marcada.
-            // É o que faz o serviço aceitar por cima de um horário ocupado em vez de
-            // recusar — o paciente já está aqui.
+            // Agora é UMA chamada e UM SaveChanges no núcleo: o encaixe nasce na hora
+            // real, com o check-in carimbado, o atendimento e as guias — ou existe tudo,
+            // ou não existe nada e o erro aparece aqui. Não sobra meio-estado para o
+            // segundo clique transformar em duplicata.
             using var scope = _scopeFactory.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            var operador = SessaoUsuario.Atual.Operador;
 
-            var agendamento = await agenda.AgendarAsync(
+            var (agendamento, lancamento) = await agenda.LancarAvulsoAsync(
                 paciente.Id,
                 Data.Date.Add(hora.ToTimeSpan()),
                 Modalidade,
                 Observacoes,
                 modalidadeCodigo: ModalidadeSelecionada.Codigo,
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
-                encaixe: true,
-                operador: operador,
                 primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
                 // Quem atendeu. É o que faz o paciente aparecer no "Meu dia" do médico e
                 // a sessão entrar no repasse dele — os dois leem o AGENDAMENTO.
-                profissionalId: Profissional?.Id);
+                profissionalId: Profissional?.Id,
+                operador: SessaoUsuario.Atual.Operador);
 
             agendamentoId = agendamento.Id;
 
-            // O paciente está no balcão — o check-in é o fato, não uma etapa a cumprir.
-            await agenda.RegistrarChegadaAsync(agendamentoId, SessaoUsuario.Atual.Operador);
-        }
-        catch (Exception ex)
-        {
-            LogSuite.Registrar("Novo atendimento — encaixe não pôde ser marcado", ex);
-            Avisar($"Não foi possível marcar o horário: {ex.Message}", erro: true);
-            Ocupado = false;
-            return;
-        }
+            MontarCodigos(lancamento.Atendimento.Codigos);
+            foreach (var a in lancamento.Avisos) Avisos.Add(a);
 
-        RegistroAtendimento registro;
-        try
-        {
-            // ===== PASSO 2: A GUIA NASCE AQUI (parcela 65) =====
-            //
-            // Registrar o atendimento é o ato; a guia é consequência imediata dele e já
-            // segue para o faturamento. Nada depois deste ponto pode condicionar ou
-            // desfazer a guia.
-            //
-            // Antes, a guia só nascia se a janela de fechamento fosse CONFIRMADA — e
-            // fechá-la deixava um horário na agenda, o paciente marcado como presente e
-            // nenhuma guia. Em 12/08/2026 a mesma sessão foi lançada TRÊS vezes em 71
-            // segundos por causa disso: a recepcionista não via guia nenhuma e tentava de
-            // novo. Lançamento que não fatura é a inversão exata do motivo de o produto
-            // existir.
-            using var scope = _scopeFactory.CreateScope();
-            var fechamento = scope.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
-
-            registro = await fechamento.RegistrarAtendimentoAsync(
-                agendamentoId, SessaoUsuario.Atual.Operador);
-
-            MontarCodigos(registro.Atendimento.Codigos);
-            foreach (var a in registro.RecadosDoLancamento) Avisos.Add(a);
-
-            _ultimoAtendimentoId = registro.Atendimento.Id;
-            NumeroAtendimento = registro.Atendimento.Numero;
+            _ultimoAtendimentoId = lancamento.Atendimento.Id;
+            NumeroAtendimento = lancamento.Atendimento.Numero;
             Lancado = true;
 
             // A conferência do dia acompanha na hora: o que acabou de nascer aparece lá
@@ -1184,10 +1148,30 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         }
         catch (Exception ex)
         {
-            LogSuite.Registrar("Novo atendimento — atendimento não pôde ser registrado", ex);
-            Avisar($"O horário foi marcado, mas o atendimento NÃO foi registrado e "
-                   + $"nenhuma guia foi gerada: {ex.Message}. O paciente está na Fila — "
-                   + "conclua por lá.", erro: true);
+            LogSuite.Registrar("Novo atendimento — lançamento falhou", ex);
+            Avisar($"Não foi possível lançar: {ex.Message} Nada foi gravado — corrija e "
+                   + "tente de novo.", erro: true);
+            Ocupado = false;
+            return;
+        }
+
+        RegistroAtendimento registro;
+        try
+        {
+            // A PROPOSTA do fechamento (pacote/caixa/insumo) reaproveita o atendimento
+            // recém-gravado — presença confirmada nunca é reconfirmada.
+            using var scope = _scopeFactory.CreateScope();
+            var fechamento = scope.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
+
+            registro = await fechamento.RegistrarAtendimentoAsync(
+                agendamentoId, SessaoUsuario.Atual.Operador);
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — proposta de fechamento não pôde ser montada", ex);
+            Avisar("Atendimento registrado e guia gerada. O passo de pacote/caixa não pôde "
+                   + "abrir — dá para resolver pela Fila ou pelo Financeiro.", aviso: true);
+            Ocupado = false;
             return;
         }
         finally
