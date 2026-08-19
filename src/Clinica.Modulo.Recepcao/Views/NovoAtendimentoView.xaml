@@ -5,166 +5,148 @@
              Background="{StaticResource Brush.Fundo}">
 
     <!-- ============================================================
-         LANÇAR ATENDIMENTO ACONTECE NESTA TELA, DE TELA CHEIA.
+         LANÇAR (OU MARCAR) ATENDIMENTO, EM DUAS COLUNAS (parcela 70, redesenho
+         aprovado pelo cliente em mockup).
 
-         Duas coisas ficaram para trás, e as duas por decisão do cliente:
+         O desenho anterior era UMA coluna com a largura da tela: os campos esticavam
+         ~1800 px, a Data/Hora morava no cabeçalho da seção — longe do rádio QUANDO que
+         decide o que elas significam — e a tela rolava duas alturas com metade da
+         largura vazia. As decisões que este arquivo carrega:
 
-         1. A FAIXA LATERAL. Era uma coluna de 420 px à esquerda com o formulário dentro e
-            o resto da tela para o resultado — o defeito que o `README.md` proíbe.
-         2. A JANELA. A primeira correção tirou o formulário da faixa e o pôs num pop-up.
-            O cliente recusou: o lançamento é o ASSUNTO desta seção, e o item de menu já é
-            o clique que abre o ato. Pedir um segundo clique para abrir uma janela por
-            cima da tela que existe para isso é cerimônia sem função — e janela modal, no
-            balcão, é a coisa que fica presa atrás da janela principal quando alguém
-            alterna de aplicativo com o paciente esperando.
+         1. FORMULÁRIO À ESQUERDA, CONSEQUÊNCIA À DIREITA. A coluna direita é fixa (não
+            rola com o miolo) e concentra o que decide o clique: os avisos ANTES DE
+            LANÇAR, a prévia das guias e o BOTÃO. O botão sai da barra do rodapé e
+            passa a morar ao lado do que ele vai gravar — e continua SEMPRE À VISTA,
+            que era a razão de a barra existir (com a escala do Windows em 150% a área
+            útil de 768 px vira ~500): a coluna é um DockPanel com a ação ancorada
+            embaixo e o resto rolando por dentro.
 
-         O que sobrou é o desenho da janela com a LARGURA da tela: o fluxo lê de cima para
-         baixo na ordem em que a pessoa decide — QUEM, O QUE FOI FEITO, O QUE VAI SAIR —,
-         os cartões de modalidade cabem em linha, e a barra de ação fica ancorada embaixo,
-         sempre à vista, com o botão que diz quantas guias vão nascer.
+         2. DATA E HORA MORAM DENTRO DO QUANDO. A escolha virou dois cartões de rádio
+            (a mesma linguagem dos cartões de modalidade) e os campos aparecem logo
+            abaixo — inclusive duração, sala, série e o choque criticado ali mesmo, que
+            só existem no modo marcar.
 
-         O miolo ROLA e a barra NÃO: com a escala do Windows em 150% a área útil de uma
-         tela de 768 px vira pouco mais de 500, e um botão que sai da vista é um botão que
-         não existe.
+         3. CAMPO COM LARGURA DE CONTEÚDO (160–460 px), nunca a largura da tela.
+
+         4. SEM PACIENTE NÃO HÁ COLUNA DIREITA: a busca abre com a largura inteira, e o
+            que não tem o que dizer não ocupa lugar.
+
+         O miolo esquerdo ROLA; a coluna direita não sai da vista.
          ============================================================ -->
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+
+        <!-- O cartão de rádio do QUANDO: o mesmo vocabulário visual do cartão de
+             modalidade (borda de acento + fundo suave quando escolhido), com o círculo
+             do RadioButton desenhado dentro — o template padrão da suíte é o do rádio
+             de linha, e aqui a superfície inteira é o alvo de clique. -->
+        <Style x:Key="CartaoQuando" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource Brush.Texto.Primario}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="cx" Background="{StaticResource Brush.Superficie}"
+                                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="1"
+                                CornerRadius="{StaticResource Raio.Medio}" Padding="15,12">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Left" Margin="0,2,12,0" VerticalAlignment="Top">
+                                    <Ellipse x:Name="circulo" Width="16" Height="16" StrokeThickness="1"
+                                             Stroke="{StaticResource Brush.Borda.Hover}"
+                                             Fill="{StaticResource Brush.Superficie}" />
+                                    <Ellipse x:Name="ponto" Width="8" Height="8"
+                                             Fill="{StaticResource Brush.Acento}" Visibility="Collapsed"
+                                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Grid>
+                                <ContentPresenter RecognizesAccessKey="True" />
+                            </DockPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="cx" Property="BorderBrush"
+                                        Value="{StaticResource Brush.Borda.Hover}" />
+                            </Trigger>
+                            <!-- Depois do hover de propósito: o cartão escolhido não perde a
+                                 borda de acento quando o mouse passa por cima. -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="cx" Property="BorderBrush" Value="{StaticResource Brush.Acento}" />
+                                <Setter TargetName="cx" Property="BorderThickness" Value="2" />
+                                <Setter TargetName="cx" Property="Background" Value="{StaticResource Brush.Acento.Suave}" />
+                                <Setter TargetName="cx" Property="Padding" Value="14,11" />
+                                <Setter TargetName="circulo" Property="Stroke" Value="{StaticResource Brush.Acento}" />
+                                <Setter TargetName="circulo" Property="StrokeThickness" Value="2" />
+                                <Setter TargetName="ponto" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </UserControl.Resources>
 
     <DockPanel>
 
         <!-- ===== Cabeçalho ===== -->
-        <StackPanel DockPanel.Dock="Top" Margin="24,20,24,14">
+        <StackPanel DockPanel.Dock="Top" Margin="24,20,24,10">
             <TextBlock Text="Novo atendimento" Style="{StaticResource H1}" Margin="0" />
             <TextBlock Style="{StaticResource TextoSuave}"
                        Text="Lançar quem está aqui agora — ou marcar dia e horário. Quem já está na agenda entra pela Fila, no Finalizar." />
         </StackPanel>
 
-        <!-- ===== Barra de ação (ancorada) =====
-             Declarada ANTES do miolo de propósito: num DockPanel o último filho ocupa o
-             resto, e é o miolo que tem de rolar — não a barra.
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
 
-             Os botões: MESMA altura (40), MESMO alinhamento vertical e a barra com altura
-             própria. Sem o `VerticalAlignment` do painel, uma mensagem de erro que quebra
-             em duas linhas estica a linha do Grid e o WPF ESTICA os botões junto — foi o
-             desalinhamento que apareceu na tela. -->
-        <Border DockPanel.Dock="Bottom" Background="{StaticResource Brush.Superficie}"
-                BorderBrush="{StaticResource Brush.Borda}" BorderThickness="0,1,0,0"
-                Padding="24,12">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
+            <!-- ============================================================
+                 COLUNA DO FORMULÁRIO (rola)
+                 ============================================================ -->
+            <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Padding="24,0,12,20">
+                <StackPanel>
 
-                <!-- Quem decide se APARECE é o texto; quem decide a COR é a gravidade
-                     (a regra da parcela 62). A cor fixa de erro pintava de vermelho a
-                     confirmação "Atendimento registrado — 2 guia(s) no faturamento": a
-                     cor dizia "falhou" enquanto o texto dizia "registrado". -->
-                <TextBlock Grid.Column="0" Text="{Binding Mensagem}" TextWrapping="Wrap"
-                           VerticalAlignment="Center" HorizontalAlignment="Left"
-                           MaxWidth="560" Margin="0,0,16,0"
-                           Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding MensagemEhAviso}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource Brush.Aviso}" />
-                                </DataTrigger>
-                                <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
-                                    <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
+                    <!-- ============ 1 · QUEM ============ -->
+                    <TextBlock Text="1 · QUEM" Style="{StaticResource Rotulo}" Margin="0" />
+                    <Separator Margin="0,4,0,10" />
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal"
-                            VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <Button Content="Limpar" MinWidth="110" MinHeight="40" Margin="0,0,8,0"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding NovoLancamentoCommand}" />
-                    <!-- O rótulo DIZ o número: "Lançar e gerar 2 guias". Botão que promete o
-                         número é o que faz alguém perceber, antes de clicar, que escolheu a
-                         modalidade errada. -->
-                    <Button Content="{Binding RotuloLancar}" MinWidth="230" MinHeight="40"
-                            VerticalAlignment="Center"
-                            Command="{Binding LancarCommand}"
-                            IsEnabled="{Binding PodeLancar}"
-                            ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}">
-                        <Button.Style>
-                            <!-- A suíte não tem conversor de booleano invertido; o gatilho faz
-                                 o mesmo e não acrescenta uma chave ao design system por causa
-                                 de uma tela. -->
-                            <Style TargetType="Button">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding Lancado}" Value="True">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
-                    <Button Content="Lançar outro" MinWidth="230" MinHeight="40"
-                            VerticalAlignment="Center"
-                            Command="{Binding NovoLancamentoCommand}"
-                            Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}" />
-                </StackPanel>
-            </Grid>
-        </Border>
+                    <!-- Sem paciente: a busca com a LARGURA da tela (a coluna direita não
+                         existe ainda — não há o que resumir de ninguém). -->
+                    <Border Style="{StaticResource Card}"
+                            Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
+                        <DockPanel>
+                            <TextBox DockPanel.Dock="Top" Margin="0,0,0,10"
+                                     Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource CampoPesquisa}"
+                                     ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF…" />
 
-        <!-- ===== Miolo ===== -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,0,24,20">
-            <StackPanel>
+                            <TextBlock DockPanel.Dock="Bottom" Text="{Binding Seletor.Erro}"
+                                       Style="{StaticResource TextoSuave}"
+                                       Foreground="{StaticResource Brush.Erro}" />
 
-                <!-- ============ 1 · QUEM ============ -->
-                <TextBlock Text="1 · QUEM" Style="{StaticResource Rotulo}" Margin="0" />
-                <Separator Margin="0,4,0,10" />
+                            <!-- ⚠️ `Grid.IsSharedSizeScope`: o `ItemPacienteLinha` alinha as colunas por
+                                 `SharedSizeGroup`, e sem o ESCOPO declarado aqui cada linha resolve a
+                                 largura sozinha — a lista deixa de ter colunas e vira uma pilha de
+                                 linhas desalinhadas (checagem 31). -->
+                            <ListBox Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
+                                     SelectedItem="{Binding Seletor.Selecionado}"
+                                     ItemTemplate="{StaticResource ItemPacienteLinha}"
+                                     BorderThickness="0" Background="Transparent"
+                                     HorizontalContentAlignment="Stretch"
+                                     MinHeight="180" MaxHeight="300"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                        </DockPanel>
+                    </Border>
 
-                <!-- Sem paciente: a busca com a LARGURA da tela. Na faixa lateral de 420 px
-                     a lista de resultados era um vão de três linhas com rolagem; aqui cabem
-                     seis nomes com telefone e convênio à vista. -->
-                <Border Style="{StaticResource Card}"
-                        Visibility="{Binding SemPaciente, Converter={StaticResource BoolParaVisibilidade}}">
-                    <DockPanel>
-                        <TextBox DockPanel.Dock="Top" Margin="0,0,0,10"
-                                 Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource CampoPesquisa}"
-                                 ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF…" />
-
-                        <TextBlock DockPanel.Dock="Bottom" Text="{Binding Seletor.Erro}"
-                                   Style="{StaticResource TextoSuave}"
-                                   Foreground="{StaticResource Brush.Erro}" />
-
-                        <!-- ⚠️ `Grid.IsSharedSizeScope`: o `ItemPacienteLinha` alinha as colunas por
-                     `SharedSizeGroup`, e sem o ESCOPO declarado aqui cada linha resolve a
-                     largura sozinha — a linha que tem o selo "Carteirinha vencida" fica com a
-                     última coluna mais larga e empurra o telefone daquela linha para a
-                     esquerda. A lista deixa de ter colunas e vira uma pilha de linhas
-                     desalinhadas, que foi o que o cliente viu em produção. -->
-                <ListBox Grid.IsSharedSizeScope="True" ItemsSource="{Binding Seletor.Resultados}"
-                                 SelectedItem="{Binding Seletor.Selecionado}"
-                                 ItemTemplate="{StaticResource ItemPacienteLinha}"
-                                 BorderThickness="0" Background="Transparent"
-                                 HorizontalContentAlignment="Stretch"
-                                 MinHeight="180" MaxHeight="300"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
-                    </DockPanel>
-                </Border>
-
-                <!-- Escolhido: a identidade numa faixa compacta, com os avisos ao lado —
-                     não empilhados acima do formulário. -->
-                <Grid Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" MinWidth="330" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,12,0">
+                    <!-- Escolhido: a identidade numa faixa compacta. Os AVISOS saíram
+                         daqui — eles moram na coluna da direita, junto da prévia e do
+                         botão, que é onde a decisão acontece. -->
+                    <Border Style="{StaticResource Card}"
+                            Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -187,9 +169,6 @@
                                     </Border>
                                 </StackPanel>
                             </StackPanel>
-                            <!-- Botão ao lado de conteúdo de formulário usa a altura do
-                                 formulário: `BotaoAcaoGrid*` tem 26 px e é para linha densa
-                                 de tabela; aqui ele sairia esticado pela linha da Grid. -->
                             <Button Grid.Column="2" Content="Trocar" VerticalAlignment="Center"
                                     MinHeight="36" MinWidth="90"
                                     Style="{StaticResource BotaoSecundario}"
@@ -198,218 +177,97 @@
                         </Grid>
                     </Border>
 
-                    <!-- Os avisos: uma superfície, uma linha por aviso, cor no traço. A
-                         região inteira some quando não há nada a dizer. -->
-                    <Border Grid.Column="1">
-                        <Border.Style>
-                            <Style TargetType="Border" BasedOn="{StaticResource Card}">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <MultiDataTrigger>
-                                        <MultiDataTrigger.Conditions>
-                                            <Condition Binding="{Binding TemAvisoJaLancado}" Value="False" />
-                                            <Condition Binding="{Binding TemAvisoCarteirinha}" Value="False" />
-                                            <Condition Binding="{Binding TemAvisoConsulta}" Value="False" />
-                                            <Condition Binding="{Binding TemSaldoAutorizacao}" Value="False" />
-                                            <Condition Binding="{Binding TemAvisoPendencias}" Value="False" />
-                                            <Condition Binding="{Binding TemAlertasElegibilidade}" Value="False" />
-                                        </MultiDataTrigger.Conditions>
-                                        <Setter Property="Visibility" Value="Hidden" />
-                                    </MultiDataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
+                    <StackPanel Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
 
-                        <StackPanel>
-                            <TextBlock Text="ANTES DE LANÇAR" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+                        <!-- ============ 2 · QUANDO (parcela 70) ============
+                             A escolha vira dois CARTÕES, e os campos de data/hora moram
+                             DENTRO dela — antes ficavam no cabeçalho da seção, longe do
+                             rádio que decide o que significam. -->
+                        <TextBlock Text="2 · QUANDO" Style="{StaticResource Rotulo}" Margin="0,20,0,0" />
+                        <Separator Margin="0,4,0,10" />
 
-                            <!-- A capa do que o paciente JÁ tem no dia escolhido (parcela
-                                 70): número, modalidade, quem lançou e as baixas — o aviso
-                                 de duplicidade que a cliente pediu, na ESCOLHA, antes do
-                                 clique. -->
-                            <Grid Visibility="{Binding TemAvisoJaLancado, Converter={StaticResource BoolParaVisibilidade}}"
-                                  Margin="0,0,0,7">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" CornerRadius="2"
-                                        Background="{StaticResource Brush.Semaforo.Vermelho}" />
-                                <TextBlock Grid.Column="1" Text="{Binding AvisoJaLancado}"
-                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                            </Grid>
-
-                            <Grid Visibility="{Binding TemAvisoCarteirinha, Converter={StaticResource BoolParaVisibilidade}}"
-                                  Margin="0,0,0,7">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" CornerRadius="2"
-                                        Background="{StaticResource Brush.Semaforo.Vermelho}" />
-                                <TextBlock Grid.Column="1" Text="{Binding AvisoCarteirinha}"
-                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                            </Grid>
-
-                            <Grid Visibility="{Binding TemAvisoConsulta, Converter={StaticResource BoolParaVisibilidade}}"
-                                  Margin="0,0,0,7">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" CornerRadius="2">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding ConsultaVencida}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                </Border>
-                                <TextBlock Grid.Column="1" Text="{Binding AvisoConsulta}"
-                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                            </Grid>
-
-                            <Grid Visibility="{Binding TemSaldoAutorizacao, Converter={StaticResource BoolParaVisibilidade}}"
-                                  Margin="0,0,0,7">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" CornerRadius="2">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Verde}" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding AutorizacaoNaUltima}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding AutorizacaoCritica}" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                </Border>
-                                <TextBlock Grid.Column="1" Text="{Binding SaldoAutorizacao}"
-                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                            </Grid>
-
-                            <Grid Visibility="{Binding TemAvisoPendencias, Converter={StaticResource BoolParaVisibilidade}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Border Grid.Column="0" CornerRadius="2"
-                                        Background="{StaticResource Brush.Semaforo.Amarelo}" />
-                                <TextBlock Grid.Column="1" Text="{Binding AvisoPendencias}"
-                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                            </Grid>
-
-                            <!-- Dívida vencida, guia glosada, pacote no fim, termo e
-                                 consentimento — o resto da elegibilidade, que o formulário
-                                 de agendamento substituído já mostrava (parcelas 26/48). A
-                                 urgência viaja com CADA alerta (parcela 36). -->
-                            <ItemsControl ItemsSource="{Binding AlertasElegibilidade}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,7">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="3" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" CornerRadius="2">
-                                                <Border.Style>
-                                                    <Style TargetType="Border">
-                                                        <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding Vermelho}" Value="True">
-                                                                <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </Border.Style>
-                                            </Border>
-                                            <TextBlock Grid.Column="1" Text="{Binding Descricao}"
-                                                       Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton GroupName="QuandoLancar" Style="{StaticResource CartaoQuando}"
+                                         IsChecked="{Binding LancarAgora}" Width="360" Margin="0,0,12,0"
+                                         VerticalAlignment="Stretch">
+                                <StackPanel>
+                                    <TextBlock Text="O paciente está aqui" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource TextoSuave}"
+                                               Text="Lançar agora — entra como encaixe com o check-in feito." />
+                                </StackPanel>
+                            </RadioButton>
+                            <RadioButton GroupName="QuandoLancar" Style="{StaticResource CartaoQuando}"
+                                         IsChecked="{Binding MarcarParaDepois}" Width="360"
+                                         IsEnabled="{Binding PodeMarcar}" VerticalAlignment="Stretch">
+                                <StackPanel>
+                                    <TextBlock Text="Marcar dia e horário" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                    <TextBlock Style="{StaticResource TextoSuave}"
+                                               Text="O paciente não está aqui — o horário entra na agenda." />
+                                </StackPanel>
+                            </RadioButton>
                         </StackPanel>
-                    </Border>
-                </Grid>
-
-                <!-- ============ 2 · O QUE FOI FEITO ============ -->
-                <StackPanel Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
-
-                    <Grid Margin="0,20,0,0">
-                        <TextBlock Text="{Binding TituloPasso2}" Style="{StaticResource Rotulo}"
-                                   VerticalAlignment="Center" Margin="0" />
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                    VerticalAlignment="Center">
-                            <TextBlock Text="Data" Style="{StaticResource Rotulo}"
-                                       VerticalAlignment="Center" Margin="0,0,8,0" />
-                            <DatePicker SelectedDate="{Binding Data}" Width="150"
-                                        VerticalAlignment="Center" />
-                            <!-- A HORA existe desde a parcela 60: o avulso marca um encaixe
-                                 de verdade, e encaixe sem hora não é encaixe. Antes o
-                                 sistema carimbava 9h fixo, porque `Atendimento` só guarda a
-                                 data — e o horário aparecia na agenda dos médicos num
-                                 momento em que ninguém foi atendido. -->
-                            <TextBlock Text="Hora" Style="{StaticResource Rotulo}"
-                                       VerticalAlignment="Center" Margin="14,0,8,0" />
-                            <!-- 110 e não 80: o campo tem 12px de padding por lado (Padding.Campo),
-                                 e "00:00" nos 56px restantes saía cortado na escala de fonte do
-                                 balcão — o cliente mandou a foto do "12:4…". -->
-                            <TextBox Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
-                                     Width="110" MaxLength="5" TextAlignment="Center"
-                                     VerticalAlignment="Center"
-                                     ToolTip="Hora da sessão — do encaixe de agora ou do horário marcado." />
-                        </StackPanel>
-                    </Grid>
-                    <Separator Margin="0,4,0,10" />
-
-                    <!-- ============ QUANDO (parcela 70) ============
-                         A unificação pedida pela direção: criar horário mora AQUI, e a
-                         agenda mostra/mexe no que existe. O rádio decide o destino do
-                         clique — encaixe com check-in agora, ou horário marcado. -->
-                    <StackPanel Margin="0,2,0,14">
-                        <RadioButton GroupName="QuandoLancar" IsChecked="{Binding LancarAgora}"
-                                     Content="O paciente está aqui — lançar agora" />
-                        <RadioButton GroupName="QuandoLancar" IsChecked="{Binding MarcarParaDepois}"
-                                     IsEnabled="{Binding PodeMarcar}" Margin="0,6,0,0"
-                                     Content="Marcar dia e horário (o paciente não está aqui)" />
-                        <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap" Margin="24,2,0,0"
+                        <TextBlock Style="{StaticResource TextoSuave}" Margin="0,4,0,0"
                                    Text="Marcar horário exige a permissão de agenda — peça à direção em Acessos."
                                    Visibility="{Binding NaoPodeMarcar, Converter={StaticResource BoolParaVisibilidade}}" />
 
-                        <StackPanel Margin="24,8,0,0"
-                                    Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                       Text="{Binding NotaGuiaNaMarcacao}" />
+                        <!-- Data e hora valem para os DOIS modos (no lançar agora, mudar a
+                             data é o registro retroativo de sempre). Duração, sala, série e
+                             encaixe só existem no modo marcar. -->
+                        <WrapPanel Margin="0,12,0,0">
+                            <StackPanel Width="160" Margin="0,0,14,8">
+                                <TextBlock Text="Data" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <DatePicker SelectedDate="{Binding Data}" />
+                            </StackPanel>
+                            <StackPanel Width="110" Margin="0,0,14,8">
+                                <TextBlock Text="Hora" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <!-- 110 e não 80: o campo tem 12px de padding por lado, e "00:00"
+                                     nos 56px restantes saía cortado na escala de fonte do balcão —
+                                     o cliente mandou a foto do "12:4…". -->
+                                <TextBox Text="{Binding Hora, UpdateSourceTrigger=PropertyChanged}"
+                                         MaxLength="5" TextAlignment="Center"
+                                         ToolTip="Hora da sessão — do encaixe de agora ou do horário marcado." />
+                            </StackPanel>
+                            <StackPanel Width="130" Margin="0,0,14,8"
+                                        Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="Duração (min)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding Duracao, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="Vazio usa a duração padrão do profissional." />
+                            </StackPanel>
+                            <StackPanel Width="210" Margin="0,0,14,8"
+                                        Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="Sala" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding Salas}" SelectedItem="{Binding Sala}"
+                                          DisplayMemberPath="Nome"
+                                          ctrl:Ajudantes.Placeholder="Opcional" />
+                            </StackPanel>
+                            <CheckBox IsChecked="{Binding EmSerie}" Margin="4,0,0,8"
+                                      VerticalAlignment="Bottom" Height="36"
+                                      Content="Repetir — marcar várias sessões de uma vez"
+                                      Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}" />
+                        </WrapPanel>
 
-                            <WrapPanel Margin="0,8,0,0">
-                                <StackPanel Width="150" Margin="0,0,14,8">
-                                    <TextBlock Text="Duração (min)" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding Duracao, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="Vazio usa a duração padrão do profissional." />
+                        <StackPanel Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}">
+
+                            <WrapPanel Margin="24,0,0,0"
+                                       Visibility="{Binding EmSerie, Converter={StaticResource BoolParaVisibilidade}}">
+                                <StackPanel Width="120" Margin="0,0,14,8">
+                                    <TextBlock Text="Sessões" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding QuantidadeSessoes, UpdateSourceTrigger=PropertyChanged}" />
                                 </StackPanel>
-                                <StackPanel Width="230" Margin="0,0,14,8">
-                                    <TextBlock Text="Sala" Style="{StaticResource Rotulo}" />
-                                    <ComboBox ItemsSource="{Binding Salas}" SelectedItem="{Binding Sala}"
-                                              DisplayMemberPath="Nome"
-                                              ctrl:Ajudantes.Placeholder="Opcional" />
+                                <StackPanel Width="140" Margin="0,0,14,8">
+                                    <TextBlock Text="A cada (dias)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                    <TextBox Text="{Binding IntervaloDias, UpdateSourceTrigger=PropertyChanged}"
+                                             ToolTip="7 = toda semana, na mesma hora." />
                                 </StackPanel>
+                                <TextBlock Style="{StaticResource TextoSuave}" MaxWidth="420"
+                                           VerticalAlignment="Center"
+                                           Text="A série sai sempre da primeira data mais N períodos; data com choque é pulada e dita." />
                             </WrapPanel>
 
                             <!-- Sem profissional NÃO é sorteio: marca-se assim mesmo, com o
-                                 custo escrito — o horário some do "Meu dia" de todo mundo e
-                                 fica fora do repasse (os dois leem o agendamento). -->
-                            <Grid Margin="0,2,0,6"
+                                 custo escrito — o horário some do quadro de todo mundo e fica
+                                 fora do repasse. -->
+                            <Grid Margin="0,2,0,6" MaxWidth="820" HorizontalAlignment="Left"
                                   Visibility="{Binding SemProfissionalEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="3" />
@@ -421,14 +279,14 @@
                                            Text="Sem profissional: o horário não aparece no quadro de ninguém e fica fora do repasse. Escolha em &quot;Quem atende&quot;, abaixo — o sistema não sorteia." />
                             </Grid>
 
-                            <!-- O choque criticado A CADA TECLA, com a MESMA leitura que o
-                                 serviço usa para recusar — a dica estática da parcela 51
-                                 pelo avesso: aqui o aviso nasce vivo. -->
+                            <!-- O choque criticado A CADA TECLA, pela MESMA leitura que o
+                                 serviço usa para recusar (parcela 51, a dica que virou
+                                 crítica). -->
                             <ItemsControl ItemsSource="{Binding ConflitosMarcacao}"
                                           Visibility="{Binding TemConflitoMarcacao, Converter={StaticResource BoolParaVisibilidade}}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Margin="0,0,0,4">
+                                        <Grid Margin="0,0,0,4" MaxWidth="820" HorizontalAlignment="Left">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="3" />
                                                 <ColumnDefinition Width="*" />
@@ -444,444 +302,629 @@
                             <CheckBox IsChecked="{Binding ComoEncaixe}" Margin="0,2,0,0"
                                       Content="Marcar mesmo assim, como encaixe (atender por cima do choque)"
                                       Visibility="{Binding TemConflitoMarcacao, Converter={StaticResource BoolParaVisibilidade}}" />
+                        </StackPanel>
 
-                            <CheckBox IsChecked="{Binding EmSerie}" Margin="0,10,0,0"
-                                      Content="Repetir — marcar várias sessões de uma vez" />
-                            <WrapPanel Margin="24,6,0,0"
-                                       Visibility="{Binding EmSerie, Converter={StaticResource BoolParaVisibilidade}}">
-                                <StackPanel Width="130" Margin="0,0,14,8">
-                                    <TextBlock Text="Sessões" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding QuantidadeSessoes, UpdateSourceTrigger=PropertyChanged}" />
+                        <!-- ============ 3 · O QUE SERÁ/FOI FEITO ============ -->
+                        <TextBlock Text="{Binding TituloPasso2}" Style="{StaticResource Rotulo}" Margin="0,20,0,0" />
+                        <Separator Margin="0,4,0,10" />
+
+                        <!-- Os cartões em LINHA. `Height` FIXA, não `MinHeight`: num WrapPanel
+                             cada filho fica com a altura que pede, e um nome que quebra em duas
+                             linhas deixava a fileira com a base serrilhada. -->
+                        <ItemsControl ItemsSource="{Binding Cartoes}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <!-- WrapPanel e não UniformGrid: numa clínica que cadastrou
+                                         variantes de modalidade a lista passa de cinco, e o
+                                         UniformGrid espremeria todas numa linha até o texto
+                                         virar reticências. -->
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <!-- `Foreground` e `FontWeight` explícitos: o estilo implícito
+                                         de Button é o PRIMÁRIO (fundo de acento, texto invertido),
+                                         e Foreground é propriedade HERDADA — sem isto o nome da
+                                         modalidade sairia branco sobre a superfície branca do
+                                         cartão, visível só para quem abre a tela. -->
+                                    <Button Width="200" Height="130" Margin="0,0,10,10"
+                                            HorizontalContentAlignment="Stretch"
+                                            Foreground="{StaticResource Brush.Texto.Primario}"
+                                            FontWeight="Normal"
+                                            Command="{Binding DataContext.EscolherModalidadeCommand,
+                                                      RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="cx" Padding="14,12"
+                                                        Background="{StaticResource Brush.Superficie}"
+                                                        BorderBrush="{StaticResource Brush.Borda}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="{StaticResource Raio.Medio}">
+                                                    <DockPanel>
+                                                        <!-- O número de guias em BAIXO, grande: é a
+                                                             consequência, e é o que o olho procura
+                                                             ao comparar as opções. -->
+                                                        <StackPanel DockPanel.Dock="Bottom">
+                                                            <TextBlock Text="{Binding QuantasGuias}"
+                                                                       Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                            <TextBlock x:Name="quando" Text="{Binding Quando}"
+                                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                                       Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                       TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+
+                                                        <StackPanel>
+                                                            <!-- Teto de duas linhas: sem ele, o nome de uma
+                                                                 modalidade personalizada empurra o número de
+                                                                 guias para fora do cartão de altura fixa. -->
+                                                            <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
+                                                                       TextWrapping="Wrap"
+                                                                       MaxHeight="38"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <!-- Ataca o erro mais comum do balcão: lançar a
+                                                                 modalidade errada por distração num paciente
+                                                                 que faz a mesma coisa há quarenta sessões. -->
+                                                            <TextBlock Text="o de sempre dele"
+                                                                       FontSize="{StaticResource Fonte.Legenda}"
+                                                                       Foreground="{StaticResource Brush.Acento}"
+                                                                       Margin="0,2,0,0"
+                                                                       Visibility="{Binding EhHabitual,
+                                                                                    Converter={StaticResource BoolParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                        </StackPanel>
+                                                    </DockPanel>
+                                                </Border>
+
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="cx" Property="BorderBrush"
+                                                                Value="{StaticResource Brush.Borda.Hover}" />
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding Escolhida}" Value="True">
+                                                        <Setter TargetName="cx" Property="BorderBrush"
+                                                                Value="{StaticResource Brush.Acento}" />
+                                                        <Setter TargetName="cx" Property="BorderThickness" Value="2" />
+                                                        <Setter TargetName="cx" Property="Background"
+                                                                Value="{StaticResource Brush.Acento.Suave}" />
+                                                        <Setter TargetName="cx" Property="Padding" Value="13,11" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding TemSegundoCodigo}" Value="True">
+                                                        <Setter TargetName="quando" Property="Foreground"
+                                                                Value="{StaticResource Brush.Aviso}" />
+                                                        <Setter TargetName="quando" Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Os campos do passo, com LARGURA DE CONTEÚDO — nada estica a
+                             tela inteira. Especialidade e "qual código primeiro" só
+                             aparecem quando a modalidade escolhida os pede. -->
+                        <WrapPanel Margin="0,4,0,0">
+                            <StackPanel Width="280" Margin="0,0,14,8"
+                                        Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding Especialidades}"
+                                          SelectedItem="{Binding EspecialidadeSelecionada}"
+                                          DisplayMemberPath="Nome" />
+                                <TextBlock Style="{StaticResource TextoSuave}"
+                                           Text="Fica registrada na guia e nos relatórios." />
+                            </StackPanel>
+
+                            <StackPanel Width="280" Margin="0,0,14,8"
+                                        Visibility="{Binding ModalidadeDupla, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="Qual código libera primeiro?" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding OpcoesPrimeiroCodigo}"
+                                          SelectedItem="{Binding PrimeiroCodigo}"
+                                          ItemTemplate="{StaticResource ItemRotuloEnum}" />
+                                <TextBlock Style="{StaticResource TextoSuave}"
+                                           Text="O outro vira o 2º código, previsto para +24h." />
+                            </StackPanel>
+
+                            <!-- QUEM ATENDE. Não é campo de conferência: é o que liga a sessão
+                                 ao médico. Sem ele o horário nasce órfão — some do "Meu dia" e
+                                 da "Minha semana" do consultório e fica de fora do repasse. -->
+                            <StackPanel Width="300" Margin="0,0,14,8">
+                                <TextBlock Text="Quem atende" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding Profissionais}"
+                                          SelectedItem="{Binding Profissional}"
+                                          DisplayMemberPath="Rotulo"
+                                          ctrl:Ajudantes.Placeholder="Escolha o profissional" />
+                                <TextBlock Style="{StaticResource TextoSuave}"
+                                           Text="Aparece no app de quem atende e entra no repasse."
+                                           Visibility="{Binding TemProfissionaisCadastrados,
+                                                        Converter={StaticResource BoolParaVisibilidade}}" />
+                                <TextBlock Style="{StaticResource TextoSuave}"
+                                           Text="Nenhum profissional ativo cadastrado — a sessão sai sem dono e não aparece no app de quem atende. Cadastre em Profissionais e salas."
+                                           Visibility="{Binding SemProfissionaisCadastrados,
+                                                        Converter={StaticResource BoolParaVisibilidade}}" />
+                            </StackPanel>
+
+                            <StackPanel Width="460" Margin="0,0,0,8">
+                                <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"
+                                         MinHeight="36" MaxHeight="96" VerticalScrollBarVisibility="Auto"
+                                         ctrl:Ajudantes.Placeholder="Opcional — fica no atendimento e na capa." />
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <!-- ============ Lançado / marcado ============ -->
+                        <StackPanel Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}">
+                            <Border Style="{StaticResource AlertaSucesso}" Margin="0,16,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <!-- "lançado" e "marcado para 21/08" são desfechos diferentes,
+                                             e o título vem pronto do VM (parcela 70). -->
+                                        <TextBlock Text="{Binding TituloResultado}"
+                                                   FontWeight="Bold" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                        <TextBlock Text="{Binding ResumoBaixas}" TextWrapping="Wrap"
+                                                   HorizontalAlignment="Left"
+                                                   FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="Capa inicial (PDF)"
+                                            VerticalAlignment="Center" MinHeight="36"
+                                            Style="{StaticResource BotaoSecundario}"
+                                            Command="{Binding GerarCapaCommand}" />
+                                </Grid>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock Text="Guias geradas" Style="{StaticResource H3}" Margin="0,0,0,10" />
+
+                                    <ItemsControl ItemsSource="{Binding CodigosGerados}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,10">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="126" />
+                                                        <ColumnDefinition Width="52" />
+                                                        <ColumnDefinition Width="106" />
+                                                        <ColumnDefinition Width="176" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                        <TextBlock Text="{Binding TipoRotulo}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                        <TextBlock x:Name="sit" Text="{Binding Situacao}"
+                                                                   TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                                   FontSize="{StaticResource Fonte.Legenda}"
+                                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                                   Margin="0,2,0,0" />
+                                                    </StackPanel>
+
+                                                    <TextBlock Grid.Column="1" Text="{Binding EspecialidadeRotulo}"
+                                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding OrdemRotulo}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="3" Text="{Binding FaturarEm}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="4" Text="{Binding ComoObter}"
+                                                               VerticalAlignment="Center" TextWrapping="Wrap"
+                                                               HorizontalAlignment="Left" />
+
+                                                </Grid>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding TemImpedimento}" Value="True">
+                                                        <Setter TargetName="sit" Property="Foreground"
+                                                                Value="{StaticResource Brush.Aviso}" />
+                                                        <Setter TargetName="sit" Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding Baixado}" Value="True">
+                                                        <Setter TargetName="sit" Property="Foreground"
+                                                                Value="{StaticResource Brush.Sucesso.Forte}" />
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <ItemsControl ItemsSource="{Binding Avisos}" Margin="0,4,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,6">
+                                                    <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
                                 </StackPanel>
-                                <StackPanel Width="150" Margin="0,0,14,8">
-                                    <TextBlock Text="A cada (dias)" Style="{StaticResource Rotulo}" />
-                                    <TextBox Text="{Binding IntervaloDias, UpdateSourceTrigger=PropertyChanged}"
-                                             ToolTip="7 = toda semana, na mesma hora." />
-                                </StackPanel>
-                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           MaxWidth="420" VerticalAlignment="Center"
-                                           Text="A série sai sempre da primeira data mais N períodos; data com choque é pulada e dita." />
-                            </WrapPanel>
+                            </Border>
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Os cartões em LINHA — é o que a tela cheia dá e a faixa lateral não
-                         dava: largura. Na coluna de 420 px eles ficavam empilhados, com
-                         rolagem, e a quinta opção nascia fora da vista.
-
-                         `Height` FIXA, não `MinHeight`: num WrapPanel cada filho fica com a
-                         altura que pede, então um nome que quebra em duas linhas deixava o
-                         cartão mais alto que os vizinhos e a fileira saía com a base
-                         serrilhada. -->
-                    <ItemsControl ItemsSource="{Binding Cartoes}">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <!-- WrapPanel e não UniformGrid: numa clínica que cadastrou
-                                     variantes de modalidade a lista passa de cinco, e o
-                                     UniformGrid espremeria todas numa linha até o texto
-                                     virar reticências. -->
-                                <WrapPanel />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <!-- `Foreground` e `FontWeight` explícitos: o estilo implícito
-                                     de Button é o PRIMÁRIO (fundo de acento, texto invertido),
-                                     e Foreground é propriedade HERDADA — sem isto o nome da
-                                     modalidade sairia branco sobre a superfície branca do
-                                     cartão, visível só para quem abre a tela. -->
-                                <Button Width="210" Height="132" Margin="0,0,10,10"
-                                        HorizontalContentAlignment="Stretch"
-                                        Foreground="{StaticResource Brush.Texto.Primario}"
-                                        FontWeight="Normal"
-                                        Command="{Binding DataContext.EscolherModalidadeCommand,
-                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                        CommandParameter="{Binding}">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <Border x:Name="cx" Padding="14,12"
-                                                    Background="{StaticResource Brush.Superficie}"
-                                                    BorderBrush="{StaticResource Brush.Borda}"
-                                                    BorderThickness="1"
-                                                    CornerRadius="{StaticResource Raio.Medio}">
-                                                <DockPanel>
-                                                    <!-- O número de guias em BAIXO, grande: é a
-                                                         consequência, e é o que o olho procura
-                                                         ao comparar as opções. -->
-                                                    <StackPanel DockPanel.Dock="Bottom">
-                                                        <TextBlock Text="{Binding QuantasGuias}"
-                                                                   Style="{StaticResource H3}" Margin="0" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                        <TextBlock x:Name="quando" Text="{Binding Quando}"
-                                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                                   Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                                   TextWrapping="Wrap" HorizontalAlignment="Left"
-                                                                   TextTrimming="CharacterEllipsis" />
-                                                    </StackPanel>
-
-                                                    <StackPanel>
-                                                        <!-- Teto de duas linhas: sem ele, o
-                                                             nome de uma modalidade
-                                                             personalizada empurra o número
-                                                             de guias para fora do cartão de
-                                                             altura fixa, e o que o olho
-                                                             procura some. -->
-                                                        <TextBlock Text="{Binding Nome}" FontWeight="SemiBold"
-                                                                   TextWrapping="Wrap"
-                                                                   MaxHeight="38"
-                                                                   TextTrimming="CharacterEllipsis" />
-                                                        <!-- Ataca o erro mais comum do balcão:
-                                                             lançar a modalidade errada por
-                                                             distração num paciente que faz a
-                                                             mesma coisa há quarenta sessões. -->
-                                                        <TextBlock Text="o de sempre dele"
-                                                                   FontSize="{StaticResource Fonte.Legenda}"
-                                                                   Foreground="{StaticResource Brush.Acento}"
-                                                                   Margin="0,2,0,0"
-                                                                   Visibility="{Binding EhHabitual,
-                                                                                Converter={StaticResource BoolParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                    </StackPanel>
-                                                </DockPanel>
-                                            </Border>
-
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="cx" Property="BorderBrush"
-                                                            Value="{StaticResource Brush.Borda.Hover}" />
-                                                </Trigger>
-                                                <DataTrigger Binding="{Binding Escolhida}" Value="True">
-                                                    <Setter TargetName="cx" Property="BorderBrush"
-                                                            Value="{StaticResource Brush.Acento}" />
-                                                    <Setter TargetName="cx" Property="BorderThickness" Value="2" />
-                                                    <Setter TargetName="cx" Property="Background"
-                                                            Value="{StaticResource Brush.Acento.Suave}" />
-                                                    <Setter TargetName="cx" Property="Padding" Value="13,11" />
-                                                </DataTrigger>
-                                                <DataTrigger Binding="{Binding TemSegundoCodigo}" Value="True">
-                                                    <Setter TargetName="quando" Property="Foreground"
-                                                            Value="{StaticResource Brush.Aviso}" />
-                                                    <Setter TargetName="quando" Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                </Button>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <!-- Especialidade e "qual código primeiro": aparecem só quando a
-                         modalidade escolhida os pede. -->
-                    <Grid Margin="0,4,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Grid.Column="0" Margin="0,0,10,0"
-                                    Visibility="{Binding ModalidadeConsulta, Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Especialidade da consulta" Style="{StaticResource Rotulo}" />
-                            <ComboBox ItemsSource="{Binding Especialidades}"
-                                      SelectedItem="{Binding EspecialidadeSelecionada}"
-                                      DisplayMemberPath="Nome" />
-                            <TextBlock Style="{StaticResource TextoSuave}"
-                                       Text="Fica registrada na guia e nos relatórios." />
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1"
-                                    Visibility="{Binding ModalidadeDupla, Converter={StaticResource BoolParaVisibilidade}}">
-                            <TextBlock Text="Qual código o convênio libera primeiro (hoje)?"
-                                       Style="{StaticResource Rotulo}" />
-                            <ComboBox ItemsSource="{Binding OpcoesPrimeiroCodigo}"
-                                      SelectedItem="{Binding PrimeiroCodigo}"
-                                      ItemTemplate="{StaticResource ItemRotuloEnum}" />
-                            <TextBlock Style="{StaticResource TextoSuave}"
-                                       Text="O outro vira o 2º código, previsto para +24h." />
-                        </StackPanel>
+                    <!-- ============ Lançados hoje ============
+                         A conferência do fim do dia: quem lança é quem confere, e antes
+                         não havia onde conferir sem abrir o app de faturamento. -->
+                    <Grid Margin="0,26,0,0">
+                        <TextBlock Text="LANÇADOS HOJE" Style="{StaticResource Rotulo}"
+                                   VerticalAlignment="Center" Margin="0" />
+                        <Button Content="Atualizar" HorizontalAlignment="Right"
+                                VerticalAlignment="Center" MinHeight="30" MinWidth="96"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding CarregarDoDiaCommand}" />
                     </Grid>
+                    <Separator Margin="0,4,0,10" />
 
-                    <!-- QUEM ATENDEU. Não é campo de conferência: é o que liga a sessão
-                         ao médico. Sem ele o horário nasce órfão, e horário órfão some do
-                         "Meu dia" e da "Minha semana" do consultório (os dois filtram por
-                         profissional) e fica de fora do repasse — que lê quem atendeu do
-                         AGENDAMENTO, porque o atendimento não guarda profissional. -->
-                    <TextBlock Text="Quem atendeu" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
-                    <ComboBox ItemsSource="{Binding Profissionais}"
-                              SelectedItem="{Binding Profissional}"
-                              DisplayMemberPath="Rotulo"
-                              ctrl:Ajudantes.Placeholder="Escolha o profissional" />
-                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                               Text="É o que faz esta sessão aparecer no app de quem atende e entrar no repasse dele."
-                               Visibility="{Binding TemProfissionaisCadastrados,
-                                            Converter={StaticResource BoolParaVisibilidade}}" />
-                    <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                               Text="Nenhum profissional ativo cadastrado — a sessão será lançada sem dono, e não aparecerá no app de quem atende. Cadastre em Profissionais e salas."
-                               Visibility="{Binding SemProfissionaisCadastrados,
-                                            Converter={StaticResource BoolParaVisibilidade}}" />
-
-                    <TextBlock Text="Observações" Style="{StaticResource Rotulo}" Margin="0,10,0,0" />
-                    <TextBox Text="{Binding Observacoes}" AcceptsReturn="True" TextWrapping="Wrap"
-                             MinHeight="52" MaxHeight="96" VerticalScrollBarVisibility="Auto"
-                             ctrl:Ajudantes.Placeholder="Opcional — fica no atendimento e na capa." />
-
-                    <!-- ============ 3 · O QUE VAI SAIR ============ -->
-                    <TextBlock Text="3 · O QUE VAI SAIR" Style="{StaticResource Rotulo}" Margin="0,20,0,0"
-                               Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                    <Separator Margin="0,4,0,10"
-                               Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}" />
-
-                    <Border Style="{StaticResource Card}"
-                            Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}">
-                        <StackPanel>
-                            <Border Background="{StaticResource Brush.Acento.Suave}"
-                                    CornerRadius="{StaticResource Raio.Medio}"
-                                    Padding="12,10" Margin="0,0,0,12">
-                                <StackPanel>
-                                    <TextBlock Text="PRÉVIA — NADA FOI GRAVADO AINDA"
-                                               Style="{StaticResource Rotulo}" Margin="0" />
-                                    <TextBlock Text="{Binding ResumoPrevia}" TextWrapping="Wrap"
-                                               HorizontalAlignment="Left" Margin="0,4,0,0" />
-                                </StackPanel>
-                            </Border>
-
-                            <ItemsControl ItemsSource="{Binding Previa}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="3" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="52" />
-                                                <ColumnDefinition Width="106" />
-                                                <ColumnDefinition Width="176" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <Border x:Name="traco" Grid.Column="0" CornerRadius="2"
-                                                    Background="{StaticResource Brush.Semaforo.Verde}" />
-
-                                            <StackPanel Grid.Column="1" Margin="10,0,8,0">
-                                                <TextBlock Text="{Binding Tipo}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                <TextBlock x:Name="nota" Text="{Binding Nota}"
-                                                           TextWrapping="Wrap" HorizontalAlignment="Left"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                           Margin="0,2,0,0" />
-                                            </StackPanel>
-
-                                            <TextBlock Grid.Column="2" Text="{Binding Ordem}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="3" Text="{Binding FaturarEm}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="4" Text="{Binding ComoObter}"
-                                                       VerticalAlignment="Center" TextWrapping="Wrap"
-                                                       HorizontalAlignment="Left" />
-
-                                        </Grid>
-                                        <DataTemplate.Triggers>
-                                            <DataTrigger Binding="{Binding EhSegundo}" Value="True">
-                                                <Setter TargetName="traco" Property="Background"
-                                                        Value="{StaticResource Brush.Semaforo.Amarelo}" />
-                                                <Setter TargetName="nota" Property="Foreground"
-                                                        Value="{StaticResource Brush.Aviso}" />
-                                                <Setter TargetName="nota" Property="FontWeight" Value="SemiBold" />
-                                            </DataTrigger>
-                                        </DataTemplate.Triggers>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
+                    <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,10"
+                            Visibility="{Binding TemAvisoRegistro, Converter={StaticResource BoolParaVisibilidade}}">
+                        <TextBlock Text="{Binding AvisoRegistro}" TextWrapping="Wrap" />
                     </Border>
-                </StackPanel>
 
-                <!-- ============ Lançado ============ -->
-                <StackPanel Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}">
-                    <Border Style="{StaticResource AlertaSucesso}" Margin="0,16,0,12">
+                    <Border Style="{StaticResource Card}" MinHeight="140">
                         <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
-                                <!-- "lançado" e "marcado para 21/08" são desfechos diferentes,
-                                     e o título vem pronto do VM (parcela 70). -->
-                                <TextBlock Text="{Binding TituloResultado}"
-                                           FontWeight="Bold" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                <TextBlock Text="{Binding ResumoBaixas}" TextWrapping="Wrap"
-                                           HorizontalAlignment="Left"
-                                           FontSize="{StaticResource Fonte.Legenda}" Margin="0,2,0,0" />
-                            </StackPanel>
-                            <Button Grid.Column="1" Content="Capa inicial (PDF)"
-                                    VerticalAlignment="Center" MinHeight="36"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    Command="{Binding GerarCapaCommand}" />
+                            <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                               Itens="{Binding LancadosHoje}"
+                                               Carregando="{Binding CarregandoDia}"
+                                               NaoVerificado="{Binding NaoVerificado}"
+                                               Glifo="&#xEB51;"
+                                               Titulo="Nenhum atendimento lançado hoje"
+                                               Descricao="O avulso e a marcação de hoje entram por aqui. Quem estava na agenda aparece na Fila." />
+
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Top" Margin="0,0,0,8"
+                                      Visibility="{Binding TemLancadosHoje, Converter={StaticResource BoolParaVisibilidade}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE / QUEM LANÇOU" Style="{StaticResource Rotulo}" Margin="0" />
+                                    <TextBlock Grid.Column="1" Text="GUIAS" Style="{StaticResource Rotulo}" Margin="0" />
+                                    <TextBlock Grid.Column="2" Text="ATENDIMENTO" Style="{StaticResource Rotulo}" Margin="0" />
+                                    <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                                </Grid>
+
+                                <ItemsControl ItemsSource="{Binding LancadosHoje}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="200" />
+                                                    <ColumnDefinition Width="130" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Modalidade}"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                    <!-- Quem lançou (parcela 58). A conferência do dia é
+                                                         onde a pergunta da direção nasce, e até aqui a
+                                                         resposta só existia na trilha de auditoria — em
+                                                         outra tela e em outro app. -->
+                                                    <TextBlock Text="{Binding Lancamento}"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+
+                                                <!-- A guia que falta é o assunto do produto: ela vem em
+                                                     âmbar aqui também, na conferência do fim do dia. -->
+                                                <StackPanel Grid.Column="1" Margin="0,0,8,0">
+                                                    <TextBlock Text="{Binding Guias}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    <TextBlock x:Name="pendente" Text="{Binding Pendencia}"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               Margin="0,2,0,0" />
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Column="2" Text="{Binding Numero}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+
+                                                <Border Grid.Column="3" Style="{StaticResource Badge}"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Convenio}" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                </Border>
+
+                                            </Grid>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding TemPendencia}" Value="True">
+                                                    <Setter TargetName="pendente" Property="Foreground"
+                                                            Value="{StaticResource Brush.Aviso}" />
+                                                    <Setter TargetName="pendente" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </DockPanel>
                         </Grid>
                     </Border>
 
-                    <Border Style="{StaticResource Card}">
-                        <StackPanel>
-                            <TextBlock Text="Guias geradas" Style="{StaticResource H3}" Margin="0,0,0,10" />
-
-                            <ItemsControl ItemsSource="{Binding CodigosGerados}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="126" />
-                                                <ColumnDefinition Width="52" />
-                                                <ColumnDefinition Width="106" />
-                                                <ColumnDefinition Width="176" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                <TextBlock Text="{Binding TipoRotulo}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                <TextBlock x:Name="sit" Text="{Binding Situacao}"
-                                                           TextWrapping="Wrap" HorizontalAlignment="Left"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                           Margin="0,2,0,0" />
-                                            </StackPanel>
-
-                                            <TextBlock Grid.Column="1" Text="{Binding EspecialidadeRotulo}"
-                                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="2" Text="{Binding OrdemRotulo}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="3" Text="{Binding FaturarEm}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Grid.Column="4" Text="{Binding ComoObter}"
-                                                       VerticalAlignment="Center" TextWrapping="Wrap"
-                                                       HorizontalAlignment="Left" />
-
-                                        </Grid>
-                                        <DataTemplate.Triggers>
-                                            <DataTrigger Binding="{Binding TemImpedimento}" Value="True">
-                                                <Setter TargetName="sit" Property="Foreground"
-                                                        Value="{StaticResource Brush.Aviso}" />
-                                                <Setter TargetName="sit" Property="FontWeight" Value="SemiBold" />
-                                            </DataTrigger>
-                                            <DataTrigger Binding="{Binding Baixado}" Value="True">
-                                                <Setter TargetName="sit" Property="Foreground"
-                                                        Value="{StaticResource Brush.Sucesso.Forte}" />
-                                            </DataTrigger>
-                                        </DataTemplate.Triggers>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-
-                            <ItemsControl ItemsSource="{Binding Avisos}" Margin="0,4,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Style="{StaticResource AlertaAviso}" Margin="0,0,0,6">
-                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" />
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </StackPanel>
-                    </Border>
                 </StackPanel>
+            </ScrollViewer>
 
-                <!-- ============ Lançados hoje ============
-                     A conferência do fim do dia, que não existia em lugar nenhum: quem
-                     lançava um avulso não tinha como revisar o que lançou sem abrir o app
-                     de faturamento, que é de outra pessoa. -->
-                <Grid Margin="0,26,0,0">
-                    <TextBlock Text="LANÇADOS HOJE" Style="{StaticResource Rotulo}"
-                               VerticalAlignment="Center" Margin="0" />
-                    <Button Content="Atualizar" HorizontalAlignment="Right"
-                            VerticalAlignment="Center" MinHeight="30" MinWidth="96"
-                            Style="{StaticResource BotaoSecundario}"
-                            Command="{Binding CarregarDoDiaCommand}" />
-                </Grid>
-                <Separator Margin="0,4,0,10" />
+            <!-- ============================================================
+                 COLUNA DA CONSEQUÊNCIA (fixa — não rola com o miolo)
+                 Avisos, prévia e o BOTÃO, sempre à vista: a ação fica ancorada no
+                 rodapé da coluna e o conteúdo rola por dentro quando faltar altura.
+                 ============================================================ -->
+            <Border Grid.Column="1" Width="420" Margin="0,0,24,20"
+                    Style="{StaticResource Card}"
+                    Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
+                <DockPanel>
 
-                <Border Style="{StaticResource AlertaPerigo}" Margin="0,0,0,10"
-                        Visibility="{Binding TemAvisoRegistro, Converter={StaticResource BoolParaVisibilidade}}">
-                    <TextBlock Text="{Binding AvisoRegistro}" TextWrapping="Wrap" />
-                </Border>
+                    <!-- A ação, ancorada. Quem decide se a MENSAGEM aparece é o texto;
+                         quem decide a cor é a gravidade (parcela 62). -->
+                    <StackPanel DockPanel.Dock="Bottom">
+                        <Separator Margin="0,10,0,10" />
+                        <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" Margin="0,0,0,10"
+                                   Visibility="{Binding TemMensagem, Converter={StaticResource BoolParaVisibilidade}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Sucesso}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding MensagemEhAviso}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Aviso}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Erro}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
 
-                <Border Style="{StaticResource Card}" MinHeight="140">
-                    <Grid>
-                        <ctrl:EstadoDaTela Panel.ZIndex="1"
-                                           Itens="{Binding LancadosHoje}"
-                                           Carregando="{Binding CarregandoDia}"
-                                           NaoVerificado="{Binding NaoVerificado}"
-                                           Glifo="&#xEB51;"
-                                           Titulo="Nenhum avulso lançado hoje"
-                                           Descricao="Quem chegou sem horário marcado entra por aqui. Quem estava na agenda aparece na Fila." />
+                        <!-- O rótulo DIZ o número e o modo: "Lançar e gerar 2 guias" /
+                             "Marcar e gerar 2 guias". Botão que promete o número é o que
+                             faz alguém perceber, antes de clicar, que escolheu errado. -->
+                        <Button Content="{Binding RotuloLancar}" MinHeight="44"
+                                Command="{Binding LancarCommand}"
+                                IsEnabled="{Binding PodeLancar}"
+                                ctrl:Ajudantes.EstaCarregando="{Binding Ocupado}">
+                            <Button.Style>
+                                <!-- A suíte não tem conversor de booleano invertido; o gatilho
+                                     faz o mesmo sem acrescentar chave ao design system. -->
+                                <Style TargetType="Button">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Lancado}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                        <Button Content="Lançar outro" MinHeight="44"
+                                Command="{Binding NovoLancamentoCommand}"
+                                Visibility="{Binding Lancado, Converter={StaticResource BoolParaVisibilidade}}" />
+                        <Button Content="Limpar" MinHeight="36" Margin="0,8,0,0"
+                                HorizontalAlignment="Left" MinWidth="110"
+                                Style="{StaticResource BotaoSecundario}"
+                                Command="{Binding NovoLancamentoCommand}" />
+                    </StackPanel>
 
-                        <DockPanel>
-                            <Grid DockPanel.Dock="Top" Margin="0,0,0,8"
-                                  Visibility="{Binding TemLancadosHoje, Converter={StaticResource BoolParaVisibilidade}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="200" />
-                                    <ColumnDefinition Width="130" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="PACIENTE / MODALIDADE / QUEM LANÇOU" Style="{StaticResource Rotulo}" Margin="0" />
-                                <TextBlock Grid.Column="1" Text="GUIAS" Style="{StaticResource Rotulo}" Margin="0" />
-                                <TextBlock Grid.Column="2" Text="ATENDIMENTO" Style="{StaticResource Rotulo}" Margin="0" />
-                                <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
-                            </Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
 
-                            <ItemsControl ItemsSource="{Binding LancadosHoje}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Margin="0,0,0,10">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="200" />
-                                                <ColumnDefinition Width="130" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
+                            <!-- ===== ANTES DE LANÇAR ===== -->
+                            <StackPanel>
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding TemAvisoJaLancado}" Value="False" />
+                                                    <Condition Binding="{Binding TemAvisoCarteirinha}" Value="False" />
+                                                    <Condition Binding="{Binding TemAvisoConsulta}" Value="False" />
+                                                    <Condition Binding="{Binding TemSaldoAutorizacao}" Value="False" />
+                                                    <Condition Binding="{Binding TemAvisoPendencias}" Value="False" />
+                                                    <Condition Binding="{Binding TemAlertasElegibilidade}" Value="False" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
 
-                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                <TextBlock Text="{Binding Paciente}" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Modalidade}"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
-                                                <!-- Quem lançou (parcela 58). A conferência do dia é
-                                                     onde a pergunta da direção nasce, e até aqui a
-                                                     resposta só existia na trilha de auditoria — em
-                                                     outra tela e em outro app. -->
-                                                <TextBlock Text="{Binding Lancamento}"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                           Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
+                                <TextBlock Text="ANTES DE LANÇAR" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
 
-                                            <!-- A guia que falta é o assunto do produto: ela vem em
-                                                 âmbar aqui também, na conferência do fim do dia. -->
-                                            <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                                                <TextBlock Text="{Binding Guias}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                <TextBlock x:Name="pendente" Text="{Binding Pendencia}"
-                                                           TextWrapping="Wrap" HorizontalAlignment="Left"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}"
-                                                           Margin="0,2,0,0" />
-                                            </StackPanel>
+                                <!-- A capa do que o paciente JÁ tem no dia escolhido (parcela
+                                     70): número, modalidade, quem lançou e as baixas — o aviso
+                                     de duplicidade na ESCOLHA, antes do clique. -->
+                                <Grid Visibility="{Binding TemAvisoJaLancado, Converter={StaticResource BoolParaVisibilidade}}"
+                                      Margin="0,0,0,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" CornerRadius="2"
+                                            Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding AvisoJaLancado}"
+                                               Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </Grid>
 
-                                            <TextBlock Grid.Column="2" Text="{Binding Numero}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                <Grid Visibility="{Binding TemAvisoCarteirinha, Converter={StaticResource BoolParaVisibilidade}}"
+                                      Margin="0,0,0,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" CornerRadius="2"
+                                            Background="{StaticResource Brush.Semaforo.Vermelho}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding AvisoCarteirinha}"
+                                               Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </Grid>
 
-                                            <Border Grid.Column="3" Style="{StaticResource Badge}"
-                                                    VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Convenio}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                            </Border>
+                                <Grid Visibility="{Binding TemAvisoConsulta, Converter={StaticResource BoolParaVisibilidade}}"
+                                      Margin="0,0,0,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" CornerRadius="2">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ConsultaVencida}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="{Binding AvisoConsulta}"
+                                               Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </Grid>
 
-                                        </Grid>
-                                        <DataTemplate.Triggers>
-                                            <DataTrigger Binding="{Binding TemPendencia}" Value="True">
-                                                <Setter TargetName="pendente" Property="Foreground"
-                                                        Value="{StaticResource Brush.Aviso}" />
-                                                <Setter TargetName="pendente" Property="FontWeight" Value="SemiBold" />
-                                            </DataTrigger>
-                                        </DataTemplate.Triggers>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </DockPanel>
-                    </Grid>
-                </Border>
+                                <Grid Visibility="{Binding TemSaldoAutorizacao, Converter={StaticResource BoolParaVisibilidade}}"
+                                      Margin="0,0,0,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" CornerRadius="2">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Verde}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding AutorizacaoNaUltima}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding AutorizacaoCritica}" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                    </Border>
+                                    <TextBlock Grid.Column="1" Text="{Binding SaldoAutorizacao}"
+                                               Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </Grid>
 
-            </StackPanel>
-        </ScrollViewer>
+                                <Grid Visibility="{Binding TemAvisoPendencias, Converter={StaticResource BoolParaVisibilidade}}"
+                                      Margin="0,0,0,7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Grid.Column="0" CornerRadius="2"
+                                            Background="{StaticResource Brush.Semaforo.Amarelo}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding AvisoPendencias}"
+                                               Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                </Grid>
+
+                                <!-- Dívida vencida, guia glosada, pacote no fim, termo e
+                                     consentimento — o resto da elegibilidade. A urgência viaja
+                                     com CADA alerta (parcela 36). -->
+                                <ItemsControl ItemsSource="{Binding AlertasElegibilidade}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,7">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="3" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" CornerRadius="2">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Vermelho}" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                </Border>
+                                                <TextBlock Grid.Column="1" Text="{Binding Descricao}"
+                                                           Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <Separator Margin="0,4,0,12" />
+                            </StackPanel>
+
+                            <!-- ===== O QUE VAI SAIR (a prévia, sempre à vista) ===== -->
+                            <StackPanel Visibility="{Binding TemPrevia, Converter={StaticResource BoolParaVisibilidade}}">
+                                <TextBlock Text="O QUE VAI SAIR" Style="{StaticResource Rotulo}" Margin="0,0,0,8" />
+
+                                <Border Background="{StaticResource Brush.Acento.Suave}"
+                                        CornerRadius="{StaticResource Raio.Medio}"
+                                        Padding="12,10" Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="PRÉVIA — NADA FOI GRAVADO AINDA"
+                                                   Style="{StaticResource Rotulo}" Margin="0" />
+                                        <TextBlock Text="{Binding ResumoPrevia}" TextWrapping="Wrap"
+                                                   HorizontalAlignment="Left" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Border>
+
+                                <ItemsControl ItemsSource="{Binding Previa}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,0,0,10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="3" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <Border x:Name="traco" Grid.Column="0" CornerRadius="2"
+                                                        Background="{StaticResource Brush.Semaforo.Verde}" />
+
+                                                <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                                    <TextBlock TextWrapping="Wrap" HorizontalAlignment="Left">
+                                                        <Run Text="{Binding Tipo, Mode=OneWay}" FontWeight="SemiBold" /><Run Text="  " /><Run Text="{Binding Ordem, Mode=OneWay}" Foreground="{StaticResource Brush.Texto.Secundario}" /><Run Text=" · " Foreground="{StaticResource Brush.Texto.Secundario}" /><Run Text="{Binding FaturarEm, Mode=OneWay}" Foreground="{StaticResource Brush.Texto.Secundario}" /><Run Text=" · " Foreground="{StaticResource Brush.Texto.Secundario}" /><Run Text="{Binding ComoObter, Mode=OneWay}" Foreground="{StaticResource Brush.Texto.Secundario}" />
+                                                    </TextBlock>
+                                                    <TextBlock x:Name="especialidade"
+                                                               Text="{Binding Especialidade}"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                                    <TextBlock x:Name="nota" Text="{Binding Nota}"
+                                                               TextWrapping="Wrap" HorizontalAlignment="Left"
+                                                               FontSize="{StaticResource Fonte.Legenda}"
+                                                               Foreground="{StaticResource Brush.Texto.Secundario}"
+                                                               Margin="0,2,0,0" />
+                                                </StackPanel>
+                                            </Grid>
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding EhSegundo}" Value="True">
+                                                    <Setter TargetName="traco" Property="Background"
+                                                            Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                    <Setter TargetName="nota" Property="Foreground"
+                                                            Value="{StaticResource Brush.Aviso}" />
+                                                    <Setter TargetName="nota" Property="FontWeight" Value="SemiBold" />
+                                                </DataTrigger>
+                                                <!-- Sem especialidade não há linha — "—" repetido em
+                                                     toda guia seria ruído na coluna estreita. -->
+                                                <DataTrigger Binding="{Binding Especialidade}" Value="—">
+                                                    <Setter TargetName="especialidade" Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <!-- O destino das guias no modo marcar, escrito ANTES do clique
+                                     (muda com a chave "guia no agendamento"). -->
+                                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
+                                           Text="{Binding NotaGuiaNaMarcacao}"
+                                           Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
     </DockPanel>
 </UserControl>

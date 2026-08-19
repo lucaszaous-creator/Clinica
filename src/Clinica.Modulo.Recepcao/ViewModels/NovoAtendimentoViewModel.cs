@@ -329,8 +329,11 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Título do resultado: "lançado" e "marcado para" são desfechos diferentes.</summary>
     [ObservableProperty] private string? _tituloResultado;
 
-    /// <summary>Cabeçalho do passo 2 — "FOI feito" mentiria sobre uma sessão marcada para semana que vem.</summary>
-    public string TituloPasso2 => MarcarParaDepois ? "2 · O QUE SERÁ FEITO" : "2 · O QUE FOI FEITO";
+    /// <summary>
+    /// Cabeçalho do passo da modalidade (o 3, desde que o QUANDO virou o passo 2 no
+    /// redesenho) — "FOI feito" mentiria sobre uma sessão marcada para semana que vem.
+    /// </summary>
+    public string TituloPasso2 => MarcarParaDepois ? "3 · O QUE SERÁ FEITO" : "3 · O QUE FOI FEITO";
 
     [ObservableProperty] private DateTime _data = DateTime.Today;
 
