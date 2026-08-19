@@ -186,10 +186,12 @@
                         <TextBlock Text="2 · QUANDO" Style="{StaticResource Rotulo}" Margin="0,20,0,0" />
                         <Separator Margin="0,4,0,10" />
 
-                        <StackPanel Orientation="Horizontal">
+                        <!-- WrapPanel, não StackPanel horizontal: o horizontal nunca dobra a
+                             linha, e numa janela estreita o segundo cartão sairia decepado
+                             pela borda, sem rolagem (a família das checagens 17/32). -->
+                        <WrapPanel>
                             <RadioButton GroupName="QuandoLancar" Style="{StaticResource CartaoQuando}"
-                                         IsChecked="{Binding LancarAgora}" Width="360" Margin="0,0,12,0"
-                                         VerticalAlignment="Stretch">
+                                         IsChecked="{Binding LancarAgora}" Width="360" Margin="0,0,12,8">
                                 <StackPanel>
                                     <TextBlock Text="O paciente está aqui" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource TextoSuave}"
@@ -197,15 +199,15 @@
                                 </StackPanel>
                             </RadioButton>
                             <RadioButton GroupName="QuandoLancar" Style="{StaticResource CartaoQuando}"
-                                         IsChecked="{Binding MarcarParaDepois}" Width="360"
-                                         IsEnabled="{Binding PodeMarcar}" VerticalAlignment="Stretch">
+                                         IsChecked="{Binding MarcarParaDepois}" Width="360" Margin="0,0,0,8"
+                                         IsEnabled="{Binding PodeMarcar}">
                                 <StackPanel>
                                     <TextBlock Text="Marcar dia e horário" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left" />
                                     <TextBlock Style="{StaticResource TextoSuave}"
                                                Text="O paciente não está aqui — o horário entra na agenda." />
                                 </StackPanel>
                             </RadioButton>
-                        </StackPanel>
+                        </WrapPanel>
                         <TextBlock Style="{StaticResource TextoSuave}" Margin="0,4,0,0"
                                    Text="Marcar horário exige a permissão de agenda — peça à direção em Acessos."
                                    Visibility="{Binding NaoPodeMarcar, Converter={StaticResource BoolParaVisibilidade}}" />
@@ -653,7 +655,12 @@
                  Avisos, prévia e o BOTÃO, sempre à vista: a ação fica ancorada no
                  rodapé da coluna e o conteúdo rola por dentro quando faltar altura.
                  ============================================================ -->
-            <Border Grid.Column="1" Width="420" Margin="0,0,24,20"
+            <!-- `VerticalAlignment="Top"`: o cartão abraça o conteúdo em vez de esticar a
+                 altura da janela — sem ele, um paciente sem aviso nenhum deixava um
+                 caixote branco vazio com os botões pendurados no fundo. O teto continua
+                 sendo a altura da janela: quando o conteúdo passa dela, o miolo rola por
+                 dentro e a ação segue à vista. -->
+            <Border Grid.Column="1" Width="420" Margin="12,0,24,20" VerticalAlignment="Top"
                     Style="{StaticResource Card}"
                     Visibility="{Binding PacienteEscolhido, Converter={StaticResource BoolParaVisibilidade}}">
                 <DockPanel>
@@ -915,12 +922,15 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
 
-                                <!-- O destino das guias no modo marcar, escrito ANTES do clique
-                                     (muda com a chave "guia no agendamento"). -->
-                                <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
-                                           Text="{Binding NotaGuiaNaMarcacao}"
-                                           Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}" />
                             </StackPanel>
+
+                            <!-- O destino das guias no modo marcar, escrito ANTES do clique
+                                 (muda com a chave "guia no agendamento"). FORA do bloco da
+                                 prévia de propósito: a frase vale mesmo quando a prévia
+                                 ainda está calculando ou não pôde ser lida. -->
+                            <TextBlock Style="{StaticResource TextoSuave}" Margin="0,2,0,0"
+                                       Text="{Binding NotaGuiaNaMarcacao}"
+                                       Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}" />
                         </StackPanel>
                     </ScrollViewer>
                 </DockPanel>
