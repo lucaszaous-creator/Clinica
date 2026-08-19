@@ -4187,3 +4187,20 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   com a elegibilidade completa (dívida, glosa, pacote, termo) que o formulário
   substituído já mostrava: **porta unificada não pode mostrar MENOS que a porta que
   aposentou.**
+  ⚠️ **A auditoria do GERENTE sob o regime novo — conferido e limpo, para a próxima
+  varredura não refazer** (parcela 70, depois do achado do repasse): todo leitor do
+  Gerente que responde "quantas sessões" filtra certo — `IndicadoresService` (Atendidos/
+  produtividade/ocupação/série mensal) e `RelacionamentoService` (padrão de falta) por
+  `Status == Realizado`; `CompletudeProntuario` divide evoluções por Atendidos
+  (Realizado); retenção e origem/estreia por `RealizadoEm` (Fase 3); metas/orçamento/
+  painel por dinheiro ou pelo serviço dono; a fila de pendências do Gerente pelo
+  `EstaPendente`, que exige a data prevista alcançada. E os relatórios por CÓDIGO
+  (`RelatorioService.PorConvenio`, rentabilidade) **contam a guia marcada quando o
+  período pedido inclui dias futuros — e isso é decisão, não defeito**: a guia existe e
+  pode ser baixada antecipadamente; filtrar pela data esconderia justamente a baixada
+  antecipada, que é falha exibida como sucesso. Período já encerrado sai exato (a
+  cancelada vira `NaoAplicavel` e o `CodigosNoPeriodoAsync` já a exclui). A chave em
+  Configurações do Gerente tem as duas barreiras (`GerenciarUsuarios` no item e no
+  `ExecutarAsync`), grava só quando MUDOU (ligar dispara o backfill, e repeti-lo a cada
+  Salvar escreveria a tabela inteira à toa) e o aviso na tela diz a ordem: atualizar os
+  cinco apps ANTES de ligar.
