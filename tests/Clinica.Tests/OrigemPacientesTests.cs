@@ -49,6 +49,7 @@ public class OrigemPacientesTests : IDisposable
             {
                 PacienteId = p.Id,
                 Data = data,
+                RealizadoEm = data.ToDateTime(TimeOnly.MinValue),
                 Modalidade = ModalidadeAtendimento.AcupunturaComEletro
             });
             await _db.SaveChangesAsync();
@@ -102,6 +103,7 @@ public class OrigemPacientesTests : IDisposable
         {
             PacienteId = veterana,
             Data = new DateOnly(2026, 2, 2),
+            RealizadoEm = new DateOnly(2026, 2, 2).ToDateTime(TimeOnly.MinValue),
             Modalidade = ModalidadeAtendimento.AcupunturaComEletro
         });
         await _db.SaveChangesAsync();

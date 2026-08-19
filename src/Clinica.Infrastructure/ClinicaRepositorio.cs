@@ -165,6 +165,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<ResumoAtendimentosPaciente>> ResumoAtendimentosPorPacienteAsync(
         CancellationToken ct = default)
         => await _db.Atendimentos.AsNoTracking()
+            // Só sessão que ACONTECEU (parcela 70): com a guia nascendo na marcação, a
+            // linha registrada não é mais sinônimo de visita — a marcada para o futuro
+            // ainda não visitou, e a cancelada nunca visitou ("cancelado não é visita").
+            .Where(a => a.RealizadoEm != null)
             .GroupBy(a => a.PacienteId)
             .Select(g => new { PacienteId = g.Key, Ultima = g.Max(a => a.Data), Total = g.Count() })
             .Join(_db.Pacientes.AsNoTracking(),
@@ -252,6 +256,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Codigos)
             .FirstOrDefaultAsync(a => a.Id == atendimentoId, ct);
 
+    public async Task MarcarAtendimentosSemCarimboComoRealizadosAsync(CancellationToken ct = default)
+    {
+        // Quem tem LancadoEm herda a hora real do lançamento; o resto recebe o momento da
+        // ativação — o VALOR importa pouco (os leitores ancoram em "não nulo"; período é
+        // sempre o da Data), o que não pode é a linha ficar de fora de "realizado".
+        await _db.Atendimentos
+            .Where(a => a.RealizadoEm == null && a.LancadoEm != null)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.RealizadoEm, a => a.LancadoEm), ct);
+        await _db.Atendimentos
+            .Where(a => a.RealizadoEm == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.RealizadoEm, DateTime.Now), ct);
+    }
+
     public async Task<IReadOnlyList<Paciente>> AniversariantesAsync(
         DateOnly dia, int janelaDias = 0, CancellationToken ct = default)
     {
@@ -309,6 +326,9 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
         CancellationToken ct = default)
     {
         var pares = await _db.Atendimentos.AsNoTracking()
+            // "Estreou" é sessão que ACONTECEU (parcela 70): marcada para o futuro ainda
+            // não estreou, e cancelada nunca estreou.
+            .Where(a => a.RealizadoEm != null)
             .GroupBy(a => a.PacienteId)
             .Select(g => new { g.Key, Primeira = g.Min(a => a.Data) })
             .ToListAsync(ct);
@@ -439,6 +459,17 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => _db.Atendimentos.CountAsync(a => a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim, ct);
+
+    public Task<int> ContarAtendimentosAtivosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        // A COTA conta o que consome a autorização (parcela 70): sessão realizada, guia
+        // aberta ou baixada — inclusive a MARCADA para o futuro, que é o alerta chegando
+        // na hora certa ("a 11ª sessão da autorização de 10 avisa na marcação"). Fica de
+        // fora a sessão cancelada/falta, cujas guias foram suspensas: contá-la faria a
+        // cota estourar por sessões que não aconteceram nem vão acontecer.
+        => _db.Atendimentos.CountAsync(a =>
+            a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim
+            && (a.RealizadoEm != null
+                || a.Codigos.Any(c => c.DataBaixa != null || c.Status == StatusCodigo.Aberto)), ct);
 
     public async Task RemoverFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
     {

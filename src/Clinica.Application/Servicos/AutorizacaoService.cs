@@ -54,7 +54,10 @@ public sealed class AutorizacaoService
     private async Task<SaldoAutorizacao> CalcularAsync(AutorizacaoSessoes a, DateOnly referencia, CancellationToken ct)
     {
         // Atendimentos dentro da vigência + o que já vinha usado de antes do controle.
-        var noPeriodo = await _repo.ContarAtendimentosDoPacienteAsync(a.PacienteId, a.DataEmissao, a.DataValidade, ct);
+        // A contagem é dos ATIVOS (parcela 70): com a guia nascendo na marcação, a sessão
+        // marcada para o futuro consome a cota — e é assim que o alerta da 11ª sessão
+        // chega na MARCAÇÃO, não na glosa; a cancelada/falta sai da conta.
+        var noPeriodo = await _repo.ContarAtendimentosAtivosDoPacienteAsync(a.PacienteId, a.DataEmissao, a.DataValidade, ct);
         var utilizadas = noPeriodo + a.QuantidadeUtilizadaManual;
         var restantes = a.QuantidadeAutorizada - utilizadas;
         return new SaldoAutorizacao(a, utilizadas, restantes, a.Vencida(referencia));

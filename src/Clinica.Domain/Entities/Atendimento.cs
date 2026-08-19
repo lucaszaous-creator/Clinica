@@ -48,6 +48,20 @@ public class Atendimento
     /// <summary>Quando foi lançado. Nulo nas linhas anteriores à parcela 58.</summary>
     public DateTime? LancadoEm { get; set; }
 
+    /// <summary>
+    /// Quando a SESSÃO aconteceu (a presença foi confirmada) — parcela 70.
+    ///
+    /// Com a guia nascendo na MARCAÇÃO (regime "guia no agendamento"), "existir
+    /// atendimento" deixou de significar "a sessão aconteceu": passou a significar "a
+    /// sessão está registrada". Todo leitor que quer dizer ACONTECEU — BI, rentabilidade,
+    /// origem dos pacientes, retenção — ancora aqui, nunca na existência da linha. Nulo =
+    /// sessão registrada e ainda não realizada (marcada para o futuro, ou cancelada). As
+    /// linhas anteriores à parcela recebem backfill na migration, e a ATIVAÇÃO da chave
+    /// repete o backfill — na janela de atualização o app antigo grava sem este carimbo,
+    /// e ligar a chave é o momento em que tudo o que existe é, por definição, realizado.
+    /// </summary>
+    public DateTime? RealizadoEm { get; set; }
+
 
     public List<CodigoFaturamento> Codigos { get; set; } = new();
 }

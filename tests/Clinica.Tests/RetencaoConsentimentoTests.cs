@@ -78,6 +78,7 @@ public class RetencaoConsentimentoTests : IDisposable
         {
             PacienteId = p.Id,
             Data = Hoje.AddDays(-diasSemVir),
+                RealizadoEm = Hoje.AddDays(-diasSemVir).ToDateTime(TimeOnly.MinValue),
             Modalidade = ModalidadeAtendimento.AcupunturaSimples
         });
         await _db.SaveChangesAsync();

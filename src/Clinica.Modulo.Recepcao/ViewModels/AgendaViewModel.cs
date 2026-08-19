@@ -1288,12 +1288,16 @@ public sealed partial class AgendaViewModel : ObservableObject
         await ExecutarAsync(async scope =>
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.CancelarAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
+            var avisos = await agenda.CancelarAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             // O horário acabou de vagar: a pergunta seguinte é sempre "quem eu chamo?",
             // e a lista já responde antes de alguém precisar perguntar.
             ApontarEsperaPara(cartao);
-            _snackbar.Info("Horário cancelado.");
+            // O destino das GUIAS (parcela 70) não pode passar calado: "suspensas" é
+            // rotina, mas "já baixada no portal" exige alguém ligar para o convênio.
+            _snackbar.Info(avisos.Count == 0
+                ? "Horário cancelado."
+                : "Horário cancelado. " + string.Join(" ", avisos));
         }, "cancelamento do horário");
     }
 
@@ -1307,10 +1311,12 @@ public sealed partial class AgendaViewModel : ObservableObject
         await ExecutarAsync(async scope =>
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.MarcarFaltaAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
+            var avisos = await agenda.MarcarFaltaAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             ApontarEsperaPara(cartao);
-            _snackbar.Info($"{cartao.Paciente} marcado como falta.");
+            _snackbar.Info(avisos.Count == 0
+                ? $"{cartao.Paciente} marcado como falta."
+                : $"{cartao.Paciente} marcado como falta. " + string.Join(" ", avisos));
         }, "marcação de falta");
     }
 

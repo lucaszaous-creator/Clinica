@@ -65,6 +65,22 @@ public interface IClinicaRepositorio
     /// <summary>Atendimento com paciente e códigos carregados (para gerar a capa de faturamento).</summary>
     Task<Atendimento?> ObterAtendimentoAsync(int atendimentoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Atendimentos que CONSOMEM a autorização do convênio no período (parcela 70):
+    /// sessão realizada, guia aberta ou baixada — a marcada para o futuro conta (é o
+    /// alerta de cota chegando na marcação), a cancelada/falta não.
+    /// </summary>
+    Task<int> ContarAtendimentosAtivosDoPacienteAsync(
+        int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Backfill do <c>Atendimento.RealizadoEm</c> na ATIVAÇÃO do regime "guia no
+    /// agendamento" (parcela 70): tudo o que ainda não tem o carimbo é, por definição,
+    /// sessão realizada — a chave nasce desligada e, desligada, não existe atendimento de
+    /// sessão futura. Cobre as linhas que um app antigo gravou depois da migration.
+    /// </summary>
+    Task MarcarAtendimentosSemCarimboComoRealizadosAsync(CancellationToken ct = default);
+
     // ---- Busca / ficha do paciente / faturados ----
 
     /// <summary>
