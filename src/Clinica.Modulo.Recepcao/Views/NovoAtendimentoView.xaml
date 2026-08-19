@@ -229,6 +229,28 @@
                                          MaxLength="5" TextAlignment="Center"
                                          ToolTip="Hora da sessão — do encaixe de agora ou do horário marcado." />
                             </StackPanel>
+                            <!-- QUEM ATENDE mora AQUI, na linha do QUANDO (correção que o
+                                 cliente pediu no teste): quem marca decide COM QUEM junto de
+                                 quando e onde — no passo 3 o campo ficava depois dos cartões
+                                 de modalidade, e a linha do horário só mostrava a sala, "desse
+                                 jeito não há repasse". Vale para os DOIS modos: no lançar
+                                 agora é quem atendeu; sem ele o horário some do "Meu dia" e
+                                 fica fora do repasse (os dois leem o agendamento). -->
+                            <StackPanel Width="260" Margin="0,0,14,8">
+                                <TextBlock Text="Quem atende" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
+                                <ComboBox ItemsSource="{Binding Profissionais}"
+                                          SelectedItem="{Binding Profissional}"
+                                          DisplayMemberPath="Rotulo"
+                                          ctrl:Ajudantes.Placeholder="Escolha o profissional" />
+                                <TextBlock Style="{StaticResource TextoSuave}"
+                                           Text="Aparece no app de quem atende e entra no repasse."
+                                           Visibility="{Binding TemProfissionaisCadastrados,
+                                                        Converter={StaticResource BoolParaVisibilidade}}" />
+                                <TextBlock Style="{StaticResource TextoSuave}"
+                                           Text="Nenhum profissional ativo cadastrado — a sessão sai sem dono e não aparece no app de quem atende. Cadastre em Profissionais e salas."
+                                           Visibility="{Binding SemProfissionaisCadastrados,
+                                                        Converter={StaticResource BoolParaVisibilidade}}" />
+                            </StackPanel>
                             <StackPanel Width="130" Margin="0,0,14,8"
                                         Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}">
                                 <TextBlock Text="Duração (min)" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
@@ -278,7 +300,7 @@
                                 <Border Grid.Column="0" CornerRadius="2"
                                         Background="{StaticResource Brush.Semaforo.Amarelo}" />
                                 <TextBlock Grid.Column="1" Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left"
-                                           Text="Sem profissional: o horário não aparece no quadro de ninguém e fica fora do repasse. Escolha em &quot;Quem atende&quot;, abaixo — o sistema não sorteia." />
+                                           Text="Sem profissional: o horário não aparece no quadro de ninguém e fica fora do repasse. Escolha em &quot;Quem atende&quot;, na linha acima — o sistema não sorteia." />
                             </Grid>
 
                             <!-- O choque criticado A CADA TECLA, pela MESMA leitura que o
@@ -427,25 +449,6 @@
                                           ItemTemplate="{StaticResource ItemRotuloEnum}" />
                                 <TextBlock Style="{StaticResource TextoSuave}"
                                            Text="O outro vira o 2º código, previsto para +24h." />
-                            </StackPanel>
-
-                            <!-- QUEM ATENDE. Não é campo de conferência: é o que liga a sessão
-                                 ao médico. Sem ele o horário nasce órfão — some do "Meu dia" e
-                                 da "Minha semana" do consultório e fica de fora do repasse. -->
-                            <StackPanel Width="300" Margin="0,0,14,8">
-                                <TextBlock Text="Quem atende" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
-                                <ComboBox ItemsSource="{Binding Profissionais}"
-                                          SelectedItem="{Binding Profissional}"
-                                          DisplayMemberPath="Rotulo"
-                                          ctrl:Ajudantes.Placeholder="Escolha o profissional" />
-                                <TextBlock Style="{StaticResource TextoSuave}"
-                                           Text="Aparece no app de quem atende e entra no repasse."
-                                           Visibility="{Binding TemProfissionaisCadastrados,
-                                                        Converter={StaticResource BoolParaVisibilidade}}" />
-                                <TextBlock Style="{StaticResource TextoSuave}"
-                                           Text="Nenhum profissional ativo cadastrado — a sessão sai sem dono e não aparece no app de quem atende. Cadastre em Profissionais e salas."
-                                           Visibility="{Binding SemProfissionaisCadastrados,
-                                                        Converter={StaticResource BoolParaVisibilidade}}" />
                             </StackPanel>
 
                             <StackPanel Width="460" Margin="0,0,0,8">
