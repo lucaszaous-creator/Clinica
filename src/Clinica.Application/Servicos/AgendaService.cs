@@ -853,7 +853,7 @@ public sealed class AgendaService
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? observacoes,
         CancellationToken ct = default, string? modalidadeCodigo = null,
         string? especialidadeConsultaCodigo = null, TipoCodigo? primeiroCodigo = null,
-        int? profissionalId = null, string? operador = null)
+        int? profissionalId = null, string? operador = null, int? salaId = null)
     {
         if (modalidadeCodigo is not null)
             modalidade = CatalogoModalidades.Base(modalidadeCodigo);
@@ -877,6 +877,9 @@ public sealed class AgendaService
             Origem = OrigemAgendamento.Manual,
             Status = StatusAgendamento.Agendado,
             ProfissionalId = profissionalId,
+            // A sala do encaixe (parcela 70, achado do cliente no teste): a Fila anuncia
+            // "anuncie para a sala X" na chamada, e o avulso sem sala saía "sala —".
+            SalaId = salaId,
             Encaixe = true,
             PrimeiroCodigo = primeiroCodigo,
             CriadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),

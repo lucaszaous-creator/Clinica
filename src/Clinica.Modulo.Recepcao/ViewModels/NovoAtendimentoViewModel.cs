@@ -1557,7 +1557,10 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
                 // Quem atendeu. É o que faz o paciente aparecer no "Meu dia" do médico e
                 // a sessão entrar no repasse dele — os dois leem o AGENDAMENTO.
                 profissionalId: Profissional?.Id,
-                operador: SessaoUsuario.Atual.Operador);
+                operador: SessaoUsuario.Atual.Operador,
+                // A sala vai junto no avulso também: a chamada da Fila anuncia
+                // "para a sala X", e sem ela saía "sala —".
+                salaId: Sala?.Id);
 
             agendamentoId = agendamento.Id;
 

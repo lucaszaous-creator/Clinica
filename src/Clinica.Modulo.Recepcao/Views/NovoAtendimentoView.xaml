@@ -257,8 +257,9 @@
                                 <TextBox Text="{Binding Duracao, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="Vazio usa a duração padrão do profissional." />
                             </StackPanel>
-                            <StackPanel Width="210" Margin="0,0,14,8"
-                                        Visibility="{Binding MarcarParaDepois, Converter={StaticResource BoolParaVisibilidade}}">
+                            <!-- A sala vale para os DOIS modos: no avulso ela é o que a
+                                 chamada da Fila anuncia ("anuncie para a sala X"). -->
+                            <StackPanel Width="210" Margin="0,0,14,8">
                                 <TextBlock Text="Sala" Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
                                 <ComboBox ItemsSource="{Binding Salas}" SelectedItem="{Binding Sala}"
                                           DisplayMemberPath="Nome"

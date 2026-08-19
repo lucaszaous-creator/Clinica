@@ -126,15 +126,27 @@ public class AtomicidadeDoLancamentoTests : IDisposable
     public async Task Avulso_cria_horario_checkin_atendimento_e_guias_num_gesto_so()
     {
         var pacienteId = await CriarPacienteAsync();
+        var profissional = new Profissional { Nome = "Dra. Paula" };
+        var sala = new Sala { Nome = "Sala 2" };
+        _db.Profissionais.Add(profissional);
+        _db.Salas.Add(sala);
+        await _db.SaveChangesAsync();
 
         var (ag, lancamento) = await _agenda.LancarAvulsoAsync(
             pacienteId, DateTime.Today.AddHours(10), ModalidadeAtendimento.AcupunturaComEletro,
-            "chegou sem hora", operador: "ana");
+            "chegou sem hora", operador: "ana",
+            profissionalId: profissional.Id, salaId: sala.Id);
 
         ag.Encaixe.Should().BeTrue();
         ag.ChegadaEm.Should().NotBeNull("o paciente está no balcão — o check-in é o fato");
         ag.Status.Should().Be(StatusAgendamento.Realizado);
         ag.AtendimentoId.Should().Be(lancamento.Atendimento.Id);
+
+        // Profissional e sala amarrados ao encaixe (parcela 70): é o que faz a sessão
+        // aparecer no "Meu dia" do médico, entrar no repasse dele e a chamada da Fila
+        // anunciar "para a sala X" — os três leem o AGENDAMENTO.
+        ag.ProfissionalId.Should().Be(profissional.Id);
+        ag.SalaId.Should().Be(sala.Id);
         lancamento.Atendimento.Numero.Should().NotBeNullOrEmpty();
         lancamento.Atendimento.Codigos.Should().NotBeEmpty();
 
