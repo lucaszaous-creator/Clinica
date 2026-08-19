@@ -109,7 +109,14 @@ public sealed partial class BloqueioEdicaoViewModel : ObservableObject
         try
         {
             Salvando = true;
-            SessaoUsuario.Atual.Exigir(Permissao.GerenciarEquipe, "fechar a agenda");
+            // ⚠️ `EditarAgenda` OU `GerenciarEquipe` — e são DOIS bits porque são DUAS
+            // PORTAS. Esta janela abre pela barra da Agenda (balcão, `EditarAgenda`) e
+            // pela tela de Profissionais e salas (direção, `GerenciarEquipe`). Enquanto
+            // o Salvar exigiu só o segundo, a recepcionista atravessava a primeira porta,
+            // preenchia o feriado inteiro e levava a recusa no clique final — a metade
+            // que EXPLICA dizia sim e a que IMPEDE dizia não, sobre o mesmo ato.
+            SessaoUsuario.Atual.ExigirAlgum(
+                Permissao.EditarAgenda | Permissao.GerenciarEquipe, "fechar a agenda");
 
             using var scope = _escopos.CreateScope();
             var bloqueios = scope.ServiceProvider.GetRequiredService<BloqueioAgendaService>();

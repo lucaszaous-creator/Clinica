@@ -395,8 +395,13 @@ public sealed partial class MedidasViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// CANCELA a medida — o nome antigo do comando era "Excluir", e o botão vermelho
+    /// dizia o que o registro clínico não faz: prontuário não se apaga (parcela 52). O
+    /// ato sempre foi cancelar com motivo; o rótulo é que mentia sobre ele.
+    /// </summary>
     [RelayCommand]
-    private async Task ExcluirAsync(LinhaMedida? linha)
+    private async Task CancelarMedidaAsync(LinhaMedida? linha)
     {
         if (linha is null) return;
 
@@ -422,7 +427,7 @@ public sealed partial class MedidasViewModel : ObservableObject
         catch (Exception ex)
         {
             Clinica.Application.Diagnostico.Registrar(
-                "Consultório — medida não pôde ser excluída", ex);
+                "Consultório — medida não pôde ser cancelada", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

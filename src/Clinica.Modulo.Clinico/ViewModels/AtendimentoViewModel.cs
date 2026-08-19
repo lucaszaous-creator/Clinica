@@ -288,7 +288,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         {
             Paciente = _foco.Nome;
             SemPaciente = false;
-            Origem = DescreverOrigem(_foco.AgendamentoId);
+            Origem = DescreverOrigem(_foco.AgendamentoId, _foco.DataDoHorario);
             _ = CarregarAsync();
         }
     }
@@ -297,11 +297,22 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// De onde a sessão veio — e é diferença que muda o registro, não decoração: chamada
     /// da agenda, a evolução nasce ligada ao horário e sai da lista de pendências do
     /// consultório; escolhida na busca, não.
+    ///
+    /// ⚠️ O cabeçalho dizia "da agenda de HOJE" para QUALQUER horário — e a dívida de
+    /// prontuário e a Minha semana abrem horários de outros dias. Quem escrevia a
+    /// evolução atrasada de terça lia "hoje" no topo, e a frase mentia sobre a data a
+    /// que o registro ia ficar ligado.
     /// </summary>
-    private static string DescreverOrigem(int? agendamentoId)
-        => agendamentoId is null
-            ? "Escolhido na busca — a evolução não fica ligada a nenhum horário."
+    private static string DescreverOrigem(int? agendamentoId, DateOnly? dataDoHorario)
+    {
+        if (agendamentoId is null)
+            return "Escolhido na busca — a evolução não fica ligada a nenhum horário.";
+
+        var hoje = DateOnly.FromDateTime(DateTime.Today);
+        return dataDoHorario is { } data && data != hoje
+            ? $"Chamado da agenda de {data:dd/MM/yyyy} — a evolução nasce ligada a esse horário."
             : "Chamado da agenda de hoje — a evolução nasce ligada a este horário.";
+    }
 
     private int PacienteId => _foco.PacienteId ?? 0;
 
@@ -364,14 +375,25 @@ public sealed partial class AtendimentoViewModel : ObservableObject
             // formulário abriria EM BRANCO e o Salvar criaria uma SEGUNDA evolução do
             // mesmo atendimento, que é o defeito que faz a clínica desconfiar do
             // prontuário inteiro.
-            var doHorario = _foco.AgendamentoId is { } agendamentoId
-                ? ConsultorioService.EvolucaoDoHorario(
-                    sessoes, agendamentoId, PacienteId,
-                    _foco.DataDoHorario ?? DateOnly.FromDateTime(DateTime.Today))
-                : null;
+            Evolucao? doHorario = null;
+            if (_foco.AgendamentoId is { } agendamentoId)
+            {
+                var diaDoHorario = _foco.DataDoHorario ?? DateOnly.FromDateTime(DateTime.Today);
+
+                // As sessões IRMÃS do dia entram na conta: com duas sessões do mesmo
+                // paciente no mesmo dia, a avulsa pertence a UMA delas — sem a lista,
+                // abrir a segunda continuaria o texto da primeira.
+                var doDia = await scope.ServiceProvider
+                    .GetRequiredService<ConsultorioService>()
+                    .SessoesDoPacienteNoDiaAsync(PacienteId, diaDoHorario);
+                if (geracao != _geracaoCarga) return;
+
+                doHorario = ConsultorioService.EvolucaoDoHorario(
+                    sessoes, agendamentoId, PacienteId, diaDoHorario, doDia);
+            }
 
             if (doHorario is not null) Preencher(doHorario);
-            else Limpar();
+            else Limpar(_foco.DataDoHorario);
 
             foreach (var e in sessoes.Where(e => e.Id != EvolucaoId).Take(SessoesAnterioresVisiveis))
                 Anteriores.Add(LinhaSessaoAnterior.De(e));
@@ -538,10 +560,30 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         Orientacoes = e.Orientacoes;
     }
 
-    private void Limpar()
+    /// <summary>
+    /// Zera o formulário para uma sessão que ainda não tem evolução escrita.
+    ///
+    /// ⚠️ A DATA é a do HORÁRIO, não a de hoje — e é aqui que morava o defeito que
+    /// quebrava o laço central do Consultório. O módulo existe para responder "o que eu
+    /// atendi e ainda não escrevi"; escrever a evolução da sessão de terça gravava-a com a
+    /// data de HOJE, e daí saíam dois estragos:
+    ///
+    /// 1. **O prontuário passa a dizer que a sessão foi hoje.** É registro clínico com a
+    ///    data errada — a Lei 13.787/2018 pede o contrário disso, e o erro é
+    ///    irrecuperável depois, porque nada guarda qual era a data verdadeira.
+    /// 2. **A dívida nunca saía da lista.** `RegistrosPendentesAsync` lê as evoluções da
+    ///    janela que termina ONTEM (a sessão de hoje não é cobrada, o paciente ainda está
+    ///    na sala) — então a evolução datada de hoje ficava FORA do conjunto consultado, o
+    ///    casamento não a encontrava, e a linha continuava lá. O médico salvava, lia
+    ///    "Sessão registrada no prontuário", via a pendência de pé e escrevia de novo.
+    ///
+    /// Nulo — o caminho de quem entrou pela busca, sem horário em foco — continua sendo
+    /// hoje, que é o melhor palpite disponível.
+    /// </summary>
+    private void Limpar(DateOnly? dataDoHorario = null)
     {
         EvolucaoId = 0;
-        Data = DateTime.Today;
+        Data = dataDoHorario?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;
         EvaAntes = null;
         EvaDepois = null;
         QueixaPrincipal = null;

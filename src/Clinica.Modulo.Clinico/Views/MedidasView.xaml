@@ -214,10 +214,11 @@
                                                                Foreground="{StaticResource Brush.Texto.Secundario}" />
                                                 </StackPanel>
 
-                                                <Button Grid.Column="2" Content="Excluir"
+                                                <Button Grid.Column="2" Content="Cancelar…"
                                                         VerticalAlignment="Center"
+                                                        ToolTip="Cancela com motivo — a medida sai da curva e fica guardada no prontuário (nada se apaga)"
                                                         Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        Command="{Binding DataContext.ExcluirCommand,
+                                                        Command="{Binding DataContext.CancelarMedidaCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                             </Grid>

@@ -342,6 +342,12 @@ public sealed partial class InadimplenciaViewModel : ObservableObject
     {
         try
         {
+            // A lista leva NOME de paciente e a dívida dele para um arquivo — saída de
+            // dado (parcela 60), e a mesma lacuna que a parcela 64 fechou nos exports do
+            // Gerente sobrevivia aqui: o Receber desta tela tinha a segunda barreira e o
+            // Exportar não. O bit é o de LER o financeiro, que é o que o arquivo carrega.
+            SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "exportar a inadimplência");
+
             var linhas = Devedores
                 .Select(d => (IReadOnlyList<string>)new[]
                 {

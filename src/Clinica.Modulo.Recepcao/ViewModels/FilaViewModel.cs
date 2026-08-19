@@ -167,15 +167,12 @@ public sealed partial class FilaViewModel : ObservableObject
     /// </summary>
     private const int ChamadaDemoradaMinutos = 3;
 
-    private readonly AgendaService _agenda;
-    private readonly PainelRecepcaoService _painel;
 
     /// <summary>Escopo próprio para a janela de fechamento, como nos demais formulários.</summary>
     private readonly IServiceScopeFactory _escopos;
 
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
-    private readonly TermoProcedimentoService _termos;
     private readonly DispatcherTimer _relogio;
 
     private List<Agendamento> _doDia = [];
@@ -250,7 +247,15 @@ public sealed partial class FilaViewModel : ObservableObject
     /// ACESO, clicava e levava a recusa do <c>Exigir</c>: metade visível mais larga que a
     /// guarda é a outra face do "botão que não faz nada" — ela promete o que não entrega.
     /// </summary>
-    public bool PodeConcluirSessao => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+    /// <remarks>
+    /// `Pode` com bits combinados é um <b>E</b>: concluir pede as duas coisas — mexer na
+    /// fila do balcão E lançar o atendimento. A segunda entrou quando a guarda passou a
+    /// exigir <c>LancarAtendimento</c>: guarda mais estreita que a metade visível é o
+    /// botão que promete e recusa depois do clique, que é o defeito da parcela 41 pelo
+    /// avesso.
+    /// </remarks>
+    public bool PodeConcluirSessao => SessaoUsuario.Atual.Pode(
+        Permissao.EditarAgenda | Permissao.LancarAtendimento);
 
     /// <summary>
     /// Colher o termo é ato de outro bit — a técnica de enfermagem o tem e não tem o da
@@ -269,16 +274,37 @@ public sealed partial class FilaViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _naoVerificado;
 
+    /// <summary>
+    /// ⚠️ NADA de serviço SCOPED no construtor — nem <c>AgendaService</c>, nem
+    /// <c>PainelRecepcaoService</c>, nem <c>TermoProcedimentoService</c>.
+    ///
+    /// O shell resolve esta tela do provedor RAIZ (<c>SuiteApp</c> passa
+    /// <c>host.Services</c> ao <c>ShellViewModel</c>, que o entrega a
+    /// <c>IModuloApp.CriarTela</c>). Serviço Scoped pedido à raiz vive no ESCOPO RAIZ —
+    /// isto é, pela vida inteira do aplicativo —, e com ele o <c>DbContext</c>. Daí saem
+    /// dois estragos, e nenhum deles falha:
+    ///
+    /// 1. **A fila deixa de ver a outra máquina.** A consulta é rastreada, e o EF não
+    ///    sobrescreve valores de entidade já rastreada: reler o dia no MESMO contexto
+    ///    devolve o `ChamadoEm` que ele já tinha — nulo. O médico clica em "Chamar
+    ///    próximo", o cartão não muda de coluna no balcão, e a recepcionista só descobre
+    ///    quando ele abre a porta. É exatamente a sincronização que a parcela 38 existe
+    ///    para garantir, desfeita por uma linha de injeção.
+    /// 2. **`DbContext` não aceita duas operações ao mesmo tempo.** A batida de um minuto
+    ///    caindo em cima de um clique vira "A second operation was started on this context
+    ///    instance" — um erro em inglês, no balcão, com o paciente na frente.
+    ///
+    /// A regra que fica: <b>tela de vida longa abre ESCOPO por operação</b>. É o que a
+    /// <c>AgendaViewModel</c> e o <c>MeuDiaViewModel</c> já faziam — e é por isso que a
+    /// grade e o quadro do médico atualizavam e a fila não.
+    /// </summary>
     public FilaViewModel(
-        AgendaService agenda, PainelRecepcaoService painel, IServiceScopeFactory escopos,
-        ISnackbarService snackbar, IDialogoService dialogo, TermoProcedimentoService termos)
+        IServiceScopeFactory escopos,
+        ISnackbarService snackbar, IDialogoService dialogo)
     {
-        _agenda = agenda;
-        _painel = painel;
         _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
-        _termos = termos;
 
         // Duas coisas por batida, e a segunda é a que faz a chamada do consultório
         // chegar aqui.
@@ -362,7 +388,16 @@ public sealed partial class FilaViewModel : ObservableObject
         try
         {
             Carregando = !silencioso;
-            var doDia = await _agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
+
+            // Um ESCOPO por carga: é o que faz esta tela enxergar o que a outra máquina
+            // gravou. Contexto de vida longa devolve a entidade que ele já rastreava, e a
+            // chamada carimbada no consultório nunca chegaria aqui.
+            using var escopo = _escopos.CreateScope();
+            var agenda = escopo.ServiceProvider.GetRequiredService<AgendaService>();
+            var painel = escopo.ServiceProvider.GetRequiredService<PainelRecepcaoService>();
+            var servicoTermos = escopo.ServiceProvider.GetRequiredService<TermoProcedimentoService>();
+
+            var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(Dia));
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -374,7 +409,7 @@ public sealed partial class FilaViewModel : ObservableObject
             HashSet<int> comPendencia;
             try
             {
-                var pendencias = await _painel.PendenciasDoDiaAsync(DateOnly.FromDateTime(Dia));
+                var pendencias = await painel.PendenciasDoDiaAsync(DateOnly.FromDateTime(Dia));
                 comPendencia = pendencias.Select(p => p.PacienteId).ToHashSet();
             }
             catch (Exception ex)
@@ -390,7 +425,7 @@ public sealed partial class FilaViewModel : ObservableObject
             try
             {
                 termos = new Dictionary<int, IReadOnlyList<SituacaoTermo>>(
-                    await _termos.DoDiaAsync(DateOnly.FromDateTime(Dia)));
+                    await servicoTermos.DoDiaAsync(DateOnly.FromDateTime(Dia)));
             }
             catch (Exception ex)
             {
@@ -619,7 +654,9 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
-            await _agenda.RegistrarChegadaAsync(c.AgendamentoId);
+            using (var e = _escopos.CreateScope())
+                await e.ServiceProvider.GetRequiredService<AgendaService>()
+                    .RegistrarChegadaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             // O check-in é o ÚLTIMO momento barato: o paciente está no balcão, e
             // carteirinha vencida ou cota estourada ainda dá para resolver com um
@@ -684,7 +721,9 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
-            await _agenda.ChamarAsync(c.AgendamentoId);
+            using (var e = _escopos.CreateScope())
+                await e.ServiceProvider.GetRequiredService<AgendaService>()
+                    .ChamarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"{c.Paciente} chamado — anuncie para a sala {c.Sala}.");
         }, "chamada do paciente");
 
@@ -696,7 +735,9 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
-            await _agenda.IniciarAtendimentoAsync(c.AgendamentoId);
+            using (var e = _escopos.CreateScope())
+                await e.ServiceProvider.GetRequiredService<AgendaService>()
+                    .IniciarAtendimentoAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Sucesso($"{c.Paciente} em atendimento.");
         }, "início do atendimento");
 
@@ -720,6 +761,20 @@ public sealed partial class FilaViewModel : ObservableObject
         => await ExecutarAsync(cartao, async c =>
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
+
+            // ⚠️ E o bit do ATO, não só o da fila. Concluir aqui é o que CRIA o atendimento
+            // e, com ele, as guias — desde que a parcela 65 mudou o momento em que a guia
+            // nasce. `LancarAtendimento` existe justamente para a direção poder tirar isso
+            // de alguém, e a caixinha dele em Acessos diz, com estas palavras, "criar o
+            // atendimento — e, com ele, as guias". Enquanto só `EditarAgenda` guardou esta
+            // porta, desmarcar aquela caixinha fechava a tela de Novo atendimento e não
+            // fechava NADA: a mesma pessoa continuava gerando guia pelo Concluir da Fila,
+            // que é a porta que a clínica usa o dia inteiro.
+            //
+            // Nenhum perfil padrão perde nada: só `Recepcao` tem `EditarAgenda` junto de
+            // `LancarAtendimento`, e o Gerente tem todas. O que muda é o bit passar a valer.
+            SessaoUsuario.Atual.Exigir(
+                Permissao.LancarAtendimento, "lançar o atendimento e gerar as guias");
 
             RegistroAtendimento registro;
             using (var scope = _escopos.CreateScope())
@@ -806,8 +861,10 @@ public sealed partial class FilaViewModel : ObservableObject
                 return;
             }
 
-            var situacoes = await _termos.SituacaoDoDiaAsync(
-                c.PacienteId, DateOnly.FromDateTime(Dia));
+            IReadOnlyList<SituacaoTermo> situacoes;
+            using (var e = _escopos.CreateScope())
+                situacoes = await e.ServiceProvider.GetRequiredService<TermoProcedimentoService>()
+                    .SituacaoDoDiaAsync(c.PacienteId, DateOnly.FromDateTime(Dia));
 
             var pendente = situacoes.FirstOrDefault(s => s.Pendente);
 
@@ -842,7 +899,9 @@ public sealed partial class FilaViewModel : ObservableObject
             SessaoUsuario.Atual.ExigirAlgum(
                 Permissao.EditarAgenda | Permissao.MovimentarFila, "mexer na fila do dia");
 
-            await _agenda.VoltarEtapaAsync(c.AgendamentoId);
+            using (var e = _escopos.CreateScope())
+                await e.ServiceProvider.GetRequiredService<AgendaService>()
+                    .VoltarEtapaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Cartão devolvido para a coluna anterior.");
         }, "volta de etapa");
 
@@ -852,7 +911,9 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
-            await _agenda.MarcarFaltaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
+            using (var e = _escopos.CreateScope())
+                await e.ServiceProvider.GetRequiredService<AgendaService>()
+                    .MarcarFaltaAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"{c.Paciente} marcado como falta.");
         }, "marcação de falta");
 
@@ -862,7 +923,9 @@ public sealed partial class FilaViewModel : ObservableObject
         {
             SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na fila do dia");
 
-            await _agenda.CancelarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
+            using (var e = _escopos.CreateScope())
+                await e.ServiceProvider.GetRequiredService<AgendaService>()
+                    .CancelarAsync(c.AgendamentoId, SessaoUsuario.Atual.Operador);
             _snackbar.Info($"Agendamento de {c.Paciente} cancelado.");
         }, "cancelamento");
 

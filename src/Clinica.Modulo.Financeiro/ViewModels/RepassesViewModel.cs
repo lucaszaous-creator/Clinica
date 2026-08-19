@@ -6,6 +6,7 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Financeiro.ViewModels;
 
@@ -52,8 +53,7 @@ public sealed class LinhaRegraRepasse
 /// </summary>
 public sealed partial class RepassesViewModel : ObservableObject
 {
-    private readonly RepasseService _repasses;
-    private readonly EquipeService _equipe;
+    private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
@@ -88,12 +88,15 @@ public sealed partial class RepassesViewModel : ObservableObject
     /// </summary>
     public bool PodeEditarFinanceiro => SessaoUsuario.Atual.Pode(Permissao.EditarFinanceiro);
 
+    /// <summary>
+    /// ⚠️ Nada de serviço SCOPED no construtor — o shell resolve esta tela do provedor
+    /// RAIZ, e Scoped pedido à raiz vive pela vida inteira do app, com o `DbContext`
+    /// junto (parcela 69). Escopo por operação. Ver a checagem 37 do verificar-suite.
+    /// </summary>
     public RepassesViewModel(
-        RepasseService repasses, EquipeService equipe,
-        ISnackbarService snackbar, IDialogoService dialogo)
+        IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
-        _repasses = repasses;
-        _equipe = equipe;
+        _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
         _ = CarregarAsync();
@@ -124,7 +127,10 @@ public sealed partial class RepassesViewModel : ObservableObject
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
-            var calculados = await _repasses.CalcularAsync(Inicio, Fim);
+            using var escopo = _escopos.CreateScope();
+            var repasses = escopo.ServiceProvider.GetRequiredService<RepasseService>();
+
+            var calculados = await repasses.CalcularAsync(Inicio, Fim);
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -143,7 +149,7 @@ public sealed partial class RepassesViewModel : ObservableObject
                     PodeApurar = c.TemRegra && !c.JaApurado && c.Valor > 0
                 });
 
-            var apuracoes = await _repasses.ApuradosAsync();
+            var apuracoes = await repasses.ApuradosAsync();
 
             // Chegou tarde: outra carga mais nova já foi pedida.
             if (geracao != _geracaoCarga) return;
@@ -188,7 +194,9 @@ public sealed partial class RepassesViewModel : ObservableObject
 
     private async Task CarregarRegrasAsync(int geracao)
     {
-        var regras = await _repasses.RegrasAsync();
+        using var escopo = _escopos.CreateScope();
+        var regras = await escopo.ServiceProvider
+            .GetRequiredService<RepasseService>().RegrasAsync();
 
         // Chegou tarde: outra carga mais nova já foi pedida.
         if (geracao != _geracaoCarga) return;
@@ -272,8 +280,10 @@ public sealed partial class RepassesViewModel : ObservableObject
 
         try
         {
-            await _repasses.ApurarAsync(
-                linha.ProfissionalId, Inicio, Fim, categoriaId: null, operador: SessaoUsuario.Atual.Operador);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<RepasseService>()
+                    .ApurarAsync(linha.ProfissionalId, Inicio, Fim, categoriaId: null,
+                                 operador: SessaoUsuario.Atual.Operador);
 
             _snackbar.Sucesso("Repasse apurado e lançado no caixa como saída prevista.");
             await CarregarAsync();
@@ -300,7 +310,9 @@ public sealed partial class RepassesViewModel : ObservableObject
 
         try
         {
-            await _repasses.CancelarApuracaoAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<RepasseService>()
+                    .CancelarApuracaoAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Apuração cancelada.");
             await CarregarAsync();
         }
@@ -333,7 +345,7 @@ public sealed partial class RepassesViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos repasses");
 
-        var vm = new RegraRepasseViewModel(_repasses, _equipe);
+        var vm = new RegraRepasseViewModel(_escopos);
         var janela = new Janelas.RegraRepasseWindow(vm)
         {
             Owner = JanelaDona.Atual()
@@ -356,7 +368,9 @@ public sealed partial class RepassesViewModel : ObservableObject
 
         try
         {
-            await _repasses.ExcluirRegraAsync(linha.Id);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<RepasseService>()
+                    .ExcluirRegraAsync(linha.Id);
             _snackbar.Info("Regra excluída.");
             await CarregarAsync();
         }
@@ -377,8 +391,7 @@ public sealed partial class RepassesViewModel : ObservableObject
 /// <summary>Cadastro de uma regra de repasse.</summary>
 public sealed partial class RegraRepasseViewModel : ObservableObject
 {
-    private readonly RepasseService _repasses;
-    private readonly EquipeService _equipe;
+    private readonly IServiceScopeFactory _escopos;
 
     public ObservableCollection<Profissional> Profissionais { get; } = [];
 
@@ -400,10 +413,9 @@ public sealed partial class RegraRepasseViewModel : ObservableObject
 
     public event Action? Concluido;
 
-    public RegraRepasseViewModel(RepasseService repasses, EquipeService equipe)
+    public RegraRepasseViewModel(IServiceScopeFactory escopos)
     {
-        _repasses = repasses;
-        _equipe = equipe;
+        _escopos = escopos;
         _ = CarregarAsync();
     }
 
@@ -413,8 +425,14 @@ public sealed partial class RegraRepasseViewModel : ObservableObject
     {
         try
         {
+            // Monta em lista local e só ENTÃO publica: entre o Clear e o último Add não
+            // pode haver await (parcela 62).
+            using var escopo = _escopos.CreateScope();
+            var ativos = await escopo.ServiceProvider
+                .GetRequiredService<EquipeService>().ProfissionaisAtivosAsync();
+
             Profissionais.Clear();
-            foreach (var p in await _equipe.ProfissionaisAtivosAsync()) Profissionais.Add(p);
+            foreach (var p in ativos) Profissionais.Add(p);
             Profissional = Profissionais.FirstOrDefault();
         }
         catch (Exception ex)
@@ -458,7 +476,9 @@ public sealed partial class RegraRepasseViewModel : ObservableObject
                 porAtendimento = lido;
             }
 
-            await _repasses.SalvarRegraAsync(new RegraRepasse
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<RepasseService>()
+                .SalvarRegraAsync(new RegraRepasse
             {
                 ProfissionalId = profissional.Id,
                 Base = Base,

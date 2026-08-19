@@ -3587,3 +3587,620 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   Indeterminada". Afeta só a prescrição de infusão (interna, art. 13 — não vai à
   farmácia); declarar DocMDP mexe em como o PDFsharp escreve a 1ª assinatura, que é área
   congelada. Registrado como decisão futura, não tomada de raspão.
+
+- **AUDITORIA DA AGENDA ANTES DE PRODUÇÃO — dois módulos, e nenhum dos achados quebrava
+  nada** (parcela 69). A direção pediu o estado da Agenda na Recepção e no Consultório
+  antes de subir. O ponto de partida era o de sempre: **build verde, 1612 testes verdes,
+  as três redes locais verdes** — e a varredura devolveu um bloqueador que impede a
+  recepcionista de fechar um feriado e um buraco que faz o paciente do balcão sumir do
+  app do médico. As famílias, e o que cada uma ensina:
+
+  ⚠️ **DUAS PORTAS PARA O MESMO ATO, DOIS BITS DIFERENTES — e a de fora era a mais larga.**
+  "Fechar agenda…" na barra da Agenda pedia `EditarAgenda` (o comentário ao lado diz, com
+  todas as letras, "o MESMO bit do Novo horário"), e o Salvar da janela pedia
+  `GerenciarEquipe`. `PerfilAcesso.Recepcao` tem o primeiro e não tem o segundo: a
+  recepcionista atravessava a porta, escolhia o 25/12, escrevia "Natal" e levava *"Seu
+  acesso não permite fechar a agenda"* no clique final. Feriado e férias simplesmente não
+  entravam no sistema pelo balcão.
+  Não é a parcela 41 ("guarda que volta em silêncio") nem a 51 ("tela com uma barreira
+  só"): as duas barreiras existiam e **discordavam sobre que ato era aquele**. A regra
+  que fecha o assunto: **quando uma janela é aberta por mais de uma tela, a guarda do
+  Salvar é a UNIÃO dos bits das portas** (`ExigirAlgum`), nunca o de uma delas — senão a
+  porta que ficou de fora vira um corredor sem saída, e quem a atravessa descobre isso
+  depois de fazer o trabalho todo.
+
+  ⚠️ **O ATENDIMENTO AVULSO NASCIA SEM PROFISSIONAL, e é assim que o paciente some do app
+  do médico.** "Novo atendimento" — a porta de quem chega sem hora marcada — chamava
+  `AgendarAsync` sem `profissionalId`, e a tela nem perguntava quem ia atender. O
+  encaixe nascia órfão, e órfão não aparece em lugar nenhum do Consultório: "Meu dia" e
+  "Minha semana" filtram por `ProfissionalId`, e o **repasse também** — ele lê quem
+  atendeu do AGENDAMENTO, porque `Atendimento` não guarda profissional. O médico atendia
+  alguém que o app dele nunca mostrou, e não era pago por aquela sessão.
+  Nada falhava: a guia nascia certa, a tela dizia "Atendimento registrado — 2 guia(s) no
+  faturamento", e o balcão via o paciente na Fila (que não filtra por profissional). É o
+  **elo partido da parcela 33 na forma mais cara**: não vira erro, vira ausência — e
+  ausência é indistinguível de "hoje não teve".
+  A lição para a próxima porta: **ao criar um caminho novo que grava um agendamento,
+  liste quem LÊ agendamento e confira se o registro novo satisfaz o filtro de cada um.**
+  São três leitores com o mesmo filtro (quadro do dia, semana do profissional, repasse) e
+  um sem filtro (a fila do balcão) — e é justamente o sem filtro que faz o defeito passar
+  despercebido no teste de mesa.
+  ⚠️ O seletor **não impede**: sem profissional escolhido a sessão é lançada assim mesmo,
+  porque a guia é o que a clínica não pode perder (a hierarquia da parcela 65). O que ele
+  faz é dizer, ao lado do campo, o que a lacuna custa — e é isso que transforma um buraco
+  invisível numa decisão de quem está no balcão.
+
+  ⚠️ **"EMPURRAR AS SESSÕES" APAGAVA A ESPECIALIDADE E A VARIANTE DA MODALIDADE.**
+  `RemarcarEmLoteAsync` (o botão que desloca as trinta sessões de umas férias) chama
+  `RemarcarAsync` **só com a data nova**, porque é só isso que ele muda. Do outro lado, a
+  atribuição era incondicional: `ag.ModalidadeCodigo = modalidadeCodigo ?? modalidade.
+  ToString()` trocava "Acupuntura (domiciliar)" por "Acupuntura", e a especialidade da
+  consulta ia a nulo. O empurrão respondia *"30 sessão(ões) empurradas"* e o estrago
+  aparecia semanas depois, **uma paciente por vez**, na guia que nascia errada.
+  É a regra da parcela 68 — **nulo quer dizer "o chamador não sabe", nunca "desligue"** —
+  no lugar onde ela ainda não tinha sido aplicada. Quem MUDA a modalidade é quem informa
+  o código dela, e só nesse caso a especialidade que vem junto é autoridade (inclusive
+  para limpar). A correção mora no SERVIÇO e não no chamador, pela razão de sempre: são
+  quatro portas para remarcar, e a próxima também não vai saber os códigos.
+
+  ⚠️ **REMARCAR LEVAVA JUNTO OS CARIMBOS DA FILA.** A etapa do kanban é DERIVADA de
+  `ChegadaEm`/`ChamadoEm`/`InicioAtendimentoEm`, não é coluna no banco — e `RemarcarAsync`
+  nunca os tocou. O paciente que fez check-in às 9h e pediu para remarcar aparecia, na
+  quinta-feira, já na raia "Na recepção" **antes de sair de casa**, com a espera contada
+  desde terça (a espera vai da chegada até agora). Se ele tinha entrado na sala antes de a
+  sessão ser interrompida, aparecia em "Em atendimento".
+  Só se limpa quando a DATA muda: remarcar mexendo em sala, duração ou observação é ajuste
+  do horário de hoje, e apagar o check-in de quem já está sentado no balcão seria destruir
+  o fato pelo caminho errado. **Estado DERIVADO de carimbo de hora tem de ser revisto em
+  toda escrita que muda o que o carimbo significa** — e "mudou de dia" é a maior delas.
+
+  ⚠️ **`EstadoDaTela` CONGELAVA A RESPOSTA NO INSTANTE DO BINDING — e quase toda tela
+  escapou por acidente.** O componente decide o estado num callback de
+  *DependencyProperty*, e as telas amarram `Itens` a uma `ObservableCollection` que **nunca
+  é reatribuída** (elas fazem `Clear()` e `Add()` na mesma instância). Isso dispara
+  `CollectionChanged`, que o componente não ouvia. `Recalcular` rodava uma vez, com a lista
+  ainda vazia, e a resposta ficava ali para sempre.
+  O que salvou a maioria foi um acidente: elas também amarram `Carregando`, que vira true e
+  depois false a cada leitura — e é esse callback vizinho que reavaliava a lista. As três
+  que amarraram **só** `Itens` ficaram com "não há nada aqui" escrito por cima do conteúdo
+  cheio: a **lista de espera da agenda**, as **autorizações do convênio** na ficha do
+  paciente e a **busca de CID**. Nenhuma rede pega — XAML válido, binding válido, nada
+  lança.
+  A lição é maior que o componente: **contrato que só funciona porque uma propriedade IRMÃ
+  costuma mudar junto é contrato que ninguém consegue lembrar.** A assinatura de
+  `INotifyCollectionChanged` resolve no ponto único por onde toda tela passa, e as telas
+  seguintes nascem certas sem saber que a regra existe.
+
+  ⚠️ **CANCELADO E FALTA FICAVAM NA RAIA "AGUARDANDO" DO MÉDICO SEM UMA MARCA.** Ficarem na
+  coluna é decisão certa e documentada (a regra da folha do dia: quem lê às 14h precisa
+  saber que as 15h vagaram). O que faltava era o selo — e ele **existia calculado**
+  (`LinhaSessao.Situacao`, via `Rotular`) e o XAML nunca o leu. Dado calculado sem leitor,
+  na variante em que o estrago não é *não ler* e sim **ler errado**: o médico contava cinco
+  pessoas por vir e duas tinham desmarcado.
+  E a tela IRMÃ, no mesmo módulo, já marcava: "Minha semana" tem `ForaDaFila` e escreve
+  "Não aconteceu". É a lição das parcelas 64 e 68 pela terceira vez — **quando duas telas
+  respondem à mesma pergunta sobre o mesmo dado, a que está errada é a que ninguém releu**,
+  e o teste que falta é o que compara as duas.
+
+  ⚠️ **O BIT QUE NOMEIA O ATO NÃO GUARDAVA A PORTA QUE O EXECUTA.** `LancarAtendimento`
+  existe para a direção poder tirar de alguém a criação de atendimento — e a caixinha dele
+  em Acessos diz "criar o atendimento — e, com ele, as guias". O **Concluir da Fila**, que
+  é onde a guia de fato nasce desde a parcela 65, pedia só `EditarAgenda`. Desmarcar
+  aquela caixinha fechava a tela de Novo atendimento e não fechava **nada**: a mesma pessoa
+  seguia gerando guia pela porta que a clínica usa o dia inteiro.
+  A causa é a parcela 65 vista do lado do acesso: **quando um ATO muda de lugar, a
+  permissão dele não vai junto sozinha.** Ao mover o momento em que um fato passa a
+  existir, releia quem guarda o novo momento. Nenhum perfil padrão perdeu nada aqui — só
+  `Recepcao` tem os dois bits, e o Gerente tem todos: o que mudou foi o bit passar a valer.
+
+  ⚠️ **O APP CONGELADO FAZIA CERTO E O MÓDULO ATIVO FAZIA ERRADO.** A visão de semana da
+  Recepção montava as sete colunas chamando `DoDiaAsync` **em laço** — sete idas em fila
+  indiana a um banco REMOTO —, mais uma oitava desperdiçada (o dia escolhido era buscado
+  no começo da carga e o ramo da semana nunca o abria). `AgendaService.NoPeriodoAsync`
+  existe para isso desde sempre, e o único que a usava era a agenda do **faturamento
+  congelado**; `ConsultorioService.DaSemanaAsync` já tinha o comentário dizendo por quê.
+  A lição: **antes de escrever um laço de leitura, procure o método que faz o período de
+  uma vez — e olhe no app que ninguém edita.** Código congelado não é código errado; muitas
+  vezes é onde a decisão certa foi tomada primeiro e ficou.
+
+  ⚠️ **O SEGUNDO BLOQUEADOR, e é o mais grave dos dois: A FILA E O PAINEL DO BALCÃO NUNCA
+  VIAM O QUE A OUTRA MÁQUINA GRAVOU.** Serviço registrado como `AddScoped` — e o
+  `DbContext` junto — pedido ao provedor **RAIZ** vive no ESCOPO RAIZ, isto é, pela vida
+  inteira do aplicativo. E o shell resolve toda tela da raiz: `SuiteApp` passa
+  `host.Services` ao `ShellViewModel`, que o entrega a `IModuloApp.CriarTela`. O
+  `FilaViewModel` e o `PainelViewModel` recebiam `AgendaService`,
+  `PainelRecepcaoService`, `TermoProcedimentoService` e `RelacionamentoService` **por
+  construtor** — logo, o mesmo `DbContext` da abertura do app até o fim do expediente.
+  A consulta da agenda é RASTREADA, e o EF **não sobrescreve valores de entidade já
+  rastreada**: reler o dia no mesmo contexto devolve o `ChamadoEm` que ele já tinha — nulo.
+  Ou seja: **o médico clica em "Chamar próximo" e o balcão não vê**. Justamente a
+  sincronização que a parcela 38 existe para garantir, e que este arquivo descreve como "os
+  dois leem a mesma linha, e é isso que faz os dois quadros nunca divergirem". A releitura
+  de um minuto — construída na parcela 62 para fazer o recado CHEGAR — relia pelo contexto
+  que já tinha a resposta velha. Falta marcada na outra máquina, remarcação e as cinco
+  contagens do painel ficavam congeladas no número da abertura, a manhã inteira. **Só o que
+  era clicado NESTA máquina aparecia — o que faz o quadro parecer perfeito para quem está
+  usando.**
+  Agravante: `DbContext` não aceita duas operações ao mesmo tempo. A batida do relógio
+  caindo em cima de um clique vira *"A second operation was started on this context
+  instance"* — erro em inglês, no balcão, com o paciente na frente.
+  ⚠️ **`ValidateScopes` não pega**: `Host.CreateDefaultBuilder()` só o liga no ambiente
+  **Development**; em produção a resolução passa calada. Por isso a rede virou a
+  **checagem 37**, que casa o construtor de todo ViewModel resolvido em `CriarTela` contra
+  os tipos registrados como `AddScoped`/`AddDbContext`.
+  A regra: **tela de vida longa abre ESCOPO por operação, e não recebe serviço Scoped no
+  construtor.** `AgendaViewModel` e `MeuDiaViewModel` já faziam assim — e é exatamente por
+  isso que a grade e o quadro do médico atualizavam e a fila não. **Quando uma tela
+  atualiza e a irmã não, a diferença não está na tela: está em como ela pede os serviços.**
+  ⚠️ E eram **NOVE** ViewModels, não dois — os outros sete no Financeiro e no Gerente
+  (Caixa, Conciliação, Estoque, Pacotes, Plano de contas, Produção, Repasses). **Todos os
+  nove foram corrigidos**, e a lista de dívida da checagem 37 está VAZIA: o conjunto
+  continua no código como caminho de volta, para tela nova nascer cobrada sem ninguém
+  precisar afrouxar nada.
+  O Caixa era o que doía mais: um recebimento lançado na outra máquina não aparecia, e o
+  fechamento do dia conferia a gaveta contra um número velho.
+  Duas coisas que a correção dos sete ensinou, e que a próxima vai reencontrar:
+  **(a) o serviço não vai sozinho — o sub-VM vai junto.** Cada tela grande abre uma janela
+  de edição (`CategoriaEdicaoViewModel`, `ItemEstoqueEdicaoViewModel`,
+  `MovimentoEstoqueViewModel`, `RegraRepasseViewModel`, `PacoteCatalogoEdicaoViewModel`,
+  `PacoteVendaViewModel`, `ConsumosPacoteViewModel`, `LancamentoEdicaoViewModel`,
+  `CobrancaPixViewModel`) e passava o serviço já resolvido adiante. Corrigir só a tela de
+  fora deixaria a janela com o contexto da abertura do app — e é NELA que se grava.
+  **(b) antes de trocar, pergunte se alguma ENTIDADE atravessa o escopo.** Carregar num
+  escopo e salvar noutro deixa a entidade destacada, e o EF a trataria como nova. Aqui não
+  havia nenhum caso — todas as escritas passam ID ou objeto NOVO (`SalvarItemAsync(new
+  ItemEstoque { Id = … })`), e `GuiaSemLancamento` é record, não entidade —, mas isso foi
+  CONFERIDO caso a caso, não presumido. É a pergunta que decide se o refactor é mecânico
+  ou se precisa de desenho.
+  De quebra, três `Clear()` com `await` no meio apareceram no caminho (parcela 62) e foram
+  corrigidos junto: `RegraRepasseViewModel`, `PacotesViewModel` e `PacoteVendaViewModel`.
+
+  ⚠️ **A CONSULTA CHAMADA DA LISTA DE ESPERA NASCIA SEM ESPECIALIDADE.** O formulário do
+  balcão EXIGE a especialidade ("Consulta precisa de especialidade") — e
+  `ListaEsperaService.ChamarAsync` **não tinha o parâmetro**. A recepcionista escolhia
+  "Consulta / Psiquiatria", salvava sem erro nenhum, e o horário nascia sem ela; como o
+  atendimento herda a especialidade do AGENDAMENTO na confirmação da presença, a guia saía
+  sem a informação que a operadora cobra. **Campo que a TELA exige e o SERVIÇO não recebe é
+  um campo que só existe para o usuário** — e a distância entre a validação e o descarte é
+  de duas telas, então ninguém as lê juntas.
+
+  ⚠️ **FALTA MARCADA POR ENGANO NÃO TINHA VOLTA NO BALCÃO.** "Marcar falta" e "Cancelar
+  horário" são dois botões vermelhos lado a lado, e o clique errado some com o cartão do
+  quadro na hora — porque o bloco inteiro de ações da janela do horário estava sob
+  `Visibility={Binding EmAberto}`. A única porta para reabrir ficava no app de
+  **FATURAMENTO**: outro programa, de outra pessoa. `RemarcarAsync` já traz o horário de
+  volta (`Status = Agendado`); o que faltava era a porta — a variante da parcela 48 ("alerta
+  sem porta") aplicada a um ERRO em vez de a um alerta, que é pior, porque o erro é de quem
+  está olhando a tela.
+  Na mesma janela, os seis botões apareciam **acesos** para quem só LÊ a agenda — enfermagem,
+  financeiro e faturista têm `VerAgenda` — e a recusa chegava depois do clique. O vizinho já
+  fazia certo desde sempre (o vão livre da grade e os botões da barra têm `IsEnabled`); era
+  esta janela que não tinha. E o `IsEnabled` é **por botão, não no bloco**: "Confirmar pelo
+  WhatsApp" e "Comprovante" são leitura, e apagá-los tiraria de quem só lê uma coisa que ele
+  fazia ontem.
+
+  ⚠️ **A RELEITURA DE FUNDO DO CONSULTÓRIO COBRIA O QUADRO CHEIO — e as três telas irmãs do
+  balcão já faziam certo.** O `catch` do "Meu dia" acendia `NaoVerificado` **sem olhar se a
+  carga era silenciosa**, e ele liga a sobreposição do `EstadoDaTela`: uma engasgada do banco
+  na batida de um minuto escrevia "vazia por falha de leitura" por cima de um quadro com
+  pacientes, sem ninguém ter clicado em nada. O comentário logo abaixo prometia o contrário
+  ("a tela segue com o quadro do minuto anterior") havia parcelas — comentário que descreve
+  degradação sem o código que a realiza é o defeito da parcela 67.
+  Agenda, Fila e Painel do balcão saem do `catch` sem tocar em nada quando a carga é
+  silenciosa. **Quando três irmãs fazem igual e uma faz diferente, a diferente é a que
+  ninguém releu** — e o reset de `NaoVerificado` na ENTRADA tem de ser guardado junto, senão
+  a batida silenciosa que também falha limpa o aviso da carga anterior.
+
+  ⚠️ **E O RECADO ERA APAGADO NO MESMO INSTANTE EM QUE ERA ESCRITO.** "Fulano foi chamado — a
+  recepção já está vendo o aviso" é a única confirmação de que o recado atravessou os dois
+  módulos, e as quatro ações do quadro escreviam a mensagem e chamavam `CarregarAsync()` — a
+  carga que a PESSOA pede, que começa zerando `Mensagem`. O comentário da própria carga já
+  dizia que a recarga de fundo não apaga o recado da última ação; o que faltava era **as
+  chamadas usarem a sobrecarga silenciosa**. Regra: **ação que escreve um recado e recarrega
+  em seguida recarrega em SILÊNCIO** — senão a tela desfaz o que a ação acabou de dizer.
+
+  ⚠️ **"MEUS PACIENTES" FAZIA 1 + 200 CONSULTAS A UM BANCO REMOTO PARA CALCULAR DOIS
+  NÚMEROS.** A carteira do consultório lia o prontuário INTEIRO de cada paciente, um por um,
+  para extrair a primeira e a última EVA — texto da evolução, conduta e orientações vinham
+  junto, e eram descartados. É uma das duas portas do módulo, e ficava dezenas de segundos em
+  "Montando a sua carteira…", repetindo a espera a cada volta à tela.
+  Virou `ParesDeEvaDosPacientesAsync`: uma consulta, três colunas. **Antes de escrever um
+  laço com `await` dentro, pergunte quantas linhas ele pode ter no pior caso** — 200 é o
+  limite padrão desta tela, e estava no próprio parâmetro do método.
+
+  ⚠️ **O QUE NÃO FOI CORRIGIDO, e por que a decisão é essa.** `ConfirmarPresencaAsync`
+  grava em DOIS `SaveChanges`: o primeiro (dentro de `LancarAsync`) persiste o atendimento
+  e as guias, o segundo carimba `Status`/`AtendimentoId` no agendamento. Falhando o
+  segundo — conflito de `xmin` entre as duas máquinas do balcão, queda de conexão —, **as
+  guias existem e o agendamento não sabe**: a recepcionista não vê guia nenhuma, o cartão
+  continua com "Concluir" aceso, e o segundo clique gera outro jogo de guias. É o incidente
+  de 12/08 (parcela 65) uma camada abaixo, e a idempotência daquela parcela não alcança,
+  porque a chave dela é justamente o `AtendimentoId` que não chegou a ser gravado.
+  Não corrigi, e isso é decisão: juntar os quatro `SaveChanges` numa transação mexe no
+  caminho que **gera as guias** e que o faturamento em produção também percorre, e este
+  ambiente não tem Postgres para reproduzir o conflito (os testes rodam em SQLite, onde
+  `xmin` não existe — o mesmo buraco que a parcela 67 documentou para as datas com fuso).
+  A regra do projeto é anterior a mim: **não corrija por dedução, reproduza antes.** Fica
+  escrito aqui como o primeiro item da próxima parcela, com o roteiro: transação única em
+  `ConfirmarPresencaAsync` e teste contra Postgres de verdade, não contra SQLite.
+
+  **A fila restante, medida e priorizada** (confirmada na refutação, não corrigida nesta
+  parcela — cada uma com o motivo de ter ficado):
+  1. **Horário sem profissional some do quadro do médico** — o seletor novo do avulso fecha a
+     porta que criava órfãos em série, mas o FORMULÁRIO de agendamento continua aceitando
+     salvar sem profissional, e a coluna da visão de SEMANA não pré-seleciona ninguém. Falta
+     decidir com a clínica se o campo passa a ser obrigatório (impede) ou se avisa — e a
+     escolha é dela, não minha.
+  2. **O "+" não volta no vão de um horário cancelado** (`CelulaAgenda.Livre` conta os
+     cartões sem olhar `ForaDoDia`). A correção esbarra numa escolha de leiaute: o cartão
+     cinza é desenhado por cima do botão, então liberar o vão exige ou pôr o "+" na frente
+     (e perder o clique que abre o cancelado) ou mudar o desenho da célula. O caminho de
+     volta agora existe pela janela ("Reabrir este horário"); a decisão de leiaute é do
+     cliente.
+  3. **A espera média do painel conta quem chegou e virou FALTA** — em dia passado ela vai
+     a milhares de minutos, porque a espera de quem nunca foi chamado corre até `agora`.
+  4. **Bloqueio de parte do dia não enxerga a sessão que COMEÇA antes dele** e invade o
+     período fechado: `MarcadosDentroAsync` filtra por `DataHora` dentro do intervalo, e não
+     por sobreposição — a mesma conta que `ColideCom` já sabe fazer.
+  5. **`ConfirmarPresencaAsync` não deixa linha na trilha** — o ato que gera as guias é o
+     único da agenda sem `EventoAuditoria`; remarcar, cancelar e faltar têm. (Os cinco
+     movimentos da FILA ganharam trilha na rodada do Consultório; este ficou de fora de
+     propósito, porque mexer nele encosta no caminho que gera as guias — é o item 1 desta
+     fila, e vai junto da transação.)
+  6. **Trocar a DATA no formulário não reconfere elegibilidade** (carteirinha, cota,
+     consulta a renovar) — a conferência roda ao escolher o paciente e não ao mudar o dia.
+  7. **Horário de profissional (ou sala) DESATIVADO some da grade** — a coluna só é montada
+      para os ATIVOS, e o horário com dono inativo não cai em "Sem profissional": não existe
+      coluna para ele. O resumo continua contando sobre a lista inteira, então o cabeçalho
+      diz "12 horário(s)" e a grade desenha 11; o vão fica clicável e a recepção marca outra
+      pessoa por cima, enquanto o paciente segue na Fila e na folha impressa do dia. A caixa
+      da tela de equipe diz "Ativo (aparece na agenda)", prometendo o contrário do que
+      acontece. É diferente do item 1: aqui o `ProfissionalId` existe — quem sumiu foi a
+      coluna.
+  (O item que estava aqui — os sete ViewModels restantes com serviço Scoped no construtor —
+  saiu da fila: foram corrigidos na mesma parcela, e a checagem 37 fecha o assunto. Quatro
+  outros saíram na rodada "todas as notas em 8" do Consultório, mais abaixo: a autoria da
+  fila, as observações que não chegavam, a evolução avulsa cobrindo duas sessões e o
+  Atender sem conferir `VerProntuario`.)
+
+- **A VARREDURA DA RECEPÇÃO DEPOIS DA AGENDA — três achados, nenhum bloqueador, e todos
+  da mesma família** (parcela 69, continuação). Com a Agenda fechada, a pergunta virou
+  "o que mais no balcão promete e não cumpre?". A varredura foi por eixo (mensagem de
+  êxito invisível, EstadoDaTela na raiz, método órfão, propriedade sem leitor, texto de
+  tela que promete mecanismo), e o resultado tem as duas metades: o que achou e o que
+  CONFERIU E ESTAVA CERTO — sem a segunda, a próxima varredura refaz esta.
+
+  ⚠️ **A ORIGEM DO PACIENTE ERA PERGUNTADA A TODO CADASTRO E NINGUÉM SOMAVA.** O balcão
+  pergunta "como conheceu a clínica?" desde que o campo existe, e a resposta era lida em
+  UM lugar: a própria ficha, uma pessoa por vez ("Indicação de Maria"). Nenhum serviço,
+  relatório ou tela agregava — a direção não tinha como responder "quantos vieram por
+  indicação neste ano?", que é a única razão de a pergunta ser feita. O detalhe que dói:
+  o comentário do rótulo em `RotulosEnum` já dizia *"é um dos poucos campos que a direção
+  lê agrupado num relatório"* — **o rótulo foi preparado para um relatório que nunca
+  existiu**. Virou `OrigemPacientesService` + a tela "De onde vêm os pacientes" no grupo
+  Marketing/Recall do Gerente. As decisões:
+  (a) **"Estreou no período" = o PRIMEIRO atendimento caiu no período** — `Paciente` não
+  tem data de cadastro, e a estreia é o fato mais honesto disponível: cadastro sem
+  atendimento é intenção, atendimento é a clínica trabalhando. Quem já vinha e continuou
+  vindo não estreou. A tela ESCREVE a definição: número cuja definição só existe no
+  código é um número que cada leitor interpreta de um jeito.
+  (b) **"Não perguntado" é linha de primeira classe, ordenada junto das outras** — quando
+  ela encabeça a tabela, o achado do relatório é o balcão ter parado de perguntar, e o
+  selo "colher no cadastro" transforma o número em tarefa. Escondê-la no rodapé faria a
+  direção decidir anúncio sobre uma amostra que ninguém está colhendo.
+  (c) **Quem indica agrupa por nome NORMALIZADO** (trim + maiúsculas fora): "maria silva"
+  e "Maria Silva " são a mesma pessoa digitada por duas recepcionistas, e separá-las
+  esconderia justamente a maior indicadora da clínica.
+  A lição que generaliza: **quando um campo é PERGUNTADO no balcão, procure quem RESPONDE
+  com ele.** Campo que só a ficha individual lê é pergunta feita de graça — e rótulo
+  preparado "para o relatório" é promessa que se confere como as outras.
+
+  ⚠️ **"CANCELAR O RESTO DA SÉRIE" CONFIRMAVA ÀS CEGAS — com a prévia pronta e sem
+  chamador.** O diálogo dizia "cancelar TODAS as sessões ainda marcadas?" sem dizer
+  QUANTAS nem QUAIS; a contagem só aparecia no snackbar, DEPOIS do estrago. E
+  `AgendaService.DaSerieAsync` — "sessões de uma série, na ordem em que acontecem" —
+  existia sem um único chamador em produção: a leitura que responde a pergunta do diálogo
+  estava pronta desde que a série nasceu. Agora a prévia vem antes (quantas e as datas,
+  até dez), série sem sessão em aberto ganha aviso em vez de silêncio, e falha na leitura
+  IMPEDE a pergunta — confirmar "todas" sem saber quantas é exatamente o que a correção
+  existe para acabar. **Ação destrutiva em LOTE diz o tamanho do lote ANTES do clique**;
+  "todas" não é número.
+
+  ⚠️ **NÃO EXISTIA TROCAR A PRÓPRIA SENHA.** `AcessoService.TrocarSenhaAsync` — o método
+  que CONFERE a senha atual antes de aceitar a nova — estava órfão. O único caminho de
+  troca era o forçado (a direção emite provisória com "deve trocar", o login cobra a
+  definitiva): quem desconfiasse que alguém viu a sua senha precisava pedir à direção,
+  que escolhia a nova e a ENTREGAVA — **trocando um segredo comprometido por um que já
+  nasce compartilhado**. Entrou `TrocaSenhaWindow` ao lado do "Trocar usuário" — nos DOIS
+  apps, porque é o débito permanente da Fase 4 (a lição da parcela 60: a mesma ação nos
+  dois lados, e a cópia que faltar é onde a capacidade some). Sem permissão a exigir: a
+  prova de posse é a senha atual, e é o serviço que a confere — validar na tela seria a
+  segunda definição da mesma regra. A lição: **fluxo de segurança com só a metade
+  administrativa não está completo** — o reset pela direção existia desde a parcela 5, e
+  a metade voluntária ficou 60+ parcelas sem porta porque o fluxo forçado dava a
+  impressão de assunto coberto.
+
+  **CONFERIDO E LIMPO — para a próxima varredura não refazer**: os 13 candidatos a
+  "mensagem de êxito invisível" eram falsos positivos (todos só escrevem ERRO no campo; a
+  parcela 62 já tinha limpado); nenhum `EstadoDaTela` na raiz de página; a tela de
+  Retorno confere `TemConsentimento` pela MESMA leitura da campanha e escreve o motivo na
+  linha; a ficha→CRM lê `ContatoCampanha` de verdade, com contador de geração; o circuito
+  autorização→aviso de cota fecha. E `TracoAsync` era código morto (terceira definição de
+  uma leitura que dois serviços já fazem direto no repositório) — método órfão continua
+  sendo SINTOMA: dos 15 órfãos reais, três eram feature faltando e o resto era duplicata.
+
+- **A VARREDURA DO FINANCEIRO — mais limpo que a Recepção estava, e o achado grave era o
+  mais antigo de todos** (parcela 69, continuação). Os mesmos eixos da varredura do
+  balcão, aplicados ao módulo do dinheiro. O que achou, o que ensina, e o que estava
+  CERTO — na ordem de sempre.
+
+  ⚠️ **O ESTOQUE NÃO TINHA EXTRATO — e o motivo escrito da perda não tinha leitor.** "O
+  saldo é a SOMA dos movimentos" é regra desde a parcela 4, a perda EXIGE motivo escrito
+  (única recusa do serviço) e o acerto de inventário grava direção, observação e
+  `CriadoPor` (parcela 30) — e `MovimentosAsync`, o extrato de um item, ficou órfão desde
+  que nasceu: tudo gravado, nada lido. A clínica exigia justificativa da funcionária e a
+  guardava num lugar que nem a direção alcançava — a trilha da parcela 21 de novo, na
+  versão do estoque. E no dia em que o saldo não bate, a única pergunta útil ("QUAIS
+  movimentos produziram este número?") não tinha tela. Virou o botão "Extrato" na linha
+  do item: todos os movimentos com o saldo APÓS cada um, o motivo da perda em destaque,
+  a direção do acerto escrita e quem fez.
+  Três decisões que vieram junto, e as duas primeiras são maiores que a tela:
+  (a) **A recusa da perda sem motivo subiu para `MovimentarAsync`** — ela morava SÓ no
+  wrapper `PerderAsync`, que nenhuma tela chama; a janela genérica entra pelo método
+  genérico, e a única barreira era a validação da TELA. É o defeito recorrente vestido de
+  validação (a regra do número da guia): quem valida na tela cobre uma porta. O teste
+  novo FALHA no código antigo.
+  (b) **O sinal do movimento desceu para o DOMÍNIO** (`MovimentoEstoque.Delta`/`DeltaDe`),
+  porque agora há DOIS somadores — o saldo do repositório e o extrato — e duas cópias da
+  conta divergiriam exatamente no AJUSTE, o movimento raro que ninguém testa de cabeça.
+  De quebra, isso removeu o par `Sinal`/`QuantidadeComSinal`: dizia "−1 para tudo que não
+  é entrada", erraria o ajuste PARA CIMA, e nunca doeu por nunca ter tido um chamador —
+  **propriedade de domínio errada sem chamador é uma mina, não um detalhe: o primeiro uso
+  a detona.** `O_saldo_oficial_e_a_soma_dos_Deltas_sao_o_mesmo_numero` fixa que o extrato
+  não pode desmentir a tela que ele existe para explicar.
+  (c) O extrato acumula NA ORDEM CRONOLÓGICA e exibe do mais recente — a última linha TEM
+  de bater com o saldo da lista de trás.
+
+  ⚠️ **A FAIXA DA ALÍQUOTA ÚNICA SUMIA PELA CONDIÇÃO ERRADA — e a frase ao lado mentia
+  junto.** O serviço cai no fallback quando não há tributo VIGENTE NO DIA
+  (`ApurarAsync`); a tela escondia a faixa quando havia tributo CADASTRADO
+  (`Tributos.Count` no DataTrigger). Na janela entre as duas condições — tributos
+  cadastrados com vigência futura, ou todos expirados — a alíquota única continuava
+  valendo no cálculo com o campo dela INVISÍVEL, e a frase `OrigemDaCarga` dizia "Nenhum
+  tributo cadastrado" com a lista cheia. O detalhe que dói: o MESMO ViewModel calculava a
+  frase com a condição certa (`ValendoAgora`) e a visibilidade com a errada, a dez linhas
+  de distância. **Campo invisível que faz efeito é pior que o campo morto que a parcela
+  49 tirou desta mesma tela** — e a lição é: quando a tela mostra/esconde algo POR CAUSA
+  de uma regra de serviço, a condição da visibilidade é A MESMA do serviço, nunca uma
+  aproximação ("cadastrado" não é "vigente").
+
+  ⚠️ **O CSV DA INADIMPLÊNCIA SAÍA COM NOME + DÍVIDA DO PACIENTE SEM A SEGUNDA BARREIRA.**
+  O `Receber` da mesma tela tinha o `Exigir`; o `Exportar` não — a mesma lacuna que a
+  parcela 64 fechou nos exports do Gerente, sobrevivendo no módulo vizinho. **Quando um
+  defeito de padrão é corrigido num módulo, os exports dos OUTROS módulos entram na mesma
+  varredura** (é a lição da 64 sobre alcance, cobrada de novo). O FluxoCaixa ganhou o
+  mesmo tratamento (agregados, sem dado pessoal — mas a regra "CSV é saída de dado" não
+  tem exceção por conteúdo).
+
+  ⚠️ **"CÓDIGO COPIADO" DO PIX NUNCA APARECIA.** A janela nasceu DEPOIS das limpezas das
+  parcelas 62/64 e repetiu o padrão que elas mataram: o sucesso da cópia escrevia
+  `MensagemEhErro = false` e a única superfície de mensagem era
+  `Visibility="{Binding MensagemEhErro}"`. Quem copiava não via confirmação — e clicava
+  de novo, ou copiava à mão sem precisar. Correção pelo padrão canônico (quem decide se
+  aparece é o TEXTO; quem decide a cor é a GRAVIDADE). A lição é sobre recorrência:
+  **padrão corrigido em N telas volta na tela N+1 se só as telas foram corrigidas** — o
+  par `AlertaPerigo`+`MensagemEhErro` continua sendo o que a mão escreve primeiro.
+
+  **Menores da mesma rodada**: cinco `Clear()` com await no meio (Contas 2×, Resultado,
+  Taxas 2×) — cargas de abertura, janela pequena, corrigidos pelo padrão da 62; e
+  `Resolvida` no ExtratoBanco, calculada e nunca lida, removida.
+
+  **CONFERIDO E LIMPO — para a próxima varredura não refazer**: menu × `CriarTela` fecha
+  (os 3 "sem caso" são grupos com abas, resolvidos pelo shell); nenhum `EstadoDaTela` na
+  raiz nem sem gatilho; dos 21 arquivos com o padrão de `Border` de mensagem, só o Pix
+  escrevia êxito; "Sem categoria aparece, nunca some" cumprida (Fluxo e Resultado); a
+  reabertura do caixa fica marcada COM o motivo lido na tela; `DesfazerConfirmacaoAsync`
+  tem porta; "Só no banco" e "Só no sistema" ambos no extrato OFX. **E dois falsos
+  positivos meus que valem regra de varredura**: `ValorRotulo` parecia órfão porque o
+  leitor é um template COMPARTILHADO no shell (`ItemBarraRotulada`) — scan de leitor que
+  só olha o XAML do módulo não enxerga template compartilhado; e `EntrarAsync`/
+  `PerderAsync`/`CustoDoAtendimentoAsync` pareciam duplicatas e são WRAPPERS de uma
+  definição só (delegam a `MovimentarAsync`/`Precificar`) — **wrapper fino não é segunda
+  definição; a pergunta é onde mora a REGRA, não quantas assinaturas existem.**
+
+- **A VARREDURA DO GERENTE E DO CONSULTÓRIO — nenhum grave, e o melhor achado estava no
+  vizinho** (parcela 69, fim da rodada). Os dois módulos mais auditados do projeto
+  (Gerente: 54/64; Consultório: 61/68 e a auditoria da Agenda) saíram os mais limpos —
+  as varreduras anteriores pagaram. Os quatro achados, e o que cada um ensina:
+
+  ⚠️ **DUAS DEFINIÇÕES DO TOTAL DO BADGE — e o teste fixava a que ninguém executa.**
+  `PendenciaService.TotalPendenciasAsync` dizia, no próprio comentário, ser "o total para
+  o badge do topo" — e estava ÓRFÃO: o badge real era uma segunda conta, escrita à mão no
+  `DashboardViewModel`, com um comentário jurando usar "o mesmo critério" e CITANDO o
+  método que não chamava. As duas contas eram iguais hoje; a primeira mudança em qualquer
+  uma divergiria em silêncio — e `PendenciasFaturamentoTests` fixava o lado morto. O
+  critério virou UMA função (`TotalParaBadge`, estática) que os dois lados chamam, e o
+  teste passou a exercitar o que a tela usa. A lição: **comentário que cita um método como
+  "o critério" é promessa que se confere com grep — se o método está órfão, o comentário
+  é a segunda definição se anunciando.**
+
+  ⚠️ **A TELA MANDAVA COMPRAR TABLET — e a decisão documentada é MONITOR.** A parcela 66
+  gastou uma seção inteira em "por que MONITOR e não tablet" (tablet é outro computador;
+  monitor touch é só mais uma tela do Windows), a especificação de compra está em
+  `docs/termo-assinado-pelo-paciente.md` §3.8 — e TRÊS textos de tela diziam "tablet":
+  a configuração do termo no Gerente, a instrução que o PACIENTE lê na janela de
+  assinatura e a descrição da folha na central de documentos. Texto de tela que contradiz
+  a decisão de arquitetura induz a clínica a comprar o hardware errado — e o texto novo da
+  janela de assinatura lembra o modo de UMA tela ("ou com o mouse"), que é o modo real de
+  quem ainda não comprou o touch. **Quando uma decisão renomeia o mundo (tablet→monitor),
+  os textos de tela entram no mesmo grep da decisão.**
+
+  **Menores**: `MinhaSemana` e `AnexosSessao` limpavam a coleção antes do await (o item
+  que a fila da parcela 69 já listava — pago); `TemAssinatura` na linha da lista de
+  infusão, calculada e nunca lida (a `Situacao` textual já diz "assinada"), removida.
+
+  **CONFERIDO E LIMPO — para a próxima varredura não refazer**: menu × `CriarTela` fecha
+  nos DOIS (as cinco chaves "sem caso" do Consultório caem no `or` múltiplo do
+  workspace — padrão que o scan de regex simples não vê); nenhum `EstadoDaTela` raso ou
+  sem gatilho; TODAS as mensagens de êxito dos dois módulos aparecem (o Gerente foi limpo
+  na 64, e as janelas novas do Consultório já nasceram no padrão certo — a primeira
+  geração de telas que nasceu imune ao defeito); `PoliticaBackupService` roda na abertura
+  do Gerente; o `AlertaDeItem` do PHQ-9 chega à tela de Avaliações; a fila de pendências
+  do Gerente critica o número da guia linha a linha com a `RegraNumeroGuia` (parcela 51
+  cumprida); "quem não consentiu aparece CONTADO" cumprida nas Campanhas. **Falsos
+  positivos com lição**: `EhVerde`/`Urgencia`/`FormatoGuia` pareciam órfãos e alimentam
+  DataTriggers e o fluxo de baixa (o verde é o DEFAULT do estilo — propriedade que define
+  o caso-padrão não aparece em trigger nenhum); `Enunciado` alimenta `Rotulo`;
+  `Correcoes` alimenta `Retificada`/`CorrecoesTexto` — **scan de leitor precisa seguir
+  UMA derivação interna antes de acusar.**
+
+- **A RODADA "TODAS AS NOTAS EM 8" DO CONSULTÓRIO** (parcela 69, encerramento — o
+  diagnóstico pessimista deu notas de 4 a 8 por dimensão, e a direção mandou: *"Faça
+  todas as notas baterem 8!"*). Tudo o que segurava cada nota foi pago de uma vez; as
+  lições, na ordem do que ensinam:
+
+  ⚠️ **A EVOLUÇÃO AVULSA CASA COM NO MÁXIMO UMA SESSÃO DO DIA.** Com duas sessões do
+  mesmo paciente no mesmo dia (manhã e tarde — quase sempre especialidades diferentes),
+  uma evolução sem `AgendamentoId` dava as DUAS por escritas: a segunda sumia da
+  cobrança, e abrir qualquer uma na tela de Atendimento CONTINUAVA o mesmo texto,
+  fundindo duas sessões num registro só. `EvolucaoDoHorario` agora recebe as sessões
+  IRMÃS do dia (de TODOS os profissionais, antes do filtro — sem conhecê-las não há como
+  saber a vez de cada uma na fila da avulsa) e distribui cronologicamente: avulsas na
+  ordem em que foram escritas, sessões na ordem em que aconteceram; cancelada não
+  disputa; quem tem evolução própria não disputa. É escolha determinística sobre um dado
+  que não diz de quem é — e **a que erra, erra para o lado de COBRAR, nunca de calar**.
+  A tela de Atendimento busca as irmãs (`SessoesDoPacienteNoDiaAsync`) porque ela conhece
+  o horário chamado e não as vizinhas dele.
+
+  ⚠️ **A FILA GANHOU AUTORIA — e o movimento que APAGA escreve o que apagou.** Os cinco
+  movimentos (chegada, chamada, desfazer, entrada, voltar) recebem `operador`
+  OBRIGATÓRIO (parâmetro com default deixaria todo chamador antigo compilando sem
+  autoria — o compilador é quem acha os call sites) e gravam `EventoAuditoria` no mesmo
+  `SaveChanges`. Duas regras que não são detalhe: **movimento idempotente que não mudou
+  nada não grava linha** (trilha com duplicata a cada clique é trilha que ninguém lê), e
+  **`VoltarEtapaAsync`/`DesfazerChamadaAsync` escrevem NA TRILHA o carimbo que apagaram,
+  com o valor** — depois do apagamento ele não existe em mais lugar nenhum, e "quem
+  desfez e o que dizia" é a pergunta de qualquer conferência.
+
+  ⚠️ **A MINHA SEMANA VIROU A GRADE DO BALCÃO — e o montador mora na APPLICATION.** A
+  pilha de cartões por dia era o desenho que a parcela 58 condenou com a frase que
+  decide ("numa grade, o vazio TEM tamanho"), sobrevivendo na tela irmã da mesma
+  pergunta. As regras da grade são AS MESMAS do balcão de propósito (janela padrão
+  esticada, continuação, cancelado marcado sem cobrir, bloqueio escrito na célula) —
+  duas grades da mesma agenda com regras diferentes divergiriam sobre o mesmo horário; a
+  janela padrão (7h–20h) subiu para o DOMÍNIO (`Agendamento.AberturaPadraoGrade`) pela
+  mesma razão. E `GradeSemana.Montar` é função PURA (recebe o relógio) na Application,
+  porque a camada de tela do WPF não compila nos testes: **tudo o que decide um desenho
+  precisa morar onde o `dotnet test` alcança** — a grade nasceu com sete testes, coisa
+  que nenhuma tela do projeto teve. A diferença deliberada: a célula livre NÃO tem
+  clique de marcar — quem marca é o balcão; aqui o vão é informação.
+
+  ⚠️ **"CHAMAR PRÓXIMO" NO MODO SEM VÍNCULO CHAMAVA O PACIENTE DE OUTRO PROFISSIONAL.**
+  Sem `Profissional` ligado ao login a tela mostra a clínica inteira — e "o primeiro da
+  recepção" podia ser de qualquer colega: o clique cego anunciava um nome para a sala
+  errada. O botão fica DESLIGADO nesse modo, com a explicação na tela e a segunda
+  barreira no comando; **chamar pelo CARTÃO continua liberado**, porque ali a escolha é
+  de quem leu o nome antes de clicar. E **a fila corre só HOJE**: os botões de movimento
+  somem num dia passado/futuro e o arrasto recusa DIZENDO — chamar alguém de ontem
+  carimbaria hora num horário morto e a tela afirmaria "a recepção já está vendo o
+  aviso" sobre uma fila que só relê o dia corrente (afirmação falsa com cara de
+  confirmação).
+
+  **O resto da rodada, em uma linha cada**: as OBSERVAÇÕES do horário chegaram ao cartão
+  do Meu dia (`SessaoDoDia.Observacoes` — onze campos e nenhum era o recado do balcão);
+  férias/feriado apareceram (célula da semana + linha "Agenda fechada neste dia" no Meu
+  dia — dia fechado aparecia como dia VAZIO, que se lê como "ninguém marcou"); a batida
+  de 1 min parou de reler 30 dias de pendências (a recarga silenciosa relê só o quadro —
+  quem escreve evolução está NESTA máquina); "Atender", a dívida e o "Ver a lista" dos
+  Meus números ganharam as duas barreiras de `VerProntuario` (`NavegacaoSuite.Ir`
+  devolve false em silêncio para quem não tem o bit do destino); o botão "Excluir" de
+  medidas/avaliações virou "Cancelar…" (**o ato sempre foi cancelar com motivo — o
+  RÓTULO é que mentia sobre o que o registro clínico não faz**); a frase da tendência da
+  dor parou de sair duplicada (quando ela preocupa, só o alerta a diz — um estado por
+  pergunta); a lista de problemas virou LINHA DENSA (cada problema tinha cinco linhas e
+  QUATRO botões empilhados ≈ 140 px — três problemas empurravam o histórico, que é o
+  assunto da aba, para fora da vista; detalhe foi para a dica, ação virou fileira, nada
+  foi tirado); o "N sem evolução" da semana diz "NESTA semana" (o badge do Meu dia conta
+  a fila de trabalho de 30 dias — dois números com a mesma frase se leem como o mesmo
+  número errado); e o cabeçalho do Atendimento diz a DATA do horário quando não é hoje
+  (a dívida e a semana abrem dias passados, e "da agenda de hoje" mentia sobre a data a
+  que o registro ia ficar ligado).
+
+  **O que ficou de fora, e é decisão**: a trilha do `ConfirmarPresencaAsync` (item 5 da
+  fila) — mexer nele encosta no caminho que gera as guias, e vai junto da transação única
+  com teste em Postgres de verdade, que este ambiente não reproduz.
+
+- **A GUIA NASCE QUANDO O ATENDIMENTO ENTRA NO SISTEMA — e a duplicidade morreu de
+  desenho, não de aviso** (parcela 70; o mapa completo está em
+  `docs/guia-no-agendamento.md`, e é lá que se atualiza). O pedido da direção: *"o
+  confirmar presença não pode gerar guia! A guia precisa nascer no momento em que a
+  secretaria coloca o atendimento no sistema, seja avulso ou agenda"* — e depois:
+  *"unificar tudo em um lugar só"*. As decisões que não são óbvias pelo código:
+  **O clique virou UM SaveChanges.** `LancarAsync` se dividiu em CRIAÇÃO
+  (`MontarAsync`, não grava) × PRESENÇA (`PrepararPresencaAsync` encena NCs no mesmo
+  commit; `ConcluirPresencaAsync` renova consulta depois, falha vira aviso), e
+  `ConfirmarNucleoAsync` pendura o atendimento no agendamento pela NAVEGAÇÃO — o EF
+  grava horário + atendimento + guias + carimbo + trilha numa transação. Ou existe
+  tudo, ou nada: o incidente de 12/08 (três encaixes em 71s) morava nos vãos entre
+  cinco SaveChanges. `AtomicidadeDoLancamentoTests` prova com um DbContext que falha no
+  N-ésimo save e afirma ESTADO, não mensagem — dá para provar atomicidade no SQLite.
+  **O regime novo mora atrás de uma chave** (`ChaveGuiaNoAgendamento`, nasce DESLIGADA):
+  os cinco apps se atualizam por canais separados e dividem um banco — um binário velho
+  confirmando presença de um horário que o novo já marcou COM guia duplicaria; a chave
+  se liga depois de todos atualizarem, e ligar dispara o backfill de `RealizadoEm`.
+  **`Atendimento.RealizadoEm` é o que separa "marcado" de "aconteceu"**: leitor que
+  quer dizer "sessão realizada" filtra por ele (retenção, origem, estreia); a COTA
+  conta os ATIVOS (realizado OU guia aberta/baixada) — é assim que a 11ª sessão de uma
+  autorização de 10 avisa NA MARCAÇÃO, não na glosa. Cancelar/faltar suspende as guias
+  abertas (`NaoAplicavel` + marca `MarcaSuspensao` na observação — NUNCA NC, que a
+  volta do paciente reabriria, e NUNCA valor novo de enum, a mina da parcela 67);
+  reabrir devolve SÓ as marcadas; baixada não se toca — vira aviso. Remarcar de data
+  desloca as previstas; de modalidade, regera (a velha fica "Substituída") ou RECUSA se
+  algo já saiu da clínica (baixa, lote, NC).
+  **A tela pergunta QUANDO** (o §3.7): "o paciente está aqui — lançar agora" × "marcar
+  dia e horário", no MESMO formulário — modalidade, prévia, elegibilidade e capa servem
+  aos dois modos. A agenda MOSTRA e mexe no existente; criar mora no Novo atendimento, e
+  o clique no vão da grade chega lá pré-preenchido (`PreenchimentoNovoAtendimento`,
+  singleton de UM pedido que consumir LIMPA — pedido órfão pré-preencheria a abertura
+  de amanhã com o clique de ontem). **Sem profissional não é sorteio**: marca, avisa o
+  custo (fora do Meu dia e do repasse) e nunca escolhe sozinho — repasse é dinheiro.
+  **A pergunta de duplicidade ficou INFORMADA** (`CapasDoDiaAsync`, ponto único): número
+  do atendimento, modalidade, quem lançou e o placar das baixas, no aviso ao escolher o
+  paciente E na pergunta do clique — nas DUAS portas de criação (Novo atendimento e o
+  formulário da agenda, que sobrevive para lista de espera/remarcar/fallback).
+  **Permissão acompanhou o momento do fato** (a lição da parcela 69 aplicada de novo):
+  com a chave ligada, marcar CRIA guias — o Salvar exige `EditarAgenda` E
+  `LancarAtendimento`; e quem tem só `EditarAgenda` não perdeu nada, porque o
+  redirecionamento da agenda cai no formulário antigo quando `NavegacaoSuite.Ir`
+  devolve false (regra 3 do faturamento: a unificação não tira capacidade).
+  ⚠️ **A auditoria do próprio diff achou o leitor que o inventário da Fase 3 pulou — e
+  era o de DINHEIRO.** O alimentador do REPASSE (`AgendamentosComAtendimentoAsync`)
+  filtrava só "tem atendimento": com a chave ligada, a sessão MARCADA — e a cancelada,
+  que mantém o `AtendimentoId` com as guias suspensas — entraria na regra "valor por
+  atendimento", pagando sessão que ninguém deu. O filtro virou `Status == Realizado`
+  (no regime antigo não muda nada: `AtendimentoId` só nascia junto do `Realizado`), com
+  teste que confirma a presença e vê o valor aparecer. Os outros dois achados da mesma
+  auditoria: o formulário de agendamento do FATURAMENTO sem nenhuma `Exigir` (a cópia
+  que ficou para trás, parcela 60 — ganhou as duas guardas, inclusive a do duplo bit
+  com a chave ligada) e a tela QUANDO reconferindo cota/consulta/elegibilidade ao
+  trocar a DATA (o item 6 da fila da parcela 69, que a unificação tornou cotidiano) —
+  com a elegibilidade completa (dívida, glosa, pacote, termo) que o formulário
+  substituído já mostrava: **porta unificada não pode mostrar MENOS que a porta que
+  aposentou.**
+  ⚠️ **A auditoria do GERENTE sob o regime novo — conferido e limpo, para a próxima
+  varredura não refazer** (parcela 70, depois do achado do repasse): todo leitor do
+  Gerente que responde "quantas sessões" filtra certo — `IndicadoresService` (Atendidos/
+  produtividade/ocupação/série mensal) e `RelacionamentoService` (padrão de falta) por
+  `Status == Realizado`; `CompletudeProntuario` divide evoluções por Atendidos
+  (Realizado); retenção e origem/estreia por `RealizadoEm` (Fase 3); metas/orçamento/
+  painel por dinheiro ou pelo serviço dono; a fila de pendências do Gerente pelo
+  `EstaPendente`, que exige a data prevista alcançada. E os relatórios por CÓDIGO
+  (`RelatorioService.PorConvenio`, rentabilidade) **contam a guia marcada quando o
+  período pedido inclui dias futuros — e isso é decisão, não defeito**: a guia existe e
+  pode ser baixada antecipadamente; filtrar pela data esconderia justamente a baixada
+  antecipada, que é falha exibida como sucesso. Período já encerrado sai exato (a
+  cancelada vira `NaoAplicavel` e o `CodigosNoPeriodoAsync` já a exclui). A chave em
+  Configurações do Gerente tem as duas barreiras (`GerenciarUsuarios` no item e no
+  `ExecutarAsync`), grava só quando MUDOU (ligar dispara o backfill, e repeti-lo a cada
+  Salvar escreveria a tabela inteira à toa) e o aviso na tela diz a ordem: atualizar os
+  cinco apps ANTES de ligar.

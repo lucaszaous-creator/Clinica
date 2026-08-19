@@ -1,4 +1,5 @@
 using Clinica.Application.Modelos;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
 
 namespace Clinica.Application.Abstracoes;
@@ -64,6 +65,22 @@ public interface IClinicaRepositorio
     /// <summary>Atendimento com paciente e códigos carregados (para gerar a capa de faturamento).</summary>
     Task<Atendimento?> ObterAtendimentoAsync(int atendimentoId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Atendimentos que CONSOMEM a autorização do convênio no período (parcela 70):
+    /// sessão realizada, guia aberta ou baixada — a marcada para o futuro conta (é o
+    /// alerta de cota chegando na marcação), a cancelada/falta não.
+    /// </summary>
+    Task<int> ContarAtendimentosAtivosDoPacienteAsync(
+        int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Backfill do <c>Atendimento.RealizadoEm</c> na ATIVAÇÃO do regime "guia no
+    /// agendamento" (parcela 70): tudo o que ainda não tem o carimbo é, por definição,
+    /// sessão realizada — a chave nasce desligada e, desligada, não existe atendimento de
+    /// sessão futura. Cobre as linhas que um app antigo gravou depois da migration.
+    /// </summary>
+    Task MarcarAtendimentosSemCarimboComoRealizadosAsync(CancellationToken ct = default);
+
     // ---- Busca / ficha do paciente / faturados ----
 
     /// <summary>
@@ -73,6 +90,23 @@ public interface IClinicaRepositorio
     /// (o banco é remoto). Null = sem corte, para quem precisa varrer todo mundo.
     /// </summary>
     Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Origem e "indicado por" de TODA a base, projetados — três colunas, nunca a linha
+    /// inteira: o relatório de origem não precisa da miniatura da foto nem do endereço, e
+    /// arrastar a carteira completa para contar oito grupos seria o custo que a parcela 69
+    /// tirou do "Meus pacientes".
+    /// </summary>
+    Task<IReadOnlyList<(int PacienteId, OrigemPaciente? Origem, string? IndicadoPor)>> OrigensDosPacientesAsync(
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// A data do PRIMEIRO atendimento de cada paciente que já tem algum — o fato que o
+    /// relatório de origem usa como "estreia", porque <see cref="Paciente"/> não guarda
+    /// data de cadastro. Agregado no SQL: uma linha por paciente, nunca a lista inteira.
+    /// </summary>
+    Task<IReadOnlyDictionary<int, DateOnly>> PrimeiroAtendimentoPorPacienteAsync(
+        CancellationToken ct = default);
 
     /// <summary>
     /// Pacientes que fazem aniversario no dia (ou na janela de dias a partir dele).
@@ -173,6 +207,15 @@ public interface IClinicaRepositorio
 
     /// <summary>Quantos atendimentos o paciente teve no intervalo (base do consumo da cota).</summary>
     Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
+
+    /// <summary>
+    /// Os atendimentos do paciente num dia, com os códigos — a "capa" que o balcão
+    /// confere antes de lançar de novo (parcela 70): número, modalidade, quem lançou e
+    /// quais guias já foram baixadas. É o que transforma a pergunta "atendimento
+    /// repetido?" de um número seco numa decisão informada.
+    /// </summary>
+    Task<IReadOnlyList<Atendimento>> AtendimentosDoPacienteNoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default);
 
     // ---- Agenda ----
     // ---- Parâmetros dos convênios ----
@@ -315,6 +358,22 @@ public interface IClinicaRepositorio
     /// </summary>
     Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
         int pacienteId, bool incluirCanceladas, CancellationToken ct = default);
+
+    /// <summary>
+    /// O par de EVA (primeira e última medida completa) de VÁRIOS pacientes, numa consulta.
+    ///
+    /// A carteira do consultório precisa de dois números por paciente e nada mais. Lê-los
+    /// com <see cref="EvolucoesDoPacienteAsync(int, CancellationToken)"/> num laço custava
+    /// uma ida ao banco REMOTO por paciente — até duzentas para desenhar uma tela — e cada
+    /// uma arrastava o prontuário inteiro daquela pessoa (texto da evolução, conduta,
+    /// orientações) para calcular dois inteiros.
+    ///
+    /// Só o par COMPLETO entra, como no resto do projeto: uma medida solta não diz se o
+    /// tratamento funcionou e puxaria a leitura por falta de dado. Sessão cancelada fica
+    /// de fora (parcela 52).
+    /// </summary>
+    Task<IReadOnlyDictionary<int, (int Inicial, int Ultima)>> ParesDeEvaDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default);
 
     /// <summary>
     /// As versões anteriores de uma sessão, da mais antiga para a mais nova.

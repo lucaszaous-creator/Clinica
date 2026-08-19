@@ -71,6 +71,7 @@ public class AutorizacaoServiceTests : IDisposable
             {
                 PacienteId = pacienteId,
                 Data = data,
+                RealizadoEm = data.ToDateTime(TimeOnly.MinValue),
                 Modalidade = ModalidadeAtendimento.AcupunturaComEletro
             });
         await _db.SaveChangesAsync();

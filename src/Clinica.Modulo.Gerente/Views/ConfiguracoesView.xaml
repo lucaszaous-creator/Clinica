@@ -126,6 +126,16 @@
                         </Grid>
 
                         <StackPanel Margin="0,14,0,0">
+                            <TextBlock Text="Faturamento na marcação" Style="{StaticResource Rotulo}"
+                                       Margin="0,0,0,4" />
+                            <CheckBox IsChecked="{Binding GuiaNoAgendamento}"
+                                      Content="A guia nasce quando o atendimento entra no sistema (marcação ou avulso)" />
+                            <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                       FontSize="{StaticResource Fonte.Legenda}"
+                                       Text="Ligada, marcar um horário já gera o atendimento e as guias — a faturista pode efetivar no portal com antecedência, e cancelamento/falta suspende as guias sozinho (reabrir devolve). Guia de sessão futura não entra no painel de pendências até a data chegar. ⚠ LIGUE SÓ DEPOIS DE ATUALIZAR TODAS AS MÁQUINAS da clínica: um programa antigo confirmando presença de um horário marcado pelo novo geraria guia em dobro." />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,14,0,0">
                             <TextBlock Text="Carimbadora de tempo (ACT) — opcional"
                                        Style="{StaticResource Rotulo}" Margin="0,0,0,4" />
                             <TextBox Text="{Binding CarimbadoraDeTempo}" MaxLength="300" />
@@ -149,7 +159,7 @@
                                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
                                            HorizontalAlignment="Left" MaxWidth="820"
                                            FontSize="{StaticResource Fonte.Legenda}"
-                                           Text="O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina no tablet antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão." />
+                                           Text="O texto do consentimento e as declarações (jejum, medicações) que o paciente responde e assina na tela dele (o segundo monitor do balcão) antes do procedimento. Diga aqui qual procedimento exige qual termo — o balcão passa a cobrá-lo a cada sessão." />
                             </StackPanel>
                         </DockPanel>
 

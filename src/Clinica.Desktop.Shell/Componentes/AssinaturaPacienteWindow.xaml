@@ -158,7 +158,7 @@
                             <StackPanel x:Name="AreaDeAssinaturaLocal">
                                 <TextBlock Style="{StaticResource TextoSuave}" Margin="0,10,0,0"
                                            TextWrapping="Wrap"
-                                           Text="Peça ao paciente para assinar na área abaixo, com o dedo ou a caneta do tablet." />
+                                           Text="Peça ao paciente para assinar na área abaixo — com o dedo ou a caneta na tela de assinatura, ou com o mouse quando o balcão tem uma tela só." />
 
                                 <Border Margin="0,6,0,0" BorderThickness="1" CornerRadius="6"
                                         BorderBrush="{StaticResource Brush.Borda}"

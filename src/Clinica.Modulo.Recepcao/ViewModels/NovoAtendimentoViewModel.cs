@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Clinica.Application.Abstracoes;
+using Clinica.Application.Modelos;
 using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell.Componentes;
@@ -115,6 +116,9 @@ public sealed partial class CartaoModalidade : ObservableObject
 public sealed record LinhaPrevia(
     string Tipo, string Ordem, string FaturarEm, string ComoObter,
     string Especialidade, bool EhSegundo, string Nota);
+
+/// <summary>Um alerta de elegibilidade na tela, com a urgência para a cor do traço.</summary>
+public sealed record LinhaAlertaElegibilidade(string Descricao, bool Vermelho);
 
 /// <summary>Um avulso lançado hoje, na conferência do fim do dia.</summary>
 public sealed class LinhaAvulso
@@ -238,8 +242,98 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// <summary>Especialidades ativas do catálogo (para a consulta avulsa).</summary>
     public ObservableCollection<EntradaEspecialidade> Especialidades { get; } = new();
 
+    /// <summary>
+    /// Quem vai atender. A lista dos profissionais ATIVOS, como no formulário de
+    /// agendamento — é a mesma pergunta.
+    ///
+    /// ⚠️ Ela não existia, e a falta não quebrava nada: o avulso criava o encaixe SEM
+    /// profissional, a guia nascia certa e a tela dizia "Atendimento registrado". O
+    /// estrago era em volta, e todo em silêncio — horário sem dono some do "Meu dia" do
+    /// médico (o quadro filtra por <c>ProfissionalId</c>), some da "Minha semana" dele, e
+    /// fica de fora do REPASSE, que lê quem atendeu do AGENDAMENTO porque
+    /// <c>Atendimento</c> não guarda profissional. O médico atendia alguém que o app dele
+    /// nunca mostrou, e não era pago por aquela sessão.
+    /// </summary>
+    public ObservableCollection<Profissional> Profissionais { get; } = new();
+
     /// <summary>Opções de qual código sai primeiro (hoje) numa modalidade dupla. Vazio nas simples.</summary>
     public ObservableCollection<TipoCodigo> OpcoesPrimeiroCodigo { get; } = new();
+
+    // ==================== QUANDO (parcela 70) ====================
+    //
+    // A decisão da direção foi unificar: "para agendar vamos colocar através de novo
+    // atendimento (...) assim poderíamos unificar tudo em um lugar só". Esta tela deixou
+    // de ser só o avulso de quem está no balcão — ela pergunta QUANDO: o paciente está
+    // aqui (lançar agora, o caso de sempre) ou é para marcar dia e horário. A agenda
+    // vira a tela de VER e mexer no que existe; criar mora aqui.
+
+    /// <summary>O modo "marcar dia e horário" — o horário entra na agenda sem check-in.</summary>
+    [ObservableProperty] private bool _marcarParaDepois;
+
+    /// <summary>
+    /// O par do de cima, para o RadioButton: a suíte não tem conversor de booleano
+    /// invertido, e é o mesmo padrão de <see cref="SemPaciente"/>.
+    /// </summary>
+    public bool LancarAgora
+    {
+        get => !MarcarParaDepois;
+        set { if (value) MarcarParaDepois = false; }
+    }
+
+    /// <summary>Metade VISÍVEL: marcar horário é mexer na agenda — o rádio explica; <c>Exigir</c> impede.</summary>
+    public bool PodeMarcar => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
+
+    public bool NaoPodeMarcar => !PodeMarcar;
+
+    /// <summary>Salas ativas — só o modo marcar pergunta onde (o avulso está NO balcão).</summary>
+    public ObservableCollection<Sala> Salas { get; } = new();
+
+    [ObservableProperty] private Sala? _sala;
+
+    /// <summary>Duração em minutos; vazio = a padrão do profissional (como no formulário da agenda).</summary>
+    [ObservableProperty] private string _duracao = string.Empty;
+
+    /// <summary>Assumir o choque e marcar por cima — só aparece quando HÁ choque.</summary>
+    [ObservableProperty] private bool _comoEncaixe;
+
+    /// <summary>Marcar várias sessões de uma vez (o pacote de dez).</summary>
+    [ObservableProperty] private bool _emSerie;
+
+    [ObservableProperty] private string _quantidadeSessoes = "10";
+
+    /// <summary>Intervalo em dias. 7 = mesma hora, toda semana — o caso comum.</summary>
+    [ObservableProperty] private string _intervaloDias = "7";
+
+    /// <summary>Choques e agenda fechada no horário escolhido, criticados A CADA TECLA.</summary>
+    public ObservableCollection<string> ConflitosMarcacao { get; } = new();
+
+    public bool TemConflitoMarcacao => ConflitosMarcacao.Count > 0;
+
+    /// <summary>
+    /// Marcar sem profissional é permitido e AVISADO, nunca sorteado: apontar alguém que
+    /// o sistema escolheu faria o repasse pagar quem não atendeu. O aviso diz o custo —
+    /// o horário não aparece no "Meu dia" de ninguém e fica fora do repasse.
+    /// </summary>
+    public bool SemProfissionalEscolhido
+        => MarcarParaDepois && Profissional is null && Profissionais.Count > 0;
+
+    /// <summary>A chave "guia no agendamento" (parcela 70) — decide o rótulo e a nota do modo marcar.</summary>
+    [ObservableProperty] private bool _guiaNaMarcacao;
+
+    /// <summary>O que acontece com as guias no modo marcar, escrito ANTES do clique.</summary>
+    public string NotaGuiaNaMarcacao => GuiaNaMarcacao
+        ? "As guias nascem JÁ NA MARCAÇÃO e vão para o faturamento — dá para efetivar no "
+          + "portal antes da sessão. Cancelamento e falta suspendem as guias sozinhos."
+        : "As guias deste horário nascem na confirmação da presença, no dia da sessão.";
+
+    /// <summary>Título do resultado: "lançado" e "marcado para" são desfechos diferentes.</summary>
+    [ObservableProperty] private string? _tituloResultado;
+
+    /// <summary>
+    /// Cabeçalho do passo da modalidade (o 3, desde que o QUANDO virou o passo 2 no
+    /// redesenho) — "FOI feito" mentiria sobre uma sessão marcada para semana que vem.
+    /// </summary>
+    public string TituloPasso2 => MarcarParaDepois ? "3 · O QUE SERÁ FEITO" : "3 · O QUE FOI FEITO";
 
     [ObservableProperty] private DateTime _data = DateTime.Today;
 
@@ -254,6 +348,13 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     [ObservableProperty] private string _hora = DateTime.Now.ToString("HH:mm");
     [ObservableProperty] private EntradaModalidade? _modalidadeSelecionada;
     [ObservableProperty] private EntradaEspecialidade? _especialidadeSelecionada;
+
+    /// <summary>
+    /// Quem atendeu. Fica NULO quando a clínica não cadastrou ninguém — e aí o
+    /// comportamento é o de antes desta correção, que é o melhor disponível: guia
+    /// gerada, sessão registrada, e a tela dizendo que ninguém foi apontado.
+    /// </summary>
+    [ObservableProperty] private Profissional? _profissional;
     [ObservableProperty] private TipoCodigo? _primeiroCodigo;
     [ObservableProperty] private string? _observacoes;
     [ObservableProperty]
@@ -293,6 +394,31 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         MensagemEhErro = false;
         MensagemEhAviso = false;
     }
+
+    /// <summary>
+    /// A CAPA do que o paciente já tem lançado no dia escolhido (parcela 70): número do
+    /// atendimento, modalidade, quem lançou e se as guias já foram baixadas. É o aviso
+    /// que a cliente pediu com todas as letras — e ele aparece na ESCOLHA do paciente,
+    /// antes do clique, não só na pergunta de confirmação.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemAvisoJaLancado))]
+    private string? _avisoJaLancado;
+
+    public bool TemAvisoJaLancado => !string.IsNullOrWhiteSpace(AvisoJaLancado);
+
+    /// <summary>
+    /// O RESTO da elegibilidade — dívida vencida, guia glosada, pacote no fim, termo do
+    /// procedimento, consentimento (parcela 70, achado da auditoria). O formulário de
+    /// agendamento que esta tela substituiu mostrava tudo isso pelo
+    /// <c>ElegibilidadeService</c> (parcelas 26/48), e a porta unificada não pode mostrar
+    /// MENOS do que a porta que aposentou. Carteirinha vencida, cota e consulta ficam de
+    /// fora do recorte: a tela já as diz com mais detalhe logo acima, e o mesmo aviso
+    /// duas vezes se lê como dois problemas.
+    /// </summary>
+    public ObservableCollection<LinhaAlertaElegibilidade> AlertasElegibilidade { get; } = new();
+
+    public bool TemAlertasElegibilidade => AlertasElegibilidade.Count > 0;
 
     /// <summary>Aviso de guias pendentes do paciente selecionado (para a secretária cobrar na hora). Nulo = sem pendências.</summary>
     [ObservableProperty]
@@ -393,10 +519,119 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     // Trocar a data, a especialidade ou qual código sai primeiro muda o que a regra gera —
     // e a prévia mente se não acompanhar. É o preço de mostrar a consequência: ela tem de
-    // seguir TODAS as entradas que a produzem.
-    partial void OnDataChanged(DateTime value) => _ = PreverAsync();
+    // seguir TODAS as entradas que a produzem. A data também muda o choque e a resposta
+    // de "já foi lançado nesse dia?".
+    partial void OnDataChanged(DateTime value)
+    {
+        _ = PreverAsync();
+        _ = ConferirConflitosAsync();
+
+        // No modo marcar, trocar o DIA é o gesto normal — e cota, consulta, elegibilidade
+        // e a capa respondem PELA DATA. Sem reconferir, a tela mostraria a resposta do
+        // dia anterior com toda a cara de atual (o item 6 da fila da parcela 69, fechado
+        // aqui porque a unificação o tornou cotidiano).
+        if (PacienteSelecionado is { } p)
+        {
+            _ = VerificarJaLancadoNoDiaAsync(p.Id);
+            _ = VerificarAutorizacaoAsync(p.Id);
+            _ = VerificarConsultaAsync(p.Id);
+            _ = VerificarElegibilidadeAsync(p.Id);
+        }
+    }
+
     partial void OnEspecialidadeSelecionadaChanged(EntradaEspecialidade? value) => _ = PreverAsync();
     partial void OnPrimeiroCodigoChanged(TipoCodigo? value) => _ = PreverAsync();
+
+    partial void OnMarcarParaDepoisChanged(bool value)
+    {
+        OnPropertyChanged(nameof(LancarAgora));
+        OnPropertyChanged(nameof(TituloPasso2));
+        OnPropertyChanged(nameof(SemProfissionalEscolhido));
+        AtualizarRotuloLancar();
+        _ = ConferirConflitosAsync();
+    }
+
+    partial void OnGuiaNaMarcacaoChanged(bool value)
+    {
+        OnPropertyChanged(nameof(NotaGuiaNaMarcacao));
+        AtualizarRotuloLancar();
+    }
+
+    // A crítica de choque segue TODAS as entradas que o produzem (hora, duração,
+    // profissional, sala) — a mesma regra da prévia, aplicada ao outro aviso da tela.
+    partial void OnHoraChanged(string value) => _ = ConferirConflitosAsync();
+    partial void OnDuracaoChanged(string value) => _ = ConferirConflitosAsync();
+    partial void OnSalaChanged(Sala? value) => _ = ConferirConflitosAsync();
+
+    partial void OnProfissionalChanged(Profissional? value)
+    {
+        OnPropertyChanged(nameof(SemProfissionalEscolhido));
+        _ = ConferirConflitosAsync();
+    }
+
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 50) — a crítica dispara a cada tecla
+    /// da hora/duração, e num banco remoto a resposta velha apagaria o choque real.
+    /// </summary>
+    private int _geracaoConflitos;
+
+    /// <summary>
+    /// Mostra o choque e a agenda fechada ANTES de salvar, com a MESMA leitura que o
+    /// serviço usa para recusar (<see cref="AgendaService.ConflitosAsync"/> — sem cópia).
+    /// Silencioso quanto a falhas: é aviso, e uma consulta que não respondeu não pode
+    /// impedir de marcar.
+    /// </summary>
+    private async Task ConferirConflitosAsync()
+    {
+        var geracao = ++_geracaoConflitos;
+
+        ConflitosMarcacao.Clear();
+        OnPropertyChanged(nameof(TemConflitoMarcacao));
+
+        if (!MarcarParaDepois) { ComoEncaixe = false; return; }
+        if (!TimeOnly.TryParse(Hora, out var hora)) return;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+
+            var achados = await agenda.ConflitosAsync(
+                Data.Date.Add(hora.ToTimeSpan()), DuracaoInformada(),
+                Profissional?.Id, Sala?.Id, pacienteId: PacienteSelecionado?.Id);
+
+            // Chegou tarde: outra tecla já pediu uma conferência mais nova.
+            if (geracao != _geracaoConflitos) return;
+
+            foreach (var c in achados.Select(DescreverConflito).Distinct())
+                ConflitosMarcacao.Add(c);
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoConflitos) return;
+            LogSuite.Registrar("Novo atendimento — conflitos da agenda não puderam ser conferidos", ex);
+        }
+        finally
+        {
+            if (geracao == _geracaoConflitos)
+            {
+                OnPropertyChanged(nameof(TemConflitoMarcacao));
+                // O choque sumiu (outra hora, outro dia): a caixinha "como encaixe" some
+                // da tela, e não pode ficar ARMADA invisível — marcaria um encaixe que
+                // ninguém pediu.
+                if (ConflitosMarcacao.Count == 0) ComoEncaixe = false;
+            }
+        }
+    }
+
+    private static string DescreverConflito(ConflitoAgenda c) => c.Recurso switch
+    {
+        RecursoAgenda.Paciente => $"{c.Descricao} (aviso — não impede marcar)",
+        _ => c.Descricao
+    };
+
+    private int? DuracaoInformada()
+        => int.TryParse(Duracao, out var m) && m > 0 ? m : null;
 
     /// <summary>
     /// Preenche as opções de "qual código primeiro" conforme a modalidade e escolhe o
@@ -441,9 +676,110 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     public async Task CarregarAsync()
     {
         CarregarCatalogos();
+        await CarregarEquipeAsync();
+        await LerChaveGuiaNaMarcacaoAsync();
+        ConsumirPreenchimento();
         await Seletor.BuscarAsync(imediato: true);
         await CarregarDoDiaAsync();
     }
+
+    /// <summary>
+    /// Os profissionais ativos (quem atendeu) e as salas (onde, no modo marcar).
+    ///
+    /// Falhar aqui NÃO derruba a tela: o balcão continua lançando o atendimento (a guia
+    /// é o que a clínica não pode perder) e o seletor fica vazio, dizendo por quê. O que
+    /// não pode é passar calado — sem a linha no log, a clínica acreditaria que não há
+    /// ninguém cadastrado.
+    /// </summary>
+    private async Task CarregarEquipeAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var equipe = scope.ServiceProvider.GetRequiredService<EquipeService>();
+            var ativos = await equipe.ProfissionaisAtivosAsync();
+            var salas = await equipe.SalasAtivasAsync();
+
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await.
+            Profissionais.Clear();
+            foreach (var p in ativos) Profissionais.Add(p);
+
+            Salas.Clear();
+            foreach (var s in salas) Salas.Add(s);
+
+            // Um profissional só: não há o que escolher, e obrigar o clique num combo de
+            // uma opção é cerimônia. Mais de um, a escolha é de quem está no balcão.
+            if (Profissionais.Count == 1) Profissional = Profissionais[0];
+
+            OnPropertyChanged(nameof(SemProfissionaisCadastrados));
+            OnPropertyChanged(nameof(TemProfissionaisCadastrados));
+            OnPropertyChanged(nameof(SemProfissionalEscolhido));
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — profissionais não puderam ser lidos", ex);
+        }
+    }
+
+    /// <summary>
+    /// Lê a chave "guia no agendamento" para a tela dizer a verdade sobre o modo marcar.
+    /// Falha presume o regime antigo: a nota promete MENOS do que acontece, nunca mais.
+    /// </summary>
+    private async Task LerChaveGuiaNaMarcacaoAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+            GuiaNaMarcacao = await parametros.GuiaNoAgendamentoAsync();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — chave da guia na marcação não pôde ser lida", ex);
+            GuiaNaMarcacao = false;
+        }
+        AtualizarRotuloLancar();
+    }
+
+    /// <summary>
+    /// Consome o pedido que a AGENDA deixou ao navegar para cá (o clique no vão livre, o
+    /// "Novo horário") — dia, hora, profissional e sala já preenchidos, que é o gesto da
+    /// parcela 58 sobrevivendo à unificação. Roda DEPOIS da carga da equipe, porque
+    /// profissional e sala são resolvidos por Id na lista carregada.
+    /// </summary>
+    private void ConsumirPreenchimento()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var ponte = scope.ServiceProvider.GetService<PreenchimentoNovoAtendimento>();
+            if (ponte?.Consumir() is not { } pedido) return;
+
+            if (pedido.DataHora is { } quando)
+            {
+                Data = quando.Date;
+                if (quando.TimeOfDay > TimeSpan.Zero) Hora = quando.ToString("HH:mm");
+            }
+            if (pedido.ProfissionalId is { } profissionalId)
+                Profissional = Profissionais.FirstOrDefault(p => p.Id == profissionalId) ?? Profissional;
+            if (pedido.SalaId is { } salaId)
+                Sala = Salas.FirstOrDefault(s => s.Id == salaId) ?? Sala;
+
+            // Por último: já dispara a crítica de choque com tudo no lugar.
+            if (pedido.MarcarParaDepois) MarcarParaDepois = true;
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — pré-preenchimento da agenda não pôde ser lido", ex);
+        }
+    }
+
+    /// <summary>Não há ninguém ativo cadastrado — a tela DIZ, em vez de mostrar combo vazio.</summary>
+    public bool SemProfissionaisCadastrados => Profissionais.Count == 0;
+
+    /// <summary>O par de cima. São duas propriedades porque a suíte não tem conversor de
+    /// bool invertido, e criar um para um uso só seria mais peça para manter.</summary>
+    public bool TemProfissionaisCadastrados => Profissionais.Count > 0;
 
     /// <summary>
     /// Os atendimentos do dia — a conferência de quem lançou o quê.
@@ -598,9 +934,12 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     private void AoTrocarPaciente(Paciente? value)
     {
         OnPropertyChanged(nameof(PacienteSelecionado));
+        AvisoJaLancado = null;
         AvisoPendencias = null;
         AvisoCarteirinha = null;
         AvisoConsulta = null;
+        AlertasElegibilidade.Clear();
+        OnPropertyChanged(nameof(TemAlertasElegibilidade));
         ConsultaVencida = false;
         SaldoAutorizacao = null;
         AutorizacaoCritica = false;
@@ -634,6 +973,93 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         _ = VerificarPendenciasAsync(value.Id);
         _ = VerificarAutorizacaoAsync(value.Id);
         _ = VerificarConsultaAsync(value.Id);
+        _ = VerificarJaLancadoNoDiaAsync(value.Id);
+        _ = VerificarElegibilidadeAsync(value.Id);
+        _ = ConferirConflitosAsync();
+    }
+
+    /// <summary>Descarte de resposta fora de ordem dos alertas — a data muda por clique.</summary>
+    private int _geracaoElegibilidade;
+
+    private static readonly HashSet<ImpedimentoElegibilidade> JaDitosPelaTela =
+    [
+        ImpedimentoElegibilidade.CarteirinhaVencida,
+        ImpedimentoElegibilidade.CotaEsgotada,
+        ImpedimentoElegibilidade.CotaQuaseNoFim,
+        ImpedimentoElegibilidade.SemAutorizacaoVigente,
+        ImpedimentoElegibilidade.ConsultaVencida,
+        ImpedimentoElegibilidade.ConsultaARenovar
+    ];
+
+    /// <summary>
+    /// Os alertas de elegibilidade que a tela NÃO diz por conta própria. A urgência viaja
+    /// com cada alerta (parcela 36): dívida amarela ao lado de carteirinha vermelha, sem
+    /// uma pintar a outra. Falha não impede — mas vira linha, senão a tela diria "nada a
+    /// apontar" sobre o que não conseguiu conferir.
+    /// </summary>
+    private async Task VerificarElegibilidadeAsync(int pacienteId)
+    {
+        var geracao = ++_geracaoElegibilidade;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<ElegibilidadeService>();
+            var resultado = await servico.ConferirAsync(pacienteId, DateOnly.FromDateTime(Data.Date));
+
+            if (geracao != _geracaoElegibilidade || PacienteSelecionado?.Id != pacienteId) return;
+
+            AlertasElegibilidade.Clear();
+            foreach (var a in resultado.Alertas.Where(a => !JaDitosPelaTela.Contains(a.Motivo)))
+                AlertasElegibilidade.Add(new LinhaAlertaElegibilidade(
+                    a.Descricao, a.Urgencia == NivelUrgencia.Vermelho));
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoElegibilidade) return;
+            LogSuite.Registrar("Novo atendimento — elegibilidade não pôde ser conferida", ex);
+            AlertasElegibilidade.Clear();
+            AlertasElegibilidade.Add(new LinhaAlertaElegibilidade(
+                "Não foi possível conferir dívida, pacote e termo agora.", Vermelho: false));
+        }
+        finally
+        {
+            if (geracao == _geracaoElegibilidade)
+                OnPropertyChanged(nameof(TemAlertasElegibilidade));
+        }
+    }
+
+    /// <summary>Descarte de resposta fora de ordem da capa — a data muda por clique de DatePicker.</summary>
+    private int _geracaoJaLancado;
+
+    /// <summary>
+    /// A capa do que o paciente já tem no dia escolhido — o aviso ANTES da pergunta.
+    /// Aviso é auxiliar: falha nunca impede, mas vai para o log (a pergunta do Lançar
+    /// confere de novo, então a tela não fica dependendo só desta leitura).
+    /// </summary>
+    private async Task VerificarJaLancadoNoDiaAsync(int pacienteId)
+    {
+        var geracao = ++_geracaoJaLancado;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var atendimentos = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
+            var capas = await atendimentos.CapasDoDiaAsync(pacienteId, DateOnly.FromDateTime(Data.Date));
+
+            if (geracao != _geracaoJaLancado || PacienteSelecionado?.Id != pacienteId) return;
+
+            AvisoJaLancado = capas.Count == 0
+                ? null
+                : $"Já lançado em {Data:dd/MM}: "
+                  + string.Join(" · ", capas.Select(c =>
+                      $"nº {c.Numero} ({c.Modalidade}, {c.Lancamento} — {c.ResumoGuias})"))
+                  + ". Lançar de novo cria OUTRO atendimento e outro jogo de guias.";
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoJaLancado) return;
+            LogSuite.Registrar("Novo atendimento — atendimentos do dia do paciente não puderam ser lidos", ex);
+            AvisoJaLancado = null;
+        }
     }
 
     /// <summary>
@@ -644,22 +1070,32 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// último momento barato: a consulta vencida faz o convênio recusar o que acabou de
     /// ser gerado aqui.
     /// </summary>
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 60): a conferência também dispara ao
+    /// trocar a DATA, e duas leituras do MESMO paciente com datas diferentes passariam
+    /// na guarda de seleção — quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoConsulta;
+
     private async Task VerificarConsultaAsync(int pacienteId)
     {
+        var geracao = ++_geracaoConsulta;
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var consultas = scope.ServiceProvider.GetRequiredService<ConsultaService>();
             var situacao = await consultas.DoPacienteAsync(pacienteId, DateOnly.FromDateTime(Data));
 
-            // A seleção pode ter mudado enquanto a consulta rodava.
-            if (PacienteSelecionado?.Id != pacienteId) return;
+            // A seleção (ou a data) pode ter mudado enquanto a consulta rodava.
+            if (geracao != _geracaoConsulta || PacienteSelecionado?.Id != pacienteId) return;
 
             AvisoConsulta = situacao?.AvisoRenovacao;
             ConsultaVencida = situacao?.Vencida ?? false;
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoConsulta) return;
+
             // Aviso é auxiliar: nunca impede o lançamento. Mas também não pode sumir
             // calado, senão a tela diria "não há consulta a renovar" sem ter olhado.
             LogSuite.Registrar("Novo atendimento — consulta renovável não pôde ser lida", ex);
@@ -673,16 +1109,20 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// ("quantidade executada acima da autorizada") — o sistema registrava essa glosa
     /// depois do prejuízo e não avisava antes.
     /// </summary>
+    /// <summary>O par do contador da consulta, pela mesma razão: a data também dispara esta.</summary>
+    private int _geracaoAutorizacao;
+
     private async Task VerificarAutorizacaoAsync(int pacienteId)
     {
+        var geracao = ++_geracaoAutorizacao;
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var autorizacoes = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
             var saldo = await autorizacoes.VigenteAsync(pacienteId, DateOnly.FromDateTime(Data));
 
-            // A seleção pode ter mudado enquanto a consulta rodava.
-            if (PacienteSelecionado?.Id != pacienteId) return;
+            // A seleção (ou a data) pode ter mudado enquanto a consulta rodava.
+            if (geracao != _geracaoAutorizacao || PacienteSelecionado?.Id != pacienteId) return;
 
             if (saldo is null)
             {
@@ -703,6 +1143,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoAutorizacao) return;
+
             // Aviso é auxiliar: nunca pode impedir o lançamento do atendimento.
             LogSuite.Registrar("Novo atendimento — cota de sessões não pôde ser lida", ex);
             SaldoAutorizacao = null;
@@ -811,7 +1253,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             LogSuite.Registrar("Novo atendimento — prévia das guias não pôde ser calculada", ex);
             Previa.Clear();
             ResumoPrevia = "Não foi possível calcular a prévia das guias — o lançamento continua liberado.";
-            RotuloLancar = "Lançar e gerar as guias";
+            _totalGuiasPrevia = null;
+            AtualizarRotuloLancar();
             OnPropertyChanged(nameof(TemPrevia));
 
             // Falha não pode deixar número velho na tela: cartão dizendo "1 guia" quando a
@@ -830,8 +1273,41 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     {
         Previa.Clear();
         ResumoPrevia = string.Empty;
-        RotuloLancar = "Lançar e gerar as guias";
+        _totalGuiasPrevia = null;
+        AtualizarRotuloLancar();
         OnPropertyChanged(nameof(TemPrevia));
+    }
+
+    /// <summary>O total da última prévia (nulo = ainda não calculada), para o rótulo do botão.</summary>
+    private int? _totalGuiasPrevia;
+
+    /// <summary>
+    /// O rótulo do botão num ponto único: ele depende do MODO (lançar/marcar), da chave e
+    /// da prévia, e três escritores diferentes divergiriam na primeira mudança.
+    /// </summary>
+    private void AtualizarRotuloLancar()
+    {
+        if (MarcarParaDepois)
+        {
+            RotuloLancar = !GuiaNaMarcacao
+                ? "Marcar horário"
+                : _totalGuiasPrevia switch
+                {
+                    null => "Marcar e gerar as guias",
+                    0 => "Marcar horário",
+                    1 => "Marcar e gerar 1 guia",
+                    var t => $"Marcar e gerar {t} guias"
+                };
+            return;
+        }
+
+        RotuloLancar = _totalGuiasPrevia switch
+        {
+            null => "Lançar e gerar as guias",
+            0 => "Lançar atendimento",
+            1 => "Lançar e gerar 1 guia",
+            var t => $"Lançar e gerar {t} guias"
+        };
     }
 
     /// <summary>
@@ -894,12 +1370,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         }
 
         var total = previa.GuiasHoje + previa.GuiasDepois;
-        RotuloLancar = total switch
-        {
-            0 => "Lançar atendimento",
-            1 => "Lançar e gerar 1 guia",
-            _ => $"Lançar e gerar {total} guias"
-        };
+        _totalGuiasPrevia = total;
+        AtualizarRotuloLancar();
 
         ResumoPrevia = previa.LiberaEm is { } quando
             ? $"{total} guia(s) — a 2ª só libera em {quando:dd/MM/yyyy}, e é ela que costuma se perder."
@@ -935,12 +1407,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     {
         Lancado = false;
         NumeroAtendimento = null;
+        TituloResultado = null;
         _ultimoAtendimentoId = 0;
         CodigosGerados.Clear();
         Avisos.Clear();
         ResumoBaixas = null;
         Observacoes = null;
         Mensagem = null;
+        // O MODO fica como está (quem marca dez horários seguidos não quer reescolher o
+        // rádio a cada um); o que é por-horário — encaixe assumido e série — zera.
+        ComoEncaixe = false;
+        EmSerie = false;
         Data = DateTime.Today;
         Seletor.Limpar();
         Seletor.Termo = null;
@@ -1020,6 +1497,17 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             return;
         }
 
+        // ===== O MODO MARCAR (parcela 70) =====
+        //
+        // "O paciente está aqui" segue o caminho de sempre (encaixe + check-in + guia).
+        // "Marcar dia e horário" cria o horário na agenda — sem check-in, sem pacote e
+        // sem caixa, que são atos do dia da sessão.
+        if (MarcarParaDepois)
+        {
+            await MarcarAsync(paciente, ModalidadeSelecionada, hora);
+            return;
+        }
+
         // Guarda contra duplo clique: dois lançamentos gerariam códigos duplicados.
         if (Ocupado) return;
 
@@ -1043,74 +1531,45 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
             Avisos.Clear();
             Mensagem = null;
 
-            // ===== PASSO 1: o horário existe de verdade (parcela 60) =====
+            // ===== O GESTO ATÔMICO (parcela 70) =====
             //
-            // O avulso NÃO chama mais `AtendimentoService.LancarAsync` direto. Ele marca um
-            // ENCAIXE na hora real e deixa a esteira da Fila concluir — que é a mesma
-            // esteira, com o mesmo serviço e a mesma janela.
+            // Antes, este clique disparava uma CORRENTE de três serviços e cinco
+            // SaveChanges (Agendar → RegistrarChegada → ConfirmarPresenca → número →
+            // carimbo), e cada vão era um meio-estado possível: o incidente de 12/08 (três
+            // encaixes com chegada e sem atendimento) morava num deles, e a guia duplicada
+            // no último.
             //
-            // Antes, "lançar e acabou" gerava a guia e pulava três dos quatro fatos: o
-            // pacote não debitava (a clínica atendia de graça quem tinha comprado dez
-            // sessões), o dinheiro não entrava no caixa, e o horário virava um fantasma às
-            // 9h fixo, sem profissional, contando na ocupação do dia.
-            //
-            // `encaixe: true` porque é isso que ele é: alguém que chegou sem hora marcada.
-            // É o que faz o serviço aceitar por cima de um horário ocupado em vez de
-            // recusar — o paciente já está aqui.
+            // Agora é UMA chamada e UM SaveChanges no núcleo: o encaixe nasce na hora
+            // real, com o check-in carimbado, o atendimento e as guias — ou existe tudo,
+            // ou não existe nada e o erro aparece aqui. Não sobra meio-estado para o
+            // segundo clique transformar em duplicata.
             using var scope = _scopeFactory.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            var operador = SessaoUsuario.Atual.Operador;
 
-            var agendamento = await agenda.AgendarAsync(
+            var (agendamento, lancamento) = await agenda.LancarAvulsoAsync(
                 paciente.Id,
                 Data.Date.Add(hora.ToTimeSpan()),
                 Modalidade,
                 Observacoes,
                 modalidadeCodigo: ModalidadeSelecionada.Codigo,
                 especialidadeConsultaCodigo: ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null,
-                encaixe: true,
-                operador: operador,
-                primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
+                primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null,
+                // Quem atendeu. É o que faz o paciente aparecer no "Meu dia" do médico e
+                // a sessão entrar no repasse dele — os dois leem o AGENDAMENTO.
+                profissionalId: Profissional?.Id,
+                operador: SessaoUsuario.Atual.Operador,
+                // A sala vai junto no avulso também: a chamada da Fila anuncia
+                // "para a sala X", e sem ela saía "sala —".
+                salaId: Sala?.Id);
 
             agendamentoId = agendamento.Id;
 
-            // O paciente está no balcão — o check-in é o fato, não uma etapa a cumprir.
-            await agenda.RegistrarChegadaAsync(agendamentoId);
-        }
-        catch (Exception ex)
-        {
-            LogSuite.Registrar("Novo atendimento — encaixe não pôde ser marcado", ex);
-            Avisar($"Não foi possível marcar o horário: {ex.Message}", erro: true);
-            Ocupado = false;
-            return;
-        }
+            MontarCodigos(lancamento.Atendimento.Codigos);
+            foreach (var a in lancamento.Avisos) Avisos.Add(a);
 
-        RegistroAtendimento registro;
-        try
-        {
-            // ===== PASSO 2: A GUIA NASCE AQUI (parcela 65) =====
-            //
-            // Registrar o atendimento é o ato; a guia é consequência imediata dele e já
-            // segue para o faturamento. Nada depois deste ponto pode condicionar ou
-            // desfazer a guia.
-            //
-            // Antes, a guia só nascia se a janela de fechamento fosse CONFIRMADA — e
-            // fechá-la deixava um horário na agenda, o paciente marcado como presente e
-            // nenhuma guia. Em 12/08/2026 a mesma sessão foi lançada TRÊS vezes em 71
-            // segundos por causa disso: a recepcionista não via guia nenhuma e tentava de
-            // novo. Lançamento que não fatura é a inversão exata do motivo de o produto
-            // existir.
-            using var scope = _scopeFactory.CreateScope();
-            var fechamento = scope.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
-
-            registro = await fechamento.RegistrarAtendimentoAsync(
-                agendamentoId, SessaoUsuario.Atual.Operador);
-
-            MontarCodigos(registro.Atendimento.Codigos);
-            foreach (var a in registro.RecadosDoLancamento) Avisos.Add(a);
-
-            _ultimoAtendimentoId = registro.Atendimento.Id;
-            NumeroAtendimento = registro.Atendimento.Numero;
+            _ultimoAtendimentoId = lancamento.Atendimento.Id;
+            NumeroAtendimento = lancamento.Atendimento.Numero;
+            TituloResultado = $"Atendimento nº {lancamento.Atendimento.Numero} lançado";
             Lancado = true;
 
             // A conferência do dia acompanha na hora: o que acabou de nascer aparece lá
@@ -1119,10 +1578,30 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         }
         catch (Exception ex)
         {
-            LogSuite.Registrar("Novo atendimento — atendimento não pôde ser registrado", ex);
-            Avisar($"O horário foi marcado, mas o atendimento NÃO foi registrado e "
-                   + $"nenhuma guia foi gerada: {ex.Message}. O paciente está na Fila — "
-                   + "conclua por lá.", erro: true);
+            LogSuite.Registrar("Novo atendimento — lançamento falhou", ex);
+            Avisar($"Não foi possível lançar: {ex.Message} Nada foi gravado — corrija e "
+                   + "tente de novo.", erro: true);
+            Ocupado = false;
+            return;
+        }
+
+        RegistroAtendimento registro;
+        try
+        {
+            // A PROPOSTA do fechamento (pacote/caixa/insumo) reaproveita o atendimento
+            // recém-gravado — presença confirmada nunca é reconfirmada.
+            using var scope = _scopeFactory.CreateScope();
+            var fechamento = scope.ServiceProvider.GetRequiredService<FechamentoSessaoService>();
+
+            registro = await fechamento.RegistrarAtendimentoAsync(
+                agendamentoId, SessaoUsuario.Atual.Operador);
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — proposta de fechamento não pôde ser montada", ex);
+            Avisar("Atendimento registrado e guia gerada. O passo de pacote/caixa não pôde "
+                   + "abrir — dá para resolver pela Fila ou pelo Financeiro.", aviso: true);
+            Ocupado = false;
             return;
         }
         finally
@@ -1181,31 +1660,209 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     }
 
     /// <summary>
-    /// Pergunta antes de lançar de novo alguém que já foi lançado hoje.
+    /// O modo MARCAR: cria o horário na agenda — e, com a chave "guia no agendamento"
+    /// ligada, o atendimento e as guias no MESMO grafo (é o <see cref="AgendaService.AgendarAsync"/>
+    /// de sempre; esta tela não tem um segundo jeito de criar horário). Não abre
+    /// pacote/caixa: o paciente não está aqui, e esses passos moram no Finalizar da
+    /// Fila, no dia da sessão.
+    /// </summary>
+    private async Task MarcarAsync(Paciente paciente, EntradaModalidade modalidade, TimeOnly hora)
+    {
+        // As DUAS barreiras: o rádio explica (`PodeMarcar`); aqui impede. Com a chave
+        // ligada, marcar também CRIA o atendimento e as guias — o ato que
+        // `LancarAtendimento` nomeia (parcela 69: quando o momento do fato muda, a
+        // permissão vai junto). `Exigir` com bits somados é um E.
+        SessaoUsuario.Atual.Exigir(
+            GuiaNaMarcacao
+                ? Permissao.EditarAgenda | Permissao.LancarAtendimento
+                : Permissao.EditarAgenda,
+            "marcar horário");
+
+        if (!string.IsNullOrWhiteSpace(Duracao) && DuracaoInformada() is null)
+        {
+            Avisar("A duração precisa ser um número de minutos maior que zero.", erro: true);
+            return;
+        }
+
+        var quantas = 0;
+        var intervalo = 0;
+        if (EmSerie)
+        {
+            if (!int.TryParse(QuantidadeSessoes, out quantas) || quantas < 2)
+            {
+                Avisar("Quantas sessões? A partir de 2 — para uma só, desmarque \"repetir\".", erro: true);
+                return;
+            }
+            if (!int.TryParse(IntervaloDias, out intervalo) || intervalo < 1)
+            {
+                Avisar("De quantos em quantos dias? (7 = toda semana, mesma hora.)", erro: true);
+                return;
+            }
+        }
+
+        if (Ocupado) return;
+
+        // A mesma pergunta informada do lançar: marcar em cima de um dia que já tem
+        // atendimento é a duplicata de amanhã sendo combinada hoje.
+        if (!await ConfirmarSeJaLancadoHojeAsync(paciente)) return;
+
+        Ocupado = true;
+        try
+        {
+            CodigosGerados.Clear();
+            Avisos.Clear();
+            LimparMensagem();
+
+            var dataHora = Data.Date.Add(hora.ToTimeSpan());
+            var especialidade = ModalidadeConsulta ? EspecialidadeSelecionada?.Codigo : null;
+
+            using var scope = _scopeFactory.CreateScope();
+            var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+
+            if (EmSerie)
+            {
+                var serie = await agenda.AgendarSerieAsync(
+                    paciente.Id, dataHora, Modalidade, quantas,
+                    intervaloDias: intervalo, observacoes: Observacoes,
+                    modalidadeCodigo: modalidade.Codigo,
+                    especialidadeConsultaCodigo: especialidade,
+                    profissionalId: Profissional?.Id, salaId: Sala?.Id,
+                    duracaoMinutos: DuracaoInformada(),
+                    operador: SessaoUsuario.Atual.Operador);
+
+                // A série que pulou datas NÃO passa em silêncio: a recepção precisa ver
+                // quais não entraram para resolver com o paciente ainda na linha.
+                foreach (var r in serie.Recusados)
+                    Avisos.Add($"{r.Quando:dd/MM HH:mm} — não deu: {r.Motivo}");
+
+                var frase = $"{serie.Marcados.Count} sessão(ões) marcada(s) a partir de "
+                            + $"{dataHora:dd/MM/yyyy 'às' HH:mm}."
+                            + (GuiaNaMarcacao ? " As guias já estão no faturamento." : string.Empty);
+                if (serie.TudoMarcado) Avisar(frase);
+                else Avisar(frase + " Parte da série não entrou — veja as datas puladas e resolva agora.",
+                    aviso: true);
+            }
+            else
+            {
+                var ag = await agenda.AgendarAsync(
+                    paciente.Id, dataHora, Modalidade, Observacoes,
+                    modalidadeCodigo: modalidade.Codigo,
+                    especialidadeConsultaCodigo: especialidade,
+                    profissionalId: Profissional?.Id, salaId: Sala?.Id,
+                    duracaoMinutos: DuracaoInformada(), encaixe: ComoEncaixe,
+                    operador: SessaoUsuario.Atual.Operador,
+                    primeiroCodigo: ModalidadeDupla ? PrimeiroCodigo : null);
+
+                if (ag.Atendimento is { } atendimento)
+                {
+                    // A chave está ligada: a guia nasceu junto do horário, e a tela
+                    // mostra — é a metade que permite efetivar no portal desde já.
+                    MontarCodigos(atendimento.Codigos);
+                    _ultimoAtendimentoId = atendimento.Id;
+                    NumeroAtendimento = atendimento.Numero;
+                    TituloResultado = $"Atendimento nº {atendimento.Numero} marcado para "
+                                      + $"{dataHora:dd/MM/yyyy 'às' HH:mm}";
+                    Lancado = true;
+
+                    var guias = atendimento.Codigos.Count(c => c.Status != StatusCodigo.NaoAplicavel);
+                    Avisar(guias == 0
+                        ? "Horário marcado. Este convênio não gera guia (particular)."
+                        : $"Horário marcado — {guias} guia(s) já no faturamento; dá para "
+                          + "efetivar no portal antes da sessão.");
+                }
+                else
+                {
+                    Avisar($"Horário marcado para {dataHora:dd/MM/yyyy 'às' HH:mm}. "
+                           + "As guias nascem na confirmação da presença.");
+                }
+
+                await PerguntarComprovanteAsync(scope, ag.Id, paciente.Nome, dataHora);
+            }
+
+            // Uma marcação para HOJE aparece na conferência do dia (a de outro dia, não —
+            // e a lista diz "hoje" no título de propósito).
+            if (Data.Date == DateTime.Today) await CarregarDoDiaAsync();
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — marcação falhou", ex);
+            Avisar($"Não foi possível marcar: {ex.Message}", erro: true);
+        }
+        finally
+        {
+            Ocupado = false;
+        }
+    }
+
+    /// <summary>
+    /// "Imprimir o comprovante de agendamento para o paciente?" — a pergunta do fluxo
+    /// unificado (decisão da direção, parcela 70). Só no horário ÚNICO: numa série, o
+    /// papel de cada sessão sai pela janela do horário na Agenda.
+    /// Falha vira aviso na lista, nunca por cima da confirmação da marcação.
+    /// </summary>
+    private async Task PerguntarComprovanteAsync(
+        IServiceScope scope, int agendamentoId, string paciente, DateTime dataHora)
+    {
+        try
+        {
+            var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
+            if (!dialogo.Confirmar(
+                    "Comprovante de agendamento",
+                    $"Imprimir o comprovante de agendamento para {paciente} "
+                    + $"({dataHora:dd/MM/yyyy 'às' HH:mm})?"))
+                return;
+
+            var pdfs = scope.ServiceProvider.GetRequiredService<AgendaPdfService>();
+            var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+            var pdf = await pdfs.ComprovanteAsync(agendamentoId, await parametros.ObterPrestadorAsync());
+
+            // Salvar cancelado devolve nulo, e sair calado é o certo; erro de verdade
+            // entra nos avisos.
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                pdf, ImpressaoPdf.NomeSeguro($"comprovante-{paciente}-{dataHora:yyyy-MM-dd}.pdf"));
+            if (erro is not null) Avisos.Add(erro);
+        }
+        catch (Exception ex)
+        {
+            LogSuite.Registrar("Novo atendimento — comprovante não pôde ser gerado", ex);
+            Avisos.Add($"O comprovante não pôde ser gerado: {ex.Message}. "
+                       + "Dá para imprimir pela janela do horário, na Agenda.");
+        }
+    }
+
+    /// <summary>
+    /// Pergunta antes de lançar (ou marcar) de novo alguém que já tem atendimento no dia
+    /// escolhido.
     ///
     /// Desde a parcela 65 a guia nasce no clique, então o clique repetido manda um jogo de
     /// guias duplicado ao faturamento — e guia duplicada só aparece na operadora, semanas
-    /// depois. Falha da conferência não impede o lançamento (banco lento não pode travar o
-    /// balcão), mas fica registrada.
+    /// depois. A pergunta é INFORMADA (parcela 70, pedido da cliente): mostra a capa de
+    /// cada atendimento — número, modalidade, quem lançou e se a guia já foi baixada — em
+    /// vez de um número seco. Falha da conferência não impede o lançamento (banco lento
+    /// não pode travar o balcão), mas fica registrada.
     /// </summary>
     private async Task<bool> ConfirmarSeJaLancadoHojeAsync(Paciente paciente)
     {
         try
         {
             using var scope = _scopeFactory.CreateScope();
-            var repo = scope.ServiceProvider.GetRequiredService<IClinicaRepositorio>();
+            var atendimentos = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
             var dia = DateOnly.FromDateTime(Data.Date);
 
-            var quantos = await repo.ContarAtendimentosDoPacienteAsync(paciente.Id, dia, dia);
-            if (quantos == 0) return true;
+            var capas = await atendimentos.CapasDoDiaAsync(paciente.Id, dia);
+            if (capas.Count == 0) return true;
 
+            var linhas = string.Join("\n", capas.Take(4).Select(c =>
+                $"  • Nº {c.Numero} — {c.Modalidade}, {c.Lancamento} — {c.ResumoGuias}"));
+            if (capas.Count > 4) linhas += $"\n  • … e mais {capas.Count - 4} atendimento(s)";
+
+            var verbo = MarcarParaDepois ? "Marcar" : "Lançar";
             var dialogo = scope.ServiceProvider.GetRequiredService<IDialogoService>();
             return dialogo.ConfirmarPerigo(
                 "Atendimento repetido?",
-                $"{paciente.Nome} já tem {quantos} atendimento(s) lançado(s) em "
-                + $"{dia:dd/MM/yyyy}, com guia(s) no faturamento.\n\n"
-                + "Lançar de novo cria OUTRO atendimento e OUTRAS guias para o mesmo dia.\n\n"
-                + "Confira em LANÇADOS HOJE, no fim desta tela. Lançar mesmo assim?");
+                $"{paciente.Nome} já tem atendimento em {dia:dd/MM/yyyy}:\n\n{linhas}\n\n"
+                + $"{verbo} de novo cria OUTRO atendimento — e outro jogo de guias — para o mesmo dia.\n\n"
+                + $"{verbo} mesmo assim?");
         }
         catch (Exception ex)
         {

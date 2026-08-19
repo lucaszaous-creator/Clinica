@@ -242,6 +242,10 @@ public sealed class ModuloRecepcao : IModuloApp
 
     public void Registrar(IServiceCollection servicos)
     {
+        // A ponte agenda → novo atendimento (parcela 70): singleton de UM pedido de
+        // pré-preenchimento, definido por quem navega e consumido pela tela ao abrir.
+        servicos.AddSingleton<PreenchimentoNovoAtendimento>();
+
         servicos.AddTransient<PainelViewModel>();
         servicos.AddTransient<AgendaViewModel>();
         servicos.AddTransient<DocumentosViewModel>();

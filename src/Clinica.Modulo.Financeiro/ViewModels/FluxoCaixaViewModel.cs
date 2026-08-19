@@ -209,6 +209,10 @@ public sealed partial class FluxoCaixaViewModel : ObservableObject
     {
         try
         {
+            // Sem dado pessoal (são agregados mensais), mas a regra é a mesma dos vizinhos:
+            // CSV é saída de dado e leva a segunda barreira (parcelas 60/64).
+            SessaoUsuario.Atual.Exigir(Permissao.VerFinanceiro, "exportar o fluxo de caixa");
+
             var linhas = new List<IReadOnlyList<string>>();
 
             foreach (var m in Meses)

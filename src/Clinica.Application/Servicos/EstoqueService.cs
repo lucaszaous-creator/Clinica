@@ -310,6 +310,14 @@ public sealed class EstoqueService
         if (dados.Quantidade <= 0)
             throw new InvalidOperationException("A quantidade deve ser maior que zero.");
 
+        // ⚠️ A recusa da perda sem motivo morava SÓ no wrapper `PerderAsync` — que nenhuma
+        // tela chama. A janela genérica de movimento entra por AQUI, e a única barreira
+        // dela era a validação da tela: o defeito recorrente vestido de validação (a
+        // regra do número da guia — quem valida na tela cobre uma porta e deixa as outras
+        // passando). Quem impede é o serviço; a tela usa a mesma regra para avisar antes.
+        if (dados.Tipo == TipoMovimentoEstoque.Perda && string.IsNullOrWhiteSpace(dados.Observacao))
+            throw new InvalidOperationException("Perda sem motivo escrito vira estoque que não bate.");
+
         // Ajuste PARA CIMA é entrada de saldo: não se compara com o que existe hoje, é
         // justamente o que está faltando no sistema.
         var tiraSaldo = dados.Tipo != TipoMovimentoEstoque.Entrada

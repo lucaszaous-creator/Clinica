@@ -97,7 +97,7 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
         var ag = await _agenda.AgendarAsync(
             pacienteId, quando, ModalidadeAtendimento.AcupunturaSimples, null,
             operador: "recepcao");
-        await _agenda.RegistrarChegadaAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
 
         return await _fechamento.ConcluirAsync(
             new DecisaoFechamento(ag.Id, DebitarPacote: true, GerarLancamento: true,
@@ -115,7 +115,7 @@ public class EsteiraUnicaAtendimentoTests : IDisposable
         var ag = await _agenda.AgendarAsync(
             pacienteId, quando, ModalidadeAtendimento.AcupunturaSimples, null,
             encaixe: true, operador: "recepcao");
-        await _agenda.RegistrarChegadaAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
 
         return await _fechamento.ConcluirAsync(
             new DecisaoFechamento(ag.Id, DebitarPacote: true, GerarLancamento: true,

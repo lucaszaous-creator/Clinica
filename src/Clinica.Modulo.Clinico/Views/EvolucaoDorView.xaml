@@ -69,8 +69,21 @@
                         </StackPanel>
                     </StackPanel>
 
+                    <!-- Quando a tendência PREOCUPA ela já está no alerta lá em cima —
+                         repetir a mesma frase aqui era a tela dizendo a mesma coisa em
+                         dois lugares (a regra do "um estado por pergunta", parcela 37). -->
                     <TextBlock Text="{Binding Tendencia}" TextWrapping="Wrap"
-                               Style="{StaticResource TextoSuave}" Margin="0,0,0,10" />
+                               Margin="0,0,0,10">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding TendenciaPreocupa}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
 
                     <!-- A curva só existe com par EVA. Sem ela o desenho SOME em vez de
                          pintar 200 px de branco repetindo a frase de cima. -->

@@ -5,6 +5,7 @@ using Clinica.Desktop.Shell;
 using Clinica.Domain.Entities;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Clinica.Desktop.Shell.Componentes;
 
@@ -40,7 +41,7 @@ public sealed class LinhaConsumo
 /// </summary>
 public sealed partial class ConsumosPacoteViewModel : ObservableObject
 {
-    private readonly PacoteService _pacotes;
+    private readonly IServiceScopeFactory _escopos;
     private readonly IDialogoService _dialogo;
     private readonly int _pacoteId;
 
@@ -60,9 +61,9 @@ public sealed partial class ConsumosPacoteViewModel : ObservableObject
     public bool Mudou { get; private set; }
 
     public ConsumosPacoteViewModel(
-        PacoteService pacotes, IDialogoService dialogo, int pacoteId, string titulo)
+        IServiceScopeFactory escopos, IDialogoService dialogo, int pacoteId, string titulo)
     {
-        _pacotes = pacotes;
+        _escopos = escopos;
         _dialogo = dialogo;
         _pacoteId = pacoteId;
         Titulo = titulo;
@@ -76,7 +77,9 @@ public sealed partial class ConsumosPacoteViewModel : ObservableObject
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
-            var pacote = await _pacotes.ObterAsync(_pacoteId);
+            using var escopo = _escopos.CreateScope();
+            var pacote = await escopo.ServiceProvider
+                .GetRequiredService<PacoteService>().ObterAsync(_pacoteId);
             if (pacote is null)
             {
                 Erro("Pacote não encontrado.");
@@ -151,7 +154,9 @@ public sealed partial class ConsumosPacoteViewModel : ObservableObject
                 + "O consumo continua no histórico, marcado com o motivo — não some.");
             if (string.IsNullOrWhiteSpace(motivo)) return;
 
-            await _pacotes.CancelarConsumoAsync(linha.ConsumoId, motivo, SessaoUsuario.Atual.Operador);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                    .CancelarConsumoAsync(linha.ConsumoId, motivo, SessaoUsuario.Atual.Operador);
             Mudou = true;
 
             Mensagem = $"Sessão de {linha.Data} devolvida ao saldo.";

@@ -26,7 +26,7 @@ public sealed class OpcaoPacote
 /// </summary>
 public sealed partial class PacoteVendaViewModel : ObservableObject
 {
-    private readonly PacoteService _pacotes;
+    private readonly IServiceScopeFactory _escopos;
 
     public ObservableCollection<OpcaoPacote> Opcoes { get; } = [];
 
@@ -44,9 +44,9 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
 
     public event Action? Concluido;
 
-    public PacoteVendaViewModel(PacoteService pacotes, IServiceScopeFactory escopos)
+    public PacoteVendaViewModel(IServiceScopeFactory escopos)
     {
-        _pacotes = pacotes;
+        _escopos = escopos;
         Seletor = new SeletorPacienteViewModel(escopos);
         _ = CarregarAsync();
     }
@@ -62,8 +62,13 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
     {
         try
         {
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await.
+            using var escopo = _escopos.CreateScope();
+            var catalogo = await escopo.ServiceProvider
+                .GetRequiredService<PacoteService>().CatalogoAsync(somenteAtivos: true);
+
             Opcoes.Clear();
-            foreach (var p in await _pacotes.CatalogoAsync(somenteAtivos: true))
+            foreach (var p in catalogo)
                 Opcoes.Add(new OpcaoPacote
                 {
                     Id = p.Id,
@@ -110,9 +115,11 @@ public sealed partial class PacoteVendaViewModel : ObservableObject
                 valor = lido;
             }
 
-            await _pacotes.VenderAsync(
-                paciente.Id, pacote.Id, DateOnly.FromDateTime(DataCompra), valor,
-                Observacoes, SessaoUsuario.Atual.Operador);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                    .VenderAsync(
+                        paciente.Id, pacote.Id, DateOnly.FromDateTime(DataCompra), valor,
+                        Observacoes, SessaoUsuario.Atual.Operador);
 
             Concluido?.Invoke();
         }

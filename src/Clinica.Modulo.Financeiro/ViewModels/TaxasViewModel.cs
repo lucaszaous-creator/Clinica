@@ -121,6 +121,13 @@ public sealed partial class TaxasViewModel : ObservableObject
     // ---- Imposto (alíquota única — legado da parcela 9) ----
     [ObservableProperty] private string? _aliquotaImposto;
 
+    /// <summary>
+    /// O fallback da alíquota única está ARMADO — não há tributo vigente hoje. É a mesma
+    /// condição do serviço, e é ela (nunca `Tributos.Count`) que decide se a faixa da
+    /// alíquota única aparece: campo que faz efeito não pode estar invisível.
+    /// </summary>
+    [ObservableProperty] private bool _aliquotaUnicaValendo = true;
+
     // ---- Simulador (parcela 15) ----
     [ObservableProperty] private string? _simValor = "200";
     [ObservableProperty] private string? _simAdquirente;
@@ -187,9 +194,12 @@ public sealed partial class TaxasViewModel : ObservableObject
             var taxas = scope.ServiceProvider.GetRequiredService<TaxaService>();
             var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
 
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await
+            // (parcela 62) — a coleção ficava vazia na tela durante o roundtrip ao banco.
+            var catalogoTaxas = await taxas.CatalogoAsync();
+
             Taxas.Clear();
-            foreach (var t in await taxas.CatalogoAsync())
-                Taxas.Add(LinhaTaxa.De(t));
+            foreach (var t in catalogoTaxas) Taxas.Add(LinhaTaxa.De(t));
 
             var aliquota = await parametros.ObterAliquotaImpostoAsync();
             // Zero é "não configurado" e o campo fica VAZIO, não "0" — um zero digitado e
@@ -199,21 +209,40 @@ public sealed partial class TaxasViewModel : ObservableObject
             var tributos = scope.ServiceProvider.GetRequiredService<TributoService>();
             var hoje = DateOnly.FromDateTime(DateTime.Today);
 
+            var catalogoTributos = await tributos.CatalogoAsync();
+
             Tributos.Clear();
-            foreach (var t in await tributos.CatalogoAsync())
-                Tributos.Add(LinhaTributo.De(t, hoje));
+            foreach (var t in catalogoTributos) Tributos.Add(LinhaTributo.De(t, hoje));
 
             var carga = await tributos.AliquotaTotalAsync(hoje);
             CargaHoje = carga > 0m ? $"{carga:0.####}%" : "—";
 
             // Qual mecanismo está valendo. Sem esta linha, quem cadastra o primeiro
             // tributo não entende por que o campo da alíquota única parou de ter efeito.
+            //
+            // ⚠️ A condição é VIGENTE HOJE, nunca "cadastrado" — porque é essa a condição
+            // do serviço (`TributoService.ApurarAsync` cai no fallback quando não há
+            // tributo vigente NO DIA). A tela escondia a faixa da alíquota única por
+            // `Tributos.Count`, e na janela entre as duas condições — tributos cadastrados
+            // todos com vigência futura, ou todos expirados — a alíquota única CONTINUAVA
+            // valendo no cálculo com o campo dela invisível, e esta frase dizia "nenhum
+            // tributo cadastrado" com a lista cheia. Campo invisível que faz efeito é
+            // pior que o campo morto que a parcela 49 tirou desta mesma tela. Duas
+            // condições para a mesma pergunta, no mesmo ViewModel, a dez linhas de
+            // distância — a frase com a certa e a visibilidade com a errada.
             var vigentes = Tributos.Count(t => t.ValendoAgora);
+            AliquotaUnicaValendo = vigentes == 0;
             OrigemDaCarga = vigentes > 0
                 ? $"{vigentes} tributo(s) vigente(s) hoje. A alíquota única abaixo está desligada."
-                : aliquota > 0m
-                    ? "Nenhum tributo cadastrado — vale a alíquota única abaixo."
-                    : "Nenhum tributo e nenhuma alíquota: não se retém imposto.";
+                : Tributos.Count > 0
+                    ? aliquota > 0m
+                        ? $"Há {Tributos.Count} tributo(s) cadastrado(s), mas NENHUM vigente hoje — "
+                          + "vale a alíquota única abaixo. Confira as vigências."
+                        : $"Há {Tributos.Count} tributo(s) cadastrado(s), mas nenhum vigente hoje "
+                          + "e nenhuma alíquota única: não se retém imposto. Confira as vigências."
+                    : aliquota > 0m
+                        ? "Nenhum tributo cadastrado — vale a alíquota única abaixo."
+                        : "Nenhum tributo e nenhuma alíquota: não se retém imposto.";
 
             await SimularAsync();
         }

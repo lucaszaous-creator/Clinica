@@ -234,9 +234,12 @@ public partial class DashboardViewModel : ObservableObject, IAtalhosDeTela
 
         AtualizarResumoDoRecorte();
 
-        // Mesmo critério do badge (PendenciaService.TotalPendenciasAsync): recursos contam
-        // quando o prazo está apertado (amarelo/vermelho).
-        Total = _todos.Count + Consultas.Count + Recursos.Count(r => r.Urgencia != NivelUrgencia.Verde);
+        // O critério é UM (`PendenciaService.TotalParaBadge`): esta linha era uma segunda
+        // conta escrita à mão, com este comentário jurando usar "o mesmo critério" do
+        // método que ninguém chamava — e a primeira mudança em qualquer um dos lados
+        // divergiria em silêncio, com o teste fixando o lado morto.
+        Total = PendenciaService.TotalParaBadge(
+            _todos.Count, Consultas.Count, Recursos.Select(r => r.Urgencia));
         OnPropertyChanged(nameof(TotalCodigos));
         OnPropertyChanged(nameof(TemPendencias));
         OnPropertyChanged(nameof(CodigosUrgentes));

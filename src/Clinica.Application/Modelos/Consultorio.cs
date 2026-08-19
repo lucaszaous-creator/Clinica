@@ -35,6 +35,27 @@ public sealed record SessaoDoDia(
     /// </summary>
     public int? ChamadoHaMinutos { get; init; }
 
+    /// <summary>
+    /// O recado que a recepção escreveu no horário ("chega 10 min atrasada", "trazer o
+    /// laudo"). Nulo quando não há. Viajava até o balcão e nunca chegava a quem atende —
+    /// o campo existia no <c>Agendamento</c> desde a parcela 1 e esta projeção não o
+    /// carregava, então o médico trabalhava com uma foto parcial do que o balcão sabia.
+    /// </summary>
+    public string? Observacoes { get; init; }
+
+    /// <summary>
+    /// Duração prevista em minutos. É o que faz a grade da semana saber até onde a
+    /// sessão cobre — sem ela, uma sessão de uma hora deixaria a meia hora seguinte
+    /// parecendo vaga.
+    /// </summary>
+    public int DuracaoMinutos { get; init; } = Agendamento.DuracaoPadraoMinutos;
+
+    /// <summary>Fim previsto da sessão.</summary>
+    public DateTime FimPrevisto => DataHora.AddMinutes(DuracaoMinutos);
+
+    /// <summary>Cancelado ou falta: a sessão saiu do fluxo do dia, mas a linha fica.</summary>
+    public bool ForaDoDia => Status is StatusAgendamento.Cancelado or StatusAgendamento.Faltou;
+
     /// <summary>A sessão já tem evolução no prontuário.</summary>
     public bool EvolucaoEscrita => EvolucaoId is not null;
 

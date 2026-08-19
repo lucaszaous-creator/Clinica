@@ -125,6 +125,17 @@
             </StackPanel>
         </Border>
 
+        <!-- A capa do que o paciente JÁ tem no dia escolhido (parcela 70): número,
+             modalidade, quem lançou e as baixas — a duplicata de amanhã sendo avisada
+             hoje, pela mesma leitura do Novo atendimento. -->
+        <Border Style="{StaticResource AlertaAviso}" Margin="0,12,0,0"
+                Visibility="{Binding TemAvisoJaLancado, Converter={StaticResource BoolParaVisibilidade}}">
+            <StackPanel>
+                <TextBlock Text="Atendimento repetido?" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock Text="{Binding AvisoJaLancado}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
         <!-- Carteirinha, cota e consentimento do paciente escolhido. Aviso, nunca
              impedimento: quem decide atender é a clínica. Mas marcar dez sessões para
              quem está com a cota estourada é combinar dez glosas de antemão. -->

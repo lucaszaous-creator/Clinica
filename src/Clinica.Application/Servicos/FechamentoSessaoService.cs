@@ -241,9 +241,14 @@ public sealed class FechamentoSessaoService
     }
 
     /// <summary>
-    /// Devolve o atendimento do agendamento, confirmando a presença se ele ainda não
-    /// existir. É o ponto único que impede a segunda guia: quem já tem
-    /// <c>AtendimentoId</c> é reaproveitado, nunca reconfirmado.
+    /// Devolve o atendimento do agendamento, confirmando a presença se ainda não foi
+    /// confirmada. É o ponto único que impede a segunda guia: presença JÁ CONFIRMADA é
+    /// reaproveitada, nunca reconfirmada.
+    ///
+    /// ⚠️ O reaproveitamento olha o STATUS, não só o <c>AtendimentoId</c> (parcela 70):
+    /// no regime "guia no agendamento", o horário marcado já tem atendimento e guias —
+    /// mas a presença ainda não aconteceu. Reaproveitar por ter AtendimentoId pularia a
+    /// confirmação para sempre, e o Concluir da Fila deixaria de carimbar a sessão.
     /// </summary>
     private async Task<(Atendimento Atendimento, IReadOnlyList<string> Recados, bool JaExistia)>
         GarantirAtendimentoAsync(int agendamentoId, string? operador, CancellationToken ct)
@@ -251,7 +256,7 @@ public sealed class FechamentoSessaoService
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException($"Agendamento {agendamentoId} não encontrado.");
 
-        if (ag.AtendimentoId is { } id)
+        if (ag.Status == StatusAgendamento.Realizado && ag.AtendimentoId is { } id)
         {
             var existente = await _repo.ObterAtendimentoAsync(id, ct)
                 ?? throw new InvalidOperationException(

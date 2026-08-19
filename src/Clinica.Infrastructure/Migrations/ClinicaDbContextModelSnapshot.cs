@@ -353,6 +353,9 @@ namespace Clinica.Infrastructure.Migrations
                     b.Property<int>("PacienteId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("RealizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<uint>("xmin")
                         .IsConcurrencyToken()
                         .ValueGeneratedOnAddOrUpdate()

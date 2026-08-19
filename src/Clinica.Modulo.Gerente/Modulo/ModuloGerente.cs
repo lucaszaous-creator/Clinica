@@ -40,6 +40,7 @@ public sealed class ModuloGerente : IModuloApp
     public const string ChaveConfiguracoes = "configuracoes";
     public const string ChaveMetas = "metas";
     public const string ChaveRetencao = "retencao";
+    public const string ChaveOrigens = "origens-pacientes";
 
     // ===== Itens COMPOSTOS (parcela 55) =====
     // A Direção é quem publica os que ATRAVESSAM módulo, porque ela é o único app que
@@ -121,8 +122,10 @@ public sealed class ModuloGerente : IModuloApp
                 new AbaMenu("Custo de taxas e impostos", ChaveCusto)
             ]
         },
-        // As três falam com quem não está vindo, por caminhos diferentes: a rodada
-        // automática, a lista para decidir caso a caso, e o telefonema do balcão.
+        // As três primeiras falam com quem não está vindo, por caminhos diferentes: a
+        // rodada automática, a lista para decidir caso a caso, e o telefonema do balcão.
+        // A quarta é a outra ponta do mesmo assunto — de onde vêm os que CHEGAM, que é a
+        // pergunta que decide onde vale gastar o dinheiro de trazer gente.
         new ItemMenuModulo
         {
             Chave = ChaveGrupoMarketing, Rotulo = "Marketing / Recall", Glifo = "\uE715",
@@ -131,7 +134,8 @@ public sealed class ModuloGerente : IModuloApp
             [
                 new AbaMenu("Campanhas", ChaveCampanhas),
                 new AbaMenu("Quem parou de vir", ChaveRetencao),
-                new AbaMenu("Retorno de pacientes", ChavesSuite.RetornoPacientes)
+                new AbaMenu("Retorno de pacientes", ChavesSuite.RetornoPacientes),
+                new AbaMenu("De onde vêm os pacientes", ChaveOrigens)
             ]
         },
         // As três perguntas de quem fiscaliza, no mesmo lugar: quem MEXEU (auditoria), o
@@ -199,6 +203,11 @@ public sealed class ModuloGerente : IModuloApp
         },
         new ItemMenuModulo
         {
+            Chave = ChaveOrigens, Rotulo = "De onde v\u00EAm os pacientes", Glifo = "\uE8AF",
+            Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.GerenciarCampanhas
+        },
+        new ItemMenuModulo
+        {
             Chave = ChaveAuditoria, Rotulo = "Auditoria", Glifo = "\uE81C",
             Grupo = GrupoSidebar.Inteligencia, Requer = Permissao.VerAuditoria
         },
@@ -232,6 +241,7 @@ public sealed class ModuloGerente : IModuloApp
         servicos.AddTransient<ConfiguracoesViewModel>();
         servicos.AddTransient<MetasViewModel>();
         servicos.AddTransient<RetencaoViewModel>();
+        servicos.AddTransient<OrigensViewModel>();
         // UsuarioEdicaoViewModel é construído à mão pela tela: precisa receber o id do
         // usuário no construtor, como os demais formulários da suíte.
     }
@@ -289,6 +299,10 @@ public sealed class ModuloGerente : IModuloApp
         ChaveRetencao => new RetencaoView
         {
             DataContext = servicos.GetRequiredService<RetencaoViewModel>()
+        },
+        ChaveOrigens => new OrigensView
+        {
+            DataContext = servicos.GetRequiredService<OrigensViewModel>()
         },
         _ => null
     };

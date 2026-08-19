@@ -251,7 +251,7 @@ public class ListaEsperaServiceTests : IDisposable
         var faltou = await _agenda.AgendarAsync(await CriarPacienteAsync("Faltou"), Manha.AddHours(2),
             ModalidadeAtendimento.AcupunturaSimples, null, profissionalId: prof.Id);
 
-        await _agenda.RegistrarChegadaAsync(chegou.Id, Manha.AddHours(1));
+        await _agenda.RegistrarChegadaAsync(chegou.Id, "teste", Manha.AddHours(1));
         await _agenda.MarcarFaltaAsync(faltou.Id);
         await _espera.AdicionarAsync(await CriarPacienteAsync("Na espera"));
 

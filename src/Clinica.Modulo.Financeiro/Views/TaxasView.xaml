@@ -145,7 +145,12 @@
                     <Style TargetType="Border" BasedOn="{StaticResource Card}">
                         <Setter Property="Visibility" Value="Collapsed" />
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding Tributos.Count}" Value="0">
+                            <!-- A MESMA condição do serviço: o fallback arma quando não há
+                                 tributo VIGENTE hoje — não quando a lista está vazia.
+                                 Tributos cadastrados com vigência futura (ou expirados)
+                                 deixavam a alíquota única valendo no cálculo com o campo
+                                 dela escondido. -->
+                            <DataTrigger Binding="{Binding AliquotaUnicaValendo}" Value="True">
                                 <Setter Property="Visibility" Value="Visible" />
                             </DataTrigger>
                         </Style.Triggers>

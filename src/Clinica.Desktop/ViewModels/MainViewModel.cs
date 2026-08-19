@@ -193,6 +193,31 @@ public partial class MainViewModel : ObservableObject
     /// aberta com os botões dela — permissão que parece aplicada e não está é pior do que
     /// permissão nenhuma, porque ninguém vai conferir.
     /// </summary>
+    /// <summary>
+    /// Trocar a PRÓPRIA senha — a metade voluntária que faltava (parcela 69). O serviço
+    /// confere a senha atual, então não há permissão a exigir: a prova de posse é ela.
+    /// </summary>
+    [RelayCommand]
+    private void TrocarMinhaSenha()
+    {
+        // Guarda que FALA (parcela 41): sem sessão autenticada não há senha de quem
+        // trocar — só acontece em build de teste, e sair calado leria como botão morto.
+        if (SessaoUsuario.Atual.UsuarioId == 0)
+        {
+            Snackbar.Erro("Não há usuário conectado — a troca de senha é de quem fez login.");
+            return;
+        }
+
+        var janela = new Acesso.TrocaSenhaWindow(
+            _sp.GetRequiredService<IServiceScopeFactory>())
+        {
+            Owner = System.Windows.Application.Current.MainWindow
+        };
+
+        if (janela.ShowDialog() == true)
+            Snackbar.Sucesso("Senha trocada.");
+    }
+
     [RelayCommand]
     private void TrocarUsuario()
     {

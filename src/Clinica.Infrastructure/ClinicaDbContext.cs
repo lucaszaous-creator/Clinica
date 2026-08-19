@@ -135,6 +135,8 @@ public class ClinicaDbContext : DbContext
             // Quem lançou o atendimento e quando (parcela 58).
             e.Property(a => a.LancadoPor).HasMaxLength(80);
             e.Property(a => a.LancadoEm).HasColumnType("timestamp without time zone");
+            // Quando a sessão ACONTECEU (parcela 70) — a âncora de "realizado".
+            e.Property(a => a.RealizadoEm).HasColumnType("timestamp without time zone");
             e.HasKey(a => a.Id);
             e.Property(a => a.Numero).HasMaxLength(30);
             e.HasIndex(a => a.Numero);
@@ -1396,8 +1398,7 @@ public class ClinicaDbContext : DbContext
             e.HasIndex(x => new { x.ItemEstoqueId, x.Data });
             e.HasIndex(x => x.AtendimentoId);
 
-            e.Ignore(x => x.Sinal);
-            e.Ignore(x => x.QuantidadeComSinal);
+            e.Ignore(x => x.Delta);
         });
 
         b.Entity<DocumentoFinanceiro>(e =>

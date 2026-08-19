@@ -165,6 +165,10 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<ResumoAtendimentosPaciente>> ResumoAtendimentosPorPacienteAsync(
         CancellationToken ct = default)
         => await _db.Atendimentos.AsNoTracking()
+            // Só sessão que ACONTECEU (parcela 70): com a guia nascendo na marcação, a
+            // linha registrada não é mais sinônimo de visita — a marcada para o futuro
+            // ainda não visitou, e a cancelada nunca visitou ("cancelado não é visita").
+            .Where(a => a.RealizadoEm != null)
             .GroupBy(a => a.PacienteId)
             .Select(g => new { PacienteId = g.Key, Ultima = g.Max(a => a.Data), Total = g.Count() })
             .Join(_db.Pacientes.AsNoTracking(),
@@ -252,6 +256,19 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Codigos)
             .FirstOrDefaultAsync(a => a.Id == atendimentoId, ct);
 
+    public async Task MarcarAtendimentosSemCarimboComoRealizadosAsync(CancellationToken ct = default)
+    {
+        // Quem tem LancadoEm herda a hora real do lançamento; o resto recebe o momento da
+        // ativação — o VALOR importa pouco (os leitores ancoram em "não nulo"; período é
+        // sempre o da Data), o que não pode é a linha ficar de fora de "realizado".
+        await _db.Atendimentos
+            .Where(a => a.RealizadoEm == null && a.LancadoEm != null)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.RealizadoEm, a => a.LancadoEm), ct);
+        await _db.Atendimentos
+            .Where(a => a.RealizadoEm == null)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.RealizadoEm, DateTime.Now), ct);
+    }
+
     public async Task<IReadOnlyList<Paciente>> AniversariantesAsync(
         DateOnly dia, int janelaDias = 0, CancellationToken ct = default)
     {
@@ -293,6 +310,30 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
                         && a.DataHora >= inicio && a.DataHora <= fim)
             .OrderBy(a => a.DataHora)
             .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<(int PacienteId, OrigemPaciente? Origem, string? IndicadoPor)>> OrigensDosPacientesAsync(
+        CancellationToken ct = default)
+    {
+        var linhas = await _db.Pacientes.AsNoTracking()
+            .Select(p => new { p.Id, p.Origem, p.IndicadoPor })
+            .ToListAsync(ct);
+
+        return linhas.Select(l => (l.Id, l.Origem, l.IndicadoPor)).ToList();
+    }
+
+    public async Task<IReadOnlyDictionary<int, DateOnly>> PrimeiroAtendimentoPorPacienteAsync(
+        CancellationToken ct = default)
+    {
+        var pares = await _db.Atendimentos.AsNoTracking()
+            // "Estreou" é sessão que ACONTECEU (parcela 70): marcada para o futuro ainda
+            // não estreou, e cancelada nunca estreou.
+            .Where(a => a.RealizadoEm != null)
+            .GroupBy(a => a.PacienteId)
+            .Select(g => new { g.Key, Primeira = g.Min(a => a.Data) })
+            .ToListAsync(ct);
+
+        return pares.ToDictionary(p => p.Key, p => p.Primeira);
     }
 
     public async Task<IReadOnlyList<Paciente>> BuscarPacientesAsync(string? termo, int? limite = null, CancellationToken ct = default)
@@ -418,6 +459,25 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
 
     public Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => _db.Atendimentos.CountAsync(a => a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim, ct);
+
+    public async Task<IReadOnlyList<Atendimento>> AtendimentosDoPacienteNoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default)
+        => await _db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos)
+            .Where(a => a.PacienteId == pacienteId && a.Data == dia)
+            .OrderBy(a => a.Id)
+            .ToListAsync(ct);
+
+    public Task<int> ContarAtendimentosAtivosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
+        // A COTA conta o que consome a autorização (parcela 70): sessão realizada, guia
+        // aberta ou baixada — inclusive a MARCADA para o futuro, que é o alerta chegando
+        // na hora certa ("a 11ª sessão da autorização de 10 avisa na marcação"). Fica de
+        // fora a sessão cancelada/falta, cujas guias foram suspensas: contá-la faria a
+        // cota estourar por sessões que não aconteceram nem vão acontecer.
+        => _db.Atendimentos.CountAsync(a =>
+            a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim
+            && (a.RealizadoEm != null
+                || a.Codigos.Any(c => c.DataBaixa != null || c.Status == StatusCodigo.Aberto)), ct);
 
     public async Task RemoverFotoPacienteAsync(int pacienteId, CancellationToken ct = default)
     {
@@ -795,6 +855,29 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public async Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
         int pacienteId, CancellationToken ct = default)
         => await EvolucoesDoPacienteAsync(pacienteId, false, ct);
+
+    public async Task<IReadOnlyDictionary<int, (int Inicial, int Ultima)>> ParesDeEvaDosPacientesAsync(
+        IReadOnlyCollection<int> pacienteIds, CancellationToken ct = default)
+    {
+        if (pacienteIds.Count == 0) return new Dictionary<int, (int, int)>();
+
+        // Só as colunas que a carteira usa. `TemParEva` é propriedade calculada da
+        // entidade e não traduz para SQL — a condição vai escrita aqui, e é a MESMA:
+        // as duas pontas presentes.
+        var medidas = await _db.Evolucoes.AsNoTracking()
+            .Where(e => pacienteIds.Contains(e.PacienteId))
+            .Where(e => e.CanceladaEm == null)
+            .Where(e => e.EvaAntes != null && e.EvaDepois != null)
+            .OrderBy(e => e.Data).ThenBy(e => e.Id)
+            .Select(e => new { e.PacienteId, e.EvaAntes, e.EvaDepois })
+            .ToListAsync(ct);
+
+        return medidas
+            .GroupBy(m => m.PacienteId)
+            .ToDictionary(
+                g => g.Key,
+                g => (Inicial: g.First().EvaAntes!.Value, Ultima: g.Last().EvaDepois!.Value));
+    }
 
     public async Task<IReadOnlyList<Evolucao>> EvolucoesDoPacienteAsync(
         int pacienteId, bool incluirCanceladas, CancellationToken ct = default)
@@ -1489,6 +1572,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Profissional)
             .Include(a => a.Paciente)
             .Where(a => a.DataHora >= de && a.DataHora <= ate)
+            // ⚠️ REALIZADO, não só "com atendimento" (parcela 70): com a guia nascendo na
+            // MARCAÇÃO, o horário marcado — e até o cancelado, que mantém o AtendimentoId
+            // com as guias suspensas — passou a ter atendimento sem a sessão ter
+            // acontecido. Este é o alimentador do REPASSE, e a regra "valor por
+            // atendimento" pagaria sessão que ninguém deu. No regime antigo o filtro não
+            // muda nada: AtendimentoId só nascia junto do Realizado.
+            .Where(a => a.Status == StatusAgendamento.Realizado)
             .Where(a => a.AtendimentoId != null && a.ProfissionalId != null)
             .OrderBy(a => a.DataHora)
             .ToListAsync(ct);
@@ -1787,18 +1877,11 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .GroupBy(m => m.ItemEstoqueId)
             .ToDictionary(
                 g => g.Key,
-                // O AJUSTE de inventário (parcela 30) soma ou subtrai conforme a direção
-                // gravada: a contagem física tanto acha a mais quanto a menos, e a
-                // quantidade continua positiva em todos os tipos para o saldo nunca
-                // depender de um Math.Abs esquecido em algum canto.
-                g => g.Sum(m => m.Tipo switch
-                {
-                    TipoMovimentoEstoque.Entrada => m.Quantidade,
-                    TipoMovimentoEstoque.Ajuste => m.AjusteParaCima == true
-                        ? m.Quantidade
-                        : -m.Quantidade,
-                    _ => -m.Quantidade
-                }));
+                // A regra do sinal (inclusive a direção do AJUSTE, parcela 30) mora no
+                // DOMÍNIO — `MovimentoEstoque.DeltaDe` — porque agora há DOIS somadores:
+                // este saldo e o extrato do item. Duas cópias da mesma conta divergiriam
+                // exatamente no ajuste, que é o movimento raro que ninguém testa de cabeça.
+                g => g.Sum(m => MovimentoEstoque.DeltaDe(m.Tipo, m.AjusteParaCima, m.Quantidade)));
     }
 
     // ---- Recibo e orçamento ----

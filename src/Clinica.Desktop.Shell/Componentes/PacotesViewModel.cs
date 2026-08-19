@@ -55,10 +55,6 @@ public sealed class LinhaPacoteVendido
 /// </summary>
 public sealed partial class PacotesViewModel : ObservableObject
 {
-    private readonly PacoteService _pacotes;
-    private readonly DocumentoFinanceiroService _documentos;
-    private readonly DocumentosFinanceirosPdfService _pdfs;
-    private readonly ParametrosService _parametros;
     private readonly IServiceScopeFactory _escopos;
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
@@ -137,17 +133,17 @@ public sealed partial class PacotesViewModel : ObservableObject
     public bool PodeVender => SessaoUsuario.Atual.PodeAlgum(
         Permissao.VenderPacote | Permissao.EditarFinanceiro);
 
+    /// <summary>
+    /// ⚠️ Nada de serviço SCOPED no construtor — o shell resolve esta tela do provedor
+    /// RAIZ, e Scoped pedido à raiz vive pela vida inteira do app, com o `DbContext`
+    /// junto (parcela 69). Escopo por operação. Ver a checagem 37 do verificar-suite.
+    ///
+    /// A fábrica já estava aqui pelo seletor de paciente da suíte; agora ela é o único
+    /// caminho — os quatro serviços que vinham resolvidos saíram.
+    /// </summary>
     public PacotesViewModel(
-        PacoteService pacotes, DocumentoFinanceiroService documentos,
-        DocumentosFinanceirosPdfService pdfs, ParametrosService parametros,
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
     {
-        _pacotes = pacotes;
-        _documentos = documentos;
-        _pdfs = pdfs;
-        _parametros = parametros;
-        // A venda escolhe o paciente pelo seletor da suíte, que abre escopo próprio a
-        // cada busca — por isso a fábrica, e não o serviço já resolvido.
         _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
@@ -164,8 +160,15 @@ public sealed partial class PacotesViewModel : ObservableObject
             Mensagem = string.Empty;
             MensagemEhErro = false;
 
+            using var escopo = _escopos.CreateScope();
+            var pacotes = escopo.ServiceProvider.GetRequiredService<PacoteService>();
+
+            // Monta e só ENTÃO publica: entre o Clear e o último Add não pode haver await
+            // (parcela 62) — duas cargas intercaladas repetiam ou comiam linhas.
+            var catalogo = await pacotes.CatalogoAsync(somenteAtivos: false);
+
             Catalogo.Clear();
-            foreach (var p in await _pacotes.CatalogoAsync(somenteAtivos: false))
+            foreach (var p in catalogo)
                 Catalogo.Add(new LinhaCatalogo
                 {
                     Id = p.Id,
@@ -175,7 +178,7 @@ public sealed partial class PacotesViewModel : ObservableObject
                     Ativo = p.Ativo
                 });
 
-            var vendidos = await _pacotes.VendidosAsync();
+            var vendidos = await pacotes.VendidosAsync();
 
             _todosVendidos.Clear();
             foreach (var v in vendidos)
@@ -276,7 +279,7 @@ public sealed partial class PacotesViewModel : ObservableObject
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarFinanceiro, "mexer nos pacotes");
 
-        var vm = new PacoteCatalogoEdicaoViewModel(_pacotes);
+        var vm = new PacoteCatalogoEdicaoViewModel(_escopos);
         var janela = new PacoteCatalogoWindow(vm)
         {
             Owner = JanelaDona.Atual()
@@ -299,7 +302,9 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         try
         {
-            await _pacotes.ExcluirDoCatalogoAsync(linha.Id);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                    .ExcluirDoCatalogoAsync(linha.Id);
             _snackbar.Info("Pacote removido do catálogo.");
             await CarregarAsync();
         }
@@ -318,7 +323,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         SessaoUsuario.Atual.ExigirAlgum(
             Permissao.VenderPacote | Permissao.EditarFinanceiro, "vender pacote");
 
-        var vm = new PacoteVendaViewModel(_pacotes, _escopos);
+        var vm = new PacoteVendaViewModel(_escopos);
         var janela = new PacoteVendaWindow(vm)
         {
             Owner = JanelaDona.Atual()
@@ -343,7 +348,9 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         try
         {
-            await _pacotes.ConsumirAsync(
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                .ConsumirAsync(
                 linha.Id, observacao: "Baixa manual pelo Financeiro", operador: SessaoUsuario.Atual.Operador);
             _snackbar.Sucesso("Sessão debitada.");
             await CarregarAsync();
@@ -369,7 +376,7 @@ public sealed partial class PacotesViewModel : ObservableObject
         if (linha is null) return;
 
         var vm = new ConsumosPacoteViewModel(
-            _pacotes, _dialogo, linha.Id, $"{linha.Nome} — {linha.Paciente}");
+            _escopos, _dialogo, linha.Id, $"{linha.Nome} — {linha.Paciente}");
 
         var janela = new ConsumosPacoteWindow(vm)
         {
@@ -398,7 +405,9 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         try
         {
-            await _pacotes.CancelarAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
+            using (var escopo = _escopos.CreateScope())
+                await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                    .CancelarAsync(linha.Id, motivo, SessaoUsuario.Atual.Operador);
             _snackbar.Info("Pacote cancelado.");
             await CarregarAsync();
         }
@@ -430,10 +439,17 @@ public sealed partial class PacotesViewModel : ObservableObject
 
         try
         {
-            var documento = await _documentos.EmitirOrcamentoDoPacoteAsync(
-                linha.Id, pacienteId: null, destinatario, SessaoUsuario.Atual.Operador);
+            // Um escopo cobre a emissão e o PDF: o segundo passo lê pelo ID do primeiro.
+            using var escopo = _escopos.CreateScope();
+            var documento = await escopo.ServiceProvider
+                .GetRequiredService<DocumentoFinanceiroService>()
+                .EmitirOrcamentoDoPacoteAsync(
+                    linha.Id, pacienteId: null, destinatario, SessaoUsuario.Atual.Operador);
 
-            var pdf = await _pdfs.GerarAsync(documento.Id, await _parametros.ObterPrestadorAsync());
+            var pdf = await escopo.ServiceProvider
+                .GetRequiredService<DocumentosFinanceirosPdfService>()
+                .GerarAsync(documento.Id, await escopo.ServiceProvider
+                    .GetRequiredService<ParametrosService>().ObterPrestadorAsync());
 
             // O documento JÁ está emitido: falha daqui para a frente é de impressão, e
             // dizer "não foi possível emitir" faria alguém emitir de novo.
@@ -471,7 +487,7 @@ public sealed partial class PacotesViewModel : ObservableObject
 /// </summary>
 public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
 {
-    private readonly PacoteService _pacotes;
+    private readonly IServiceScopeFactory _escopos;
 
     public IReadOnlyList<TipoPacote> Tipos { get; } = Enum.GetValues<TipoPacote>();
 
@@ -487,7 +503,7 @@ public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
 
     public event Action? Concluido;
 
-    public PacoteCatalogoEdicaoViewModel(PacoteService pacotes) => _pacotes = pacotes;
+    public PacoteCatalogoEdicaoViewModel(IServiceScopeFactory escopos) => _escopos = escopos;
 
     [RelayCommand]
     private async Task SalvarAsync()
@@ -499,7 +515,9 @@ public sealed partial class PacoteCatalogoEdicaoViewModel : ObservableObject
         {
             Salvando = true;
 
-            await _pacotes.SalvarCatalogoAsync(new PacoteCatalogo
+            using var escopo = _escopos.CreateScope();
+            await escopo.ServiceProvider.GetRequiredService<PacoteService>()
+                .SalvarCatalogoAsync(new PacoteCatalogo
             {
                 Nome = Nome ?? string.Empty,
                 Tipo = Tipo,

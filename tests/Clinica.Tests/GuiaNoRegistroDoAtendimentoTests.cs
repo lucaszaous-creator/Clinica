@@ -81,7 +81,7 @@ public class GuiaNoRegistroDoAtendimentoTests : IDisposable
         var ag = await _agenda.AgendarAsync(
             pacienteId, quando ?? Quando, ModalidadeAtendimento.AcupunturaComEletro, null,
             encaixe: true, operador: "flavia@");
-        await _agenda.RegistrarChegadaAsync(ag.Id);
+        await _agenda.RegistrarChegadaAsync(ag.Id, "teste");
         return ag.Id;
     }
 

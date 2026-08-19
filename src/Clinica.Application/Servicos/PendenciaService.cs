@@ -264,12 +264,28 @@ public sealed class PendenciaService
             .ToList();
     }
 
+    /// <summary>
+    /// O CRITÉRIO do badge, num lugar só: códigos + consultas + recursos que apertam
+    /// (amarelo/vermelho — o recurso verde tem prazo folgado e não é pendência ainda).
+    ///
+    /// ⚠️ É função estática de propósito. `TotalPendenciasAsync` abaixo dizia, no
+    /// comentário, ser "o total para o badge" — e o badge real era uma SEGUNDA conta,
+    /// escrita à mão no `DashboardViewModel`, com um comentário jurando usar "o mesmo
+    /// critério" e citando o método que ninguém chamava. As duas contas eram iguais HOJE;
+    /// a primeira mudança numa delas divergiria em silêncio, e o teste fixava justamente
+    /// a que não roda. Agora os dois lados chamam ESTA função — o teste do serviço passou
+    /// a exercitar o critério que a tela usa.
+    /// </summary>
+    public static int TotalParaBadge(
+        int codigos, int consultas, IEnumerable<NivelUrgencia> urgenciasDosRecursos)
+        => codigos + consultas + urgenciasDosRecursos.Count(u => u != NivelUrgencia.Verde);
+
     /// <summary>Total de pendências para o badge/contador do topo (inclui glosas com prazo de recurso).</summary>
     public async Task<int> TotalPendenciasAsync(DateOnly referencia, CancellationToken ct = default)
     {
         var codigos = await CodigosPendentesAsync(referencia, ct);
         var consultas = await ConsultasAVencerAsync(referencia, ct);
         var recursos = await GlosasARecorrerAsync(referencia, ct);
-        return codigos.Count + consultas.Count + recursos.Count(r => r.Urgencia != NivelUrgencia.Verde);
+        return TotalParaBadge(codigos.Count, consultas.Count, recursos.Select(r => r.Urgencia));
     }
 }

@@ -87,11 +87,19 @@ public sealed class ListaEsperaService
     /// O agendamento nasce com origem <see cref="OrigemAgendamento.ListaEspera"/>, para
     /// a agenda mostrar de onde veio.
     /// </summary>
+    /// <param name="especialidadeConsultaCodigo">
+    /// A especialidade, quando a modalidade é Consulta. ⚠️ Ela não existia neste método, e
+    /// o formulário do balcão a EXIGE ("Consulta precisa de especialidade") — então quem
+    /// chamava alguém da lista de espera para uma consulta escolhia a especialidade, salvava
+    /// sem erro nenhum, e o horário nascia sem ela. O estrago só aparecia no fim: o
+    /// atendimento gerado na confirmação da presença herda a especialidade do AGENDAMENTO,
+    /// e a guia saía sem a informação que a operadora cobra.
+    /// </param>
     public async Task<Agendamento> ChamarAsync(
         int pedidoId, DateTime dataHora, ModalidadeAtendimento modalidade,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
         bool encaixe = false, string? modalidadeCodigo = null, CancellationToken ct = default,
-        string? operador = null)
+        string? operador = null, string? especialidadeConsultaCodigo = null)
     {
         var pedido = await _repo.ObterListaEsperaAsync(pedidoId, ct)
             ?? throw new InvalidOperationException("Pedido da lista de espera não encontrado.");
@@ -108,6 +116,7 @@ public sealed class ListaEsperaService
             observacoes: pedido.Observacoes,
             origem: OrigemAgendamento.ListaEspera, ct: ct,
             modalidadeCodigo: modalidadeCodigo ?? pedido.ModalidadeCodigo,
+            especialidadeConsultaCodigo: especialidadeConsultaCodigo,
             profissionalId: profissionalId ?? pedido.ProfissionalId,
             salaId: salaId,
             duracaoMinutos: duracaoMinutos,

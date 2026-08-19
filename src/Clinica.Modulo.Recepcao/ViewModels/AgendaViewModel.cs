@@ -4,6 +4,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -66,6 +67,18 @@ public sealed class CartaoAgenda
 
     /// <summary>Saiu do fluxo do dia: o horário está livre de novo, mas a linha fica.</summary>
     public required bool ForaDoDia { get; init; }
+
+    /// <summary>
+    /// A METADE VISÍVEL da permissão, dentro da janela do horário.
+    ///
+    /// As sete ações são executadas pela <c>AgendaViewModel</c>, que tem a guarda — mas a
+    /// janela mostrava os seis botões ACESOS para quem só LÊ a agenda (a técnica de
+    /// enfermagem, o financeiro, o faturista: os quatro perfis têm `VerAgenda`), e a
+    /// recusa chegava depois do clique. É o defeito da parcela 41 numa janela que o
+    /// vizinho já fazia certo: o vão livre e os botões da barra da agenda sempre tiveram
+    /// `IsEnabled` — só esta janela não tinha.
+    /// </summary>
+    public bool PodeEditarAgenda => SessaoUsuario.Atual.Pode(Permissao.EditarAgenda);
 
     public bool TemTelefone => !string.IsNullOrWhiteSpace(Telefone);
 
@@ -216,8 +229,8 @@ public sealed partial class AgendaViewModel : ObservableObject
     /// fora delas — nunca 00:00–23:59, que daria 48 faixas vazias para rolar antes do
     /// primeiro paciente.
     /// </summary>
-    private static readonly TimeOnly AberturaPadrao = new(7, 0);
-    private static readonly TimeOnly FechamentoPadrao = new(20, 0);
+    private static readonly TimeOnly AberturaPadrao = Agendamento.AberturaPadraoGrade;
+    private static readonly TimeOnly FechamentoPadrao = Agendamento.FechamentoPadraoGrade;
 
     /// <summary>
     /// Piso de largura da grade: a régua mais uma coluna de 190 px por profissional.
@@ -411,7 +424,12 @@ public sealed partial class AgendaViewModel : ObservableObject
             var espera = scope.ServiceProvider.GetRequiredService<ListaEsperaService>();
 
             var dia = DateOnly.FromDateTime(Dia);
-            var doDia = await agenda.DoDiaAsync(dia);
+
+            // A leitura do DIA não serve à grade de semana — lá quem lê é
+            // `MontarSemanaAsync`, e o dia escolhido já está dentro do período dela.
+            // Buscá-lo assim mesmo era uma ida inteira ao banco remoto (com três joins)
+            // cujo resultado ninguém abria, a cada clique nas setas de semana.
+            IReadOnlyList<Agendamento> doDia = ModoSemana ? [] : await agenda.DoDiaAsync(dia);
             var profissionais = await equipe.ProfissionaisAtivosAsync();
 
             // As salas são lidas AQUI, com o resto — e não lá embaixo, no ramo que as usa.
@@ -585,14 +603,30 @@ public sealed partial class AgendaViewModel : ObservableObject
         var segunda = Dia.Date.AddDays(-(((int)Dia.DayOfWeek + 6) % 7));
         var ocupando = 0;
 
+        // ⚠️ UMA consulta, não sete. `AgendaService.NoPeriodoAsync` existe para isto desde
+        // sempre — o app CONGELADO de faturamento já a usava na visão de semana dele — e
+        // era a agenda do balcão, a que se usa o dia inteiro, que chamava `DoDiaAsync` em
+        // laço. Sete idas em fila indiana a um banco REMOTO deixavam a tela em "Montando a
+        // agenda…" a cada clique nas setas, com o paciente esperando no balcão. O
+        // agrupamento é feito aqui, em memória, sobre o período inteiro — é o mesmo
+        // desenho que `ConsultorioService.DaSemanaAsync` já adotara, com o motivo escrito
+        // ao lado.
+        var daSemana = await agenda.NoPeriodoAsync(
+            DateOnly.FromDateTime(segunda), DateOnly.FromDateTime(segunda.AddDays(6)));
+
+        // Chegou tarde: outra carga mais nova já foi pedida — parar a montagem impede a
+        // semana velha de terminar por cima da nova.
+        if (geracao != _geracaoCarga) return;
+
+        var porDia = daSemana
+            .GroupBy(a => a.DataHora.Date)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Agendamento>)[.. g]);
+
         for (var i = 0; i < 7; i++)
         {
             var quando = segunda.AddDays(i);
-            var doDia = await agenda.DoDiaAsync(DateOnly.FromDateTime(quando));
-
-            // Chegou tarde: outra carga mais nova já foi pedida — parar a montagem
-            // impede a semana velha de terminar por cima da nova.
-            if (geracao != _geracaoCarga) return;
+            IReadOnlyList<Agendamento> doDia =
+                porDia.TryGetValue(quando.Date, out var achados) ? achados : [];
 
             var recorte = soMeu
                 ? doDia.Where(a => a.ProfissionalId == meu).ToList()
@@ -879,16 +913,58 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     // ==================== Comandos ====================
 
-    /// <summary>Abre o formulário de um horário novo.</summary>
+    /// <summary>
+    /// Abre a CRIAÇÃO de horário — que mora no Novo atendimento desde a parcela 70
+    /// (decisão da direção: "para agendar vamos colocar através de novo atendimento (...)
+    /// unificar tudo em um lugar só"). A agenda leva até lá com o dia já preenchido; a
+    /// tela de lá pergunta QUANDO e mostra as guias que vão nascer.
+    ///
+    /// O formulário antigo fica como FALLBACK, e é decisão (a regra 3 do faturamento —
+    /// não tire capacidade de quem a tinha): o item "Novo atendimento" exige
+    /// <c>LancarAtendimento</c>, e quem tem só <c>EditarAgenda</c> marcava horário ontem.
+    /// Para esse perfil, `NavegacaoSuite.Ir` devolve false e a janela de sempre abre.
+    /// </summary>
     [RelayCommand]
     private async Task NovoHorarioAsync()
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
+        if (IrParaNovoAtendimento(new PedidoNovoAtendimento(
+                MarcarParaDepois: true, DataHora: Dia.Date, ProfissionalId: null, SalaId: null)))
+            return;
+
         await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
         {
             Data = Dia
         });
+    }
+
+    /// <summary>
+    /// Deixa o pedido de pré-preenchimento na ponte e navega para o Novo atendimento.
+    /// Se a navegação não acontecer (sem o bit do destino), o pedido é DESFEITO — senão a
+    /// próxima abertura manual da tela nasceria preenchida com um clique de ontem.
+    /// </summary>
+    private bool IrParaNovoAtendimento(PedidoNovoAtendimento pedido)
+    {
+        PreenchimentoNovoAtendimento ponte;
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            ponte = scope.ServiceProvider.GetRequiredService<PreenchimentoNovoAtendimento>();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — ponte agenda → novo atendimento indisponível", ex);
+            return false;
+        }
+
+        ponte.Definir(pedido);
+        if (NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveNovoAtendimento))
+            return true;
+
+        ponte.Consumir();
+        return false;
     }
 
     /// <summary>
@@ -916,6 +992,14 @@ public sealed partial class AgendaViewModel : ObservableObject
             MensagemEhErro = true;
             return;
         }
+
+        // O gesto da parcela 58 sobrevive à unificação (parcela 70): o clique no vão das
+        // 14h30 do Dr. Fulano chega ao Novo atendimento com dia, hora, profissional e
+        // sala preenchidos — redigitar é onde a hora sai errada.
+        if (IrParaNovoAtendimento(new PedidoNovoAtendimento(
+                MarcarParaDepois: true, DataHora: celula.Quando,
+                ProfissionalId: celula.ProfissionalId, SalaId: celula.SalaId)))
+            return;
 
         await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
         {
@@ -1149,9 +1233,53 @@ public sealed partial class AgendaViewModel : ObservableObject
 
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
+        // ⚠️ A PRÉVIA vem antes da pergunta. O diálogo dizia "cancelar TODAS as sessões
+        // ainda marcadas?" sem dizer QUANTAS nem QUAIS — a contagem só aparecia no
+        // snackbar, DEPOIS do estrago, e a leitura que responde isso (`DaSerieAsync`,
+        // "sessões de uma série, na ordem em que acontecem") existia sem um único
+        // chamador. Ação destrutiva em lote confirmada às cegas, com a prévia pronta e
+        // sem porta — a mesma família do defeito recorrente do projeto.
+        IReadOnlyList<Domain.Entities.Agendamento> emAberto;
+        try
+        {
+            using var escopo = _escopos.CreateScope();
+            var agenda = escopo.ServiceProvider.GetRequiredService<AgendaService>();
+            emAberto = (await agenda.DaSerieAsync(serieId))
+                .Where(a => a.Status == Domain.Entities.StatusAgendamento.Agendado)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            // Sem a prévia não se pergunta: confirmar "todas" sem saber quantas é
+            // exatamente o que esta correção existe para acabar — e se a leitura falhou,
+            // o cancelamento em seguida falharia igual.
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — série não pôde ser lida para a prévia do cancelamento", ex);
+            Mensagem = $"Não foi possível ler a série para confirmar: {ex.Message}";
+            MensagemEhErro = true;
+            return;
+        }
+
+        if (emAberto.Count == 0)
+        {
+            // Guarda que FALA (parcela 41): série sem sessão em aberto não tem o que
+            // cancelar, e sair calado seria botão que não faz nada.
+            _dialogo.Aviso("Nada a cancelar",
+                $"A série de {cartao.Paciente} não tem sessão em aberto — "
+                + "as que existiram já foram atendidas, canceladas ou viraram falta.");
+            return;
+        }
+
+        // As datas por extenso, até dez; acima disso a lista diz quantas ficaram de fora
+        // em vez de virar um diálogo de rolagem.
+        var datas = emAberto.Take(10).Select(a => a.DataHora.ToString("dd/MM/yyyy HH:mm"));
+        var lista = string.Join("\n", datas)
+            + (emAberto.Count > 10 ? $"\n… e mais {emAberto.Count - 10}." : string.Empty);
+
         if (!_dialogo.ConfirmarPerigo("Cancelar a série",
-                $"Cancelar TODAS as sessões ainda marcadas da série de {cartao.Paciente}? "
-                + "As que já foram atendidas continuam no histórico.")) return;
+                $"Cancelar as {emAberto.Count} sessão(ões) ainda marcadas de {cartao.Paciente}?\n\n"
+                + lista
+                + "\n\nAs que já foram atendidas continuam no histórico.")) return;
 
         await ExecutarAsync(async scope =>
         {
@@ -1211,12 +1339,16 @@ public sealed partial class AgendaViewModel : ObservableObject
         await ExecutarAsync(async scope =>
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.CancelarAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
+            var avisos = await agenda.CancelarAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             // O horário acabou de vagar: a pergunta seguinte é sempre "quem eu chamo?",
             // e a lista já responde antes de alguém precisar perguntar.
             ApontarEsperaPara(cartao);
-            _snackbar.Info("Horário cancelado.");
+            // O destino das GUIAS (parcela 70) não pode passar calado: "suspensas" é
+            // rotina, mas "já baixada no portal" exige alguém ligar para o convênio.
+            _snackbar.Info(avisos.Count == 0
+                ? "Horário cancelado."
+                : "Horário cancelado. " + string.Join(" ", avisos));
         }, "cancelamento do horário");
     }
 
@@ -1230,10 +1362,12 @@ public sealed partial class AgendaViewModel : ObservableObject
         await ExecutarAsync(async scope =>
         {
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
-            await agenda.MarcarFaltaAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
+            var avisos = await agenda.MarcarFaltaAsync(cartao.AgendamentoId, SessaoUsuario.Atual.Operador);
 
             ApontarEsperaPara(cartao);
-            _snackbar.Info($"{cartao.Paciente} marcado como falta.");
+            _snackbar.Info(avisos.Count == 0
+                ? $"{cartao.Paciente} marcado como falta."
+                : $"{cartao.Paciente} marcado como falta. " + string.Join(" ", avisos));
         }, "marcação de falta");
     }
 

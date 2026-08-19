@@ -29,12 +29,20 @@ public sealed class AgendaService
 
     private readonly IClinicaRepositorio _repo;
     private readonly AtendimentoService _atendimentos;
+    private readonly ParametrosService? _parametros;
 
-    public AgendaService(IClinicaRepositorio repo, AtendimentoService atendimentos)
+    public AgendaService(
+        IClinicaRepositorio repo, AtendimentoService atendimentos,
+        ParametrosService? parametros = null)
     {
         _repo = repo;
         _atendimentos = atendimentos;
+        _parametros = parametros;
     }
+
+    /// <summary>O regime "guia no agendamento" está ligado? (parcela 70, atrás da chave.)</summary>
+    private async Task<bool> GuiaNaMarcacaoLigadaAsync(CancellationToken ct)
+        => _parametros is not null && await _parametros.GuiaNoAgendamentoAsync(ct);
 
     public async Task<Agendamento> AgendarAsync(
         int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? observacoes,
@@ -86,8 +94,40 @@ public sealed class AgendaService
             CriadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),
             CriadoEm = DateTime.Now
         };
+
+        // GUIA NO AGENDAMENTO (parcela 70, atrás da chave): o atendimento e as guias
+        // nascem JUNTO do horário, no mesmo grafo — é o pedido da direção ("a guia nasce
+        // quando o atendimento entra no sistema") e o que permite à secretária efetivar
+        // no portal com antecedência. `RealizadoEm` fica NULO: a sessão ainda não
+        // aconteceu — quem carimba é a presença. Guia de sessão futura não vira
+        // pendência: `EstaPendente` exige a data prevista alcançada.
+        if (await GuiaNaMarcacaoLigadaAsync(ct))
+        {
+            var montado = await _atendimentos.MontarAsync(
+                pacienteId, DateOnly.FromDateTime(dataHora), modalidade, observacoes, ct,
+                primeiroCodigo, especialidadeConsulta, modalidadeCodigo,
+                especialidadeConsultaCodigo, operador);
+            ag.Atendimento = montado.Atendimento;
+        }
+
         await _repo.AdicionarAgendamentoAsync(ag, ct);
         await _repo.SalvarAsync(ct);
+
+        // O número precisa do Id — save cosmético, falha vira log (nunca erro por cima
+        // de um horário e guias já gravados).
+        if (ag.Atendimento is { } novo && string.IsNullOrEmpty(novo.Numero))
+        {
+            try
+            {
+                novo.Numero = $"{novo.Data.Year}-{novo.Id:D6}";
+                await _repo.SalvarAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                Diagnostico.Registrar("Número do atendimento não pôde ser gravado na marcação", ex);
+            }
+        }
+
         return ag;
     }
 
@@ -102,7 +142,8 @@ public sealed class AgendaService
         string? modalidadeCodigo = null, string? especialidadeConsultaCodigo = null,
         string? operador = null, CancellationToken ct = default,
         int? profissionalId = null, int? salaId = null, int? duracaoMinutos = null,
-        bool manterRecursos = true, bool encaixe = false)
+        bool manterRecursos = true, bool encaixe = false,
+        ICollection<string>? avisosGuia = null)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
             ?? throw new InvalidOperationException("Agendamento não encontrado.");
@@ -116,6 +157,8 @@ public sealed class AgendaService
             : ag.ModalidadePrevista;
         var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
         var horarioAnterior = ag.DataHora;
+        var statusAnterior = ag.Status;
+        var modalidadeCodigoAnterior = ag.ModalidadeCodigo;
 
         // O faturamento remarca sem saber de profissional/sala: por padrão os recursos
         // do horário são preservados. A recepção passa manterRecursos:false quando o
@@ -138,12 +181,67 @@ public sealed class AgendaService
         ag.Encaixe = novoEncaixe;
         ag.DataHora = dataHora;
         ag.ModalidadePrevista = modalidade;
-        ag.ModalidadeCodigo = modalidadeCodigo ?? modalidade.ToString();
-        ag.EspecialidadeConsulta = ehConsulta ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null;
-        ag.EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null;
+
+        // ⚠️ NULO quer dizer "o chamador não sabe", nunca "desligue" (a regra da parcela
+        // 68, aplicada aqui porque foi aqui que ela custou caro).
+        //
+        // `RemarcarEmLoteAsync` — o "Empurrar" que desloca as sessões de umas férias —
+        // chama sem os códigos, porque ele só muda a DATA. Enquanto a atribuição era
+        // incondicional, cada sessão empurrada perdia a VARIANTE da modalidade
+        // ("Acupuntura (domiciliar)" virava "Acupuntura") e a ESPECIALIDADE da consulta.
+        // Nada falhava: o empurrão dizia "30 sessão(ões) empurradas", e o estrago só
+        // aparecia semanas depois, uma paciente por vez, na guia que nascia errada.
+        //
+        // Quem MUDA a modalidade é quem informa o código dela; nesse caso a especialidade
+        // que vem junto é a autoridade, inclusive para limpar. Sem código informado, o
+        // horário fica com o que já tinha.
+        if (modalidadeCodigo is not null)
+        {
+            ag.ModalidadeCodigo = modalidadeCodigo;
+            ag.EspecialidadeConsulta = ehConsulta
+                ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null;
+            ag.EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null;
+        }
+        else if (!ehConsulta)
+        {
+            // A modalidade guardada não é consulta: a especialidade não tem onde morar.
+            ag.EspecialidadeConsulta = null;
+            ag.EspecialidadeConsultaCodigo = null;
+        }
         ag.Observacoes = observacoes;
         // Remarcar um horário cancelado/faltado o traz de volta para a agenda.
         ag.Status = StatusAgendamento.Agendado;
+
+        // ⚠️ E os CARIMBOS DA FILA vão embora com o horário antigo.
+        //
+        // A etapa do kanban é DERIVADA deles (`Agendamento.Etapa`), não uma coluna: um
+        // horário remarcado que guardasse a chegada de terça nasceria, na quinta, já na
+        // raia "Na recepção" — ou em "Em atendimento", se o paciente tinha entrado na sala
+        // antes de a sessão ser interrompida. O balcão via alguém esperando desde antes de
+        // a clínica abrir (a espera é contada da chegada até agora), e o quadro do médico
+        // mostrava na sala um paciente que ainda estava em casa.
+        //
+        // Só quando a DATA muda: remarcar mexendo apenas em sala, duração ou observação é
+        // ajuste do horário de hoje, e apagar o check-in de quem já está sentado no balcão
+        // seria destruir o fato pelo caminho errado.
+        if (horarioAnterior.Date != dataHora.Date)
+        {
+            ag.ChegadaEm = null;
+            ag.ChamadoEm = null;
+            ag.InicioAtendimentoEm = null;
+        }
+
+        // GUIA NO AGENDAMENTO (parcela 70): o atendimento acompanha o horário, no MESMO
+        // SaveChanges. Reabrir um cancelado/falta devolve as guias suspensas; data nova
+        // desloca as previstas; modalidade nova regera (ou recusa, se algo já saiu da
+        // clínica). Nada disso salva sozinho — a atomicidade é a do Remarcar.
+        if (statusAnterior is StatusAgendamento.Cancelado or StatusAgendamento.Faltou)
+            Anexar(avisosGuia, await _atendimentos.RefletirStatusDoHorarioAsync(ag, operador, ct));
+
+        var modalidadeMudou = modalidadeCodigo is not null
+                              && modalidadeCodigo != modalidadeCodigoAnterior;
+        Anexar(avisosGuia, await _atendimentos.AjustarAoRemarcarAsync(
+            ag, DateOnly.FromDateTime(horarioAnterior), modalidadeMudou, operador, ct));
 
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
         {
@@ -155,6 +253,13 @@ public sealed class AgendaService
 
         await _repo.SalvarAsync(ct);
         return ag;
+    }
+
+    /// <summary>Despeja avisos no canal do chamador, quando ele quis um.</summary>
+    private static void Anexar(ICollection<string>? destino, List<string> extras)
+    {
+        if (destino is null) return;
+        foreach (var a in extras) destino.Add(a);
     }
 
     public Task<Agendamento?> ObterAsync(int agendamentoId, CancellationToken ct = default)
@@ -430,9 +535,18 @@ public sealed class AgendaService
     /// <summary>
     /// Check-in no balcão: o paciente chegou. É daqui que sai o tempo de espera — sem
     /// carimbo de chegada a fila não tem como dizer há quanto tempo alguém aguarda.
+    ///
+    /// ⚠️ Os cinco movimentos da fila recebem o OPERADOR e gravam trilha (parcela 69):
+    /// a parcela 61 criou a permissão do ato e o ato continuava sem autoria — mover a
+    /// fila escreve carimbo de hora que alimenta espera, repasse e o fechamento da
+    /// sessão, e "quem carimbou isto?" não tinha resposta. O operador vem da TELA
+    /// (<c>SessaoUsuario.Atual.Operador</c>), pela razão de sempre: no balcão duas
+    /// pessoas dividem a máquina, e o serviço não sabe quem está logado. Movimento
+    /// idempotente que não mudou nada (segundo clique no Chamar) NÃO grava linha —
+    /// trilha com duplicata a cada clique é trilha que ninguém consegue ler.
     /// </summary>
     public async Task<Agendamento> RegistrarChegadaAsync(
-        int agendamentoId, DateTime? quando = null, CancellationToken ct = default)
+        int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -440,7 +554,10 @@ public sealed class AgendaService
             throw new InvalidOperationException(
                 "Só um horário em aberto aceita check-in. Reabra o agendamento antes.");
 
+        var mudou = ag.ChegadaEm is null;
         ag.ChegadaEm ??= quando ?? DateTime.Now;
+        if (mudou) await AuditarFilaAsync(ag, operador, "FilaChegada",
+            $"Check-in às {ag.ChegadaEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
@@ -458,7 +575,7 @@ public sealed class AgendaService
     /// perderia a única informação que a torna confiável, que é a de quem está no prédio.
     /// </summary>
     public async Task<Agendamento> ChamarAsync(
-        int agendamentoId, DateTime? quando = null, CancellationToken ct = default)
+        int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -476,7 +593,10 @@ public sealed class AgendaService
         // Idempotente: chamar de novo não reinicia o cronômetro da chamada. Quem quer
         // insistir com alguém que não veio precisa ver há QUANTO tempo chamou — e um
         // segundo clique zerando esse número esconderia justamente o caso.
+        var mudou = ag.ChamadoEm is null;
         ag.ChamadoEm ??= quando ?? DateTime.Now;
+        if (mudou) await AuditarFilaAsync(ag, operador, "FilaChamada",
+            $"Chamado às {ag.ChamadoEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
@@ -489,7 +609,7 @@ public sealed class AgendaService
     /// o outro é o do balcão desfazendo um clique errado, e serve à fila inteira.
     /// </summary>
     public async Task<Agendamento> DesfazerChamadaAsync(
-        int agendamentoId, CancellationToken ct = default)
+        int agendamentoId, string operador, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -500,14 +620,20 @@ public sealed class AgendaService
             throw new InvalidOperationException(
                 "O atendimento já começou; use voltar etapa.");
 
+        // Desfazer APAGA um carimbo — é justamente o movimento que precisa de rastro:
+        // o valor apagado vai escrito na trilha, senão ele deixa de existir em qualquer
+        // lugar.
+        var apagado = ag.ChamadoEm;
         ag.ChamadoEm = null;
+        await AuditarFilaAsync(ag, operador, "FilaChamadaDesfeita",
+            $"Apagado o carimbo de chamada ({apagado:dd/MM/yyyy HH:mm}) — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
 
     /// <summary>O paciente ENTROU na sala: começo da sessão.</summary>
     public async Task<Agendamento> IniciarAtendimentoAsync(
-        int agendamentoId, DateTime? quando = null, CancellationToken ct = default)
+        int agendamentoId, string operador, DateTime? quando = null, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -520,9 +646,12 @@ public sealed class AgendaService
         // nula: sem chegada, o kanban não saberia distinguir quem esperou de quem não
         // esperou. Pelo mesmo motivo a chamada é carimbada junto — o paciente entrou,
         // logo foi chamado, e uma linha do tempo com entrada sem chamada não existe.
+        var mudou = ag.InicioAtendimentoEm is null;
         ag.ChegadaEm ??= agora;
         ag.ChamadoEm ??= agora;
         ag.InicioAtendimentoEm ??= agora;
+        if (mudou) await AuditarFilaAsync(ag, operador, "FilaEntrada",
+            $"Entrou na sala às {ag.InicioAtendimentoEm:HH:mm} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
@@ -532,7 +661,8 @@ public sealed class AgendaService
     /// porque clicar errado no kanban é rotina — e a alternativa (cancelar e remarcar)
     /// falsearia o histórico.
     /// </summary>
-    public async Task<Agendamento> VoltarEtapaAsync(int agendamentoId, CancellationToken ct = default)
+    public async Task<Agendamento> VoltarEtapaAsync(
+        int agendamentoId, string operador, CancellationToken ct = default)
     {
         var ag = await ObterParaFilaAsync(agendamentoId, ct);
 
@@ -540,14 +670,46 @@ public sealed class AgendaService
             throw new InvalidOperationException(
                 "Este horário já foi encerrado; não dá para voltar a etapa por aqui.");
 
-        if (ag.InicioAtendimentoEm is not null) ag.InicioAtendimentoEm = null;
-        else if (ag.ChamadoEm is not null) ag.ChamadoEm = null;
-        else if (ag.ChegadaEm is not null) ag.ChegadaEm = null;
+        // Voltar etapa APAGA um carimbo de hora. O carimbo apagado vai ESCRITO na
+        // trilha, com o valor: depois do apagamento ele não existe em mais lugar
+        // nenhum, e "quem desfez e o que dizia" é a pergunta de qualquer conferência.
+        string apagado;
+        if (ag.InicioAtendimentoEm is not null)
+        {
+            apagado = $"entrada na sala ({ag.InicioAtendimentoEm:dd/MM/yyyy HH:mm})";
+            ag.InicioAtendimentoEm = null;
+        }
+        else if (ag.ChamadoEm is not null)
+        {
+            apagado = $"chamada ({ag.ChamadoEm:dd/MM/yyyy HH:mm})";
+            ag.ChamadoEm = null;
+        }
+        else if (ag.ChegadaEm is not null)
+        {
+            apagado = $"check-in ({ag.ChegadaEm:dd/MM/yyyy HH:mm})";
+            ag.ChegadaEm = null;
+        }
         else throw new InvalidOperationException("O paciente ainda nem fez check-in.");
 
+        await AuditarFilaAsync(ag, operador, "FilaEtapaVoltada",
+            $"Apagado o carimbo de {apagado} — horário de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
         await _repo.SalvarAsync(ct);
         return ag;
     }
+
+    /// <summary>
+    /// A linha de trilha dos movimentos da fila — no MESMO SaveChanges do carimbo, como
+    /// toda auditoria do projeto: ação que possa acontecer sem a linha é ação sem trilha.
+    /// </summary>
+    private Task AuditarFilaAsync(
+        Agendamento ag, string operador, string acao, string detalhe, CancellationToken ct)
+        => _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = acao,
+            Detalhe = detalhe,
+            PacienteId = ag.PacienteId
+        }, ct);
 
     private async Task<Agendamento> ObterParaFilaAsync(int agendamentoId, CancellationToken ct)
         => await _repo.ObterAgendamentoAsync(agendamentoId, ct)
@@ -584,28 +746,165 @@ public sealed class AgendaService
         if (ag.Status == StatusAgendamento.Realizado)
             throw new InvalidOperationException("Este agendamento já teve a presença confirmada.");
 
-        var resultado = await _atendimentos.LancarAsync(
-            ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista, ag.Observacoes, ct,
-            especialidadeConsulta: ag.EspecialidadeConsulta,
-            modalidadeCodigo: ag.ModalidadeCodigo,
-            especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo,
-            primeiroCodigo: ag.PrimeiroCodigo,
-            operador: operador);
-
-        ag.Status = StatusAgendamento.Realizado;
-        ag.AtendimentoId = resultado.Atendimento.Id;
-
-        await _repo.SalvarAsync(ct);
-        return resultado;
+        return await ConfirmarNucleoAsync(ag, operador, ct);
     }
 
-    public async Task CancelarAsync(int agendamentoId, string? operador = null, CancellationToken ct = default)
+    /// <summary>
+    /// O núcleo ATÔMICO da confirmação (parcela 70). Antes, a criação era uma corrente de
+    /// gravações separadas — guias primeiro, número, carimbo por último — e cada vão era
+    /// um meio-estado possível: se o carimbo falhasse (conflito de `xmin` entre as duas
+    /// máquinas do balcão, queda de conexão), as guias existiam, o agendamento não sabia,
+    /// e o segundo clique gerava OUTRO jogo de guias. Foi o incidente de 12/08/2026 uma
+    /// camada abaixo.
+    ///
+    /// Agora o atendimento é MONTADO sem gravar e pendurado no agendamento pela
+    /// NAVEGAÇÃO: o EF grava horário + atendimento + códigos + carimbo + NCs reabertas +
+    /// trilha numa transação só. Não existe segundo momento de criação — e o que não tem
+    /// segundo momento não duplica. Conflito de concorrência agora significa "releia: o
+    /// `AtendimentoId` já está lá".
+    /// </summary>
+    private async Task<ResultadoLancamento> ConfirmarNucleoAsync(
+        Agendamento ag, string? operador, CancellationToken ct)
+    {
+        List<string> avisos;
+        Atendimento atendimento;
+
+        if (ag.AtendimentoId is { } idExistente)
+        {
+            // Regime "guia no agendamento": o atendimento nasceu na MARCAÇÃO — aqui só
+            // se confirma a presença e disparam os efeitos dela.
+            atendimento = await _repo.ObterAtendimentoAsync(idExistente, ct)
+                ?? throw new InvalidOperationException(
+                    $"O agendamento {ag.Id} aponta para o atendimento {idExistente}, que não existe mais.");
+            avisos = [];
+        }
+        else
+        {
+            var montado = await _atendimentos.MontarAsync(
+                ag.PacienteId, DateOnly.FromDateTime(ag.DataHora), ag.ModalidadePrevista,
+                ag.Observacoes, ct,
+                especialidadeConsulta: ag.EspecialidadeConsulta,
+                modalidadeCodigo: ag.ModalidadeCodigo,
+                especialidadeConsultaCodigo: ag.EspecialidadeConsultaCodigo,
+                primeiroCodigo: ag.PrimeiroCodigo,
+                operador: operador);
+            atendimento = montado.Atendimento;
+            avisos = montado.Avisos;
+
+            // A navegação é o que faz o EF inserir e amarrar tudo numa transação só.
+            ag.Atendimento = atendimento;
+        }
+
+        ag.Status = StatusAgendamento.Realizado;
+        // A âncora de "a sessão ACONTECEU" (parcela 70): com a guia nascendo na marcação,
+        // existir atendimento deixou de significar sessão realizada — quem significa é
+        // este carimbo, e os leitores de BI/rentabilidade/retenção ancoram nele.
+        atendimento.RealizadoEm ??= DateTime.Now;
+
+        // Efeitos de PRESENÇA que entram no mesmo commit (NCs reabertas)…
+        avisos.AddRange(await _atendimentos.PrepararPresencaAsync(atendimento, ct));
+
+        // …e a trilha do ato que gera as guias (item 5 da fila da parcela 69), idem.
+        await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
+        {
+            Operador = string.IsNullOrWhiteSpace(operador) ? "?" : operador,
+            Acao = "PresencaConfirmada",
+            Detalhe = $"{ag.DataHora:dd/MM/yyyy HH:mm} — {atendimento.Codigos.Count} código(s) de faturamento",
+            PacienteId = ag.PacienteId
+        }, ct);
+
+        // ⚠️ O COMMIT ATÔMICO.
+        await _repo.SalvarAsync(ct);
+
+        // O número precisa do Id e vai num segundo save COSMÉTICO. Falhar aqui não pode
+        // virar exceção: o commit de cima JÁ aconteceu, e a tela diria "não foi lançado"
+        // sobre uma guia que existe — o gesto que produziu os três encaixes de 12/08.
+        // Nada duplica (o AtendimentoId no agendamento impede a recriação); vira aviso.
+        if (string.IsNullOrEmpty(atendimento.Numero))
+        {
+            try
+            {
+                atendimento.Numero = $"{atendimento.Data.Year}-{atendimento.Id:D6}";
+                await _repo.SalvarAsync(ct);
+            }
+            catch (Exception ex)
+            {
+                Diagnostico.Registrar("Número do atendimento não pôde ser gravado", ex);
+                avisos.Add("O número/protocolo do atendimento não pôde ser gravado agora — "
+                           + "a guia está salva e o faturamento a enxerga normalmente.");
+            }
+        }
+
+        // Renovação da consulta: gravação própria, falha vira aviso (nunca desfaz).
+        avisos.AddRange(await _atendimentos.ConcluirPresencaAsync(atendimento, ct));
+
+        return new ResultadoLancamento(atendimento, avisos);
+    }
+
+    /// <summary>
+    /// O LANÇAMENTO AVULSO num gesto atômico (parcela 70) — a porta que a clínica usa o
+    /// dia inteiro enquanto a agenda mora no Amplimed. Substitui a corrente de três
+    /// chamadas (Agendar → RegistrarChegada → ConfirmarPresenca, cinco SaveChanges) cujos
+    /// vãos produziram os três encaixes de 12/08 e a guia duplicada: o encaixe nasce na
+    /// hora real com o check-in carimbado, o atendimento e as guias — o grafo INTEIRO num
+    /// único SaveChanges do núcleo.
+    /// </summary>
+    public async Task<(Agendamento Agendamento, ResultadoLancamento Lancamento)> LancarAvulsoAsync(
+        int pacienteId, DateTime dataHora, ModalidadeAtendimento modalidade, string? observacoes,
+        CancellationToken ct = default, string? modalidadeCodigo = null,
+        string? especialidadeConsultaCodigo = null, TipoCodigo? primeiroCodigo = null,
+        int? profissionalId = null, string? operador = null, int? salaId = null)
+    {
+        if (modalidadeCodigo is not null)
+            modalidade = CatalogoModalidades.Base(modalidadeCodigo);
+
+        // Encaixe: aceita por cima de horário ocupado — o paciente já está aqui.
+        await GarantirSemChoqueAsync(
+            dataHora, null, profissionalId, null, pacienteId, null, encaixe: true, ct);
+
+        var agora = DateTime.Now;
+        var ehConsulta = modalidade == ModalidadeAtendimento.Consulta;
+        var ag = new Agendamento
+        {
+            PacienteId = pacienteId,
+            DataHora = dataHora,
+            ModalidadePrevista = modalidade,
+            ModalidadeCodigo = modalidadeCodigo ?? modalidade.ToString(),
+            EspecialidadeConsulta = ehConsulta
+                ? CatalogoEspecialidades.BaseEnum(especialidadeConsultaCodigo) : null,
+            EspecialidadeConsultaCodigo = ehConsulta ? especialidadeConsultaCodigo : null,
+            Observacoes = observacoes,
+            Origem = OrigemAgendamento.Manual,
+            Status = StatusAgendamento.Agendado,
+            ProfissionalId = profissionalId,
+            // A sala do encaixe (parcela 70, achado do cliente no teste): a Fila anuncia
+            // "anuncie para a sala X" na chamada, e o avulso sem sala saía "sala —".
+            SalaId = salaId,
+            Encaixe = true,
+            PrimeiroCodigo = primeiroCodigo,
+            CriadoPor = string.IsNullOrWhiteSpace(operador) ? null : operador.Trim(),
+            CriadoEm = agora,
+            // O paciente está no balcão: o check-in é o fato, não uma etapa a cumprir.
+            ChegadaEm = agora
+        };
+
+        await _repo.AdicionarAgendamentoAsync(ag, ct);
+        await AuditarFilaAsync(ag, operador ?? "?", "FilaChegada",
+            $"Check-in às {agora:HH:mm} — encaixe avulso de {ag.DataHora:dd/MM/yyyy HH:mm}", ct);
+
+        var lancamento = await ConfirmarNucleoAsync(ag, operador, ct);
+        return (ag, lancamento);
+    }
+
+    public async Task<IReadOnlyList<string>> CancelarAsync(
+        int agendamentoId, string? operador = null, CancellationToken ct = default)
         => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Cancelado, operador, ct);
 
-    public async Task MarcarFaltaAsync(int agendamentoId, string? operador = null, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> MarcarFaltaAsync(
+        int agendamentoId, string? operador = null, CancellationToken ct = default)
         => await AlterarStatusAsync(agendamentoId, StatusAgendamento.Faltou, operador, ct);
 
-    private async Task AlterarStatusAsync(
+    private async Task<IReadOnlyList<string>> AlterarStatusAsync(
         int agendamentoId, StatusAgendamento status, string? operador, CancellationToken ct)
     {
         var ag = await _repo.ObterAgendamentoAsync(agendamentoId, ct)
@@ -613,6 +912,12 @@ public sealed class AgendaService
 
         var anterior = ag.Status;
         ag.Status = status;
+
+        // GUIA NO AGENDAMENTO (parcela 70): sessão que não aconteceu não fatura — as
+        // guias abertas deste horário são SUSPENSAS no mesmo SaveChanges. Sem isto, o
+        // no-show viraria pendência eterna e, dez dias depois, rodada bloqueante por uma
+        // guia que nunca vai a operadora nenhuma.
+        var avisos = await _atendimentos.RefletirStatusDoHorarioAsync(ag, operador, ct);
 
         // Falta e cancelamento são sessão não faturada: precisam de rastro de quem marcou.
         await _repo.RegistrarAuditoriaAsync(new EventoAuditoria
@@ -624,5 +929,6 @@ public sealed class AgendaService
         }, ct);
 
         await _repo.SalvarAsync(ct);
+        return avisos;
     }
 }

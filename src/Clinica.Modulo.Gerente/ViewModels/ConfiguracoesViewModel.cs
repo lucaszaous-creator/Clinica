@@ -81,6 +81,17 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
     // ---- Agenda e indicadores ----
     [ObservableProperty] private string? _jornadaDiariaMinutos;
 
+    /// <summary>
+    /// O regime "a guia nasce quando o horário entra no sistema" (parcela 70 —
+    /// docs/guia-no-agendamento.md). A caixinha diz na tela: ligue DEPOIS de atualizar
+    /// todas as máquinas — um app antigo confirmando presença de horário marcado com
+    /// guia pelo novo criaria a segunda.
+    /// </summary>
+    [ObservableProperty] private bool _guiaNoAgendamento;
+
+    /// <summary>O valor que está no banco — a chave só é regravada quando mudou (o ligar dispara backfill).</summary>
+    private bool _guiaNoAgendamentoGravada;
+
     // ---- Marketing ----
     [ObservableProperty] private string? _diasInatividadeRecall;
 
@@ -235,6 +246,7 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             JornadaDiariaMinutos = (await p.ObterJornadaDiariaAsync()).ToString();
             DiasInatividadeRecall = (await p.ObterDiasInatividadeRecallAsync()).ToString();
             CarimbadoraDeTempo = (await p.ObterCarimbadoraDeTempoAsync())?.ToString();
+            GuiaNoAgendamento = _guiaNoAgendamentoGravada = await p.GuiaNoAgendamentoAsync();
 
             // A variável de ambiente VENCE o banco (caminho de teste). Quando ela está em
             // vigor, esta tela passa a mostrar o que o ambiente manda e avisa que é assim —
@@ -341,6 +353,15 @@ public sealed partial class ConfiguracoesViewModel : ObservableObject
             await p.SalvarJornadaDiariaAsync(jornada);
             await p.SalvarDiasInatividadeRecallAsync(recall);
             await p.SalvarCarimbadoraDeTempoAsync(carimbadora);
+
+            // A chave do regime "guia no agendamento" (parcela 70) só é tocada quando a
+            // direção de fato a mudou: LIGAR dispara o backfill do RealizadoEm, e repeti-lo
+            // a cada "Salvar" seria escrever a tabela inteira à toa.
+            if (GuiaNoAgendamento != _guiaNoAgendamentoGravada)
+            {
+                await p.DefinirGuiaNoAgendamentoAsync(GuiaNoAgendamento);
+                _guiaNoAgendamentoGravada = GuiaNoAgendamento;
+            }
             // Com a variável de ambiente em vigor, os campos mostram o que ELA manda — e o
             // do segredo mostra um texto explicativo, não o segredo. Gravar isso apagaria a
             // credencial real da clínica no banco no dia em que a variável fosse removida.

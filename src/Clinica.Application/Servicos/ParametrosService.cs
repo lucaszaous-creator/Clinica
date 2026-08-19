@@ -154,6 +154,38 @@ public sealed class ParametrosService
         await _repo.SalvarAsync(ct);
     }
 
+    // ---- Guia no agendamento (parcela 70 — docs/guia-no-agendamento.md) ----
+
+    /// <summary>
+    /// O regime "a guia nasce quando o horário entra no sistema". DESLIGADA por padrão, e
+    /// é decisão: a janela em que uma máquina da clínica atualizou e outra não é o
+    /// DESENHO (parcela 67), e um app antigo confirmando presença de um horário marcado
+    /// COM guia pelo app novo criaria a segunda. A direção liga em Configurações depois
+    /// de atualizar todas as máquinas — e de treinar a secretária no fluxo novo.
+    /// </summary>
+    public const string ChaveGuiaNoAgendamento = "GuiaNoAgendamento";
+
+    /// <summary>O regime está ligado?</summary>
+    public async Task<bool> GuiaNoAgendamentoAsync(CancellationToken ct = default)
+        => await _repo.ObterConfiguracaoAsync(ChaveGuiaNoAgendamento, ct) == "1";
+
+    /// <summary>
+    /// Liga/desliga o regime. ⚠️ LIGAR repete o backfill do <c>Atendimento.RealizadoEm</c>:
+    /// até este momento não existe atendimento de sessão futura, então tudo o que está sem
+    /// o carimbo é, por definição, sessão realizada — inclusive as linhas que um app
+    /// ANTIGO gravou depois da migration, que o backfill dela não alcançou. Sem isto, os
+    /// leitores de "sessão realizada" (BI, rentabilidade, retenção) perderiam essas linhas
+    /// para sempre no dia em que a chave ligasse.
+    /// </summary>
+    public async Task DefinirGuiaNoAgendamentoAsync(bool ligada, CancellationToken ct = default)
+    {
+        if (ligada)
+            await _repo.MarcarAtendimentosSemCarimboComoRealizadosAsync(ct);
+
+        await _repo.SalvarConfiguracaoAsync(ChaveGuiaNoAgendamento, ligada ? "1" : "0", ct);
+        await _repo.SalvarAsync(ct);
+    }
+
     // ---- Tela que o PACIENTE vê (parcela 66, 5ª rodada) ----
 
     public const string ChaveTelaDoPaciente = "TelaDoPacienteDispositivo";
