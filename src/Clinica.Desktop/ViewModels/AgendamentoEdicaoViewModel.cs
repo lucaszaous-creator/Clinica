@@ -203,6 +203,13 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
     [RelayCommand]
     private async Task Agendar()
     {
+        // A SEGUNDA barreira (parcela 51: "só se chega por ali" não é barreira). A porta
+        // (`AgendaViewModel.AbrirCadastroAsync`) exige o bit da agenda; esta janela não
+        // conferia nada — e é a cópia do faturamento da janela que a suíte já guardava,
+        // o formato exato da parcela 60 ("a cópia que ficou para trás é onde a permissão
+        // vaza").
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "marcar ou remarcar horário");
+
         if (Seletor.Selecionado is not { } paciente)
         {
             Mensagem = "Selecione o paciente.";
@@ -233,6 +240,19 @@ public partial class AgendamentoEdicaoViewModel : ObservableObject
         {
             using var scope = _scopeFactory.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+
+            // Com a chave "guia no agendamento" ligada, CRIAR horário também cria o
+            // atendimento e as guias — o ato que `LancarAtendimento` nomeia (parcela 70;
+            // a mesma guarda do formulário da suíte). `Exigir` com bits somados é um E;
+            // remarcar não cria atendimento e fica fora.
+            if (EditandoId is null)
+            {
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+                if (await parametros.GuiaNoAgendamentoAsync())
+                    SessaoUsuario.Atual.Exigir(
+                        Permissao.EditarAgenda | Permissao.LancarAtendimento,
+                        "marcar atendimento gerando as guias");
+            }
 
             // Choque de horário: avisa quem já ocupa o slot e pede confirmação.
             // Numa remarcação, o próprio agendamento não conflita consigo mesmo.

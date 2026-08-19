@@ -4173,3 +4173,17 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `LancarAtendimento`; e quem tem só `EditarAgenda` não perdeu nada, porque o
   redirecionamento da agenda cai no formulário antigo quando `NavegacaoSuite.Ir`
   devolve false (regra 3 do faturamento: a unificação não tira capacidade).
+  ⚠️ **A auditoria do próprio diff achou o leitor que o inventário da Fase 3 pulou — e
+  era o de DINHEIRO.** O alimentador do REPASSE (`AgendamentosComAtendimentoAsync`)
+  filtrava só "tem atendimento": com a chave ligada, a sessão MARCADA — e a cancelada,
+  que mantém o `AtendimentoId` com as guias suspensas — entraria na regra "valor por
+  atendimento", pagando sessão que ninguém deu. O filtro virou `Status == Realizado`
+  (no regime antigo não muda nada: `AtendimentoId` só nascia junto do `Realizado`), com
+  teste que confirma a presença e vê o valor aparecer. Os outros dois achados da mesma
+  auditoria: o formulário de agendamento do FATURAMENTO sem nenhuma `Exigir` (a cópia
+  que ficou para trás, parcela 60 — ganhou as duas guardas, inclusive a do duplo bit
+  com a chave ligada) e a tela QUANDO reconferindo cota/consulta/elegibilidade ao
+  trocar a DATA (o item 6 da fila da parcela 69, que a unificação tornou cotidiano) —
+  com a elegibilidade completa (dívida, glosa, pacote, termo) que o formulário
+  substituído já mostrava: **porta unificada não pode mostrar MENOS que a porta que
+  aposentou.**

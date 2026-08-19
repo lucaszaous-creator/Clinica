@@ -212,6 +212,7 @@
                                             <Condition Binding="{Binding TemAvisoConsulta}" Value="False" />
                                             <Condition Binding="{Binding TemSaldoAutorizacao}" Value="False" />
                                             <Condition Binding="{Binding TemAvisoPendencias}" Value="False" />
+                                            <Condition Binding="{Binding TemAlertasElegibilidade}" Value="False" />
                                         </MultiDataTrigger.Conditions>
                                         <Setter Property="Visibility" Value="Hidden" />
                                     </MultiDataTrigger>
@@ -307,6 +308,37 @@
                                 <TextBlock Grid.Column="1" Text="{Binding AvisoPendencias}"
                                            Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
                             </Grid>
+
+                            <!-- Dívida vencida, guia glosada, pacote no fim, termo e
+                                 consentimento — o resto da elegibilidade, que o formulário
+                                 de agendamento substituído já mostrava (parcelas 26/48). A
+                                 urgência viaja com CADA alerta (parcela 36). -->
+                            <ItemsControl ItemsSource="{Binding AlertasElegibilidade}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,7">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" CornerRadius="2">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Amarelo}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Vermelho}" Value="True">
+                                                                <Setter Property="Background" Value="{StaticResource Brush.Semaforo.Vermelho}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+                                            <TextBlock Grid.Column="1" Text="{Binding Descricao}"
+                                                       Margin="10,0,0,0" TextWrapping="Wrap" HorizontalAlignment="Left" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </Border>
                 </Grid>

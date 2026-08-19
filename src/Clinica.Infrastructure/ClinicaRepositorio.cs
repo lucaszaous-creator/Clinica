@@ -1572,6 +1572,13 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
             .Include(a => a.Profissional)
             .Include(a => a.Paciente)
             .Where(a => a.DataHora >= de && a.DataHora <= ate)
+            // ⚠️ REALIZADO, não só "com atendimento" (parcela 70): com a guia nascendo na
+            // MARCAÇÃO, o horário marcado — e até o cancelado, que mantém o AtendimentoId
+            // com as guias suspensas — passou a ter atendimento sem a sessão ter
+            // acontecido. Este é o alimentador do REPASSE, e a regra "valor por
+            // atendimento" pagaria sessão que ninguém deu. No regime antigo o filtro não
+            // muda nada: AtendimentoId só nascia junto do Realizado.
+            .Where(a => a.Status == StatusAgendamento.Realizado)
             .Where(a => a.AtendimentoId != null && a.ProfissionalId != null)
             .OrderBy(a => a.DataHora)
             .ToListAsync(ct);

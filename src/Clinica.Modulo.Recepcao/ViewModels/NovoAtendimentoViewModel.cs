@@ -117,6 +117,9 @@ public sealed record LinhaPrevia(
     string Tipo, string Ordem, string FaturarEm, string ComoObter,
     string Especialidade, bool EhSegundo, string Nota);
 
+/// <summary>Um alerta de elegibilidade na tela, com a urgência para a cor do traço.</summary>
+public sealed record LinhaAlertaElegibilidade(string Descricao, bool Vermelho);
+
 /// <summary>Um avulso lançado hoje, na conferência do fim do dia.</summary>
 public sealed class LinhaAvulso
 {
@@ -401,6 +404,19 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
 
     public bool TemAvisoJaLancado => !string.IsNullOrWhiteSpace(AvisoJaLancado);
 
+    /// <summary>
+    /// O RESTO da elegibilidade — dívida vencida, guia glosada, pacote no fim, termo do
+    /// procedimento, consentimento (parcela 70, achado da auditoria). O formulário de
+    /// agendamento que esta tela substituiu mostrava tudo isso pelo
+    /// <c>ElegibilidadeService</c> (parcelas 26/48), e a porta unificada não pode mostrar
+    /// MENOS do que a porta que aposentou. Carteirinha vencida, cota e consulta ficam de
+    /// fora do recorte: a tela já as diz com mais detalhe logo acima, e o mesmo aviso
+    /// duas vezes se lê como dois problemas.
+    /// </summary>
+    public ObservableCollection<LinhaAlertaElegibilidade> AlertasElegibilidade { get; } = new();
+
+    public bool TemAlertasElegibilidade => AlertasElegibilidade.Count > 0;
+
     /// <summary>Aviso de guias pendentes do paciente selecionado (para a secretária cobrar na hora). Nulo = sem pendências.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TemAvisoPendencias))]
@@ -506,7 +522,18 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     {
         _ = PreverAsync();
         _ = ConferirConflitosAsync();
-        if (PacienteSelecionado is { } p) _ = VerificarJaLancadoNoDiaAsync(p.Id);
+
+        // No modo marcar, trocar o DIA é o gesto normal — e cota, consulta, elegibilidade
+        // e a capa respondem PELA DATA. Sem reconferir, a tela mostraria a resposta do
+        // dia anterior com toda a cara de atual (o item 6 da fila da parcela 69, fechado
+        // aqui porque a unificação o tornou cotidiano).
+        if (PacienteSelecionado is { } p)
+        {
+            _ = VerificarJaLancadoNoDiaAsync(p.Id);
+            _ = VerificarAutorizacaoAsync(p.Id);
+            _ = VerificarConsultaAsync(p.Id);
+            _ = VerificarElegibilidadeAsync(p.Id);
+        }
     }
 
     partial void OnEspecialidadeSelecionadaChanged(EntradaEspecialidade? value) => _ = PreverAsync();
@@ -908,6 +935,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         AvisoPendencias = null;
         AvisoCarteirinha = null;
         AvisoConsulta = null;
+        AlertasElegibilidade.Clear();
+        OnPropertyChanged(nameof(TemAlertasElegibilidade));
         ConsultaVencida = false;
         SaldoAutorizacao = null;
         AutorizacaoCritica = false;
@@ -942,7 +971,58 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         _ = VerificarAutorizacaoAsync(value.Id);
         _ = VerificarConsultaAsync(value.Id);
         _ = VerificarJaLancadoNoDiaAsync(value.Id);
+        _ = VerificarElegibilidadeAsync(value.Id);
         _ = ConferirConflitosAsync();
+    }
+
+    /// <summary>Descarte de resposta fora de ordem dos alertas — a data muda por clique.</summary>
+    private int _geracaoElegibilidade;
+
+    private static readonly HashSet<ImpedimentoElegibilidade> JaDitosPelaTela =
+    [
+        ImpedimentoElegibilidade.CarteirinhaVencida,
+        ImpedimentoElegibilidade.CotaEsgotada,
+        ImpedimentoElegibilidade.CotaQuaseNoFim,
+        ImpedimentoElegibilidade.SemAutorizacaoVigente,
+        ImpedimentoElegibilidade.ConsultaVencida,
+        ImpedimentoElegibilidade.ConsultaARenovar
+    ];
+
+    /// <summary>
+    /// Os alertas de elegibilidade que a tela NÃO diz por conta própria. A urgência viaja
+    /// com cada alerta (parcela 36): dívida amarela ao lado de carteirinha vermelha, sem
+    /// uma pintar a outra. Falha não impede — mas vira linha, senão a tela diria "nada a
+    /// apontar" sobre o que não conseguiu conferir.
+    /// </summary>
+    private async Task VerificarElegibilidadeAsync(int pacienteId)
+    {
+        var geracao = ++_geracaoElegibilidade;
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var servico = scope.ServiceProvider.GetRequiredService<ElegibilidadeService>();
+            var resultado = await servico.ConferirAsync(pacienteId, DateOnly.FromDateTime(Data.Date));
+
+            if (geracao != _geracaoElegibilidade || PacienteSelecionado?.Id != pacienteId) return;
+
+            AlertasElegibilidade.Clear();
+            foreach (var a in resultado.Alertas.Where(a => !JaDitosPelaTela.Contains(a.Motivo)))
+                AlertasElegibilidade.Add(new LinhaAlertaElegibilidade(
+                    a.Descricao, a.Urgencia == NivelUrgencia.Vermelho));
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoElegibilidade) return;
+            LogSuite.Registrar("Novo atendimento — elegibilidade não pôde ser conferida", ex);
+            AlertasElegibilidade.Clear();
+            AlertasElegibilidade.Add(new LinhaAlertaElegibilidade(
+                "Não foi possível conferir dívida, pacote e termo agora.", Vermelho: false));
+        }
+        finally
+        {
+            if (geracao == _geracaoElegibilidade)
+                OnPropertyChanged(nameof(TemAlertasElegibilidade));
+        }
     }
 
     /// <summary>Descarte de resposta fora de ordem da capa — a data muda por clique de DatePicker.</summary>
@@ -987,22 +1067,32 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// último momento barato: a consulta vencida faz o convênio recusar o que acabou de
     /// ser gerado aqui.
     /// </summary>
+    /// <summary>
+    /// Descarte de resposta fora de ordem (parcela 60): a conferência também dispara ao
+    /// trocar a DATA, e duas leituras do MESMO paciente com datas diferentes passariam
+    /// na guarda de seleção — quem começou primeiro perde.
+    /// </summary>
+    private int _geracaoConsulta;
+
     private async Task VerificarConsultaAsync(int pacienteId)
     {
+        var geracao = ++_geracaoConsulta;
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var consultas = scope.ServiceProvider.GetRequiredService<ConsultaService>();
             var situacao = await consultas.DoPacienteAsync(pacienteId, DateOnly.FromDateTime(Data));
 
-            // A seleção pode ter mudado enquanto a consulta rodava.
-            if (PacienteSelecionado?.Id != pacienteId) return;
+            // A seleção (ou a data) pode ter mudado enquanto a consulta rodava.
+            if (geracao != _geracaoConsulta || PacienteSelecionado?.Id != pacienteId) return;
 
             AvisoConsulta = situacao?.AvisoRenovacao;
             ConsultaVencida = situacao?.Vencida ?? false;
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoConsulta) return;
+
             // Aviso é auxiliar: nunca impede o lançamento. Mas também não pode sumir
             // calado, senão a tela diria "não há consulta a renovar" sem ter olhado.
             LogSuite.Registrar("Novo atendimento — consulta renovável não pôde ser lida", ex);
@@ -1016,16 +1106,20 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
     /// ("quantidade executada acima da autorizada") — o sistema registrava essa glosa
     /// depois do prejuízo e não avisava antes.
     /// </summary>
+    /// <summary>O par do contador da consulta, pela mesma razão: a data também dispara esta.</summary>
+    private int _geracaoAutorizacao;
+
     private async Task VerificarAutorizacaoAsync(int pacienteId)
     {
+        var geracao = ++_geracaoAutorizacao;
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var autorizacoes = scope.ServiceProvider.GetRequiredService<AutorizacaoService>();
             var saldo = await autorizacoes.VigenteAsync(pacienteId, DateOnly.FromDateTime(Data));
 
-            // A seleção pode ter mudado enquanto a consulta rodava.
-            if (PacienteSelecionado?.Id != pacienteId) return;
+            // A seleção (ou a data) pode ter mudado enquanto a consulta rodava.
+            if (geracao != _geracaoAutorizacao || PacienteSelecionado?.Id != pacienteId) return;
 
             if (saldo is null)
             {
@@ -1046,6 +1140,8 @@ public partial class NovoAtendimentoViewModel : ObservableObject, ICarregarAoAbr
         }
         catch (Exception ex)
         {
+            if (geracao != _geracaoAutorizacao) return;
+
             // Aviso é auxiliar: nunca pode impedir o lançamento do atendimento.
             LogSuite.Registrar("Novo atendimento — cota de sessões não pôde ser lida", ex);
             SaldoAutorizacao = null;

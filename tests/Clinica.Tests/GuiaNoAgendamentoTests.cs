@@ -350,6 +350,49 @@ public class GuiaNoAgendamentoTests : IDisposable
             .Which.ResumoGuias.Should().Contain("nenhuma baixada");
     }
 
+    /// <summary>
+    /// A marcação (chave ligada) NÃO entra no repasse por atendimento antes da presença —
+    /// repasse é dinheiro, e "valor por atendimento" pagaria sessão que ninguém deu; a
+    /// cancelada mantém o AtendimentoId (com as guias suspensas) e também fica fora.
+    /// Achado da auditoria da parcela 70: o repasse não estava no inventário de leitores
+    /// da Fase 3, e o alimentador dele filtrava só por "tem atendimento".
+    /// </summary>
+    [Fact]
+    public async Task Marcacao_nao_entra_no_repasse_por_atendimento_antes_da_presenca()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var prof = new Profissional { Nome = "Dra. Paula" };
+        _db.Profissionais.Add(prof);
+        await _db.SaveChangesAsync();
+        _db.RegrasRepasse.Add(new RegraRepasse
+        {
+            ProfissionalId = prof.Id,
+            Base = BaseRepasse.ValorPorAtendimento,
+            ValorPorAtendimento = 50m
+        });
+        await _db.SaveChangesAsync();
+        await LigarChaveAsync();
+
+        var quando = SemanaQueVem;
+        var ag = await _agenda.AgendarAsync(
+            pacienteId, quando, ModalidadeAtendimento.AcupunturaComEletro, null,
+            profissionalId: prof.Id);
+
+        var inicio = DateOnly.FromDateTime(quando).AddDays(-1);
+        var fim = DateOnly.FromDateTime(quando).AddDays(1);
+        var repasses = new RepasseService(_repo);
+
+        var antes = await repasses.CalcularAsync(inicio, fim);
+        antes.Should().NotContain(r => r.ProfissionalId == prof.Id,
+            "a sessão foi marcada, não realizada — pagar aqui seria pagar sessão que ninguém deu");
+
+        await _agenda.ConfirmarPresencaAsync(ag.Id, operador: "ana");
+
+        var depois = await repasses.CalcularAsync(inicio, fim);
+        depois.Single(r => r.ProfissionalId == prof.Id).Valor.Should().Be(50m,
+            "a presença confirmada é o que faz a sessão contar no repasse");
+    }
+
     public void Dispose()
     {
         _db.Dispose();
