@@ -279,6 +279,77 @@ public class GuiaNoAgendamentoTests : IDisposable
             + "sem o backfill, os leitores de 'realizado' perderiam essas linhas para sempre");
     }
 
+    /// <summary>
+    /// A CAPA do dia (parcela 70, pedido literal da cliente): número do atendimento,
+    /// modalidade legível, quem lançou e o placar das baixas — o que a pergunta de
+    /// duplicidade mostra em vez de um número seco. Guia NaoAplicavel não conta.
+    /// </summary>
+    [Fact]
+    public async Task Capa_do_dia_diz_numero_modalidade_autoria_e_baixas()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        var dia = DateOnly.FromDateTime(DateTime.Today);
+
+        _db.Atendimentos.Add(new Atendimento
+        {
+            PacienteId = pacienteId,
+            Data = dia,
+            Modalidade = ModalidadeAtendimento.AcupunturaComEletro,
+            Numero = "2026-000123",
+            LancadoPor = "ana",
+            LancadoEm = DateTime.Today.AddHours(9).AddMinutes(12),
+            RealizadoEm = DateTime.Today.AddHours(9),
+            Codigos =
+            {
+                new CodigoFaturamento
+                {
+                    Tipo = TipoCodigo.Acupuntura, DataPrevistaFaturamento = dia,
+                    DataBaixa = dia, Status = StatusCodigo.Baixado
+                },
+                new CodigoFaturamento
+                {
+                    Tipo = TipoCodigo.Eletroacupuntura,
+                    DataPrevistaFaturamento = dia.AddDays(1)
+                },
+                new CodigoFaturamento
+                {
+                    Tipo = TipoCodigo.Consulta, DataPrevistaFaturamento = dia,
+                    Status = StatusCodigo.NaoAplicavel
+                }
+            }
+        });
+        await _db.SaveChangesAsync();
+
+        var capas = await new AtendimentoService(_repo).CapasDoDiaAsync(pacienteId, dia);
+
+        var capa = capas.Should().ContainSingle().Subject;
+        capa.Numero.Should().Be("2026-000123");
+        capa.Modalidade.Should().NotContain("ComEletro",
+            "o identificador do enum não vaza para a tela (parcela 41)");
+        capa.Lancamento.Should().Contain("ana");
+        capa.ResumoGuias.Should().Be("2 guias — 1 já baixada pelo faturamento",
+            "a NaoAplicavel não é guia que alguém vá baixar");
+    }
+
+    /// <summary>
+    /// A marcação futura (chave ligada) entra na capa do DIA MARCADO: é o que faz a
+    /// pergunta de duplicidade enxergar o horário já marcado antes de criar outro.
+    /// </summary>
+    [Fact]
+    public async Task A_marcacao_futura_aparece_na_capa_do_dia_marcado()
+    {
+        var pacienteId = await CriarPacienteAsync();
+        await LigarChaveAsync();
+        await _agenda.AgendarAsync(
+            pacienteId, SemanaQueVem, ModalidadeAtendimento.AcupunturaComEletro, null);
+
+        var capas = await new AtendimentoService(_repo).CapasDoDiaAsync(
+            pacienteId, DateOnly.FromDateTime(SemanaQueVem));
+
+        capas.Should().ContainSingle()
+            .Which.ResumoGuias.Should().Contain("nenhuma baixada");
+    }
+
     public void Dispose()
     {
         _db.Dispose();

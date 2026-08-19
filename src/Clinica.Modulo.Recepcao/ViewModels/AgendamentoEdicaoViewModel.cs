@@ -136,6 +136,54 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     {
         _ = ConferirConflitosAsync();
         _ = ConferirElegibilidadeAsync();
+        _ = ConferirJaLancadoAsync();
+    }
+
+    /// <summary>
+    /// A CAPA do que o paciente já tem no dia escolhido (parcela 70) — o mesmo ponto
+    /// único do Novo atendimento (<see cref="AtendimentoService.CapasDoDiaAsync"/>).
+    /// Este formulário continua sendo porta de criação (lista de espera, e o fallback de
+    /// quem não alcança o Novo atendimento), e alerta que existe numa porta só é o
+    /// defeito recorrente do projeto.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemAvisoJaLancado))]
+    private string? _avisoJaLancado;
+
+    public bool TemAvisoJaLancado => !string.IsNullOrWhiteSpace(AvisoJaLancado);
+
+    private int _geracaoJaLancado;
+
+    private async Task ConferirJaLancadoAsync()
+    {
+        var geracao = ++_geracaoJaLancado;
+        AvisoJaLancado = null;
+
+        // Na remarcação o atendimento do próprio horário apareceria como "duplicata".
+        if (_agendamentoId is not null) return;
+        if (Seletor.Selecionado is not { } paciente) return;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var atendimentos = scope.ServiceProvider.GetRequiredService<AtendimentoService>();
+            var capas = await atendimentos.CapasDoDiaAsync(paciente.Id, DateOnly.FromDateTime(Data));
+
+            if (geracao != _geracaoJaLancado) return;
+
+            AvisoJaLancado = capas.Count == 0
+                ? null
+                : $"Já lançado em {Data:dd/MM}: "
+                  + string.Join(" · ", capas.Select(c =>
+                      $"nº {c.Numero} ({c.Modalidade}, {c.Lancamento} — {c.ResumoGuias})"))
+                  + ". Marcar de novo cria OUTRO atendimento e outro jogo de guias.";
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoJaLancado) return;
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — atendimentos do dia do paciente não puderam ser lidos ao marcar", ex);
+        }
     }
 
     /// <summary>
@@ -190,7 +238,11 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
         }
     }
 
-    partial void OnDataChanged(DateTime value) => _ = ConferirConflitosAsync();
+    partial void OnDataChanged(DateTime value)
+    {
+        _ = ConferirConflitosAsync();
+        _ = ConferirJaLancadoAsync();
+    }
     partial void OnHoraChanged(string value) => _ = ConferirConflitosAsync();
     partial void OnDuracaoChanged(string value) => _ = ConferirConflitosAsync();
     partial void OnProfissionalChanged(Profissional? value) => _ = ConferirConflitosAsync();
@@ -317,6 +369,11 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
     [RelayCommand]
     private async Task SalvarAsync()
     {
+        // A SEGUNDA barreira (parcela 51: "só se chega por ali" não é barreira). As
+        // portas que abrem esta janela exigem `EditarAgenda`; a janela confere de novo,
+        // porque atalho e corrida de carregamento passam pela porta sem o clique dela.
+        SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
+
         Mensagem = string.Empty;
         MensagemEhErro = false;
 
@@ -357,6 +414,19 @@ public sealed partial class AgendamentoEdicaoViewModel : ObservableObject
             Salvando = true;
             using var scope = _escopos.CreateScope();
             var agenda = scope.ServiceProvider.GetRequiredService<AgendaService>();
+
+            // Com a chave "guia no agendamento" ligada, CRIAR horário também cria o
+            // atendimento e as guias — o ato que `LancarAtendimento` nomeia (parcela 69:
+            // quando o momento do fato muda, a permissão vai junto). `Exigir` com bits
+            // somados é um E; remarcar não cria atendimento e fica fora.
+            if (_agendamentoId is null)
+            {
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+                if (await parametros.GuiaNoAgendamentoAsync())
+                    SessaoUsuario.Atual.Exigir(
+                        Permissao.EditarAgenda | Permissao.LancarAtendimento,
+                        "marcar atendimento gerando as guias");
+            }
 
             if (_agendamentoId is not null)
             {

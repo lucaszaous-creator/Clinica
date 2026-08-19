@@ -208,6 +208,15 @@ public interface IClinicaRepositorio
     /// <summary>Quantos atendimentos o paciente teve no intervalo (base do consumo da cota).</summary>
     Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default);
 
+    /// <summary>
+    /// Os atendimentos do paciente num dia, com os códigos — a "capa" que o balcão
+    /// confere antes de lançar de novo (parcela 70): número, modalidade, quem lançou e
+    /// quais guias já foram baixadas. É o que transforma a pergunta "atendimento
+    /// repetido?" de um número seco numa decisão informada.
+    /// </summary>
+    Task<IReadOnlyList<Atendimento>> AtendimentosDoPacienteNoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default);
+
     // ---- Agenda ----
     // ---- Parâmetros dos convênios ----
     Task<IReadOnlyList<ParametroConvenio>> ParametrosAsync(CancellationToken ct = default);

@@ -460,6 +460,14 @@ public sealed class ClinicaRepositorio : IClinicaRepositorio
     public Task<int> ContarAtendimentosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         => _db.Atendimentos.CountAsync(a => a.PacienteId == pacienteId && a.Data >= inicio && a.Data <= fim, ct);
 
+    public async Task<IReadOnlyList<Atendimento>> AtendimentosDoPacienteNoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default)
+        => await _db.Atendimentos.AsNoTracking()
+            .Include(a => a.Codigos)
+            .Where(a => a.PacienteId == pacienteId && a.Data == dia)
+            .OrderBy(a => a.Id)
+            .ToListAsync(ct);
+
     public Task<int> ContarAtendimentosAtivosDoPacienteAsync(int pacienteId, DateOnly inicio, DateOnly fim, CancellationToken ct = default)
         // A COTA conta o que consome a autorização (parcela 70): sessão realizada, guia
         // aberta ou baixada — inclusive a MARCADA para o futuro, que é o alerta chegando

@@ -4129,3 +4129,47 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   **O que ficou de fora, e é decisão**: a trilha do `ConfirmarPresencaAsync` (item 5 da
   fila) — mexer nele encosta no caminho que gera as guias, e vai junto da transação única
   com teste em Postgres de verdade, que este ambiente não reproduz.
+
+- **A GUIA NASCE QUANDO O ATENDIMENTO ENTRA NO SISTEMA — e a duplicidade morreu de
+  desenho, não de aviso** (parcela 70; o mapa completo está em
+  `docs/guia-no-agendamento.md`, e é lá que se atualiza). O pedido da direção: *"o
+  confirmar presença não pode gerar guia! A guia precisa nascer no momento em que a
+  secretaria coloca o atendimento no sistema, seja avulso ou agenda"* — e depois:
+  *"unificar tudo em um lugar só"*. As decisões que não são óbvias pelo código:
+  **O clique virou UM SaveChanges.** `LancarAsync` se dividiu em CRIAÇÃO
+  (`MontarAsync`, não grava) × PRESENÇA (`PrepararPresencaAsync` encena NCs no mesmo
+  commit; `ConcluirPresencaAsync` renova consulta depois, falha vira aviso), e
+  `ConfirmarNucleoAsync` pendura o atendimento no agendamento pela NAVEGAÇÃO — o EF
+  grava horário + atendimento + guias + carimbo + trilha numa transação. Ou existe
+  tudo, ou nada: o incidente de 12/08 (três encaixes em 71s) morava nos vãos entre
+  cinco SaveChanges. `AtomicidadeDoLancamentoTests` prova com um DbContext que falha no
+  N-ésimo save e afirma ESTADO, não mensagem — dá para provar atomicidade no SQLite.
+  **O regime novo mora atrás de uma chave** (`ChaveGuiaNoAgendamento`, nasce DESLIGADA):
+  os cinco apps se atualizam por canais separados e dividem um banco — um binário velho
+  confirmando presença de um horário que o novo já marcou COM guia duplicaria; a chave
+  se liga depois de todos atualizarem, e ligar dispara o backfill de `RealizadoEm`.
+  **`Atendimento.RealizadoEm` é o que separa "marcado" de "aconteceu"**: leitor que
+  quer dizer "sessão realizada" filtra por ele (retenção, origem, estreia); a COTA
+  conta os ATIVOS (realizado OU guia aberta/baixada) — é assim que a 11ª sessão de uma
+  autorização de 10 avisa NA MARCAÇÃO, não na glosa. Cancelar/faltar suspende as guias
+  abertas (`NaoAplicavel` + marca `MarcaSuspensao` na observação — NUNCA NC, que a
+  volta do paciente reabriria, e NUNCA valor novo de enum, a mina da parcela 67);
+  reabrir devolve SÓ as marcadas; baixada não se toca — vira aviso. Remarcar de data
+  desloca as previstas; de modalidade, regera (a velha fica "Substituída") ou RECUSA se
+  algo já saiu da clínica (baixa, lote, NC).
+  **A tela pergunta QUANDO** (o §3.7): "o paciente está aqui — lançar agora" × "marcar
+  dia e horário", no MESMO formulário — modalidade, prévia, elegibilidade e capa servem
+  aos dois modos. A agenda MOSTRA e mexe no existente; criar mora no Novo atendimento, e
+  o clique no vão da grade chega lá pré-preenchido (`PreenchimentoNovoAtendimento`,
+  singleton de UM pedido que consumir LIMPA — pedido órfão pré-preencheria a abertura
+  de amanhã com o clique de ontem). **Sem profissional não é sorteio**: marca, avisa o
+  custo (fora do Meu dia e do repasse) e nunca escolhe sozinho — repasse é dinheiro.
+  **A pergunta de duplicidade ficou INFORMADA** (`CapasDoDiaAsync`, ponto único): número
+  do atendimento, modalidade, quem lançou e o placar das baixas, no aviso ao escolher o
+  paciente E na pergunta do clique — nas DUAS portas de criação (Novo atendimento e o
+  formulário da agenda, que sobrevive para lista de espera/remarcar/fallback).
+  **Permissão acompanhou o momento do fato** (a lição da parcela 69 aplicada de novo):
+  com a chave ligada, marcar CRIA guias — o Salvar exige `EditarAgenda` E
+  `LancarAtendimento`; e quem tem só `EditarAgenda` não perdeu nada, porque o
+  redirecionamento da agenda cai no formulário antigo quando `NavegacaoSuite.Ir`
+  devolve false (regra 3 do faturamento: a unificação não tira capacidade).

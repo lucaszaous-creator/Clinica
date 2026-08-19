@@ -4,6 +4,7 @@ using Clinica.Application.Servicos;
 using Clinica.Desktop.Controls;
 using Clinica.Desktop.Shell;
 using Clinica.Desktop.Shell.Componentes;
+using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -912,16 +913,58 @@ public sealed partial class AgendaViewModel : ObservableObject
 
     // ==================== Comandos ====================
 
-    /// <summary>Abre o formulário de um horário novo.</summary>
+    /// <summary>
+    /// Abre a CRIAÇÃO de horário — que mora no Novo atendimento desde a parcela 70
+    /// (decisão da direção: "para agendar vamos colocar através de novo atendimento (...)
+    /// unificar tudo em um lugar só"). A agenda leva até lá com o dia já preenchido; a
+    /// tela de lá pergunta QUANDO e mostra as guias que vão nascer.
+    ///
+    /// O formulário antigo fica como FALLBACK, e é decisão (a regra 3 do faturamento —
+    /// não tire capacidade de quem a tinha): o item "Novo atendimento" exige
+    /// <c>LancarAtendimento</c>, e quem tem só <c>EditarAgenda</c> marcava horário ontem.
+    /// Para esse perfil, `NavegacaoSuite.Ir` devolve false e a janela de sempre abre.
+    /// </summary>
     [RelayCommand]
     private async Task NovoHorarioAsync()
     {
         SessaoUsuario.Atual.Exigir(Permissao.EditarAgenda, "mexer na agenda");
 
+        if (IrParaNovoAtendimento(new PedidoNovoAtendimento(
+                MarcarParaDepois: true, DataHora: Dia.Date, ProfissionalId: null, SalaId: null)))
+            return;
+
         await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
         {
             Data = Dia
         });
+    }
+
+    /// <summary>
+    /// Deixa o pedido de pré-preenchimento na ponte e navega para o Novo atendimento.
+    /// Se a navegação não acontecer (sem o bit do destino), o pedido é DESFEITO — senão a
+    /// próxima abertura manual da tela nasceria preenchida com um clique de ontem.
+    /// </summary>
+    private bool IrParaNovoAtendimento(PedidoNovoAtendimento pedido)
+    {
+        PreenchimentoNovoAtendimento ponte;
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            ponte = scope.ServiceProvider.GetRequiredService<PreenchimentoNovoAtendimento>();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — ponte agenda → novo atendimento indisponível", ex);
+            return false;
+        }
+
+        ponte.Definir(pedido);
+        if (NavegacaoSuite.Ir(Clinica.Recepcao.Modulo.ModuloRecepcao.ChaveNovoAtendimento))
+            return true;
+
+        ponte.Consumir();
+        return false;
     }
 
     /// <summary>
@@ -949,6 +992,14 @@ public sealed partial class AgendaViewModel : ObservableObject
             MensagemEhErro = true;
             return;
         }
+
+        // O gesto da parcela 58 sobrevive à unificação (parcela 70): o clique no vão das
+        // 14h30 do Dr. Fulano chega ao Novo atendimento com dia, hora, profissional e
+        // sala preenchidos — redigitar é onde a hora sai errada.
+        if (IrParaNovoAtendimento(new PedidoNovoAtendimento(
+                MarcarParaDepois: true, DataHora: celula.Quando,
+                ProfissionalId: celula.ProfissionalId, SalaId: celula.SalaId)))
+            return;
 
         await AbrirFormularioAsync(new AgendamentoEdicaoViewModel(_escopos)
         {

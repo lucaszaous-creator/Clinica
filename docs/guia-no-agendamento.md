@@ -314,14 +314,26 @@ está registrada". Todo leitor que quis dizer **aconteceu** precisa de âncora n
 
 ## 8. Ordem de entrega
 
-1. **Fase 1 — a transação (vale nos dois regimes, ganha imediato):** o Novo atendimento
+1. ✅ **Fase 1 — a transação (vale nos dois regimes, ganha imediato):** o Novo atendimento
    (§3.6) e o Concluir da Fila viram operações ATÔMICAS — encaixe + chegada +
    atendimento + guias + carimbo num grafo/`SaveChanges` único, com trilha. É a porta
    que a clínica usa HOJE, o dia inteiro, enquanto a agenda ainda mora no Amplimed:
    mata a duplicidade e o encaixe fantasma sem mudar um clique do fluxo de trabalho.
-2. **Fase 2 — o regime novo atrás da chave:** §3.1, §3.2, §3.4, §3.5, migration do §5.
-3. **Fase 3 — os leitores reancorados** (§5), um a um, cada qual com teste.
-4. **Fase 4 — o resto da nota 9 da Recepção** (fila da parcela 69): espera média que
+2. ✅ **Fase 2 — o regime novo atrás da chave:** §3.1, §3.2, §3.4, §3.5, migration do §5.
+3. ✅ **Fase 3 — os leitores reancorados** (§5), um a um, cada qual com teste.
+4. ✅ **Fase QUANDO — a porta única do §3.7**: o rádio na tela de Novo atendimento
+   (lançar agora × marcar dia/horário), com duração, sala, série, crítica viva de
+   choque/bloqueio (`ConflitosAsync`, sem cópia), encaixe assumido por caixinha, a capa
+   do dia (`CapasDoDiaAsync`) no aviso e na pergunta, a pergunta do comprovante e os
+   redirecionamentos da agenda ("Novo horário" e o clique no vão levam para lá,
+   pré-preenchidos por `PreenchimentoNovoAtendimento`). Duas decisões de acesso: marcar
+   com a chave ligada exige `EditarAgenda` **e** `LancarAtendimento` (o ato cria guias —
+   parcela 69, "quando o momento do fato muda, a permissão vai junto"); e o formulário
+   antigo fica de **fallback** para quem tem só `EditarAgenda` (regra 3 do faturamento:
+   a unificação não pode tirar de ninguém a capacidade de marcar) — além de continuar
+   sendo a janela do EXISTENTE (remarcar) e da lista de espera, agora com a segunda
+   barreira no Salvar e o mesmo aviso de capa.
+5. **Fase final — o resto da nota 9 da Recepção** (fila da parcela 69): espera média que
    conta falta, bloqueio que não vê a sessão que invade (a consulta de origem corta por
    `DataHora` — o `ColideCom` de baixo nunca vê a sessão das 11h30), profissional
    desativado sumindo da grade, reconferência de elegibilidade ao trocar a data.

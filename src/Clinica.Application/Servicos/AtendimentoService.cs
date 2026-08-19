@@ -17,6 +17,28 @@ public sealed record ResultadoLancamento(Atendimento Atendimento, IReadOnlyList<
 public sealed record AtendimentoMontado(Atendimento Atendimento, List<string> Avisos);
 
 /// <summary>
+/// A CAPA de um atendimento já lançado num dia (parcela 70): o que o balcão precisa ver
+/// para decidir se lança de novo. O pedido da cliente foi literal — "mostra o número do
+/// atendimento/capa para evitar duplicidade e informa se a guia já foi faturada ou não".
+/// As frases saem prontas daqui porque quem as lê são DOIS lugares (o aviso na escolha do
+/// paciente e a pergunta antes de gravar), e duas montagens divergiriam.
+/// </summary>
+public sealed record CapaDoDia(
+    int AtendimentoId, string Numero, string Modalidade, string Lancamento,
+    int GuiasFaturaveis, int GuiasBaixadas)
+{
+    /// <summary>"2 guias — 1 já baixada" / "sem guia (particular)".</summary>
+    public string ResumoGuias => GuiasFaturaveis == 0
+        ? "sem guia (particular)"
+        : (GuiasFaturaveis == 1 ? "1 guia" : $"{GuiasFaturaveis} guias") + " — " + GuiasBaixadas switch
+        {
+            0 => "nenhuma baixada ainda",
+            1 => "1 já baixada pelo faturamento",
+            var b => $"{b} já baixadas pelo faturamento"
+        };
+}
+
+/// <summary>
 /// O que a regra do convênio VAI gerar, sem ter gerado ainda (parcela 47).
 ///
 /// Os códigos aqui são objetos transitórios: nasceram do mesmo motor de regras que o
@@ -66,6 +88,35 @@ public sealed class AtendimentoService
         _regras = regras ?? new RegistroRegras();
         _parametros = parametros;
         _consultas = consultas;
+    }
+
+    /// <summary>
+    /// As capas dos atendimentos que o paciente JÁ tem no dia — vazio é o caso normal.
+    /// Só conta guia FATURÁVEL (a <see cref="StatusCodigo.NaoAplicavel"/> do particular e
+    /// da sessão suspensa não é guia que alguém vá baixar).
+    /// </summary>
+    public async Task<IReadOnlyList<CapaDoDia>> CapasDoDiaAsync(
+        int pacienteId, DateOnly dia, CancellationToken ct = default)
+    {
+        var atendimentos = await _repo.AtendimentosDoPacienteNoDiaAsync(pacienteId, dia, ct);
+
+        return atendimentos.Select(a =>
+        {
+            var faturaveis = a.Codigos.Where(c => c.Status != StatusCodigo.NaoAplicavel).ToList();
+            return new CapaDoDia(
+                a.Id,
+                a.Numero ?? $"#{a.Id}",
+                a.ModalidadeCodigo is { } cod
+                    ? CatalogoModalidades.Nome(cod)
+                    : ModalidadeInfo.NomeExibicao(a.Modalidade),
+                string.IsNullOrWhiteSpace(a.LancadoPor)
+                    ? "sem registro de quem lançou"
+                    : a.LancadoEm is { } quando
+                        ? $"lançado por {a.LancadoPor} às {quando:HH:mm}"
+                        : $"lançado por {a.LancadoPor}",
+                faturaveis.Count,
+                faturaveis.Count(c => c.Baixado));
+        }).ToList();
     }
 
     /// <summary>
