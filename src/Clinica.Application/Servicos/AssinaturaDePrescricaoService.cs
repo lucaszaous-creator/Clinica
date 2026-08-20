@@ -166,6 +166,13 @@ public sealed class AssinaturaDePrescricaoService
                 + $"(id {idDoArquivo}). A folha NÃO foi assinada — a via em papel continua "
                 + "valendo.");
 
+        // ⚠️ O REGISTRO é gerado ANTES de a assinatura ser registrada, e a ordem é a regra:
+        // depois dela, o rodapé passaria a escrever "este arquivo NÃO é assinado — a
+        // assinatura está na folha X", que é o texto da via MONTADA NA HORA. Selar esse
+        // texto produziria um arquivo assinado dizendo que não é assinado.
+        var registro = await _pdfs.GerarRegistroExecucaoAsync(
+            prescricaoId, await PrestadorAsync(ct), paraAssinaturaEletronica: true, ct: ct);
+
         var assinado = await AnexarAsync(
             doPrescritor, certificado,
             motivo: $"Execução da prescrição {prescricao.Numero}",
@@ -179,9 +186,43 @@ public sealed class AssinaturaDePrescricaoService
         var arquivo = await GuardarAsync(
             assinado.Pdf, $"{prescricao.Numero.Replace('/', '-')} assinada.pdf", ct);
 
+        // ---- O SEGUNDO arquivo do MESMO ato ----
+        //
+        // A folha da prescrição foi selada pela médica ANTES da execução: ela nunca poderá
+        // mostrar o ✓, a rodela e o suspenso, e acrescentar-lhe uma página faz o validador
+        // de fora acusar modificação ILEGAL na assinatura DELA (medido no pyhanko). Quem
+        // mostra a execução é o registro — e para ele valer como prova, é selado aqui, com
+        // o MESMO certificado que a enfermeira acabou de escolher.
+        //
+        // ⚠️ Falhar aqui NÃO desfaz a assinatura da prescrição. É a hierarquia da parcela
+        // 65 aplicada a esta área: o ato irreversível não pode depender do passo que veio
+        // depois dele. Sem o registro selado, a coluna fica nula e a folha montada na hora
+        // DIZ que não é assinada, apontando a que é — o que é a verdade.
+        ArquivoAssinado? arquivoDoRegistro = null;
+        try
+        {
+            var registroSelado = await SelarAsync(
+                registro, certificado,
+                motivo: $"Registro de execução da prescrição {prescricao.Numero}",
+                nomeExibido: executante.Nome,
+                registroConselho: executante.RegistroConselho,
+                ct);
+
+            arquivoDoRegistro = await GuardarAsync(
+                registroSelado.Pdf,
+                $"{prescricao.Numero.Replace('/', '-')} execucao assinada.pdf", ct);
+        }
+        catch (Exception ex)
+        {
+            Diagnostico.Registrar(
+                "Registro de execução não pôde ser selado (a prescrição FOI assinada)", ex);
+        }
+
         var assinatura = Montar(
             certificado, assinado, arquivo, usuarioId,
             executante.Nome, executante.RegistroConselho);
+
+        assinatura.ArquivoRegistroId = arquivoDoRegistro?.Id;
 
         // Quem valida o ESTADO da folha (encerrada, campo marcado, ainda sem assinatura) é
         // o serviço de domínio — a mesma divisão de trabalho do fluxo do prescritor.
@@ -219,18 +260,28 @@ public sealed class AssinaturaDePrescricaoService
         // congelá-lo mostraria um estado que já passou.
         var assinatura = ehPrescricao
             ? prescricao.AssinaturaDaExecucao ?? prescricao.AssinaturaDoPrescritor
-            : null;
+            : prescricao.AssinaturaDaExecucao;
 
         var sufixo = ehPrescricao ? string.Empty : " execucao";
         var nome = $"{prescricao.Numero.Replace('/', '-')}{sufixo}.pdf";
 
-        if (assinatura?.ArquivoId is int arquivoId
+        // Cada folha devolve o SEU arquivo selado: a prescrição, a que leva os dois
+        // carimbos; o registro, o que foi selado no mesmo ato (20/08/2026). Trocar um pelo
+        // outro entregaria a segunda via de um documento no lugar do outro.
+        var idDoArquivo = ehPrescricao ? assinatura?.ArquivoId : assinatura?.ArquivoRegistroId;
+
+        if (idDoArquivo is int arquivoId
             && await _repo.ObterArquivoAssinadoAsync(arquivoId, ct) is { } guardado)
         {
             return new FolhaAssinada(
                 guardado.Conteudo, guardado.NomeArquivo,
                 assinatura, _assinador.Conferir(guardado.Conteudo));
         }
+
+        // Registro ainda NÃO selado (execução em curso, regime do papel, ou a selagem
+        // falhou): ele é montado na hora e não carrega assinatura nenhuma — dizer que
+        // carrega seria a garantia aparente que o rodapé passou a recusar.
+        if (!ehPrescricao) assinatura = null;
 
         var prestador = await PrestadorAsync(ct);
         var pdf = ehPrescricao

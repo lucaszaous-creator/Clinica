@@ -881,6 +881,8 @@ public class ClinicaDbContext : DbContext
                 .HasForeignKey(x => x.UsuarioId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Arquivo).WithMany()
                 .HasForeignKey(x => x.ArquivoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ArquivoRegistro).WithMany()
+                .HasForeignKey(x => x.ArquivoRegistroId).OnDelete(DeleteBehavior.SetNull);
 
             // Uma assinatura por papel: a folha tem um prescritor e um executante. Sem o
             // índice, um clique duplo no botão gravaria duas e a tela mostraria a errada.

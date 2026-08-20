@@ -337,7 +337,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                     + "pode mais ser checada.\n\n"
                     + (ExigeAssinaturaEletronica
                         ? "Esta folha pede a assinatura ELETRÔNICA da enfermagem — ela é "
-                          + "colhida logo depois de encerrar."
+                          + "colhida logo depois de encerrar, e sela DOIS documentos: a "
+                          + "prescrição (que fica com as duas assinaturas) e o registro de "
+                          + "execução (a folha que mostra o que foi feito)."
                         : "Lembre de assinar a via impressa — é ela que responde pela "
                           + "execução.")))
                 return;
@@ -408,20 +410,34 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
 
+            var registroSelado = false;
+
             using (var scope = _escopos.CreateScope())
             {
                 var assinaturas = scope.ServiceProvider
                     .GetRequiredService<AssinaturaDePrescricaoService>();
 
-                await assinaturas.AssinarExecucaoAsync(
+                var assinada = await assinaturas.AssinarExecucaoAsync(
                     _prescricaoId, certificado,
                     SessaoUsuario.Atual.UsuarioId, SessaoUsuario.Atual.Operador);
+
+                registroSelado = assinada.AssinaturaDaExecucao?.ArquivoRegistroId is not null;
             }
 
             await CarregarAsync();
-            Mensagem = "Execução assinada. A prescrição passa a sair com AS DUAS "
-                     + "assinaturas — a de quem prescreveu e a de quem executou.";
-            MensagemEhErro = false;
+
+            // ⚠️ São DOIS documentos de UM ato, e a tela tem de dizer qual dos dois saiu.
+            // Falhar ao selar o registro não desfaz a assinatura da prescrição — mas ficar
+            // calado faria a enfermeira imprimir uma folha de execução sem carimbo achando
+            // que ela está selada.
+            Mensagem = registroSelado
+                ? "Execução assinada. A PRESCRIÇÃO passa a sair com as duas assinaturas, e "
+                  + "o REGISTRO DE EXECUÇÃO — a folha que mostra o que foi feito — saiu "
+                  + "selado com o seu certificado."
+                : "Execução assinada na PRESCRIÇÃO, que agora sai com as duas assinaturas. "
+                  + "O registro de execução NÃO pôde ser selado: ele sai como espelho, "
+                  + "apontando esta folha. Avise o suporte.";
+            MensagemEhErro = !registroSelado;
         }
         catch (Exception ex)
         {

@@ -4358,3 +4358,45 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   mundo lá fora lê.** E a lição operacional: **validador de fora roda de graça — passe TODO
   arquivo assinado por ele antes de dar a rodada por fechada**, porque nesta área a
   alternativa custa uma tentativa paga no PSC.
+
+- **A folha selada pela MÉDICA não pode mostrar a execução — e a que mostra tem de ser
+  selada também** (parcela 68, 10ª rodada — a clínica relatou que, com item não realizado ou
+  suspenso, "está encerrando a infusão sem assinar a dela"). O relato apontava para o ciclo
+  de vida e o defeito estava no PAPEL.
+  **O que NÃO era**: `AguardaAssinaturaDaExecucao` sempre esteve certo. Cinco casos medidos
+  (tudo realizado, um não realizado, um suspenso, nada realizado, tudo suspenso) e em todos
+  a folha encerrada continua pedindo a assinatura — `NaoRealizadoESuspensoTests` fixa isso.
+  Os testes anteriores só exercitavam a folha TODA realizada, e **é sempre o caminho não
+  exercitado que a clínica encontra**.
+  ⚠️ **O que era**: o REGISTRO DE EXECUÇÃO — a única folha que mostra o ✓, a rodela, o
+  suspenso e as justificativas — é montado NA HORA e **nunca foi assinado**. Pior: depois de
+  a enfermeira assinar a prescrição, o rodapé dele passava a escrever *"Assinado
+  digitalmente com certificado ICP-Brasil (assinatura qualificada) · titular Joana
+  Técnica"* — num PDF sem `/ByteRange`, sem PKCS#7 e sem carimbo. E, ao afirmar isso, ele
+  **engolia a linha de caneta**: a folha saía sem carimbo digital e sem onde assinar à mão,
+  isto é, **sem prova nenhuma de autoria**. Da cadeira dela, isso é exatamente "encerrou sem
+  a minha assinatura". É a garantia aparente da parcela 3, e um comentário do próprio código
+  a escondia — ele supunha que "na reimpressão nunca se chega aqui, os bytes selados são
+  devolvidos guardados", e o registro **nunca foi guardado**.
+  ⚠️ **A via que parecia óbvia foi MEDIDA e está fechada**: acrescentar a página do registro
+  ao arquivo que a médica assinou, por revisão incremental, faz o pyhanko devolver
+  `mod=OTHER · ILLEGAL_MODIFICATIONS` para a assinatura **dela**. Nosso lado aprovaria; o
+  Adobe e o ITI acusariam. É a lição da 7ª rodada da parcela 67 pelo avesso, e ela custou
+  trinta linhas de experimento em vez de um importador de PDF inteiro.
+  **O desenho que ficou** (escolha da direção, com o custo na mesa): a enfermeira escolhe o
+  certificado UMA vez e o sistema sela **DOIS documentos** — a prescrição (revisão
+  incremental, o carimbo dela ao lado do da médica) e o registro (assinatura própria, um
+  carimbo, mostrando tudo). São duas cobranças do SafeID por folha, e a direção aceitou.
+  Três regras que o código não conta sozinho: **o registro é GERADO antes de a assinatura
+  ser registrada** (depois dela, o rodapé escreveria "este arquivo NÃO é assinado", e selar
+  esse texto produziria um arquivo assinado dizendo que não é assinado); **falhar ao selar o
+  registro NÃO desfaz a assinatura da prescrição** (a hierarquia da parcela 65: o ato
+  irreversível não depende do passo que veio depois), e a degradação é honesta — sem selo, o
+  registro volta a ser espelho e DIZ que não é assinado, apontando a folha que é; e **cada
+  folha devolve o SEU arquivo selado** (`ArquivoId` × `ArquivoRegistroId`), porque trocar um
+  pelo outro entregaria a segunda via de um documento no lugar do outro.
+  A lição de teste: **a decisão do rodapé foi tirada de dentro do desenho do PDF**
+  (`AvisoDoRegistroDeExecucao`, público). Lá dentro nenhum teste a alcançava — o QuestPDF
+  embute a fonte em subconjunto e escreve o texto como IDs de glifo, então nem o texto do
+  arquivo se lê de volta. **O que decide o que o papel AFIRMA precisa morar onde o
+  `dotnet test` alcança.**

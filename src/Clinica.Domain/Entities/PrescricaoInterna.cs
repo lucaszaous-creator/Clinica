@@ -640,6 +640,24 @@ public class AssinaturaDocumento
     public int? ArquivoId { get; set; }
     public ArquivoAssinado? Arquivo { get; set; }
 
+    /// <summary>
+    /// O <b>REGISTRO DE EXECUÇÃO</b> selado no mesmo ato (decisão da direção, 20/08/2026).
+    ///
+    /// A folha da prescrição é selada pela médica ANTES da execução, então ela nunca poderá
+    /// mostrar o que foi feito — e acrescentar-lhe uma página faz o validador de fora
+    /// acusar modificação ilegal na assinatura DELA (medido). Quem mostra o ✓, a rodela e o
+    /// suspenso é o registro; para ele valer como prova, ele precisa ser selado também.
+    ///
+    /// São DOIS arquivos de UM ato: a enfermeira escolhe o certificado uma vez e o sistema
+    /// sela a prescrição (revisão incremental, o carimbo dela ao lado do da médica) e o
+    /// registro (assinatura própria, um carimbo). Nulo quando a selagem do registro falhou
+    /// — e aí o registro é montado na hora e DIZ que não é assinado, apontando a folha que
+    /// é. Falha na segunda não desfaz a primeira: o ato irreversível não depende do passo
+    /// que veio depois dele.
+    /// </summary>
+    public int? ArquivoRegistroId { get; set; }
+    public ArquivoAssinado? ArquivoRegistro { get; set; }
+
     // ---- Leituras derivadas ----
 
     /// <summary>Assinatura que a lei presume autêntica sem a outra parte precisar concordar.</summary>

@@ -238,15 +238,20 @@ public sealed class PrescricaoInternaPdfService
                     Retificacoes(col, itens);
                 });
 
-                // No regime de sempre a assinatura é NULA e o rodapé imprime a linha para
-                // a enfermeira assinar à mão. Na folha com a 2ª assinatura, quem manda no
-                // rodapé é a assinatura da EXECUÇÃO (na reimpressão nunca se chega aqui —
-                // os bytes selados são devolvidos guardados — mas o vínculo fica certo).
-                Rodape(page, prescricao, prescricao.AssinaturaDaExecucao,
+                // ⚠️ ESTE ARQUIVO NUNCA É ASSINADO. O registro é montado NA HORA a cada
+                // impressão (ele muda a cada item checado), e por isso a assinatura entra
+                // aqui como NULA: passar a da execução fazia o rodapé AFIRMAR uma
+                // assinatura qualificada num PDF sem /ByteRange, sem PKCS#7 e sem carimbo —
+                // e ainda engolia a linha de caneta, deixando a folha sem prova nenhuma de
+                // autoria. Um comentário antigo aqui supunha que a reimpressão devolvia
+                // bytes selados; ela nunca devolveu, porque o registro não é guardado.
+                Rodape(page, prescricao, assinatura: null,
                     nomeLinha: NomeDoExecutante(prescricao) ?? "Enfermagem responsável",
                     registroLinha: ConselhoDoExecutante(prescricao),
                     papel: "Enfermagem",
-                    paraAssinaturaEletronica: paraAssinaturaEletronica);
+                    paraAssinaturaEletronica: paraAssinaturaEletronica,
+                    reservarSegundoCarimbo: false,
+                    assinaturaNoutraFolha: AvisoDoRegistroDeExecucao(prescricao));
             });
         }).GeneratePdf();
     }
@@ -728,14 +733,32 @@ public sealed class PrescricaoInternaPdfService
     /// digital: a via em papel circula pela sala, e quem a pega precisa poder assinar
     /// nela. Não são caminhos concorrentes — são o mesmo documento em dois suportes.
     /// </summary>
+    /// <param name="assinaturaNoutraFolha">
+    /// A frase para a folha que <b>não</b> carrega assinatura nenhuma, mas cuja autoria
+    /// eletrônica existe em OUTRO arquivo — o caso do registro de execução, que é montado
+    /// na hora e aponta para a prescrição selada.
+    ///
+    /// ⚠️ Ela existe porque o rodapé chegou a AFIRMAR a assinatura da execução num arquivo
+    /// que não tinha nenhuma: sem <c>/ByteRange</c>, sem PKCS#7, sem carimbo. E, ao
+    /// afirmá-la, engolia a linha de caneta — a folha saía sem carimbo digital e sem onde
+    /// assinar à mão, isto é, sem prova de autoria alguma. É a garantia aparente que este
+    /// projeto recusa desde a parcela 3, e foi a clínica que a viu antes de nós.
+    /// </param>
+    /// <param name="reservarSegundoCarimbo">
+    /// Só a PRESCRIÇÃO recebe dois carimbos. Reservar o segundo espaço no registro deixaria
+    /// dois retângulos vazios numa folha que não vai receber carimbo nenhum.
+    /// </param>
     private static void Rodape(
         PageDescriptor page, PrescricaoInterna prescricao, AssinaturaDocumento? assinatura,
         string nomeLinha, string? registroLinha, string papel,
-        bool paraAssinaturaEletronica = false)
+        bool paraAssinaturaEletronica = false,
+        string? assinaturaNoutraFolha = null,
+        bool? reservarSegundoCarimbo = null)
     {
         // A folha só reserva o 2º espaço quando ELA pede a assinatura da execução: numa
         // folha do regime do papel, um retângulo vazio à direita seria espaço morto.
-        var duasAssinaturas = prescricao.ExigeAssinaturaEletronicaDaExecucao;
+        var duasAssinaturas =
+            reservarSegundoCarimbo ?? prescricao.ExigeAssinaturaEletronicaDaExecucao;
 
         page.Footer().Height(AlturaRodape).Column(col =>
         {
@@ -748,7 +771,11 @@ public sealed class PrescricaoInternaPdfService
                 // convidaria a assinar à mão uma folha que se assina no sistema.)
                 row.ConstantItem(duasAssinaturas ? LarguraCarimboDuplo : LarguraCarimbo).Column(c =>
                 {
-                    if (assinatura is not null || paraAssinaturaEletronica) return;
+                    // Autoria eletrônica noutro arquivo: ela JÁ assinou, e pedir a caneta
+                    // aqui faria a mesma execução ser assinada duas vezes por meios
+                    // diferentes — a frase do rodapé diz onde a assinatura está.
+                    if (assinatura is not null || paraAssinaturaEletronica
+                        || assinaturaNoutraFolha is not null) return;
 
                     c.Item().PaddingTop(30).LineHorizontal(1).LineColor(TextoSecundario);
                     c.Item().PaddingTop(3).Text("Assinatura e carimbo")
@@ -796,14 +823,15 @@ public sealed class PrescricaoInternaPdfService
                     // A folha que vai ser selada não pode sair dizendo "vale a manuscrita":
                     // esses bytes ficam guardados para sempre, e a segunda via mentiria
                     // sobre a própria garantia que carrega.
-                    c.Item().Text(paraAssinaturaEletronica && assinatura is null
+                    c.Item().Text(assinaturaNoutraFolha
+                            ?? (paraAssinaturaEletronica && assinatura is null
                             // O código LOCALIZA a folha no sistema; quem prova
                             // integridade é a assinatura, conferida no arquivo. Dizer que
                             // o código "confere integridade" era prometer garantia que ele
                             // não dá — a regra mais antiga do projeto (parcela 3).
                             ? "Assinado eletronicamente — o carimbo acima identifica o "
                               + "signatário; o código abaixo localiza esta folha no sistema."
-                            : FraseDoNivel(assinatura))
+                            : FraseDoNivel(assinatura)))
                         .FontSize(7.5f).FontColor(TextoSecundario);
                 });
 
@@ -825,6 +853,28 @@ public sealed class PrescricaoInternaPdfService
     /// assinou, e escrever isso é a diferença entre um documento honesto e um que promete
     /// precisão que não tem.
     /// </summary>
+    /// <summary>
+    /// A frase do rodapé do REGISTRO DE EXECUÇÃO quando a execução já foi assinada
+    /// eletronicamente — noutro arquivo. Devolve nulo quando não há o que apontar (regime
+    /// do papel, ou execução ainda não assinada), e aí o rodapé imprime a linha de caneta.
+    ///
+    /// ⚠️ Mora aqui, público, porque é a decisão que a clínica pegou errada: o rodapé
+    /// AFIRMAVA "assinado digitalmente com certificado ICP-Brasil (assinatura qualificada)"
+    /// num PDF montado na hora, sem <c>/ByteRange</c>, sem PKCS#7 e sem carimbo — e ainda
+    /// engolia a linha de caneta, deixando a folha sem prova nenhuma de autoria. Dentro do
+    /// desenho do PDF nenhum teste alcançava isso: o QuestPDF embute a fonte em subconjunto
+    /// e escreve o texto como IDs de glifo, então nem o texto do arquivo se lê de volta.
+    /// </summary>
+    public static string? AvisoDoRegistroDeExecucao(PrescricaoInterna prescricao)
+    {
+        if (prescricao.AssinaturaDaExecucao is not { } daExecucao) return null;
+
+        return "Espelho eletrônico — este arquivo NÃO é assinado. A assinatura eletrônica "
+             + $"desta execução está na folha {prescricao.Numero}, assinada por "
+             + $"{daExecucao.NomeAssinante} em {daExecucao.AssinadoEm:dd/MM/yyyy HH\\:mm} "
+             + "(ICP-Brasil).";
+    }
+
     public static string FraseDoNivel(AssinaturaDocumento? assinatura)
     {
         if (assinatura is null)

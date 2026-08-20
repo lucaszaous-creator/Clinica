@@ -424,6 +424,229 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
         folha.Assinatura.Should().BeNull();
     }
 
+    /// <summary>
+    /// O circuito COMPLETO com item NÃO REALIZADO — o caso que a clínica relatou em
+    /// 20/08/2026 ("marca não realizou ou suspenso e o sistema não pede a assinatura").
+    /// Os testes existentes só exercitavam a folha TODA realizada.
+    /// </summary>
+    [Fact]
+    public async Task Nao_realizado_segue_pedindo_a_assinatura_e_ela_fecha()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await AssinadaPelaMedicaAsync(cenario, exigir: true);
+
+        var itens = (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!
+            .Itens.OrderBy(i => i.Ordem).ToList();
+        itens.Should().NotBeEmpty();
+
+        await _checagens.ChecarAsync(itens[0].Id, SituacaoChecagem.NaoRealizado,
+            new TimeOnly(9, 40), Tecnica, justificativa: "Paciente recusou.");
+
+        await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
+
+        (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!
+            .AguardaAssinaturaDaExecucao.Should().BeTrue(
+                "não realizado é um destino como qualquer outro — a folha continua pedindo "
+                + "a assinatura de quem executou");
+
+        var assinada = await _orquestra.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId, operador: "joana");
+
+        assinada.Assinaturas.Should().HaveCount(2);
+        assinada.AguardaAssinaturaDaExecucao.Should().BeFalse();
+
+        var arquivo = (await _repo.ObterArquivoAssinadoAsync(
+            assinada.AssinaturaDaExecucao!.ArquivoId!.Value))!;
+        _assinador.ConferirTodas(arquivo.Conteudo).Should().HaveCount(2)
+            .And.OnlyContain(c => c.Conferida && c.Integra);
+    }
+
+    /// EXPERIMENTO — gera as folhas DEPOIS da 2ª assinatura, para ver o que o papel afirma.
+    [Fact]
+    public async Task Despeja_as_folhas_depois_da_segunda_assinatura()
+    {
+        var pasta = Environment.GetEnvironmentVariable("CLINICA_DUMP_PDF");
+        if (string.IsNullOrWhiteSpace(pasta)) return;
+
+        var cenario = await CenarioAsync();
+        var prescricao = await AssinadaPelaMedicaAsync(cenario, exigir: true);
+        var itens = (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!.Itens.ToList();
+
+        await _checagens.ChecarAsync(itens[0].Id, SituacaoChecagem.NaoRealizado,
+            new TimeOnly(9, 40), Tecnica, justificativa: "Paciente recusou — mal-estar.");
+        await _checagens.EncerrarAsync(prescricao.Id, Tecnica);
+        await _orquestra.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId, operador: "joana");
+
+        var folha = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
+        File.WriteAllBytes(Path.Combine(pasta, "pos-prescricao.pdf"), folha.Pdf);
+
+        var registro = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
+        File.WriteAllBytes(Path.Combine(pasta, "pos-registro.pdf"), registro.Pdf);
+    }
+
+    /// <summary>
+    /// ⚠️ O REGISTRO DE EXECUÇÃO NÃO PODE AFIRMAR UMA ASSINATURA QUE ELE NÃO CARREGA.
+    ///
+    /// Ele é montado NA HORA a cada impressão — não tem <c>/ByteRange</c>, não tem PKCS#7,
+    /// não tem carimbo. Depois de a enfermeira assinar a PRESCRIÇÃO, o rodapé dele passava
+    /// a escrever "Assinado digitalmente com certificado ICP-Brasil (assinatura
+    /// qualificada) · titular Joana Técnica" — e, ao afirmar isso, engolia a linha de
+    /// caneta. A folha saía sem carimbo digital e sem onde assinar à mão: <b>sem prova
+    /// nenhuma de autoria</b>. É a garantia aparente que este projeto recusa desde a
+    /// parcela 3, e foi a clínica que a viu antes de nós.
+    /// </summary>
+    [Fact]
+    public async Task O_registro_de_execucao_nao_se_diz_assinado()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: true);
+
+        // Antes de assinar: nada a apontar — o rodapé imprime a linha de caneta.
+        PrescricaoInternaPdfService.AvisoDoRegistroDeExecucao(
+            (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!).Should().BeNull();
+
+        await _orquestra.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId, operador: "joana");
+
+        var aviso = PrescricaoInternaPdfService.AvisoDoRegistroDeExecucao(
+            (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!);
+
+        aviso.Should().NotBeNull();
+        aviso.Should().Contain("NÃO é assinado",
+            "o papel tem de dizer o que ele é — um espelho, não um documento selado");
+        aviso.Should().Contain(prescricao.Numero,
+            "e tem de dizer ONDE está a assinatura, senão o aviso vira só uma negativa");
+        aviso.Should().Contain("Joana Técnica");
+        aviso.Should().NotContain("assinatura qualificada",
+            "esta é a frase que só a folha REALMENTE selada pode carregar");
+
+        // A prova de que a asserção acima pega o defeito real: a frase ANTIGA — que saía
+        // deste mesmo rodapé — é justamente a que afirma a assinatura qualificada.
+        PrescricaoInternaPdfService.FraseDoNivel(
+                (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!.AssinaturaDaExecucao)
+            .Should().Contain("assinatura qualificada",
+                "senão este teste inteiro não provaria nada");
+    }
+
+    /// <summary>
+    /// A folha do regime do papel não muda em nada: sem o campo marcado, não há assinatura
+    /// eletrônica a apontar, e o rodapé segue com a linha de caneta.
+    /// </summary>
+    [Fact]
+    public async Task Regime_do_papel_nao_ganha_aviso_nenhum()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: false);
+
+        PrescricaoInternaPdfService.AvisoDoRegistroDeExecucao(
+            (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!).Should().BeNull();
+    }
+
+    /// <summary>
+    /// ⚠️ O REGISTRO DE EXECUÇÃO SAI SELADO NO MESMO ATO (decisão da direção, 20/08/2026).
+    ///
+    /// A clínica reclamou de que a folha assinada não mostrava o item não realizado nem o
+    /// suspenso. E não mostra mesmo: a PRESCRIÇÃO é selada pela médica ANTES da execução, e
+    /// acrescentar-lhe uma página faz o validador de fora acusar modificação ILEGAL na
+    /// assinatura dela — foi medido no pyhanko antes de decidir. Quem mostra a execução é o
+    /// registro, e para ele valer como prova precisa ser selado também.
+    ///
+    /// São DOIS arquivos de UM ato: a enfermeira escolhe o certificado uma vez.
+    /// </summary>
+    [Fact]
+    public async Task O_registro_de_execucao_sai_selado_no_mesmo_ato()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: true);
+
+        var assinada = await _orquestra.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId, operador: "joana");
+
+        var daExecucao = assinada.AssinaturaDaExecucao!;
+        daExecucao.ArquivoId.Should().NotBeNull("a prescrição leva os dois carimbos");
+        daExecucao.ArquivoRegistroId.Should().NotBeNull(
+            "e o registro — a folha que MOSTRA o que foi feito — sai selado também");
+        daExecucao.ArquivoRegistroId.Should().NotBe(daExecucao.ArquivoId,
+            "são dois documentos, não o mesmo arquivo gravado duas vezes");
+
+        // A folha do registro devolve os BYTES SELADOS e confere sozinha.
+        var folha = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
+        folha.Assinatura.Should().NotBeNull();
+        folha.Conferencia!.Conferida.Should().BeTrue();
+        folha.Conferencia.Integra.Should().BeTrue();
+        _assinador.ConferirTodas(folha.Pdf).Should().ContainSingle(
+            "o registro é assinado UMA vez, pela enfermagem — a médica não assina um "
+            + "documento que ainda não existia quando ela assinou");
+
+        // E a prescrição continua sendo a folha das DUAS.
+        var daPrescricao = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
+        _assinador.ConferirTodas(daPrescricao.Pdf).Should().HaveCount(2)
+            .And.OnlyContain(c => c.Conferida && c.Integra);
+    }
+
+    /// <summary>
+    /// A reimpressão do registro devolve os MESMOS bytes — a regra que faz a segunda via
+    /// valer. Antes desta parcela ele era remontado a cada impressão, e um arquivo "igual"
+    /// regerado agora abriria como inválido.
+    /// </summary>
+    [Fact]
+    public async Task A_reimpressao_do_registro_selado_devolve_os_mesmos_bytes()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: true);
+        await _orquestra.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId, operador: "joana");
+
+        var uma = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
+        var outra = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
+
+        outra.Pdf.Should().Equal(uma.Pdf);
+    }
+
+    /// <summary>
+    /// ⚠️ Falhar ao selar o registro NÃO desfaz a assinatura da prescrição — é a hierarquia
+    /// da parcela 65 nesta área: o ato irreversível não depende do passo que veio depois
+    /// dele. E a degradação é HONESTA: sem o selo, o registro é montado na hora e diz que
+    /// não é assinado, apontando a folha que é.
+    /// </summary>
+    [Fact]
+    public async Task Registro_sem_selo_e_montado_na_hora_e_diz_que_nao_e_assinado()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: true);
+        await _orquestra.AssinarExecucaoAsync(
+            prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+            cenario.UsuarioEnfermeiraId, operador: "joana");
+
+        // Encena a falha da 2ª selagem: a coluna fica nula, como ficaria se o PSC recusasse.
+        var linha = await _db.AssinaturasDocumento
+            .SingleAsync(a => a.PrescricaoInternaId == prescricao.Id
+                              && a.Papel == PapelAssinatura.Executante);
+        linha.ArquivoRegistroId = null;
+        await _db.SaveChangesAsync();
+
+        var folha = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.RegistroExecucao);
+
+        folha.Assinatura.Should().BeNull("a folha montada na hora não carrega assinatura");
+        folha.Conferencia.Should().BeNull();
+        _assinador.ConferirTodas(folha.Pdf).Should()
+            .OnlyContain(c => !c.Conferida, "o arquivo montado na hora não tem assinatura");
+
+        // A prescrição não foi tocada: as duas assinaturas continuam lá.
+        var daPrescricao = await _orquestra.FolhaAsync(prescricao.Id, FolhaPrescricao.Prescricao);
+        _assinador.ConferirTodas(daPrescricao.Pdf).Should().HaveCount(2);
+
+        PrescricaoInternaPdfService.AvisoDoRegistroDeExecucao(
+                (await _repo.ObterPrescricaoInternaAsync(prescricao.Id))!)
+            .Should().Contain("NÃO é assinado");
+    }
+
     // ==================== Apoio ====================
 
     private sealed record Cenario(int PacienteId, int ProfissionalMedicaId, int UsuarioEnfermeiraId);
