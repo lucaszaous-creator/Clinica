@@ -212,6 +212,12 @@ public sealed class AssinaturaDePrescricaoService
                 registroSelado.Pdf,
                 $"{prescricao.Numero.Replace('/', '-')} execucao assinada.pdf", ct);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            // Cancelamento pedido não é falha a engolir: quem cancelou precisa saber que a
+            // PRESCRIÇÃO já foi assinada — ela não volta atrás.
+            throw;
+        }
         catch (Exception ex)
         {
             Diagnostico.Registrar(

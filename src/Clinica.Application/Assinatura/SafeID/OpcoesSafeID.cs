@@ -92,6 +92,32 @@ public static class EscopoSafeID
 
     /// <summary>Várias chamadas enquanto o token valer. Máximo de 7 dias para pessoa física.</summary>
     public const string Sessao = "signature_session";
+
+    /// <summary>
+    /// Quanto vale a sessão quando o ato pede mais de uma assinatura. Cinco minutos cobrem
+    /// duas selagens seguidas com folga para o banco e a rede, e são uma fração do padrão
+    /// do PSC — autorizar uma SEMANA para selar duas folhas abre muito mais do que o ato
+    /// pede.
+    /// </summary>
+    public const int SegundosDaSessaoCurta = 300;
+
+    /// <summary>
+    /// O escopo que um ato precisa, pelo número de documentos que ele vai selar com o MESMO
+    /// certificado.
+    ///
+    /// ⚠️ Errar isto só aparece na SEGUNDA assinatura, e sempre: com
+    /// <see cref="AssinaturaUnica"/> o token <b>morre no uso</b>, então um ato de duas
+    /// selagens teria a primeira aceita e a segunda recusada em toda folha da clínica. Os
+    /// testes não pegariam — o assinador de teste não tem token que morra —, e cada
+    /// tentativa em produção é COBRADA.
+    ///
+    /// Mora aqui, e não na tela que escolhe o certificado, pela razão de sempre: decisão
+    /// dentro de ViewModel do WPF é decisão que o <c>dotnet test</c> não alcança.
+    /// </summary>
+    public static (string Escopo, int? DuracaoSegundos) ParaAto(int assinaturas)
+        => assinaturas > 1
+            ? (Sessao, SegundosDaSessaoCurta)
+            : (AssinaturaUnica, null);
 }
 
 /// <summary>Token de acesso devolvido pelo PSC, com o CPF que ele afirma ser do titular.</summary>

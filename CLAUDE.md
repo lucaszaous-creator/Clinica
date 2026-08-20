@@ -4412,3 +4412,24 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   embute a fonte em subconjunto e escreve o texto como IDs de glifo, então nem o texto do
   arquivo se lê de volta. **O que decide o que o papel AFIRMA precisa morar onde o
   `dotnet test` alcança.**
+
+- **O ESCOPO da autorização em nuvem é escolhido pelo ATO, e errá-lo só aparece na SEGUNDA
+  assinatura** (parcela 68, 11ª rodada — achado na revisão da própria mudança, antes de
+  chegar à clínica). O encerramento passou a selar DOIS documentos com o mesmo certificado,
+  e o seletor autorizava com o padrão do serviço: `EscopoSafeID.AssinaturaUnica`. O próprio
+  arquivo já dizia o que isso significa — *"um hash só; **o token morre no uso**"*.
+  Ou seja: a primeira selagem passaria e a **segunda seria recusada SEMPRE**, em toda folha
+  da clínica, e a tela cairia no caminho degradado todo dia.
+  ⚠️ **Nenhum teste pegaria**, e a razão é estrutural: o assinador de teste é local e não
+  tem token que morra. Em produção, cada tentativa é COBRADA — então o defeito seria
+  descoberto pagando. Foi achado LENDO os escopos, não medindo, e é o tipo de coisa que só
+  se acha perguntando "o que muda quando eu chamo isto DUAS vezes?".
+  A correção mora em `EscopoSafeID.ParaAto(assinaturas)` — na APPLICATION, não na ViewModel
+  do WPF que escolhe o certificado, pela razão de sempre: **decisão dentro de ViewModel é
+  decisão que o `dotnet test` não alcança**. E a sessão é pedida **encurtada** (5 min): o
+  padrão do PSC para pessoa física vai a **sete dias**, e autorizar uma semana para selar
+  duas folhas abre muito mais do que o ato pede — daí `AutorizarAsync` ter ganhado
+  `duracaoSegundos`, que só existe para ENCURTAR.
+  A lição que generaliza: **ao passar a chamar um serviço externo duas vezes onde antes era
+  uma, leia o que a AUTORIZAÇÃO permite — não só o que a chamada faz.** Escopo, cota e
+  idempotência são propriedades do primeiro uso, e nenhuma delas aparece no teste local.

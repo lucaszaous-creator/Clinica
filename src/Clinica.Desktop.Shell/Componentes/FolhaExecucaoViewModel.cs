@@ -405,8 +405,12 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                 return;
             }
 
+            // DOIS documentos, um certificado: a prescrição (revisão incremental) e o
+            // registro de execução. Em nuvem isso muda o escopo da autorização — com o
+            // padrão do PSC a segunda selagem seria recusada sempre.
             var certificado = EscolherCertificadoWindow.Perguntar(
-                $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos);
+                $"Prescrição {Numero} — execução · {Paciente}", JanelaAtiva(), _escopos,
+                assinaturasDoAto: 2);
 
             if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
 

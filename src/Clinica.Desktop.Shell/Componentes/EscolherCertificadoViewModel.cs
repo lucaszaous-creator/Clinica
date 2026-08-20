@@ -92,6 +92,13 @@ public sealed partial class EscolherCertificadoViewModel : ObservableObject
     private readonly IServiceScopeFactory? _escopos;
     private readonly string? _cpfDeQuemAssina;
 
+    /// <summary>
+    /// Quantos documentos este ato vai selar com o MESMO certificado. Um é o caso normal;
+    /// dois é o encerramento da execução, que sela a prescrição e o registro.
+    /// </summary>
+    private readonly int _assinaturasDoAto;
+
+
     /// <summary>Está buscando na nuvem — a janela desabilita os botões e diz o que fazer.</summary>
     [ObservableProperty] private bool _autorizando;
 
@@ -106,11 +113,13 @@ public sealed partial class EscolherCertificadoViewModel : ObservableObject
     /// melhor que oferecer um botão que não teria como funcionar.
     /// </param>
     public EscolherCertificadoViewModel(
-        string assunto, IServiceScopeFactory? escopos = null, string? cpfDeQuemAssina = null)
+        string assunto, IServiceScopeFactory? escopos = null, string? cpfDeQuemAssina = null,
+        int assinaturasDoAto = 1)
     {
         Assunto = assunto;
         _escopos = escopos;
         _cpfDeQuemAssina = cpfDeQuemAssina;
+        _assinaturasDoAto = assinaturasDoAto;
         Carregar();
         _ = VerificarNuvemAsync();
     }
@@ -183,7 +192,20 @@ public sealed partial class EscolherCertificadoViewModel : ObservableObject
                 _ => cliente,
                 AbrirNoNavegador);
 
-            var sessao = await autorizacao.AutorizarAsync(cpf: _cpfDeQuemAssina);
+            // ⚠️ O ESCOPO É ESCOLHIDO PELO ATO, e errar aqui só aparece na segunda
+            // assinatura. O padrão do PSC é "single_signature" — e o próprio
+            // EscopoSafeID diz o que isso significa: "um hash só; o token MORRE NO USO".
+            // Um ato que sela DOIS documentos (a execução: a prescrição e o registro)
+            // teria a primeira assinatura aceita e a segunda recusada, sempre, em toda
+            // folha da clínica — e a tela cairia no caminho degradado todo dia.
+            //
+            // A sessão é encurtada de propósito: o padrão do PSC para pessoa física vai a
+            // sete dias, e autorizar uma semana para assinar duas folhas é abrir muito
+            // mais do que o ato pede.
+            var (escopoDoAto, duracao) = EscopoSafeID.ParaAto(_assinaturasDoAto);
+
+            var sessao = await autorizacao.AutorizarAsync(
+                cpf: _cpfDeQuemAssina, escopo: escopoDoAto, duracaoSegundos: duracao);
 
             foreach (var daNuvem in sessao.Certificados)
             {
