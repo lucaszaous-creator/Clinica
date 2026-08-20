@@ -73,14 +73,16 @@ public sealed class AssinaturaDePrescricaoService
         TitularDoCertificado.Exigir(
             certificado, prescricao.Profissional?.Cpf, prescricao.Profissional?.Nome);
 
-        var pdf = await _pdfs.GerarPrescricaoAsync(prescricaoId, await PrestadorAsync(ct), ct);
+        var pdf = await _pdfs.GerarPrescricaoAsync(
+            prescricaoId, await PrestadorAsync(ct), paraAssinaturaEletronica: true, ct);
 
         var assinado = await SelarAsync(
             pdf, certificado,
             motivo: $"Prescrição de execução interna {prescricao.Numero}",
             nomeExibido: prescricao.Profissional?.Nome ?? certificado.Titular,
             registroConselho: prescricao.Profissional?.RegistroConselho,
-            ct);
+            ct,
+            duasAssinaturas: prescricao.ExigeAssinaturaEletronicaDaExecucao);
 
         var arquivo = await GuardarAsync(assinado.Pdf, $"{prescricao.Numero}.pdf", ct);
 
@@ -232,7 +234,7 @@ public sealed class AssinaturaDePrescricaoService
 
         var prestador = await PrestadorAsync(ct);
         var pdf = ehPrescricao
-            ? await _pdfs.GerarPrescricaoAsync(prescricaoId, prestador, ct)
+            ? await _pdfs.GerarPrescricaoAsync(prescricaoId, prestador, ct: ct)
             : await _pdfs.GerarRegistroExecucaoAsync(prescricaoId, prestador, ct: ct);
 
         return new FolhaAssinada(pdf, nome, assinatura, null);
@@ -242,9 +244,13 @@ public sealed class AssinaturaDePrescricaoService
 
     private async Task<ResultadoAssinatura> SelarAsync(
         byte[] pdf, CertificadoAssinatura certificado, string motivo,
-        string nomeExibido, string? registroConselho, CancellationToken ct)
+        string nomeExibido, string? registroConselho, CancellationToken ct,
+        bool duasAssinaturas = false)
     {
-        var area = PrescricaoInternaPdfService.AreaDaAssinatura(ContarPaginas(pdf));
+        // A largura do carimbo depende de a folha reservar UM ou DOIS espaços — é a mesma
+        // conta do rodapé, e desencontrá-las faz um carimbo cobrir o outro.
+        var area = PrescricaoInternaPdfService.AreaDaAssinatura(
+            ContarPaginas(pdf), duasAssinaturas);
 
         return await _assinador.AssinarAsync(pdf, certificado, new PedidoAssinatura(
             Motivo: motivo,
