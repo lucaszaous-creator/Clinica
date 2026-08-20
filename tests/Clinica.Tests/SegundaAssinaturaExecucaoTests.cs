@@ -208,7 +208,9 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
             prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
             cenario.UsuarioEnfermeiraId, operador: "joana");
 
-        // Dois signatários, dois papéis, dois ARQUIVOS — nunca duas no mesmo PDF.
+        // Dois signatários, dois papéis. O ARQUIVO da enfermeira é a MESMA folha da médica
+        // com uma revisão anexada — os bytes dela ficam intactos como prefixo —, e a linha
+        // dela aponta para esse arquivo novo, não para o da médica.
         assinada.Assinaturas.Should().HaveCount(2);
 
         var daMedica = assinada.AssinaturaDoPrescritor!;
@@ -228,6 +230,8 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
         _assinador.Conferir(arquivoDaExecucao.Conteudo).Integra.Should().BeTrue();
 
         assinada.AguardaAssinaturaDaExecucao.Should().BeFalse();
+
+        Despejar("folha-real-duas-assinaturas.pdf", arquivoDaExecucao.Conteudo);
 
         // A trilha responde "quem fez isso?" com o ato próprio.
         (await _db.Auditoria.SingleAsync(e => e.Acao == "PrescricaoExecucaoAssinada"))
@@ -520,5 +524,17 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
         }
 
         return new X509Extension("2.5.29.17", escritor.Encode(), critical: false);
+    }
+
+    /// <summary>
+    /// Grava a folha REAL quando <c>CLINICA_DUMP_PDF</c> aponta uma pasta — é como se
+    /// confere, de graça, o que só a folha montada mostra: onde cada carimbo caiu e se ele
+    /// sobrevive à impressão. Cada tentativa de assinatura no SafeID é COBRADA.
+    /// </summary>
+    private static void Despejar(string nome, byte[] pdf)
+    {
+        var pasta = Environment.GetEnvironmentVariable("CLINICA_DUMP_PDF");
+        if (!string.IsNullOrWhiteSpace(pasta) && Directory.Exists(pasta))
+            File.WriteAllBytes(Path.Combine(pasta, nome), pdf);
     }
 }

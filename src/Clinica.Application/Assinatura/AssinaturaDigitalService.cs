@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using PdfSharp.Drawing;
 using PdfSharp.Fonts;
-using PdfSharp.Pdf.Annotations;
+using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 using PdfSharp.Pdf.Signatures;
 
@@ -163,15 +163,36 @@ public sealed class AssinaturaDigitalService
         // itens). Cair na última é melhor que estourar na hora de assinar.
         var pagina = Math.Clamp(pedido.Area.Pagina, 0, documento.PageCount - 1);
 
+        // ⚠️ O bloco visível é CONTEÚDO DA PÁGINA, e não a aparência do widget da
+        // assinatura. Foram DOIS defeitos medidos em 20/08/2026, e cada um sozinho já
+        // apagava o carimbo:
+        //
+        //  1. a aparência do widget é um form XObject de BBox [0 0 largura altura], e o
+        //     retângulo que o PDFsharp entrega ao desenhador é o da PÁGINA — desenhar ali
+        //     punha o traço inteiro fora da BBox, e o form recorta pela BBox;
+        //  2. anotação sem o bit Print (/F 4) é desenhada na TELA e não é IMPRESSA, e o
+        //     PDFsharp não escreve o /F (o padrão é 0). O campo só existe durante o
+        //     salvamento, depois de a aparência ter sido desenhada, então não há onde
+        //     ligar o bit.
+        //
+        // Conteúdo de página não tem nenhuma das duas armadilhas: ele aparece no leitor,
+        // sai na impressora e é COBERTO pela assinatura, porque entra antes dela. Saiu
+        // errado da parcela 42 até aqui — todo documento assinado foi para a clínica sem o
+        // bloco visível, com a assinatura criptográfica perfeita por baixo.
+        DesenharCarimbo(documento.Pages[pagina], certificado, pedido);
+
         var opcoes = new DigitalSignatureOptions
         {
             Reason = pedido.Motivo,
             Location = pedido.Local ?? string.Empty,
             ContactInfo = pedido.Contato ?? string.Empty,
             PageIndex = pagina,
-            Rectangle = new XRect(
-                pedido.Area.X, pedido.Area.Y, pedido.Area.Largura, pedido.Area.Altura),
-            AppearanceHandler = new CarimboDeAssinatura(certificado, pedido)
+
+            // Campo de assinatura INVISÍVEL (retângulo de área zero): quem desenha é a
+            // página, logo acima. Deixar o widget com o mesmo retângulo faria o leitor
+            // desenhar o bloco DUAS vezes sobre si mesmo — o texto sai mais grosso e a
+            // moldura, mais escura.
+            Rectangle = new XRect(0, 0, 0, 0)
         };
 
         var assinador = remoto ?? new PdfSharpDefaultSigner(
@@ -585,56 +606,79 @@ public sealed class AssinaturaDigitalService
     }
 
     /// <summary>
-    /// O bloco visível da assinatura.
+    /// Cola o bloco visível da assinatura no conteúdo da página, ANTES de assinar.
+    /// </summary>
+    private static void DesenharCarimbo(
+        PdfPage pagina, CertificadoAssinatura certificado, PedidoAssinatura pedido)
+    {
+        using var gfx = XGraphics.FromPdfPage(pagina, XGraphicsPdfPageOptions.Append);
+
+        // ⚠️ O pedido traz o retângulo em coordenada de PDF — origem no PÉ da página, a
+        // mesma régua do /Rect (a lição de 20/08/2026). O XGraphics desenha com a origem
+        // no TOPO. A conversão mora aqui, num lugar só.
+        var caixa = new XRect(
+            pedido.Area.X,
+            pagina.Height.Point - pedido.Area.Y - pedido.Area.Altura,
+            pedido.Area.Largura,
+            pedido.Area.Altura);
+
+        CarimboDeAssinatura.Desenhar(gfx, caixa, certificado, pedido);
+    }
+
+    /// <summary>
+    /// O bloco visível da assinatura, desenhado NA PÁGINA.
     ///
     /// Ele NÃO imita um carimbo de tinta, e isso é decisão: um retângulo que parece um
     /// carimbo faz o leitor conferir com o olho e parar por aí. O que está escrito aqui é
     /// o que só a assinatura digital oferece — o titular do certificado, o CPF que veio
     /// DE DENTRO dele e o emissor —, porque é isso que se confere no leitor de PDF.
     /// </summary>
-    private sealed class CarimboDeAssinatura : IAnnotationAppearanceHandler
+    private static class CarimboDeAssinatura
     {
-        private readonly CertificadoAssinatura _certificado;
-        private readonly PedidoAssinatura _pedido;
-
-        public CarimboDeAssinatura(CertificadoAssinatura certificado, PedidoAssinatura pedido)
-        {
-            _certificado = certificado;
-            _pedido = pedido;
-        }
-
-        public void DrawAppearance(XGraphics gfx, XRect area)
+        /// <summary>
+        /// Desenha o bloco dentro de <paramref name="caixa"/>, nas coordenadas do próprio
+        /// <paramref name="gfx"/> — quem converte de PDF para tela é o chamador.
+        /// </summary>
+        public static void Desenhar(
+            XGraphics gfx, XRect caixa, CertificadoAssinatura certificado, PedidoAssinatura pedido)
         {
             var titulo = new XFont("SegoeWP", 7.5, XFontStyleEx.Bold);
             var corpo = new XFont("SegoeWP", 6.5, XFontStyleEx.Regular);
             var tinta = new XSolidBrush(XColor.FromArgb(30, 41, 59));
             var suave = new XSolidBrush(XColor.FromArgb(100, 116, 139));
 
-            gfx.DrawRectangle(new XPen(XColor.FromArgb(148, 163, 184), 0.6), area);
+            // A moldura recua meia espessura da caneta para dentro, que é como a revisão
+            // incremental desenha a da 2ª assinatura: traço centrado na borda deixaria um
+            // bloco 0,6 ponto maior que o outro, e lado a lado a diferença se vê.
+            const double caneta = 0.6;
+            gfx.DrawRectangle(
+                new XPen(XColor.FromArgb(148, 163, 184), caneta),
+                new XRect(caixa.X + caneta / 2, caixa.Y + caneta / 2,
+                    caixa.Width - caneta, caixa.Height - caneta));
 
             var margem = 4.0;
-            var largura = area.Width - margem * 2;
-            var linha = area.Y + margem;
+            var largura = caixa.Width - margem * 2;
+            var linha = caixa.Y + margem;
 
             void Escrever(string texto, XFont fonte, XBrush pincel, double altura)
             {
                 gfx.DrawString(texto, fonte, pincel,
-                    new XRect(area.X + margem, linha, largura, altura),
+                    new XRect(caixa.X + margem, linha, largura, altura),
                     XStringFormats.TopLeft);
                 linha += altura;
             }
 
             Escrever("ASSINADO DIGITALMENTE — ICP-Brasil", titulo, tinta, 9);
-            Escrever(_pedido.NomeExibido, corpo, tinta, 8);
+            Escrever(pedido.NomeExibido, corpo, tinta, 8);
 
-            var identificacao = _certificado.Cpf is null
-                ? _pedido.RegistroConselho ?? string.Empty
-                : string.Join(" · ", new[] { _pedido.RegistroConselho, "CPF " + Domain.Cpf.Formatar(_certificado.Cpf) }
+            var identificacao = certificado.Cpf is null
+                ? pedido.RegistroConselho ?? string.Empty
+                : string.Join(" · ", new[] { pedido.RegistroConselho, "CPF " + Domain.Cpf.Formatar(certificado.Cpf) }
                     .Where(p => !string.IsNullOrWhiteSpace(p)));
 
             if (identificacao.Length > 0) Escrever(identificacao, corpo, suave, 8);
 
-            Escrever($"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {_certificado.Emissor}", corpo, suave, 8);
+            Escrever($"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {certificado.Emissor}", corpo, suave, 8);
         }
     }
 }
