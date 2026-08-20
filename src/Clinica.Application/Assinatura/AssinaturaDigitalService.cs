@@ -597,12 +597,26 @@ public sealed class AssinaturaDigitalService
         }
     }
 
+    /// <summary>
+    /// A fonte do carimbo, embutida no pacote (não depende do que a máquina tem instalado).
+    ///
+    /// ⚠️ O <c>bold</c> tem de ser HONRADO. A primeira versão devolvia sempre a face
+    /// regular e descartava o parâmetro: o título "ASSINADO DIGITALMENTE — ICP-Brasil" saía
+    /// com o mesmo peso do nome e da data, e o bloco ficava sem hierarquia nenhuma.
+    /// Enquanto o carimbo era invisível ninguém via; agora ele é a única linha de cabeçalho
+    /// do bloco, no papel que a clínica entrega.
+    /// </summary>
     private sealed class FonteDoCarimbo : IFontResolver
     {
-        public byte[]? GetFont(string faceName) => PdfSharp.WPFonts.FontDataHelper.SegoeWP;
+        private const string Regular = "SegoeWP#";
+        private const string Negrito = "SegoeWPBold#";
+
+        public byte[]? GetFont(string faceName) => faceName == Negrito
+            ? PdfSharp.WPFonts.FontDataHelper.SegoeWPBold
+            : PdfSharp.WPFonts.FontDataHelper.SegoeWP;
 
         public FontResolverInfo? ResolveTypeface(string familyName, bool bold, bool italic)
-            => new FontResolverInfo("SegoeWP#");
+            => new FontResolverInfo(bold ? Negrito : Regular);
     }
 
     /// <summary>

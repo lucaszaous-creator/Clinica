@@ -4309,3 +4309,32 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   E a de ferramenta: `pdftotext -bbox-layout` dá o limite real de cada glifo em pontos —
   dá para medir folga de caixa sem abrir o PDF, de graça, o que nesta área vale por uma
   tentativa paga no PSC.
+
+- **Conteúdo de página HERDA o estado gráfico de quem desenhou antes — e quem equilibra a
+  pilha do QuestPDF é o PDFsharp** (parcela 68, 9ª rodada, 3ª parte — achado de uma revisão
+  adversarial do próprio diff, com o CI verde). Ao pôr o carimbo no conteúdo da página em
+  vez de na aparência da anotação, ele passou a depender de uma coisa que a aparência não
+  dependia: os fluxos de conteúdo de uma página são **CONCATENADOS**, e o `q` que o
+  `XGraphics` emite **salva** o estado, não o reinicia.
+  Medido no arquivo real: o fluxo do QuestPDF abre com `q .25 0 0 -.25 0 842 cm` (a escala
+  do Skia) e **não fecha esse `q`**; quem fecha é um ` Q` que o **PDFsharp** acrescenta no
+  fim. Ou seja, a posição do carimbo é o resultado de uma combinação entre o que uma
+  biblioteca EMITE e o que a outra CONSERTA — as duas se atualizam sozinhas.
+  Se essa combinação mudar, o carimbo sai com a escala herdada: **um oitavo do tamanho, no
+  meio da folha, e criptograficamente válido**, com build, testes e as três redes verdes.
+  ⚠️ A rede que faltava não é sobre texto, é sobre ESTADO:
+  `A_pilha_grafica_chega_equilibrada_no_carimbo` percorre os fluxos anteriores ao do
+  carimbo e cobra profundidade `q`/`Q` **zero** e nenhum `cm` na raiz. Os outros testes
+  verificam que o carimbo está no fluxo, nunca ONDE ele cai, e o `CarimboNoRodapeTests`
+  mede o retângulo **PEDIDO**, não o desenhado — três testes sobre o mesmo assunto e um
+  buraco no meio deles.
+  A lição: **ao trocar um desenho isolado (form XObject) por um desenho no fluxo comum,
+  o que você ganhou em visibilidade você pagou em ACOPLAMENTO** — e o preço só aparece
+  quando a outra biblioteca muda de versão.
+- **Resolvedor de fonte que descarta o `bold` faz o título nascer sem hierarquia** (mesma
+  rodada): `FonteDoCarimbo.ResolveTypeface` devolvia sempre `SegoeWP#`, ignorando o
+  parâmetro, e o `PdfSharp.WPFonts` traz `SegoeWPBold` ao lado. As quatro linhas do carimbo
+  saíam com o mesmo peso. Enquanto o bloco era invisível ninguém via; agora ele é a única
+  linha de cabeçalho, no papel que a clínica entrega. Conferido no arquivo: antes, um
+  recurso de fonte só (`/F0` nas duas medidas); agora `/F0: Segoe WP,Bold` e `/F1: Segoe
+  WP`, e há teste cobrando que título e corpo resolvam para faces **diferentes**.
