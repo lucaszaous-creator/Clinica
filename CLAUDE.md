@@ -4204,3 +4204,28 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   `ExecutarAsync`), grava só quando MUDOU (ligar dispara o backfill, e repeti-lo a cada
   Salvar escreveria a tabela inteira à toa) e o aviso na tela diz a ordem: atualizar os
   cinco apps ANTES de ligar.
+- **O carimbo da assinatura saía no ALTO da folha: o eixo Y do `/Rect` é medido do PÉ da
+  página** (parcela 68, 8ª rodada — a clínica mandou o print: o carimbo do prescritor por
+  cima do título "PRESCRIÇÃO DE EXECUÇÃO INTERNA", e o rodapé com o espaço reservado
+  vazio logo abaixo). A fórmula era `AlturaPagina - MargemPagina - AlturaRodape + 2`, ou
+  seja a distância a partir do TOPO — e o retângulo vai para o `/Rect` da anotação, que no
+  PDF tem origem no canto INFERIOR esquerdo. **Medido antes de corrigir**: assinei um PDF
+  pedindo `Y=640` e o arquivo saiu com `/Rect [40 640 280 686]` — o PDFsharp grava o que
+  recebe, sem converter. A conta certa é a do próprio rodapé:
+  `MargemPagina + AlturaRodape - AlturaFaixaAssinatura + 2`.
+  ⚠️ **Saiu assim em TODO documento assinado até 20/08/2026** — receita, atestado,
+  prescrição —, nos DOIS serviços de PDF, desde a parcela 42. Nenhuma rede pegava e nenhum
+  teste olhava: os testes de assinatura provavam que o arquivo **fecha**, nunca onde o
+  carimbo **cai**. `CarimboNoRodapeTests` fixa o invariante (o retângulo cabe dentro da
+  faixa do rodapé, medida do pé) e **inclui a prova de que a fórmula antiga falharia** —
+  teste de posição que não reprova a posição errada não prova nada.
+  Duas consequências que o Y errado escondia e que a correção destapou: o carimbo passa a
+  cair **em cima da linha "Assinatura e carimbo"** (por isso `GerarPrescricaoAsync` ganhou
+  `paraAssinaturaEletronica`, como o de documentos clínicos já tinha — folha que vai ser
+  selada não desenha a linha de caneta), e o **2º carimbo cairia sobre o nome do
+  prescritor** (o rodapé passou a reservar DOIS espaços quando a folha pede a assinatura
+  da execução; cada carimbo estreita para 240, porque 250+10+250 dá 510 contra 510,24
+  úteis e o QuestPDF recusa a linha sem folga — a largura sai de `AreaDaAssinatura` e do
+  rodapé pelo MESMO par de constantes).
+  A lição geral: **quando um valor atravessa a fronteira para uma biblioteca de terceiro,
+  o sistema de coordenadas dela é premissa a MEDIR, não a deduzir do nome do campo.**

@@ -61,11 +61,15 @@ public sealed class PrescricaoInternaPdfService
     // páginas. Por isso a faixa da assinatura mora dentro do rodapé, com altura fixa, e
     // AreaDaAssinatura() calcula o retângulo a partir destas mesmas constantes. Trocar uma
     // sem a outra faria o carimbo cair em cima do texto.
-    private const float AlturaPagina = 841.89f;      // A4 em pontos
     private const float MargemPagina = 42.52f;       // 1,5 cm
     private const float AlturaRodape = 116f;
     private const float AlturaFaixaAssinatura = 58f;
     private const float LarguraCarimbo = 250f;
+
+    // Quando a folha leva DOIS carimbos, cada um estreita: 250+10+250 dá 510 contra os
+    // 510,24 pontos úteis da largura, e sem folga o QuestPDF recusa a linha inteira.
+    private const float LarguraCarimboDuplo = 240f;
+    private const float FolgaEntreCarimbos = 10f;
 
     private readonly IClinicaRepositorio _repo;
     private readonly PrescricaoService _conferenciaClinica;
@@ -79,13 +83,29 @@ public sealed class PrescricaoInternaPdfService
     /// <summary>
     /// Onde o carimbo da assinatura digital é colado. Sempre na ÚLTIMA página: é lá que
     /// está o fim do documento, e é a página que alguém confere.
+    ///
+    /// ⚠️ <b>O Y é medido do PÉ DA PÁGINA, não do topo.</b> O retângulo vai para o
+    /// <c>/Rect</c> da anotação, e o PDF tem a origem no canto INFERIOR esquerdo — foi
+    /// medido: o PDFsharp grava o que recebe, sem converter. A fórmula antiga calculava a
+    /// distância a partir do TOPO e o carimbo saía a ~156 pontos do alto da folha, em cima
+    /// do título, enquanto o rodapé reservava o espaço dele e ficava vazio. Saiu assim em
+    /// TODO documento assinado até 20/08/2026.
+    ///
+    /// A conta agora é a do próprio rodapé: ele ocupa <c>AlturaRodape</c> logo acima da
+    /// margem de baixo, e a faixa da assinatura é o PRIMEIRO item da coluna dele — ou
+    /// seja, o topo dessa faixa. Os 2 pontos são o respiro de cada lado (a altura tira 4).
     /// </summary>
-    public static AreaAssinatura AreaDaAssinatura(int totalPaginas)
+    /// <param name="duasAssinaturas">
+    /// A folha pede a assinatura da execução: os dois carimbos dividem a faixa, então cada
+    /// um estreita. O rodapé reserva os espaços com a MESMA largura — mexer aqui sem mexer
+    /// lá faz um carimbo cobrir o outro.
+    /// </param>
+    public static AreaAssinatura AreaDaAssinatura(int totalPaginas, bool duasAssinaturas = false)
         => new(
             Pagina: Math.Max(0, totalPaginas - 1),
             X: MargemPagina,
-            Y: AlturaPagina - MargemPagina - AlturaRodape + 2,
-            Largura: LarguraCarimbo,
+            Y: MargemPagina + AlturaRodape - AlturaFaixaAssinatura + 2,
+            Largura: duasAssinaturas ? LarguraCarimboDuplo : LarguraCarimbo,
             Altura: AlturaFaixaAssinatura - 4);
 
     /// <summary>
@@ -98,25 +118,31 @@ public sealed class PrescricaoInternaPdfService
     /// </summary>
     public static AreaAssinatura AreaDaSegundaAssinatura(int totalPaginas)
     {
-        var primeira = AreaDaAssinatura(totalPaginas);
-        return primeira with { X = primeira.X + LarguraCarimbo + 10 };
+        var primeira = AreaDaAssinatura(totalPaginas, duasAssinaturas: true);
+        return primeira with { X = primeira.X + LarguraCarimboDuplo + FolgaEntreCarimbos };
     }
 
     // ==================== Folha 1 · a prescrição ====================
 
+    /// <param name="paraAssinaturaEletronica">
+    /// A folha vai ser SELADA logo em seguida. Deixa o espaço do carimbo em branco: o
+    /// carimbo digital é colado ali segundos depois, e a linha de caneta por baixo dele
+    /// convidaria a assinar à mão uma folha que se assina no sistema.
+    /// </param>
     public async Task<byte[]> GerarPrescricaoAsync(
-        int prescricaoId, DadosPrestador? prestador = null, CancellationToken ct = default)
+        int prescricaoId, DadosPrestador? prestador = null,
+        bool paraAssinaturaEletronica = false, CancellationToken ct = default)
     {
         var prescricao = await _repo.ObterPrescricaoInternaAsync(prescricaoId, ct)
             ?? throw new InvalidOperationException($"Prescrição {prescricaoId} não encontrada.");
 
         var alergias = await AlergiasParaAFolhaAsync(prescricao, ct);
-        return GerarPrescricao(prescricao, alergias, prestador);
+        return GerarPrescricao(prescricao, alergias, prestador, paraAssinaturaEletronica);
     }
 
     public byte[] GerarPrescricao(
         PrescricaoInterna prescricao, IReadOnlyList<string> alergias,
-        DadosPrestador? prestador = null)
+        DadosPrestador? prestador = null, bool paraAssinaturaEletronica = false)
     {
         QuestPDF.Settings.License = LicenseType.Community;
 
@@ -157,7 +183,8 @@ public sealed class PrescricaoInternaPdfService
                 Rodape(page, prescricao, assinatura,
                     nomeLinha: prescricao.Profissional?.Nome ?? "Profissional responsável",
                     registroLinha: prescricao.Profissional?.RegistroConselho,
-                    papel: "Prescritor");
+                    papel: "Prescritor",
+                    paraAssinaturaEletronica: paraAssinaturaEletronica);
             });
         }).GeneratePdf();
     }
@@ -706,6 +733,10 @@ public sealed class PrescricaoInternaPdfService
         string nomeLinha, string? registroLinha, string papel,
         bool paraAssinaturaEletronica = false)
     {
+        // A folha só reserva o 2º espaço quando ELA pede a assinatura da execução: numa
+        // folha do regime do papel, um retângulo vazio à direita seria espaço morto.
+        var duasAssinaturas = prescricao.ExigeAssinaturaEletronicaDaExecucao;
+
         page.Footer().Height(AlturaRodape).Column(col =>
         {
             col.Item().Height(AlturaFaixaAssinatura).Row(row =>
@@ -715,7 +746,7 @@ public sealed class PrescricaoInternaPdfService
                 // (`paraAssinaturaEletronica` também a deixa livre: o carimbo digital vai
                 // ser desenhado ali segundos depois, e a linha de caneta por baixo dele
                 // convidaria a assinar à mão uma folha que se assina no sistema.)
-                row.ConstantItem(LarguraCarimbo).Column(c =>
+                row.ConstantItem(duasAssinaturas ? LarguraCarimboDuplo : LarguraCarimbo).Column(c =>
                 {
                     if (assinatura is not null || paraAssinaturaEletronica) return;
 
@@ -724,14 +755,28 @@ public sealed class PrescricaoInternaPdfService
                         .FontSize(8).FontColor(TextoSecundario);
                 });
 
-                row.ConstantItem(24);
-
-                row.RelativeItem().AlignBottom().Column(c =>
+                // ⚠️ Folha que pede a 2ª assinatura reserva o SEGUNDO espaço aqui, e não
+                // a linha do nome — os dois carimbos de 250 mais 10 de folga ocupam os
+                // 510 pontos úteis da largura, e o nome ficaria por baixo do carimbo da
+                // enfermagem. Não se perde nada: cada carimbo já traz nome, registro e o
+                // CPF que veio de dentro do certificado.
+                if (duasAssinaturas)
                 {
-                    c.Item().Text(nomeLinha).SemiBold().FontSize(9.5f);
-                    c.Item().Text(Juntar(registroLinha, papel) ?? papel)
-                        .FontSize(8).FontColor(TextoSecundario);
-                });
+                    row.ConstantItem(FolgaEntreCarimbos);
+                    row.ConstantItem(LarguraCarimboDuplo);
+                    row.RelativeItem();   // absorve a sobra; sem ela a linha fica no limite
+                }
+                else
+                {
+                    row.ConstantItem(24);
+
+                    row.RelativeItem().AlignBottom().Column(c =>
+                    {
+                        c.Item().Text(nomeLinha).SemiBold().FontSize(9.5f);
+                        c.Item().Text(Juntar(registroLinha, papel) ?? papel)
+                            .FontSize(8).FontColor(TextoSecundario);
+                    });
+                }
             });
 
             col.Item().PaddingTop(4).LineHorizontal(0.75f).LineColor(Borda);

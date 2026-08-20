@@ -93,12 +93,23 @@ public sealed class DocumentosClinicosPdfService
     /// <summary>
     /// Onde o carimbo da assinatura digital é colado. Sempre na ÚLTIMA página: é lá que
     /// está o fim do documento, e é a página que alguém confere.
+    ///
+    /// ⚠️ <b>O Y é medido do PÉ DA PÁGINA, não do topo.</b> O retângulo vai para o
+    /// <c>/Rect</c> da anotação, e o PDF tem a origem no canto INFERIOR esquerdo — foi
+    /// medido: o PDFsharp grava o que recebe, sem converter. A fórmula antiga calculava a
+    /// distância a partir do TOPO e o carimbo saía a ~156 pontos do alto da folha, em cima
+    /// do título, enquanto o rodapé reservava o espaço dele e ficava vazio. Saiu assim em
+    /// TODO documento assinado até 20/08/2026.
+    ///
+    /// A conta agora é a do próprio rodapé: ele ocupa <c>AlturaRodape</c> logo acima da
+    /// margem de baixo, e a faixa da assinatura é o PRIMEIRO item da coluna dele — ou
+    /// seja, o topo dessa faixa. Os 2 pontos são o respiro de cada lado (a altura tira 4).
     /// </summary>
     public static AreaAssinatura AreaDaAssinatura(int totalPaginas)
         => new(
             Pagina: Math.Max(0, totalPaginas - 1),
             X: MargemPagina,
-            Y: AlturaPagina - MargemPagina - AlturaRodape + 2,
+            Y: MargemPagina + AlturaRodape - AlturaFaixaAssinatura + 2,
             Largura: LarguraCarimbo,
             Altura: AlturaFaixaAssinatura - 4);
 
