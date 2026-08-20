@@ -4338,3 +4338,23 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   linha de cabeçalho, no papel que a clínica entrega. Conferido no arquivo: antes, um
   recurso de fonte só (`/F0` nas duas medidas); agora `/F0: Segoe WP,Bold` e `/F1: Segoe
   WP`, e há teste cobrando que título e corpo resolvam para faces **diferentes**.
+
+- **`/Size` do trailer calculado À MÃO desencontra na primeira linha nova — e quem recusa é
+  o leitor ESTRITO, não o nosso** (parcela 68, 9ª rodada, 4ª parte). Para igualar os dois
+  carimbos, o incremental ganhou a face **Helvetica-Bold** do título — um objeto PDF a
+  mais. O `/Size` era escrito como `nSig + 4`, certo enquanto o último objeto novo fosse a
+  fonte: a tabela xref passou a declarar um objeto que o trailer dizia não existir.
+  ⚠️ **Os 1675 testes ficaram verdes, o nosso `Conferir` aprovou e o arquivo abriu**, porque
+  o leitor da casa é tolerante. Quem recusou o arquivo INTEIRO foi o **pyhanko**: *"Xref
+  table size mismatch: table allocated object with id 47, but according to the trailer 46 is
+  the maximal allowed object id"*. Em produção, quem recusaria seria o validador do
+  farmacêutico.
+  A correção não foi ajustar a conta: foi **derivá-la dos objetos realmente escritos**
+  (`objetos.Max(Numero) + 1`), para não poder desencontrar de novo. E entrou
+  `O_trailer_declara_um_tamanho_maior_que_o_maior_objeto`, que é a régua estrita dentro de
+  casa — ele reprova com a conta errada.
+  É a 7ª rodada da parcela 67 pela terceira vez, agora do lado da ESTRUTURA em vez do
+  formato do CMS: **aceitar o próprio arquivo não é o mesmo que EMITIR o arquivo que o
+  mundo lá fora lê.** E a lição operacional: **validador de fora roda de graça — passe TODO
+  arquivo assinado por ele antes de dar a rodada por fechada**, porque nesta área a
+  alternativa custa uma tentativa paga no PSC.

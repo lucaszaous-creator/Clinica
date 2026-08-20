@@ -77,6 +77,7 @@ public static class RevisaoIncrementalPdf
         var nWidget = nSig + 1;
         var nAparencia = nSig + 2;
         var nFonte = nSig + 3;
+        var nFonteNegrito = nSig + 4;
 
         var pagina = doc.PaginaDe(pedido.Area.Pagina);
 
@@ -130,7 +131,7 @@ public static class RevisaoIncrementalPdf
         Escrever(nAparencia,
             $"<</Type/XObject/Subtype/Form/FormType 1"
             + $"/BBox[0 0 {Num(r.Largura)} {Num(r.Altura)}]"
-            + $"/Resources<</ProcSet[/PDF/Text]/Font<</Helv {nFonte} 0 R>>>>"
+            + $"/Resources<</ProcSet[/PDF/Text]/Font<</Helv {nFonte} 0 R/HelvB {nFonteNegrito} 0 R>>>>"
             + $"/Length {bytesDesenho.Length}>>\nstream\n{desenho}\nendstream");
 
         // Helvetica é uma das 14 fontes-padrão do PDF: nenhum arquivo embutido, nenhuma
@@ -140,12 +141,18 @@ public static class RevisaoIncrementalPdf
         Escrever(nFonte,
             "<</Type/Font/Subtype/Type1/BaseFont/Helvetica/Encoding/WinAnsiEncoding>>");
 
+        // A face NEGRITO do título. Os dois carimbos ficam lado a lado na folha: se um
+        // tivesse hierarquia e o outro não, a diferença se leria como se um deles viesse
+        // de outro sistema.
+        Escrever(nFonteNegrito,
+            "<</Type/Font/Subtype/Type1/BaseFont/Helvetica-Bold/Encoding/WinAnsiEncoding>>");
+
         Escrever(doc.CatalogoNumero, catalogoNovo);
         Escrever(pagina.Numero, paginaNova);
 
         // ---- xref da revisão ----
         var offsetXref = baseOffset + corpo.Length;
-        var xref = MontarXref(offsets, doc, nSig + 4);
+        var xref = MontarXref(offsets, doc);
 
         var total = Encoding.Latin1.GetBytes(corpo.ToString() + xref
             + $"startxref\n{offsetXref}\n%%EOF\n");
@@ -229,8 +236,15 @@ public static class RevisaoIncrementalPdf
     // ---------------------------------------------------------------------------------
 
     private static string MontarXref(
-        List<(int Numero, int Offset)> objetos, EstruturaPdf doc, int tamanhoNovo)
+        List<(int Numero, int Offset)> objetos, EstruturaPdf doc)
     {
+        // ⚠️ O /Size sai dos objetos REALMENTE escritos, nunca de uma conta à mão.
+        // Ele era "nSig + 4", que estava certo enquanto o último objeto novo fosse a
+        // fonte; ao entrar a face negrito, a tabela passou a declarar um objeto que o
+        // trailer dizia não existir — e o arquivo ficou ILEGÍVEL para um leitor estrito,
+        // com a nossa conferência e os testes verdes. Foi o pyhanko que recusou.
+        var tamanhoNovo = objetos.Max(o => o.Numero) + 1;
+
         var sb = new StringBuilder("xref\n");
 
         // As entradas vão em FAIXAS de números consecutivos, como manda a especificação.
@@ -295,12 +309,12 @@ public static class RevisaoIncrementalPdf
         const string escuro = "0.12 0.16 0.22 rg";
         const string claro = "0.39 0.45 0.55 rg";
 
-        var linhas = new (string Texto, double Tamanho, string Tinta)[]
+        var linhas = new (string Texto, double Tamanho, string Tinta, bool Negrito)[]
         {
-            ("ASSINADO DIGITALMENTE — ICP-Brasil", 7.5, escuro),
-            (pedido.NomeExibido, 6.5, escuro),
-            (identificacao, 6.5, claro),
-            ($"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {certificado.Emissor}", 6.5, claro)
+            ("ASSINADO DIGITALMENTE — ICP-Brasil", 7.5, escuro, true),
+            (pedido.NomeExibido, 6.5, escuro, false),
+            (identificacao, 6.5, claro, false),
+            ($"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {certificado.Emissor}", 6.5, claro, false)
         };
 
         var sb = new StringBuilder()
@@ -308,16 +322,18 @@ public static class RevisaoIncrementalPdf
             .Append($"0.3 0.3 {Num(largura - 0.6)} {Num(altura - 0.6)} re\nS\n");
 
         var y = altura - 4;
-        foreach (var (texto, tamanho, tinta) in linhas)
+        foreach (var (texto, tamanho, tinta, negrito) in linhas)
         {
             if (string.IsNullOrWhiteSpace(texto)) continue;
             y -= tamanho + 1.5;
             if (y < 1) break;
 
             sb.Append("BT\n").Append(tinta).Append('\n')
-              .Append($"/Helv {Num(tamanho)} Tf\n")
+              .Append($"/{(negrito ? "HelvB" : "Helv")} {Num(tamanho)} Tf\n")
               .Append($"4 {Num(y)} Td\n")
-              .Append('(').Append(TextoPdf(Caber(texto, tamanho, largura - 8))).Append(") Tj\nET\n");
+              .Append('(')
+              .Append(TextoPdf(Caber(texto, tamanho, largura - 8, negrito)))
+              .Append(") Tj\nET\n");
         }
 
         return sb.Append('Q').ToString();
@@ -390,16 +406,41 @@ public static class RevisaoIncrementalPdf
     ];
 
     /// <summary>
+    /// A mesma régua para a face <b>Helvetica-Bold</b>, do título — ela é mais larga que a
+    /// regular, e medir o título com a tabela errada deixaria justamente a linha de cima
+    /// estourar a caixa.
+    /// </summary>
+    private static readonly int[] LarguraHelveticaNegrito =
+    [
+        278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278,
+        556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611,
+        975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778,
+        667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556,
+        333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611,
+        611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584, 761,
+        556, 761, 278, 556, 500, 1000, 556, 556, 333, 1000, 667, 333, 1000, 761, 611, 761,
+        761, 278, 278, 500, 500, 350, 556, 1000, 333, 1000, 556, 333, 944, 761, 500, 667,
+        278, 333, 556, 556, 556, 556, 280, 556, 333, 737, 370, 556, 584, 333, 737, 333,
+        400, 584, 333, 333, 333, 611, 556, 278, 333, 333, 365, 556, 834, 834, 834, 611,
+        722, 722, 722, 722, 722, 722, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278,
+        722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611,
+        556, 556, 556, 556, 556, 556, 889, 556, 556, 556, 556, 556, 278, 278, 278, 278,
+        611, 611, 611, 611, 611, 611, 611, 584, 611, 611, 611, 611, 611, 556, 611, 556
+    ];
+
+    /// <summary>
     /// Quanto o texto ocupa, em pontos, escrito em Helvetica no tamanho pedido.
     /// Exposto porque é o que um teste consegue conferir contra a régua de fora.
     /// </summary>
-    public static double LarguraNaHelvetica(string texto, double tamanho)
+    public static double LarguraNaHelvetica(string texto, double tamanho, bool negrito = false)
     {
+        var tabela = negrito ? LarguraHelveticaNegrito : LarguraHelvetica;
+
         var soma = 0;
         foreach (var c in ParaWinAnsi(texto ?? string.Empty))
         {
             var i = c - 32;
-            soma += i >= 0 && i < LarguraHelvetica.Length ? LarguraHelvetica[i] : 556;
+            soma += i >= 0 && i < tabela.Length ? tabela[i] : 556;
         }
 
         return soma * tamanho / 1000.0;
@@ -411,13 +452,13 @@ public static class RevisaoIncrementalPdf
     /// linha nem corta, e os dois carimbos ficam LADO A LADO com 10 pontos entre eles.
     /// Um emissor longo escreveria por cima do vizinho.
     /// </summary>
-    private static string Caber(string texto, double tamanho, double largura)
+    private static string Caber(string texto, double tamanho, double largura, bool negrito)
     {
-        if (LarguraNaHelvetica(texto, tamanho) <= largura) return texto;
+        if (LarguraNaHelvetica(texto, tamanho, negrito) <= largura) return texto;
 
         var corte = texto;
         while (corte.Length > 1
-               && LarguraNaHelvetica(corte + "…", tamanho) > largura)
+               && LarguraNaHelvetica(corte + "…", tamanho, negrito) > largura)
             corte = corte[..^1];
 
         return corte.TrimEnd() + "…";
