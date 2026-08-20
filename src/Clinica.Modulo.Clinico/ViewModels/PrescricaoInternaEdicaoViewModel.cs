@@ -106,7 +106,11 @@ public sealed partial class PrescricaoInternaEdicaoViewModel : ObservableObject
     /// também assina eletronicamente ESTA MESMA folha, no encerramento, com o
     /// certificado DELA. Desmarcado, vale o regime de sempre: caneta na via impressa.
     /// </summary>
-    [ObservableProperty] private bool _exigirAssinaturaDaExecucao;
+    /// <summary>
+    /// Nasce MARCADO, como a entidade: o padrão é a folha terminar com a assinatura
+    /// eletrônica de quem executou. Desmarcar é ato consciente de quem prescreve.
+    /// </summary>
+    [ObservableProperty] private bool _exigirAssinaturaDaExecucao = true;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
     [ObservableProperty] private bool _ocupado;

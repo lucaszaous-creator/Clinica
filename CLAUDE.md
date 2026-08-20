@@ -4395,6 +4395,18 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   registro volta a ser espelho e DIZ que não é assinado, apontando a folha que é; e **cada
   folha devolve o SEU arquivo selado** (`ArquivoId` × `ArquivoRegistroId`), porque trocar um
   pelo outro entregaria a segunda via de um documento no lugar do outro.
+  ⚠️ **E a causa do relato era ainda mais simples: a caixinha não estava marcada.** Os
+  prints de produção fecham o diagnóstico — o rodapé do registro da folha 0009 traz a LINHA
+  DE CANETA e o nome à direita, leiaute que só sai quando `ExigeAssinaturaEletronicaDaExecucao`
+  é **falso**. A folha 0007, com dois carimbos, tinha a caixinha marcada. A clínica leu a
+  coincidência ("as duas que ficaram sem assinatura tinham item não realizado") como causa,
+  e ela não é — mas **o que ela via é o que vale**. Por isso o campo passou a **nascer
+  marcado**: garantia que depende de alguém lembrar não é garantia. Desmarcar continua
+  existindo, e continua sendo de quem prescreve; o que mudou é o lado para o qual o
+  esquecimento cai.
+  ⚠️ Teste que depende do PADRÃO passa a medir a escolha errada quando o padrão vira — o da
+  trilha do encerramento quebrou junto, e a correção foi **declarar o regime no próprio
+  teste** em vez de ajustar a asserção.
   A lição de teste: **a decisão do rodapé foi tirada de dentro do desenho do PDF**
   (`AvisoDoRegistroDeExecucao`, público). Lá dentro nenhum teste a alcançava — o QuestPDF
   embute a fonte em subconjunto e escreve o texto como IDs de glifo, então nem o texto do

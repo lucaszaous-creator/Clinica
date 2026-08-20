@@ -647,6 +647,50 @@ public class SegundaAssinaturaExecucaoTests : IDisposable
             .Should().Contain("NÃO é assinado");
     }
 
+    /// <summary>
+    /// ⚠️ A FOLHA NASCE PEDINDO A ASSINATURA DA EXECUÇÃO (decisão da clínica, 20/08/2026).
+    ///
+    /// O campo nasceu desmarcado, e a consequência apareceu em produção: a folha PRE
+    /// 2026/0009 foi encerrada sem a assinatura da enfermagem porque ninguém marcou a
+    /// caixinha — e a clínica leu isso como "o sistema não pede quando tem item não
+    /// realizado". Não era verdade (os cinco destinos pedem, e há teste), mas era o que ela
+    /// via, e o que ela via é o que vale.
+    ///
+    /// <b>Garantia que depende de alguém lembrar não é garantia.</b> Desmarcar continua
+    /// existindo — o que mudou é o lado para o qual o esquecimento cai.
+    /// </summary>
+    [Fact]
+    public async Task A_folha_nasce_pedindo_a_assinatura_da_execucao()
+    {
+        var cenario = await CenarioAsync();
+
+        var prescricao = await _prescricoes.CriarAsync(
+            cenario.PacienteId, cenario.ProfissionalMedicaId);
+
+        prescricao.ExigeAssinaturaEletronicaDaExecucao.Should().BeTrue(
+            "o padrão é a folha terminar com a assinatura de quem executou");
+    }
+
+    /// <summary>
+    /// E desmarcar continua valendo: é a folha que a enfermagem assina à caneta, e o
+    /// serviço recusa a assinatura eletrônica nela dizendo por quê.
+    /// </summary>
+    [Fact]
+    public async Task Desmarcar_continua_valendo_e_o_sistema_diz_por_que()
+    {
+        var cenario = await CenarioAsync();
+        var prescricao = await EncerradaAsync(cenario, exigir: false);
+
+        prescricao.ExigeAssinaturaEletronicaDaExecucao.Should().BeFalse();
+
+        var erro = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => _orquestra.AssinarExecucaoAsync(
+                prescricao.Id, ECpfDeTeste("Joana Técnica", CpfEnfermeira),
+                cenario.UsuarioEnfermeiraId));
+
+        erro.Message.Should().Contain("via impressa");
+    }
+
     // ==================== Apoio ====================
 
     private sealed record Cenario(int PacienteId, int ProfissionalMedicaId, int UsuarioEnfermeiraId);

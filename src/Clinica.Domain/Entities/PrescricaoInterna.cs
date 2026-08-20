@@ -241,7 +241,17 @@ public class PrescricaoInterna
     /// a cada item checado. Assinar antes selaria um arquivo que ainda ia mudar — a mesma
     /// razão pela qual a prescritora não assina rascunho.
     /// </summary>
-    public bool ExigeAssinaturaEletronicaDaExecucao { get; set; }
+    /// <remarks>
+    /// ⚠️ <b>Nasce MARCADO</b> (decisão da clínica, 20/08/2026). Ele nasceu desmarcado, e a
+    /// consequência apareceu em produção: a folha PRE 2026/0009 foi encerrada sem a
+    /// assinatura da enfermagem porque ninguém marcou a caixinha, e a clínica leu isso como
+    /// "o sistema não pede quando tem item não realizado" — que não é verdade, mas era o
+    /// que ela via. <b>Garantia que depende de alguém lembrar não é garantia.</b>
+    ///
+    /// Desmarcar continua existindo, e continua sendo de quem prescreve: é a folha que vai
+    /// ser assinada à caneta. O que mudou é o lado para o qual o esquecimento cai.
+    /// </remarks>
+    public bool ExigeAssinaturaEletronicaDaExecucao { get; set; } = true;
 
     public DateTime? AssinadaEm { get; set; }
 

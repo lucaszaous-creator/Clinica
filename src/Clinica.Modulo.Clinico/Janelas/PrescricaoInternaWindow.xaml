@@ -62,8 +62,8 @@
                     <CheckBox Margin="16,0,0,0" VerticalAlignment="Center"
                               IsChecked="{Binding ExigirAssinaturaDaExecucao}"
                               IsEnabled="{Binding PodePrescrever}"
-                              Content="Colher assinatura eletrônica da enfermagem no encerramento"
-                              ToolTip="Marcado, a folha pede a 2ª assinatura: ao encerrar, a enfermeira assina ESTA MESMA prescrição com o certificado dela — a sua assinatura não é tocada, e a folha passa a sair com as duas. Desmarcado, ela assina à caneta na via impressa, como sempre." />
+                              Content="Colher assinatura eletrônica da enfermagem no encerramento (recomendado)"
+                              ToolTip="MARCADO (padrão): ao encerrar, o sistema PEDE a assinatura da enfermeira — ela assina ESTA MESMA prescrição com o certificado dela (a sua não é tocada, e a folha sai com as duas) e o registro de execução sai selado, mostrando o que foi feito, o não realizado e o suspenso.&#10;&#10;DESMARCADO: o sistema NÃO pede assinatura nenhuma no encerramento; a enfermeira assina à caneta na via impressa." />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal">
