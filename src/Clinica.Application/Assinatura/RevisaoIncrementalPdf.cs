@@ -317,7 +317,7 @@ public static class RevisaoIncrementalPdf
             sb.Append("BT\n").Append(tinta).Append('\n')
               .Append($"/Helv {Num(tamanho)} Tf\n")
               .Append($"4 {Num(y)} Td\n")
-              .Append('(').Append(TextoPdf(texto)).Append(") Tj\nET\n");
+              .Append('(').Append(TextoPdf(Caber(texto, tamanho, largura - 8))).Append(") Tj\nET\n");
         }
 
         return sb.Append('Q').ToString();
@@ -340,12 +340,88 @@ public static class RevisaoIncrementalPdf
     /// Acentuação não precisa de nada: "é" é 0xE9 nas duas.
     /// </summary>
     private static string TextoPdf(string? texto)
-        => (texto ?? string.Empty)
+        => ParaWinAnsi(texto ?? string.Empty)
             .Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)")
-            .Replace("\r", " ").Replace("\n", " ")
-            .Replace("\u2014", "\u0097").Replace("\u2013", "\u0096")
-            .Replace("\u201c", "\u0093").Replace("\u201d", "\u0094")
-            .Replace("\u2018", "\u0091").Replace("\u2019", "\u0092");
+            .Replace("\r", " ").Replace("\n", " ");
+
+    /// <summary>
+    /// Traduz a tipografia para a faixa <b>0x80–0x9F</b> da WinAnsiEncoding.
+    ///
+    /// A fonte do carimbo é Helvetica com WinAnsiEncoding, e o arquivo é escrito byte a
+    /// byte em Latin-1: as duas tabelas só divergem nessa faixa, que é onde a WinAnsi
+    /// guarda travessão, aspas curvas e reticências. Sem isto, o travessão do título vira
+    /// '?' — e a diferença aparece justamente ao lado do carimbo da 1ª assinatura, que sai
+    /// certo. Acentuação não precisa de nada: "é" é 0xE9 nas duas.
+    /// </summary>
+    private static string ParaWinAnsi(string texto) => texto
+        .Replace('\u2014', '\u0097').Replace('\u2013', '\u0096')
+        .Replace('\u201c', '\u0093').Replace('\u201d', '\u0094')
+        .Replace('\u2018', '\u0091').Replace('\u2019', '\u0092')
+        .Replace('\u2026', '\u0085');
+
+    /// <summary>
+    /// Largura de cada caractere da <b>Helvetica</b> em milésimos de em, do código WinAnsi
+    /// 32 ao 255 — as métricas das 14 fontes-padrão do PDF, que são fixas e públicas.
+    ///
+    /// ⚠️ A tabela foi <b>medida</b>, não lembrada: ela sai das métricas base-14 e foi
+    /// conferida contra a renderização real (a linha do emissor mais longo dá 215,32
+    /// pontos a 6,5 — o mesmo número que o poppler devolve para o arquivo gerado).
+    /// Aqui não dá para chamar o <c>MeasureString</c> do PDFsharp como no carimbo do
+    /// prescritor: a aparência é escrita à mão, e o resolvedor de fontes do projeto só
+    /// conhece a Segoe WP, que é ~9% mais estreita — medir com ela deixaria o texto
+    /// estourar justamente no caso apertado.
+    /// </summary>
+    private static readonly int[] LarguraHelvetica =
+    [
+        278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
+        556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556,
+        1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778,
+        667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556,
+        333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556,
+        556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584, 761,
+        556, 761, 222, 556, 333, 1000, 556, 556, 333, 1000, 667, 333, 1000, 761, 611, 761,
+        761, 222, 222, 333, 333, 350, 556, 1000, 333, 1000, 500, 333, 944, 761, 500, 667,
+        278, 333, 556, 556, 556, 556, 260, 556, 333, 737, 370, 556, 584, 333, 737, 333,
+        400, 584, 333, 333, 333, 556, 537, 278, 333, 333, 365, 556, 834, 834, 834, 611,
+        667, 667, 667, 667, 667, 667, 1000, 722, 667, 667, 667, 667, 278, 278, 278, 278,
+        722, 722, 778, 778, 778, 778, 778, 584, 778, 722, 722, 722, 722, 667, 667, 611,
+        556, 556, 556, 556, 556, 556, 889, 500, 556, 556, 556, 556, 278, 278, 278, 278,
+        556, 556, 556, 556, 556, 556, 556, 584, 611, 556, 556, 556, 556, 500, 556, 500
+    ];
+
+    /// <summary>
+    /// Quanto o texto ocupa, em pontos, escrito em Helvetica no tamanho pedido.
+    /// Exposto porque é o que um teste consegue conferir contra a régua de fora.
+    /// </summary>
+    public static double LarguraNaHelvetica(string texto, double tamanho)
+    {
+        var soma = 0;
+        foreach (var c in ParaWinAnsi(texto ?? string.Empty))
+        {
+            var i = c - 32;
+            soma += i >= 0 && i < LarguraHelvetica.Length ? LarguraHelvetica[i] : 556;
+        }
+
+        return soma * tamanho / 1000.0;
+    }
+
+    /// <summary>
+    /// Corta o texto com reticências até caber na largura útil do bloco — a mesma regra do
+    /// carimbo do prescritor, e pela mesma razão: o operador <c>Tj</c> do PDF não quebra
+    /// linha nem corta, e os dois carimbos ficam LADO A LADO com 10 pontos entre eles.
+    /// Um emissor longo escreveria por cima do vizinho.
+    /// </summary>
+    private static string Caber(string texto, double tamanho, double largura)
+    {
+        if (LarguraNaHelvetica(texto, tamanho) <= largura) return texto;
+
+        var corte = texto;
+        while (corte.Length > 1
+               && LarguraNaHelvetica(corte + "…", tamanho) > largura)
+            corte = corte[..^1];
+
+        return corte.TrimEnd() + "…";
+    }
 
     private static string DataPdf(DateTime quando)
         => quando.ToString("'D:'yyyyMMddHHmmss", CultureInfo.InvariantCulture)

@@ -119,6 +119,71 @@ public class CarimboVisivelTests
         Encoding.Latin1.GetString(duas).Should().Contain("Enf. Rita Lima");
     }
 
+    /// <summary>
+    /// ⚠️ A régua da 2ª assinatura tem de bater com a de FORA. A aparência dela é escrita à
+    /// mão em Helvetica, e o resolvedor de fontes do projeto só conhece a Segoe WP — que é
+    /// ~9% mais estreita —, então medir com o PDFsharp deixaria o texto estourar justamente
+    /// no caso apertado. A tabela é das métricas base-14; este número (215,319 pontos) foi
+    /// conferido contra o que o poppler mede no arquivo GERADO. Um dígito errado na tabela
+    /// só apareceria como texto por cima do carimbo vizinho, na clínica.
+    /// </summary>
+    [Fact]
+    public void A_regua_da_helvetica_bate_com_a_medicao_de_fora()
+        => RevisaoIncrementalPdf.LarguraNaHelvetica(
+                "20/08/2026 16:23 · emissor: Autoridade Certificadora do SERPRO Final v5", 6.5)
+            .Should().BeApproximately(215.319, 0.01);
+
+    /// <summary>
+    /// O carimbo do prescritor CORTA o que não cabe.
+    ///
+    /// <c>DrawString</c> com <c>TopLeft</c> não quebra linha nem corta: o que sobra sai por
+    /// cima do vizinho. Enquanto o bloco era invisível isso não aparecia. Medido no pior
+    /// caso realista, sobravam 8 pontos na RECEITA — o papel que vai à farmácia, com o QR
+    /// logo ao lado —, e o nome do profissional e o emissor do certificado não têm tamanho
+    /// máximo nenhum.
+    /// </summary>
+    [Fact]
+    public async Task Texto_que_nao_cabe_no_carimbo_sai_cortado()
+    {
+        const string nomeEnorme = "Dra. Maria Aparecida Gonçalves de Oliveira Santos "
+            + "Albuquerque Vasconcelos do Nascimento Figueiredo";
+
+        var servico = new AssinaturaDigitalService(exigirCadeiaConfiavel: false);
+        var assinado = (await servico.AssinarAsync(
+            PdfDeTeste(), Certificado("Dra. Ana Souza"),
+            Pedido("médica", 640) with { NomeExibido = nomeEnorme })).Pdf;
+
+        var conteudo = ConteudoDaPagina(assinado, 0);
+
+        conteudo.Should().NotContain(nomeEnorme,
+            "sem corte o nome sairia por cima do que estiver ao lado do carimbo");
+        conteudo.Should().Contain("Dra. Maria Aparecida",
+            "o começo continua legível — cortar não é apagar");
+        conteudo.Should().Contain("\u0085",
+            "as reticências (0x85 em WinAnsi) são o que diz ao leitor que há mais texto");
+    }
+
+    /// <summary>
+    /// O carimbo da enfermagem corta pela MESMA regra — e ali o vizinho fica a 10 pontos.
+    /// </summary>
+    [Fact]
+    public async Task O_carimbo_da_enfermagem_tambem_corta()
+    {
+        const string emissorEnorme =
+            "Autoridade Certificadora do Sistema de Justica Federal de Sao Paulo v10";
+
+        var enfermeira = Certificado(emissorEnorme);
+        var duas = await RevisaoIncrementalPdf.AnexarAssinaturaAsync(
+            await AssinarAsync(), Pedido("enfermeira", 580), enfermeira,
+            new PdfSharpDefaultSigner(enfermeira.Certificado, PdfMessageDigestType.SHA256, null),
+            "Signature2");
+
+        var texto = Encoding.Latin1.GetString(duas);
+
+        texto.Should().NotContain($"emissor: {emissorEnorme}");
+        texto.Should().Contain("\u0085", "o corte marca com reticências");
+    }
+
     // ---- Apoio ----
 
     /// <summary>Os dicionários das anotações da primeira página.</summary>

@@ -662,7 +662,7 @@ public sealed class AssinaturaDigitalService
 
             void Escrever(string texto, XFont fonte, XBrush pincel, double altura)
             {
-                gfx.DrawString(texto, fonte, pincel,
+                gfx.DrawString(Caber(gfx, texto, fonte, largura), fonte, pincel,
                     new XRect(caixa.X + margem, linha, largura, altura),
                     XStringFormats.TopLeft);
                 linha += altura;
@@ -679,6 +679,32 @@ public sealed class AssinaturaDigitalService
             if (identificacao.Length > 0) Escrever(identificacao, corpo, suave, 8);
 
             Escrever($"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {certificado.Emissor}", corpo, suave, 8);
+        }
+
+        /// <summary>
+        /// Corta o texto com reticências até caber na largura útil do bloco.
+        ///
+        /// ⚠️ <c>DrawString</c> com <c>TopLeft</c> num <c>XRect</c> NÃO quebra linha nem
+        /// corta: o que não cabe sai por cima do que estiver ao lado. Enquanto o carimbo
+        /// era invisível isso não aparecia; agora ele é conteúdo da página, e as quatro
+        /// linhas levam dado de tamanho imprevisível — o nome do profissional e o EMISSOR
+        /// do certificado, que numa cadeia ICP-Brasil chega a "Autoridade Certificadora do
+        /// SERPRO Final v5".
+        ///
+        /// Medido no pior caso realista: sobravam 28 pontos na prescrição e <b>8 na
+        /// receita</b>, onde o bloco tem 220 e o QR fica logo ao lado. Oito pontos são dois
+        /// caracteres — e o que estouraria é a folha que vai à farmácia.
+        /// </summary>
+        private static string Caber(XGraphics gfx, string texto, XFont fonte, double largura)
+        {
+            if (gfx.MeasureString(texto, fonte).Width <= largura) return texto;
+
+            var corte = texto;
+            while (corte.Length > 1
+                   && gfx.MeasureString(corte + "…", fonte).Width > largura)
+                corte = corte[..^1];
+
+            return corte.TrimEnd() + "…";
         }
     }
 }

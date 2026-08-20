@@ -4283,3 +4283,29 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   incremental é **WinAnsiEncoding** e o arquivo é escrito em Latin-1 — as duas tabelas só
   divergem na faixa 0x80–0x9F, onde mora a tipografia (acento não precisa de nada: "é" é
   0xE9 nas duas).
+
+- **Carimbo visível é dado do BANCO numa caixa de largura FIXA — logo, precisa de corte**
+  (parcela 68, 9ª rodada, continuação). Assim que o bloco da assinatura passou a aparecer
+  de verdade, ele virou o caso clássico da parcela 50: `DrawString` com `TopLeft` num
+  `XRect` do PDFsharp **não quebra linha nem corta**, e o operador `Tj` do PDF também não —
+  o que não cabe sai por cima do que estiver ao lado. As quatro linhas levam nome do
+  profissional, registro, CPF e o **emissor do certificado**, e nenhum deles tem tamanho
+  máximo.
+  **Medido antes de decidir**, com o emissor ICP-Brasil mais longo que existe ("Autoridade
+  Certificadora do SERPRO Final v5") e um nome composto: sobravam **28 pontos** no carimbo
+  da prescrição, **20** no da enfermagem e **8,4 na RECEITA** — o papel que vai à farmácia,
+  onde a caixa tem 220 e o QR fica logo ao lado. Oito pontos são dois caracteres. Não
+  estourava, e não havia guarda nenhuma.
+  ⚠️ **O corte é EXATO nos dois, e a razão de não ser o mesmo mecanismo importa**: o carimbo
+  do prescritor é desenhado pelo PDFsharp, então mede com `MeasureString`; o da enfermagem
+  é escrito à mão em **Helvetica**, e o resolvedor de fontes do projeto só conhece a Segoe
+  WP, que é **~9% mais estreita** — medir com ela deixaria estourar justamente no caso
+  apertado. Por isso entrou a tabela de larguras da base-14, que foi **medida** (215,319
+  pontos para a linha do emissor a 6,5) e é **conferida em teste** contra o número que o
+  poppler devolve no arquivo gerado: um dígito errado ali só apareceria como texto por cima
+  do carimbo vizinho, na clínica.
+  A lição de método é a que esta área cobra sempre: **quando um desenho deixa de ser
+  recortado e passa a ser visível, tudo o que o recorte escondia vira defeito de uma vez.**
+  E a de ferramenta: `pdftotext -bbox-layout` dá o limite real de cada glifo em pontos —
+  dá para medir folga de caixa sem abrir o PDF, de graça, o que nesta área vale por uma
+  tentativa paga no PSC.
