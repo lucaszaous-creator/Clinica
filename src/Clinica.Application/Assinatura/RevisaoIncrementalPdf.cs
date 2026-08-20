@@ -289,12 +289,18 @@ public static class RevisaoIncrementalPdf
                     "CPF " + Domain.Cpf.Formatar(certificado.Cpf)
                 }.Where(p => !string.IsNullOrWhiteSpace(p)));
 
-        var linhas = new (string Texto, double Tamanho)[]
+        // ⚠️ Estas quatro linhas são as MESMAS do carimbo da 1ª assinatura, na mesma ordem,
+        // com o mesmo tamanho e a mesma cor — os dois ficam LADO A LADO na folha, e
+        // qualquer diferença aqui se lê como se um deles fosse de outro sistema.
+        const string escuro = "0.12 0.16 0.22 rg";
+        const string claro = "0.39 0.45 0.55 rg";
+
+        var linhas = new (string Texto, double Tamanho, string Tinta)[]
         {
-            ("ASSINADO DIGITALMENTE - ICP-Brasil", 7.5),
-            (pedido.NomeExibido, 6.5),
-            (identificacao, 6.5),
-            ($"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {certificado.Emissor}", 6.5)
+            ("ASSINADO DIGITALMENTE — ICP-Brasil", 7.5, escuro),
+            (pedido.NomeExibido, 6.5, escuro),
+            (identificacao, 6.5, claro),
+            ($"{DateTime.Now:dd/MM/yyyy HH:mm} · emissor: {certificado.Emissor}", 6.5, claro)
         };
 
         var sb = new StringBuilder()
@@ -302,13 +308,12 @@ public static class RevisaoIncrementalPdf
             .Append($"0.3 0.3 {Num(largura - 0.6)} {Num(altura - 0.6)} re\nS\n");
 
         var y = altura - 4;
-        foreach (var (texto, tamanho) in linhas)
+        foreach (var (texto, tamanho, tinta) in linhas)
         {
             if (string.IsNullOrWhiteSpace(texto)) continue;
             y -= tamanho + 1.5;
             if (y < 1) break;
 
-            var tinta = tamanho > 7 ? "0.12 0.16 0.22 rg" : "0.39 0.45 0.55 rg";
             sb.Append("BT\n").Append(tinta).Append('\n')
               .Append($"/Helv {Num(tamanho)} Tf\n")
               .Append($"4 {Num(y)} Td\n")
@@ -325,11 +330,22 @@ public static class RevisaoIncrementalPdf
     private static string Num(double valor)
         => Math.Round(valor, 2).ToString("0.##", CultureInfo.InvariantCulture);
 
-    /// <summary>Escapa o que quebraria uma string literal de PDF.</summary>
+    /// <summary>
+    /// Escapa o que quebraria uma string literal de PDF.
+    ///
+    /// ⚠️ A fonte do carimbo é Helvetica com <b>WinAnsiEncoding</b>, e o arquivo é escrito
+    /// byte a byte em Latin-1: as duas tabelas só divergem na faixa 0x80–0x9F, onde a
+    /// WinAnsi guarda a tipografia. Sem esta tradução, o travessão do título vira '?' — e a
+    /// diferença aparece justamente ao lado do carimbo da 1ª assinatura, que sai certo.
+    /// Acentuação não precisa de nada: "é" é 0xE9 nas duas.
+    /// </summary>
     private static string TextoPdf(string? texto)
         => (texto ?? string.Empty)
             .Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)")
-            .Replace("\r", " ").Replace("\n", " ");
+            .Replace("\r", " ").Replace("\n", " ")
+            .Replace("\u2014", "\u0097").Replace("\u2013", "\u0096")
+            .Replace("\u201c", "\u0093").Replace("\u201d", "\u0094")
+            .Replace("\u2018", "\u0091").Replace("\u2019", "\u0092");
 
     private static string DataPdf(DateTime quando)
         => quando.ToString("'D:'yyyyMMddHHmmss", CultureInfo.InvariantCulture)

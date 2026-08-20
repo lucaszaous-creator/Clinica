@@ -4229,3 +4229,57 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   rodapé pelo MESMO par de constantes).
   A lição geral: **quando um valor atravessa a fronteira para uma biblioteca de terceiro,
   o sistema de coordenadas dela é premissa a MEDIR, não a deduzir do nome do campo.**
+
+- **O carimbo do prescritor NUNCA apareceu — e eram DOIS defeitos somados, cada um
+  bastando sozinho** (parcela 68, 9ª rodada — a clínica assinou as duas vias e disse que
+  "as DUAS assinaturas digitais não saíram na folha conforme tem que ser"). Reproduzido
+  antes de corrigir: o PDF gerado pelo teste foi RENDERIZADO, e a folha saía com **um
+  carimbo só**, o da enfermagem.
+  1. **A aparência do widget era recortada.** O PDFsharp entrega ao desenhador o retângulo
+     **na PÁGINA** (o `/Rect`), e o `XGraphics` desenha dentro de um form XObject cuja
+     **BBox é `[0 0 largura altura]`** — coordenada LOCAL. Desenhar em `area.X`/`area.Y`
+     punha o traço inteiro fora da BBox, e o form **recorta pela BBox**: o carimbo
+     simplesmente não existia no arquivo. Medido no objeto: `BBox [0 0 240 46]` com o
+     conteúdo em `40 -640 240 46 re`.
+  2. **Anotação sem o bit Print não é IMPRESSA.** O PDFsharp não escreve o `/F` do widget e
+     o padrão é 0. Medido: o mesmo arquivo achatado para impressão sai sem o bloco. Mesmo
+     com a coordenada certa, o carimbo apareceria no leitor de quem assinou e sumiria na
+     folha que a enfermagem leva para a sala. E **não há onde ligar o bit**: o campo só
+     existe durante o salvamento, DEPOIS de a aparência ter sido desenhada (sondado — no
+     momento do desenho não há `/AcroForm`, não há anotação na página e não há objeto
+     `/FT /Sig` no documento).
+  A saída não foi remendar nenhum dos dois: foi tirar o bloco visível da ANOTAÇÃO e pô-lo
+  no **CONTEÚDO DA PÁGINA**, que não tem nenhuma das duas armadilhas — aparece no leitor,
+  sai na impressora e ainda é **coberto pela assinatura**, porque entra antes dela. O campo
+  de assinatura fica **invisível** (`/Rect` de área zero): deixá-lo com o mesmo retângulo
+  faria o leitor desenhar o carimbo duas vezes sobre si mesmo, e texto cinza de 6,5 pt
+  desenhado duas vezes sai mais grosso.
+  ⚠️ Só a **2ª** assinatura continua sendo anotação, e não é escolha: a página já está
+  assinada e não se toca num byte dela. Lá o `/F 4` é escrito à mão — e por isso ela era a
+  única que a clínica via.
+  ⚠️ **Saiu assim da parcela 42 até 20/08/2026, em TODO documento assinado** — receita,
+  atestado, pedido de exame, prescrição. A assinatura criptográfica estava perfeita por
+  baixo o tempo todo; o que faltava era a folha dizer quem assinou. É a irmã mais discreta
+  do defeito recorrente do projeto: não é dado sem leitor nem capacidade sem porta, é
+  **desenho sem tela** — e nada falha, em lugar nenhum.
+  As duas lições de método, e elas são as mesmas de sempre nesta área:
+  **(a) teste que prova que o arquivo FECHA não prova que a folha MOSTRA.** Havia teste de
+  integridade, de recorte do PKCS#7, de posição do retângulo (parcela 68, 8ª rodada) e de
+  circuito ponta a ponta — e nenhum abria o conteúdo da página para procurar o carimbo.
+  `CarimboVisivelTests` faz isso, e **três dos seus quatro testes falham no código de
+  antes** (o quarto é o bit de imprimir, que já estava certo): carimbo visível que não
+  reprova o carimbo invisível não prova nada.
+  **(b) renderizar é de graça, e é o único jeito de ver o que só a folha montada mostra.**
+  `poppler-utils` desenha o PDF para tela (`pdftoppm`) e para impressão (`pdftocairo -pdf`,
+  que é o que revelou o bit Print), e o `pyhanko` confere as duas assinaturas sem custo
+  nenhum. Cada tentativa no SafeID é COBRADA — conferir aqui, antes, é o que evita a
+  próxima rodada paga. Os testes gravam os arquivos quando `CLINICA_DUMP_PDF` aponta uma
+  pasta, inclusive a **folha REAL** (`SegundaAssinaturaExecucaoTests`), que é a única que
+  mostra os dois carimbos no rodapé de verdade.
+  De quebra, os dois carimbos passaram a ser desenhados **linha por linha iguais** — mesma
+  ordem, mesmo tamanho, mesma cor e a moldura recuada meia caneta nos dois. Eles ficam LADO
+  A LADO na folha, e qualquer diferença ali se lê como se um deles fosse de outro sistema;
+  o travessão do título exigiu traduzir U+2014 para `0x97`, porque a fonte do carimbo
+  incremental é **WinAnsiEncoding** e o arquivo é escrito em Latin-1 — as duas tabelas só
+  divergem na faixa 0x80–0x9F, onde mora a tipografia (acento não precisa de nada: "é" é
+  0xE9 nas duas).
