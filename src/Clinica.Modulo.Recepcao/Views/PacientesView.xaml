@@ -272,12 +272,19 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource Card}">
+                <!-- ⚠️ SOME para quem não tem `VerProntuario` (parcela 72). `SemMedidaEva`
+                     nasce true, então a região ficava de pé com quatro travessões e o botão
+                     "Nova sessão" ACESO para Financeiro e Faturista — que se lê como tela
+                     quebrada, e não como "você não pode ver isto". Nem ler nem desenhar. -->
+                <Border Style="{StaticResource Card}"
+                        Visibility="{Binding PodeVerProntuario,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
                     <StackPanel>
                         <Grid>
                             <TextBlock Text="Evolução da dor" Style="{StaticResource H3}" Margin="0"
                                        VerticalAlignment="Center" />
                             <Button Content="Nova sessão" HorizontalAlignment="Right"
+                                    IsEnabled="{Binding PodeEditarProntuario}"
                                     Command="{Binding NovaEvolucaoCommand}" />
                         </Grid>
                         <TextBlock Text="{Binding ResumoEva}" Style="{StaticResource TextoSuave}"
@@ -532,13 +539,26 @@
 
                                             <StackPanel Grid.Column="2" Orientation="Horizontal"
                                                         VerticalAlignment="Center">
+                                                <!-- ⚠️ As DUAS barreiras (parcela 72). Estes botões só tinham a
+                                                     que IMPEDE, e `Exigir` LANÇA: a enfermeira, que tem
+                                                     `VerProntuario` e não tem `EditarProntuario`, levava
+                                                     InvalidOperationException até a rede do Dispatcher. E
+                                                     `PodeEditarProntuario` existia no VM, documentada como "a
+                                                     metade VISÍVEL da permissão", sem um leitor no XAML. -->
                                                 <Button Content="Abrir" Style="{StaticResource BotaoPequeno}"
+                                                        IsEnabled="{Binding DataContext.PodeEditarProntuario,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         Command="{Binding DataContext.EditarEvolucaoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
-                                                <Button Content="Excluir" Margin="8,0,0,0"
+                                                <!-- "Cancelar", não "Excluir": nada é apagado desde a parcela 52,
+                                                     e o rótulo antigo prometia o que a lei proíbe. -->
+                                                <Button Content="Cancelar…" Margin="8,0,0,0"
                                                         Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        Command="{Binding DataContext.ExcluirEvolucaoCommand,
+                                                        ToolTip="Tira a sessão do prontuário que se lê, com motivo escrito. Ela NÃO é apagada — a guarda é de 20 anos."
+                                                        IsEnabled="{Binding DataContext.PodeEditarProntuario,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        Command="{Binding DataContext.CancelarEvolucaoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                             </StackPanel>
@@ -947,20 +967,42 @@
                                                     <TextBlock Text="Vigente" />
                                                 </Border>
                                                 <Button Content="Concedeu" Style="{StaticResource BotaoPequeno}"
+                                                        IsEnabled="{Binding DataContext.PodeEditarCadastro,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         Command="{Binding DataContext.ConcederCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Recusou" Margin="8,0,0,0"
                                                         Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        IsEnabled="{Binding DataContext.PodeEditarCadastro,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         Command="{Binding DataContext.RecusarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
+                                                <!-- ⚠️ Revogar tinha IsEnabled amarrado a `PodeRevogar`, que é
+                                                     ESTADO da linha, não permissão. Os dois COMPÕEM: quem só lê
+                                                     não revoga consentimento vigente. -->
                                                 <Button Content="Revogar" Margin="8,0,0,0"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        IsEnabled="{Binding PodeRevogar}"
                                                         Command="{Binding DataContext.RevogarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
+                                                        CommandParameter="{Binding}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGridPerigo}">
+                                                            <Setter Property="IsEnabled" Value="False" />
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding PodeRevogar}" Value="True" />
+                                                                        <Condition Binding="{Binding DataContext.PodeEditarCadastro,
+                                                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                                   Value="True" />
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="IsEnabled" Value="True" />
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -981,6 +1023,7 @@
                             <Button Content="Exportar meus dados"
                                     Style="{StaticResource BotaoSecundario}"
                                     MinWidth="170"
+                                    IsEnabled="{Binding PodeVerProntuario}"
                                     Command="{Binding ExportarDadosCommand}" />
                             <Button Content="Anonimizar cadastro" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPerigo}"

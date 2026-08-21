@@ -194,9 +194,16 @@
                  separação interna é por espaço e rótulo — desenhar um retângulo em
                  volta de cada campo é o que fazia a tela parecer costurada. -->
             <Grid>
+                <!-- ⚠️ AS DUAS COLUNAS SÃO ELÁSTICAS (parcela 72), e não uma elástica ao lado
+                     de uma FIXA de 400 px. Somadas, elas exigiam 520 + 16 + 400 = 936 px, e a
+                     janela mínima da suíte (960) descontando o rail de 56 e as margens de
+                     24+24 do workspace deixa 856 — com o painel de categoria FIXADO, 606. O
+                     WPF honra o MinWidth e CORTA o excesso à direita: não há rolagem
+                     horizontal aqui. Ou seja, acrescentar informação a esta tela era cortar
+                     a que já existe. -->
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" MinWidth="520" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="1.6*" MinWidth="440" />
+                    <ColumnDefinition Width="*" MinWidth="320" />
                 </Grid.ColumnDefinitions>
 
                 <Border Grid.Column="0" Style="{StaticResource Card}">
@@ -275,7 +282,7 @@
                 <!-- As últimas sessões continuam ABERTAS: reler o que foi feito é a
                      primeira coisa que se faz, e é referência para o que se digita ao
                      lado. Diferente do mapa, que é um ato à parte. -->
-                <Border Grid.Column="1" Width="400" Margin="16,0,0,0"
+                <Border Grid.Column="1" Margin="16,0,0,0"
                         Style="{StaticResource Card}">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="Últimas sessões"

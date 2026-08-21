@@ -1,0 +1,282 @@
+using System.Collections.ObjectModel;
+using Clinica.Application;
+using Clinica.Application.Modelos;
+using Clinica.Application.Servicos;
+using Clinica.Domain;
+using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Clinica.Desktop.Shell.Componentes;
+
+/// <summary>Um chip de seção: o rótulo com a contagem, e a natureza que ele representa.</summary>
+public sealed partial class ChipSecaoClinica : ObservableObject
+{
+    public required NaturezaRegistroClinico Natureza { get; init; }
+    public required string Rotulo { get; init; }
+    public required int Quantidade { get; init; }
+
+    [ObservableProperty] private bool _marcado;
+
+    /// <summary>"Enfermagem (31)" — a contagem ANTES do clique é o que faz o chip valer.</summary>
+    public string Texto => $"{Rotulo} ({Quantidade})";
+}
+
+/// <summary>
+/// A LINHA DO TEMPO CLÍNICA DO PACIENTE (parcela 72) — o componente que as TRÊS portas
+/// compartilham: a ficha da Recepção, o Consultório e a tela da Enfermagem.
+///
+/// O que ela responde
+/// ------------------
+/// <b>"O que já aconteceu com este paciente"</b> — a sessão médica, a evolução de
+/// enfermagem, a folha de infusão e os documentos emitidos, num lugar só. Até aqui cada
+/// uma dessas quatro morava numa tela diferente, de um módulo diferente, e quem executa a
+/// infusão não alcançava a conduta da consulta de hoje.
+///
+/// ⚠️ POR QUE CHIPS DE SEÇÃO E NÃO UMA LISTA FUNDIDA — duas razões, e cada uma sozinha
+/// decide:
+///
+/// 1. <b>Os ids são POR TABELA.</b> A evolução de enfermagem nº 42 e a <c>Evolucao</c> nº
+///    42 são registros de pacientes diferentes. Uma lista fundida cujo comando destrutivo
+///    recebesse só o id cancelaria o registro errado — <b>não estoura, não avisa</b>. O
+///    comentário que documenta esse bug está em <c>PacientesView.xaml</c> desde a parcela
+///    71, escrito por quem construiu a seção. Aqui o item carrega
+///    <c>Natureza</c> + <c>Id</c>, e é isso que permite fundir as listas no dia em que
+///    fizer sentido, sem reabrir o buraco.
+/// 2. <b>A ordenação cronológica é impossível hoje.</b> <c>Evolucao.Data</c> é
+///    <c>DateOnly</c>; a evolução de enfermagem tem data E hora. Ordenar a médica às 00:00
+///    a poria antes de todas as aferições do dia, inclusive da reação que a motivou;
+///    ordenar por <c>CriadoEm</c> usaria quando o texto foi DIGITADO — e o módulo do
+///    Consultório existe inteiro porque isso acontece dias depois. <b>Ordenar um prontuário
+///    por uma hora que não existe é fabricar sequência de eventos num documento que
+///    responde em auditoria.</b>
+///
+/// ⚠️ Os chips desmarcados MOSTRAM A CONTAGEM. É a contagem visível que faz a enfermeira
+/// descobrir que há 12 sessões médicas para ler — chip pré-marcado sem número ao lado
+/// deixaria a entrega desligada justamente na tela de quem mais precisa dela.
+///
+/// ⚠️ O filtro de ACESSO não mora aqui: ele é parâmetro de
+/// <see cref="LinhaDoTempoClinica.Montar"/>, na Application, onde o <c>dotnet test</c>
+/// alcança. Regra de LGPD repetida em três telas é regra que a quarta esquece, e o erro
+/// aparece como uma linha a mais numa lista — que ninguém percebe.
+/// </summary>
+public sealed partial class LinhaDoTempoClinicaViewModel : ObservableObject
+{
+    private readonly IServiceScopeFactory _escopos;
+
+    /// <summary>Descarte de resposta fora de ordem: o componente troca de paciente a cada clique.</summary>
+    private int _geracaoCarga;
+
+    private IReadOnlyDictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>>
+        _porNatureza = new Dictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>>();
+
+    private int _pacienteId;
+
+    /// <summary>As quatro naturezas que este componente desenha, na ordem dos chips.</summary>
+    private static readonly NaturezaRegistroClinico[] Secoes =
+    [
+        NaturezaRegistroClinico.SessaoMedica,
+        NaturezaRegistroClinico.EvolucaoEnfermagem,
+        NaturezaRegistroClinico.PrescricaoInterna,
+        NaturezaRegistroClinico.DocumentoClinico
+    ];
+
+    /// <summary>Rótulo CURTO do chip — o do catálogo é a frase da contagem, longa demais aqui.</summary>
+    private static string RotuloCurto(NaturezaRegistroClinico natureza) => natureza switch
+    {
+        NaturezaRegistroClinico.SessaoMedica => "Médica",
+        NaturezaRegistroClinico.EvolucaoEnfermagem => "Enfermagem",
+        NaturezaRegistroClinico.PrescricaoInterna => "Infusões",
+        NaturezaRegistroClinico.DocumentoClinico => "Documentos",
+        _ => CatalogoRegistroClinico.Rotular(natureza)
+    };
+
+    public ObservableCollection<ChipSecaoClinica> Chips { get; } = new();
+    public ObservableCollection<RegistroClinicoPaciente> Itens { get; } = new();
+
+    [ObservableProperty] private bool _carregando;
+    [ObservableProperty] private bool _naoVerificado;
+    [ObservableProperty] private string? _mensagem;
+
+    /// <summary>
+    /// Modo COMPACTO (a coluna direita do atendimento): três linhas por seção, sem
+    /// detalhe. Não é um segundo componente — é a mesma leitura, cortada.
+    /// </summary>
+    [ObservableProperty] private bool _compacto;
+
+    /// <summary>O que a lista está mostrando — a frase que evita o "filtro esquecido".</summary>
+    [ObservableProperty] private string _resumo = string.Empty;
+
+    /// <summary>
+    /// A seção marcada. ⚠️ UMA por vez, e por isso não é filtro combinável: o que se lê
+    /// aqui é o histórico de um TIPO de registro, e misturar dois traria de volta o
+    /// problema do id ambíguo.
+    /// </summary>
+    [ObservableProperty] private NaturezaRegistroClinico _secao = NaturezaRegistroClinico.SessaoMedica;
+
+    /// <summary>
+    /// A natureza que a porta quer ver primeiro. A tela da Enfermagem abre em Enfermagem;
+    /// a ficha e o Consultório, na sessão médica.
+    /// </summary>
+    public NaturezaRegistroClinico SecaoInicial { get; init; } = NaturezaRegistroClinico.SessaoMedica;
+
+    /// <summary>
+    /// ⚠️ Na ficha da Recepção este chip é FALSO: a aba Documentos ao lado é a porta do
+    /// papel e faz mais do que este componente faria (emitir, termo, assinar, enviar).
+    /// Duas listas do mesmo papel na mesma tela fazem a pessoa procurar a diferença que
+    /// não existe.
+    /// </summary>
+    public bool MostrarDocumentos { get; init; } = true;
+
+    public LinhaDoTempoClinicaViewModel(IServiceScopeFactory escopos)
+    {
+        _escopos = escopos;
+        Secao = SecaoInicial;
+    }
+
+    partial void OnSecaoChanged(NaturezaRegistroClinico value) => Publicar();
+
+    /// <summary>Troca a seção pelo chip. Marcar um DESMARCA o irmão — sempre há uma marcada.</summary>
+    [RelayCommand]
+    private void Escolher(ChipSecaoClinica? chip)
+    {
+        if (chip is null) return;
+        Secao = chip.Natureza;
+    }
+
+    /// <summary>
+    /// Lê tudo do paciente. Cinco serviços que já existem — nenhuma consulta nova foi
+    /// escrita para este componente.
+    /// </summary>
+    public async Task CarregarAsync(int pacienteId)
+    {
+        _pacienteId = pacienteId;
+
+        if (pacienteId == 0)
+        {
+            Limpar();
+            return;
+        }
+
+        var geracao = ++_geracaoCarga;
+        Carregando = true;
+        NaoVerificado = false;
+        Mensagem = null;
+
+        try
+        {
+            using var scope = _escopos.CreateScope();
+            var servicos = scope.ServiceProvider;
+
+            var prontuario = servicos.GetRequiredService<ProntuarioService>();
+            var sessoes = await prontuario.DoPacienteAsync(pacienteId);
+            if (geracao != _geracaoCarga) return;
+
+            var anexos = await prontuario.ContagemDeAnexosAsync(
+                sessoes.Select(e => e.Id).ToList());
+            if (geracao != _geracaoCarga) return;
+
+            var enfermagem = await servicos.GetRequiredService<EvolucaoEnfermagemService>()
+                .DoPacienteAsync(pacienteId, limite: 200);
+            if (geracao != _geracaoCarga) return;
+
+            var infusoes = await servicos.GetRequiredService<PrescricaoInternaService>()
+                .DoPacienteAsync(pacienteId, limite: 200);
+            if (geracao != _geracaoCarga) return;
+
+            var documentos = MostrarDocumentos
+                ? await servicos.GetRequiredService<DocumentoClinicoService>()
+                    .DoPacienteAsync(pacienteId)
+                : [];
+            if (geracao != _geracaoCarga) return;
+
+            // ⚠️ `Efetivas` e não `Permissoes` cru: sem sessão autenticada `Pode` LIBERA
+            // (a regra do projeto), e ler o campo direto faria o componente abrir vazio
+            // fora do login — tela vazia se lê como defeito.
+            _porNatureza = LinhaDoTempoClinica.Montar(
+                SessaoUsuario.Atual.Efetivas,
+                sessoes, anexos, enfermagem, infusoes, documentos);
+
+            MontarChips();
+            Publicar();
+        }
+        catch (Exception ex)
+        {
+            if (geracao != _geracaoCarga) return;
+            NaoVerificado = true;
+            Diagnostico.Registrar("Linha do tempo clínica não pôde ser carregada", ex);
+            Mensagem = ex.Message;
+        }
+        finally
+        {
+            if (geracao == _geracaoCarga) Carregando = false;
+        }
+    }
+
+    public Task RecarregarAsync() => CarregarAsync(_pacienteId);
+
+    private void Limpar()
+    {
+        _porNatureza = new Dictionary<NaturezaRegistroClinico, IReadOnlyList<RegistroClinicoPaciente>>();
+        Chips.Clear();
+        Itens.Clear();
+        Resumo = string.Empty;
+    }
+
+    private void MontarChips()
+    {
+        var visiveis = Secoes
+            .Where(n => MostrarDocumentos || n != NaturezaRegistroClinico.DocumentoClinico)
+            // Seção que a pessoa não pode ler vem VAZIA do montador, e some — anunciar
+            // "Médica (0)" a quem não tem `VerProntuario` contaria que existem sessões.
+            .Where(n => SessaoUsuario.Atual.Efetivas.HasFlag(
+                CatalogoRegistroClinico.Obter(n).PermissaoVer))
+            .ToList();
+
+        // Entre o Clear() e o último Add não pode haver await (parcela 62) — aqui não há,
+        // e o padrão fica pelo mesmo motivo de sempre.
+        var novos = visiveis
+            .Select(n => new ChipSecaoClinica
+            {
+                Natureza = n,
+                Rotulo = RotuloCurto(n),
+                Quantidade = _porNatureza.GetValueOrDefault(n)?.Count ?? 0
+            })
+            .ToList();
+
+        Chips.Clear();
+        foreach (var c in novos) Chips.Add(c);
+
+        // A seção pedida pela porta, quando ela existe para esta pessoa.
+        if (!visiveis.Contains(Secao))
+            Secao = visiveis.Contains(SecaoInicial)
+                ? SecaoInicial
+                : visiveis.FirstOrDefault();
+    }
+
+    private void Publicar()
+    {
+        foreach (var chip in Chips) chip.Marcado = chip.Natureza == Secao;
+
+        var lista = _porNatureza.GetValueOrDefault(Secao) ?? [];
+
+        // Do mais recente para o mais antigo, DENTRO da natureza — nunca entre naturezas
+        // (ver o comentário da classe).
+        var ordenada = lista.OrderByDescending(r => r.Momento).ThenByDescending(r => r.Id);
+        var recorte = (Compacto ? ordenada.Take(3) : ordenada).ToList();
+
+        Itens.Clear();
+        foreach (var r in recorte) Itens.Add(r);
+
+        var total = lista.Count;
+        var info = CatalogoRegistroClinico.Obter(Secao);
+
+        Resumo = total == 0
+            ? $"Nenhuma {info.Singular} registrada para este paciente."
+            : Compacto && total > recorte.Count
+                ? $"{recorte.Count} de {CatalogoRegistroClinico.Contar(Secao, total)}"
+                : CatalogoRegistroClinico.Contar(Secao, total);
+    }
+}

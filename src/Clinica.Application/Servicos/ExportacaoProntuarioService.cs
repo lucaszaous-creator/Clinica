@@ -3,6 +3,7 @@ using System.Text;
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -56,6 +57,31 @@ public sealed class ExportacaoProntuarioService
     private static readonly CultureInfo Fixa = CultureInfo.InvariantCulture;
 
     public ExportacaoProntuarioService(IClinicaRepositorio repo) => _repo = repo;
+
+    /// <summary>
+    /// ⚠️ O ARQUIVO de cada natureza clínica (parcela 72) — a declaração que
+    /// <c>ConjuntoClinicoTests</c> confere contra <see cref="CatalogoRegistroClinico"/>,
+    /// natureza a natureza, gravando um registro de cada e exigindo que ele APAREÇA.
+    ///
+    /// O defeito que ela existe para impedir já foi cometido duas vezes neste arquivo: a
+    /// folha de infusão e a lista de problemas — onde moram as ALERGIAS — ficaram de fora
+    /// da primeira versão. Um prontuário exportado sem elas entrega ao próximo fornecedor
+    /// um paciente "sem alergia nenhuma". Declaração sozinha pode mentir, e é por isso que
+    /// o teste é COMPORTAMENTAL: ele lê o CSV.
+    /// </summary>
+    public static IReadOnlyDictionary<NaturezaRegistroClinico, string> ArquivoPorNatureza { get; } =
+        new Dictionary<NaturezaRegistroClinico, string>
+        {
+            [NaturezaRegistroClinico.SessaoMedica] = "prontuario-sessoes.csv",
+            [NaturezaRegistroClinico.EvolucaoEnfermagem] = "prontuario-enfermagem.csv",
+            [NaturezaRegistroClinico.PrescricaoInterna] = "prontuario-prescricoes.csv",
+            [NaturezaRegistroClinico.DocumentoClinico] = "prontuario-documentos.csv",
+            [NaturezaRegistroClinico.AvaliacaoClinica] = "prontuario-avaliacoes.csv",
+            [NaturezaRegistroClinico.MedidaClinica] = "prontuario-medidas.csv",
+            [NaturezaRegistroClinico.ProblemaPaciente] = "prontuario-problemas.csv",
+            [NaturezaRegistroClinico.Anexo] = "prontuario-anexos.csv",
+            [NaturezaRegistroClinico.MapaCorporal] = "prontuario-mapa-corporal.csv"
+        };
 
     /// <summary>
     /// Exporta o prontuário de todos os pacientes (ou de um só, quando

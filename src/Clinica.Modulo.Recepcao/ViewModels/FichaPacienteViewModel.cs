@@ -661,14 +661,22 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var evolucoes = await prontuario.DoPacienteAsync(pacienteId);
         if (geracao != _geracaoCarga) return;
 
+        // ⚠️ UMA consulta, não uma por sessão (parcela 72). Este laço fazia
+        // `AnexosAsync(e.Id)` DENTRO do foreach: quarenta sessões eram quarenta viagens a
+        // um banco remoto, a cada recarga da tela que o balcão abre com o paciente na
+        // frente. O método em lote existe exatamente para isso, e as DUAS telas irmãs já o
+        // usavam — esta é a que ficou para trás.
+        var anexos = await prontuario.ContagemDeAnexosAsync(
+            evolucoes.Select(e => e.Id).ToList());
+        if (geracao != _geracaoCarga) return;
+
+        // Entre o Clear() e o último Add não pode haver await (parcela 62).
+        var sessoes = evolucoes
+            .Select(e => LinhaEvolucao.De(e, anexos.GetValueOrDefault(e.Id)))
+            .ToList();
+
         Prontuario.Clear();
-        foreach (var e in evolucoes)
-        {
-            var anexos = await prontuario.AnexosAsync(e.Id);
-            // Chegou tarde: parar a montagem impede a lista velha de terminar por cima da nova.
-            if (geracao != _geracaoCarga) return;
-            Prontuario.Add(LinhaEvolucao.De(e, anexos.Count));
-        }
+        foreach (var linha in sessoes) Prontuario.Add(linha);
 
         var dor = await prontuario.EvolucaoDaDorAsync(pacienteId);
         if (geracao != _geracaoCarga) return;
@@ -1106,27 +1114,52 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         await AbrirEvolucaoAsync(linha.EvolucaoId);
     }
 
+    /// <summary>
+    /// Cancela a sessão do prontuário — nunca apaga (Lei 13.787/2018, guarda de 20 anos).
+    ///
+    /// ⚠️ O QUE ESTAVA ERRADO AQUI, e derrubava dois pontos do compromisso de conformidade
+    /// (parcela 72). A chamada era
+    /// <c>CancelarAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador)</c> —
+    /// <b>POSICIONAL</b>, com o login caindo na vaga do MOTIVO. Compilava porque os dois
+    /// são <c>string</c>, e o resultado era: <c>MotivoCancelamento = "ana.silva"</c>,
+    /// <c>CanceladaPor = null</c> e auditoria com <c>Operador = "?"</c>. E como
+    /// <c>SessaoUsuario.Operador</c> nunca é vazio (cai em <c>Environment.UserName</c>), a
+    /// única recusa do serviço — "diga por que a sessão está sendo cancelada" — NUNCA
+    /// disparava. Ponto 1 (cancela-se com motivo obrigatório) e ponto 6 (quem assina é quem
+    /// fez login), os dois de pé só no papel.
+    ///
+    /// E o rótulo mentia junto: botão "Excluir", diálogo "APAGAR a sessão? os anexos dela
+    /// vão junto" e snackbar "sessão EXCLUÍDA" — nada é apagado desde a parcela 52, e os
+    /// anexos não vão a lugar nenhum. A tela irmã do mesmo módulo (<c>ProntuarioViewModel</c>)
+    /// já fazia certo; esta é a cópia que ficou para trás.
+    /// </summary>
     [RelayCommand]
-    private async Task ExcluirEvolucaoAsync(LinhaEvolucao? linha)
+    private async Task CancelarEvolucaoAsync(LinhaEvolucao? linha)
     {
         if (linha is null) return;
 
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-        if (!_dialogo.ConfirmarPerigo("Excluir do prontuário",
-                $"Apagar a sessão de {linha.Data}? Os anexos dela vão junto, e o prontuário "
-                + "é documento clínico — a exclusão fica registrada na auditoria.")) return;
-
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar sessão do prontuário",
+                $"Por que a sessão de {linha.Data} está sendo cancelada? Ela NÃO é apagada — "
+                + "sai do prontuário que se lê e fica guardada, com este motivo ao lado.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.CancelarAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info("Sessão excluída do prontuário.");
+            await prontuario.CancelarAsync(
+                linha.EvolucaoId, motivo, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info("Sessão cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar("Recepção — evolução não pôde ser excluída", ex);
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — evolução não pôde ser cancelada", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }

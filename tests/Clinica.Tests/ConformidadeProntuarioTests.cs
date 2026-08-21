@@ -1,6 +1,7 @@
 using Clinica.Application.Servicos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 using Clinica.Infrastructure;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
@@ -109,7 +110,7 @@ public class ConformidadeProntuarioTests : IDisposable
 
         var situacao = await _guarda.DoPacienteAsync(paciente);
 
-        situacao.Sessoes.Should().Be(0);
+        situacao.De(NaturezaRegistroClinico.SessaoMedica).Should().Be(0);
         situacao.SessoesCanceladas.Should().Be(1);
         situacao.UltimoRegistro.Should().Be(Dia, "cancelada é registro guardado, não registro inexistente");
         situacao.TotalDeRegistros.Should().Be(1);
@@ -384,7 +385,7 @@ public class ConformidadeProntuarioTests : IDisposable
 
         var situacao = await _guarda.DoPacienteAsync(paciente);
 
-        situacao.Prescricoes.Should().Be(1);
+        situacao.De(NaturezaRegistroClinico.PrescricaoInterna).Should().Be(1);
         situacao.UltimoRegistro.Should().Be(new DateOnly(2026, 8, 3),
             "a folha diz o que entrou no paciente — ignorá-la calcularia o prazo pelo "
             + "registro errado, e para MENOS");
