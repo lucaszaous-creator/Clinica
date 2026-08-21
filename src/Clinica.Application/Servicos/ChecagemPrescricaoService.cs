@@ -41,8 +41,9 @@ public sealed record IdentificacaoExecutante(int? UsuarioId, string Nome, string
                 $"O seu login não tem o registro no conselho (COREN/CRM) e não dá para "
                 + $"{ato} sem ele: o número é parte da assinatura profissional e fica "
                 + "COPIADO no prontuário — corrigir depois exigiria retificar registro a "
-                + "registro. Peça em Acessos para vincular o seu cadastro de profissional "
-                + "a este login.");
+                + "registro. O conserto é em duas telas: em Equipe, preencha o registro no "
+                + "conselho na ficha do profissional; em Acessos, vincule essa ficha a este "
+                + "login. Depois, entre de novo.");
     }
 }
 

@@ -1154,18 +1154,32 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task AbrirEvolucaoAsync(int? evolucaoId)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-        if (PacienteId == 0) return;
-
-        var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
-        var janela = new Janelas.EvolucaoWindow(vm)
+        // ⚠️ `Exigir` LANÇA, e este método é chamado de três lugares — inclusive do
+        // componente da linha do tempo, cujo comando não tem try. Fora do try, a recusa
+        // sobe até a rede do Dispatcher em vez de virar a frase que explica: é o mesmo
+        // defeito que a parcela 72 corrigiu nos botões desta tela, uma camada abaixo.
+        try
         {
-            Owner = JanelaDona.Atual()
-        };
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            if (PacienteId == 0) return;
 
-        if (janela.ShowDialog() != true) return;
-        _snackbar.Sucesso("Prontuário atualizado.");
-        await CarregarAsync();
+            var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
+            var janela = new Janelas.EvolucaoWindow(vm)
+            {
+                Owner = JanelaDona.Atual()
+            };
+
+            if (janela.ShowDialog() != true) return;
+            _snackbar.Sucesso("Prontuário atualizado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — sessão do prontuário não pôde ser aberta", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
     }
 
     /// <summary>Registra que o paciente CONCEDEU o consentimento desta finalidade.</summary>

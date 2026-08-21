@@ -258,6 +258,12 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     {
         if (!PodeVerFicha) return;
 
+        // ⚠️ A busca AVANÇA a geração da lista (parcela 72). Sem isto, uma carga da fila do
+        // dia no ar quando a pessoa começa a digitar responderia DEPOIS e sobrescreveria o
+        // resultado da busca — a lista mostraria o dia com o termo digitado no campo, que é
+        // a tela mentindo de um jeito que não reproduz em banco local.
+        ++_geracaoLista;
+
         var termo = Seletor.Termo;
 
         // Sem termo e fora do modo "todos", a lista volta a ser a do dia.
