@@ -4486,6 +4486,22 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   barreira e o comentário nomeando esses perfis. Achado ao construir esta parcela, e
   corrigido antes dela — **entregar dado clínico novo por uma porta aberta pioraria a
   conformidade que a feature existe para melhorar.**
+  ⚠️ **E as duas primeiras portas não bastavam — foi preciso a TELA.** A evolução nasceu
+  alcançável pela fila da sala de infusão e pela ficha do paciente, e as duas resolvem o
+  caso da INFUSÃO. A clínica devolveu a frase que muda o desenho: *"todo paciente precisa
+  passar pela enfermagem"*. A maioria dessas passagens não tem folha nenhuma — curativo,
+  triagem, observação, pós-consulta —, e a enfermeira não tinha de onde alcançá-las: a sala
+  só mostra as folhas do DIA, e a ficha exige saber o nome e passar pelo módulo da recepção.
+  A tela `Enfermagem` é a **terceira tela do shell publicada por dois módulos** (a sala e os
+  pacotes são as outras), e é SEPARADA da sala de propósito: a sala responde *"o que
+  executar agora"*, esta responde *"quem eu atendi e o que escrevi"*. Terceira pergunta,
+  terceira tela. A lista traz **todos os pacientes cadastrados** (`limite: null`, como a
+  listagem do balcão) e a evolução mora atrás de UM clique — lista de largura inteira → tela
+  do paciente, nunca a faixa lateral que o README proíbe.
+  A lição: **porta no fluxo não é porta na rotina.** Pendurar o registro nas telas do
+  processo que o motivou (a infusão) cobre quem está DENTRO daquele processo; quem faz o
+  mesmo trabalho fora dele fica sem lugar — e é o defeito recorrente do projeto na variante
+  "a porta existe, mas só para metade dos casos".
   De quebra: `SessaoUsuario.RegistroConselho` nasceu porque a folha gravava `Conselho: null`
   **literal** desde a parcela 42 — a coluna existia, o PDF tinha o ramo que a imprime e a
   exportação tinha a coluna, e nenhuma checagem de produção saía identificada. **Registro de

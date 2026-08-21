@@ -108,6 +108,19 @@ public static class ChavesSuite
     public const string SalaInfusao = "consultorio-sala-infusao";
 
     /// <summary>
+    /// A tela da ENFERMAGEM (parcela 71): todos os pacientes cadastrados e a evolução de
+    /// cada um. Terceira tela do SHELL publicada por DOIS módulos, pela razão da sala de
+    /// infusão logo acima — a enfermagem entra pelo `Clinica.Recepcao.exe` e pelo
+    /// `Clinica.Clinico.exe`, e a dedupe do shell funde as duas no Gerente.
+    ///
+    /// ⚠️ É tela SEPARADA da sala de infusão de propósito: a sala responde "o que executar
+    /// agora" e só mostra as folhas do dia; esta responde "quem eu atendi e o que escrevi",
+    /// e a clínica disse que TODO paciente passa pela enfermagem — a maioria dessas
+    /// passagens não tem folha nenhuma.
+    /// </summary>
+    public const string Enfermagem = "enfermagem";
+
+    /// <summary>
     /// Pacotes de sessões — a segunda tela do SHELL publicada por DOIS módulos
     /// (Financeiro e Recepção, parcela 60). Mora aqui pela razão da sala de infusão logo
     /// acima, e agora com um caso concreto no currículo: enquanto era literal dos dois

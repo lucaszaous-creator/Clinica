@@ -1,0 +1,236 @@
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.EnfermagemView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+             Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================
+         A TELA DA ENFERMAGEM (parcela 71).
+
+         LISTA → TELA DO PACIENTE, as duas com a largura inteira. Grudar a lista à
+         esquerda da evolução seria a faixa lateral que o README proíbe — e que o
+         cliente já reprovou sete vezes.
+
+         A lista traz TODOS os pacientes cadastrados (`limite: null`): a clínica
+         disse que todo paciente passa pela enfermagem, e a maioria dessas passagens
+         não tem folha de infusão nenhuma.
+         ============================================================ -->
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+
+    <Grid>
+
+        <!-- ==================================================================
+             TELA 1 — a CARTEIRA, com a largura inteira.
+             ================================================================== -->
+        <DockPanel Margin="24,20,24,24"
+                   Visibility="{Binding MostrandoLista, Converter={StaticResource BoolParaVisibilidade}}">
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                <TextBlock Text="Enfermagem" Style="{StaticResource H1}" Margin="0" />
+                <TextBlock Style="{StaticResource TextoSuave}"
+                           Text="Todos os pacientes da clínica. Abra alguém para ver e escrever a evolução de enfermagem — sinais vitais, intercorrências e o que foi observado em cada passagem." />
+            </StackPanel>
+
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="420" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" Style="{StaticResource CampoPesquisa}"
+                         Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                         ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+            </Grid>
+
+            <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}"
+                       Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8" />
+
+            <!-- UMA superfície para a região inteira, e a separação entre as linhas por
+                 espaço — não uma moldura por paciente. -->
+            <Border Style="{StaticResource Card}">
+                <Grid>
+                    <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                       Itens="{Binding Seletor.Resultados}"
+                                       Carregando="{Binding Seletor.Buscando}"
+                                       Glifo="&#xE77B;"
+                                       Titulo="Nenhum paciente encontrado"
+                                       Descricao="Ajuste a busca — a lista traz todos os pacientes cadastrados na clínica." />
+
+                    <!-- O escopo do tamanho compartilhado: sem ele, cada linha resolve as
+                         próprias colunas e a tabela vira uma pilha de linhas parecidas. -->
+                    <DockPanel Grid.IsSharedSizeScope="True">
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaAvatar" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaSelos" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="1" Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                        </Grid>
+
+                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
+                                 SelectedItem="{Binding Seletor.Selecionado}"
+                                 ItemTemplate="{StaticResource ItemPacienteLinha}"
+                                 BorderThickness="0" Background="Transparent"
+                                 HorizontalContentAlignment="Stretch"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </DockPanel>
+                </Grid>
+            </Border>
+        </DockPanel>
+
+        <!-- ==================================================================
+             TELA 2 — o PACIENTE: a evolução dele, com a largura inteira.
+             ================================================================== -->
+        <DockPanel Margin="24,20,24,24">
+            <DockPanel.Style>
+                <Style TargetType="DockPanel">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MostrandoLista}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DockPanel.Style>
+
+            <!-- A identidade no TOPO, uma vez: num app em que se passa vinte minutos sobre
+                 a mesma pessoa, o nome é âncora, não rótulo. E as ações viajam com ela. -->
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Content="&#xE72B;  Voltar" MinWidth="110"
+                        VerticalAlignment="Center" Margin="0,0,16,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding VoltarCommand}" />
+
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade}}" />
+                </StackPanel>
+
+                <Button Grid.Column="2" Content="Escrever evolução" MinWidth="180"
+                        VerticalAlignment="Center"
+                        IsEnabled="{Binding PodeRegistrar}"
+                        ToolTip="Abre o registro da passagem: hora do que foi observado, sinais vitais e intercorrência. Grava no prontuário com a sua identificação e o registro no conselho."
+                        Command="{Binding RegistrarCommand}" />
+            </Grid>
+
+            <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <Border Style="{StaticResource Card}">
+                <Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Registros}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0,12"
+                                            BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Margin="0,0,14,0">
+                                                <TextBlock Text="{Binding Data}" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Hora}"
+                                                           FontSize="{StaticResource Fonte.H3}"
+                                                           FontWeight="Bold"
+                                                           TextTrimming="CharacterEllipsis">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Foreground"
+                                                                    Value="{StaticResource Brush.Texto.Primario}" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding EmDestaque}" Value="True">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Aviso}" />
+                                                                </DataTrigger>
+                                                                <DataTrigger Binding="{Binding Vigente}" Value="False">
+                                                                    <Setter Property="Foreground"
+                                                                            Value="{StaticResource Brush.Texto.Secundario}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding SinaisVitais}" TextWrapping="Wrap"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           Visibility="{Binding SinaisVitais, Converter={StaticResource TextoParaVisibilidade}}" />
+                                                <TextBlock Text="{Binding Marca}" TextWrapping="Wrap"
+                                                           FontWeight="SemiBold" Margin="0,2,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Aviso}"
+                                                           Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}" />
+                                                <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"
+                                                           Style="{StaticResource TextoSuave}">
+                                                    <Run Text="{Binding Autor, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Registro, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Folha, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <Border Grid.Column="2" Style="{StaticResource Badge.Aviso}"
+                                                    VerticalAlignment="Top"
+                                                    Visibility="{Binding EmDestaque, Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="INTERCORRÊNCIA" />
+                                            </Border>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <ctrl:EstadoDaTela Itens="{Binding Registros}"
+                                       Carregando="{Binding Carregando}"
+                                       NaoVerificado="{Binding NaoVerificado}"
+                                       Glifo="&#xE9D5;"
+                                       Titulo="Nenhuma evolução de enfermagem ainda"
+                                       Descricao="Use “Escrever evolução” para registrar esta passagem — o que foi observado, os sinais vitais e a hora do fato."
+                                       TextoCarregando="Buscando a evolução…" />
+                </Grid>
+            </Border>
+        </DockPanel>
+    </Grid>
+</UserControl>

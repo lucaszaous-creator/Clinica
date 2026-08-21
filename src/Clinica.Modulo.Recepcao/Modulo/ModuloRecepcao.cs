@@ -34,6 +34,13 @@ public sealed class ModuloRecepcao : IModuloApp
     /// escrita à mão de cada lado, renomear uma compilava dos dois e quebrava em produção.
     /// </summary>
     public const string ChaveSalaInfusao = ChavesSuite.SalaInfusao;
+
+    /// <summary>
+    /// A tela da ENFERMAGEM (parcela 71). Terceira tela do SHELL publicada por DOIS
+    /// módulos, pela razão da sala de infusão acima — e a chave mora em ChavesSuite
+    /// porque literal à mão dos dois lados sempre compila e some em silêncio.
+    /// </summary>
+    public const string ChaveEnfermagem = ChavesSuite.Enfermagem;
     public const string ChaveDocumentos = ChavesSuite.Documentos;
 
     /// <summary>
@@ -100,6 +107,17 @@ public sealed class ModuloRecepcao : IModuloApp
         {
             Chave = ChaveSalaInfusao, Rotulo = "Sala de infusão", Glifo = "\uE9D5",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.ChecarPrescricao
+        },
+
+        // A tela da ENFERMAGEM: TODOS os pacientes cadastrados e a evolução de cada
+        // um. SEPARADA da sala de infusão de propósito — a sala responde "o que
+        // executar agora" e só mostra as folhas do dia; esta responde "quem eu atendi
+        // e o que escrevi", e a clínica disse que todo paciente passa pela enfermagem.
+        // Terceira pergunta, terceira tela.
+        new ItemMenuModulo
+        {
+            Chave = ChaveEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.RegistrarEvolucaoEnfermagem
         },
         // Cadastro da equipe \u00E9 gest\u00E3o da cl\u00EDnica, n\u00E3o do paciente: quem mexe aqui est\u00E1
         // organizando quem atende e onde, n\u00E3o atendendo algu\u00E9m.
@@ -255,6 +273,7 @@ public sealed class ModuloRecepcao : IModuloApp
         servicos.AddTransient<ConsultasViewModel>();
         servicos.AddTransient<RetornoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
+        servicos.AddTransient<EnfermagemViewModel>();
         // Tela do SHELL, como a sala de infusão: quem publica o item REGISTRA e CONSTRÓI.
         // Faltavam as duas coisas — o item acendia na sidebar e nada abria (parcela 62).
         servicos.AddTransient<PacotesViewModel>();
@@ -281,6 +300,10 @@ public sealed class ModuloRecepcao : IModuloApp
         ChaveSalaInfusao => new SalaInfusaoView
         {
             DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()
+        },
+        ChaveEnfermagem => new EnfermagemView
+        {
+            DataContext = servicos.GetRequiredService<EnfermagemViewModel>()
         },
         // Tela do SHELL (parcela 60), como a sala de infusão acima. O item era publicado
         // e este `case` NÃO existia: o shell marcava o item como ativo, `MontarTela`
