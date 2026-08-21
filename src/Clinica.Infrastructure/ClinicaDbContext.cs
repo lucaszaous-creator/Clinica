@@ -54,6 +54,7 @@ public class ClinicaDbContext : DbContext
     public DbSet<PrescricaoInterna> PrescricoesInternas => Set<PrescricaoInterna>();
     public DbSet<ItemPrescricaoInterna> ItensPrescricaoInterna => Set<ItemPrescricaoInterna>();
     public DbSet<ChecagemPrescricao> ChecagensPrescricao => Set<ChecagemPrescricao>();
+    public DbSet<EvolucaoEnfermagem> EvolucoesEnfermagem => Set<EvolucaoEnfermagem>();
     public DbSet<AssinaturaDocumento> AssinaturasDocumento => Set<AssinaturaDocumento>();
     public DbSet<ArquivoAssinado> ArquivosAssinados => Set<ArquivoAssinado>();
     public DbSet<TracoAssinatura> TracosAssinatura => Set<TracoAssinatura>();
@@ -854,6 +855,50 @@ public class ClinicaDbContext : DbContext
 
             e.Ignore(x => x.EhRetificacao);
             e.Ignore(x => x.AtrasoDoRegistro);
+        });
+
+        // A EVOLUÇÃO DE ENFERMAGEM (parcela 71). Ao lado da checagem porque é a mesma
+        // família e o mesmo desenho de autoria — mas o DONO é o paciente, não a folha.
+        b.Entity<EvolucaoEnfermagem>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Texto).IsRequired().HasMaxLength(4000);
+            e.Property(x => x.AutorNome).IsRequired().HasMaxLength(120);
+            e.Property(x => x.AutorConselho).HasMaxLength(60);
+            e.Property(x => x.MotivoRetificacao).HasMaxLength(500);
+            e.Property(x => x.MotivoCancelamento).HasMaxLength(500);
+            e.Property(x => x.CanceladaPor).HasMaxLength(120);
+            e.Property(x => x.Temperatura).HasPrecision(4, 1);
+            // ⚠️ Parcela 67: sem isto o Npgsql RECUSA gravar (Kind=Local numa coluna com
+            // fuso) e o SQLite dos testes não pega. DatasSemFusoTests cobra.
+            e.Property(x => x.RegistradoEm).HasColumnType("timestamp without time zone");
+            e.Property(x => x.CanceladaEm).HasColumnType("timestamp without time zone");
+
+            e.HasOne(x => x.Paciente).WithMany()
+                .HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
+
+            // ⚠️ SetNull, e a FK é ANULÁVEL: registro clínico não se apaga por arrasto.
+            // Obrigatória, o EF forçaria Cascade — e apagar uma folha levaria junto o que
+            // a enfermagem escreveu. É a cascata que a parcela 60 achou no excluir paciente.
+            e.HasOne(x => x.Prescricao).WithMany(x => x.EvolucoesEnfermagem)
+                .HasForeignKey(x => x.PrescricaoInternaId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.Agendamento).WithMany()
+                .HasForeignKey(x => x.AgendamentoId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.AutorUsuario).WithMany()
+                .HasForeignKey(x => x.AutorUsuarioId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.RetificaEvolucao).WithMany()
+                .HasForeignKey(x => x.RetificaEvolucaoId).OnDelete(DeleteBehavior.Restrict);
+
+            e.HasIndex(x => new { x.PacienteId, x.Data });   // a linha do tempo do prontuário
+            e.HasIndex(x => x.PrescricaoInternaId);          // a lista da folha
+
+            e.Ignore(x => x.Cancelada);
+            e.Ignore(x => x.EhRetificacao);
+            e.Ignore(x => x.Momento);
+            e.Ignore(x => x.AtrasoDoRegistro);
+            e.Ignore(x => x.PressaoArterial);
+            e.Ignore(x => x.TemSinaisVitais);
+            e.Ignore(x => x.SinaisVitaisResumidos);
         });
 
         b.Entity<AssinaturaDocumento>(e =>

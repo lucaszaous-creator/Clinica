@@ -22,6 +22,9 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para QUALQUER texto (a
+             lição da parcela 61). -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <Grid>
@@ -447,7 +450,16 @@
                     </DockPanel>
                 </TabItem>
 
-                <TabItem Header="Prontuário">
+                <!-- ⚠️ Dado de SAÚDE (art. 5º, II). A aba não tinha barreira NENHUMA: os
+                     perfis Recepção, Financeiro e Faturista têm `VerFichaPaciente` e NÃO
+                     têm `VerProntuario`, e liam a evolução inteira de qualquer paciente —
+                     exatamente o que o corte da parcela 49 existe para impedir. A seção de
+                     termos, 270 linhas abaixo neste mesmo arquivo, já tinha a barreira e o
+                     comentário nomeando esses dois perfis. Nem ler nem desenhar: a aba
+                     SOME para quem não tem o bit. -->
+                <TabItem Header="Prontuário"
+                         Visibility="{Binding PodeVerProntuario,
+                                      Converter={StaticResource BoolParaVisibilidade}}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                         <StackPanel Margin="0,0,0,24">
                 <Border Style="{StaticResource Card}">
@@ -530,6 +542,96 @@
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                             </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- ⚠️ SEPARADA das sessões, e não é preferência estética — é bug evitado:
+                     `LinhaEvolucao.EvolucaoId` é a chave das ações destrutivas da lista
+                     acima, e ids são POR TABELA. A evolução de enfermagem nº 42 na mesma
+                     lista cancelaria a Evolucao nº 42 — sessão de outro paciente, com o
+                     motivo escrito para outra coisa. Não estoura, não avisa. -->
+                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Evolução de enfermagem" Style="{StaticResource H3}" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           Text="O que a enfermagem observou no paciente — sinais vitais, intercorrências e a evolução de cada passagem." />
+                            </StackPanel>
+                            <Button Grid.Column="1" Content="Registrar" MinWidth="120"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource BotaoSecundario}"
+                                    IsEnabled="{Binding PodeRegistrarEnfermagem}"
+                                    ToolTip="Registrar uma passagem pela enfermagem que não veio de folha de infusão — curativo, sala de observação, triagem."
+                                    Command="{Binding RegistrarEnfermagemCommand}" />
+                        </Grid>
+
+                        <TextBlock Text="Nenhum registro de enfermagem ainda." Margin="0,12">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Enfermagem.Count}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+
+                        <ItemsControl ItemsSource="{Binding Enfermagem}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="0,10"
+                                            BorderBrush="{StaticResource Brush.Borda}"
+                                            BorderThickness="0,0,0,1">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                                <TextBlock Text="{Binding Data}" FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Hora}"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1">
+                                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding SinaisVitais}" TextWrapping="Wrap"
+                                                           Style="{StaticResource TextoSuave}"
+                                                           Visibility="{Binding SinaisVitais, Converter={StaticResource TextoParaVisibilidade}}" />
+                                                <TextBlock Text="{Binding Marca}" TextWrapping="Wrap"
+                                                           FontWeight="SemiBold" Margin="0,2,0,0"
+                                                           FontSize="{StaticResource Fonte.Legenda}"
+                                                           Foreground="{StaticResource Brush.Aviso}"
+                                                           Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}" />
+                                                <TextBlock TextWrapping="Wrap" Margin="0,3,0,0"
+                                                           Style="{StaticResource TextoSuave}">
+                                                    <Run Text="{Binding Autor, Mode=OneWay}" />
+                                                    <Run Text=" · " />
+                                                    <Run Text="{Binding Folha, Mode=OneWay}" />
+                                                </TextBlock>
+                                            </StackPanel>
+
+                                            <Border Grid.Column="2" Style="{StaticResource Badge.Aviso}"
+                                                    VerticalAlignment="Top"
+                                                    Visibility="{Binding EmDestaque, Converter={StaticResource BoolParaVisibilidade}}">
+                                                <TextBlock Text="INTERCORRÊNCIA" />
+                                            </Border>
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

@@ -31,7 +31,18 @@ public enum OrigemAcessoProntuario
     /// exercendo o art. 18; aqui é o dado de saúde SAINDO do sistema para um arquivo — o
     /// caminho mais fácil de ele sair da clínica, e o que uma investigação procura.
     /// </summary>
-    ExportacaoClinica
+    ExportacaoClinica,
+
+    /// <summary>
+    /// Sala de infusão: a folha de execução e a evolução de enfermagem (parcela 71).
+    ///
+    /// Origem própria porque "abriu a folha na sala" e "abriu o prontuário clínico" são
+    /// acessos de natureza diferente ao mesmo paciente, e é a distinção que uma
+    /// investigação procura. ⚠️ A origem é gravada como TEXTO dentro da ação e a leitura
+    /// casa por prefixo, então o valor novo é aditivo — nenhuma consulta de app velho
+    /// quebra por causa dele.
+    /// </summary>
+    SalaInfusao
 }
 
 /// <summary>
@@ -222,6 +233,9 @@ public sealed class AcessoProntuarioService
         OrigemAcessoProntuario.ExportacaoTitular => "Dados do titular exportados (LGPD art. 18, II)",
         OrigemAcessoProntuario.Documento => "Documento do prontuário aberto",
         OrigemAcessoProntuario.ExportacaoClinica => "Dados clínicos exportados para arquivo",
+        // ⚠️ Sem o case aqui a trilha cai no "_" e diz "Prontuário acessado" — some
+        // justamente a distinção que o valor novo existe para dar.
+        OrigemAcessoProntuario.SalaInfusao => "Sala de infusão aberta",
         _ => "Prontuário acessado"
     };
 }

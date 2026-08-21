@@ -150,6 +150,22 @@
                                                     Command="{Binding DataContext.ImprimirCommand,
                                                               RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
+                                            <!-- ⚠️ A porta principal da evolução de enfermagem
+                                                 mora AQUI, e não dentro da folha: a folha
+                                                 encerrada apaga a janela dela inteira
+                                                 (PodeMexer exige EmExecucao), e o botão
+                                                 nasceria morto exatamente no caso que
+                                                 justifica a feature — a reação que aparece
+                                                 meia hora depois da última bomba. -->
+                                            <Button Content="Anotar" MinWidth="100" Margin="0,0,8,0"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource BotaoSecundario}"
+                                                    ToolTip="Registrar no prontuário o que foi observado no paciente — sinais vitais, intercorrência, evolução da passagem. Funciona também com a folha já encerrada."
+                                                    IsEnabled="{Binding DataContext.PodeRegistrarEnfermagem,
+                                                                RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    Command="{Binding DataContext.AnotarCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
                                             <Button Content="Abrir folha" MinWidth="130"
                                                     VerticalAlignment="Center"
                                                     IsEnabled="{Binding DataContext.PodeChecar,

@@ -307,7 +307,30 @@ public enum Permissao
     /// faria o termo depender de a pessoa certa estar livre naquele minuto — e termo que
     /// atrasa o procedimento é termo que a clínica aprende a pular.
     /// </summary>
-    ColherAssinaturaPaciente = 1 << 29
+    ColherAssinaturaPaciente = 1 << 29,
+
+    /// <summary>
+    /// Escrever a EVOLUÇÃO DE ENFERMAGEM no prontuário do paciente (parcela 71).
+    ///
+    /// Bit próprio, e a alternativa barata foi recusada de propósito: reusar
+    /// <see cref="ChecarPrescricao"/> não custaria uma linha, porque quem checa é quase
+    /// sempre quem anota. Mas <b>checar é afirmar que aquilo entrou no paciente</b>;
+    /// <b>evoluir é descrever o que se observou nele</b> — dois atos de peso diferente, e o
+    /// corte pelo ATO é a regra desde a parcela 45. Concretamente: a direção que quiser
+    /// deixar uma técnica nova executar sob supervisão sem ainda escrever no prontuário não
+    /// teria como, e o profissional que acompanha a infusão e não checa nada continuaria
+    /// sem porta.
+    ///
+    /// E NÃO é <see cref="EditarProntuario"/>: aquele é o bit da evolução MÉDICA, e
+    /// concedê-lo à enfermagem para destravar este registro daria junto a escrita do
+    /// prontuário inteiro — o bit sobrecarregado que a parcela 49 existe para desfazer.
+    ///
+    /// Nasce só no perfil <see cref="PerfilAcesso.Enfermagem"/>, que é a dona do ato (o
+    /// Gerente recebe tudo). O perfil Profissional NÃO o recebe por padrão: ele já escreve
+    /// evolução, e bit que ninguém usa vira bit que ninguém revisa. Devolver a alguém é um
+    /// clique em Acessos.
+    /// </summary>
+    RegistrarEvolucaoEnfermagem = 1 << 30
 }
 
 /// <summary>
@@ -434,7 +457,8 @@ public static class PerfisAcesso
             Permissao.VerAgenda |
             Permissao.VerFichaPaciente | Permissao.VerProntuario |
             Permissao.ColherAssinaturaPaciente |
-            Permissao.ChecarPrescricao,
+            Permissao.ChecarPrescricao |
+            Permissao.RegistrarEvolucaoEnfermagem,
 
         // ===== ADMINISTRATIVO/CAIXA =====
         // Ganhou a FICHA na parcela 49: sem ela a tela de inadimplência mostrava dívida de
@@ -532,6 +556,7 @@ public static class PerfisAcesso
         Permissao.VerIndicadores => "Ver indicadores",
         Permissao.DefinirMetas => "Definir metas do mês",
         Permissao.ColherAssinaturaPaciente => "Colher assinatura do paciente",
+        Permissao.RegistrarEvolucaoEnfermagem => "Registrar evolução de enfermagem",
         Permissao.GerenciarCampanhas => "Gerenciar campanhas",
         Permissao.GerenciarEquipe => "Cadastrar equipe",
         Permissao.GerenciarUsuarios => "Gerenciar usuários",
@@ -563,7 +588,8 @@ public static class PerfisAcesso
             or Permissao.VerDocumentos => "Paciente (cadastro)",
 
         Permissao.VerProntuario or Permissao.EditarProntuario
-            or Permissao.Prescrever or Permissao.ChecarPrescricao => "Clínico (dado sensível)",
+            or Permissao.Prescrever or Permissao.ChecarPrescricao
+            or Permissao.RegistrarEvolucaoEnfermagem => "Clínico (dado sensível)",
 
         Permissao.VerFinanceiro or Permissao.EditarFinanceiro
             or Permissao.VenderPacote => "Financeiro",
@@ -660,9 +686,13 @@ public static class PerfisAcesso
             + "comparar só com o mês anterior, que responde \"melhorou?\" e nunca "
             + "\"chegamos?\".",
         Permissao.ColherAssinaturaPaciente =>
-            "Apresentar o termo do procedimento ao paciente e colher a assinatura dele no "
-            + "tablet. Quem colhe TESTEMUNHA: o nome de quem estava na frente do paciente "
+            "Apresentar o termo do procedimento ao paciente e colher a assinatura dele na "
+            + "tela de assinatura. Quem colhe TESTEMUNHA: o nome de quem estava na frente do paciente "
             + "fica gravado no termo, e é ele que responde se o documento for contestado.",
+        Permissao.RegistrarEvolucaoEnfermagem =>
+            "Escrever no prontuário o que foi observado no paciente — sinais vitais, "
+            + "intercorrências e a evolução da passagem pela enfermagem. NÃO inclui "
+            + "escrever a evolução clínica nem prescrever.",
         Permissao.GerenciarCampanhas => "Gerar e disparar confirmação, NPS e recall.",
         Permissao.GerenciarEquipe => "Cadastrar profissionais e salas.",
         Permissao.GerenciarUsuarios => "Criar usuário, trocar senha e mexer em permissão.",

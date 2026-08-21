@@ -4433,3 +4433,60 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   A lição que generaliza: **ao passar a chamar um serviço externo duas vezes onde antes era
   uma, leia o que a AUTORIZAÇÃO permite — não só o que a chamada faz.** Escopo, cota e
   idempotência são propriedades do primeiro uso, e nenhuma delas aparece no teste local.
+
+- **A EVOLUÇÃO DE ENFERMAGEM, e por que ela não é a `Evolucao` com outro autor** (parcela
+  71 — a cliente: *"todo paciente precisa passar pela enfermagem, por isso precisamos que
+  também tenha um registro de evolução para enfermagem"*). São dois registros de naturezas
+  e responsabilidades diferentes: a evolução responde *"o que eu concluí e o que decidi
+  fazer"* e é de quem ATENDEU; esta responde *"o que eu observei no paciente, e a que
+  horas"* e é de quem EXECUTOU, com o registro no conselho ao lado. A evolução é UMA por
+  sessão, salva em várias passadas até ficar certa; esta são VÁRIAS por passagem — 14h20,
+  14h50, 15h10 —, cada uma um fato pontual que não se reescreve.
+  ⚠️ **Reusar a `Evolucao` com um campo de tipo foi medido e recusado**, e o argumento não
+  é conceitual: QUATRO leitores quebrariam **em silêncio**. `ConsultorioService.
+  EvolucaoDoHorario` cai para paciente + data, então a anotação da técnica cobriria a
+  sessão do médico e ela sumiria de "sessões sem evolução" — elo partido não vira erro,
+  vira LISTA VAZIA; `EvolucoesNoPeriodoAsync` filtra `ProfissionalId == null`, e a anotação
+  apareceria no "Meu dia" de TODOS; `CompletudeProntuario` passaria a medir o trabalho de
+  outra pessoa; e o relatório que o paciente leva ao CONVÊNIO imprime o autor por sessão.
+  É o mesmo argumento com que a parcela 42 recusou enfiar a folha de infusão em
+  `TipoDocumentoClinico`.
+  **O paciente é o DONO; a infusão é procedência.** `PrescricaoInternaId` é anulável, e não
+  por conveniência: FK obrigatória força `Cascade`, e apagar uma folha levaria junto
+  registro clínico — a cascata que a parcela 60 achou no excluir paciente. Sem isso ficariam
+  sem lugar o curativo, a sala de observação, a triagem e **a reação que aparece meia hora
+  depois de a folha ter sido encerrada**, que é justamente a que mais importa.
+  **Os SINAIS VITAIS moram na evolução, e não em `MedidaClinica`**: aquela não tem HORA (só
+  `DateOnly`), então três aferições na mesma infusão ficariam indistinguíveis — e é a
+  sequência dentro da sessão que faz a leitura de enfermagem ("PA 120x80 na admissão, 90x60
+  aos vinte minutos"). Faltam-lhe também temperatura, FC, FR e SpO₂. A divisão fica escrita
+  na tela: **aqui é o ponto no tempo; a CURVA continua sendo a tela de Medidas.** E a dor
+  aferida **não entra na curva de dor do prontuário** (`Evolucao.EvaAntes/Depois`): aquela
+  mede o efeito do TRATAMENTO entre sessões e a direção já a lê — misturá-las mudaria em
+  silêncio um número existente.
+  **A porta é a LINHA DA FILA da sala, não uma aba dentro da folha**, e a primeira razão
+  sozinha decide: `PodeMexer => PodeChecar && EmExecucao` — **folha encerrada apaga a janela
+  dela inteira**, e o botão nasceria morto exatamente no caso que justifica a feature. Some
+  a isso que a folha é MODAL (registrar uma reação na cadeira 3 com a folha da cadeira 1
+  aberta custaria dez gestos, com o paciente reagindo) e que ela já tem um campo de hora com
+  OUTRO significado, num registro cuja razão de existir é a hora ser a certa.
+  **Bit próprio** (`RegistrarEvolucaoEnfermagem`), e a alternativa de custo zero foi
+  recusada de propósito: reusar `ChecarPrescricao` não custaria uma linha, mas **checar é
+  afirmar que aquilo entrou no paciente; evoluir é descrever o que se observou nele** — dois
+  atos de peso diferente, e o corte pelo ATO é a regra desde a parcela 45.
+  **No prontuário, lista SEPARADA da médica — e não é estética, é bug evitado:**
+  `LinhaEvolucao.EvolucaoId` é a chave das ações destrutivas da lista de sessões, e ids são
+  POR TABELA. A evolução de enfermagem nº 42 na mesma lista cancelaria a `Evolucao` nº 42 —
+  de outro paciente, com o motivo escrito para outra coisa. Não estoura, não avisa.
+  ⚠️ **E a aba "Prontuário" da ficha não tinha barreira NENHUMA.** O item Pacientes pede só
+  `VerFichaPaciente`, o `TabItem` não tinha `Visibility` e `CarregarProntuarioAsync` não
+  tinha um único `Pode` — **Recepção, Financeiro e Faturista liam a evolução inteira de
+  qualquer paciente**, que é literalmente o que o corte da parcela 49 existe para impedir. A
+  contraprova estava 270 linhas abaixo no MESMO arquivo: `CarregarTermosAsync` tem a
+  barreira e o comentário nomeando esses perfis. Achado ao construir esta parcela, e
+  corrigido antes dela — **entregar dado clínico novo por uma porta aberta pioraria a
+  conformidade que a feature existe para melhorar.**
+  De quebra: `SessaoUsuario.RegistroConselho` nasceu porque a folha gravava `Conselho: null`
+  **literal** desde a parcela 42 — a coluna existia, o PDF tinha o ramo que a imprime e a
+  exportação tinha a coluna, e nenhuma checagem de produção saía identificada. **Registro de
+  enfermagem sem o número do conselho não é registro de enfermagem.**

@@ -97,6 +97,16 @@
                             IsEnabled="{Binding TemRegistroExecucao}"
                             ToolTip="O espelho eletrônico do que já foi checado. Habilita depois da primeira checagem."
                             Command="{Binding ImprimirRegistroCommand}" />
+                    <!-- A SEGUNDA porta da evolução de enfermagem, para quem já está
+                         aqui. ⚠️ FORA do IsEnabled do bloco de PodeMexer, de propósito: o
+                         bit é outro, e a folha ENCERRADA continua aceitando registro — a
+                         reação que aparece meia hora depois é justamente a que importa. -->
+                    <Button Content="Anotar" Margin="8,0,0,0" MinWidth="110"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeRegistrarEnfermagem}"
+                            ToolTip="Registrar no prontuário o que foi observado no paciente — sinais vitais, intercorrência, evolução da passagem."
+                            Command="{Binding AnotarCommand}" />
                     <Button Content="Fechar" IsCancel="True" MinWidth="100" Margin="8,0,0,0"
                             VerticalAlignment="Center"
                             Style="{StaticResource BotaoSecundario}" />

@@ -273,6 +273,17 @@ public class PrescricaoInterna
 
     public List<AssinaturaDocumento> Assinaturas { get; set; } = new();
 
+    /// <summary>
+    /// As evoluções de enfermagem escritas DURANTE esta infusão (parcela 71) — o que foi
+    /// observado no paciente enquanto a folha corria.
+    ///
+    /// ⚠️ A folha é PROCEDÊNCIA, não dona: o registro pertence ao paciente e sobrevive ao
+    /// encerramento da folha (a reação que aparece meia hora depois da última bomba é
+    /// justamente a que mais importa). Por isso a chave estrangeira do outro lado é
+    /// anulável e o apagamento é <c>SetNull</c>.
+    /// </summary>
+    public List<EvolucaoEnfermagem> EvolucoesEnfermagem { get; set; } = new();
+
     // ---- Leituras derivadas ----
 
     public bool EstaAssinada

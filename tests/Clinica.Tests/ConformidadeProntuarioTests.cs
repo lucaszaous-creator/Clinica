@@ -138,7 +138,11 @@ public class ConformidadeProntuarioTests : IDisposable
         var proibidos = new[]
         {
             "RemoverEvolucaoAsync", "RemoverAnexoAsync",
-            "RemoverMedidaAsync", "RemoverAvaliacaoAsync"
+            "RemoverMedidaAsync", "RemoverAvaliacaoAsync",
+            // ⚠️ Entra AQUI no mesmo commit em que a entidade nasce. A rede casa por LISTA
+            // DE NOMES, e um método novo que ela não conhece a faria responder "está limpo"
+            // — o ponto cego que a parcela 60 pagou caro para descobrir.
+            "RemoverEvolucaoEnfermagemAsync"
         };
 
         var metodos = typeof(Clinica.Application.Abstracoes.IClinicaRepositorio)
@@ -167,6 +171,31 @@ public class ConformidadeProntuarioTests : IDisposable
 
         (await _db.Pacientes.AnyAsync(p => p.Id == pacienteId)).Should().BeTrue();
         (await _db.Evolucoes.AnyAsync(e => e.PacienteId == pacienteId)).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// ⚠️ A sétima raiz clínica (parcela 71). Sem ela na conta de
+    /// <c>PacienteTemRegistroClinicoAsync</c>, a ficha cujo ÚNICO registro é uma evolução
+    /// de enfermagem continuaria REMOVÍVEL — e a exclusão a levaria por arrasto, com o
+    /// teste da lista de métodos proibidos verde ao lado. É literalmente o buraco que a
+    /// parcela 60 achou no botão de excluir paciente, um ano depois de ele existir.
+    /// </summary>
+    [Fact]
+    public async Task Excluir_paciente_que_so_tem_evolucao_de_ENFERMAGEM_e_RECUSADO()
+    {
+        var pacienteId = await CriarPacienteAsync("Só Enfermagem");
+
+        await new Clinica.Application.Servicos.EvolucaoEnfermagemService(_repo).RegistrarAsync(
+            pacienteId, Dia, new TimeOnly(9, 0), "Curativo trocado.",
+            new Clinica.Application.Servicos.IdentificacaoExecutante(
+                null, "Joana Técnica", "COREN-SP 999999"));
+
+        var recusa = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => new PacienteService(_repo).RemoverAsync(pacienteId));
+
+        recusa.Message.Should().Contain("20 anos");
+        (await _db.EvolucoesEnfermagem.AnyAsync(e => e.PacienteId == pacienteId))
+            .Should().BeTrue();
     }
 
     [Fact]

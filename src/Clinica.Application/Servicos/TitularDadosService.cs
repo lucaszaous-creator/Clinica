@@ -130,6 +130,26 @@ public sealed class TitularDadosService
         }
         texto.AppendLine();
 
+        // A EVOLUÇÃO DE ENFERMAGEM (parcela 71). O art. 18 II é sobre TUDO o que a clínica
+        // guarda do titular — e um paciente que só passa pela enfermagem receberia, sem
+        // esta seção, um documento que diz que a clínica não tem registro clínico dele.
+        texto.AppendLine("== EVOLUÇÕES DE ENFERMAGEM ==");
+        var enfermagem = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue, ct);
+        if (enfermagem.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var en in enfermagem.OrderBy(e => e.Data).ThenBy(e => e.Hora))
+        {
+            texto.AppendLine(
+                $"- {en.Data.ToString("dd/MM/yyyy", Brasil)} às {en.Hora:HH\\:mm}"
+                + (en.Intercorrencia ? " · INTERCORRÊNCIA" : string.Empty)
+                + (en.Cancelada ? " (CANCELADA)" : string.Empty));
+            if (en.SinaisVitaisResumidos is { } sinais) Bloco(texto, "sinais vitais", sinais);
+            Bloco(texto, "observação", en.Texto);
+            Bloco(texto, "registrado por", en.AutorNome
+                + (string.IsNullOrWhiteSpace(en.AutorConselho) ? "" : $" ({en.AutorConselho})"));
+            if (en.Cancelada) Bloco(texto, "motivo do cancelamento", en.MotivoCancelamento);
+        }
+        texto.AppendLine();
+
         texto.AppendLine("== DOCUMENTOS EMITIDOS ==");
         var documentos = await _documentos.DoPacienteAsync(pacienteId, ct);
         if (documentos.Count == 0) texto.AppendLine("(nenhum)");

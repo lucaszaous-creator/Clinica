@@ -458,6 +458,27 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public bool PodeEmitirDoProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
 
     /// <summary>
+    /// ⚠️ A aba Prontuário SOME para quem não tem o bit. Ela não tinha barreira nenhuma:
+    /// Recepção, Financeiro e Faturista têm `VerFichaPaciente` e não têm `VerProntuario`, e
+    /// liam a evolução inteira de qualquer paciente — o corte da parcela 49 desfeito por uma
+    /// aba. Nem ler nem desenhar, como a seção de termos já fazia.
+    /// </summary>
+    public bool PodeVerProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+
+    /// <summary>Bit próprio da evolução de enfermagem (parcela 71).</summary>
+    public bool PodeRegistrarEnfermagem =>
+        SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem);
+
+    /// <summary>
+    /// A evolução de ENFERMAGEM do paciente — lista SEPARADA das sessões, e não é estética:
+    /// `LinhaEvolucao.EvolucaoId` é a chave das ações destrutivas da outra lista, e ids são
+    /// por TABELA. Fundir as duas faria "cancelar" na linha nº 42 da enfermagem cancelar a
+    /// Evolucao nº 42 — de outro paciente, sem estourar e sem avisar.
+    /// </summary>
+    public ObservableCollection<Clinica.Desktop.Shell.Componentes.LinhaEvolucaoEnfermagem>
+        Enfermagem { get; } = new();
+
+    /// <summary>
     /// Anonimizar não tem volta, então a barreira é outra: o balcão exporta os dados do
     /// titular, mas quem apaga a identificação é quem responde pela clínica.
     /// </summary>
@@ -625,6 +646,17 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task CarregarProntuarioAsync(IServiceScope scope, int pacienteId, int geracao)
     {
+        // ⚠️ NEM LER NEM DESENHAR (art. 5º, II). Sem esta linha, os perfis que só têm
+        // `VerFichaPaciente` — Recepção, Financeiro, Faturista — carregavam a evolução, a
+        // EVA e a curva de dor de qualquer paciente. A aba já some pelo XAML; carregar
+        // assim mesmo seria manter o dado sensível na memória de quem não pode vê-lo.
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
+        {
+            Prontuario.Clear();
+            Enfermagem.Clear();
+            return;
+        }
+
         var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
         var evolucoes = await prontuario.DoPacienteAsync(pacienteId);
         if (geracao != _geracaoCarga) return;
@@ -641,6 +673,50 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         var dor = await prontuario.EvolucaoDaDorAsync(pacienteId);
         if (geracao != _geracaoCarga) return;
         AplicarEvolucaoDaDor(dor);
+
+        var enfermagem = await scope.ServiceProvider
+            .GetRequiredService<EvolucaoEnfermagemService>()
+            .DoPacienteAsync(pacienteId, limite: 100);
+        if (geracao != _geracaoCarga) return;
+
+        var substituidas = enfermagem
+            .Where(e => e.RetificaEvolucaoId is not null)
+            .Select(e => e.RetificaEvolucaoId!.Value)
+            .ToHashSet();
+
+        // Entre o Clear() e o último Add não pode haver await (parcela 62).
+        var linhas = enfermagem
+            .Select(e => Clinica.Desktop.Shell.Componentes.LinhaEvolucaoEnfermagem.De(
+                e, substituidas.Contains(e.Id), mostrarData: true))
+            .ToList();
+
+        Enfermagem.Clear();
+        foreach (var l in linhas) Enfermagem.Add(l);
+    }
+
+    /// <summary>
+    /// Registra uma passagem pela enfermagem que NÃO veio de folha de infusão — curativo,
+    /// sala de observação, triagem. Todo paciente passa pela enfermagem, e a maioria dessas
+    /// passagens não tem folha nenhuma.
+    /// </summary>
+    [RelayCommand]
+    private async Task RegistrarEnfermagemAsync()
+    {
+        if (PacienteId == 0)
+        {
+            // A guarda DIZ por que não dá (a lição da parcela 41), em vez de voltar calada.
+            Mensagem = "Escolha um paciente para registrar a evolução de enfermagem.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        SessaoUsuario.Atual.Exigir(
+            Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
+
+        Clinica.Desktop.Shell.Componentes.EvolucaoEnfermagemWindow.Abrir(
+            _escopos, _dialogo, PacienteId, Nome);
+
+        await CarregarAsync();
     }
 
     private void AplicarEvolucaoDaDor(EvolucaoDaDor dor)

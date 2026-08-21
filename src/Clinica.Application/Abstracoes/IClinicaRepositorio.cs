@@ -615,6 +615,30 @@ public interface IClinicaRepositorio
     Task AdicionarChecagemPrescricaoAsync(
         ChecagemPrescricao checagem, CancellationToken ct = default);
 
+    // ---- Evolução de enfermagem (parcela 71) ----
+    //
+    // NÃO existe RemoverEvolucaoEnfermagemAsync, pela razão escrita mais acima: é registro
+    // clínico e a Lei 13.787/2018 manda guardá-lo. Corrige-se retificando (linha nova) e
+    // cancela-se com motivo, pelo EvolucaoEnfermagemService.
+
+    Task AdicionarEvolucaoEnfermagemAsync(
+        EvolucaoEnfermagem evolucao, CancellationToken ct = default);
+
+    Task<EvolucaoEnfermagem?> ObterEvolucaoEnfermagemAsync(
+        int id, CancellationToken ct = default);
+
+    /// <summary>As evoluções escritas durante uma folha de infusão, em ordem de hora.</summary>
+    Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDaPrescricaoAsync(
+        int prescricaoId, CancellationToken ct = default);
+
+    /// <summary>
+    /// A linha do tempo do PACIENTE — o que a enfermagem observou nele, da mais recente
+    /// para a mais antiga. Traz as canceladas e as retificadas: elas aparecem MARCADAS na
+    /// tela e no papel, nunca sumindo.
+    /// </summary>
+    Task<IReadOnlyList<EvolucaoEnfermagem>> EvolucoesEnfermagemDoPacienteAsync(
+        int pacienteId, int limite = 200, CancellationToken ct = default);
+
     /// <summary>Próximo sequencial do ano para numerar a prescrição (<c>PRE 2026/0001</c>).</summary>
     Task<int> ProximoNumeroPrescricaoInternaAsync(int ano, CancellationToken ct = default);
 

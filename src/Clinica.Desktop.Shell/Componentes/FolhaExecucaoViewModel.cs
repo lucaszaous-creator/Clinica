@@ -116,6 +116,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     /// <summary>Último paciente cujo acesso já entrou na trilha — a folha recarrega a cada checagem.</summary>
     private int _acessoRegistradoDe;
 
+    /// <summary>O paciente da folha, para abrir a evolução de enfermagem.</summary>
+    private int _pacienteId;
+
     public ObservableCollection<LinhaExecucaoItem> Itens { get; } = [];
     public ObservableCollection<string> Alertas { get; } = [];
 
@@ -148,6 +151,14 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
     /// <summary>Metade visível da permissão; a que impede é o <c>Exigir</c> no comando.</summary>
     public bool PodeChecar => SessaoUsuario.Atual.Pode(Permissao.ChecarPrescricao);
+
+    /// <summary>
+    /// Bit próprio da evolução de enfermagem (parcela 71). ⚠️ Sem <c>EmExecucao</c>: a
+    /// folha encerrada continua aceitando registro — encerrar bloqueia a checagem de ITEM,
+    /// não a observação clínica.
+    /// </summary>
+    public bool PodeRegistrarEnfermagem =>
+        SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem);
 
     /// <summary>Só folha em execução se checa — a encerrada já foi fechada e assinada no papel.</summary>
     public bool PodeMexer => PodeChecar && EmExecucao;
@@ -219,6 +230,7 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             }
 
             Numero = prescricao.Numero;
+            _pacienteId = prescricao.PacienteId;
             Paciente = prescricao.Paciente?.Nome ?? "—";
             Cabecalho = $"{RotulosEnum.De(prescricao.Situacao)} · "
                       + $"{prescricao.Data:dd/MM/yyyy} às {prescricao.Hora:HH\\:mm} · "
@@ -261,6 +273,23 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         {
             Carregando = false;
         }
+    }
+
+    /// <summary>
+    /// A evolução de enfermagem — a segunda porta, para quem já está na folha. Abre a MESMA
+    /// janela da fila da sala: quatro montagens da mesma tela divergiriam na primeira
+    /// correção.
+    /// </summary>
+    [RelayCommand]
+    private async Task AnotarAsync()
+    {
+        SessaoUsuario.Atual.Exigir(
+            Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
+
+        EvolucaoEnfermagemWindow.Abrir(
+            _escopos, _dialogo, _pacienteId, Paciente, _prescricaoId, Numero);
+
+        await CarregarAsync();
     }
 
     /// <summary>O "chequezinho": foi realizado, nesta hora.</summary>
@@ -666,5 +695,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
         Nome: SessaoUsuario.Atual.Autenticado
             ? SessaoUsuario.Atual.Nome
             : SessaoUsuario.Atual.Operador,
-        Conselho: null);
+        // ⚠️ Era `null` LITERAL desde a parcela 42: a coluna existia, o PDF tinha o ramo
+        // que a imprime e a exportação tinha a coluna — e nenhuma checagem de produção
+        // saía identificada. O conselho vem do Profissional vinculado ao login.
+        Conselho: SessaoUsuario.Atual.RegistroConselho);
 }

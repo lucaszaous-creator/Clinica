@@ -118,6 +118,11 @@ public sealed class GuardaProntuarioService
         // na exportação. Sem ela, o prazo de um paciente que só recebe infusão seria
         // calculado pelo registro errado (ou não seria calculado).
         var prescricoes = await _repo.PrescricoesInternasDoPacienteAsync(pacienteId, int.MaxValue, ct);
+        // A evolução de ENFERMAGEM entra pela mesma regra 8 (parcela 71), e ela move o
+        // prazo com mais frequência que qualquer outra: todo paciente passa pela
+        // enfermagem, e há passagens sem folha (curativo, observação) que não deixariam
+        // nenhum outro rastro datado.
+        var enfermagem = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue, ct);
 
         var candidatos = new List<(DateOnly Data, string Origem)>();
 
@@ -128,6 +133,9 @@ public sealed class GuardaProntuarioService
         // que interessa à guarda, e não o carimbo de criação da linha.
         foreach (var d in documentos) candidatos.Add((d.Data, "documento emitido"));
         foreach (var pr in prescricoes) candidatos.Add((pr.Data, "prescrição de infusão"));
+        // Canceladas incluídas, pela razão do comentário lá em cima: elas continuam sob
+        // guarda, e é por isso que deixaram de ser apagadas.
+        foreach (var en in enfermagem) candidatos.Add((en.Data, "evolução de enfermagem"));
         // O problema entra pela data que ele CARREGA: o início declarado quando há, e o
         // dia do registro quando não há (problema sem início ainda é fato anotado).
         foreach (var pb in problemas)

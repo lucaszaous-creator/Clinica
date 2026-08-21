@@ -109,6 +109,14 @@ public sealed class ExportacaoProntuarioService
         // ficava — e é a resposta (o item 9 do PHQ-9, por exemplo) que carrega o alerta.
         var respostas = Cabecalho("PacienteId", "Paciente", "Data", "Instrumento",
             "ItemOrdem", "ItemCodigo", "Enunciado", "Valor", "OpcaoRotulo");
+        // A EVOLUÇÃO DE ENFERMAGEM (parcela 71). Entra pela regra 8: entidade clínica nova
+        // entra na exportação e na guarda, senão a clínica exporta um prontuário
+        // incompleto. Canceladas e retificadas INCLUÍDAS e marcadas, como em toda lista
+        // deste arquivo.
+        var enfermagem = Cabecalho("PacienteId", "Paciente", "Data", "Hora", "RegistradoEm",
+            "PrescricaoNumero", "Texto", "Intercorrencia", "PA", "FC", "FR", "Temperatura",
+            "SpO2", "Dor", "Autor", "Conselho", "Retificacao", "MotivoRetificacao",
+            "Situacao", "MotivoCancelamento");
 
         foreach (var p in pacientes)
         {
@@ -196,6 +204,17 @@ public sealed class ExportacaoProntuarioService
                 }
             }
 
+            foreach (var en in await _repo.EvolucoesEnfermagemDoPacienteAsync(p.Id, int.MaxValue, ct))
+                Linha(enfermagem, p.Id, p.Nome, Data(en.Data), en.Hora.ToString("HH\\:mm"),
+                    en.RegistradoEm.ToString("O", Fixa),
+                    en.Prescricao?.Numero, en.Texto, en.Intercorrencia ? "sim" : "não",
+                    en.PressaoArterial, en.FrequenciaCardiaca, en.FrequenciaRespiratoria,
+                    en.Temperatura, en.SaturacaoOxigenio, en.Dor,
+                    en.AutorNome, en.AutorConselho,
+                    en.EhRetificacao ? "retifica anterior" : string.Empty,
+                    en.MotivoRetificacao,
+                    en.Cancelada ? "Cancelada" : "Válida", en.MotivoCancelamento);
+
             foreach (var d in await _repo.DocumentosDoPacienteAsync(p.Id, ct))
                 Linha(documentos, p.Id, p.Nome, d.Numero,
                     TipoDocumentoInfo.Rotular(d.Tipo), Data(d.Data),
@@ -218,6 +237,7 @@ public sealed class ExportacaoProntuarioService
             new("prontuario-problemas.csv", problemas.ToString()),
             new("prontuario-mapa-corporal.csv", pontosMapa.ToString()),
             new("prontuario-avaliacoes-respostas.csv", respostas.ToString()),
+            new("prontuario-enfermagem.csv", enfermagem.ToString()),
             new("LEIA-ME.txt", LeiaMe(pacientes.Count))
         ];
     }
@@ -286,6 +306,9 @@ public sealed class ExportacaoProntuarioService
          - prontuario-anexos.csv ............. LISTA dos arquivos anexados (ver abaixo)
          - prontuario-prescricoes.csv ........ folhas de infusão (prescrição interna)
          - prontuario-prescricoes-itens.csv .. o que foi prescrito em cada folha
+         - prontuario-enfermagem............ a evolução de enfermagem: o que foi observado
+                                             no paciente, com hora do fato, sinais vitais e
+                                             quem escreveu (nome e COREN)
          - prontuario-prescricoes-checagens... o que a enfermagem executou, com horário
          - prontuario-problemas.csv .......... lista de problemas (diagnósticos, ALERGIAS)
          - prontuario-mapa-corporal.csv ...... pontos marcados no mapa corporal por sessão

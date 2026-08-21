@@ -234,6 +234,10 @@ public sealed class PrescricaoInternaPdfService
                     BlocoDeAlergias(col, alergias);
 
                     TabelaDaExecucao(col, itens);
+                    // ⚠️ A ordem não é estética: a tabela e as duas caixas seguintes falam
+                    // de ITENS; a evolução de enfermagem fala do PACIENTE, e é a leitura
+                    // clínica da sessão.
+                    EvolucoesDeEnfermagem(col, prescricao);
                     Justificativas(col, itens);
                     Retificacoes(col, itens);
                 });
@@ -688,6 +692,89 @@ public sealed class PrescricaoInternaPdfService
                             .FontSize(9).FontColor(AmareloForte);
                     });
             });
+    }
+
+    /// <summary>
+    /// A EVOLUÇÃO DE ENFERMAGEM da sessão (parcela 71) — o que foi observado NO PACIENTE
+    /// enquanto a folha corria.
+    ///
+    /// ⚠️ <c>RegistradoEm</c> sai IMPRESSO ao lado da hora informada, e aqui pesa mais que
+    /// na checagem: a checagem herda a data da folha, e esta carrega <c>Data</c> E
+    /// <c>Hora</c> escolhidas por quem escreveu. Uma observação digitada três dias depois
+    /// sairia como se tivesse sido escrita às 14h20 daquele dia.
+    ///
+    /// Canceladas e retificadas aparecem MARCADAS, nunca sumindo — a regra de
+    /// <see cref="Retificacoes"/>: imprimir só o valor final faria a via em papel esconder
+    /// o que a trilha guarda.
+    /// </summary>
+    private static void EvolucoesDeEnfermagem(ColumnDescriptor col, PrescricaoInterna prescricao)
+    {
+        var registros = prescricao.EvolucoesEnfermagem
+            .OrderBy(e => e.Data).ThenBy(e => e.Hora).ThenBy(e => e.Id)
+            .ToList();
+
+        if (registros.Count == 0) return;
+
+        // ⚠️ Quem foi CORRIGIDO precisa aparecer corrigido. Sem isto, o registro
+        // substituído sai idêntico a um vigente, e a via em papel mostra as duas versões
+        // sem dizer qual vale — que é pior do que mostrar só a final.
+        var substituidos = registros
+            .Where(e => e.RetificaEvolucaoId is not null)
+            .Select(e => e.RetificaEvolucaoId!.Value)
+            .ToHashSet();
+
+        col.Item().Border(1).BorderColor(Borda).Padding(10).Column(c =>
+        {
+            c.Item().Text("Evolução de enfermagem").Bold().FontSize(8.5f).FontColor(TextoSecundario);
+
+            foreach (var e in registros)
+            {
+                var substituido = substituidos.Contains(e.Id);
+                var destaque = e.Intercorrencia && !e.Cancelada && !substituido;
+
+                c.Item().PaddingTop(5).Column(linha =>
+                {
+                    linha.Item().Text(t =>
+                    {
+                        t.Span($"{e.Hora:HH\\:mm}  ").SemiBold().FontSize(9.5f)
+                            .FontColor(destaque ? AmareloForte
+                                : e.Cancelada || substituido ? TextoSecundario : TextoPrimario);
+
+                        t.Span(e.Cancelada ? $"REGISTRO CANCELADO — {e.MotivoCancelamento}" : e.Texto)
+                            .FontSize(9.5f)
+                            .FontColor(destaque ? AmareloForte
+                                : e.Cancelada || substituido ? TextoSecundario : TextoPrimario);
+
+                        if (destaque)
+                            t.Span("   [INTERCORRÊNCIA]").Bold().FontSize(8).FontColor(AmareloForte);
+                    });
+
+                    if (!e.Cancelada && e.SinaisVitaisResumidos is { } sinais)
+                        linha.Item().Text(sinais).FontSize(8.5f).FontColor(TextoSecundario);
+
+                    if (e.EhRetificacao)
+                        linha.Item().Text($"corrige o registro anterior — {e.MotivoRetificacao}")
+                            .FontSize(8).FontColor(AmareloForte);
+
+                    if (substituido)
+                        linha.Item().Text("CORRIGIDO — vale o registro seguinte")
+                            .Bold().FontSize(8).FontColor(AmareloForte);
+
+                    linha.Item().Text(
+                        Juntar(e.AutorNome, e.AutorConselho)
+                        + $" · registrado {e.RegistradoEm:dd/MM/yyyy HH\\:mm}")
+                        .FontSize(8).FontColor(TextoSecundario);
+                });
+            }
+
+            // Ponto 9 do compromisso: o papel não promete o que não tem. A assinatura
+            // eletrônica da enfermagem, quando existe, cobre a PRESCRIÇÃO — não estas
+            // linhas, que são registro do prontuário assinado pelo login de quem escreveu.
+            c.Item().PaddingTop(6).Text(
+                "Registro do prontuário — a autoria é o login de quem escreveu, com o "
+                + "registro no conselho ao lado.")
+                .FontSize(7.5f).FontColor(TextoSecundario);
+        });
     }
 
     /// <summary>
