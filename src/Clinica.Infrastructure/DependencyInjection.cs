@@ -43,6 +43,7 @@ public static class DependencyInjection
         // qualquer leitor de PDF (só os testes o constroem com a exigência desligada).
         services.AddScoped<PrescricaoInternaService>();
         services.AddScoped<ChecagemPrescricaoService>();
+        services.AddScoped<EvolucaoEnfermagemService>();
         services.AddScoped<PrescricaoInternaPdfService>();
         services.AddScoped<AssinaturaDePrescricaoService>();
         services.AddScoped<AssinaturaDeDocumentoClinicoService>();

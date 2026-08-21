@@ -78,9 +78,13 @@ public sealed partial class PacienteWorkspaceViewModel : ObservableObject
 
         SemPaciente = !_foco.Definido;
         Paciente = _foco.Nome;
-        Contexto = _foco.AgendamentoId is null
-            ? "Escolhido na busca — a evolução não fica ligada a nenhum horário."
-            : "Chamado da agenda de hoje — a evolução nasce ligada a este horário.";
+        // ⚠️ A MESMA função do AtendimentoViewModel (parcela 72). Este cabeçalho escrevia
+        // "Chamado da agenda de HOJE" para qualquer horário, enquanto a tela de dentro já
+        // dizia a DATA desde a parcela 69 — duas frases para a mesma pergunta, e a de cima
+        // era a errada. É a lição das parcelas 64 e 68 pela sétima vez: quando duas telas
+        // respondem à mesma coisa, a que ninguém releu é a que mente.
+        Contexto = AtendimentoViewModel.DescreverOrigem(
+            _foco.AgendamentoId, _foco.DataDoHorario);
     }
 
     /// <summary>Volta para a lista de onde se veio. Sem sair, não há como trocar de pessoa.</summary>

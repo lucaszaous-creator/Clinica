@@ -1,0 +1,225 @@
+<UserControl x:Class="Clinica.Desktop.Shell.Componentes.EnfermagemView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+             xmlns:local="clr-namespace:Clinica.Desktop.Shell.Componentes"
+             Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
+
+    <!-- ============================================================
+         A TELA DA ENFERMAGEM (parcela 71).
+
+         LISTA → TELA DO PACIENTE, as duas com a largura inteira. Grudar a lista à
+         esquerda da evolução seria a faixa lateral que o README proíbe — e que o
+         cliente já reprovou sete vezes.
+
+         A lista traz TODOS os pacientes cadastrados (`limite: null`): a clínica
+         disse que todo paciente passa pela enfermagem, e a maioria dessas passagens
+         não tem folha de infusão nenhuma.
+         ============================================================ -->
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para qualquer texto. -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
+    </UserControl.Resources>
+
+    <Grid>
+
+        <!-- ==================================================================
+             TELA 1 — a CARTEIRA, com a largura inteira.
+             ================================================================== -->
+        <DockPanel Margin="24,20,24,24"
+                   Visibility="{Binding MostrandoLista, Converter={StaticResource BoolParaVisibilidade}}">
+
+            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,16">
+                <TextBlock Text="Enfermagem" Style="{StaticResource H1}" Margin="0" />
+                <TextBlock Style="{StaticResource TextoSuave}"
+                           Text="Todos os pacientes da clínica. Abra alguém para ver e escrever a evolução de enfermagem — sinais vitais, intercorrências e o que foi observado em cada passagem." />
+            </StackPanel>
+
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MaxWidth="420" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0" Style="{StaticResource CampoPesquisa}"
+                         Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
+                         ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+
+                <!-- Os dois modos da MESMA lista. A busca é atalho; a carteira inteira é
+                     um clique, e não o estado padrão da tela. -->
+                <Button Grid.Column="1" Content="Hoje" MinWidth="90" Margin="10,0,0,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        ToolTip="Quem está marcado para hoje — a fila que a enfermagem vai receber."
+                        Command="{Binding HojeCommand}" />
+                <Button Grid.Column="2" Content="Todos os pacientes" MinWidth="160" Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        ToolTip="A carteira inteira da clínica, para alcançar quem não está no dia."
+                        Command="{Binding TodosCommand}" />
+            </Grid>
+
+            <TextBlock DockPanel.Dock="Top" Text="{Binding ResumoDaLista}"
+                       Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       Margin="0,0,0,10" />
+
+            <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}"
+                       Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8"
+                       Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade},
+                                    FallbackValue=Collapsed}" />
+
+            <!-- UMA superfície para a região inteira, e a separação entre as linhas por
+                 espaço — não uma moldura por paciente. -->
+            <Border Style="{StaticResource Card}">
+                <Grid>
+                    <ctrl:EstadoDaTela Panel.ZIndex="1"
+                                       Itens="{Binding Pacientes}"
+                                       Carregando="{Binding CarregandoLista}"
+                                       Glifo="&#xE77B;"
+                                       Titulo="Nenhum paciente nesta lista"
+                                       Descricao="Busque pelo nome, ou use “Todos os pacientes” para ver a carteira inteira da clínica." />
+
+                    <!-- O escopo do tamanho compartilhado: sem ele, cada linha resolve as
+                         próprias colunas e a tabela vira uma pilha de linhas parecidas. -->
+                    <DockPanel Grid.IsSharedSizeScope="True">
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaAvatar" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="160" />
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="PacLinhaSelos" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="1" Text="PACIENTE" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="2" Text="TELEFONE" Style="{StaticResource Rotulo}" Margin="0" />
+                            <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
+                        </Grid>
+
+                        <!-- ⚠️ UMA coleção e UMA seleção. Duas ListBox amarradas ao mesmo
+                             SelectedItem se limpam mutuamente, porque a que não contém o
+                             item escolhido devolve null pelo binding (parcela 37) — por
+                             isso a fila do dia e a busca publicam na MESMA lista. -->
+                        <ListBox ItemsSource="{Binding Pacientes}"
+                                 SelectedItem="{Binding Escolhido}"
+                                 ItemTemplate="{StaticResource ItemPacienteLinha}"
+                                 BorderThickness="0" Background="Transparent"
+                                 HorizontalContentAlignment="Stretch"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                    </DockPanel>
+                </Grid>
+            </Border>
+        </DockPanel>
+
+        <!-- ==================================================================
+             TELA 2 — o PACIENTE: a evolução dele, com a largura inteira.
+             ================================================================== -->
+        <DockPanel Margin="24,20,24,24">
+            <DockPanel.Style>
+                <Style TargetType="DockPanel">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MostrandoLista}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </DockPanel.Style>
+
+            <!-- A identidade no TOPO, uma vez: num app em que se passa vinte minutos sobre
+                 a mesma pessoa, o nome é âncora, não rótulo. E as ações viajam com ela. -->
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" Content="&#xE72B;  Voltar" MinWidth="110"
+                        VerticalAlignment="Center" Margin="0,0,16,0"
+                        Style="{StaticResource BotaoSecundario}"
+                        Command="{Binding VoltarCommand}" />
+
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0"
+                               TextTrimming="CharacterEllipsis" />
+
+                    <!-- ⚠️ Contexto permanente é LINHA de texto, não faixa: faixa
+                         permanente vira moldura, e foi a 5ª reprovação do cliente
+                         (parcela 38). Idade · convênio · em uso · última aferição ·
+                         peso · termo · folha do dia, tudo numa linha. -->
+                    <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
+                               TextWrapping="Wrap"
+                               Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade}}" />
+
+                    <!-- A alergia sai separada porque é a única que muda de cor: quem
+                         pendura na veia é a última pessoa entre ela e o paciente. -->
+                    <TextBlock Text="{Binding Alerta}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Erro}"
+                               Visibility="{Binding Alerta, Converter={StaticResource TextoParaVisibilidade},
+                                            FallbackValue=Collapsed}" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- ⚠️ Os dois botões condicionais só EXISTEM quando há o que fazer:
+                         botão que não existe não gasta tela para dizer que não há nada. -->
+                    <Button Content="{Binding FolhaDeHoje}" MinWidth="150" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeAbrirFolha}"
+                            ToolTip="A folha de infusão deste paciente hoje — checar itens, retificar e encerrar."
+                            Visibility="{Binding FolhaDeHoje, Converter={StaticResource TextoParaVisibilidade},
+                                         FallbackValue=Collapsed}"
+                            Command="{Binding AbrirFolhaCommand}" />
+
+                    <Button Content="{Binding TermoPendente}" MinWidth="150" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeColherTermo}"
+                            ToolTip="Colhe a assinatura do paciente no termo do procedimento de hoje, na tela de assinatura."
+                            Visibility="{Binding TermoPendente, Converter={StaticResource TextoParaVisibilidade},
+                                         FallbackValue=Collapsed}"
+                            Command="{Binding ColherTermoCommand}" />
+
+                    <Button Content="Escrever evolução" MinWidth="180"
+                            VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeRegistrar}"
+                            ToolTip="Abre o registro da passagem: hora do que foi observado, sinais vitais e intercorrência. Grava no prontuário com a sua identificação e o registro no conselho."
+                            Command="{Binding RegistrarCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
+                    Visibility="{Binding Mensagem, Converter={StaticResource TextoParaVisibilidade},
+                                 FallbackValue=Collapsed}">
+                <Border.Style>
+                    <Style TargetType="Border" BasedOn="{StaticResource AlertaInfo}">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MensagemEhErro}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource Brush.Erro.Suave}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Erro}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
+            </Border>
+
+            <!-- ⚠️ O PRONTUÁRIO INTEIRO, e não só a evolução de enfermagem (parcela 72).
+                 A tela abre no chip "Enfermagem", e os outros mostram a CONTAGEM mesmo
+                 desmarcados — é o número visível que faz a enfermeira descobrir que há 12
+                 sessões médicas e 4 folhas de infusão para ler. Infundir sem saber a
+                 conduta da consulta de hoje é executar às cegas.
+
+                 O componente é o MESMO da ficha da Recepção e do Consultório: três portas,
+                 uma leitura. Copiar a tela entre os módulos daria três respostas para a
+                 mesma pergunta, divergindo na primeira correção. -->
+            <Border Style="{StaticResource Card}">
+                <local:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}" />
+            </Border>
+        </DockPanel>
+    </Grid>
+</UserControl>

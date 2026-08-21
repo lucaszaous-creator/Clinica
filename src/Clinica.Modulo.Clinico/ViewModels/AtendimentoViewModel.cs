@@ -275,12 +275,34 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     public IReadOnlyList<int> EscalaEva { get; } =
         Enumerable.Range(Evolucao.EvaMinima, Evolucao.EvaMaxima - Evolucao.EvaMinima + 1).ToList();
 
+    /// <summary>
+    /// ENFERMAGEM E INFUSÕES na coluna direita, em modo COMPACTO (parcela 72).
+    ///
+    /// Quem está escrevendo a conduta precisa saber o que a sala aferiu e o que foi
+    /// administrado — e até aqui isso morava noutro módulo, no app de quem executa.
+    /// Compacto porque a coluna tem ~350 px de altura útil: são três linhas por seção,
+    /// escolhidas pelo chip, não duas listas rolando dentro de um vão.
+    /// </summary>
+    public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
+
     public AtendimentoViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, PacienteEmFoco foco)
     {
         _escopos = escopos;
         _snackbar = snackbar;
         _foco = foco;
+
+        LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
+        {
+            Compacto = true,
+            MostrarDocumentos = false,
+            SecoesVisiveis =
+            [
+                Clinica.Domain.Prontuario.NaturezaRegistroClinico.EvolucaoEnfermagem,
+                Clinica.Domain.Prontuario.NaturezaRegistroClinico.PrescricaoInterna
+            ],
+            SecaoInicial = Clinica.Domain.Prontuario.NaturezaRegistroClinico.EvolucaoEnfermagem
+        };
 
         // O paciente do posto: quem veio da agenda já chega escolhido, e o profissional
         // não redigita o nome que acabou de clicar.
@@ -303,7 +325,7 @@ public sealed partial class AtendimentoViewModel : ObservableObject
     /// evolução atrasada de terça lia "hoje" no topo, e a frase mentia sobre a data a
     /// que o registro ia ficar ligado.
     /// </summary>
-    private static string DescreverOrigem(int? agendamentoId, DateOnly? dataDoHorario)
+    public static string DescreverOrigem(int? agendamentoId, DateOnly? dataDoHorario)
     {
         if (agendamentoId is null)
             return "Escolhido na busca — a evolução não fica ligada a nenhum horário.";
@@ -335,8 +357,12 @@ public sealed partial class AtendimentoViewModel : ObservableObject
         if (PacienteId == 0)
         {
             SemPaciente = true;
+            await LinhaDoTempo.CarregarAsync(0);
             return;
         }
+
+        // O componente tem contador de geração próprio e filtro de acesso por natureza.
+        _ = LinhaDoTempo.CarregarAsync(PacienteId);
 
         try
         {
@@ -483,6 +509,59 @@ public sealed partial class AtendimentoViewModel : ObservableObject
                 Texto = "Não foi possível ler a lista de problemas deste paciente — ela "
                         + "está vazia por falha de leitura, não porque não haja alergia "
                         + "registrada.",
+                Grave = false
+            });
+        }
+
+        // ⚠️ A INTERCORRÊNCIA DA ENFERMAGEM chega aqui (parcela 72), na lista que JÁ existe
+        // — zero pixel novo. O comentário da própria entidade afirmava, desde que ela
+        // nasceu, que a marca "viaja para a tela de atendimento do médico"; ela não
+        // viajava, e o estrago não era erro, era AUSÊNCIA — indistinguível de "não houve
+        // intercorrência".
+        //
+        // ⚠️ Com JANELA DE 48 HORAS, e isso decide a utilidade da lista: alergia é ESTADO,
+        // intercorrência é EVENTO DATADO, e a marca é `bool` — não há como descartá-la.
+        // Sem janela, seis meses depois o paciente crônico teria uma náusea de março e um
+        // extravasamento de abril acima da alergia real, e é assim que se ensina alguém a
+        // fechar o alerta sem ler.
+        try
+        {
+            var enfermagem = servicos.GetRequiredService<EvolucaoEnfermagemService>();
+            var recentes = await enfermagem.DoPacienteAsync(PacienteId, limite: 30);
+
+            // Retificada não alerta: quem corrigiu já disse que o registro anterior estava
+            // errado, e a correção entra sozinha se ela também marcar intercorrência.
+            var substituidas = recentes
+                .Where(e => e.RetificaEvolucaoId is not null)
+                .Select(e => e.RetificaEvolucaoId!.Value)
+                .ToHashSet();
+
+            var agora = DateTime.Now;
+            foreach (var e in recentes
+                         .Where(e => e.AlertaAgora(agora) && !substituidas.Contains(e.Id))
+                         .OrderByDescending(e => e.Momento))
+                clinicos.Add(new LinhaAlertaClinico
+                {
+                    Texto = $"INTERCORRÊNCIA na enfermagem em {e.Data:dd/MM} às "
+                            + $"{e.Hora:HH\\:mm} — {e.Texto}"
+                            + (string.IsNullOrWhiteSpace(e.AutorNome)
+                                ? string.Empty : $" ({e.AutorNome})"),
+                    // Vermelha, como a alergia: é o que aconteceu com este paciente há
+                    // menos de dois dias, e quem vai atender agora precisa saber antes de
+                    // decidir a conduta.
+                    Grave = true
+                });
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Consultório — intercorrências de enfermagem não puderam ser lidas", ex);
+
+            clinicos.Add(new LinhaAlertaClinico
+            {
+                Texto = "Não foi possível ler as intercorrências de enfermagem deste "
+                        + "paciente — a ausência delas aqui é falha de leitura, não "
+                        + "garantia de que não houve nenhuma.",
                 Grave = false
             });
         }

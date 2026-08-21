@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <!-- ============================================================
@@ -22,6 +23,9 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolParaVisibilidade" />
+        <!-- Para STRING: o conversor de bool devolve Collapsed para QUALQUER texto (a
+             lição da parcela 61). -->
+        <ctrl:TextoParaVisibilidade x:Key="TextoParaVisibilidade" />
     </UserControl.Resources>
 
     <Grid>
@@ -269,12 +273,19 @@
                     </StackPanel>
                 </Border>
 
-                <Border Style="{StaticResource Card}">
+                <!-- ⚠️ SOME para quem não tem `VerProntuario` (parcela 72). `SemMedidaEva`
+                     nasce true, então a região ficava de pé com quatro travessões e o botão
+                     "Nova sessão" ACESO para Financeiro e Faturista — que se lê como tela
+                     quebrada, e não como "você não pode ver isto". Nem ler nem desenhar. -->
+                <Border Style="{StaticResource Card}"
+                        Visibility="{Binding PodeVerProntuario,
+                                     Converter={StaticResource BoolParaVisibilidade}}">
                     <StackPanel>
                         <Grid>
                             <TextBlock Text="Evolução da dor" Style="{StaticResource H3}" Margin="0"
                                        VerticalAlignment="Center" />
                             <Button Content="Nova sessão" HorizontalAlignment="Right"
+                                    IsEnabled="{Binding PodeEditarProntuario}"
                                     Command="{Binding NovaEvolucaoCommand}" />
                         </Grid>
                         <TextBlock Text="{Binding ResumoEva}" Style="{StaticResource TextoSuave}"
@@ -447,95 +458,70 @@
                     </DockPanel>
                 </TabItem>
 
-                <TabItem Header="Prontuário">
+                <!-- ⚠️ Dado de SAÚDE (art. 5º, II). A aba não tinha barreira NENHUMA: os
+                     perfis Recepção, Financeiro e Faturista têm `VerFichaPaciente` e NÃO
+                     têm `VerProntuario`, e liam a evolução inteira de qualquer paciente —
+                     exatamente o que o corte da parcela 49 existe para impedir. A seção de
+                     termos, 270 linhas abaixo neste mesmo arquivo, já tinha a barreira e o
+                     comentário nomeando esses dois perfis. Nem ler nem desenhar: a aba
+                     SOME para quem não tem o bit. -->
+                <TabItem Header="Prontuário"
+                         Visibility="{Binding PodeVerProntuario,
+                                      Converter={StaticResource BoolParaVisibilidade}}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                         <StackPanel Margin="0,0,0,24">
+                <!-- ===== O PRONTUÁRIO DO PACIENTE, NUMA SUPERFÍCIE SÓ (parcela 72) =====
+                     Aqui havia DOIS `Card` empilhados — as sessões médicas num, a evolução
+                     de enfermagem no outro — e a infusão seria o terceiro. Duas listas em
+                     molduras separadas parecem dois assuntos, e três é literalmente o
+                     proibido nº 2 da regra de leiaute do README.
+
+                     O componente é o MESMO do Consultório e da tela da Enfermagem: chips de
+                     seção contados, uma lista por vez. ⚠️ Ele NÃO funde as listas, e as duas
+                     razões estão no comentário do ViewModel — a que mais importa aqui é a
+                     que o comentário desta tela já dizia desde a parcela 71: os ids são POR
+                     TABELA, e um comando destrutivo sobre uma lista fundida cancelaria o
+                     registro errado sem estourar. Agora o item carrega Natureza + Id, e a
+                     ação chega roteada.
+
+                     ⚠️ O chip "Documentos" é FALSO aqui: a aba Documentos ao lado é a porta
+                     do papel e faz mais do que este componente faria (emitir, termo,
+                     assinar, enviar). Duas listas do mesmo papel na mesma tela fazem a
+                     pessoa procurar a diferença que não existe. -->
                 <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Prontuário" Style="{StaticResource H3}" />
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="Nenhuma sessão registrada ainda." Margin="0,12">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Prontuario.Count}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Prontuário" Style="{StaticResource H3}" Margin="0" />
+                                <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                                           Text="O que já aconteceu com este paciente: as sessões do profissional, as passagens pela enfermagem e as folhas de infusão." />
+                            </StackPanel>
 
-                        <ItemsControl ItemsSource="{Binding Prontuario}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:LinhaEvolucao}">
-                                    <Border Padding="0,10"
-                                            BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="90" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Button Content="Nova sessão" MinWidth="130"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        IsEnabled="{Binding PodeEditarProntuario}"
+                                        ToolTip="Escreve uma sessão no prontuário: queixa, conduta, evolução e a dor antes e depois."
+                                        Command="{Binding NovaEvolucaoCommand}" />
+                                <Button Content="Registrar enfermagem" Margin="8,0,0,0" MinWidth="180"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        IsEnabled="{Binding PodeRegistrarEnfermagem}"
+                                        ToolTip="Registrar uma passagem pela enfermagem que não veio de folha de infusão — curativo, sala de observação, triagem."
+                                        Command="{Binding RegistrarEnfermagemCommand}" />
+                            </StackPanel>
+                        </Grid>
 
-                                            <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                       FontWeight="SemiBold" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
-
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Eva}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground"
-                                                                        Value="{StaticResource Brush.Texto.Secundario}" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Melhorou}" Value="True">
-                                                                        <Setter Property="Foreground"
-                                                                                Value="{StaticResource Brush.Sucesso}" />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Piorou}" Value="True">
-                                                                        <Setter Property="Foreground"
-                                                                                Value="{StaticResource Brush.Erro}" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <TextBlock Text="{Binding Profissional}" Margin="10,0,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               VerticalAlignment="Center"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                    <TextBlock Text="{Binding Anexos}" Margin="10,0,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               VerticalAlignment="Center"
-                                                               Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                </StackPanel>
-                                                <TextBlock Text="{Binding Resumo}" Margin="0,2,0,0"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                        VerticalAlignment="Center">
-                                                <Button Content="Abrir" Style="{StaticResource BotaoPequeno}"
-                                                        Command="{Binding DataContext.EditarEvolucaoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                                <Button Content="Excluir" Margin="8,0,0,0"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        Command="{Binding DataContext.ExcluirEvolucaoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                        <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}"
+                                                      MinHeight="240" />
+                    </DockPanel>
                 </Border>
                         </StackPanel>
                     </ScrollViewer>
@@ -724,6 +710,27 @@
                                                         Command="{Binding DataContext.ImprimirDocumentoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
+                                                <!-- ⚠️ ASSINAR e ENVIAR (parcela 72). `PodeAssinar` e
+                                                     `PodeEnviar` eram calculados no VM e NUNCA lidos
+                                                     aqui: a ficha imprimia e cancelava, e a tela irmã do
+                                                     mesmo módulo tinha os quatro. Sem assinatura o
+                                                     arquivo não vale, e a porta incompleta é a que fica
+                                                     aberta com o paciente na frente — ele sai com o papel
+                                                     e o PDF assinado fica no computador da clínica. -->
+                                                <Button Content="Assinar" Margin="8,0,0,0"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        IsEnabled="{Binding PodeAssinar}"
+                                                        ToolTip="Sela o arquivo com o certificado ICP-Brasil. É o ARQUIVO que a farmácia confere — a via impressa de um documento assinado é cópia."
+                                                        Command="{Binding DataContext.AssinarDocumentoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Enviar" Margin="8,0,0,0"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        IsEnabled="{Binding PodeEnviar}"
+                                                        ToolTip="Entrega o arquivo assinado ao paciente pelo WhatsApp. A assinatura vive nos bytes: quem sai só com o papel leva um documento sem ela."
+                                                        Command="{Binding DataContext.EnviarDocumentoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
                                                 <Button Content="Cancelar" Margin="8,0,0,0"
                                                         Style="{StaticResource BotaoAcaoGridPerigo}"
                                                         IsEnabled="{Binding PodeCancelar}"
@@ -845,20 +852,42 @@
                                                     <TextBlock Text="Vigente" />
                                                 </Border>
                                                 <Button Content="Concedeu" Style="{StaticResource BotaoPequeno}"
+                                                        IsEnabled="{Binding DataContext.PodeEditarCadastro,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         Command="{Binding DataContext.ConcederCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Recusou" Margin="8,0,0,0"
                                                         Style="{StaticResource BotaoAcaoGridSecundario}"
+                                                        IsEnabled="{Binding DataContext.PodeEditarCadastro,
+                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         Command="{Binding DataContext.RecusarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
+                                                <!-- ⚠️ Revogar tinha IsEnabled amarrado a `PodeRevogar`, que é
+                                                     ESTADO da linha, não permissão. Os dois COMPÕEM: quem só lê
+                                                     não revoga consentimento vigente. -->
                                                 <Button Content="Revogar" Margin="8,0,0,0"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        IsEnabled="{Binding PodeRevogar}"
                                                         Command="{Binding DataContext.RevogarCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
+                                                        CommandParameter="{Binding}">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource BotaoAcaoGridPerigo}">
+                                                            <Setter Property="IsEnabled" Value="False" />
+                                                            <Style.Triggers>
+                                                                <MultiDataTrigger>
+                                                                    <MultiDataTrigger.Conditions>
+                                                                        <Condition Binding="{Binding PodeRevogar}" Value="True" />
+                                                                        <Condition Binding="{Binding DataContext.PodeEditarCadastro,
+                                                                                            RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                                                   Value="True" />
+                                                                    </MultiDataTrigger.Conditions>
+                                                                    <Setter Property="IsEnabled" Value="True" />
+                                                                </MultiDataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -879,6 +908,7 @@
                             <Button Content="Exportar meus dados"
                                     Style="{StaticResource BotaoSecundario}"
                                     MinWidth="170"
+                                    IsEnabled="{Binding PodeVerProntuario}"
                                     Command="{Binding ExportarDadosCommand}" />
                             <Button Content="Anonimizar cadastro" Margin="8,0,0,0"
                                     Style="{StaticResource BotaoPerigo}"

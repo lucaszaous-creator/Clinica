@@ -162,6 +162,45 @@ public class DuasAssinaturasNoMesmoPdfTests
         Despejar("varias-paginas.pdf", duas);
     }
 
+    /// <summary>
+    /// ⚠️ O <c>/Size</c> do trailer tem de ser MAIOR que o maior objeto da tabela xref.
+    ///
+    /// Ele era calculado à mão (<c>nSig + 4</c>), o que estava certo enquanto o último
+    /// objeto novo fosse a fonte. Ao entrar a face NEGRITO do título, a tabela passou a
+    /// declarar um objeto que o trailer dizia não existir — e um leitor ESTRITO recusa o
+    /// arquivo inteiro ("Xref table size mismatch"). A nossa conferência aprovava, os
+    /// testes ficavam verdes, e quem recusaria seria o validador do farmacêutico.
+    ///
+    /// É a lição da 7ª rodada da parcela 67 outra vez: aceitar o próprio formato não é o
+    /// mesmo que EMITIR o formato que o mundo lá fora lê. Este teste é a régua estrita
+    /// dentro de casa.
+    /// </summary>
+    [Fact]
+    public async Task O_trailer_declara_um_tamanho_maior_que_o_maior_objeto()
+    {
+        var (_, duas) = await AssinarDuasVezesAsync();
+        var texto = Encoding.Latin1.GetString(duas);
+
+        // A revisão nova é a ÚLTIMA seção xref do arquivo. O "xref" que interessa é o que
+        // precede o último "trailer" — LastIndexOf("xref") acharia o "startxref" do fim.
+        var fimTrailer = texto.LastIndexOf("trailer", StringComparison.Ordinal);
+        var inicio = texto.LastIndexOf("xref", fimTrailer, StringComparison.Ordinal);
+        var secao = texto[inicio..];
+
+        var tamanho = int.Parse(Regex.Match(secao, @"/Size\s+(\d+)").Groups[1].Value);
+
+        var maiorObjeto = Regex.Matches(secao, @"^\s*(\d+)\s+(\d+)\s*$",
+                RegexOptions.Multiline)
+            .Select(m => int.Parse(m.Groups[1].Value) + int.Parse(m.Groups[2].Value) - 1)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        maiorObjeto.Should().BeGreaterThan(0, "sem faixas lidas o teste não prova nada");
+        tamanho.Should().BeGreaterThan(maiorObjeto,
+            "objeto declarado na tabela e ausente do /Size faz um leitor estrito recusar "
+            + "o arquivo inteiro — e foi o pyhanko, não os nossos testes, que pegou isso");
+    }
+
     // ---- Apoio ----
 
     /// <summary>

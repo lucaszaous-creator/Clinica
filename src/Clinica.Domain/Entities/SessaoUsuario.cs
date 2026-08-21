@@ -48,6 +48,21 @@ public sealed class SessaoUsuario
     /// <summary>Profissional vinculado, quando o usuário atende.</summary>
     public int? ProfissionalId { get; private set; }
 
+    /// <summary>
+    /// O registro no conselho (CRM, COREN) de quem está usando o app, copiado do
+    /// <see cref="Profissional"/> vinculado ao login.
+    ///
+    /// ⚠️ Existe porque a folha de infusão gravava <c>Conselho: null</c> LITERAL desde a
+    /// parcela 42: a coluna existia, o PDF tinha o ramo que a imprime e a exportação tinha
+    /// a coluna — e o único chamador de produção passava nulo, então só os testes a
+    /// preenchiam. Registro de enfermagem sem o número do conselho não é registro de
+    /// enfermagem: ele é parte da assinatura profissional.
+    ///
+    /// Nulo quando o login não tem profissional vinculado — e nulo aqui quer dizer "não
+    /// cadastrado", nunca vazio: a tela DIZ que falta, em vez de imprimir uma linha muda.
+    /// </summary>
+    public string? RegistroConselho { get; private set; }
+
     /// <summary>Há alguém autenticado neste processo?</summary>
     public bool Autenticado => UsuarioId > 0;
 
@@ -137,6 +152,7 @@ public sealed class SessaoUsuario
         Perfil = usuario.Perfil;
         Permissoes = usuario.Efetivas;
         ProfissionalId = usuario.ProfissionalId;
+        RegistroConselho = usuario.Profissional?.RegistroConselho;
 
         // A partir daqui é ESTA instância que responde por "quem está usando o app".
         Atual = this;

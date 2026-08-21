@@ -735,6 +735,54 @@ public class SafeIDTests
         Assert.Contains("Configurações", erro.Message);
     }
 
+    /// <summary>
+    /// ⚠️ O ESCOPO DA AUTORIZAÇÃO É ESCOLHIDO PELO ATO, e errar aqui só aparece na SEGUNDA
+    /// assinatura.
+    ///
+    /// O padrão do SafeID é <c>single_signature</c> — e o próprio <c>EscopoSafeID</c> diz o
+    /// que isso significa: "um hash só; o token MORRE NO USO". O encerramento da execução
+    /// sela DOIS documentos com o mesmo certificado (a prescrição e o registro): com o
+    /// escopo padrão, a primeira selagem passaria e a segunda seria recusada SEMPRE, em
+    /// toda folha da clínica — e ninguém veria isso nos testes, porque o assinador de teste
+    /// não tem token que morra.
+    ///
+    /// A sessão é pedida ENCURTADA de propósito: o padrão do PSC para pessoa física vai a
+    /// sete dias, e autorizar uma semana para selar duas folhas abre muito mais do que o
+    /// ato pede.
+    /// </summary>
+    [Fact]
+    public void Ato_de_duas_assinaturas_pede_SESSAO_curta_e_nao_assinatura_unica()
+    {
+        // A decisão, onde o teste alcança.
+        Assert.Equal((EscopoSafeID.AssinaturaUnica, null), EscopoSafeID.ParaAto(1));
+        Assert.Equal(
+            (EscopoSafeID.Sessao, (int?)EscopoSafeID.SegundosDaSessaoCurta),
+            EscopoSafeID.ParaAto(2));
+
+        // E a sessão é CURTA: o padrão do PSC vai a sete dias.
+        Assert.InRange(EscopoSafeID.SegundosDaSessaoCurta, 60, 15 * 60);
+
+        // A decisão chega íntegra à URL que o PSC recebe.
+        var desafio = DesafioPkce.Gerar();
+        var cliente = new ClienteSafeID(new HttpClient(new HandlerPorCaminho()), Opcoes);
+
+        var (escopoDeUm, duracaoDeUm) = EscopoSafeID.ParaAto(1);
+        var umaSo = cliente.UrlDeAutorizacao(
+            desafio, Opcoes.RedirectUris!.Single(), escopoDeUm,
+            duracaoSegundos: duracaoDeUm).Query;
+
+        var (escopoDeDois, duracaoDeDois) = EscopoSafeID.ParaAto(2);
+        var sessao = cliente.UrlDeAutorizacao(
+            desafio, Opcoes.RedirectUris!.Single(), escopoDeDois,
+            duracaoSegundos: duracaoDeDois).Query;
+
+        Assert.Contains("scope=single_signature", umaSo);
+        Assert.DoesNotContain("lifetime", umaSo);
+
+        Assert.Contains("scope=signature_session", sessao);
+        Assert.Contains($"lifetime={EscopoSafeID.SegundosDaSessaoCurta}", sessao);
+    }
+
     [Fact]
     public async Task Autorizacao_completa_troca_o_codigo_e_devolve_o_certificado()
     {

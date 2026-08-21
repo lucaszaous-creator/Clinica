@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <UserControl.Resources>
@@ -194,9 +195,16 @@
                  separação interna é por espaço e rótulo — desenhar um retângulo em
                  volta de cada campo é o que fazia a tela parecer costurada. -->
             <Grid>
+                <!-- ⚠️ AS DUAS COLUNAS SÃO ELÁSTICAS (parcela 72), e não uma elástica ao lado
+                     de uma FIXA de 400 px. Somadas, elas exigiam 520 + 16 + 400 = 936 px, e a
+                     janela mínima da suíte (960) descontando o rail de 56 e as margens de
+                     24+24 do workspace deixa 856 — com o painel de categoria FIXADO, 606. O
+                     WPF honra o MinWidth e CORTA o excesso à direita: não há rolagem
+                     horizontal aqui. Ou seja, acrescentar informação a esta tela era cortar
+                     a que já existe. -->
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" MinWidth="520" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="1.6*" MinWidth="440" />
+                    <ColumnDefinition Width="*" MinWidth="320" />
                 </Grid.ColumnDefinitions>
 
                 <Border Grid.Column="0" Style="{StaticResource Card}">
@@ -275,11 +283,23 @@
                 <!-- As últimas sessões continuam ABERTAS: reler o que foi feito é a
                      primeira coisa que se faz, e é referência para o que se digita ao
                      lado. Diferente do mapa, que é um ato à parte. -->
-                <Border Grid.Column="1" Width="400" Margin="16,0,0,0"
+                <Border Grid.Column="1" Margin="16,0,0,0"
                         Style="{StaticResource Card}">
                     <DockPanel>
                         <TextBlock DockPanel.Dock="Top" Text="Últimas sessões"
                                    Style="{StaticResource H3}" Margin="0,0,0,10" />
+
+                        <!-- ⚠️ ENFERMAGEM E INFUSÕES, em modo COMPACTO (parcela 72): três
+                             linhas por seção, escolhidas pelo chip. Quem está escrevendo a
+                             conduta precisa saber o que a sala aferiu e o que foi
+                             administrado — e até aqui isso morava noutro módulo.
+
+                             Não é um segundo bloco empilhado: a coluna tem ~350 px de
+                             altura útil, e duas listas rolando dentro de um vão de três
+                             linhas é o proibido do README. É a MESMA leitura, cortada. -->
+                        <comp:LinhaDoTempoClinicaView DockPanel.Dock="Bottom"
+                                                      DataContext="{Binding LinhaDoTempo}"
+                                                      MaxHeight="200" Margin="0,10,0,0" />
                         <Grid>
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Anteriores}">

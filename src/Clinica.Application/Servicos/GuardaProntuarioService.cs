@@ -1,5 +1,6 @@
 using Clinica.Application.Abstracoes;
 using Clinica.Domain;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -16,13 +17,44 @@ public sealed record SituacaoGuarda(
     string PacienteNome,
     DateOnly? UltimoRegistro,
     string? Origem,
-    int Sessoes,
-    int SessoesCanceladas,
-    int Documentos,
-    int Avaliacoes,
-    int Medidas,
-    int Prescricoes)
+    IReadOnlyDictionary<NaturezaRegistroClinico, int> Contagens,
+    int SessoesCanceladas)
 {
+    /// <summary>
+    /// A contagem de uma natureza — zero quando não há.
+    ///
+    /// ⚠️ Os seis <c>int</c> nominais que moravam aqui (<c>Sessoes</c>, <c>Documentos</c>,
+    /// <c>Avaliacoes</c>, <c>Medidas</c>, <c>Prescricoes</c>) contavam CINCO naturezas
+    /// enquanto o prazo de 20 anos era calculado sobre SETE: a evolução de enfermagem e a
+    /// lista de problemas moviam a data e não apareciam em contagem nenhuma. A tela que
+    /// responde ao auditor "o que vocês guardam" mostrava "0 sessão · 0 medida · 0
+    /// prescrição" com uma data vinda de lugar nenhum visível, para a ficha cujo único
+    /// registro era enfermagem. Agora a lista de naturezas é UMA
+    /// (<see cref="CatalogoRegistroClinico"/>) e a próxima entidade clínica entra na
+    /// contagem sem ninguém lembrar dela.
+    /// </summary>
+    public int De(NaturezaRegistroClinico natureza) => Contagens.GetValueOrDefault(natureza);
+
+    /// <summary>
+    /// "3 sessões · 1 medida · 2 evoluções de enfermagem" — a frase que a tela de guarda
+    /// mostra, montada pelo CATÁLOGO. Naturezas zeradas ficam de fora; a lista inteira de
+    /// zeros seria ruído, e o que importa é o que está guardado.
+    /// </summary>
+    public string DescreverContagens()
+    {
+        var partes = CatalogoRegistroClinico.Todas
+            .Where(i => De(i.Natureza) > 0)
+            .Select(i => CatalogoRegistroClinico.Contar(i.Natureza, De(i.Natureza)))
+            .ToList();
+
+        // As canceladas aparecem CONTADAS à parte: elas estão sob guarda, e escondê-las
+        // contradiria a razão de terem deixado de ser apagadas.
+        if (SessoesCanceladas > 0)
+            partes.Add($"{SessoesCanceladas} sessão(ões) cancelada(s), guardada(s)");
+
+        return partes.Count == 0 ? "nada guardado" : string.Join(" · ", partes);
+    }
+
     /// <summary>Não há nada guardado para este paciente — nem prazo a contar.</summary>
     public bool SemRegistro => UltimoRegistro is null;
 
@@ -37,8 +69,7 @@ public sealed record SituacaoGuarda(
             : "Sem registro clínico — não há prazo de guarda a contar.";
 
     /// <summary>Tudo o que está sob guarda, somado. É o número que a clínica mostra a quem a audita.</summary>
-    public int TotalDeRegistros
-        => Sessoes + SessoesCanceladas + Documentos + Avaliacoes + Medidas + Prescricoes;
+    public int TotalDeRegistros => Contagens.Values.Sum() + SessoesCanceladas;
 }
 
 /// <summary>O retrato da guarda na clínica inteira.</summary>
@@ -118,6 +149,22 @@ public sealed class GuardaProntuarioService
         // na exportação. Sem ela, o prazo de um paciente que só recebe infusão seria
         // calculado pelo registro errado (ou não seria calculado).
         var prescricoes = await _repo.PrescricoesInternasDoPacienteAsync(pacienteId, int.MaxValue, ct);
+        // A evolução de ENFERMAGEM entra pela mesma regra 8 (parcela 71), e ela move o
+        // prazo com mais frequência que qualquer outra: todo paciente passa pela
+        // enfermagem, e há passagens sem folha (curativo, observação) que não deixariam
+        // nenhum outro rastro datado.
+        var enfermagem = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue, ct);
+
+        // Anexo e mapa pendem da SESSÃO: eles não movem o prazo por si (a sessão já o
+        // move, e é a data dela que vale), mas CONTAM — a tela de conformidade responde
+        // "o que vocês guardam", e o laudo anexado é justamente o que o auditor procura.
+        var anexos = 0;
+        var mapas = 0;
+        foreach (var s in sessoes)
+        {
+            anexos += (await _repo.AnexosDaEvolucaoAsync(s.Id, ct)).Count;
+            if (await _repo.ObterMapaDaEvolucaoAsync(s.Id, ct) is not null) mapas++;
+        }
 
         var candidatos = new List<(DateOnly Data, string Origem)>();
 
@@ -128,6 +175,9 @@ public sealed class GuardaProntuarioService
         // que interessa à guarda, e não o carimbo de criação da linha.
         foreach (var d in documentos) candidatos.Add((d.Data, "documento emitido"));
         foreach (var pr in prescricoes) candidatos.Add((pr.Data, "prescrição de infusão"));
+        // Canceladas incluídas, pela razão do comentário lá em cima: elas continuam sob
+        // guarda, e é por isso que deixaram de ser apagadas.
+        foreach (var en in enfermagem) candidatos.Add((en.Data, "evolução de enfermagem"));
         // O problema entra pela data que ele CARREGA: o início declarado quando há, e o
         // dia do registro quando não há (problema sem início ainda é fato anotado).
         foreach (var pb in problemas)
@@ -137,17 +187,29 @@ public sealed class GuardaProntuarioService
             ? default((DateOnly Data, string Origem)?)
             : candidatos.OrderByDescending(c => c.Data).First();
 
+        // ⚠️ A contagem sai do CATÁLOGO, natureza a natureza. Enquanto ela era uma lista de
+        // campos nominais, a evolução de enfermagem e os problemas moviam o prazo e não
+        // apareciam — número errado com cara de exato, na tela de conformidade.
+        var contagens = new Dictionary<NaturezaRegistroClinico, int>
+        {
+            [NaturezaRegistroClinico.SessaoMedica] = sessoes.Count(s => !s.Cancelada),
+            [NaturezaRegistroClinico.EvolucaoEnfermagem] = enfermagem.Count,
+            [NaturezaRegistroClinico.PrescricaoInterna] = prescricoes.Count,
+            [NaturezaRegistroClinico.DocumentoClinico] = documentos.Count,
+            [NaturezaRegistroClinico.AvaliacaoClinica] = avaliacoes.Count,
+            [NaturezaRegistroClinico.MedidaClinica] = medidas.Count,
+            [NaturezaRegistroClinico.ProblemaPaciente] = problemas.Count,
+            [NaturezaRegistroClinico.Anexo] = anexos,
+            [NaturezaRegistroClinico.MapaCorporal] = mapas
+        };
+
         return new SituacaoGuarda(
             pacienteId,
             paciente.Nome,
             ultimo?.Data,
             ultimo?.Origem,
-            Sessoes: sessoes.Count(s => !s.Cancelada),
-            SessoesCanceladas: sessoes.Count(s => s.Cancelada),
-            Documentos: documentos.Count,
-            Avaliacoes: avaliacoes.Count,
-            Medidas: medidas.Count,
-            Prescricoes: prescricoes.Count);
+            contagens,
+            SessoesCanceladas: sessoes.Count(s => s.Cancelada));
     }
 
     /// <summary>

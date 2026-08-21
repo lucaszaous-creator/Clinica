@@ -70,10 +70,17 @@ public sealed class AutorizacaoSafeIDService
     /// <exception cref="InvalidOperationException">
     /// SafeID não configurado, autorização recusada, ou nenhum certificado no PSC.
     /// </exception>
+    /// <param name="duracaoSegundos">
+    /// Só faz sentido com <see cref="EscopoSafeID.Sessao"/>, e existe para ENCURTÁ-LO: o
+    /// padrão do PSC para pessoa física é de até <b>sete dias</b>, e um ato que precisa de
+    /// duas assinaturas seguidas não tem por que autorizar uma semana. Nulo deixa o padrão
+    /// do PSC, que é o certo para o escopo de assinatura única.
+    /// </param>
     public async Task<SessaoSafeID> AutorizarAsync(
         string? cpf = null,
         string escopo = EscopoSafeID.AssinaturaUnica,
         TimeSpan? espera = null,
+        int? duracaoSegundos = null,
         CancellationToken ct = default)
     {
         var opcoes = await _opcoes(ct)
@@ -91,7 +98,7 @@ public sealed class AutorizacaoSafeIDService
         var estado = Guid.NewGuid().ToString("N");
 
         _abrirNavegador(cliente.UrlDeAutorizacao(
-            desafio, escuta.Endereco, escopo, cpf, estado));
+            desafio, escuta.Endereco, escopo, cpf, estado, duracaoSegundos));
 
         // O tempo-limite é combinado com o cancelamento de quem chama (o botão Cancelar da
         // janela): o que vier primeiro encerra a espera.

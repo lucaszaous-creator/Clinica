@@ -7,6 +7,7 @@ using Clinica.Desktop.Shell.Componentes;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Regras;
+using Clinica.Domain.Prontuario;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -282,7 +283,6 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     private readonly ISnackbarService _snackbar;
     private readonly IDialogoService _dialogo;
 
-    public ObservableCollection<LinhaEvolucao> Prontuario { get; } = [];
     public ObservableCollection<LinhaConsentimento> Consentimentos { get; } = [];
     public ObservableCollection<LinhaAlerta> Alertas { get; } = [];
     public ObservableCollection<LinhaDocumento> Documentos { get; } = [];
@@ -458,10 +458,37 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     public bool PodeEmitirDoProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
 
     /// <summary>
+    /// ⚠️ A aba Prontuário SOME para quem não tem o bit. Ela não tinha barreira nenhuma:
+    /// Recepção, Financeiro e Faturista têm `VerFichaPaciente` e não têm `VerProntuario`, e
+    /// liam a evolução inteira de qualquer paciente — o corte da parcela 49 desfeito por uma
+    /// aba. Nem ler nem desenhar, como a seção de termos já fazia.
+    /// </summary>
+    public bool PodeVerProntuario => SessaoUsuario.Atual.Pode(Permissao.VerProntuario);
+
+    /// <summary>Bit próprio da evolução de enfermagem (parcela 71).</summary>
+    public bool PodeRegistrarEnfermagem =>
+        SessaoUsuario.Atual.Pode(Permissao.RegistrarEvolucaoEnfermagem);
+
+    /// <summary>
     /// Anonimizar não tem volta, então a barreira é outra: o balcão exporta os dados do
     /// titular, mas quem apaga a identificação é quem responde pela clínica.
     /// </summary>
     public bool PodeAnonimizar => SessaoUsuario.Atual.Pode(Permissao.AnonimizarDados);
+
+    /// <summary>
+    /// O PRONTUÁRIO NUMA SUPERFÍCIE SÓ (parcela 72) — o mesmo componente do Consultório e
+    /// da tela da Enfermagem.
+    ///
+    /// ⚠️ As ações são injetadas AQUI, com a natureza junto: o componente não sabe abrir
+    /// nada, e é isso que impede o comando da sessão de encostar no id 42 da enfermagem.
+    /// A ficha sabe abrir e cancelar a SESSÃO MÉDICA; a evolução de enfermagem é lida aqui
+    /// e escrita pelo botão do cabeçalho (o bit é outro, e o registro leva COREN).
+    ///
+    /// ⚠️ `MostrarDocumentos = false`: a aba Documentos ao lado é a porta do papel e faz
+    /// mais do que este componente faria. Duas listas do mesmo papel na mesma tela fazem a
+    /// pessoa procurar a diferença que não existe.
+    /// </summary>
+    public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
 
     public FichaPacienteViewModel(
         IServiceScopeFactory escopos, ISnackbarService snackbar, IDialogoService dialogo)
@@ -469,7 +496,29 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
         _escopos = escopos;
         _snackbar = snackbar;
         _dialogo = dialogo;
+
+        LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
+        {
+            MostrarDocumentos = false,
+            NaturezasComAcao = [NaturezaRegistroClinico.SessaoMedica],
+            AcessoParaMexer = Permissao.EditarProntuario,
+            AoAbrir = item => AbrirEvolucaoAsync(item.Id),
+            AoCancelar = CancelarRegistroAsync
+        };
     }
+
+    /// <summary>
+    /// Cancela o registro escolhido na linha do tempo — ROTEADO PELA NATUREZA.
+    ///
+    /// ⚠️ O <c>switch</c> é a razão de o item carregar <c>Natureza</c> + <c>Id</c>: sem
+    /// ele, "cancelar o 42" seria ambíguo entre duas tabelas, e o erro apareceria como o
+    /// registro de outro paciente sumindo do prontuário — sem estourar, sem avisar.
+    /// </summary>
+    private Task CancelarRegistroAsync(RegistroClinicoPaciente item) => item.Natureza switch
+    {
+        NaturezaRegistroClinico.SessaoMedica => CancelarSessaoAsync(item),
+        _ => Task.CompletedTask
+    };
 
     /// <summary>
     /// Descarte de resposta fora de ordem (parcela 50): abrir duas fichas em sequência
@@ -625,22 +674,53 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task CarregarProntuarioAsync(IServiceScope scope, int pacienteId, int geracao)
     {
-        var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-        var evolucoes = await prontuario.DoPacienteAsync(pacienteId);
-        if (geracao != _geracaoCarga) return;
-
-        Prontuario.Clear();
-        foreach (var e in evolucoes)
+        // ⚠️ NEM LER NEM DESENHAR (art. 5º, II). Sem esta linha, os perfis que só têm
+        // `VerFichaPaciente` — Recepção, Financeiro, Faturista — carregavam a evolução, a
+        // EVA e a curva de dor de qualquer paciente. A aba já some pelo XAML; carregar
+        // assim mesmo seria manter o dado sensível na memória de quem não pode vê-lo.
+        if (!SessaoUsuario.Atual.Pode(Permissao.VerProntuario))
         {
-            var anexos = await prontuario.AnexosAsync(e.Id);
-            // Chegou tarde: parar a montagem impede a lista velha de terminar por cima da nova.
-            if (geracao != _geracaoCarga) return;
-            Prontuario.Add(LinhaEvolucao.De(e, anexos.Count));
+            await LinhaDoTempo.CarregarAsync(0);
+            return;
         }
 
-        var dor = await prontuario.EvolucaoDaDorAsync(pacienteId);
+        // O prontuário inteiro — sessão médica, enfermagem e infusão — sai do componente
+        // compartilhado (parcela 72). Ele tem o próprio contador de geração e o próprio
+        // filtro de acesso por natureza.
+        await LinhaDoTempo.CarregarAsync(pacienteId);
+        if (geracao != _geracaoCarga) return;
+
+        // A curva de dor é da aba VISÃO GERAL, não desta: ela responde "o tratamento está
+        // funcionando?", que é outra pergunta.
+        var dor = await scope.ServiceProvider.GetRequiredService<ProntuarioService>()
+            .EvolucaoDaDorAsync(pacienteId);
         if (geracao != _geracaoCarga) return;
         AplicarEvolucaoDaDor(dor);
+    }
+
+    /// <summary>
+    /// Registra uma passagem pela enfermagem que NÃO veio de folha de infusão — curativo,
+    /// sala de observação, triagem. Todo paciente passa pela enfermagem, e a maioria dessas
+    /// passagens não tem folha nenhuma.
+    /// </summary>
+    [RelayCommand]
+    private async Task RegistrarEnfermagemAsync()
+    {
+        if (PacienteId == 0)
+        {
+            // A guarda DIZ por que não dá (a lição da parcela 41), em vez de voltar calada.
+            Mensagem = "Escolha um paciente para registrar a evolução de enfermagem.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        SessaoUsuario.Atual.Exigir(
+            Permissao.RegistrarEvolucaoEnfermagem, "registrar evolução de enfermagem");
+
+        Clinica.Desktop.Shell.Componentes.EvolucaoEnfermagemWindow.Abrir(
+            _escopos, _dialogo, PacienteId, Nome);
+
+        await CarregarAsync();
     }
 
     private void AplicarEvolucaoDaDor(EvolucaoDaDor dor)
@@ -1023,34 +1103,50 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     [RelayCommand]
     private async Task NovaEvolucaoAsync() => await AbrirEvolucaoAsync(null);
 
-    [RelayCommand]
-    private async Task EditarEvolucaoAsync(LinhaEvolucao? linha)
+
+    /// <summary>
+    /// Cancela a sessão do prontuário — nunca apaga (Lei 13.787/2018, guarda de 20 anos).
+    ///
+    /// ⚠️ O QUE ESTAVA ERRADO AQUI, e derrubava dois pontos do compromisso de conformidade
+    /// (parcela 72). A chamada era
+    /// <c>CancelarAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador)</c> —
+    /// <b>POSICIONAL</b>, com o login caindo na vaga do MOTIVO. Compilava porque os dois
+    /// são <c>string</c>, e o resultado era: <c>MotivoCancelamento = "ana.silva"</c>,
+    /// <c>CanceladaPor = null</c> e auditoria com <c>Operador = "?"</c>. E como
+    /// <c>SessaoUsuario.Operador</c> nunca é vazio (cai em <c>Environment.UserName</c>), a
+    /// única recusa do serviço — "diga por que a sessão está sendo cancelada" — NUNCA
+    /// disparava. Ponto 1 (cancela-se com motivo obrigatório) e ponto 6 (quem assina é quem
+    /// fez login), os dois de pé só no papel.
+    ///
+    /// E o rótulo mentia junto: botão "Excluir", diálogo "APAGAR a sessão? os anexos dela
+    /// vão junto" e snackbar "sessão EXCLUÍDA" — nada é apagado desde a parcela 52, e os
+    /// anexos não vão a lugar nenhum. A tela irmã do mesmo módulo (<c>ProntuarioViewModel</c>)
+    /// já fazia certo; esta é a cópia que ficou para trás.
+    /// </summary>
+    private async Task CancelarSessaoAsync(RegistroClinicoPaciente item)
     {
-        if (linha is null) return;
-        await AbrirEvolucaoAsync(linha.EvolucaoId);
-    }
-
-    [RelayCommand]
-    private async Task ExcluirEvolucaoAsync(LinhaEvolucao? linha)
-    {
-        if (linha is null) return;
-
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-        if (!_dialogo.ConfirmarPerigo("Excluir do prontuário",
-                $"Apagar a sessão de {linha.Data}? Os anexos dela vão junto, e o prontuário "
-                + "é documento clínico — a exclusão fica registrada na auditoria.")) return;
-
         try
         {
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+
+            var motivo = _dialogo.PerguntarTexto(
+                "Cancelar sessão do prontuário",
+                $"Por que a sessão de {item.Data:dd/MM/yyyy} está sendo cancelada? Ela NÃO é "
+                + "apagada — sai do prontuário que se lê e fica guardada, com este motivo "
+                + "ao lado.");
+            if (string.IsNullOrWhiteSpace(motivo)) return;
+
             using var scope = _escopos.CreateScope();
             var prontuario = scope.ServiceProvider.GetRequiredService<ProntuarioService>();
-            await prontuario.CancelarAsync(linha.EvolucaoId, SessaoUsuario.Atual.Operador);
-            _snackbar.Info("Sessão excluída do prontuário.");
+            await prontuario.CancelarAsync(item.Id, motivo, SessaoUsuario.Atual.Operador);
+
+            _snackbar.Info("Sessão cancelada (guardada no prontuário).");
             await CarregarAsync();
         }
         catch (Exception ex)
         {
-            Clinica.Application.Diagnostico.Registrar("Recepção — evolução não pôde ser excluída", ex);
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — evolução não pôde ser cancelada", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
         }
@@ -1058,18 +1154,32 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
 
     private async Task AbrirEvolucaoAsync(int? evolucaoId)
     {
-        SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
-        if (PacienteId == 0) return;
-
-        var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
-        var janela = new Janelas.EvolucaoWindow(vm)
+        // ⚠️ `Exigir` LANÇA, e este método é chamado de três lugares — inclusive do
+        // componente da linha do tempo, cujo comando não tem try. Fora do try, a recusa
+        // sobe até a rede do Dispatcher em vez de virar a frase que explica: é o mesmo
+        // defeito que a parcela 72 corrigiu nos botões desta tela, uma camada abaixo.
+        try
         {
-            Owner = JanelaDona.Atual()
-        };
+            SessaoUsuario.Atual.Exigir(Permissao.EditarProntuario, "escrever no prontuário");
+            if (PacienteId == 0) return;
 
-        if (janela.ShowDialog() != true) return;
-        _snackbar.Sucesso("Prontuário atualizado.");
-        await CarregarAsync();
+            var vm = new EvolucaoEdicaoViewModel(_escopos, PacienteId, evolucaoId);
+            var janela = new Janelas.EvolucaoWindow(vm)
+            {
+                Owner = JanelaDona.Atual()
+            };
+
+            if (janela.ShowDialog() != true) return;
+            _snackbar.Sucesso("Prontuário atualizado.");
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — sessão do prontuário não pôde ser aberta", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
     }
 
     /// <summary>Registra que o paciente CONCEDEU o consentimento desta finalidade.</summary>
@@ -1365,6 +1475,143 @@ public sealed partial class FichaPacienteViewModel : ObservableObject
     /// Cancela um documento. Ele NÃO some da lista: a via que o paciente levou continua
     /// no mundo, e o registro é o que prova que ela não vale mais.
     /// </summary>
+    /// <summary>
+    /// ASSINAR e ENVIAR o documento, na ficha (parcela 72).
+    ///
+    /// ⚠️ <c>LinhaDocumento.PodeAssinar</c> e <c>PodeEnviar</c> eram calculados aqui e
+    /// NUNCA lidos: a ficha imprimia e cancelava, e a tela irmã do MESMO módulo
+    /// (<c>PrescricoesView</c>) tinha os quatro botões. Sem assinatura o arquivo não vale
+    /// (art. 13 da Lei 14.063/2020, para o atestado; art. 14 para receita e pedido), e a
+    /// porta incompleta é a que fica aberta com o paciente na frente — ele sai com o papel
+    /// e o PDF assinado fica no computador da clínica.
+    ///
+    /// Os dois comandos são os MESMOS da tela irmã, e é de propósito: duas versões da
+    /// assinatura divergiriam na primeira correção, e a que ninguém lembraria de ajustar é
+    /// a que produz o arquivo com valor jurídico.
+    /// </summary>
+    [RelayCommand]
+    private async Task AssinarDocumentoAsync(LinhaDocumento? linha)
+    {
+        if (linha is null) return;
+
+        // Guarda de ESTADO: diz por que não dá, em vez de voltar calada.
+        if (!linha.PodeAssinar)
+        {
+            Mensagem = linha.Cancelado
+                ? $"O documento {linha.Numero} está cancelado e não pode ser assinado."
+                : $"O documento {linha.Numero} já foi assinado digitalmente.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            SessaoUsuario.Atual.Exigir(Permissao.Prescrever, "assinar documento clínico");
+
+            var certificado = EscolherCertificadoWindow.Perguntar(
+                $"Assinar {linha.Tipo.ToLowerInvariant()} {linha.Numero}",
+                System.Windows.Application.Current?.MainWindow, _escopos);
+
+            if (certificado is null) return;   // diálogo cancelado: sair calado é o certo
+
+            DocumentoAssinado assinado;
+            using (var scope = _escopos.CreateScope())
+            {
+                var assinaturas = scope.ServiceProvider
+                    .GetRequiredService<AssinaturaDeDocumentoClinicoService>();
+
+                assinado = await assinaturas.AssinarAsync(
+                    linha.DocumentoId, certificado,
+                    SessaoUsuario.Atual.Autenticado ? SessaoUsuario.Atual.UsuarioId : null,
+                    SessaoUsuario.Atual.Operador);
+            }
+
+            var erro = await ImpressaoPdf.SalvarEAbrirAsync(
+                assinado.Pdf, ImpressaoPdf.NomeSeguro(assinado.NomeArquivo));
+
+            if (erro is not null)
+            {
+                Mensagem = $"{erro} O documento foi assinado e está guardado no sistema.";
+                MensagemEhErro = true;
+            }
+            else
+            {
+                _snackbar.Sucesso("Documento assinado. Entregue o ARQUIVO ao paciente.");
+                Mensagem = null;
+                MensagemEhErro = false;
+            }
+
+            await CarregarAsync();
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — documento não pôde ser assinado", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
+    /// <summary>
+    /// Entrega o ARQUIVO assinado ao paciente pelo WhatsApp (parcela 43, 2ª rodada).
+    ///
+    /// A assinatura vive nos bytes: quem sai só com o papel leva um documento sem a
+    /// garantia que o sistema produziu, e a farmácia recusa — com razão. Ver
+    /// <see cref="EntregaAoPaciente"/>, inclusive por que o anexo não é automático.
+    /// </summary>
+    [RelayCommand]
+    private async Task EnviarDocumentoAsync(LinhaDocumento? linha)
+    {
+        if (linha is null) return;
+
+        if (!linha.PodeEnviar)
+        {
+            Mensagem = linha.Cancelado
+                ? $"O documento {linha.Numero} está cancelado."
+                : $"O documento {linha.Numero} ainda não foi assinado digitalmente. "
+                  + "Sem assinatura, o que vale é a via impressa e assinada à caneta — "
+                  + "assine antes de enviar o arquivo.";
+            MensagemEhErro = true;
+            return;
+        }
+
+        try
+        {
+            byte[] pdf;
+            Paciente? paciente;
+            string? nomeClinica;
+
+            using (var scope = _escopos.CreateScope())
+            {
+                var pdfs = scope.ServiceProvider.GetRequiredService<DocumentosClinicosPdfService>();
+                var pacientes = scope.ServiceProvider.GetRequiredService<PacienteService>();
+                var parametros = scope.ServiceProvider.GetRequiredService<ParametrosService>();
+
+                // Bytes GUARDADOS: o documento está assinado, e regerar produziria um
+                // arquivo que abre como inválido no leitor de quem confere.
+                pdf = await pdfs.GerarAsync(linha.DocumentoId);
+                paciente = await pacientes.ObterComHistoricoAsync(linha.PacienteId);
+
+                var prestador = await parametros.ObterPrestadorAsync();
+                nomeClinica = prestador.NomeFantasia ?? prestador.RazaoSocial;
+            }
+
+            var entrega = EntregaAoPaciente.Entregar(
+                pdf, linha.NomeArquivoAssinado, paciente?.Telefone,
+                paciente?.Nome ?? "paciente", linha.Tipo, nomeClinica);
+
+            Mensagem = entrega.Frase;
+            MensagemEhErro = entrega.EhErro;
+        }
+        catch (Exception ex)
+        {
+            Clinica.Application.Diagnostico.Registrar(
+                "Recepção — documento não pôde ser entregue ao paciente", ex);
+            Mensagem = ex.Message;
+            MensagemEhErro = true;
+        }
+    }
+
     [RelayCommand]
     private async Task CancelarDocumentoAsync(LinhaDocumento? linha)
     {

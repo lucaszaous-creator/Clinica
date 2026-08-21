@@ -4283,3 +4283,331 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   incremental é **WinAnsiEncoding** e o arquivo é escrito em Latin-1 — as duas tabelas só
   divergem na faixa 0x80–0x9F, onde mora a tipografia (acento não precisa de nada: "é" é
   0xE9 nas duas).
+
+- **Carimbo visível é dado do BANCO numa caixa de largura FIXA — logo, precisa de corte**
+  (parcela 68, 9ª rodada, continuação). Assim que o bloco da assinatura passou a aparecer
+  de verdade, ele virou o caso clássico da parcela 50: `DrawString` com `TopLeft` num
+  `XRect` do PDFsharp **não quebra linha nem corta**, e o operador `Tj` do PDF também não —
+  o que não cabe sai por cima do que estiver ao lado. As quatro linhas levam nome do
+  profissional, registro, CPF e o **emissor do certificado**, e nenhum deles tem tamanho
+  máximo.
+  **Medido antes de decidir**, com o emissor ICP-Brasil mais longo que existe ("Autoridade
+  Certificadora do SERPRO Final v5") e um nome composto: sobravam **28 pontos** no carimbo
+  da prescrição, **20** no da enfermagem e **8,4 na RECEITA** — o papel que vai à farmácia,
+  onde a caixa tem 220 e o QR fica logo ao lado. Oito pontos são dois caracteres. Não
+  estourava, e não havia guarda nenhuma.
+  ⚠️ **O corte é EXATO nos dois, e a razão de não ser o mesmo mecanismo importa**: o carimbo
+  do prescritor é desenhado pelo PDFsharp, então mede com `MeasureString`; o da enfermagem
+  é escrito à mão em **Helvetica**, e o resolvedor de fontes do projeto só conhece a Segoe
+  WP, que é **~9% mais estreita** — medir com ela deixaria estourar justamente no caso
+  apertado. Por isso entrou a tabela de larguras da base-14, que foi **medida** (215,319
+  pontos para a linha do emissor a 6,5) e é **conferida em teste** contra o número que o
+  poppler devolve no arquivo gerado: um dígito errado ali só apareceria como texto por cima
+  do carimbo vizinho, na clínica.
+  A lição de método é a que esta área cobra sempre: **quando um desenho deixa de ser
+  recortado e passa a ser visível, tudo o que o recorte escondia vira defeito de uma vez.**
+  E a de ferramenta: `pdftotext -bbox-layout` dá o limite real de cada glifo em pontos —
+  dá para medir folga de caixa sem abrir o PDF, de graça, o que nesta área vale por uma
+  tentativa paga no PSC.
+
+- **Conteúdo de página HERDA o estado gráfico de quem desenhou antes — e quem equilibra a
+  pilha do QuestPDF é o PDFsharp** (parcela 68, 9ª rodada, 3ª parte — achado de uma revisão
+  adversarial do próprio diff, com o CI verde). Ao pôr o carimbo no conteúdo da página em
+  vez de na aparência da anotação, ele passou a depender de uma coisa que a aparência não
+  dependia: os fluxos de conteúdo de uma página são **CONCATENADOS**, e o `q` que o
+  `XGraphics` emite **salva** o estado, não o reinicia.
+  Medido no arquivo real: o fluxo do QuestPDF abre com `q .25 0 0 -.25 0 842 cm` (a escala
+  do Skia) e **não fecha esse `q`**; quem fecha é um ` Q` que o **PDFsharp** acrescenta no
+  fim. Ou seja, a posição do carimbo é o resultado de uma combinação entre o que uma
+  biblioteca EMITE e o que a outra CONSERTA — as duas se atualizam sozinhas.
+  Se essa combinação mudar, o carimbo sai com a escala herdada: **um oitavo do tamanho, no
+  meio da folha, e criptograficamente válido**, com build, testes e as três redes verdes.
+  ⚠️ A rede que faltava não é sobre texto, é sobre ESTADO:
+  `A_pilha_grafica_chega_equilibrada_no_carimbo` percorre os fluxos anteriores ao do
+  carimbo e cobra profundidade `q`/`Q` **zero** e nenhum `cm` na raiz. Os outros testes
+  verificam que o carimbo está no fluxo, nunca ONDE ele cai, e o `CarimboNoRodapeTests`
+  mede o retângulo **PEDIDO**, não o desenhado — três testes sobre o mesmo assunto e um
+  buraco no meio deles.
+  A lição: **ao trocar um desenho isolado (form XObject) por um desenho no fluxo comum,
+  o que você ganhou em visibilidade você pagou em ACOPLAMENTO** — e o preço só aparece
+  quando a outra biblioteca muda de versão.
+- **Resolvedor de fonte que descarta o `bold` faz o título nascer sem hierarquia** (mesma
+  rodada): `FonteDoCarimbo.ResolveTypeface` devolvia sempre `SegoeWP#`, ignorando o
+  parâmetro, e o `PdfSharp.WPFonts` traz `SegoeWPBold` ao lado. As quatro linhas do carimbo
+  saíam com o mesmo peso. Enquanto o bloco era invisível ninguém via; agora ele é a única
+  linha de cabeçalho, no papel que a clínica entrega. Conferido no arquivo: antes, um
+  recurso de fonte só (`/F0` nas duas medidas); agora `/F0: Segoe WP,Bold` e `/F1: Segoe
+  WP`, e há teste cobrando que título e corpo resolvam para faces **diferentes**.
+
+- **`/Size` do trailer calculado À MÃO desencontra na primeira linha nova — e quem recusa é
+  o leitor ESTRITO, não o nosso** (parcela 68, 9ª rodada, 4ª parte). Para igualar os dois
+  carimbos, o incremental ganhou a face **Helvetica-Bold** do título — um objeto PDF a
+  mais. O `/Size` era escrito como `nSig + 4`, certo enquanto o último objeto novo fosse a
+  fonte: a tabela xref passou a declarar um objeto que o trailer dizia não existir.
+  ⚠️ **Os 1675 testes ficaram verdes, o nosso `Conferir` aprovou e o arquivo abriu**, porque
+  o leitor da casa é tolerante. Quem recusou o arquivo INTEIRO foi o **pyhanko**: *"Xref
+  table size mismatch: table allocated object with id 47, but according to the trailer 46 is
+  the maximal allowed object id"*. Em produção, quem recusaria seria o validador do
+  farmacêutico.
+  A correção não foi ajustar a conta: foi **derivá-la dos objetos realmente escritos**
+  (`objetos.Max(Numero) + 1`), para não poder desencontrar de novo. E entrou
+  `O_trailer_declara_um_tamanho_maior_que_o_maior_objeto`, que é a régua estrita dentro de
+  casa — ele reprova com a conta errada.
+  É a 7ª rodada da parcela 67 pela terceira vez, agora do lado da ESTRUTURA em vez do
+  formato do CMS: **aceitar o próprio arquivo não é o mesmo que EMITIR o arquivo que o
+  mundo lá fora lê.** E a lição operacional: **validador de fora roda de graça — passe TODO
+  arquivo assinado por ele antes de dar a rodada por fechada**, porque nesta área a
+  alternativa custa uma tentativa paga no PSC.
+
+- **A folha selada pela MÉDICA não pode mostrar a execução — e a que mostra tem de ser
+  selada também** (parcela 68, 10ª rodada — a clínica relatou que, com item não realizado ou
+  suspenso, "está encerrando a infusão sem assinar a dela"). O relato apontava para o ciclo
+  de vida e o defeito estava no PAPEL.
+  **O que NÃO era**: `AguardaAssinaturaDaExecucao` sempre esteve certo. Cinco casos medidos
+  (tudo realizado, um não realizado, um suspenso, nada realizado, tudo suspenso) e em todos
+  a folha encerrada continua pedindo a assinatura — `NaoRealizadoESuspensoTests` fixa isso.
+  Os testes anteriores só exercitavam a folha TODA realizada, e **é sempre o caminho não
+  exercitado que a clínica encontra**.
+  ⚠️ **O que era**: o REGISTRO DE EXECUÇÃO — a única folha que mostra o ✓, a rodela, o
+  suspenso e as justificativas — é montado NA HORA e **nunca foi assinado**. Pior: depois de
+  a enfermeira assinar a prescrição, o rodapé dele passava a escrever *"Assinado
+  digitalmente com certificado ICP-Brasil (assinatura qualificada) · titular Joana
+  Técnica"* — num PDF sem `/ByteRange`, sem PKCS#7 e sem carimbo. E, ao afirmar isso, ele
+  **engolia a linha de caneta**: a folha saía sem carimbo digital e sem onde assinar à mão,
+  isto é, **sem prova nenhuma de autoria**. Da cadeira dela, isso é exatamente "encerrou sem
+  a minha assinatura". É a garantia aparente da parcela 3, e um comentário do próprio código
+  a escondia — ele supunha que "na reimpressão nunca se chega aqui, os bytes selados são
+  devolvidos guardados", e o registro **nunca foi guardado**.
+  ⚠️ **A via que parecia óbvia foi MEDIDA e está fechada**: acrescentar a página do registro
+  ao arquivo que a médica assinou, por revisão incremental, faz o pyhanko devolver
+  `mod=OTHER · ILLEGAL_MODIFICATIONS` para a assinatura **dela**. Nosso lado aprovaria; o
+  Adobe e o ITI acusariam. É a lição da 7ª rodada da parcela 67 pelo avesso, e ela custou
+  trinta linhas de experimento em vez de um importador de PDF inteiro.
+  **O desenho que ficou** (escolha da direção, com o custo na mesa): a enfermeira escolhe o
+  certificado UMA vez e o sistema sela **DOIS documentos** — a prescrição (revisão
+  incremental, o carimbo dela ao lado do da médica) e o registro (assinatura própria, um
+  carimbo, mostrando tudo). São duas cobranças do SafeID por folha, e a direção aceitou.
+  Três regras que o código não conta sozinho: **o registro é GERADO antes de a assinatura
+  ser registrada** (depois dela, o rodapé escreveria "este arquivo NÃO é assinado", e selar
+  esse texto produziria um arquivo assinado dizendo que não é assinado); **falhar ao selar o
+  registro NÃO desfaz a assinatura da prescrição** (a hierarquia da parcela 65: o ato
+  irreversível não depende do passo que veio depois), e a degradação é honesta — sem selo, o
+  registro volta a ser espelho e DIZ que não é assinado, apontando a folha que é; e **cada
+  folha devolve o SEU arquivo selado** (`ArquivoId` × `ArquivoRegistroId`), porque trocar um
+  pelo outro entregaria a segunda via de um documento no lugar do outro.
+  ⚠️ **E a causa do relato era ainda mais simples: a caixinha não estava marcada.** Os
+  prints de produção fecham o diagnóstico — o rodapé do registro da folha 0009 traz a LINHA
+  DE CANETA e o nome à direita, leiaute que só sai quando `ExigeAssinaturaEletronicaDaExecucao`
+  é **falso**. A folha 0007, com dois carimbos, tinha a caixinha marcada. A clínica leu a
+  coincidência ("as duas que ficaram sem assinatura tinham item não realizado") como causa,
+  e ela não é — mas **o que ela via é o que vale**. Por isso o campo passou a **nascer
+  marcado**: garantia que depende de alguém lembrar não é garantia. Desmarcar continua
+  existindo, e continua sendo de quem prescreve; o que mudou é o lado para o qual o
+  esquecimento cai.
+  ⚠️ Teste que depende do PADRÃO passa a medir a escolha errada quando o padrão vira — o da
+  trilha do encerramento quebrou junto, e a correção foi **declarar o regime no próprio
+  teste** em vez de ajustar a asserção.
+  A lição de teste: **a decisão do rodapé foi tirada de dentro do desenho do PDF**
+  (`AvisoDoRegistroDeExecucao`, público). Lá dentro nenhum teste a alcançava — o QuestPDF
+  embute a fonte em subconjunto e escreve o texto como IDs de glifo, então nem o texto do
+  arquivo se lê de volta. **O que decide o que o papel AFIRMA precisa morar onde o
+  `dotnet test` alcança.**
+
+- **O ESCOPO da autorização em nuvem é escolhido pelo ATO, e errá-lo só aparece na SEGUNDA
+  assinatura** (parcela 68, 11ª rodada — achado na revisão da própria mudança, antes de
+  chegar à clínica). O encerramento passou a selar DOIS documentos com o mesmo certificado,
+  e o seletor autorizava com o padrão do serviço: `EscopoSafeID.AssinaturaUnica`. O próprio
+  arquivo já dizia o que isso significa — *"um hash só; **o token morre no uso**"*.
+  Ou seja: a primeira selagem passaria e a **segunda seria recusada SEMPRE**, em toda folha
+  da clínica, e a tela cairia no caminho degradado todo dia.
+  ⚠️ **Nenhum teste pegaria**, e a razão é estrutural: o assinador de teste é local e não
+  tem token que morra. Em produção, cada tentativa é COBRADA — então o defeito seria
+  descoberto pagando. Foi achado LENDO os escopos, não medindo, e é o tipo de coisa que só
+  se acha perguntando "o que muda quando eu chamo isto DUAS vezes?".
+  A correção mora em `EscopoSafeID.ParaAto(assinaturas)` — na APPLICATION, não na ViewModel
+  do WPF que escolhe o certificado, pela razão de sempre: **decisão dentro de ViewModel é
+  decisão que o `dotnet test` não alcança**. E a sessão é pedida **encurtada** (5 min): o
+  padrão do PSC para pessoa física vai a **sete dias**, e autorizar uma semana para selar
+  duas folhas abre muito mais do que o ato pede — daí `AutorizarAsync` ter ganhado
+  `duracaoSegundos`, que só existe para ENCURTAR.
+  A lição que generaliza: **ao passar a chamar um serviço externo duas vezes onde antes era
+  uma, leia o que a AUTORIZAÇÃO permite — não só o que a chamada faz.** Escopo, cota e
+  idempotência são propriedades do primeiro uso, e nenhuma delas aparece no teste local.
+
+- **A EVOLUÇÃO DE ENFERMAGEM, e por que ela não é a `Evolucao` com outro autor** (parcela
+  71 — a cliente: *"todo paciente precisa passar pela enfermagem, por isso precisamos que
+  também tenha um registro de evolução para enfermagem"*). São dois registros de naturezas
+  e responsabilidades diferentes: a evolução responde *"o que eu concluí e o que decidi
+  fazer"* e é de quem ATENDEU; esta responde *"o que eu observei no paciente, e a que
+  horas"* e é de quem EXECUTOU, com o registro no conselho ao lado. A evolução é UMA por
+  sessão, salva em várias passadas até ficar certa; esta são VÁRIAS por passagem — 14h20,
+  14h50, 15h10 —, cada uma um fato pontual que não se reescreve.
+  ⚠️ **Reusar a `Evolucao` com um campo de tipo foi medido e recusado**, e o argumento não
+  é conceitual: QUATRO leitores quebrariam **em silêncio**. `ConsultorioService.
+  EvolucaoDoHorario` cai para paciente + data, então a anotação da técnica cobriria a
+  sessão do médico e ela sumiria de "sessões sem evolução" — elo partido não vira erro,
+  vira LISTA VAZIA; `EvolucoesNoPeriodoAsync` filtra `ProfissionalId == null`, e a anotação
+  apareceria no "Meu dia" de TODOS; `CompletudeProntuario` passaria a medir o trabalho de
+  outra pessoa; e o relatório que o paciente leva ao CONVÊNIO imprime o autor por sessão.
+  É o mesmo argumento com que a parcela 42 recusou enfiar a folha de infusão em
+  `TipoDocumentoClinico`.
+  **O paciente é o DONO; a infusão é procedência.** `PrescricaoInternaId` é anulável, e não
+  por conveniência: FK obrigatória força `Cascade`, e apagar uma folha levaria junto
+  registro clínico — a cascata que a parcela 60 achou no excluir paciente. Sem isso ficariam
+  sem lugar o curativo, a sala de observação, a triagem e **a reação que aparece meia hora
+  depois de a folha ter sido encerrada**, que é justamente a que mais importa.
+  **Os SINAIS VITAIS moram na evolução, e não em `MedidaClinica`**: aquela não tem HORA (só
+  `DateOnly`), então três aferições na mesma infusão ficariam indistinguíveis — e é a
+  sequência dentro da sessão que faz a leitura de enfermagem ("PA 120x80 na admissão, 90x60
+  aos vinte minutos"). Faltam-lhe também temperatura, FC, FR e SpO₂. A divisão fica escrita
+  na tela: **aqui é o ponto no tempo; a CURVA continua sendo a tela de Medidas.** E a dor
+  aferida **não entra na curva de dor do prontuário** (`Evolucao.EvaAntes/Depois`): aquela
+  mede o efeito do TRATAMENTO entre sessões e a direção já a lê — misturá-las mudaria em
+  silêncio um número existente.
+  **A porta é a LINHA DA FILA da sala, não uma aba dentro da folha**, e a primeira razão
+  sozinha decide: `PodeMexer => PodeChecar && EmExecucao` — **folha encerrada apaga a janela
+  dela inteira**, e o botão nasceria morto exatamente no caso que justifica a feature. Some
+  a isso que a folha é MODAL (registrar uma reação na cadeira 3 com a folha da cadeira 1
+  aberta custaria dez gestos, com o paciente reagindo) e que ela já tem um campo de hora com
+  OUTRO significado, num registro cuja razão de existir é a hora ser a certa.
+  **Bit próprio** (`RegistrarEvolucaoEnfermagem`), e a alternativa de custo zero foi
+  recusada de propósito: reusar `ChecarPrescricao` não custaria uma linha, mas **checar é
+  afirmar que aquilo entrou no paciente; evoluir é descrever o que se observou nele** — dois
+  atos de peso diferente, e o corte pelo ATO é a regra desde a parcela 45.
+  **No prontuário, lista SEPARADA da médica — e não é estética, é bug evitado:**
+  `LinhaEvolucao.EvolucaoId` é a chave das ações destrutivas da lista de sessões, e ids são
+  POR TABELA. A evolução de enfermagem nº 42 na mesma lista cancelaria a `Evolucao` nº 42 —
+  de outro paciente, com o motivo escrito para outra coisa. Não estoura, não avisa.
+  ⚠️ **E a aba "Prontuário" da ficha não tinha barreira NENHUMA.** O item Pacientes pede só
+  `VerFichaPaciente`, o `TabItem` não tinha `Visibility` e `CarregarProntuarioAsync` não
+  tinha um único `Pode` — **Recepção, Financeiro e Faturista liam a evolução inteira de
+  qualquer paciente**, que é literalmente o que o corte da parcela 49 existe para impedir. A
+  contraprova estava 270 linhas abaixo no MESMO arquivo: `CarregarTermosAsync` tem a
+  barreira e o comentário nomeando esses perfis. Achado ao construir esta parcela, e
+  corrigido antes dela — **entregar dado clínico novo por uma porta aberta pioraria a
+  conformidade que a feature existe para melhorar.**
+  ⚠️ **E as duas primeiras portas não bastavam — foi preciso a TELA.** A evolução nasceu
+  alcançável pela fila da sala de infusão e pela ficha do paciente, e as duas resolvem o
+  caso da INFUSÃO. A clínica devolveu a frase que muda o desenho: *"todo paciente precisa
+  passar pela enfermagem"*. A maioria dessas passagens não tem folha nenhuma — curativo,
+  triagem, observação, pós-consulta —, e a enfermeira não tinha de onde alcançá-las: a sala
+  só mostra as folhas do DIA, e a ficha exige saber o nome e passar pelo módulo da recepção.
+  A tela `Enfermagem` é a **terceira tela do shell publicada por dois módulos** (a sala e os
+  pacotes são as outras), e é SEPARADA da sala de propósito: a sala responde *"o que
+  executar agora"*, esta responde *"quem eu atendi e o que escrevi"*. Terceira pergunta,
+  terceira tela. A lista traz **todos os pacientes cadastrados** (`limite: null`, como a
+  listagem do balcão) e a evolução mora atrás de UM clique — lista de largura inteira → tela
+  do paciente, nunca a faixa lateral que o README proíbe.
+  A lição: **porta no fluxo não é porta na rotina.** Pendurar o registro nas telas do
+  processo que o motivou (a infusão) cobre quem está DENTRO daquele processo; quem faz o
+  mesmo trabalho fora dele fica sem lugar — e é o defeito recorrente do projeto na variante
+  "a porta existe, mas só para metade dos casos".
+  De quebra: `SessaoUsuario.RegistroConselho` nasceu porque a folha gravava `Conselho: null`
+  **literal** desde a parcela 42 — a coluna existia, o PDF tinha o ramo que a imprime e a
+  exportação tinha a coluna, e nenhuma checagem de produção saía identificada. **Registro de
+  enfermagem sem o número do conselho não é registro de enfermagem.**
+
+- **X · Y · XY — a LEITURA que os dois compartilham, a ESCRITA que os separa** (parcela 72;
+  o mapa completo está em `docs/atendimento-medico-e-enfermagem.md`, e é lá que se
+  atualiza). A cliente pediu: *"o médico enxerga X itens de atendimento, a enfermagem
+  enxerga Y, e caso X e Y se completem entreguem XY para ambos"*. A medição do domínio
+  respondeu antes do desenho: `PerfilAcesso.Profissional` e `PerfilAcesso.Enfermagem` **já
+  compartilhavam** `VerAgenda | VerFichaPaciente | VerProntuario | ColherAssinaturaPaciente`.
+  ⚠️ **Nenhuma permissão nova era necessária para entregar o XY — faltava PORTA**, o defeito
+  recorrente do projeto pela décima segunda vez. E havia um argumento duro contra inventar
+  bit: `Permissao` é `[Flags]` de **`int`** gravada como INTEIRO em produção, e
+  `RegistrarEvolucaoEnfermagem = 1 << 30` — **sobra UM bit** antes de o enum precisar virar
+  `long`, o que muda o tipo da coluna numa base viva.
+  **A frase que decide tudo: XY é a LEITURA; X e Y são as ESCRITAS.** O que separa é
+  `EditarProntuario | Prescrever` (X) contra `ChecarPrescricao | RegistrarEvolucaoEnfermagem`
+  (Y), e cada lado escreve com o conselho dele — médico escrevendo evolução de enfermagem é
+  registro assinado com o conselho errado, pior que a lacuna que resolveria.
+  **A linha do tempo clínica** (`LinhaDoTempoClinicaView`, no shell) é o componente das TRÊS
+  portas: a ficha da Recepção, o Consultório e a tela da Enfermagem. Chips de seção
+  **contados**, um marcado por vez — e os desmarcados MOSTRAM a contagem, porque é o número
+  visível que faz a enfermeira descobrir que há 12 sessões médicas para ler.
+  ⚠️ **Ela NÃO funde as listas, e as duas razões decidem sozinhas:** (a) os ids são POR
+  TABELA — a evolução de enfermagem nº 42 e a `Evolucao` nº 42 são de pacientes diferentes,
+  e um comando destrutivo sobre lista fundida cancelaria o registro errado **sem estourar e
+  sem avisar** (o bug que `PacientesView.xaml` documentava desde a 71); (b) `Evolucao.Data`
+  é `DateOnly` — ordenar a médica às 00:00 a poria antes de todas as aferições do dia,
+  inclusive da reação que a motivou, e **ordenar um prontuário por uma hora que não existe é
+  fabricar sequência de eventos num documento que responde em auditoria**. O item carrega
+  `Natureza` + `Id`, e é isso que permitirá fundir quando `Evolucao` ganhar hora.
+  ⚠️ **A lista rica de sessões do Consultório NÃO foi substituída** pela genérica: ela tem
+  busca no texto, contagem de anexos, marca de correção e os botões da linha. Trocá-la
+  tiraria capacidade de quem a usa todo dia — a regra 3 do bloco do faturamento aplicada a
+  uma tela clínica. O componente entra ali só para o que faltava.
+  **Antes de acrescentar informação ao Atendimento foi preciso corrigir o leiaute**: a tela
+  exigia 520 + 16 + 400 = 936 px e a janela mínima da suíte deixa 856 (606 com o painel de
+  categoria fixado). O WPF honra o `MinWidth` e **corta o excesso à direita** — não há
+  rolagem horizontal ali, então acrescentar era cortar o que já existe.
+
+- **Entidade clínica nova entra em UMA lista, e quatro leitores a consomem**
+  (`CatalogoRegistroClinico`, parcela 72). O defeito já tinha sido cometido DUAS vezes neste
+  exato assunto, e os comentários confessam: a folha de infusão ficou de fora da primeira
+  versão da GUARDA e a lista de problemas — onde moram as ALERGIAS — ficou de fora da
+  primeira versão da EXPORTAÇÃO. Uma terceira estava de pé: `SituacaoGuarda` contava CINCO
+  naturezas enquanto o prazo de 20 anos era calculado sobre SETE, e o documento do art. 18,
+  II cobria TRÊS de nove. A tela que responde ao auditor *"o que vocês guardam por 20 anos"*
+  mostrava "0 sessão · 0 medida · 0 prescrição" com uma data vinda de lugar nenhum visível,
+  para a ficha cujo único registro era enfermagem — **número errado com cara de exato, na
+  tela de conformidade**.
+  As nove naturezas moram no DOMÍNIO com rótulo e permissão de leitura; leem a lista a linha
+  do tempo, a guarda (contagem e frase), a exportação do fornecedor e o direito do titular —
+  que ganhou as SEIS seções que faltavam, execução de infusão item a item inclusive.
+  ⚠️ **`ConjuntoClinicoTests` é COMPORTAMENTAL, não declarativo**: ele grava um registro de
+  cada natureza e exige que ele APAREÇA na contagem, no CSV e no texto. Declaração conferida
+  contra declaração ficaria verde com as duas erradas do mesmo jeito. Ele falha no commit em
+  que a próxima entidade clínica nascer, que é meses antes de a clínica esbarrar.
+
+- **A alergia é conferida na ADMINISTRAÇÃO, não só na assinatura** (parcela 72 — a quinta
+  recusa do projeto, e a única que impede dano ao PACIENTE). `AssinarAsync` confere a folha
+  contra as alergias e recusa sem confirmação escrita desde a parcela 42; a EXECUÇÃO não
+  conferia **nada** — as únicas guardas de `ChecarAsync` eram "item já checado" e hora
+  futura. O caminho de dano é inteiro e mora dentro do que a parcela 71 construiu: folha
+  assinada de manhã sem alergia registrada → o item 2 causa reação → **a própria técnica**
+  grava a alergia pelo campo "Reação a registrar como alergia" → itens 3, 4 e 5 seguem
+  pendentes com a folha na sala → **ninguém reconfere**. O sistema tinha o dado, gravado por
+  quem seria a vítima do silêncio, e não o usava.
+  Três decisões: **só na administração** (não administrar é o desfecho seguro, e cobrar
+  confirmação para a rodela treinaria a equipe a confirmar sem ler); **confere o ITEM, não a
+  folha** (repetir a resposta da folha inteira acenderia na linha do soro por causa da
+  dipirona da linha de baixo); e **avisa e exige confirmação — não impede**. Vale igual na
+  RETIFICAÇÃO: retificar de "não realizado" para "realizado" é administrar, e deixar a
+  conferência só na checagem normal seria a cópia que fica para trás.
+  Junto veio o **COREN obrigatório** em checar, registrar e retificar. O comentário da
+  entidade já dizia que "evolução sem registro no conselho não é evolução de enfermagem" e
+  **não havia guarda em lugar nenhum**: bastava um login sem `Profissional` vinculado para
+  todo registro daquela máquina entrar no prontuário sem COREN **para sempre** — e sem
+  conserto barato, porque o campo é COPIADO no ato. A frase nomeia o conserto, pelo
+  precedente do "Meu dia".
+
+- **A curva de PRESSÃO vem de DUAS fontes, e cada ponto diz de onde veio** (parcela 72): a
+  PA está no `CatalogoMedidas` com faixas publicadas desde a parcela 37 e a série **nascia
+  vazia e continuava vazia** — a única porta de ESCRITA de `MedidaClinica` está no app do
+  MÉDICO, enquanto a pressão de verdade é aferida na ENFERMAGEM, toda sessão, e vai para
+  `EvolucaoEnfermagem`. **Curva vazia se lê como "este paciente nunca teve a pressão
+  aferida"**, que é falso.
+  A ponte é de **LEITURA**, e isso é decisão: destravar a colheita de `MedidaClinica` pela
+  enfermagem daria DOIS lugares para gravar a mesma aferição, sem nada na tela dizendo qual.
+  As regras: **procedência escrita em cada ponto** (dois pontos do mesmo dia sem dizer que um
+  é de antes da consulta e o outro de meia hora depois da bomba escondem justamente a leitura
+  clínica), **faixa da MESMA definição do catálogo** (a evolução grava os números crus, e uma
+  segunda leitura de "pressão normal" daria duas respostas para a mesma aferição), **cancelada
+  e retificada não entram** e **dentro do dia a HORA desempata**.
+
+- **Comentário que promete o que o código não faz, terceira ocorrência** (parcela 72): a
+  entidade `EvolucaoEnfermagem` afirmava que a marca de intercorrência *"viaja para a tela de
+  atendimento do médico"* — e `grep EvolucaoEnfermagemService src/Clinica.Modulo.Clinico`
+  devolvia **zero**. Aqui o estrago não era erro, era **AUSÊNCIA**, indistinguível de "não
+  houve intercorrência". Agora ela entra na lista de `AlertasClinicos` que já existe (zero
+  pixel novo), com **janela de 48 horas** — e a janela decide a utilidade da lista: alergia é
+  ESTADO, intercorrência é EVENTO DATADO, e a marca é `bool`, então **não há como
+  descartá-la**. Sem janela, seis meses depois o paciente crônico teria uma náusea de março e
+  um extravasamento de abril acima da alergia real, e é assim que se ensina alguém a fechar o
+  alerta sem ler. A janela é `const` no domínio, ao lado da regra.
+  O mesmo commit corrigiu a promessa das *"quatro portas — … e o do Consultório"* da janela de
+  escrita (a do Consultório não existe, e é decisão) e a frase divergente do cabeçalho do
+  workspace, que dizia "da agenda de HOJE" para qualquer horário enquanto a tela de dentro já
+  dizia a DATA desde a parcela 69 — a lição das parcelas 64 e 68 pela sétima vez.

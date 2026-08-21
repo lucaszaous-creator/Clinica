@@ -297,7 +297,12 @@ public sealed partial class MedidasViewModel : ObservableObject
     private void AplicarSerie(SerieMedida serie)
     {
         foreach (var p in serie.Pontos)
-            Curva.Add(new PontoGrafico(p.Data.ToString("dd/MM"), (double)p.Valor));
+            Curva.Add(new PontoGrafico(
+                // Com duas fontes no mesmo dia, o rótulo precisa da HORA: dois "03/08"
+                // colados na curva não se distinguem, e é a diferença entre eles que
+                // interessa.
+                p.Hora is { } h ? $"{p.Data:dd/MM} {h:HH\\:mm}" : p.Data.ToString("dd/MM"),
+                (double)p.Valor));
 
         TemSerie = serie.TemDados;
 
@@ -337,6 +342,22 @@ public sealed partial class MedidasViewModel : ObservableObject
             _ => $"{serie.TipoNome} não mudou entre {serie.Pontos[0].Data:dd/MM/yyyy} e "
                  + $"{serie.Pontos[^1].Data:dd/MM/yyyy}."
         };
+
+        // ⚠️ A PROCEDÊNCIA vai na leitura (parcela 72), como a data da altura no IMC ao
+        // lado. A curva de PRESSÃO mescla duas fontes — a colheita do consultório e a
+        // aferição da enfermagem —, e a diferença entre dois pontos do mesmo dia é
+        // justamente a leitura clínica: um é de antes da consulta, o outro de meia hora
+        // depois da bomba. Número apresentado sem dizer de onde veio faz o profissional
+        // procurar no papel uma aferição que aconteceu noutro lugar.
+        var fontes = serie.Pontos
+            .Select(p => p.Procedencia)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct()
+            .ToList();
+
+        if (fontes.Count > 1)
+            LeituraSerie += " A curva junta o que foi colhido no "
+                            + string.Join(" e na ", fontes) + ".";
     }
 
     private static string Formatar(decimal? valor, SerieMedida serie)

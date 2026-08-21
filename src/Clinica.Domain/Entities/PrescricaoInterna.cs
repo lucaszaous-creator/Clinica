@@ -241,7 +241,17 @@ public class PrescricaoInterna
     /// a cada item checado. Assinar antes selaria um arquivo que ainda ia mudar — a mesma
     /// razão pela qual a prescritora não assina rascunho.
     /// </summary>
-    public bool ExigeAssinaturaEletronicaDaExecucao { get; set; }
+    /// <remarks>
+    /// ⚠️ <b>Nasce MARCADO</b> (decisão da clínica, 20/08/2026). Ele nasceu desmarcado, e a
+    /// consequência apareceu em produção: a folha PRE 2026/0009 foi encerrada sem a
+    /// assinatura da enfermagem porque ninguém marcou a caixinha, e a clínica leu isso como
+    /// "o sistema não pede quando tem item não realizado" — que não é verdade, mas era o
+    /// que ela via. <b>Garantia que depende de alguém lembrar não é garantia.</b>
+    ///
+    /// Desmarcar continua existindo, e continua sendo de quem prescreve: é a folha que vai
+    /// ser assinada à caneta. O que mudou é o lado para o qual o esquecimento cai.
+    /// </remarks>
+    public bool ExigeAssinaturaEletronicaDaExecucao { get; set; } = true;
 
     public DateTime? AssinadaEm { get; set; }
 
@@ -262,6 +272,17 @@ public class PrescricaoInterna
     public List<ItemPrescricaoInterna> Itens { get; set; } = new();
 
     public List<AssinaturaDocumento> Assinaturas { get; set; } = new();
+
+    /// <summary>
+    /// As evoluções de enfermagem escritas DURANTE esta infusão (parcela 71) — o que foi
+    /// observado no paciente enquanto a folha corria.
+    ///
+    /// ⚠️ A folha é PROCEDÊNCIA, não dona: o registro pertence ao paciente e sobrevive ao
+    /// encerramento da folha (a reação que aparece meia hora depois da última bomba é
+    /// justamente a que mais importa). Por isso a chave estrangeira do outro lado é
+    /// anulável e o apagamento é <c>SetNull</c>.
+    /// </summary>
+    public List<EvolucaoEnfermagem> EvolucoesEnfermagem { get; set; } = new();
 
     // ---- Leituras derivadas ----
 
@@ -639,6 +660,24 @@ public class AssinaturaDocumento
     /// <summary>O PDF assinado. Tabela à parte para a listagem não arrastar megabytes.</summary>
     public int? ArquivoId { get; set; }
     public ArquivoAssinado? Arquivo { get; set; }
+
+    /// <summary>
+    /// O <b>REGISTRO DE EXECUÇÃO</b> selado no mesmo ato (decisão da direção, 20/08/2026).
+    ///
+    /// A folha da prescrição é selada pela médica ANTES da execução, então ela nunca poderá
+    /// mostrar o que foi feito — e acrescentar-lhe uma página faz o validador de fora
+    /// acusar modificação ilegal na assinatura DELA (medido). Quem mostra o ✓, a rodela e o
+    /// suspenso é o registro; para ele valer como prova, ele precisa ser selado também.
+    ///
+    /// São DOIS arquivos de UM ato: a enfermeira escolhe o certificado uma vez e o sistema
+    /// sela a prescrição (revisão incremental, o carimbo dela ao lado do da médica) e o
+    /// registro (assinatura própria, um carimbo). Nulo quando a selagem do registro falhou
+    /// — e aí o registro é montado na hora e DIZ que não é assinado, apontando a folha que
+    /// é. Falha na segunda não desfaz a primeira: o ato irreversível não depende do passo
+    /// que veio depois dele.
+    /// </summary>
+    public int? ArquivoRegistroId { get; set; }
+    public ArquivoAssinado? ArquivoRegistro { get; set; }
 
     // ---- Leituras derivadas ----
 

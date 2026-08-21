@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Text;
 using Clinica.Application.Abstracoes;
+using Clinica.Domain;
 using Clinica.Domain.Entities;
+using Clinica.Domain.Prontuario;
 
 namespace Clinica.Application.Servicos;
 
@@ -56,6 +58,30 @@ public sealed class TitularDadosService
         _prontuarios = prontuarios;
         _documentos = documentos;
     }
+
+    /// <summary>
+    /// ⚠️ A SEÇÃO de cada natureza clínica (parcela 72) — a declaração que
+    /// <c>ConjuntoClinicoTests</c> confere gravando um registro de cada e exigindo que
+    /// ele apareça NO TEXTO.
+    ///
+    /// Ela nasce porque este documento cobria TRÊS naturezas de nove: quem recebe infusão
+    /// semanal, faz PHQ-9 e é pesado toda consulta levava, como resposta ao art. 18, II,
+    /// um papel que não dizia uma palavra sobre nada disso — e ele é a prova de que a
+    /// clínica atendeu ao pedido.
+    /// </summary>
+    public static IReadOnlyDictionary<NaturezaRegistroClinico, string> SecaoPorNatureza { get; } =
+        new Dictionary<NaturezaRegistroClinico, string>
+        {
+            [NaturezaRegistroClinico.SessaoMedica] = "== EVOLUÇÕES CLÍNICAS ==",
+            [NaturezaRegistroClinico.EvolucaoEnfermagem] = "== EVOLUÇÕES DE ENFERMAGEM ==",
+            [NaturezaRegistroClinico.PrescricaoInterna] = "== PRESCRIÇÕES DE INFUSÃO ==",
+            [NaturezaRegistroClinico.DocumentoClinico] = "== DOCUMENTOS EMITIDOS ==",
+            [NaturezaRegistroClinico.AvaliacaoClinica] = "== AVALIAÇÕES E ESCALAS ==",
+            [NaturezaRegistroClinico.MedidaClinica] = "== MEDIDAS ==",
+            [NaturezaRegistroClinico.ProblemaPaciente] = "== PROBLEMAS, DIAGNÓSTICOS E ALERGIAS ==",
+            [NaturezaRegistroClinico.Anexo] = "== ANEXOS E MAPAS CORPORAIS ==",
+            [NaturezaRegistroClinico.MapaCorporal] = "== ANEXOS E MAPAS CORPORAIS =="
+        };
 
     /// <summary>
     /// Tudo o que a clínica guarda sobre o paciente, num texto que ele leva embora.
@@ -128,6 +154,125 @@ public sealed class TitularDadosService
             Bloco(texto, "evolução", e.TextoEvolucao);
             Bloco(texto, "orientações", e.Orientacoes);
         }
+        texto.AppendLine();
+
+        // A EVOLUÇÃO DE ENFERMAGEM (parcela 71). O art. 18 II é sobre TUDO o que a clínica
+        // guarda do titular — e um paciente que só passa pela enfermagem receberia, sem
+        // esta seção, um documento que diz que a clínica não tem registro clínico dele.
+        texto.AppendLine("== EVOLUÇÕES DE ENFERMAGEM ==");
+        var enfermagem = await _repo.EvolucoesEnfermagemDoPacienteAsync(pacienteId, int.MaxValue, ct);
+        if (enfermagem.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var en in enfermagem.OrderBy(e => e.Data).ThenBy(e => e.Hora))
+        {
+            texto.AppendLine(
+                $"- {en.Data.ToString("dd/MM/yyyy", Brasil)} às {en.Hora:HH\\:mm}"
+                + (en.Intercorrencia ? " · INTERCORRÊNCIA" : string.Empty)
+                + (en.Cancelada ? " (CANCELADA)" : string.Empty));
+            if (en.SinaisVitaisResumidos is { } sinais) Bloco(texto, "sinais vitais", sinais);
+            Bloco(texto, "observação", en.Texto);
+            Bloco(texto, "registrado por", en.AutorNome
+                + (string.IsNullOrWhiteSpace(en.AutorConselho) ? "" : $" ({en.AutorConselho})"));
+            if (en.Cancelada) Bloco(texto, "motivo do cancelamento", en.MotivoCancelamento);
+        }
+        texto.AppendLine();
+
+        // ⚠️ AS SEIS SEÇÕES QUE FALTAVAM (parcela 72). O art. 18, II é sobre TUDO o que a
+        // clínica guarda do titular, e este documento cobria três naturezas de nove: quem
+        // recebe uma infusão semanal, faz PHQ-9 no consultório e é pesado toda consulta
+        // levava um papel que não dizia uma palavra sobre nada disso — e ele é a prova de
+        // que a clínica atendeu ao pedido. Agora a lista de naturezas é UMA
+        // (CatalogoRegistroClinico), e a próxima entidade clínica entra por ela.
+        texto.AppendLine("== PRESCRIÇÕES DE INFUSÃO ==");
+        var infusoes = await _repo.PrescricoesInternasDoPacienteAsync(pacienteId, int.MaxValue, ct);
+        if (infusoes.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var pr in infusoes.OrderBy(p => p.Data).ThenBy(p => p.Hora))
+        {
+            texto.AppendLine(
+                $"- {pr.Data.ToString("dd/MM/yyyy", Brasil)} às {pr.Hora:HH\\:mm} · folha nº {pr.Numero}"
+                + (pr.Cancelada ? " (CANCELADA)" : string.Empty));
+            Bloco(texto, "indicação", pr.Indicacao);
+            Bloco(texto, "prescrita por", pr.Profissional?.Rotulo);
+
+            // A EXECUÇÃO junto: é o que entrou no paciente, a que horas e por quem — a
+            // parte que o titular tem mais razão de querer levar embora.
+            foreach (var item in pr.Itens.OrderBy(i => i.Ordem))
+            {
+                var checagem = item.ChecagemVigente;
+                texto.AppendLine(
+                    $"    {item.Ordem}. {item.TextoCompleto}"
+                    + (item.Suspenso ? " (suspenso pelo prescritor)" : string.Empty)
+                    + (checagem is null
+                        ? " — sem registro de execução"
+                        : $" — {(checagem.Situacao == SituacaoChecagem.Realizado ? "realizado" : "NÃO realizado")}"
+                          + $" às {checagem.HoraRealizacao:HH\\:mm} por {checagem.ExecutanteNome}"
+                          + (string.IsNullOrWhiteSpace(checagem.Justificativa)
+                              ? string.Empty
+                              : $" ({checagem.Justificativa})")));
+            }
+        }
+        texto.AppendLine();
+
+        texto.AppendLine("== AVALIAÇÕES E ESCALAS ==");
+        var avaliacoes = await _repo.AvaliacoesDoPacienteAsync(
+            pacienteId, null, incluirCanceladas: true, ct);
+        if (avaliacoes.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var a in avaliacoes.OrderBy(a => a.Data))
+            texto.AppendLine(
+                $"- {a.Data.ToString("dd/MM/yyyy", Brasil)} · {a.InstrumentoNome}: "
+                + $"{a.Pontuacao} de {a.PontuacaoMaxima}"
+                + (string.IsNullOrWhiteSpace(a.FaixaNome) ? string.Empty : $" · {a.FaixaNome}")
+                + (a.Cancelada ? " (CANCELADA)" : string.Empty));
+        texto.AppendLine();
+
+        texto.AppendLine("== MEDIDAS ==");
+        var medidas = await _repo.MedidasDoPacienteAsync(
+            pacienteId, null, incluirCanceladas: true, ct);
+        if (medidas.Count == 0) texto.AppendLine("(nenhuma)");
+        foreach (var m in medidas.OrderBy(m => m.Data))
+            texto.AppendLine(
+                $"- {m.Data.ToString("dd/MM/yyyy", Brasil)} · {m.TipoNome}: "
+                + $"{m.Valor.ToString("0.##", Brasil)}"
+                + (m.ValorSecundario is { } segundo ? $"/{segundo.ToString("0.##", Brasil)}" : string.Empty)
+                + $" {m.Unidade}"
+                + (string.IsNullOrWhiteSpace(m.FaixaNome) ? string.Empty : $" · {m.FaixaNome}")
+                + (m.Cancelada ? " (CANCELADA)" : string.Empty));
+        texto.AppendLine();
+
+        // ⚠️ A LISTA DE PROBLEMAS é onde moram as ALERGIAS. Um documento de art. 18 sem
+        // ela entrega ao titular — e ao próximo serviço que o atender — um paciente "sem
+        // alergia nenhuma". É a mesma lacuna que a exportação do fornecedor já corrigiu.
+        texto.AppendLine("== PROBLEMAS, DIAGNÓSTICOS E ALERGIAS ==");
+        var problemas = await _repo.ProblemasDoPacienteAsync(pacienteId, somenteAtivos: false, ct);
+        if (problemas.Count == 0) texto.AppendLine("(nenhum)");
+        foreach (var pb in problemas.OrderBy(p => p.Inicio ?? DateOnly.FromDateTime(p.CriadoEm)))
+            texto.AppendLine(
+                $"- {RotulosEnum.De(pb.Natureza)}: {pb.Descricao}"
+                + (string.IsNullOrWhiteSpace(pb.Cid) ? string.Empty : $" (CID {pb.Cid})")
+                + $" · {RotulosEnum.De(pb.Situacao)}"
+                + (pb.Inicio is { } inicio ? $" · desde {inicio.ToString("dd/MM/yyyy", Brasil)}" : string.Empty));
+        texto.AppendLine();
+
+        texto.AppendLine("== ANEXOS E MAPAS CORPORAIS ==");
+        var comAnexo = 0;
+        foreach (var e in evolucoes)
+        {
+            foreach (var a in await _repo.AnexosDaEvolucaoAsync(e.Id, ct))
+            {
+                comAnexo++;
+                texto.AppendLine(
+                    $"- {e.Data.ToString("dd/MM/yyyy", Brasil)} · anexo: {a.NomeArquivo} "
+                    + $"({RotulosEnum.De(a.Tipo)}, {a.Tamanho} bytes)");
+            }
+
+            if (await _repo.ObterMapaDaEvolucaoAsync(e.Id, ct) is { } mapa)
+            {
+                comAnexo++;
+                texto.AppendLine(
+                    $"- {e.Data.ToString("dd/MM/yyyy", Brasil)} · mapa corporal com "
+                    + $"{mapa.Pontos.Count} ponto(s) marcado(s)");
+            }
+        }
+        if (comAnexo == 0) texto.AppendLine("(nenhum)");
         texto.AppendLine();
 
         texto.AppendLine("== DOCUMENTOS EMITIDOS ==");

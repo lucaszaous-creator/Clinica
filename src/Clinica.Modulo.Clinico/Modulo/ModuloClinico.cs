@@ -73,6 +73,13 @@ public sealed class ModuloClinico : IModuloApp
     public const string ChaveSalaInfusao = ChavesSuite.SalaInfusao;
 
     /// <summary>
+    /// A tela da ENFERMAGEM (parcela 71). Terceira tela do SHELL publicada por DOIS
+    /// módulos, pela razão da sala de infusão acima — e a chave mora em ChavesSuite
+    /// porque literal à mão dos dois lados sempre compila e some em silêncio.
+    /// </summary>
+    public const string ChaveEnfermagem = ChavesSuite.Enfermagem;
+
+    /// <summary>
     /// A produtividade do profissional, na tela dele. <c>ProdutividadeProfissional</c> e
     /// <c>CompletudeProntuario</c> só eram lidos pelo BI do Gerente: o sistema media quem
     /// atende e a pessoa medida não via o próprio número.
@@ -153,6 +160,17 @@ public sealed class ModuloClinico : IModuloApp
             Chave = ChaveSalaInfusao, Rotulo = "Sala de infus\u00E3o", Glifo = "\uE9D5",
             Grupo = GrupoSidebar.Gestao, Requer = Permissao.ChecarPrescricao
         },
+
+        // A tela da ENFERMAGEM: TODOS os pacientes cadastrados e a evolução de cada
+        // um. SEPARADA da sala de infusão de propósito — a sala responde "o que
+        // executar agora" e só mostra as folhas do dia; esta responde "quem eu atendi
+        // e o que escrevi", e a clínica disse que todo paciente passa pela enfermagem.
+        // Terceira pergunta, terceira tela.
+        new ItemMenuModulo
+        {
+            Chave = ChaveEnfermagem, Rotulo = "Enfermagem", Glifo = "\uE95E",
+            Grupo = GrupoSidebar.Paciente, Requer = Permissao.RegistrarEvolucaoEnfermagem
+        },
         new ItemMenuModulo
         {
             Chave = ChaveMeusNumeros, Rotulo = "Meus n\u00FAmeros", Glifo = "\uE9D9",
@@ -220,6 +238,7 @@ public sealed class ModuloClinico : IModuloApp
         servicos.AddTransient<PrescricoesClinicasViewModel>();
         servicos.AddTransient<PrescricaoInfusaoViewModel>();
         servicos.AddTransient<SalaInfusaoViewModel>();
+        servicos.AddTransient<EnfermagemViewModel>();
         servicos.AddTransient<MeusNumerosViewModel>();
         servicos.AddTransient<AtendimentoViewModel>();
         servicos.AddTransient<ProntuarioClinicoViewModel>();
@@ -257,6 +276,10 @@ public sealed class ModuloClinico : IModuloApp
         ChaveSalaInfusao => new SalaInfusaoView
         {
             DataContext = servicos.GetRequiredService<SalaInfusaoViewModel>()
+        },
+        ChaveEnfermagem => new EnfermagemView
+        {
+            DataContext = servicos.GetRequiredService<EnfermagemViewModel>()
         },
         ChaveMeusNumeros => new MeusNumerosView
         {
