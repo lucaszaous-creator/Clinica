@@ -27,6 +27,19 @@ public sealed class LinhaEvolucaoEnfermagem
     public required string? Marca { get; init; }
     public required string? Folha { get; init; }
 
+    /// <summary>
+    /// A linha de assinatura já montada: autor · registro · folha, com o separador
+    /// resolvido AQUI (parcela 72).
+    ///
+    /// ⚠️ A tela montava a frase com dois <c>&lt;Run Text=" · " /&gt;</c> FIXOS, e
+    /// <see cref="Folha"/> é nulo no caso NORMAL — a passagem avulsa, que é a maioria. A
+    /// seção nascia com quase toda linha terminando num <c>" · "</c> pendurado. Separador
+    /// fixo em volta de campo opcional é sempre isto; quem monta a frase é quem sabe o que
+    /// existe nela.
+    /// </summary>
+    public string Assinatura => string.Join(" · ", new[] { Autor, Registro, Folha }
+        .Where(p => !string.IsNullOrWhiteSpace(p)));
+
     /// <summary>Vigente é o que se pode corrigir ou cancelar — o resto é histórico.</summary>
     public bool Vigente => !Cancelada && !Substituida;
 

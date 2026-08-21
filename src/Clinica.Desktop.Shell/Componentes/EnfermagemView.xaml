@@ -36,31 +36,51 @@
                            Text="Todos os pacientes da clínica. Abra alguém para ver e escrever a evolução de enfermagem — sinais vitais, intercorrências e o que foi observado em cada passagem." />
             </StackPanel>
 
-            <Grid DockPanel.Dock="Top" Margin="0,0,0,14">
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MaxWidth="420" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <TextBox Grid.Column="0" Style="{StaticResource CampoPesquisa}"
                          Text="{Binding Seletor.Termo, UpdateSourceTrigger=PropertyChanged}"
                          ctrl:Ajudantes.Placeholder="Buscar por nome ou CPF" />
+
+                <!-- Os dois modos da MESMA lista. A busca é atalho; a carteira inteira é
+                     um clique, e não o estado padrão da tela. -->
+                <Button Grid.Column="1" Content="Hoje" MinWidth="90" Margin="10,0,0,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        ToolTip="Quem está marcado para hoje — a fila que a enfermagem vai receber."
+                        Command="{Binding HojeCommand}" />
+                <Button Grid.Column="2" Content="Todos os pacientes" MinWidth="160" Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource BotaoSecundario}"
+                        ToolTip="A carteira inteira da clínica, para alcançar quem não está no dia."
+                        Command="{Binding TodosCommand}" />
             </Grid>
+
+            <TextBlock DockPanel.Dock="Top" Text="{Binding ResumoDaLista}"
+                       Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
+                       Margin="0,0,0,10" />
 
             <TextBlock DockPanel.Dock="Top" Text="{Binding Seletor.Erro}"
                        Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                       Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8" />
+                       Foreground="{StaticResource Brush.Erro}" Margin="0,0,0,8"
+                       Visibility="{Binding Seletor.Erro, Converter={StaticResource TextoParaVisibilidade},
+                                    FallbackValue=Collapsed}" />
 
             <!-- UMA superfície para a região inteira, e a separação entre as linhas por
                  espaço — não uma moldura por paciente. -->
             <Border Style="{StaticResource Card}">
                 <Grid>
                     <ctrl:EstadoDaTela Panel.ZIndex="1"
-                                       Itens="{Binding Seletor.Resultados}"
-                                       Carregando="{Binding Seletor.Buscando}"
+                                       Itens="{Binding Pacientes}"
+                                       Carregando="{Binding CarregandoLista}"
                                        Glifo="&#xE77B;"
-                                       Titulo="Nenhum paciente encontrado"
-                                       Descricao="Ajuste a busca — a lista traz todos os pacientes cadastrados na clínica." />
+                                       Titulo="Nenhum paciente nesta lista"
+                                       Descricao="Busque pelo nome, ou use “Todos os pacientes” para ver a carteira inteira da clínica." />
 
                     <!-- O escopo do tamanho compartilhado: sem ele, cada linha resolve as
                          próprias colunas e a tabela vira uma pilha de linhas parecidas. -->
@@ -77,8 +97,12 @@
                             <TextBlock Grid.Column="3" Text="CONVÊNIO" Style="{StaticResource Rotulo}" Margin="0" />
                         </Grid>
 
-                        <ListBox ItemsSource="{Binding Seletor.Resultados}"
-                                 SelectedItem="{Binding Seletor.Selecionado}"
+                        <!-- ⚠️ UMA coleção e UMA seleção. Duas ListBox amarradas ao mesmo
+                             SelectedItem se limpam mutuamente, porque a que não contém o
+                             item escolhido devolve null pelo binding (parcela 37) — por
+                             isso a fila do dia e a busca publicam na MESMA lista. -->
+                        <ListBox ItemsSource="{Binding Pacientes}"
+                                 SelectedItem="{Binding Escolhido}"
                                  ItemTemplate="{StaticResource ItemPacienteLinha}"
                                  BorderThickness="0" Background="Transparent"
                                  HorizontalContentAlignment="Stretch"
@@ -120,16 +144,51 @@
                 <StackPanel Grid.Column="1">
                     <TextBlock Text="{Binding Paciente}" Style="{StaticResource H1}" Margin="0"
                                TextTrimming="CharacterEllipsis" />
+
+                    <!-- ⚠️ Contexto permanente é LINHA de texto, não faixa: faixa
+                         permanente vira moldura, e foi a 5ª reprovação do cliente
+                         (parcela 38). Idade · convênio · em uso · última aferição ·
+                         peso · termo · folha do dia, tudo numa linha. -->
                     <TextBlock Text="{Binding Contexto}" Style="{StaticResource TextoSuave}"
                                TextWrapping="Wrap"
                                Visibility="{Binding Contexto, Converter={StaticResource TextoParaVisibilidade}}" />
+
+                    <!-- A alergia sai separada porque é a única que muda de cor: quem
+                         pendura na veia é a última pessoa entre ela e o paciente. -->
+                    <TextBlock Text="{Binding Alerta}" TextWrapping="Wrap" Margin="0,4,0,0"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.Erro}"
+                               Visibility="{Binding Alerta, Converter={StaticResource TextoParaVisibilidade},
+                                            FallbackValue=Collapsed}" />
                 </StackPanel>
 
-                <Button Grid.Column="2" Content="Escrever evolução" MinWidth="180"
-                        VerticalAlignment="Center"
-                        IsEnabled="{Binding PodeRegistrar}"
-                        ToolTip="Abre o registro da passagem: hora do que foi observado, sinais vitais e intercorrência. Grava no prontuário com a sua identificação e o registro no conselho."
-                        Command="{Binding RegistrarCommand}" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- ⚠️ Os dois botões condicionais só EXISTEM quando há o que fazer:
+                         botão que não existe não gasta tela para dizer que não há nada. -->
+                    <Button Content="{Binding FolhaDeHoje}" MinWidth="150" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeAbrirFolha}"
+                            ToolTip="A folha de infusão deste paciente hoje — checar itens, retificar e encerrar."
+                            Visibility="{Binding FolhaDeHoje, Converter={StaticResource TextoParaVisibilidade},
+                                         FallbackValue=Collapsed}"
+                            Command="{Binding AbrirFolhaCommand}" />
+
+                    <Button Content="{Binding TermoPendente}" MinWidth="150" Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource BotaoSecundario}"
+                            IsEnabled="{Binding PodeColherTermo}"
+                            ToolTip="Colhe a assinatura do paciente no termo do procedimento de hoje, na tela de assinatura."
+                            Visibility="{Binding TermoPendente, Converter={StaticResource TextoParaVisibilidade},
+                                         FallbackValue=Collapsed}"
+                            Command="{Binding ColherTermoCommand}" />
+
+                    <Button Content="Escrever evolução" MinWidth="180"
+                            VerticalAlignment="Center"
+                            IsEnabled="{Binding PodeRegistrar}"
+                            ToolTip="Abre o registro da passagem: hora do que foi observado, sinais vitais e intercorrência. Grava no prontuário com a sua identificação e o registro no conselho."
+                            Command="{Binding RegistrarCommand}" />
+                </StackPanel>
             </Grid>
 
             <Border DockPanel.Dock="Bottom" Margin="0,12,0,0"
@@ -200,14 +259,12 @@
                                                            FontSize="{StaticResource Fonte.Legenda}"
                                                            Foreground="{StaticResource Brush.Aviso}"
                                                            Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}" />
-                                                <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"
-                                                           Style="{StaticResource TextoSuave}">
-                                                    <Run Text="{Binding Autor, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Registro, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Folha, Mode=OneWay}" />
-                                                </TextBlock>
+                                                <!-- O separador é resolvido no VM: `Folha` é
+                                                     NULA no caso normal (passagem avulsa), e
+                                                     os " · " fixos penduravam no fim. -->
+                                                <TextBlock Text="{Binding Assinatura}" TextWrapping="Wrap"
+                                                           Margin="0,4,0,0"
+                                                           Style="{StaticResource TextoSuave}" />
                                             </StackPanel>
 
                                             <Border Grid.Column="2" Style="{StaticResource Badge.Aviso}"

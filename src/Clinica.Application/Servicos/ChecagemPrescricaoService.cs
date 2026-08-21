@@ -10,7 +10,41 @@ namespace Clinica.Application.Servicos;
 /// </summary>
 /// <param name="Nome">Copiado para a linha: o usuário pode ser renomeado ou desativado.</param>
 /// <param name="Conselho">COREN, quando cadastrado.</param>
-public sealed record IdentificacaoExecutante(int? UsuarioId, string Nome, string? Conselho = null);
+public sealed record IdentificacaoExecutante(int? UsuarioId, string Nome, string? Conselho = null)
+{
+    /// <summary>
+    /// ⚠️ RECUSA sem o registro no conselho (parcela 72) — COFEN 429/2012.
+    ///
+    /// Por que isto é uma recusa e não um aviso
+    /// ----------------------------------------
+    /// O conselho é <b>copiado no ato</b>, como o nome. Enquanto ele foi opcional, bastava
+    /// um login sem <c>Profissional</c> vinculado — o caso de toda técnica cadastrada sem
+    /// ficha — para que <b>todo registro daquela máquina entrasse no prontuário sem COREN,
+    /// para sempre</b>. E não há conserto barato depois: como o campo é cópia, corrigir
+    /// exigiria retificar registro a registro, com motivo, um por um.
+    ///
+    /// A frase nomeia o conserto em vez de só recusar, pelo precedente do "Meu dia": sem
+    /// profissional vinculado, o app DIZ que está sem — degradar em silêncio é o que faz
+    /// a clínica descobrir meses depois, com a base cheia.
+    /// </summary>
+    /// <param name="ato">"checar a execução", "registrar evolução de enfermagem"…</param>
+    public void Exigir(string ato)
+    {
+        if (string.IsNullOrWhiteSpace(Nome))
+            throw new InvalidOperationException(
+                $"Não dá para {ato} sem saber quem executou. Sem isso o registro é uma "
+                + "afirmação de ninguém — e é justamente o vínculo com a pessoa que o "
+                + "torna útil.");
+
+        if (string.IsNullOrWhiteSpace(Conselho))
+            throw new InvalidOperationException(
+                $"O seu login não tem o registro no conselho (COREN/CRM) e não dá para "
+                + $"{ato} sem ele: o número é parte da assinatura profissional e fica "
+                + "COPIADO no prontuário — corrigir depois exigiria retificar registro a "
+                + "registro. Peça em Acessos para vincular o seu cadastro de profissional "
+                + "a este login.");
+    }
+}
 
 /// <summary>
 /// A CHECAGEM DE ENFERMAGEM — o coração da parcela 42.
@@ -77,10 +111,21 @@ public sealed class ChecagemPrescricaoService
     /// </summary>
     private readonly Func<DateTime> _agora;
 
-    public ChecagemPrescricaoService(IClinicaRepositorio repo, Func<DateTime>? agora = null)
+    /// <summary>
+    /// A conferência clínica da parcela 40 — a MESMA que a assinatura da folha usa. Não é
+    /// uma segunda definição: é a mesma classe sobre o mesmo repositório, e é isso que
+    /// garante que a frase que a técnica lê às 14h seja a que a médica leu de manhã.
+    /// </summary>
+    private readonly PrescricaoService _conferencia;
+
+    public ChecagemPrescricaoService(
+        IClinicaRepositorio repo,
+        Func<DateTime>? agora = null,
+        PrescricaoService? conferencia = null)
     {
         _repo = repo;
         _agora = agora ?? (() => DateTime.Now);
+        _conferencia = conferencia ?? new PrescricaoService(repo);
     }
 
     // ---- Leitura ----
@@ -131,6 +176,11 @@ public sealed class ChecagemPrescricaoService
     /// SaveChanges da checagem. É o caminho do "não fez porque teve reação" virar alerta
     /// na próxima prescrição, em vez de morrer na justificativa.
     /// </param>
+    /// <param name="confirmouAlergia">
+    /// Quem administra viu o alerta de alergia e decidiu prosseguir. Sem isso a checagem
+    /// de <see cref="SituacaoChecagem.Realizado"/> é RECUSADA quando o item bate com
+    /// alergia registrada — ver <see cref="ConferirAlergiaDoItem"/>.
+    /// </param>
     public async Task<ChecagemPrescricao> ChecarAsync(
         int itemId,
         SituacaoChecagem situacao,
@@ -138,6 +188,7 @@ public sealed class ChecagemPrescricaoService
         IdentificacaoExecutante executante,
         string? justificativa = null,
         string? alergiaObservada = null,
+        bool confirmouAlergia = false,
         CancellationToken ct = default)
     {
         var item = await ExigirItemChecavel(itemId, ct);
@@ -146,6 +197,8 @@ public sealed class ChecagemPrescricaoService
             throw new InvalidOperationException(
                 "Este item já foi checado. Se o registro está errado, RETIFIQUE — a "
                 + "checagem anterior fica na folha, com o motivo da correção.");
+
+        await ConferirAlergiaDoItem(item, situacao, confirmouAlergia, ct);
 
         var checagem = Montar(item, situacao, hora, executante, justificativa);
         item.Checagens.Add(checagem);
@@ -183,6 +236,7 @@ public sealed class ChecagemPrescricaoService
         IdentificacaoExecutante executante,
         string motivoRetificacao,
         string? justificativa = null,
+        bool confirmouAlergia = false,
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(motivoRetificacao))
@@ -195,6 +249,11 @@ public sealed class ChecagemPrescricaoService
         var anterior = item.ChecagemVigente
             ?? throw new InvalidOperationException(
                 "Não há checagem para retificar neste item — use a checagem normal.");
+
+        // Retificar de "não realizado" para "realizado" É administrar: a conferência vale
+        // igual. Deixá-la só na checagem normal seria a cópia que fica para trás — o
+        // caminho de volta pelo qual a recusa não vale nada.
+        await ConferirAlergiaDoItem(item, situacao, confirmouAlergia, ct);
 
         var checagem = Montar(item, situacao, hora, executante, justificativa);
         checagem.RetificaChecagemId = anterior.Id;
@@ -309,14 +368,59 @@ public sealed class ChecagemPrescricaoService
         return item;
     }
 
+    /// <summary>
+    /// ⚠️ A QUINTA RECUSA DO PROJETO, e a única que impede dano ao PACIENTE (parcela 72).
+    ///
+    /// O buraco que ela fecha
+    /// ----------------------
+    /// <see cref="PrescricaoInternaService.AssinarAsync"/> confere a folha contra as
+    /// alergias do paciente e recusa sem confirmação escrita desde a parcela 42 — e a
+    /// execução não conferia <b>nada</b>: as únicas guardas eram "item já checado" e hora
+    /// futura. O caminho de dano é inteiro e concreto: a folha é assinada de manhã, sem
+    /// alergia registrada; o item 2 causa reação; a própria técnica grava a alergia pelo
+    /// campo "Reação a registrar como alergia"; e os itens 3, 4 e 5 seguem pendentes, com
+    /// a folha na sala, sem <b>ninguém reconferir</b>. O sistema tinha o dado — gravado
+    /// por quem seria a vítima do silêncio — e não o usava.
+    ///
+    /// As três decisões
+    /// ----------------
+    /// 1. <b>Só na administração</b> (<see cref="SituacaoChecagem.Realizado"/>). Não
+    ///    administrar é o desfecho seguro; cobrar confirmação para a rodela treinaria a
+    ///    equipe a confirmar sem ler, que é como se mata um alerta.
+    /// 2. <b>Confere ESTE item, não a folha</b>. A conferência da assinatura casa item a
+    ///    item; repetir a resposta da folha inteira acenderia na linha do soro por causa
+    ///    da dipirona da linha de baixo.
+    /// 3. <b>Avisa e exige confirmação — não impede</b>. Pode haver dessensibilização, o
+    ///    registro pode estar errado, e quem está com o paciente é quem decide. O que não
+    ///    pode é acontecer <i>sem alguém perceber</i>.
+    /// </summary>
+    private async Task ConferirAlergiaDoItem(
+        ItemPrescricaoInterna item, SituacaoChecagem situacao, bool confirmou,
+        CancellationToken ct)
+    {
+        if (situacao != SituacaoChecagem.Realizado || confirmou) return;
+        if (item.Prescricao is null) return;
+
+        var conferencia = await _conferencia.ConferirAsync(
+            item.Prescricao.PacienteId, [item.TextoCompleto], ct);
+
+        if (!conferencia.ExigeConfirmacao) return;
+
+        var motivos = string.Join(" · ", conferencia.Alertas
+            .Where(a => a.Gravidade == GravidadePrescricao.Alergia)
+            .Select(a => a.Motivo));
+
+        throw new InvalidOperationException(
+            $"Este item bate com ALERGIA registrada deste paciente ({motivos}). O sistema "
+            + "não impede — quem está com o paciente é quem decide —, mas exige que a "
+            + "confirmação seja explícita. Confira antes de administrar.");
+    }
+
     private ChecagemPrescricao Montar(
         ItemPrescricaoInterna item, SituacaoChecagem situacao, TimeOnly hora,
         IdentificacaoExecutante executante, string? justificativa)
     {
-        if (string.IsNullOrWhiteSpace(executante.Nome))
-            throw new InvalidOperationException(
-                "A checagem precisa de quem executou. Sem isso ela é uma afirmação de "
-                + "ninguém — e é justamente o vínculo com a pessoa que a torna útil.");
+        executante.Exigir("checar a execução");
 
         var limpa = string.IsNullOrWhiteSpace(justificativa) ? null : justificativa.Trim();
 

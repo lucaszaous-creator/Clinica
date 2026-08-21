@@ -619,12 +619,12 @@
                                                            FontSize="{StaticResource Fonte.Legenda}"
                                                            Foreground="{StaticResource Brush.Aviso}"
                                                            Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}" />
-                                                <TextBlock TextWrapping="Wrap" Margin="0,3,0,0"
-                                                           Style="{StaticResource TextoSuave}">
-                                                    <Run Text="{Binding Autor, Mode=OneWay}" />
-                                                    <Run Text=" · " />
-                                                    <Run Text="{Binding Folha, Mode=OneWay}" />
-                                                </TextBlock>
+                                                <!-- O separador é resolvido no VM: `Folha` é
+                                                     NULA no caso normal (passagem avulsa), e
+                                                     o " · " fixo pendurava no fim da linha. -->
+                                                <TextBlock Text="{Binding Assinatura}" TextWrapping="Wrap"
+                                                           Margin="0,3,0,0"
+                                                           Style="{StaticResource TextoSuave}" />
                                             </StackPanel>
 
                                             <Border Grid.Column="2" Style="{StaticResource Badge.Aviso}"

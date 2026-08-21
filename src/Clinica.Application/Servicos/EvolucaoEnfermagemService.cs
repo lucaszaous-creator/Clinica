@@ -214,6 +214,11 @@ public class EvolucaoEnfermagemService
                 "Escreva o que foi observado. Um registro em branco ocupa uma linha do "
                 + "prontuário sem dizer nada — e some no meio dos que dizem.");
 
+        // O nome E o conselho, na MESMA definição que a checagem usa (parcela 72). O
+        // comentário da entidade já dizia que "evolução sem registro no conselho não é
+        // evolução de enfermagem" — e não havia guarda em lugar nenhum.
+        autor.Exigir("registrar evolução de enfermagem");
+
         ExigirHoraPlausivel(data, hora);
 
         var evolucao = new EvolucaoEnfermagem

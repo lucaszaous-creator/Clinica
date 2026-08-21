@@ -33,10 +33,24 @@ public sealed class LinhaExecucaoItem
     public required bool Suspenso { get; init; }
     public required bool SeNecessario { get; init; }
 
+    /// <summary>
+    /// A coincidência com ALERGIA registrada deste paciente, escrita na LINHA — não no
+    /// topo da folha (parcela 72).
+    ///
+    /// ⚠️ O lugar é a decisão. O alerta no cabeçalho diz que o paciente é alérgico a
+    /// dipirona; ele não diz <b>qual das seis linhas</b> é a dipirona, e é uma linha que
+    /// se vai administrar. A conferência casa item a item pelo
+    /// <c>TextoCompleto</c> — que inclui dose e diluente, porque o alérgeno pode estar no
+    /// diluente —, então a resposta existe e só faltava chegar onde o dedo clica.
+    /// </summary>
+    public required string? AlertaAlergia { get; init; }
+
+    public bool TemAlertaAlergia => !string.IsNullOrWhiteSpace(AlertaAlergia);
+
     /// <summary>Já tem checagem: o caminho é retificar, não checar de novo.</summary>
     public bool Checado => Realizado || NaoRealizado;
 
-    public static LinhaExecucaoItem De(ItemPrescricaoInterna item)
+    public static LinhaExecucaoItem De(ItemPrescricaoInterna item, string? alertaAlergia = null)
     {
         var checagem = item.ChecagemVigente;
         var situacao = item.Situacao;
@@ -77,7 +91,8 @@ public sealed class LinhaExecucaoItem
             Realizado = situacao == SituacaoItemPrescricao.Realizado,
             NaoRealizado = situacao == SituacaoItemPrescricao.NaoRealizado,
             Suspenso = item.Suspenso,
-            SeNecessario = item.SeNecessario
+            SeNecessario = item.SeNecessario,
+            AlertaAlergia = alertaAlergia
         };
     }
 }
@@ -131,6 +146,9 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
     [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private bool _temAlertas;
+
+    /// <summary>Medicação de uso contínuo do paciente, já montada em uma linha.</summary>
+    [ObservableProperty] private string? _medicacaoEmUso;
     [ObservableProperty] private bool _emExecucao;
     [ObservableProperty] private bool _execucaoCompleta;
 
@@ -251,15 +269,42 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
                     ? "Esta folha pede a assinatura eletrônica da enfermagem — falta colhê-la."
                     : null;
 
+            // ⚠️ CONFERIR, não só o CONTEXTO (parcela 72). Até aqui esta tela chamava
+            // `ContextoAsync`, que devolve as alergias do paciente e a medicação de uso
+            // contínuo — e o código percorria SÓ as alergias: `MedicacoesEmUso` morria na
+            // variável com a consulta já paga. Pior, o alerta ficava no TOPO da folha, sem
+            // dizer QUAL das seis linhas é a dipirona.
+            //
+            // `ConferirAsync` casa item a item pelo TextoCompleto (dose e diluente
+            // incluídos, porque o alérgeno pode estar no diluente) e custa exatamente a
+            // MESMA consulta: os dois caminham para `PrescricaoService.ConferirAsync`.
+            var conferencia = await servico.ConferirAsync(prescricao);
+
+            var alertaPorItem = conferencia.Alertas
+                .Where(a => a.Gravidade == GravidadePrescricao.Alergia)
+                .GroupBy(a => a.Item)
+                .ToDictionary(g => g.Key, g => string.Join(" · ", g.Select(a => a.Motivo)));
+
             Itens.Clear();
             foreach (var item in prescricao.Itens.OrderBy(i => i.Ordem).ThenBy(i => i.Id))
-                Itens.Add(LinhaExecucaoItem.De(item));
+                Itens.Add(LinhaExecucaoItem.De(
+                    item,
+                    alertaPorItem.GetValueOrDefault(item.TextoCompleto)));
 
-            var contexto = await servico.ContextoAsync(prescricao.PacienteId);
             Alertas.Clear();
-            foreach (var alergia in contexto.Alergias)
+            foreach (var alergia in conferencia.Alergias)
                 Alertas.Add($"ALERGIA: {alergia.Rotulo}");
             TemAlertas = Alertas.Count > 0;
+
+            // A medicação de uso contínuo é CONTEXTO, não alerta: ela não casa com item
+            // nenhum de propósito (o caso normal da renovação de receita é justamente
+            // prescrever o que o paciente já toma). Fica como linha, fora da caixa
+            // vermelha — quem administra é hoje a única pessoa da clínica que não sabe o
+            // que o paciente já usa.
+            MedicacaoEmUso = conferencia.MedicacoesEmUso.Count == 0
+                ? null
+                : "Em uso contínuo: "
+                  + string.Join(" · ", conferencia.MedicacoesEmUso.Select(m => m.Rotulo));
         }
         catch (Exception ex)
         {
@@ -330,9 +375,25 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(justificativa)) return;
         }
 
+        // Retificar de "não realizado" para "realizado" É administrar: a conferência de
+        // alergia vale igual, e o serviço recusa sem confirmação.
+        var confirmouAlergia = false;
+        if (novaSituacao == SituacaoChecagem.Realizado && linha.TemAlertaAlergia)
+        {
+            if (!_dialogo.Confirmar(
+                    "ALERGIA registrada — administrar mesmo assim?",
+                    $"Item {linha.Ordem} — {linha.Descricao}\n\n{linha.AlertaAlergia}\n\n"
+                    + "O sistema não impede — quem está com o paciente é quem decide —, "
+                    + "mas a confirmação fica registrada."))
+                return;
+
+            confirmouAlergia = true;
+        }
+
         await ExecutarAsync(async (servico, executante, hora) =>
             await servico.RetificarAsync(
-                linha.ItemId, novaSituacao, hora, executante, motivo, justificativa));
+                linha.ItemId, novaSituacao, hora, executante, motivo, justificativa,
+                confirmouAlergia));
     }
 
     /// <summary>
@@ -603,6 +664,24 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
         string? justificativa = null;
         string? alergia = null;
+        var confirmouAlergia = false;
+
+        // ⚠️ A alergia é conferida ANTES do clique valer (parcela 72). O serviço RECUSA
+        // sem confirmação explícita; a tela pergunta em vez de deixar a recusa chegar
+        // como erro na cara de quem está com o paciente — as duas barreiras de sempre,
+        // aplicadas a uma regra clínica em vez de a uma permissão.
+        if (situacao == SituacaoChecagem.Realizado && linha.TemAlertaAlergia)
+        {
+            if (!_dialogo.Confirmar(
+                    "ALERGIA registrada — administrar mesmo assim?",
+                    $"Item {linha.Ordem} — {linha.Descricao}\n\n{linha.AlertaAlergia}\n\n"
+                    + "O sistema não impede: o registro pode estar errado, pode haver "
+                    + "dessensibilização, e quem está com o paciente é quem decide. Mas a "
+                    + "confirmação fica registrada."))
+                return;
+
+            confirmouAlergia = true;
+        }
 
         if (situacao == SituacaoChecagem.NaoRealizado)
         {
@@ -620,7 +699,8 @@ public sealed partial class FolhaExecucaoViewModel : ObservableObject
 
         await ExecutarAsync(async (servico, executante, hora) =>
             await servico.ChecarAsync(
-                linha.ItemId, situacao, hora, executante, justificativa, alergia));
+                linha.ItemId, situacao, hora, executante, justificativa, alergia,
+                confirmouAlergia));
     }
 
     /// <summary>
