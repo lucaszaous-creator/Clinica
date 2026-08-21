@@ -68,6 +68,7 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" MinWidth="92" />
                                         <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0" Margin="0,0,12,0">
@@ -109,6 +110,31 @@
                                                    Margin="0,3,0,0"
                                                    Visibility="{Binding Autor, Converter={StaticResource TextoParaVisibilidade},
                                                                 FallbackValue=Collapsed}" />
+                                    </StackPanel>
+
+                                    <!-- As ações vêm da PORTA, com a NATUREZA junto: é o
+                                         discriminador que impede o comando da sessão de
+                                         encostar no id 42 da enfermagem. Só existem na
+                                         seção em que a porta sabe agir — botão aceso que
+                                         não faz nada é o defeito da parcela 41. -->
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal"
+                                                VerticalAlignment="Center" Margin="10,0,0,0">
+                                        <Button Content="Abrir" Style="{StaticResource BotaoPequeno}"
+                                                Visibility="{Binding DataContext.TemAcaoAbrir,
+                                                             RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.AbrirCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Content="Cancelar…" Margin="8,0,0,0"
+                                                Style="{StaticResource BotaoAcaoGridPerigo}"
+                                                ToolTip="Tira o registro do prontuário que se lê, com motivo escrito. Ele NÃO é apagado — a guarda é de 20 anos."
+                                                Visibility="{Binding DataContext.TemAcaoCancelar,
+                                                             RelativeSource={RelativeSource AncestorType=ItemsControl},
+                                                             Converter={StaticResource BoolParaVisibilidade}}"
+                                                Command="{Binding DataContext.CancelarCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding}" />
                                     </StackPanel>
                                 </Grid>
                             </Border>

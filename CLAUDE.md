@@ -4506,3 +4506,108 @@ defeito recorrente do projeto: aqui ela vira promessa a um cliente que está aud
   **literal** desde a parcela 42 — a coluna existia, o PDF tinha o ramo que a imprime e a
   exportação tinha a coluna, e nenhuma checagem de produção saía identificada. **Registro de
   enfermagem sem o número do conselho não é registro de enfermagem.**
+
+- **X · Y · XY — a LEITURA que os dois compartilham, a ESCRITA que os separa** (parcela 72;
+  o mapa completo está em `docs/atendimento-medico-e-enfermagem.md`, e é lá que se
+  atualiza). A cliente pediu: *"o médico enxerga X itens de atendimento, a enfermagem
+  enxerga Y, e caso X e Y se completem entreguem XY para ambos"*. A medição do domínio
+  respondeu antes do desenho: `PerfilAcesso.Profissional` e `PerfilAcesso.Enfermagem` **já
+  compartilhavam** `VerAgenda | VerFichaPaciente | VerProntuario | ColherAssinaturaPaciente`.
+  ⚠️ **Nenhuma permissão nova era necessária para entregar o XY — faltava PORTA**, o defeito
+  recorrente do projeto pela décima segunda vez. E havia um argumento duro contra inventar
+  bit: `Permissao` é `[Flags]` de **`int`** gravada como INTEIRO em produção, e
+  `RegistrarEvolucaoEnfermagem = 1 << 30` — **sobra UM bit** antes de o enum precisar virar
+  `long`, o que muda o tipo da coluna numa base viva.
+  **A frase que decide tudo: XY é a LEITURA; X e Y são as ESCRITAS.** O que separa é
+  `EditarProntuario | Prescrever` (X) contra `ChecarPrescricao | RegistrarEvolucaoEnfermagem`
+  (Y), e cada lado escreve com o conselho dele — médico escrevendo evolução de enfermagem é
+  registro assinado com o conselho errado, pior que a lacuna que resolveria.
+  **A linha do tempo clínica** (`LinhaDoTempoClinicaView`, no shell) é o componente das TRÊS
+  portas: a ficha da Recepção, o Consultório e a tela da Enfermagem. Chips de seção
+  **contados**, um marcado por vez — e os desmarcados MOSTRAM a contagem, porque é o número
+  visível que faz a enfermeira descobrir que há 12 sessões médicas para ler.
+  ⚠️ **Ela NÃO funde as listas, e as duas razões decidem sozinhas:** (a) os ids são POR
+  TABELA — a evolução de enfermagem nº 42 e a `Evolucao` nº 42 são de pacientes diferentes,
+  e um comando destrutivo sobre lista fundida cancelaria o registro errado **sem estourar e
+  sem avisar** (o bug que `PacientesView.xaml` documentava desde a 71); (b) `Evolucao.Data`
+  é `DateOnly` — ordenar a médica às 00:00 a poria antes de todas as aferições do dia,
+  inclusive da reação que a motivou, e **ordenar um prontuário por uma hora que não existe é
+  fabricar sequência de eventos num documento que responde em auditoria**. O item carrega
+  `Natureza` + `Id`, e é isso que permitirá fundir quando `Evolucao` ganhar hora.
+  ⚠️ **A lista rica de sessões do Consultório NÃO foi substituída** pela genérica: ela tem
+  busca no texto, contagem de anexos, marca de correção e os botões da linha. Trocá-la
+  tiraria capacidade de quem a usa todo dia — a regra 3 do bloco do faturamento aplicada a
+  uma tela clínica. O componente entra ali só para o que faltava.
+  **Antes de acrescentar informação ao Atendimento foi preciso corrigir o leiaute**: a tela
+  exigia 520 + 16 + 400 = 936 px e a janela mínima da suíte deixa 856 (606 com o painel de
+  categoria fixado). O WPF honra o `MinWidth` e **corta o excesso à direita** — não há
+  rolagem horizontal ali, então acrescentar era cortar o que já existe.
+
+- **Entidade clínica nova entra em UMA lista, e quatro leitores a consomem**
+  (`CatalogoRegistroClinico`, parcela 72). O defeito já tinha sido cometido DUAS vezes neste
+  exato assunto, e os comentários confessam: a folha de infusão ficou de fora da primeira
+  versão da GUARDA e a lista de problemas — onde moram as ALERGIAS — ficou de fora da
+  primeira versão da EXPORTAÇÃO. Uma terceira estava de pé: `SituacaoGuarda` contava CINCO
+  naturezas enquanto o prazo de 20 anos era calculado sobre SETE, e o documento do art. 18,
+  II cobria TRÊS de nove. A tela que responde ao auditor *"o que vocês guardam por 20 anos"*
+  mostrava "0 sessão · 0 medida · 0 prescrição" com uma data vinda de lugar nenhum visível,
+  para a ficha cujo único registro era enfermagem — **número errado com cara de exato, na
+  tela de conformidade**.
+  As nove naturezas moram no DOMÍNIO com rótulo e permissão de leitura; leem a lista a linha
+  do tempo, a guarda (contagem e frase), a exportação do fornecedor e o direito do titular —
+  que ganhou as SEIS seções que faltavam, execução de infusão item a item inclusive.
+  ⚠️ **`ConjuntoClinicoTests` é COMPORTAMENTAL, não declarativo**: ele grava um registro de
+  cada natureza e exige que ele APAREÇA na contagem, no CSV e no texto. Declaração conferida
+  contra declaração ficaria verde com as duas erradas do mesmo jeito. Ele falha no commit em
+  que a próxima entidade clínica nascer, que é meses antes de a clínica esbarrar.
+
+- **A alergia é conferida na ADMINISTRAÇÃO, não só na assinatura** (parcela 72 — a quinta
+  recusa do projeto, e a única que impede dano ao PACIENTE). `AssinarAsync` confere a folha
+  contra as alergias e recusa sem confirmação escrita desde a parcela 42; a EXECUÇÃO não
+  conferia **nada** — as únicas guardas de `ChecarAsync` eram "item já checado" e hora
+  futura. O caminho de dano é inteiro e mora dentro do que a parcela 71 construiu: folha
+  assinada de manhã sem alergia registrada → o item 2 causa reação → **a própria técnica**
+  grava a alergia pelo campo "Reação a registrar como alergia" → itens 3, 4 e 5 seguem
+  pendentes com a folha na sala → **ninguém reconfere**. O sistema tinha o dado, gravado por
+  quem seria a vítima do silêncio, e não o usava.
+  Três decisões: **só na administração** (não administrar é o desfecho seguro, e cobrar
+  confirmação para a rodela treinaria a equipe a confirmar sem ler); **confere o ITEM, não a
+  folha** (repetir a resposta da folha inteira acenderia na linha do soro por causa da
+  dipirona da linha de baixo); e **avisa e exige confirmação — não impede**. Vale igual na
+  RETIFICAÇÃO: retificar de "não realizado" para "realizado" é administrar, e deixar a
+  conferência só na checagem normal seria a cópia que fica para trás.
+  Junto veio o **COREN obrigatório** em checar, registrar e retificar. O comentário da
+  entidade já dizia que "evolução sem registro no conselho não é evolução de enfermagem" e
+  **não havia guarda em lugar nenhum**: bastava um login sem `Profissional` vinculado para
+  todo registro daquela máquina entrar no prontuário sem COREN **para sempre** — e sem
+  conserto barato, porque o campo é COPIADO no ato. A frase nomeia o conserto, pelo
+  precedente do "Meu dia".
+
+- **A curva de PRESSÃO vem de DUAS fontes, e cada ponto diz de onde veio** (parcela 72): a
+  PA está no `CatalogoMedidas` com faixas publicadas desde a parcela 37 e a série **nascia
+  vazia e continuava vazia** — a única porta de ESCRITA de `MedidaClinica` está no app do
+  MÉDICO, enquanto a pressão de verdade é aferida na ENFERMAGEM, toda sessão, e vai para
+  `EvolucaoEnfermagem`. **Curva vazia se lê como "este paciente nunca teve a pressão
+  aferida"**, que é falso.
+  A ponte é de **LEITURA**, e isso é decisão: destravar a colheita de `MedidaClinica` pela
+  enfermagem daria DOIS lugares para gravar a mesma aferição, sem nada na tela dizendo qual.
+  As regras: **procedência escrita em cada ponto** (dois pontos do mesmo dia sem dizer que um
+  é de antes da consulta e o outro de meia hora depois da bomba escondem justamente a leitura
+  clínica), **faixa da MESMA definição do catálogo** (a evolução grava os números crus, e uma
+  segunda leitura de "pressão normal" daria duas respostas para a mesma aferição), **cancelada
+  e retificada não entram** e **dentro do dia a HORA desempata**.
+
+- **Comentário que promete o que o código não faz, terceira ocorrência** (parcela 72): a
+  entidade `EvolucaoEnfermagem` afirmava que a marca de intercorrência *"viaja para a tela de
+  atendimento do médico"* — e `grep EvolucaoEnfermagemService src/Clinica.Modulo.Clinico`
+  devolvia **zero**. Aqui o estrago não era erro, era **AUSÊNCIA**, indistinguível de "não
+  houve intercorrência". Agora ela entra na lista de `AlertasClinicos` que já existe (zero
+  pixel novo), com **janela de 48 horas** — e a janela decide a utilidade da lista: alergia é
+  ESTADO, intercorrência é EVENTO DATADO, e a marca é `bool`, então **não há como
+  descartá-la**. Sem janela, seis meses depois o paciente crônico teria uma náusea de março e
+  um extravasamento de abril acima da alergia real, e é assim que se ensina alguém a fechar o
+  alerta sem ler. A janela é `const` no domínio, ao lado da regra.
+  O mesmo commit corrigiu a promessa das *"quatro portas — … e o do Consultório"* da janela de
+  escrita (a do Consultório não existe, e é decisão) e a frase divergente do cabeçalho do
+  workspace, que dizia "da agenda de HOJE" para qualquer horário enquanto a tela de dentro já
+  dizia a DATA desde a parcela 69 — a lição das parcelas 64 e 68 pela sétima vez.

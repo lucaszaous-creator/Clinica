@@ -84,8 +84,14 @@ public class EvolucaoEnfermagem
     /// <summary>
     /// Marca a evolução que descreve algo fora do esperado (reação, queda de pressão,
     /// extravasamento). É o único campo que a MÁQUINA lê do que aconteceu: ele acende o
-    /// selo na fila, viaja para a tela de atendimento do médico e, um dia, responde à
-    /// direção quantas infusões tiveram intercorrência e em quais medicamentos.
+    /// selo na fila e, desde a parcela 72, entra na lista de alertas clínicos da tela de
+    /// atendimento do médico — dentro da <see cref="JanelaDeAlerta"/>.
+    ///
+    /// ⚠️ Até a parcela 72 este comentário afirmava que a marca "viaja para a tela de
+    /// atendimento do médico" e ela NÃO viajava: nenhuma linha de
+    /// <c>Clinica.Modulo.Clinico</c> lia a evolução de enfermagem. Comentário que promete
+    /// o que o código não faz é a armadilha da parcela 67 — e aqui o estrago não era erro,
+    /// era AUSÊNCIA, indistinguível de "não houve intercorrência".
     ///
     /// ⚠️ É <c>bool</c> e não enum de propósito: a taxonomia da SAE (histórico, diagnóstico,
     /// prescrição e evolução de enfermagem) é grande demais para nascer chutada, e valor
@@ -93,6 +99,40 @@ public class EvolucaoEnfermagem
     /// clínica precisar da distinção, ela entra depois como coluna aditiva.
     /// </summary>
     public bool Intercorrencia { get; set; }
+
+    /// <summary>
+    /// Por quanto tempo uma intercorrência continua sendo ALERTA na tela de quem atende.
+    ///
+    /// ⚠️ A janela não é detalhe, é o que separa um alerta de um entulho. <b>Alergia é
+    /// ESTADO; intercorrência é EVENTO DATADO</b> — e <see cref="Intercorrencia"/> é
+    /// <c>bool</c>, então <b>não há como descartá-la</b> (ela não é
+    /// <c>ProblemaPaciente</c>, que tem situação e motivo de descarte). Sem janela, seis
+    /// meses depois a lista de alerta do paciente crônico teria uma náusea de março, um
+    /// extravasamento de abril e a alergia real no meio: isso não acrescenta contexto,
+    /// <b>destrói a lista que já funciona</b> — e é assim que se ensina alguém a fechar o
+    /// alerta sem ler, matando o de dipirona ao lado.
+    ///
+    /// Quarenta e oito horas cobrem a reação que aparece no dia seguinte e a sessão de
+    /// segunda vista na quarta. Passado isso, a intercorrência continua no prontuário, na
+    /// linha do tempo e na folha — ela sai do ALERTA, não do registro.
+    ///
+    /// É <c>const</c> no domínio, ao lado da regra, e não configuração: é a definição de
+    /// "recente" para uma leitura de segurança, e editá-la numa tela faria alguém
+    /// esticá-la para um ano sem perceber o que perde.
+    /// </summary>
+    public const int JanelaDeAlertaHoras = 48;
+
+    /// <summary>
+    /// Esta intercorrência ainda é alerta para quem vai atender agora?
+    ///
+    /// Cancelada não alerta (o registro foi desdito) e substituída por retificação
+    /// tampouco — quem decide isso é quem chama, com a lista na mão.
+    /// </summary>
+    public bool AlertaAgora(DateTime agora)
+        => Intercorrencia
+           && !Cancelada
+           && Momento >= agora.AddHours(-JanelaDeAlertaHoras)
+           && Momento <= agora.AddMinutes(5);
 
     // ---- Sinais vitais (todos opcionais) ----
 

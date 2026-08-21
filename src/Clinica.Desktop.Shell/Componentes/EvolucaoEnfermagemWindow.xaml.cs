@@ -7,9 +7,16 @@ namespace Clinica.Desktop.Shell.Componentes;
 /// A janela onde a enfermagem escreve o que observou no paciente (parcela 71).
 ///
 /// ⚠️ PONTO ÚNICO de abertura. São quatro portas — a linha da fila da sala, a barra da
-/// folha de execução, o prontuário da Recepção e o do Consultório —, e quatro montagens da
-/// mesma janela divergiriam na primeira correção (escopo, dono, recarga). É a lição do
-/// <c>ColetaDeTermo.Abrir</c> da parcela 66.
+/// folha de execução, a tela da Enfermagem e o prontuário da ficha da Recepção —, e quatro
+/// montagens da mesma janela divergiriam na primeira correção (escopo, dono, recarga). É a
+/// lição do <c>ColetaDeTermo.Abrir</c> da parcela 66.
+///
+/// ⚠️ Este comentário dizia "o prontuário da Recepção e o do CONSULTÓRIO", e a do
+/// Consultório não existe: o médico LÊ a evolução de enfermagem (pela linha do tempo da
+/// parcela 72) e não a escreve — o registro é assinado com nome e COREN, e evolução de
+/// enfermagem escrita por quem tem CRM é registro assinado com o conselho errado. Corrigido
+/// na parcela 72 pela regra da 67: comentário que promete o que o código não faz é o que
+/// faz o próximo revisor parar de procurar.
 /// </summary>
 public partial class EvolucaoEnfermagemWindow : Window
 {

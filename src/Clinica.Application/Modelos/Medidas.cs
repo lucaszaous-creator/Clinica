@@ -11,13 +11,26 @@ namespace Clinica.Application.Modelos;
 /// só o IMC. A tela precisa dizer isso: número calculado apresentado do mesmo jeito que
 /// número medido faz o profissional procurar no papel uma aferição que nunca existiu.
 /// </summary>
+/// <param name="Procedencia">
+/// De ONDE o ponto veio, escrito por extenso (parcela 72).
+///
+/// ⚠️ Nasce porque a curva de PRESSÃO ARTERIAL passou a mesclar duas fontes: a
+/// <c>MedidaClinica</c>, colhida no consultório, e os SINAIS VITAIS da evolução de
+/// enfermagem, aferidos na sala. Sem a procedência na linha, a curva teria dois pontos do
+/// mesmo dia sem dizer que um é de antes da consulta e o outro de meia hora depois da
+/// bomba — e a diferença entre os dois é justamente a leitura clínica.
+///
+/// Nulo = colhido pela porta padrão do tipo; a tela não escreve nada.
+/// </param>
 public sealed record PontoMedida(
     DateOnly Data,
     decimal Valor,
     decimal? ValorSecundario,
     string? FaixaNome,
     GravidadeFaixa Gravidade,
-    bool Derivado = false);
+    bool Derivado = false,
+    string? Procedencia = null,
+    TimeOnly? Hora = null);
 
 /// <summary>
 /// A série de uma medida ao longo do tratamento, com a leitura de ponta a ponta.

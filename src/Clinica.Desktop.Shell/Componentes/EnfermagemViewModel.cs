@@ -6,6 +6,7 @@ using Clinica.Desktop.Shell.Modulos;
 using Clinica.Domain;
 using Clinica.Domain.Entities;
 using Clinica.Domain.Medidas;
+using Clinica.Domain.Prontuario;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -75,12 +76,22 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
     /// </summary>
     public ObservableCollection<Paciente> Pacientes { get; } = new();
 
-    public ObservableCollection<LinhaEvolucaoEnfermagem> Registros { get; } = new();
+    /// <summary>
+    /// O PRONTUÁRIO INTEIRO deste paciente (parcela 72) — o mesmo componente da ficha da
+    /// Recepção e do Consultório, aberto no chip <b>Enfermagem</b>.
+    ///
+    /// ⚠️ Os outros chips MOSTRAM A CONTAGEM mesmo desmarcados, e é isso que faz a
+    /// enfermeira descobrir que há 12 sessões médicas para ler. Chip pré-marcado sem
+    /// número ao lado deixaria a entrega desligada justamente na tela de quem mais precisa
+    /// dela: infundir sem saber a conduta da consulta de hoje é executar às cegas.
+    ///
+    /// Sem ações: quem corrige a evolução de enfermagem faz isso pela janela de escrita
+    /// (que retifica com motivo, nunca apaga), e a sessão médica é do médico.
+    /// </summary>
+    public LinhaDoTempoClinicaViewModel LinhaDoTempo { get; }
 
     [ObservableProperty] private bool _mostrandoLista = true;
-    [ObservableProperty] private bool _carregando;
     [ObservableProperty] private bool _carregandoLista;
-    [ObservableProperty] private bool _naoVerificado;
     [ObservableProperty] private string? _mensagem;
     [ObservableProperty] private bool _mensagemEhErro;
 
@@ -154,6 +165,11 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         _dialogo = dialogo;
 
         Seletor = new SeletorPacienteViewModel(escopos, limite: null);
+
+        LinhaDoTempo = new LinhaDoTempoClinicaViewModel(escopos)
+        {
+            SecaoInicial = NaturezaRegistroClinico.EvolucaoEnfermagem
+        };
 
         // Remontagem por busca CONCLUÍDA, nunca por CollectionChanged — que dispara uma
         // vez por linha inserida (a armadilha da parcela 37).
@@ -308,7 +324,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         Escolhido = null;
         MostrandoLista = true;
         Mensagem = null;
-        Registros.Clear();
+        _ = LinhaDoTempo.CarregarAsync(0);
         Alerta = null;
         TermoPendente = null;
         FolhaDeHoje = null;
@@ -393,7 +409,7 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
         // em vez de devolver lista vazia, que se lê como "este paciente nunca passou aqui".
         if (!PodeVerProntuario)
         {
-            Registros.Clear();
+            await LinhaDoTempo.CarregarAsync(0);
             Mensagem = "O seu acesso não permite ler o prontuário. "
                      + "Peça em Acessos a permissão \"Ver prontuário\".";
             MensagemEhErro = true;
@@ -402,9 +418,6 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
         var geracao = ++_geracaoCarga;
         var pacienteId = _pacienteId;
-        Carregando = true;
-        NaoVerificado = false;
-
         try
         {
             using var scope = _escopos.CreateScope();
@@ -429,33 +442,21 @@ public partial class EnfermagemViewModel : ObservableObject, ICarregarAoAbrir
 
             if (geracao != _geracaoCarga) return;
 
-            var substituidas = lista
-                .Where(e => e.RetificaEvolucaoId is not null)
-                .Select(e => e.RetificaEvolucaoId!.Value)
-                .ToHashSet();
+            // O prontuário inteiro sai do componente compartilhado — ele tem contador de
+            // geração próprio e o filtro de acesso por natureza.
+            await LinhaDoTempo.CarregarAsync(pacienteId);
+            if (geracao != _geracaoCarga) return;
 
-            // Entre o Clear() e o último Add não pode haver await (parcela 62).
-            var linhas = lista
-                .Select(e => LinhaEvolucaoEnfermagem.De(
-                    e, substituidas.Contains(e.Id), mostrarData: true))
-                .ToList();
-
-            Registros.Clear();
-            foreach (var l in linhas) Registros.Add(l);
-
+            // A leitura acima também alimenta o CONTEXTO: a última aferição é o dado que a
+            // comparação de daqui a vinte minutos usa, e o valor isolado quase não diz nada.
             await CarregarContextoAsync(servicos, pacienteId, lista, geracao);
         }
         catch (Exception ex)
         {
             if (geracao != _geracaoCarga) return;
-            NaoVerificado = true;
             Diagnostico.Registrar("Enfermagem — evolução do paciente não pôde ser carregada", ex);
             Mensagem = ex.Message;
             MensagemEhErro = true;
-        }
-        finally
-        {
-            if (geracao == _geracaoCarga) Carregando = false;
         }
     }
 

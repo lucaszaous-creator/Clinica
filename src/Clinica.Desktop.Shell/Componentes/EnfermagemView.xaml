@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls"
+             xmlns:local="clr-namespace:Clinica.Desktop.Shell.Componentes"
              Background="{StaticResource Brush.Fundo}" FontFamily="Segoe UI">
 
     <!-- ============================================================
@@ -207,86 +208,17 @@
                 <TextBlock Text="{Binding Mensagem}" TextWrapping="Wrap" />
             </Border>
 
+            <!-- ⚠️ O PRONTUÁRIO INTEIRO, e não só a evolução de enfermagem (parcela 72).
+                 A tela abre no chip "Enfermagem", e os outros mostram a CONTAGEM mesmo
+                 desmarcados — é o número visível que faz a enfermeira descobrir que há 12
+                 sessões médicas e 4 folhas de infusão para ler. Infundir sem saber a
+                 conduta da consulta de hoje é executar às cegas.
+
+                 O componente é o MESMO da ficha da Recepção e do Consultório: três portas,
+                 uma leitura. Copiar a tela entre os módulos daria três respostas para a
+                 mesma pergunta, divergindo na primeira correção. -->
             <Border Style="{StaticResource Card}">
-                <Grid>
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <ItemsControl ItemsSource="{Binding Registros}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Padding="0,12"
-                                            BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="120" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" Margin="0,0,14,0">
-                                                <TextBlock Text="{Binding Data}" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Hora}"
-                                                           FontSize="{StaticResource Fonte.H3}"
-                                                           FontWeight="Bold"
-                                                           TextTrimming="CharacterEllipsis">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground"
-                                                                    Value="{StaticResource Brush.Texto.Primario}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding EmDestaque}" Value="True">
-                                                                    <Setter Property="Foreground"
-                                                                            Value="{StaticResource Brush.Aviso}" />
-                                                                </DataTrigger>
-                                                                <DataTrigger Binding="{Binding Vigente}" Value="False">
-                                                                    <Setter Property="Foreground"
-                                                                            Value="{StaticResource Brush.Texto.Secundario}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding SinaisVitais}" TextWrapping="Wrap"
-                                                           Style="{StaticResource TextoSuave}"
-                                                           Visibility="{Binding SinaisVitais, Converter={StaticResource TextoParaVisibilidade}}" />
-                                                <TextBlock Text="{Binding Marca}" TextWrapping="Wrap"
-                                                           FontWeight="SemiBold" Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Aviso}"
-                                                           Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}" />
-                                                <!-- O separador é resolvido no VM: `Folha` é
-                                                     NULA no caso normal (passagem avulsa), e
-                                                     os " · " fixos penduravam no fim. -->
-                                                <TextBlock Text="{Binding Assinatura}" TextWrapping="Wrap"
-                                                           Margin="0,4,0,0"
-                                                           Style="{StaticResource TextoSuave}" />
-                                            </StackPanel>
-
-                                            <Border Grid.Column="2" Style="{StaticResource Badge.Aviso}"
-                                                    VerticalAlignment="Top"
-                                                    Visibility="{Binding EmDestaque, Converter={StaticResource BoolParaVisibilidade}}">
-                                                <TextBlock Text="INTERCORRÊNCIA" />
-                                            </Border>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </ScrollViewer>
-
-                    <ctrl:EstadoDaTela Itens="{Binding Registros}"
-                                       Carregando="{Binding Carregando}"
-                                       NaoVerificado="{Binding NaoVerificado}"
-                                       Glifo="&#xE9D5;"
-                                       Titulo="Nenhuma evolução de enfermagem ainda"
-                                       Descricao="Use “Escrever evolução” para registrar esta passagem — o que foi observado, os sinais vitais e a hora do fato."
-                                       TextoCarregando="Buscando a evolução…" />
-                </Grid>
+                <local:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}" />
             </Border>
         </DockPanel>
     </Grid>

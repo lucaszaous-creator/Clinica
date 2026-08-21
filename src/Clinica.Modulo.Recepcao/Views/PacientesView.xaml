@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:Clinica.Recepcao.ViewModels"
              xmlns:ctrl="clr-namespace:Clinica.Desktop.Controls;assembly=Clinica.Desktop.Shell"
+             xmlns:comp="clr-namespace:Clinica.Desktop.Shell.Componentes;assembly=Clinica.Desktop.Shell"
              Background="{StaticResource Brush.Fundo}">
 
     <!-- ============================================================
@@ -469,195 +470,58 @@
                                       Converter={StaticResource BoolParaVisibilidade}}">
                     <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="0,14,0,0">
                         <StackPanel Margin="0,0,0,24">
+                <!-- ===== O PRONTUÁRIO DO PACIENTE, NUMA SUPERFÍCIE SÓ (parcela 72) =====
+                     Aqui havia DOIS `Card` empilhados — as sessões médicas num, a evolução
+                     de enfermagem no outro — e a infusão seria o terceiro. Duas listas em
+                     molduras separadas parecem dois assuntos, e três é literalmente o
+                     proibido nº 2 da regra de leiaute do README.
+
+                     O componente é o MESMO do Consultório e da tela da Enfermagem: chips de
+                     seção contados, uma lista por vez. ⚠️ Ele NÃO funde as listas, e as duas
+                     razões estão no comentário do ViewModel — a que mais importa aqui é a
+                     que o comentário desta tela já dizia desde a parcela 71: os ids são POR
+                     TABELA, e um comando destrutivo sobre uma lista fundida cancelaria o
+                     registro errado sem estourar. Agora o item carrega Natureza + Id, e a
+                     ação chega roteada.
+
+                     ⚠️ O chip "Documentos" é FALSO aqui: a aba Documentos ao lado é a porta
+                     do papel e faz mais do que este componente faria (emitir, termo,
+                     assinar, enviar). Duas listas do mesmo papel na mesma tela fazem a
+                     pessoa procurar a diferença que não existe. -->
                 <Border Style="{StaticResource Card}">
-                    <StackPanel>
-                        <TextBlock Text="Prontuário" Style="{StaticResource H3}" />
-
-                        <TextBlock Text="Nenhuma sessão registrada ainda." Margin="0,12">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Prontuario.Count}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-
-                        <ItemsControl ItemsSource="{Binding Prontuario}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type vm:LinhaEvolucao}">
-                                    <Border Padding="0,10"
-                                            BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="90" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <TextBlock Grid.Column="0" Text="{Binding Data}"
-                                                       FontWeight="SemiBold" VerticalAlignment="Center"
-                                                       Foreground="{StaticResource Brush.Texto.Primario}" TextTrimming="CharacterEllipsis" />
-
-                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <TextBlock Text="{Binding Eva}" FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left">
-                                                        <TextBlock.Style>
-                                                            <Style TargetType="TextBlock">
-                                                                <Setter Property="Foreground"
-                                                                        Value="{StaticResource Brush.Texto.Secundario}" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger Binding="{Binding Melhorou}" Value="True">
-                                                                        <Setter Property="Foreground"
-                                                                                Value="{StaticResource Brush.Sucesso}" />
-                                                                    </DataTrigger>
-                                                                    <DataTrigger Binding="{Binding Piorou}" Value="True">
-                                                                        <Setter Property="Foreground"
-                                                                                Value="{StaticResource Brush.Erro}" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </TextBlock.Style>
-                                                    </TextBlock>
-                                                    <TextBlock Text="{Binding Profissional}" Margin="10,0,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               VerticalAlignment="Center"
-                                                               Foreground="{StaticResource Brush.Texto.Secundario}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                    <TextBlock Text="{Binding Anexos}" Margin="10,0,0,0"
-                                                               FontSize="{StaticResource Fonte.Legenda}"
-                                                               VerticalAlignment="Center"
-                                                               Foreground="{StaticResource Brush.Acento}" TextWrapping="Wrap" HorizontalAlignment="Left" />
-                                                </StackPanel>
-                                                <TextBlock Text="{Binding Resumo}" Margin="0,2,0,0"
-                                                           TextTrimming="CharacterEllipsis"
-                                                           Foreground="{StaticResource Brush.Texto.Secundario}" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="2" Orientation="Horizontal"
-                                                        VerticalAlignment="Center">
-                                                <!-- ⚠️ As DUAS barreiras (parcela 72). Estes botões só tinham a
-                                                     que IMPEDE, e `Exigir` LANÇA: a enfermeira, que tem
-                                                     `VerProntuario` e não tem `EditarProntuario`, levava
-                                                     InvalidOperationException até a rede do Dispatcher. E
-                                                     `PodeEditarProntuario` existia no VM, documentada como "a
-                                                     metade VISÍVEL da permissão", sem um leitor no XAML. -->
-                                                <Button Content="Abrir" Style="{StaticResource BotaoPequeno}"
-                                                        IsEnabled="{Binding DataContext.PodeEditarProntuario,
-                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        Command="{Binding DataContext.EditarEvolucaoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                                <!-- "Cancelar", não "Excluir": nada é apagado desde a parcela 52,
-                                                     e o rótulo antigo prometia o que a lei proíbe. -->
-                                                <Button Content="Cancelar…" Margin="8,0,0,0"
-                                                        Style="{StaticResource BotaoAcaoGridPerigo}"
-                                                        ToolTip="Tira a sessão do prontuário que se lê, com motivo escrito. Ela NÃO é apagada — a guarda é de 20 anos."
-                                                        IsEnabled="{Binding DataContext.PodeEditarProntuario,
-                                                                    RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        Command="{Binding DataContext.CancelarEvolucaoCommand,
-                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                        CommandParameter="{Binding}" />
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-
-                <!-- ⚠️ SEPARADA das sessões, e não é preferência estética — é bug evitado:
-                     `LinhaEvolucao.EvolucaoId` é a chave das ações destrutivas da lista
-                     acima, e ids são POR TABELA. A evolução de enfermagem nº 42 na mesma
-                     lista cancelaria a Evolucao nº 42 — sessão de outro paciente, com o
-                     motivo escrito para outra coisa. Não estoura, não avisa. -->
-                <Border Style="{StaticResource Card}" Margin="0,16,0,0">
-                    <StackPanel>
-                        <Grid>
+                    <DockPanel>
+                        <Grid DockPanel.Dock="Top" Margin="0,0,0,12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+
                             <StackPanel Grid.Column="0">
-                                <TextBlock Text="Evolução de enfermagem" Style="{StaticResource H3}" />
+                                <TextBlock Text="Prontuário" Style="{StaticResource H3}" Margin="0" />
                                 <TextBlock Style="{StaticResource TextoSuave}" TextWrapping="Wrap"
-                                           Text="O que a enfermagem observou no paciente — sinais vitais, intercorrências e a evolução de cada passagem." />
+                                           Text="O que já aconteceu com este paciente: as sessões do profissional, as passagens pela enfermagem e as folhas de infusão." />
                             </StackPanel>
-                            <Button Grid.Column="1" Content="Registrar" MinWidth="120"
-                                    VerticalAlignment="Center"
-                                    Style="{StaticResource BotaoSecundario}"
-                                    IsEnabled="{Binding PodeRegistrarEnfermagem}"
-                                    ToolTip="Registrar uma passagem pela enfermagem que não veio de folha de infusão — curativo, sala de observação, triagem."
-                                    Command="{Binding RegistrarEnfermagemCommand}" />
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                        VerticalAlignment="Center">
+                                <Button Content="Nova sessão" MinWidth="130"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        IsEnabled="{Binding PodeEditarProntuario}"
+                                        ToolTip="Escreve uma sessão no prontuário: queixa, conduta, evolução e a dor antes e depois."
+                                        Command="{Binding NovaEvolucaoCommand}" />
+                                <Button Content="Registrar enfermagem" Margin="8,0,0,0" MinWidth="180"
+                                        VerticalAlignment="Center"
+                                        Style="{StaticResource BotaoSecundario}"
+                                        IsEnabled="{Binding PodeRegistrarEnfermagem}"
+                                        ToolTip="Registrar uma passagem pela enfermagem que não veio de folha de infusão — curativo, sala de observação, triagem."
+                                        Command="{Binding RegistrarEnfermagemCommand}" />
+                            </StackPanel>
                         </Grid>
 
-                        <TextBlock Text="Nenhum registro de enfermagem ainda." Margin="0,12">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextoSuave}">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding Enfermagem.Count}" Value="0">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-
-                        <ItemsControl ItemsSource="{Binding Enfermagem}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Padding="0,10"
-                                            BorderBrush="{StaticResource Brush.Borda}"
-                                            BorderThickness="0,0,0,1">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="110" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                                <TextBlock Text="{Binding Data}" FontWeight="SemiBold"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Hora}"
-                                                           Style="{StaticResource TextoSuave}"
-                                                           TextTrimming="CharacterEllipsis" />
-                                            </StackPanel>
-
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Text="{Binding Texto}" TextWrapping="Wrap" />
-                                                <TextBlock Text="{Binding SinaisVitais}" TextWrapping="Wrap"
-                                                           Style="{StaticResource TextoSuave}"
-                                                           Visibility="{Binding SinaisVitais, Converter={StaticResource TextoParaVisibilidade}}" />
-                                                <TextBlock Text="{Binding Marca}" TextWrapping="Wrap"
-                                                           FontWeight="SemiBold" Margin="0,2,0,0"
-                                                           FontSize="{StaticResource Fonte.Legenda}"
-                                                           Foreground="{StaticResource Brush.Aviso}"
-                                                           Visibility="{Binding Marca, Converter={StaticResource TextoParaVisibilidade}}" />
-                                                <!-- O separador é resolvido no VM: `Folha` é
-                                                     NULA no caso normal (passagem avulsa), e
-                                                     o " · " fixo pendurava no fim da linha. -->
-                                                <TextBlock Text="{Binding Assinatura}" TextWrapping="Wrap"
-                                                           Margin="0,3,0,0"
-                                                           Style="{StaticResource TextoSuave}" />
-                                            </StackPanel>
-
-                                            <Border Grid.Column="2" Style="{StaticResource Badge.Aviso}"
-                                                    VerticalAlignment="Top"
-                                                    Visibility="{Binding EmDestaque, Converter={StaticResource BoolParaVisibilidade}}">
-                                                <TextBlock Text="INTERCORRÊNCIA" />
-                                            </Border>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                        <comp:LinhaDoTempoClinicaView DataContext="{Binding LinhaDoTempo}"
+                                                      MinHeight="240" />
+                    </DockPanel>
                 </Border>
                         </StackPanel>
                     </ScrollViewer>
@@ -844,6 +708,27 @@
                                                 </Border>
                                                 <Button Content="Imprimir" Style="{StaticResource BotaoPequeno}"
                                                         Command="{Binding DataContext.ImprimirDocumentoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <!-- ⚠️ ASSINAR e ENVIAR (parcela 72). `PodeAssinar` e
+                                                     `PodeEnviar` eram calculados no VM e NUNCA lidos
+                                                     aqui: a ficha imprimia e cancelava, e a tela irmã do
+                                                     mesmo módulo tinha os quatro. Sem assinatura o
+                                                     arquivo não vale, e a porta incompleta é a que fica
+                                                     aberta com o paciente na frente — ele sai com o papel
+                                                     e o PDF assinado fica no computador da clínica. -->
+                                                <Button Content="Assinar" Margin="8,0,0,0"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        IsEnabled="{Binding PodeAssinar}"
+                                                        ToolTip="Sela o arquivo com o certificado ICP-Brasil. É o ARQUIVO que a farmácia confere — a via impressa de um documento assinado é cópia."
+                                                        Command="{Binding DataContext.AssinarDocumentoCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Content="Enviar" Margin="8,0,0,0"
+                                                        Style="{StaticResource BotaoPequeno}"
+                                                        IsEnabled="{Binding PodeEnviar}"
+                                                        ToolTip="Entrega o arquivo assinado ao paciente pelo WhatsApp. A assinatura vive nos bytes: quem sai só com o papel leva um documento sem ela."
+                                                        Command="{Binding DataContext.EnviarDocumentoCommand,
                                                                   RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                         CommandParameter="{Binding}" />
                                                 <Button Content="Cancelar" Margin="8,0,0,0"
